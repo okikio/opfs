@@ -1,0 +1,3 @@
+{
+  "oxc.path.node": "${workspaceFolder}/.vscode/mise-tools/node"
+}
