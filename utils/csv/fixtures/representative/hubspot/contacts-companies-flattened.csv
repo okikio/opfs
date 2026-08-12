@@ -1,0 +1,3 @@
+Contact: Record ID,Contact: First name,Contact: Last name,Contact: Email,Company: Record ID,Company: Company name,Company: Company domain name,Company: Website URL,Association label
+2059001001,Maya,Chen,maya.chen@northstar.example,1584001001,Northstar Outdoor Supply,northstar.example,https://northstar.example,Primary company
+2059001002,Rowan,Patel,rowan.patel@northstar.example,1584001001,Northstar Outdoor Supply,northstar.example,https://northstar.example,Advisor

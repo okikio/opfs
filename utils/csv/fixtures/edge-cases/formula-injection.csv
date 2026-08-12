@@ -1,0 +1,4 @@
+Company,Domain,Contact,Notes
+"=HYPERLINK(""https://evil.invalid"",""Northstar"")",northstar.example,Maya Chen,=1+1
+"+SUM(1,1)",elan-commerce.example,-François Lévesque,@malicious_formula
+'Safe prefixed value,safe.example,Safe Person,"'=@SUM(1,1)"

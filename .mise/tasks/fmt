@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+#MISE description="Format project-owned TypeScript and Markdown with Deno."
+set -euo pipefail
+deno fmt packages/media docs README.md AGENTS.md deno.jsonc tsconfig.json

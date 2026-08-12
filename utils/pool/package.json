@@ -1,0 +1,15 @@
+{
+	"name": "@utils/pool",
+	"type": "module",
+	"version": "1.0.0",
+	"private": true,
+	"sideEffects": false,
+	"exports": { ".": "./mod.ts", "./types": "./types.ts" },
+	"dependencies": {
+		"@okikio/observables": "^1.4.0",
+		"@utils/context": "workspace:*"
+	},
+	"devDependencies": {
+		"@std/expect": "npm:@jsr/std__expect@^1.0.20"
+	}
+}

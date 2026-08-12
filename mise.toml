@@ -1,0 +1,10 @@
+min_version = "2026.8.0"
+monorepo_root = true
+
+[tools]
+node = "26"
+deno = "2.9"
+pnpm = "11.9.0"
+
+[settings]
+experimental = true

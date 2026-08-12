@@ -1,0 +1,22 @@
+{
+	"name": "@utils/csv",
+	"type": "module",
+	"version": "1.0.0",
+	"private": true,
+	"sideEffects": false,
+	"exports": {
+		".": "./mod.ts",
+		"./dialect": "./dialect.ts",
+		"./encoding": "./encoding.ts",
+		"./headers": "./headers.ts",
+		"./parse": "./parse.ts",
+		"./stream": "./stream.ts",
+		"./types": "./types.ts"
+	},
+	"dependencies": {
+		"@std/csv": "npm:@jsr/std__csv@^1.0.6"
+	},
+	"devDependencies": {
+		"@std/expect": "npm:@jsr/std__expect@^1.0.20"
+	}
+}

@@ -1,0 +1,199 @@
+{
+  "version": 1,
+  "normalization": {
+    "case_insensitive": true,
+    "trim_whitespace": true,
+    "collapse_internal_whitespace": true,
+    "strip_common_object_prefixes": [
+      "Contact:",
+      "Company:",
+      "Person -",
+      "Organization -",
+      "Deal -"
+    ],
+    "treat_ids_as_strings": true
+  },
+  "fields": {
+    "company.id": [
+      "Account ID",
+      "Account",
+      "Id",
+      "Record ID",
+      "Organization - ID",
+      "Copper ID",
+      "Company: Record ID"
+    ],
+    "company.name": [
+      "Account Name",
+      "Company name",
+      "Company Name",
+      "Organization - Name",
+      "Lead Name",
+      "Name",
+      "Company"
+    ],
+    "company.domain": [
+      "Company domain name",
+      "Company Domain Name",
+      "Email Domain",
+      "Domains",
+      "Domain",
+      "Company Domains"
+    ],
+    "company.website": [
+      "Website",
+      "Website URL",
+      "URL",
+      "URLs",
+      "Account website"
+    ],
+    "company.phone": [
+      "Phone",
+      "Phone number",
+      "Phone Number",
+      "Main Phone"
+    ],
+    "company.industry": [
+      "Industry",
+      "Company industry"
+    ],
+    "company.employee_count": [
+      "NumberOfEmployees",
+      "Number of employees",
+      "Number of Employees",
+      "Employees"
+    ],
+    "company.annual_revenue": [
+      "AnnualRevenue",
+      "Annual revenue",
+      "Annual Revenue",
+      "Revenue"
+    ],
+    "company.owner": [
+      "Account Owner",
+      "Company owner",
+      "Organization - Owner",
+      "Owner",
+      "Sales owner"
+    ],
+    "contact.id": [
+      "Contact ID",
+      "Contact",
+      "Id",
+      "Record ID",
+      "Person - ID",
+      "Copper ID",
+      "Contact: Record ID"
+    ],
+    "contact.first_name": [
+      "FirstName",
+      "First Name",
+      "First name",
+      "Person - First name",
+      "Contact: First name"
+    ],
+    "contact.last_name": [
+      "LastName",
+      "Last Name",
+      "Last name",
+      "Person - Last name",
+      "Contact: Last name"
+    ],
+    "contact.full_name": [
+      "Full Name",
+      "Name",
+      "Person - Name",
+      "Primary Contact Name",
+      "Contact"
+    ],
+    "contact.email": [
+      "Email",
+      "Email Address",
+      "Email addresses",
+      "Person - Email (Work)",
+      "Primary Contact Emails"
+    ],
+    "contact.phone": [
+      "Phone",
+      "Phone number",
+      "Business Phone",
+      "Person - Phone",
+      "Primary Contact Phone",
+      "Work number"
+    ],
+    "contact.mobile": [
+      "Mobile",
+      "MobilePhone",
+      "Mobile Phone",
+      "Mobile phone number"
+    ],
+    "contact.title": [
+      "Title",
+      "Job title",
+      "Job Title",
+      "Person - Job title",
+      "Primary Contact Title"
+    ],
+    "contact.owner": [
+      "Contact Owner",
+      "Contact owner",
+      "Person - Owner",
+      "Owner",
+      "Sales owner"
+    ],
+    "contact.company_name": [
+      "Account Name",
+      "Associated company",
+      "Company Name",
+      "Company",
+      "Person - Organization"
+    ],
+    "contact.company_id": [
+      "AccountId",
+      "Associated company ID",
+      "Organization ID",
+      "Person - Organization ID"
+    ],
+    "created_at": [
+      "CreatedDate",
+      "Created Date",
+      "Create date",
+      "Created Time",
+      "Created On",
+      "Created at",
+      "Add time"
+    ],
+    "updated_at": [
+      "LastModifiedDate",
+      "Last Modified Date",
+      "Last modified date",
+      "Modified Time",
+      "Modified On",
+      "Updated at",
+      "Update time"
+    ],
+    "tags": [
+      "Tag",
+      "Tags",
+      "Label"
+    ]
+  },
+  "ambiguities": [
+    {
+      "header": "Name",
+      "reason": "Could be a company, contact, lead, deal, or list-entry name. Require object context or user confirmation."
+    },
+    {
+      "header": "Record ID",
+      "reason": "Used by HubSpot and Attio, and may also be a custom export label elsewhere."
+    },
+    {
+      "header": "Owner",
+      "reason": "Could refer to a contact, company, deal, list entry, or CRM user."
+    },
+    {
+      "header": "Account",
+      "reason": "In Dynamics exports this may be a GUID key, while elsewhere it may be a company display name."
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+	"name": "@utils/http",
+	"type": "module",
+	"version": "1.0.0",
+	"private": true,
+	"sideEffects": false,
+	"exports": {
+		".": "./mod.ts",
+		"./cookie": "./cookie/mod.ts",
+		"./problem": "./problem/mod.ts",
+		"./problem/testing": "./problem/testing/mod.ts",
+		"./request": "./request/mod.ts",
+		"./response": "./response/mod.ts",
+		"./response/types": "./response/types.ts",
+		"./response/headers": "./response/headers.ts",
+		"./response/completion": "./response/completion.ts",
+		"./response/http": "./response/http.ts",
+		"./response/status": "./response/status.ts"
+	},
+	"dependencies": {
+		"@standard-schema/spec": "^1.1.0",
+		"@utils/catalog": "workspace:*",
+		"@std/http": "npm:@jsr/std__http@^1.1.3",
+		"@std/encoding": "npm:@jsr/std__encoding@^1.0.11"
+	},
+	"devDependencies": {
+		"@std/expect": "npm:@jsr/std__expect@^1.0.20"
+	}
+}

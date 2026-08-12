@@ -1,0 +1,32 @@
+{
+	"name": "@utils/server",
+	"version": "1.0.0",
+	"publish": false,
+	"exports": {
+		".": "./mod.ts",
+		"./gateway": "./gateway/mod.ts",
+		"./service": "./service/mod.ts",
+		"./service/resilience": "./service/resilience.ts",
+		"./endpoint": "./endpoint/mod.ts",
+		"./endpoint/definition": "./endpoint/definition.ts",
+		"./endpoint/handler": "./endpoint/handler.ts",
+		"./endpoint/openapi": "./endpoint/openapi.ts",
+		"./endpoint/types": "./endpoint/types.ts",
+		"./endpoint/path": "./endpoint/path.ts",
+		"./middleware": "./middleware/mod.ts",
+		"./middleware/types": "./middleware/types.ts"
+	},
+	"imports": {
+		"@standard-schema/spec": "jsr:@standard-schema/spec@^1.1.0",
+		"@std/expect": "jsr:@std/expect@^1.0.20",
+		"hono": "jsr:@hono/hono@^4.13.1",
+		"@std/async": "jsr:@std/async@^1.5.0"
+	},
+	"tasks": {
+		"check": "deno fmt --check && deno lint && deno check mod.ts problems.ts middleware/mod.ts middleware/types.ts middleware/mod_test.ts endpoint/mod.ts endpoint/types.ts endpoint/path.ts endpoint/definition.ts endpoint/handler.ts endpoint/openapi.ts endpoint/mod_test.ts service/mod.ts service/types.ts service/definition.ts service/implementation.ts service/compile.ts service/runtime.ts service/resilience.ts service/resilience_test.ts service/openapi.ts service/compile_test.ts service/runtime_test.ts gateway/mod.ts gateway/types.ts gateway/problems.ts gateway/definition.ts gateway/compile.ts gateway/runtime.ts gateway/mod_test.ts && deno doc --lint mod.ts middleware/mod.ts endpoint/mod.ts service/mod.ts gateway/mod.ts",
+		"test": "deno test -P=test"
+	},
+	"permissions": {
+		"test": {}
+	}
+}

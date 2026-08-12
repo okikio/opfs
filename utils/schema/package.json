@@ -1,0 +1,12 @@
+{
+	"name": "@utils/schema",
+	"type": "module",
+	"version": "1.0.0",
+	"private": true,
+	"sideEffects": false,
+	"exports": { ".": "./mod.ts", "./types": "./types.ts" },
+	"dependencies": { "@standard-schema/spec": "^1.1.0" },
+	"devDependencies": {
+		"@std/expect": "npm:@jsr/std__expect@^1.0.20"
+	}
+}

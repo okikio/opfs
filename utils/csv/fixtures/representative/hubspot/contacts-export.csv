@@ -1,0 +1,3 @@
+Record ID,First name,Last name,Email,Job title,Phone number,Mobile phone number,Contact owner,Lifecycle stage,Lead status,Create date,Last activity date,Associated company,Associated company ID
+2059001001,Maya,Chen,maya.chen@northstar.example,Director of Ecommerce,+1 416-555-0111,+1 416-555-0191,Avery Morgan,Customer,Open,2025-02-14 15:24:31 UTC,2026-07-10 17:10:04 UTC,Northstar Outdoor Supply,1584001001
+2059001003,François,Lévesque,francois.levesque@elan-commerce.example,"VP, Growth",+1 514-555-0112,,Jordan Lee,Opportunity,In Progress,2025-09-03 09:06:00 UTC,2026-07-01 14:05:59 UTC,Élan Commerce,1584001002

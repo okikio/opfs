@@ -1,0 +1,3 @@
+Deal - ID,Deal - Title,Deal - Value,Deal - Currency,Deal - Stage,Deal - Status,Deal - Probability,Organization - Name,Organization - ID,Person - Name,Person - ID,Deal - Owner,Deal - Add time,Deal - Expected close date
+601001,Northstar enrichment pilot,12500.00,CAD,Proposal sent,open,60,Northstar Outdoor Supply,401001,Maya Chen,501001,Avery Morgan,2026-06-15 14:22:11,2026-08-31
+601002,Élan monitoring rollout,32000.00,CAD,Qualified,open,35,Élan Commerce,401002,François Lévesque,501002,Jordan Lee,2026-07-01 09:30:00,2026-10-15

@@ -1,0 +1,29 @@
+{
+	"name": "@utils/http",
+	"version": "1.0.0",
+	"publish": false,
+	"exports": {
+		".": "./mod.ts",
+		"./cookie": "./cookie/mod.ts",
+		"./problem": "./problem/mod.ts",
+		"./problem/testing": "./problem/testing/mod.ts",
+		"./request": "./request/mod.ts",
+		"./response": "./response/mod.ts",
+		"./response/types": "./response/types.ts",
+		"./response/headers": "./response/headers.ts",
+		"./response/completion": "./response/completion.ts",
+		"./response/http": "./response/http.ts",
+		"./response/status": "./response/status.ts"
+	},
+	"imports": {
+		"@standard-schema/spec": "jsr:@standard-schema/spec@^1.1.0",
+		"@std/expect": "jsr:@std/expect@^1.0.20",
+		"@std/http": "jsr:@std/http@^1.1.3",
+		"@std/encoding": "jsr:@std/encoding@^1.0.11"
+	},
+	"tasks": {
+		"check": "deno fmt --check && deno lint && deno check mod.ts cookie/mod.ts cookie/types.ts cookie/mod_test.ts request/mod.ts request/types.ts request/limits.ts request/headers.ts request/issues.ts request/query.ts request/parameters.ts request/cookies.ts request/authorization.ts request/content.ts request/body.ts request/forwarded.ts request/memo.ts request/trace.ts request/mod_test.ts problem/mod.ts problem/types.ts problem/testing/mod.ts problem/testing/coverage.ts problem/mod_test.ts response/mod.ts response/types.ts response/definition.ts response/result.ts response/headers.ts response/completion.ts response/http.ts response/status.ts response/mod_test.ts && deno doc --lint mod.ts cookie/mod.ts request/mod.ts problem/mod.ts response/mod.ts",
+		"test": "deno test -P=test"
+	},
+	"permissions": { "test": {} }
+}

@@ -1,0 +1,4 @@
+Id,Name,Website,Industry,NumberOfEmployees,AnnualRevenue,Phone,BillingStreet,BillingCity,BillingState,BillingPostalCode,BillingCountry,OwnerId,CreatedDate,LastModifiedDate
+0015g00000A1b2CAAR,Northstar Outdoor Supply,https://northstar.example,Retail,240,18500000,+1 416-555-0101,100 King St W,Toronto,ON,M5X 1A9,Canada,0055g000001AaBbAAK,2025-02-14T15:22:31.000+0000,2026-07-11T18:03:44.000+0000
+0015g00000D4e5FAAR,Élan Commerce,https://elan-commerce.example,E-Commerce,37,4200000,+1 514-555-0102,0200 Rue Sainte-Catherine O,Montréal,QC,H2X 1Z6,Canada,0055g000001CcDdAAK,2025-09-03T09:05:00.000+0000,2026-06-29T12:47:19.000+0000
+0015g00000G7h8IAAR,Zero Prefix Labs,https://zero-prefix.example,Software,8,0750000,+1 604-555-0103,,Vancouver,BC,V6B 1A1,Canada,0055g000001AaBbAAK,2026-01-02T00:00:00.000+0000,2026-07-14T13:04:15.000+0000

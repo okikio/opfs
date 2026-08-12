@@ -1,0 +1,3 @@
+Record ID,Company name,Company domain name,Website URL,Industry,Number of employees,Annual revenue,Phone number,City,State/Region,Country/Region,Company owner,Lifecycle stage,Create date,Last modified date,Associated contacts,Associated contact IDs
+1584001001,Northstar Outdoor Supply,northstar.example,https://northstar.example,RETAIL,240,18500000,+1 416-555-0101,Toronto,Ontario,Canada,Avery Morgan,Customer,2025-02-14 15:22:31 UTC,2026-07-11 18:03:44 UTC,Maya Chen; Rowan Patel,2059001001;2059001002
+1584001002,Élan Commerce,elan-commerce.example,https://elan-commerce.example,ECOMMERCE,37,4200000,+1 514-555-0102,Montréal,Québec,Canada,Jordan Lee,Opportunity,2025-09-03 09:05:00 UTC,2026-06-29 12:47:19 UTC,François Lévesque,2059001003

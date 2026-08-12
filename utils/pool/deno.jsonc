@@ -1,0 +1,15 @@
+{
+	"name": "@utils/pool",
+	"version": "1.0.0",
+	"publish": false,
+	"exports": { ".": "./mod.ts", "./types": "./types.ts" },
+	"imports": {
+		"@okikio/observables": "jsr:@okikio/observables@1.4.0",
+		"@std/expect": "jsr:@std/expect@^1.0.20"
+	},
+	"tasks": {
+		"check": "deno fmt --check && deno lint && deno check mod.ts types.ts mod_test.ts && deno doc --lint mod.ts",
+		"test": "deno test -P=test"
+	},
+	"permissions": { "test": {} }
+}

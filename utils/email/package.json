@@ -1,0 +1,20 @@
+{
+	"name": "@utils/email",
+	"type": "module",
+	"version": "1.0.0",
+	"private": true,
+	"sideEffects": false,
+	"exports": {
+		".": "./mod.ts",
+		"./classify": "./classify.ts",
+		"./extract": "./extract.ts",
+		"./normalize": "./normalize.ts",
+		"./types": "./types.ts"
+	},
+	"dependencies": {
+		"@utils/csv": "workspace:*"
+	},
+	"devDependencies": {
+		"@std/expect": "npm:@jsr/std__expect@^1.0.20"
+	}
+}

@@ -1,0 +1,18 @@
+"Pipedrive sample data
+- Mandatory* fields need to be mapped for that item to be imported into Pipedrive
+- You can populate your data into the spreadsheet or use the file as a reference to align your spreadsheet’s columns accordingly
+- Check READ ME page to see all the existing default fields in Pipedrive
+- You can add custom fields during the import mapping process",,,,,,,,,,,,
+Person - Name*,Person - First name,Person - Last name,Person - Phone,Person - Email (Work),Person - Email (Home),Organization - Name*,Organization - Address,Deal - Title,Deal - Value,Activity - Subject*,Activity - Due date,Note - Content*
+Tony Turner,Tony,Turner,570-809-7197,tony.turner@moveer.com,tony.turner@gmial.com,Moveer Limited,"5, 943 Fincham Road, New Mexico 87503, US",Moveer Deal,$100,First pitch,12/5/2024,Moveer is growing really fast. We should try and get them in right now.
+Hashim Hardy,Hashim,Hardy,240-707-3884,hashim.hardy@lvie.com,,ABC Inc,"9974 Pleasant Point, Ohathlockhouchy, Idaho, 83498-8591, US",ABC Deal,$200,Task,11/12/2024,
+Phyllis Yang,Phyllis,Yang,313-428-3135,,phyllis.yang@gmial.com,Silicon Links Inc,"7938 Dewy Park, Totstalahoeetska, Texas, 79835-6679, US",Silicon Deal,"$3,000",Meeting,12/16/2024,Pricing doesn't work. Consider offering discounts.
+Cora Santiago,Cora,Santiago,862-252-9773,cora.santiago@lvie.com,cora.santiago@gmial.com,Umbrella Corp,"207 Rustic Robin Bank, Slicklizzard, New Mexico, 87764-3937, US",Umbrella Deal,"$50,000",Email,1/15/2025,
+Gloria Quinn,Gloria,Quinn,313-353-7151,gloria.quinn@emailz.com,,JMVD Inc,"39, 469 Larry Street, New York 10035, US",JMVD Deal,"$2,500",Lunch,10/21/2024,Crushed the first call. Pitch the larger idea during lunch.
+Darcie Dixon,Darcie,Dixon,478-575-6488,darcie.dixon@ownerate.com,,Ownerate LLP,"5604 Buena Vista Avenue, Ohio 44110, US",Ownerate Deal,"$4,500",Meeting,12/25/2024,
+Aruna Hill,Aruna,Hill,402-657-2471,aruna.hill@mssn.com,,Omnicorp,"2078 Wilson Avenue, New Jersey 7039, US",Omnicorp Deal,"$10,000",Email,12/1/2024,
+Zach Sharma,Zach,Sharma,305-544-6638,zach.sharma@gmial.com,zach.sharma@gmial.com,Blue Marble LLP,"23A, 4113 Coulter Lane, New York 10035, US",Blue Marble Deal,"$35,000",Call,2/18/2025,"Good lead. Loves our product, but needs some customization."
+Jose Moreno,Jose,Moreno,203-313-8552,jose.moreno@gmial.com,jose.moreno@gmial.com,Mindbend LLP,"887 Pine Garden Lane, California 90213, US",Mindbend Deal,$960,Call,10/20/2024,
+Nyssa Young,Nyssa,Young,513-250-3326,nyssa.young@principalspace.com,,Principalspace Inc,"2621 Beechwood Drive, Indiana 46202",Principalspace Deal,$550,Meeting,1/29/2025,
+Dina Matteus,Dina,Matteus,555-555-0242,dina.matteus@gmial.com,dina.matteus@gmial.com,Wolfs Corp,"216 Makin Rd, Oakland, California, 94603, US",Wolfs Deal,"$2,030",Email,12/4/2024,
+Lorens Vivian,Lorens,Vivian,555-555-0752,lorens.vivian@gmial.com,lorens.vivian@gmial.com,Big Wheels Inc,"2915 Henson Pl, Bryant, Arkansas, 72022, US",Big Wheels Deal,$500,Task,12/30/2024,
