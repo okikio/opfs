@@ -18,9 +18,15 @@ importers:
       '@types/deno':
         specifier: ^2.7.0
         version: 2.7.0
+      '@types/node':
+        specifier: ^26.2.0
+        version: 26.2.0
       '@types/sharedworker':
         specifier: ^0.0.229
         version: 0.0.229
+      mitata:
+        specifier: ^1.0.34
+        version: 1.0.34
 
 packages:
 
@@ -33,12 +39,21 @@ packages:
   '@types/deno@2.7.0':
     resolution: {integrity: sha512-Y6fWcV8KpYeO3Lik/RiYnUxtr/LWqoeACciU0CA+dr1U/45tGgaX3HWQQAPCNN53raN4Rr4Fht4y6qsUH57fDA==}
 
+  '@types/node@26.2.0':
+    resolution: {integrity: sha512-5IviulTZeRNp2vAJ514cc/HUlY5nZ9fCbq9DMyC52BrhFZACo3nI0R7qBxhQmo/d27NFe96ur/b7Wwxklda+kg==}
+
   '@types/sharedworker@0.0.229':
     resolution: {integrity: sha512-0gPmMzELgb8NngUbvfpWgE73h2jY5zpHrUOswFFcqXFpmbTWEzvJtaB1ZYxv8u4HRJStgwoFtXDFefQwL24Sxg==}
 
   isexe@3.1.5:
     resolution: {integrity: sha512-6B3tLtFqtQS4ekarvLVMZ+X+VlvQekbe4taUkf/rhVO3d/h0M2rfARm/pXLcPEsjjMsFgrFgSrhQIxcSVrBz8w==}
     engines: {node: '>=18'}
+
+  mitata@1.0.34:
+    resolution: {integrity: sha512-Mc3zrtNBKIMeHSCQ0XqRLo1vbdIx1wvFV9c8NJAiyho6AjNfMY8bVhbS12bwciUdd1t4rj8099CH3N3NFahaUA==}
+
+  undici-types@8.3.0:
+    resolution: {integrity: sha512-j375ScV60dom+YkPFIfTLcOiPxkN/buHz5GobjLhixFuANaNs3C9l4GmrWqejgXWJ7BbJcFYpTEUkS1Ge8bpZQ==}
 
   which@4.0.0:
     resolution: {integrity: sha512-GlaYyEb07DPxYCKhKzplCWBJtvxZcZMrL+4UkrTSJHHPyZU4mYYTv3qaOe77H7EODLSSopAUFAc6W8U4yqvscg==}
@@ -59,9 +74,17 @@ snapshots:
 
   '@types/deno@2.7.0': {}
 
+  '@types/node@26.2.0':
+    dependencies:
+      undici-types: 8.3.0
+
   '@types/sharedworker@0.0.229': {}
 
   isexe@3.1.5: {}
+
+  mitata@1.0.34: {}
+
+  undici-types@8.3.0: {}
 
   which@4.0.0:
     dependencies:

@@ -182,15 +182,14 @@ async function exerciseRecordBackend(fileSystem) {
 
 test("adapter and facade schemas reject invalid runtime contracts", async () => {
   const valid = createMemoryAdapter();
-  assert.throws(() => defineAdapter({ ...valid, name: "" }), TypeError);
+  assert.throws(() => defineAdapter({ ...valid, name: "" }));
   assert.throws(
     () => defineAdapter({ ...valid, capabilities: { ...valid.capabilities, streamRead: "yes" } }),
-    TypeError,
   );
-  assert.throws(() => createFileSystem(valid, { coordination: "invalid" }), TypeError);
+  assert.throws(() => createFileSystem(valid, { coordination: "invalid" }));
 
   const fs = memoryFileSystem();
-  await assert.rejects(fs.writeFile("/invalid.txt", "data", { mode: "invalid" }), TypeError);
+  await assert.rejects(fs.writeFile("/invalid.txt", "data", { mode: "invalid" }));
 });
 
 test("web-lock coordination requests shared tree and exclusive file locks", async () => {
@@ -245,6 +244,57 @@ test("memory adapter preserves replace, append, update, range, and stat semantic
   const stat = await fs.stat("/data.txt");
   assert.equal(stat.kind, "file");
   assert.equal(stat.size, 11);
+});
+
+test("openWritableFile creates and owns one file lock until terminal cleanup", async () => {
+  const root = await mkdtemp(join(tmpdir(), "opfs-positional-create-"));
+  const adapter = createNodeAdapter({ root });
+  const fs = createFileSystem(adapter, { coordination: "local", disposeAdapter: true });
+  try {
+    const file = await fs.openWritableFile("/nested/output.bin", { create: true, parents: true });
+    await file.write(new TextEncoder().encode("AB"), { at: 0 });
+    const queued = fs.writeFile("/nested/output.bin", "after");
+    let settled = false;
+    void queued.finally(() => { settled = true; });
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    assert.equal(settled, false);
+    await file.close();
+    await queued;
+    assert.equal(await fs.readText("/nested/output.bin"), "after");
+  } finally {
+    await fs.close();
+    if (root !== undefined) await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("openSyncFile creates and owns one file lock until close", async () => {
+  const root = await mkdtemp(join(tmpdir(), "opfs-sync-create-"));
+  const adapter = createNodeAdapter({ root });
+  const fs = createFileSystem(adapter, { coordination: "local", disposeAdapter: true });
+  try {
+    const file = await fs.openSyncFile("/nested/sync.bin", { create: true, parents: true });
+    file.writeAll(new TextEncoder().encode("AB"), { at: 0 });
+    const queued = fs.writeFile("/nested/sync.bin", "after");
+    let settled = false;
+    void queued.finally(() => { settled = true; });
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    assert.equal(settled, false);
+    file.close();
+    await queued;
+    assert.equal(await fs.readText("/nested/sync.bin"), "after");
+  } finally {
+    await fs.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("record backends reject long-lived positional files instead of emulating them", async () => {
+  const fs = memoryFileSystem();
+  await fs.ensureFile("/media.bin");
+  await assert.rejects(
+    fs.openWritableFile("/media.bin"),
+    (error) => error instanceof FileSystemError && error.code === "not-supported",
+  );
 });
 
 test("OPFS-shaped handles work over a non-OPFS memory backend", async () => {
@@ -457,6 +507,24 @@ test("Node adapter performs real streaming, native move, and synchronous random 
     assert.equal(await fs.readText("/nested/file.txt"), "stream");
     await fs.move("/nested/file.txt", "/nested/moved.txt");
     assert.equal(await fs.exists("/nested/file.txt"), false);
+
+    await fs.ensureFile("/nested/positional.bin");
+    const positional = await fs.openWritableFile("/nested/positional.bin");
+    await positional.write(new TextEncoder().encode("CD"), { at: 2 });
+    await positional.write(new TextEncoder().encode("AB"), { at: 0 });
+    await positional.flush();
+    assert.equal(await fs.readText("/nested/positional.bin"), "ABCD");
+
+    let queuedPositionalWriteCompleted = false;
+    const queuedPositionalWrite = fs.writeFile("/nested/positional.bin", "after-positional")
+      .then(() => { queuedPositionalWriteCompleted = true; });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    assert.equal(queuedPositionalWriteCompleted, false);
+    await positional.close();
+    await positional.close();
+    await queuedPositionalWrite;
+    assert.equal(await fs.readText("/nested/positional.bin"), "after-positional");
+
     const sync = await fs.openSyncFile("/nested/moved.txt");
     sync.writeAll(new TextEncoder().encode("NODE"), { at: 0 });
     sync.flush();

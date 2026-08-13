@@ -21,10 +21,13 @@
   },
   "imports": {
     "zod": "npm:zod@^4.4.3",
-    "drizzle-orm": "npm:drizzle-orm@^0.45.3"
+    "drizzle-orm": "npm:drizzle-orm@^0.45.2",
+    "mitata": "npm:mitata@^1.0.34"
   },
   "compilerOptions": {
-		"types": ["npm:@types/node"],
+    "types": [
+      "npm:@types/node"
+    ],
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
@@ -40,7 +43,7 @@
   "tasks": {
     "check": "deno task check:window && deno task check:worker && deno task check:server",
     "check:window": "deno check mod.ts src/adapter/definition.ts src/adapter/opfs.ts src/adapter/memory.ts src/adapter/record.ts src/adapter/unstorage.ts src/adapter/rxdb.ts src/adapter/db0.ts src/adapter/drizzle.ts src/driver/unstorage.ts src/iframe.ts src/path.ts src/schema.ts",
-    "check:worker": "deno check tests/worker_typecheck.ts",
+    "check:worker": "deno check tests/consumer.worker.ts",
     "check:server": "deno check src/adapter/deno.ts src/adapter/node.ts src/adapter/bun.ts",
     "test": "deno test tests/",
     "test:browser": "deno run -A npm:vite tests/browser",
