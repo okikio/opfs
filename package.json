@@ -41,6 +41,7 @@
   ],
   "devDependencies": {
     "@deno/shim-deno": "^0.19.2",
-    "@types/deno": "^2.7.0"
+    "@types/deno": "^2.7.0",
+    "@types/sharedworker": "^0.0.229"
   }
 }

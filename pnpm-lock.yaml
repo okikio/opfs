@@ -18,6 +18,9 @@ importers:
       '@types/deno':
         specifier: ^2.7.0
         version: 2.7.0
+      '@types/sharedworker':
+        specifier: ^0.0.229
+        version: 0.0.229
 
 packages:
 
@@ -29,6 +32,9 @@ packages:
 
   '@types/deno@2.7.0':
     resolution: {integrity: sha512-Y6fWcV8KpYeO3Lik/RiYnUxtr/LWqoeACciU0CA+dr1U/45tGgaX3HWQQAPCNN53raN4Rr4Fht4y6qsUH57fDA==}
+
+  '@types/sharedworker@0.0.229':
+    resolution: {integrity: sha512-0gPmMzELgb8NngUbvfpWgE73h2jY5zpHrUOswFFcqXFpmbTWEzvJtaB1ZYxv8u4HRJStgwoFtXDFefQwL24Sxg==}
 
   isexe@3.1.5:
     resolution: {integrity: sha512-6B3tLtFqtQS4ekarvLVMZ+X+VlvQekbe4taUkf/rhVO3d/h0M2rfARm/pXLcPEsjjMsFgrFgSrhQIxcSVrBz8w==}
@@ -52,6 +58,8 @@ snapshots:
       which: 4.0.0
 
   '@types/deno@2.7.0': {}
+
+  '@types/sharedworker@0.0.229': {}
 
   isexe@3.1.5: {}
 

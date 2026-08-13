@@ -1,0 +1,61 @@
+{
+  "name": "@okikio/opfs",
+  "version": "0.0.1",
+  "exports": {
+    ".": "./mod.ts",
+    "./adapter": "./src/adapter/definition.ts",
+    "./adapter/opfs": "./src/adapter/opfs.ts",
+    "./adapter/memory": "./src/adapter/memory.ts",
+    "./adapter/deno": "./src/adapter/deno.ts",
+    "./adapter/node": "./src/adapter/node.ts",
+    "./adapter/bun": "./src/adapter/bun.ts",
+    "./adapter/record": "./src/adapter/record.ts",
+    "./adapter/unstorage": "./src/adapter/unstorage.ts",
+    "./adapter/rxdb": "./src/adapter/rxdb.ts",
+    "./adapter/db0": "./src/adapter/db0.ts",
+    "./adapter/drizzle": "./src/adapter/drizzle.ts",
+    "./driver/unstorage": "./src/driver/unstorage.ts",
+    "./iframe": "./src/iframe.ts",
+    "./path": "./src/path.ts",
+    "./schema": "./src/schema.ts"
+  },
+  "imports": {
+    "zod": "npm:zod@^4.4.3",
+    "drizzle-orm": "npm:drizzle-orm@^0.45.3"
+  },
+  "compilerOptions": {
+		"types": ["npm:@types/node"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "useUnknownInCatchVariables": true,
+    "verbatimModuleSyntax": true,
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "dom.asynciterable",
+      "deno.ns"
+    ]
+  },
+  "tasks": {
+    "check": "deno task check:window && deno task check:worker && deno task check:server",
+    "check:window": "deno check mod.ts src/adapter/definition.ts src/adapter/opfs.ts src/adapter/memory.ts src/adapter/record.ts src/adapter/unstorage.ts src/adapter/rxdb.ts src/adapter/db0.ts src/adapter/drizzle.ts src/driver/unstorage.ts src/iframe.ts src/path.ts src/schema.ts",
+    "check:worker": "deno check tests/worker_typecheck.ts",
+    "check:server": "deno check src/adapter/deno.ts src/adapter/node.ts src/adapter/bun.ts",
+    "test": "deno test tests/",
+    "test:browser": "deno run -A npm:vite tests/browser",
+    "fmt:code": "deno fmt mod.ts src/ tests/ deno.json package.json",
+    "fmt:check": "deno fmt --check mod.ts src/ tests/ deno.json package.json",
+    "lint": "deno lint mod.ts src/ tests/"
+  },
+  "publish": {
+    "include": [
+      "mod.ts",
+      "src/",
+      "README.md",
+      "docs/",
+      "deno.json",
+      "package.json"
+    ]
+  }
+}
