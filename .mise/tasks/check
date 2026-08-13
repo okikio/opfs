@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Check the media workspace with Node TypeScript and Deno."
+#MISE description="Type-check browser-safe TypeScript and every Deno runtime target."
 set -euo pipefail
-pnpm exec tsc --noEmit
-
-deno task check:media
+pnpm exec tsc -p tsconfig.json
+deno task check

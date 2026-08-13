@@ -1,11 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Run every @media package test with node:test and Deno."
+#MISE description="Run the same repository behavior suite through Node and Deno."
 set -euo pipefail
-for package in packages/media/*; do
-	if [[ -f "$package/mod_test.ts" ]]; then
-		echo "==> node:test $package"
-		node --test "$package/mod_test.ts"
-	fi
-done
-
-deno task test:media
+node --test tests/adapters.test.ts
+deno test -A tests/

@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+#MISE description="Benchmark native positional writes and record-backed update costs."
+set -euo pipefail
+deno run -A bench/files.ts
