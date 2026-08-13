@@ -1,27 +1,46 @@
 {
-	"name": "media-monorepo",
-	"version": "0.0.0",
-	"private": true,
-	"type": "module",
-	"packageManager": "pnpm@11.9.0",
-	"scripts": {
-		"check": "mise run check",
-		"test": "mise run test"
-	},
-	"workspaces": ["packages/media/*", "utils/*"],
-	"dependencies": {
-		"@logtape/logtape": "^2.0.0",
-		"@okikio/observables": "npm:@jsr/okikio__observables@^1.4.0",
-		"@okikio/undent": "npm:@jsr/okikio__undent@^0.3.3",
-		"@std/async": "npm:@jsr/std__async@^1.5.0",
-		"@std/encoding": "npm:@jsr/std__encoding@^1.0.11",
-		"@std/media-types": "npm:@jsr/std__media-types@^1.1.0",
-		"mediabunny": "^1.53.0",
-		"zod": "^4.4.3"
-	},
-	"devDependencies": {
-		"@std/expect": "npm:@jsr/std__expect@1.0.20",
-		"@types/node": "^26.2.0",
-		"typescript": "^7.0.2"
-	}
+  "name": "@okikio/opfs",
+  "version": "0.0.1",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./mod.ts",
+    "./adapter": "./src/adapter/definition.ts",
+    "./adapter/opfs": "./src/adapter/opfs.ts",
+    "./adapter/memory": "./src/adapter/memory.ts",
+    "./adapter/deno": "./src/adapter/deno.ts",
+    "./adapter/node": "./src/adapter/node.ts",
+    "./adapter/bun": "./src/adapter/bun.ts",
+    "./adapter/record": "./src/adapter/record.ts",
+    "./adapter/unstorage": "./src/adapter/unstorage.ts",
+    "./adapter/rxdb": "./src/adapter/rxdb.ts",
+    "./adapter/db0": "./src/adapter/db0.ts",
+    "./adapter/drizzle": "./src/adapter/drizzle.ts",
+    "./driver/unstorage": "./src/driver/unstorage.ts",
+    "./iframe": "./src/iframe.ts",
+    "./path": "./src/path.ts",
+    "./schema": "./src/schema.ts"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
+  },
+  "peerDependencies": {
+    "drizzle-orm": "^0.45.3"
+  },
+  "peerDependenciesMeta": {
+    "drizzle-orm": {
+      "optional": true
+    }
+  },
+  "files": [
+    "mod.ts",
+    "src/",
+    "README.md",
+    "docs/",
+    "deno.json"
+  ],
+  "devDependencies": {
+    "@deno/shim-deno": "^0.19.2",
+    "@types/deno": "^2.7.0"
+  }
 }

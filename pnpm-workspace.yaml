@@ -1,6 +1,3 @@
-packages:
-  - packages/media/*
-  - utils/*
 nodeLinker: hoisted
 shamefullyHoist: true
 strictPeerDependencies: false
