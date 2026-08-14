@@ -129,6 +129,7 @@ export function createNodeAdapter(options: NodeAdapterOptionsType): AdapterType 
       streamWrite: true,
       rangeRead: true,
       nativeMove: true,
+      positionalWrite: true,
       syncAccess: true,
     },
     async stat(path, operationOptions) {
@@ -173,7 +174,7 @@ export function createNodeAdapter(options: NodeAdapterOptionsType): AdapterType 
       const start = readOptions.at ?? 0;
       const end = readOptions.length === undefined ? undefined : Math.max(start, start + readOptions.length - 1);
       const stream = createReadStream(hostPath(path), { start, ...(end === undefined ? {} : { end }) });
-      return Readable.toWeb(stream, { type: "bytes" }) as unknown as ReadableStream<Uint8Array>;
+      return Readable.toWeb(stream) as unknown as ReadableStream<Uint8Array>;
     },
     async writeFile(path, data, writeOptions) {
       throwIfAborted(writeOptions.signal, "write", path);
@@ -227,6 +228,48 @@ export function createNodeAdapter(options: NodeAdapterOptionsType): AdapterType 
     async move(source, destination, operationOptions) {
       throwIfAborted(operationOptions.signal, "move", source);
       await rename(hostPath(source), hostPath(destination));
+    },
+    async openWritableFile(path) {
+      const file = await open(hostPath(path), "r+");
+      let closed = false;
+      const getFile = () => {
+        if (closed) throw new Error(`Writable file '${path}' is closed.`);
+        return file;
+      };
+      return {
+        async write(buffer, writeOptions) {
+          const source = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+          let offset = 0;
+          while (offset < source.byteLength) {
+            const result = await getFile().write(
+              source,
+              offset,
+              source.byteLength - offset,
+              writeOptions.at + offset,
+            );
+            if (result.bytesWritten <= 0) {
+              throw new Error(`Node positional write made no progress for '${path}'.`);
+            }
+            offset += result.bytesWritten;
+          }
+        },
+        async truncate(size) {
+          await getFile().truncate(size);
+        },
+        async flush() {
+          await getFile().sync();
+        },
+        async close() {
+          if (closed) return;
+          closed = true;
+          await file.close();
+        },
+        async abort() {
+          if (closed) return;
+          closed = true;
+          await file.close();
+        },
+      };
     },
     async openSyncFile(path) {
       const descriptor = openSync(hostPath(path), "r+");

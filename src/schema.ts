@@ -96,6 +96,7 @@ export const AdapterCapabilitiesSchema = z.object({
   streamWrite: z.boolean(),
   rangeRead: z.boolean(),
   nativeMove: z.boolean(),
+  positionalWrite: z.boolean(),
   syncAccess: z.boolean(),
 });
 

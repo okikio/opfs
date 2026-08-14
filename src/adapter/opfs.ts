@@ -4,6 +4,7 @@ import type {
   AdapterStatType,
   AdapterSyncFileType,
   AdapterType,
+  AdapterWritableFileType,
   AdapterWriteOptionsType,
   FileSystemOptionsType,
 } from "./definition.ts";
@@ -130,7 +131,7 @@ async function writeToNative(
         throwIfAborted(options.signal, "write", path);
         const next = await reader.read();
         if (next.done) break;
-        await writable.write(next.value);
+        await writable.write(next.value as BufferSource);
         cursor += next.value.byteLength;
       }
     } catch (error) {
@@ -194,6 +195,7 @@ export function createOpfsAdapter(root: FileSystemDirectoryHandle): OpfsAdapterT
       streamWrite: true,
       rangeRead: true,
       nativeMove: false,
+      positionalWrite: true,
       syncAccess: supportsSyncAccessHandle(),
     },
     async stat(path, options) {
@@ -238,6 +240,41 @@ export function createOpfsAdapter(root: FileSystemDirectoryHandle): OpfsAdapterT
       throwIfAborted(options?.signal, "remove", path);
       const parent = await getDirectory(nativeRoot, dirname(path));
       await parent.removeEntry(basename(path));
+    },
+    async openWritableFile(path): Promise<AdapterWritableFileType> {
+      const writable = await (await getFile(nativeRoot, path, true)).createWritable({ keepExistingData: true });
+      let closed = false;
+      const getWritable = () => {
+        if (closed) throw new Error(`Writable file '${path}' is closed.`);
+        return writable;
+      };
+      return {
+        async write(buffer, writeOptions) {
+          const view = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+          const data = buffer.buffer instanceof ArrayBuffer
+            ? new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength)
+            : Uint8Array.from(view);
+          await getWritable().write({ type: "write", position: writeOptions.at, data });
+        },
+        async truncate(size) {
+          await getWritable().truncate(size);
+        },
+        async flush() {
+          // FileSystemWritableFileStream has no separate durability primitive.
+          // Native staging is committed by close().
+          getWritable();
+        },
+        async close() {
+          if (closed) return;
+          closed = true;
+          await writable.close();
+        },
+        async abort(reason) {
+          if (closed) return;
+          closed = true;
+          await writable.abort(reason);
+        },
+      };
     },
     async openSyncFile(path) {
       const handle = await getFile(nativeRoot, path);

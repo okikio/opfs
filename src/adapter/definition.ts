@@ -66,11 +66,35 @@ export interface AdapterDirectoryStatType {
 export type AdapterStatType = AdapterFileStatType | AdapterDirectoryStatType;
 
 /**
+ * Long-lived asynchronous positional file owned by an adapter.
+ *
+ * This contract exists for callers such as media muxers and database engines
+ * that rewrite earlier byte ranges while a file stays open. It is deliberately
+ * separate from `writeFile()`, which represents one complete write operation.
+ *
+ * `abort()` may discard staged changes when the backend can do so. Backends
+ * without transactional staging still close the native resource, so callers
+ * that need rollback should write to a staging path and remove it after abort.
+ */
+export interface AdapterWritableFileType {
+  /** Writes bytes at one explicit zero-based file position. */
+  write(buffer: ArrayBufferView, options: { readonly at: number }): Promise<void>;
+  /** Changes current byte length. */
+  truncate(size: number): Promise<void>;
+  /** Requests backend durability without closing the file. */
+  flush(): Promise<void>;
+  /** Commits staged backend state where the backend uses staging, then closes. */
+  close(): Promise<void>;
+  /** Discards staged state when possible, then releases the native resource. */
+  abort(reason?: unknown): Promise<void>;
+}
+
+/**
  * Synchronous random-access file owned by an adapter.
  *
  * The adapter owns the native runtime object. The caller owns the returned
- * resource and must call `close()`. `flush()` means "ask the backend to make
- * current writes durable"; the exact storage guarantee remains backend-specific.
+ * resource and must call `close()`. `flush()` asks the backend to make current
+ * writes durable; the exact storage guarantee remains backend-specific.
  */
 export interface AdapterSyncFileType {
   /** Reads bytes into `buffer` and returns the number of bytes read. */
@@ -124,6 +148,8 @@ export interface AdapterType {
   writeStream?(path: PathType, source: ReadableStream<Uint8Array>, options: AdapterWriteOptionsType): Promise<void>;
   /** Performs an adapter-native move when `capabilities.nativeMove` is true. */
   move?(source: PathType, destination: PathType, options: AdapterMoveOptionsType): Promise<void>;
+  /** Opens long-lived asynchronous positional writes when `capabilities.positionalWrite` is true. */
+  openWritableFile?(path: PathType): Promise<AdapterWritableFileType>;
   /** Opens synchronous random access when `capabilities.syncAccess` is true. */
   openSyncFile?(path: PathType): Promise<AdapterSyncFileType>;
   /** Releases resources that this adapter explicitly owns. */
@@ -165,6 +191,7 @@ export interface FileSystemOptionsType {
  *     streamWrite: false,
  *     rangeRead: false,
  *     nativeMove: false,
+ *     positionalWrite: false,
  *     syncAccess: false,
  *   },
  *   async stat(path) { return null; },

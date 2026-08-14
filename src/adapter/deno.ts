@@ -42,6 +42,7 @@ export function createDenoAdapter(options: DenoAdapterOptionsType): AdapterType 
       streamWrite: true,
       rangeRead: true,
       nativeMove: true,
+      positionalWrite: true,
       syncAccess: true,
     },
     async stat(path, operationOptions) {
@@ -168,6 +169,43 @@ export function createDenoAdapter(options: DenoAdapterOptionsType): AdapterType 
     async move(source, destination, operationOptions) {
       throwIfAborted(operationOptions.signal, "move", source);
       await Deno.rename(hostPath(source), hostPath(destination));
+    },
+    async openWritableFile(path) {
+      const file = await Deno.open(hostPath(path), { read: true, write: true });
+      let closed = false;
+      const getFile = () => {
+        if (closed) throw new Error(`Writable file '${path}' is closed.`);
+        return file;
+      };
+      return {
+        async write(buffer, writeOptions) {
+          const source = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+          const target = getFile();
+          await target.seek(writeOptions.at, Deno.SeekMode.Start);
+          let offset = 0;
+          while (offset < source.byteLength) {
+            const count = await target.write(source.subarray(offset));
+            if (count <= 0) throw new Error(`Deno positional write made no progress for '${path}'.`);
+            offset += count;
+          }
+        },
+        async truncate(size) {
+          await getFile().truncate(size);
+        },
+        async flush() {
+          await getFile().sync();
+        },
+        async close() {
+          if (closed) return;
+          closed = true;
+          file.close();
+        },
+        async abort() {
+          if (closed) return;
+          closed = true;
+          file.close();
+        },
+      };
     },
     async openSyncFile(path) {
       const file = Deno.openSync(hostPath(path), { read: true, write: true });

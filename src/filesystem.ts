@@ -19,6 +19,7 @@ import {
   withAbortSignal,
 } from "./stream.ts";
 import { ManagedSyncFile, type SyncFileType } from "./sync.ts";
+import { ManagedWritableFile, type WritableFileType } from "./writable.ts";
 import { DirectoryHandle, FileHandle, type DirectoryHandleType, type FileHandleType } from "./handle.ts";
 
 /** Default lock namespace used when the caller does not provide one. */
@@ -123,6 +124,14 @@ export interface RemoveOptionsType extends SignalOptionsType {
 export interface EmptyDirectoryOptionsType extends SignalOptionsType {
   /** Maximum direct-child removals started concurrently. Defaults to four. */
   readonly concurrency?: number;
+}
+
+/** Options for opening long-lived asynchronous positional writes. */
+export interface OpenWritableFileOptionsType extends SignalOptionsType {
+  /** Creates the file when it does not exist. */
+  readonly create?: boolean;
+  /** Creates missing parent directories when creating the file. */
+  readonly parents?: boolean;
 }
 
 /** Options for opening synchronous random access. */
@@ -240,6 +249,8 @@ export interface FileSystemType extends AsyncDisposable {
   remove(path: string, options?: RemoveOptionsType): Promise<void>;
   /** Removes every direct or nested child while preserving the requested directory. */
   emptyDir(path?: string, options?: EmptyDirectoryOptionsType): Promise<void>;
+  /** Opens long-lived asynchronous positional writes when the selected adapter supports them. */
+  openWritableFile(path: string, options?: OpenWritableFileOptionsType): Promise<WritableFileType>;
   /** Opens synchronous random access when the selected adapter supports it. */
   openSyncFile(path: string, options?: OpenSyncFileOptionsType): Promise<SyncFileType>;
   /** Releases an adapter only when ownership was transferred at creation. */
@@ -984,6 +995,76 @@ class FileSystemFacade implements FileSystemType {
   }
 
   /**
+   * Opens long-lived asynchronous positional writes and transfers the file lock to the returned resource.
+   *
+   * This operation is capability-gated rather than emulated with repeated
+   * `writeFile(..., { mode: "update" })` calls. Record-oriented backends would
+   * otherwise rematerialize an increasingly large file for each chunk, which
+   * can turn a linear media write into quadratic work.
+   */
+  async openWritableFile(
+    path: string,
+    options: OpenWritableFileOptionsType = {},
+  ): Promise<WritableFileType> {
+    this.#assertOpen();
+    const normalized = normalizePath(path);
+    if (normalized === ROOT_PATH) {
+      throw new FileSystemError("type-mismatch", "open-writable-file", normalized, "The virtual root is a directory.");
+    }
+    throwIfAborted(options.signal, "open-writable-file", normalized);
+    if (!this.adapter.capabilities.positionalWrite || this.adapter.openWritableFile === undefined) {
+      throw new FileSystemError(
+        "not-supported",
+        "open-writable-file",
+        normalized,
+        `Adapter '${this.adapter.name}' does not provide long-lived positional writes.`,
+      );
+    }
+
+    const lock = await this.#locks.acquireFile(normalized, options.signal);
+    try {
+      let stat = await this.adapter.stat(normalized, getAdapterSignalOptions(options.signal));
+      if (stat?.kind === "directory") {
+        throw new FileSystemError("type-mismatch", "open-writable-file", normalized, `'${normalized}' is a directory.`);
+      }
+      if (stat === null) {
+        if (!options.create) {
+          throw new FileSystemError("not-found", "open-writable-file", normalized, `File '${normalized}' does not exist.`);
+        }
+        if (options.parents) await ensureParents(this.adapter, dirname(normalized), options.signal);
+        const parent = await this.adapter.stat(dirname(normalized), getAdapterSignalOptions(options.signal));
+        if (parent?.kind !== "directory") {
+          throw new FileSystemError(
+            "not-found",
+            "open-writable-file",
+            normalized,
+            `Parent directory '${dirname(normalized)}' does not exist.`,
+          );
+        }
+        await this.adapter.writeFile(normalized, new Uint8Array(), {
+          mode: "replace",
+          ...getAdapterSignalOptions(options.signal),
+        });
+        stat = await this.adapter.stat(normalized, getAdapterSignalOptions(options.signal));
+        if (stat?.kind !== "file") {
+          throw new FileSystemError(
+            "unknown",
+            "open-writable-file",
+            normalized,
+            `Adapter '${this.adapter.name}' did not expose the file after creating it.`,
+          );
+        }
+      }
+
+      const file = await this.adapter.openWritableFile(normalized);
+      return new ManagedWritableFile(normalized, file, lock, options.signal);
+    } catch (error) {
+      lock.release();
+      throw toFileSystemError(error, "open-writable-file", normalized);
+    }
+  }
+
+  /**
    * Opens synchronous random access and transfers the file mutation lock to the returned resource.
    *
    * The caller must close the returned file. Closing it releases both the
@@ -992,6 +1073,10 @@ class FileSystemFacade implements FileSystemType {
   async openSyncFile(path: string, options: OpenSyncFileOptionsType = {}): Promise<SyncFileType> {
     this.#assertOpen();
     const normalized = normalizePath(path);
+    if (normalized === ROOT_PATH) {
+      throw new FileSystemError("type-mismatch", "open-sync-file", normalized, "The virtual root is a directory.");
+    }
+    throwIfAborted(options.signal, "open-sync-file", normalized);
     if (!this.adapter.capabilities.syncAccess || this.adapter.openSyncFile === undefined) {
       throw new FileSystemError(
         "not-supported",
@@ -1000,16 +1085,42 @@ class FileSystemFacade implements FileSystemType {
         `Adapter '${this.adapter.name}' does not provide synchronous file access.`,
       );
     }
-    if (options.create) {
-      await this.getFileHandle(normalized, {
-        create: true,
-        parents: options.parents ?? false,
-        ...getAdapterSignalOptions(options.signal),
-      });
-    }
-    else await this.getFileHandle(normalized, getAdapterSignalOptions(options.signal));
+
     const lock = await this.#locks.acquireFile(normalized, options.signal);
     try {
+      let stat = await this.adapter.stat(normalized, getAdapterSignalOptions(options.signal));
+      if (stat?.kind === "directory") {
+        throw new FileSystemError("type-mismatch", "open-sync-file", normalized, `'${normalized}' is a directory.`);
+      }
+      if (stat === null) {
+        if (!options.create) {
+          throw new FileSystemError("not-found", "open-sync-file", normalized, `File '${normalized}' does not exist.`);
+        }
+        if (options.parents) await ensureParents(this.adapter, dirname(normalized), options.signal);
+        const parent = await this.adapter.stat(dirname(normalized), getAdapterSignalOptions(options.signal));
+        if (parent?.kind !== "directory") {
+          throw new FileSystemError(
+            "not-found",
+            "open-sync-file",
+            normalized,
+            `Parent directory '${dirname(normalized)}' does not exist.`,
+          );
+        }
+        await this.adapter.writeFile(normalized, new Uint8Array(), {
+          mode: "replace",
+          ...getAdapterSignalOptions(options.signal),
+        });
+        stat = await this.adapter.stat(normalized, getAdapterSignalOptions(options.signal));
+        if (stat?.kind !== "file") {
+          throw new FileSystemError(
+            "unknown",
+            "open-sync-file",
+            normalized,
+            `Adapter '${this.adapter.name}' did not expose the file after creating it.`,
+          );
+        }
+      }
+
       const file = await this.adapter.openSyncFile(normalized);
       return new ManagedSyncFile(normalized, file, lock);
     } catch (error) {

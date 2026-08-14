@@ -113,6 +113,7 @@ export function createRecordAdapter(store: RecordStoreType, options: RecordAdapt
       streamWrite: false,
       rangeRead: false,
       nativeMove: false,
+      positionalWrite: false,
       syncAccess: false,
     },
     async stat(path, operationOptions) {
