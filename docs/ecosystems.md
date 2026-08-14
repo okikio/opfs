@@ -27,7 +27,7 @@ optional dispose
 
 This means the bridge is independent of the mounted driver.
 
-As reviewed on 2026-08-12, unstorage's generated built-in driver catalog includes these families:
+unstorage's generated built-in driver catalog includes these families:
 
 - Azure App Configuration, Cosmos, Key Vault, Storage Blob, and Storage Table
 - Capacitor Preferences

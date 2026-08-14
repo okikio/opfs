@@ -90,12 +90,15 @@ streamRead
 streamWrite
 rangeRead
 nativeMove
+positionalWrite
 syncAccess
 ```
 
 These values describe what the adapter itself can do. They do not describe everything the facade can emulate.
 
 For example, a record-store adapter reports `streamWrite: false`. The facade can still accept a `ReadableStream<Uint8Array>`, but it must buffer the stream before storing the record. The capability remains false because pretending that buffering is native streaming would hide an important memory and latency difference.
+
+The same rule applies to `positionalWrite`. A record adapter can implement one `writeFile(update)` operation by reading and replacing a record, but that does not mean it can keep a writable file open across thousands of positional chunks. Record adapters therefore report `positionalWrite: false`. Native OPFS, Node, Deno, and Bun adapters expose `openWritableFile()` when they can keep one underlying writable resource open.
 
 The record-store layer
 ----------------------
@@ -251,6 +254,21 @@ This lets independent files make progress at the same time while ensuring that a
 `web-locks` uses the browser Web Locks API. `auto` selects Web Locks when present and local FIFO locks otherwise. `none` retains cancellation checks but does not coordinate mutations.
 
 The adapter still owns any stronger backend-level locking. Library locks are application-level coordination for callers that use this library.
+
+Asynchronous positional file lifecycle
+--------------------------------------
+
+A long-lived asynchronous writable owns the same file mutation lock from its create/check/open sequence until terminal cleanup.
+
+```text
+facade file lock <------ same lifetime ------> adapter writable file
+       |                                         |
+       +-------------- close/abort --------------+
+```
+
+The facade deliberately does not build this contract from repeated `writeFile(update)` calls. Backends with native or staged file resources can preserve positional-write throughput, while record backends remain explicit about the fact that they materialize whole values.
+
+Cancellation stops ordinary `write()`, `truncate()`, and `flush()` calls. It does not prevent `close()` or `abort()` from releasing the backend resource and the facade lock. If a backend cannot roll back writes, callers that need all-or-nothing publication should use a staging path.
 
 Synchronous file lifecycle
 --------------------------

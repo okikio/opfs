@@ -151,6 +151,42 @@ The mode is runtime-validated by `WriteModeSchema`.
 
 A non-streaming adapter buffers stream input up to `maxBufferedWriteBytes`. Crossing the limit cancels the producer and throws `too-large`.
 
+Long-lived positional output
+----------------------------
+
+### `openWritableFile(path, options?)`
+
+Returns `WritableFileType` only when `adapter.capabilities.positionalWrite` is true. The facade does not emulate this operation with repeated `writeFile(..., { mode: "update" })` calls because a record-backed adapter can otherwise rematerialize the complete file for every chunk.
+
+Options:
+
+- `create`: create an empty file when it is absent.
+- `parents`: create missing parent directories when `create` is true.
+- `signal`: cancel ordinary work before commit. Cleanup through `close()` or `abort()` still releases the owned resource after cancellation.
+
+The returned resource owns the file mutation lock for its complete lifetime. The create/check/open sequence occurs under that same lock, so another mutation cannot enter between file creation and adapter open.
+
+```ts
+const file = await fileSystem.openWritableFile("/media/output.mp4", {
+  create: true,
+  parents: true,
+});
+
+try {
+  await file.write(header, { at: 0 });
+  await file.write(chunk, { at: chunkOffset });
+  await file.flush();
+  await file.close();
+} catch (error) {
+  await file.abort(error);
+  throw error;
+}
+```
+
+`write()` is positional, `truncate()` changes byte length, and `flush()` requests backend durability without closing. `close()` and `abort()` are idempotent terminal operations. A browser OPFS writable can discard its staged image on abort. Host filesystems generally cannot roll back bytes already written, so an application that needs publish-on-success semantics should write a staging path and move it after close.
+
+Record/database adapters report `positionalWrite: false`. They remain valid for ordinary materialized writes and bounded stream buffering, but they are not presented as a large-file positional output path.
+
 Directory iteration
 -------------------
 

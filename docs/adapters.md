@@ -46,7 +46,7 @@ const root = await navigator.storage.getDirectory();
 const fileSystem = createFileSystem(createOpfsAdapter(root));
 ```
 
-The explicit adapter retains `nativeRoot` for advanced browser interop. Synchronous access is exposed only when the current native file handle actually provides `createSyncAccessHandle()`.
+The explicit adapter retains `nativeRoot` for advanced browser interop. It exposes long-lived positional writes through one `FileSystemWritableFileStream`. Synchronous access is exposed only when the current native file handle actually provides `createSyncAccessHandle()`.
 
 The adapter does not attempt browser or incognito detection.
 
@@ -64,7 +64,7 @@ const fileSystem = createFileSystem(
 
 `root` is the host directory represented by virtual `/`. `createRoot` defaults to true.
 
-The adapter uses Deno filesystem APIs for data operations, rename, sync access, and flush. It uses Node's path compatibility module only to normalize the configured host root and to verify that a virtual path stays below it.
+The adapter uses Deno filesystem APIs for data operations, rename, long-lived positional access, sync access, and flush. It uses Node's path compatibility module only to normalize the configured host root and to verify that a virtual path stays below it.
 
 ### Bun
 
@@ -86,7 +86,7 @@ import { createNodeAdapter } from "@okikio/opfs/adapter/node";
 const adapter = createNodeAdapter({ root: "./data" });
 ```
 
-Node supports native streaming reads/writes, byte ranges, rename, and synchronous random access.
+Node supports native streaming reads/writes, byte ranges, rename, long-lived asynchronous positional writes, and synchronous random access.
 
 The host root is created by default. The virtual path mapper rejects any resolved host path that would leave that root.
 
@@ -155,6 +155,7 @@ export const adapter = defineAdapter({
     streamWrite: false,
     rangeRead: true,
     nativeMove: false,
+    positionalWrite: false,
     syncAccess: false,
   },
 
@@ -196,11 +197,14 @@ Optional native operations
 Only advertise a capability when the adapter implements the corresponding native method.
 
 ```text
-streamRead  -> openReadStream
-streamWrite -> writeStream
-nativeMove  -> move
-syncAccess  -> openSyncFile
+streamRead      -> openReadStream
+streamWrite     -> writeStream
+nativeMove      -> move
+positionalWrite -> openWritableFile
+syncAccess      -> openSyncFile
 ```
+
+`positionalWrite` means the adapter can keep one asynchronous file resource open while callers write explicit byte positions. It is not inferred from ordinary `writeFile(update)` support. This distinction matters for media muxers and database files because repeated whole-record replacement can turn many chunk writes into nonlinear work.
 
 `rangeRead` describes whether the adapter can avoid materializing the complete file for a range. The facade still exposes ranged `readFile()` to all adapters.
 

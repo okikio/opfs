@@ -48,20 +48,16 @@ This package separates the two responsibilities:
 
 The separation is deliberate. It keeps backend-specific behavior out of application code without pretending that every backend has the same performance or durability characteristics.
 
-Install
--------
+Pre-release use
+---------------
 
-Deno / JSR:
+This source tree is being prepared for JSR and npm publication. Until the package is published, consume it through the workspace or another explicit local source reference instead of assuming the registry entry exists. After release, the intended imports are:
 
 ```ts
 import { createFileSystem, openFileSystem } from "jsr:@okikio/opfs";
 ```
 
-npm-compatible runtimes:
-
-```sh
-npm install @okikio/opfs
-```
+and the intended npm-compatible install is `npm install @okikio/opfs`. Release validation must prove both registry artifacts before these forms are treated as available.
 
 Drizzle integration also needs the optional peer dependency:
 
@@ -101,6 +97,30 @@ import { createOpfsAdapter } from "@okikio/opfs/adapter/opfs";
 const root = await navigator.storage.getDirectory();
 const fileSystem = createFileSystem(createOpfsAdapter(root));
 ```
+
+Use one long-lived positional file
+-----------------------------------
+
+Media muxers and database engines can rewrite earlier byte ranges while output is still open. Use `openWritableFile()` for that access pattern instead of issuing one `writeFile(update)` operation per chunk.
+
+```ts
+const file = await fileSystem.openWritableFile("/output.mp4", {
+  create: true,
+  parents: true,
+});
+
+try {
+  await file.write(header, { at: 0 });
+  await file.write(mediaChunk, { at: offset });
+  await file.flush();
+  await file.close();
+} catch (error) {
+  await file.abort(error);
+  throw error;
+}
+```
+
+The OPFS, Node, Deno, and Bun adapters advertise this capability. Record-backed adapters such as memory, unstorage, RxDB, db0, and Drizzle do not. They remain appropriate for small records and ordinary bounded writes, but the facade will not disguise repeated record replacement as a native positional-file resource.
 
 Use OPFS-shaped handles over Node
 ---------------------------------
