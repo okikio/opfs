@@ -1,0 +1,72 @@
+name: Release
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  actions: write
+  contents: write
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Create semantic release
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Verify the CI commit is still main
+        env:
+          TESTED_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: test "$(git rev-parse HEAD)" = "$TESTED_SHA"
+      - name: Record any existing release tag on this commit
+        id: before
+        run: echo "tag=$(git tag --points-at HEAD --list 'opfs@*' | sort -V | tail -n 1)" >> "$GITHUB_OUTPUT"
+      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+        with:
+          version: '2026.8.6'
+          install_args: node
+      - name: Create Git tag and GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          npx --yes
+          --package=semantic-release@25.0.8
+          --package=conventional-changelog-conventionalcommits@9.3.1
+          semantic-release
+      - name: Resolve newly created release tag
+        id: release
+        env:
+          BEFORE: ${{ steps.before.outputs.tag }}
+        run: |
+          AFTER="$(git tag --points-at HEAD --list 'opfs@*' | sort -V | tail -n 1)"
+          if [ -z "$BEFORE" ] && [ -n "$AFTER" ]; then
+            echo 'created=true' >> "$GITHUB_OUTPUT"
+            echo "tag=$AFTER" >> "$GITHUB_OUTPUT"
+          else
+            echo 'created=false' >> "$GITHUB_OUTPUT"
+            echo 'tag=' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Dispatch immutable registry publication
+        if: steps.release.outputs.created == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          REPOSITORY: ${{ github.repository }}
+        run: >-
+          gh workflow run publish.yml
+          --repo "$REPOSITORY"
+          --ref main
+          -f "tag=$RELEASE_TAG"
+          -f target=both
+          -f npm_auth=auto

@@ -1,0 +1,142 @@
+name: Publish Registries
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing immutable release tag, for example opfs@1.2.3.
+        required: true
+        type: string
+      target:
+        description: Registry to publish or retry after a partial failure.
+        required: true
+        type: choice
+        default: both
+        options: [both, jsr, npm]
+      npm_auth:
+        description: npm authentication mode. Use token only for the bootstrap publication.
+        required: true
+        type: choice
+        default: auto
+        options: [auto, trusted, token]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: publish-${{ inputs.tag || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    name: Resolve immutable release
+    runs-on: ubuntu-latest
+    outputs:
+      ref: ${{ steps.release.outputs.ref }}
+      version: ${{ steps.release.outputs.version }}
+      jsr: ${{ steps.release.outputs.jsr }}
+      npm: ${{ steps.release.outputs.npm }}
+      npm_auth: ${{ steps.release.outputs.npm_auth }}
+    steps:
+      - id: release
+        env:
+          TAG: ${{ inputs.tag }}
+          TARGET: ${{ inputs.target }}
+          NPM_AUTH: ${{ inputs.npm_auth }}
+        run: |
+          case "$TAG" in
+            opfs@*) VERSION="${TAG#opfs@}" ;;
+            *) echo "Expected opfs@<version>, received: $TAG" >&2; exit 1 ;;
+          esac
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid release version: $VERSION" >&2
+            exit 1
+          fi
+          echo "ref=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "npm_auth=$NPM_AUTH" >> "$GITHUB_OUTPUT"
+          [[ "$TARGET" = both || "$TARGET" = jsr ]] && echo 'jsr=true' >> "$GITHUB_OUTPUT" || echo 'jsr=false' >> "$GITHUB_OUTPUT"
+          [[ "$TARGET" = both || "$TARGET" = npm ]] && echo 'npm=true' >> "$GITHUB_OUTPUT" || echo 'npm=false' >> "$GITHUB_OUTPUT"
+
+  jsr:
+    name: Publish JSR
+    needs: resolve
+    if: needs.resolve.outputs.jsr == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.resolve.outputs.ref }}
+          persist-credentials: false
+      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+        with:
+          version: '2026.8.6'
+          install_args: deno
+      - name: Restore frozen dependencies
+        run: deno ci
+      - name: Reverify tagged package
+        run: deno publish --dry-run --set-version "${{ needs.resolve.outputs.version }}"
+      - name: Publish JSR package
+        run: deno publish --set-version "${{ needs.resolve.outputs.version }}"
+
+  npm:
+    name: Publish npm
+    needs: resolve
+    if: needs.resolve.outputs.npm == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.resolve.outputs.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+        with:
+          version: '2026.8.6'
+          install_args: deno node bun
+      - name: Upgrade npm for trusted publishing
+        run: npm install --global npm@11
+      - name: Build and verify npm tarball
+        env:
+          RELEASE_VERSION: ${{ needs.resolve.outputs.version }}
+        run: mise run verify-npm
+      - name: Detect first npm publication
+        id: package
+        run: |
+          if npm view @okikio/opfs version > /dev/null 2>&1; then
+            echo 'exists=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'exists=false' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Select npm authentication
+        id: auth
+        env:
+          EXISTS: ${{ steps.package.outputs.exists }}
+          REQUESTED: ${{ needs.resolve.outputs.npm_auth }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          MODE="$REQUESTED"
+          if [ "$MODE" = auto ]; then
+            [[ "$EXISTS" = true ]] && MODE=trusted || MODE=token
+          fi
+          if [ "$MODE" = token ] && [ -z "$NPM_TOKEN" ]; then
+            echo 'NPM_TOKEN is required for the bootstrap npm publication.' >&2
+            exit 1
+          fi
+          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
+      - name: Publish npm package
+        env:
+          MODE: ${{ steps.auth.outputs.mode }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ "$MODE" = token ]; then
+            npm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
+          fi
+          npm publish .release/npm/*.tgz --access public --provenance
