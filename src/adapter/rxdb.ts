@@ -128,56 +128,67 @@ function assertRxDbPath(path: string): void {
 }
 
 /**
+ * Record-store projection over one RxDB collection.
+ *
+ * RxDB remains authority for revisions, conflicts, replication, and the
+ * selected `RxStorage`. This class only maps the filesystem record identity to
+ * collection queries and uses incremental document operations so it does not
+ * bypass RxDB concurrency semantics.
+ */
+class RxDbRecordStore implements RecordStoreType {
+  /** Collection borrowed from the caller. */
+  readonly #collection: RxDbCollectionType;
+
+  /** Binds one prepared collection that uses {@link RxDbRecordJsonSchema}. */
+  constructor(collection: RxDbCollectionType) {
+    this.#collection = collection;
+  }
+
+  /** Reads one primary-key document and validates its filesystem shape. */
+  async get(path: Parameters<RecordStoreType["get"]>[0]) {
+    assertRxDbPath(path);
+    const document = await this.#collection.findOne(path).exec();
+    return document === null ? null : RecordSchema.parse(document.toJSON());
+  }
+
+  /** Incrementally inserts or replaces one path record. */
+  async set(record: RecordType): Promise<void> {
+    assertRxDbPath(record.path);
+    assertRxDbPath(record.parent);
+    await this.#collection.incrementalUpsert(record);
+  }
+
+  /** Removes the latest revision of one path when it exists. */
+  async delete(path: Parameters<RecordStoreType["delete"]>[0]): Promise<void> {
+    assertRxDbPath(path);
+    const document = await this.#collection.findOne(path).exec();
+    if (document !== null) await document.incrementalRemove();
+  }
+
+  /** Queries the indexed parent field and yields validated direct children. */
+  async *list(parent: Parameters<RecordStoreType["list"]>[0]) {
+    assertRxDbPath(parent);
+    const documents = await this.#collection.find({ selector: { parent } }).exec();
+    for (const document of documents) yield RecordSchema.parse(document.toJSON());
+  }
+}
+
+/**
  * Creates the record-store projection over an existing RxDB collection.
  *
- * This is the lower-level integration point used by {@link createRxDbAdapter}.
  * The collection remains caller-owned. Reads validate every document through
- * {@link RecordSchema}; writes use RxDB incremental operations so the bridge does
- * not replace RxDB's own revision/concurrency semantics.
- *
- * @example Reuse the record store inside another adapter wrapper.
- * ```ts
- * const store = createRxDbRecordStore(database.files);
- * const adapter = createRecordAdapter(store, { name: "rxdb" });
- * ```
+ * {@link RecordSchema}; writes retain RxDB's incremental revision semantics.
  */
 export function createRxDbRecordStore(collection: RxDbCollectionType): RecordStoreType {
-  return {
-    async get(path) {
-      assertRxDbPath(path);
-      const document = await collection.findOne(path).exec();
-      return document === null ? null : RecordSchema.parse(document.toJSON());
-    },
-    async set(record) {
-      assertRxDbPath(record.path);
-      assertRxDbPath(record.parent);
-      await collection.incrementalUpsert(record);
-    },
-    async delete(path) {
-      assertRxDbPath(path);
-      const document = await collection.findOne(path).exec();
-      if (document !== null) await document.incrementalRemove();
-    },
-    async *list(parent) {
-      assertRxDbPath(parent);
-      const documents = await collection.find({ selector: { parent } }).exec();
-      for (const document of documents) yield RecordSchema.parse(document.toJSON());
-    },
-  };
+  return new RxDbRecordStore(collection);
 }
 
 /**
  * Creates an OPFS-shaped adapter over an RxDB collection.
  *
  * The collection is borrowed. Closing this adapter never closes the RxDatabase
- * because the database can own many unrelated collections and replications. The
- * collection must use {@link RxDbRecordJsonSchema}.
- *
- * @example
- * ```ts
- * await database.addCollections({ files: { schema: RxDbRecordJsonSchema } });
- * const fs = createFileSystem(createRxDbAdapter(database.files));
- * ```
+ * because the database can own many unrelated collections and replications.
+ * The collection must use {@link RxDbRecordJsonSchema}.
  */
 export function createRxDbAdapter(collection: RxDbCollectionType): AdapterType {
   return createRecordAdapter(createRxDbRecordStore(collection), { name: "rxdb" });

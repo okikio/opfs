@@ -207,25 +207,96 @@ function getUpsertSql(table: string, dialect: Db0DialectType): string {
 }
 
 /**
+ * Prepared db0 record store after schema/table setup has completed.
+ *
+ * Statement preparation occurs once in {@link openDb0RecordStore}. Each method
+ * then binds only operation parameters, which keeps SQL generation and runtime
+ * record behavior separate and makes connector-specific parameter translation
+ * remain db0's responsibility.
+ */
+class Db0RecordStore implements RecordStoreType {
+  /** Connected database borrowed or transferred by the caller. */
+  readonly #database: Db0DatabaseType;
+  /** Prepared exact-path selection. */
+  readonly #selectById: Db0StatementType;
+  /** Prepared direct-parent selection. */
+  readonly #selectChildren: Db0StatementType;
+  /** Prepared dialect-specific atomic upsert. */
+  readonly #upsert: Db0StatementType;
+  /** Prepared exact-path deletion. */
+  readonly #remove: Db0StatementType;
+  /** Whether store disposal also disposes the injected db0 database. */
+  readonly #disposeDatabase: boolean;
+
+  /** Retains prepared statements and explicit resource ownership. */
+  constructor(
+    database: Db0DatabaseType,
+    selectById: Db0StatementType,
+    selectChildren: Db0StatementType,
+    upsert: Db0StatementType,
+    remove: Db0StatementType,
+    disposeDatabase: boolean,
+  ) {
+    this.#database = database;
+    this.#selectById = selectById;
+    this.#selectChildren = selectChildren;
+    this.#upsert = upsert;
+    this.#remove = remove;
+    this.#disposeDatabase = disposeDatabase;
+  }
+
+  /** Selects one fixed-width path identity and converts the connector row. */
+  async get(path: Parameters<RecordStoreType["get"]>[0]) {
+    const row = await this.#selectById.get(await getPathId(path));
+    return row == null ? null : parseRow(row);
+  }
+
+  /** Upserts one validated filesystem record through the dialect-specific statement. */
+  async set(record: RecordType): Promise<void> {
+    const params: Db0PrimitiveType[] = [
+      await getPathId(record.path),
+      record.path,
+      record.parent,
+      record.name,
+      record.kind,
+      record.kind === "file" ? record.data : null,
+      record.kind === "file" ? record.size : 0,
+      record.lastModified,
+      record.kind === "file" ? record.mediaType : null,
+    ];
+    const result = await this.#upsert.run(...params);
+    if (!result.success) throw new Error(`db0 did not confirm the write for '${record.path}'.`);
+  }
+
+  /** Deletes one path identity and requires connector mutation confirmation. */
+  async delete(path: Parameters<RecordStoreType["delete"]>[0]): Promise<void> {
+    const result = await this.#remove.run(await getPathId(path));
+    if (!result.success) throw new Error(`db0 did not confirm removal for '${path}'.`);
+  }
+
+  /** Selects and validates direct children through `parent_path`. */
+  async *list(parent: Parameters<RecordStoreType["list"]>[0]) {
+    const rows = await this.#selectChildren.all(parent);
+    for (const row of rows) yield parseRow(row);
+  }
+
+  /** Disposes the db0 database only when ownership was explicitly transferred. */
+  async dispose(): Promise<void> {
+    if (this.#disposeDatabase) await this.#database.dispose?.();
+  }
+}
+
+/**
  * Opens the db0-backed record store and optionally creates its portable schema.
  *
  * The table uses a SHA-256 path id as its primary key. This avoids MySQL's
  * indexed-TEXT restrictions while preserving arbitrary path lengths in the
- * separate `path` column. Directory queries use `parent_path` and can be indexed
- * by an application migration if its workload needs it. Initialization uses only
- * the SQL subset selected for db0's four current public dialect values.
+ * separate `path` column. Directory queries use `parent_path` and can be
+ * indexed by an application migration when that query becomes hot.
  *
- * The Database is borrowed unless `disposeDatabase` is true. Callers that manage
- * schema migrations centrally can set `initialize: false` after creating the
+ * The Database is borrowed unless `disposeDatabase` is true. Callers that
+ * manage migrations centrally can set `initialize: false` after creating the
  * required table themselves.
- *
- * @example Open only the record-store layer.
- * ```ts
- * const store = await openDb0RecordStore(database, {
- *   table: "opfs_entries",
- *   initialize: true,
- * });
- * ```
  */
 export async function openDb0RecordStore(
   database: Db0DatabaseType,
@@ -233,78 +304,39 @@ export async function openDb0RecordStore(
 ): Promise<RecordStoreType> {
   const dialect = Db0DialectSchema.parse(database.dialect);
   const table = SqlIdentifierSchema.parse(options.table ?? "opfs_entries");
-  const q = quoteIdentifier(table, dialect);
+  const quotedTable = quoteIdentifier(table, dialect);
   if (options.initialize ?? true) {
     const result = await database.prepare(getCreateTableSql(table, dialect)).run();
-    if (!result.success) {
-      throw new Error(`db0 did not confirm initialization of table '${table}'.`);
-    }
+    if (!result.success) throw new Error(`db0 did not confirm initialization of table '${table}'.`);
   }
 
   const idPlaceholder = placeholders(1)[0];
   const parentPlaceholder = placeholders(1)[0];
   const selectById = database.prepare(
-    `SELECT ${DB0_ROW_COLUMNS_SQL} FROM ${q} WHERE id = ${idPlaceholder}`,
+    `SELECT ${DB0_ROW_COLUMNS_SQL} FROM ${quotedTable} WHERE id = ${idPlaceholder}`,
   );
   const selectChildren = database.prepare(
-    `SELECT ${DB0_ROW_COLUMNS_SQL} FROM ${q} WHERE parent_path = ${parentPlaceholder}`,
+    `SELECT ${DB0_ROW_COLUMNS_SQL} FROM ${quotedTable} WHERE parent_path = ${parentPlaceholder}`,
   );
   const upsert = database.prepare(getUpsertSql(table, dialect));
-  const remove = database.prepare(`DELETE FROM ${q} WHERE id = ${idPlaceholder}`);
+  const remove = database.prepare(`DELETE FROM ${quotedTable} WHERE id = ${idPlaceholder}`);
 
-  return {
-    async get(path) {
-      const row = await selectById.get(await getPathId(path));
-      return row == null ? null : parseRow(row);
-    },
-    async set(record) {
-      const params: Db0PrimitiveType[] = [
-        await getPathId(record.path),
-        record.path,
-        record.parent,
-        record.name,
-        record.kind,
-        record.kind === "file" ? record.data : null,
-        record.kind === "file" ? record.size : 0,
-        record.lastModified,
-        record.kind === "file" ? record.mediaType : null,
-      ];
-      const result = await upsert.run(...params);
-      if (!result.success) {
-        throw new Error(`db0 did not confirm the write for '${record.path}'.`);
-      }
-    },
-    async delete(path) {
-      const result = await remove.run(await getPathId(path));
-      if (!result.success) {
-        throw new Error(`db0 did not confirm removal for '${path}'.`);
-      }
-    },
-    async *list(parent) {
-      const rows = await selectChildren.all(parent);
-      for (const row of rows) yield parseRow(row);
-    },
-    async dispose() {
-      if (options.disposeDatabase) await database.dispose?.();
-    },
-  };
+  return new Db0RecordStore(
+    database,
+    selectById,
+    selectChildren,
+    upsert,
+    remove,
+    options.disposeDatabase ?? false,
+  );
 }
 
 /**
  * Creates an OPFS-shaped adapter over a db0 Database.
  *
  * The bridge supports db0's `sqlite`, `libsql`, `postgresql`, and `mysql`
- * dialect values. The underlying connector remains owned by db0. The database
- * is borrowed unless `disposeDatabase` is true.
- *
- * @example
- * ```ts
- * const adapter = await createDb0Adapter(database, {
- *   table: "opfs_entries",
- *   initialize: true,
- * });
- * const fs = createFileSystem(adapter);
- * ```
+ * dialect values. The connector remains owned by db0. The database is borrowed
+ * unless `disposeDatabase` is true.
  */
 export async function createDb0Adapter(
   database: Db0DatabaseType,

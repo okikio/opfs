@@ -171,60 +171,66 @@ function toRow(record: RecordType): DrizzleRowType {
 }
 
 /**
+ * Record-store projection over Drizzle's common CRUD builder surface.
+ *
+ * The caller owns both database and dialect-specific table. The class does not
+ * create DDL or hide cross-process atomicity: replacement is delete-then-insert
+ * because there is no one portable upsert form across all Drizzle dialects.
+ */
+class DrizzleRecordStore implements RecordStoreType {
+  /** Runtime CRUD subset validated from the connected database. */
+  readonly #database: DrizzleRuntimeType;
+  /** Caller-owned table containing the required logical columns. */
+  readonly #table: DrizzleTableType;
+
+  /** Validates the database surface once and retains the caller table. */
+  constructor(database: object, table: DrizzleTableType) {
+    this.#database = getRuntime(database);
+    this.#table = table;
+  }
+
+  /** Selects one path row and restores the versioned filesystem record. */
+  async get(path: Parameters<RecordStoreType["get"]>[0]) {
+    const rows = await this.#database.select().from(this.#table).where(eq(this.#table.path, path)).limit(1);
+    const row = rows[0];
+    return row === undefined ? null : toRecord(row);
+  }
+
+  /** Replaces one path through the portable delete-then-insert sequence. */
+  async set(record: RecordType): Promise<void> {
+    await this.#database.delete(this.#table).where(eq(this.#table.path, record.path));
+    await this.#database.insert(this.#table).values(toRow(record));
+  }
+
+  /** Deletes one exact path row. */
+  async delete(path: Parameters<RecordStoreType["delete"]>[0]): Promise<void> {
+    await this.#database.delete(this.#table).where(eq(this.#table.path, path));
+  }
+
+  /** Selects all rows whose indexed/logical parent equals the requested path. */
+  async *list(parent: Parameters<RecordStoreType["list"]>[0]) {
+    const rows = await this.#database.select().from(this.#table).where(eq(this.#table.parent, parent));
+    for (const row of rows) yield toRecord(row);
+  }
+}
+
+/**
  * Creates a record store over a connected Drizzle database and caller table.
  *
- * This integration deliberately uses the ORM's common `select`, `insert`, and
- * `delete` query builders. It avoids dialect-specific upsert syntax by replacing
- * one path with delete-then-insert. The filesystem facade serializes same-path
- * writes in a realm, but applications with multiple server processes should add
- * database-level serialization when they require cross-process atomic replace.
- *
- * The database and table are borrowed. The adapter never disposes the database
- * and never creates or migrates the table.
- *
- * @example Build only the record-store projection.
- * ```ts
- * const store = createDrizzleRecordStore({ database, table: files });
- * const adapter = createRecordAdapter(store, { name: "drizzle" });
- * ```
+ * Applications with multiple writing processes must add database-level
+ * serialization when they need cross-process atomic replacement.
  */
 export function createDrizzleRecordStore<TDatabase extends object, TTable extends DrizzleTableType>(
   options: DrizzleAdapterOptionsType<TDatabase, TTable>,
 ): RecordStoreType {
-  const database = getRuntime(options.database);
-  const table = options.table;
-  return {
-    async get(path) {
-      const rows = await database.select().from(table).where(eq(table.path, path)).limit(1);
-      const row = rows[0];
-      return row === undefined ? null : toRecord(row);
-    },
-    async set(record) {
-      await database.delete(table).where(eq(table.path, record.path));
-      await database.insert(table).values(toRow(record));
-    },
-    async delete(path) {
-      await database.delete(table).where(eq(table.path, path));
-    },
-    async *list(parent) {
-      const rows = await database.select().from(table).where(eq(table.parent, parent));
-      for (const row of rows) yield toRecord(row);
-    },
-  };
+  return new DrizzleRecordStore(options.database, options.table);
 }
 
 /**
  * Creates an OPFS-shaped adapter over a Drizzle database and caller-owned table.
  *
  * The table must make `path` unique and provide every property in
- * {@link DrizzleTableType}. Replacement is delete-then-insert, so applications
- * with multiple writing processes must add database-level serialization when
- * they need cross-process atomic replacement.
- *
- * @example SQLite table shape
- * ```ts
- * const fs = createFileSystem(createDrizzleAdapter({ database, table: files }));
- * ```
+ * {@link DrizzleTableType}. The adapter never disposes the database.
  */
 export function createDrizzleAdapter<TDatabase extends object, TTable extends DrizzleTableType>(
   options: DrizzleAdapterOptionsType<TDatabase, TTable>,

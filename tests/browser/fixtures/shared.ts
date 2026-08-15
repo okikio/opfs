@@ -1,3 +1,5 @@
+/// <reference lib="webworker" />
+
 import { openFileSystem, probeOpfs } from "../../../mod.ts";
 
 /** SharedWorker global used to exercise storage shared by connected documents. */

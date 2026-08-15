@@ -65,13 +65,69 @@ function getPath(prefix: string, key: string): PathType | null {
 }
 
 /**
- * Creates a record store over any unstorage `Storage` instance.
+ * Record-store projection over any compatible unstorage `Storage` instance.
  *
- * Directory listing asks unstorage for keys below the encoded directory prefix
- * and filters to direct descendants. `maxDepth: 1` is supplied as an optional
- * optimization; drivers that do not implement the flag still preserve correct
- * results through the direct-child filter. The Storage object is borrowed unless
- * `disposeStorage` explicitly transfers disposal.
+ * The class targets the high-level Storage surface rather than one driver.
+ * Driver-specific replication, retries, durability, limits, and provider SDKs
+ * remain owned by unstorage and the selected driver.
+ */
+class UnstorageRecordStore implements RecordStoreType {
+  /** unstorage Storage borrowed from or transferred by the caller. */
+  readonly #storage: UnstorageStorageType;
+  /** Reserved unstorage namespace for filesystem records. */
+  readonly #prefix: string;
+  /** Whether disposal also disposes the injected Storage. */
+  readonly #disposeStorage: boolean;
+
+  /** Resolves namespace and ownership policy once. */
+  constructor(storage: UnstorageStorageType, options: UnstorageAdapterOptionsType) {
+    this.#storage = storage;
+    this.#prefix = normalizePrefix(options.prefix ?? "opfs");
+    this.#disposeStorage = options.disposeStorage ?? false;
+  }
+
+  /** Reads and validates one exact unstorage record. */
+  async get(path: PathType) {
+    const value = await this.#storage.getItem(getKey(this.#prefix, path));
+    return value === null ? null : RecordSchema.parse(value);
+  }
+
+  /** Replaces one exact unstorage record. */
+  async set(record: Parameters<RecordStoreType["set"]>[0]): Promise<void> {
+    await this.#storage.setItem(getKey(this.#prefix, record.path), record);
+  }
+
+  /** Removes one exact unstorage record. */
+  async delete(path: PathType): Promise<void> {
+    await this.#storage.removeItem(getKey(this.#prefix, path));
+  }
+
+  /**
+   * Lists direct children below one encoded directory key.
+   *
+   * `maxDepth: 1` is an optional upstream optimization. Correctness still comes
+   * from the explicit path-depth filter because not every unstorage driver
+   * advertises or honors the same listing acceleration.
+   */
+  async *list(parent: PathType) {
+    const parentDepth = splitPath(parent).length;
+    const keys = await this.#storage.getKeys(getKey(this.#prefix, parent), { maxDepth: 1 });
+    for (const storageKey of keys) {
+      const path = getPath(this.#prefix, storageKey);
+      if (path === null || path === parent || splitPath(path).length !== parentDepth + 1) continue;
+      const value = await this.#storage.getItem(storageKey);
+      if (value !== null) yield RecordSchema.parse(value);
+    }
+  }
+
+  /** Disposes the injected Storage only when ownership was explicitly transferred. */
+  async dispose(): Promise<void> {
+    if (this.#disposeStorage) await this.#storage.dispose?.();
+  }
+}
+
+/**
+ * Creates a record store over any unstorage `Storage` instance.
  *
  * @example Reserve one key namespace for filesystem records.
  * ```ts
@@ -85,47 +141,15 @@ export function createUnstorageRecordStore(
   storage: UnstorageStorageType,
   options: UnstorageAdapterOptionsType = {},
 ): RecordStoreType {
-  const prefix = normalizePrefix(options.prefix ?? "opfs");
-  return {
-    async get(path) {
-      const value = await storage.getItem(getKey(prefix, path));
-      return value === null ? null : RecordSchema.parse(value);
-    },
-    async set(record) {
-      await storage.setItem(getKey(prefix, record.path), record);
-    },
-    async delete(path) {
-      await storage.removeItem(getKey(prefix, path));
-    },
-    async *list(parent) {
-      const parentDepth = splitPath(parent).length;
-      const keys = await storage.getKeys(getKey(prefix, parent), { maxDepth: 1 });
-      for (const key of keys) {
-        const path = getPath(prefix, key);
-        if (path === null || path === parent || splitPath(path).length !== parentDepth + 1) continue;
-        const value = await storage.getItem(key);
-        if (value !== null) yield RecordSchema.parse(value);
-      }
-    },
-    async dispose() {
-      if (options.disposeStorage) await storage.dispose?.();
-    },
-  };
+  return new UnstorageRecordStore(storage, options);
 }
 
 /**
  * Creates an OPFS-shaped filesystem adapter backed by unstorage.
  *
- * The returned adapter works transitively with every unstorage driver that
- * satisfies the high-level Storage methods used above. Individual driver
- * limitations still apply, such as a read-only provider rejecting mutations.
- * The Storage object is borrowed unless `disposeStorage` is true.
- *
- * @example
- * ```ts
- * const fs = createFileSystem(createUnstorageAdapter(storage));
- * await fs.writeFile("/cache/item.json", "{}", { parents: true });
- * ```
+ * The Storage object is borrowed unless `disposeStorage` is true. Individual
+ * upstream driver limits still apply and are not replaced by the filesystem
+ * facade.
  */
 export function createUnstorageAdapter(
   storage: UnstorageStorageType,

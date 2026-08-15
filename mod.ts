@@ -78,11 +78,21 @@ export type { WritableFileType } from "./src/writable.ts";
 export type { WriteDataType } from "./src/stream.ts";
 export type {
   AdapterCapabilitiesType,
+  AdapterLimitsType,
+  AdapterPartitionType,
   CoordinationModeType,
   EntryKindType,
   ErrorCodeType,
+  MetricsModeType,
   OpfsContextType,
+  OptimizationType,
+  PartitionModeType,
+  SupportModeType,
   WriteModeType,
 } from "./src/schema.ts";
 export type { FileSystemOptionsType } from "./src/adapter/definition.ts";
+export type { InspectionType, SupportType, WriteSupportType } from "./src/capability.ts";
+export type { MetricsType, MetricEntryType, MetricOperationType } from "./src/metrics.ts";
+export { PlanInputSchema, PlanOperationSchema, PlanSchema, WriteSourceSchema } from "./src/plan.ts";
+export type { PlanInputType, PlanOperationType, PlanType, WriteSourceType } from "./src/plan.ts";
 export type { OpfsCapabilitiesType, OpfsProbeErrorType, OpfsStorageEstimateType } from "./src/probe.ts";
