@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+#MISE description="Run the complete Deno quality, stress, coverage, and package dry-run gate."
+set -euo pipefail
+
+deno ci
+deno task check
+deno task lint
+deno task doc
+deno task fmt:check
+deno task test:stress
+deno task test:coverage
+deno publish --dry-run
+deno pack --dry-run --no-deno-shim

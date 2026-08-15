@@ -1,49 +1,139 @@
 {
   "name": "@okikio/opfs",
   "version": "0.0.1",
+  "private": true,
   "type": "module",
   "sideEffects": false,
+  "description": "An OPFS-shaped filesystem abstraction for browsers, Deno, Bun, Node, and storage adapters.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/okikio/opfs.git"
+  },
+  "homepage": "https://github.com/okikio/opfs#readme",
+  "bugs": {
+    "url": "https://github.com/okikio/opfs/issues"
+  },
+  "keywords": [
+    "opfs",
+    "filesystem",
+    "origin-private-file-system",
+    "deno",
+    "bun",
+    "node",
+    "browser",
+    "storage",
+    "object-storage",
+    "s3",
+    "azure-blob",
+    "indexeddb",
+    "unstorage"
+  ],
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "check": "mise run check",
+    "test": "mise run test",
+    "fmt": "mise run fmt",
+    "bench": "mise run bench"
+  },
   "exports": {
     ".": "./mod.ts",
     "./adapter": "./src/adapter/definition.ts",
     "./adapter/opfs": "./src/adapter/opfs.ts",
     "./adapter/memory": "./src/adapter/memory.ts",
     "./adapter/deno": "./src/adapter/deno.ts",
+    "./adapter/deno-kv": "./src/adapter/deno-kv.ts",
     "./adapter/node": "./src/adapter/node.ts",
     "./adapter/bun": "./src/adapter/bun.ts",
     "./adapter/record": "./src/adapter/record.ts",
+    "./adapter/object": "./src/adapter/object.ts",
+    "./adapter/s3": "./src/adapter/s3.ts",
+    "./adapter/azure": "./src/adapter/azure.ts",
+    "./adapter/localstorage": "./src/adapter/localstorage.ts",
+    "./adapter/indexeddb": "./src/adapter/indexeddb.ts",
+    "./adapter/cache": "./src/adapter/cache.ts",
+    "./adapter/sqlite": "./src/adapter/sqlite.ts",
     "./adapter/unstorage": "./src/adapter/unstorage.ts",
     "./adapter/rxdb": "./src/adapter/rxdb.ts",
     "./adapter/db0": "./src/adapter/db0.ts",
     "./adapter/drizzle": "./src/adapter/drizzle.ts",
+    "./driver/kv": "./src/driver/kv.ts",
     "./driver/unstorage": "./src/driver/unstorage.ts",
+    "./s3": "./src/s3.ts",
+    "./azure": "./src/azure.ts",
     "./iframe": "./src/iframe.ts",
     "./path": "./src/path.ts",
-    "./schema": "./src/schema.ts"
+    "./schema": "./src/schema.ts",
+    "./bridge": "./src/bridge.ts",
+    "./bridge/definition": "./src/bridge/definition.ts",
+    "./bridge/unstorage": "./src/bridge/unstorage.ts",
+    "./bridge/rxdb": "./src/bridge/rxdb.ts",
+    "./bridge/db0": "./src/bridge/db0.ts",
+    "./bridge/drizzle": "./src/bridge/drizzle.ts",
+    "./bridge/kv": "./src/bridge/kv.ts",
+    "./capability": "./src/capability.ts",
+    "./metrics": "./src/metrics.ts",
+    "./plan": "./src/plan.ts",
+    "./request": "./src/request.ts"
   },
   "dependencies": {
-    "zod": "^4.4.3"
+    "@std/encoding": "npm:@jsr/std__encoding@^1.0.11",
+    "@std/xml": "npm:@jsr/std__xml@^0.2.0",
+    "zod": "^4.4.3",
+    "@std/async": "npm:@jsr/std__async@^1.5.0",
+    "@std/bytes": "npm:@jsr/std__bytes@^1.0.6",
+    "@std/path": "npm:@jsr/std__path@^1.1.6",
+    "@std/streams": "npm:@jsr/std__streams@^1.1.2"
   },
   "peerDependencies": {
-    "drizzle-orm": "^0.45.3"
+    "drizzle-orm": "^0.45.2"
   },
   "peerDependenciesMeta": {
     "drizzle-orm": {
       "optional": true
     }
   },
-  "files": [
-    "mod.ts",
-    "src/",
-    "README.md",
-    "docs/",
-    "deno.json"
-  ],
   "devDependencies": {
-    "@deno/shim-deno": "^0.19.2",
-    "@types/deno": "^2.7.0",
+    "@playwright/test": "^1.62.1",
+    "@std/expect": "npm:@jsr/std__expect@^1.0.20",
     "@types/node": "^26.2.0",
-    "@types/sharedworker": "^0.0.229",
-    "mitata": "^1.0.34"
+    "drizzle-orm": "^0.45.2",
+    "mitata": "^1.0.34",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.1",
+    "@aws-sdk/client-s3": "^3.1098.0",
+    "@aws-sdk/lib-storage": "^3.1100.0",
+    "@azure/storage-blob": "^12.33.0"
+  },
+  "release": {
+    "branches": [
+      "main"
+    ],
+    "tagFormat": "opfs@${version}",
+    "plugins": [
+      [
+        "@semantic-release/commit-analyzer",
+        {
+          "preset": "conventionalcommits"
+        }
+      ],
+      [
+        "@semantic-release/release-notes-generator",
+        {
+          "preset": "conventionalcommits"
+        }
+      ],
+      [
+        "@semantic-release/github",
+        {
+          "successComment": false,
+          "failComment": false,
+          "releasedLabels": false
+        }
+      ]
+    ]
   }
 }

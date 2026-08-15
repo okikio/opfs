@@ -1,17 +1,49 @@
 {
   "compilerOptions": {
-    "target": "esnext",
-    "module": "esnext",
-    "moduleResolution": "bundler",
-    "lib": ["DOM", "DOM.Iterable"],
+    "target": "ESNext",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": [
+      "ESNext",
+      "DOM",
+      "DOM.Iterable",
+      "DOM.AsyncIterable"
+    ],
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
     "useUnknownInCatchVariables": true,
     "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
     "allowImportingTsExtensions": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "types": ["node", "deno"]
-  }
+    "types": [
+      "node"
+    ]
+  },
+  "include": [
+    "mod.ts",
+    "src/**/*.ts",
+    "tests/path.test.ts",
+    "tests/memory.test.ts",
+    "tests/filesystem.test.ts",
+    "tests/ecosystems.test.ts",
+    "tests/chunk.test.ts",
+    "tests/object.test.ts",
+    "tests/s3.test.ts",
+    "tests/azure.test.ts",
+    "tests/sqlite.test.ts",
+    "tests/deno-kv-partition.test.ts",
+    "tests/node.test.ts"
+  ],
+  "exclude": [
+    "src/adapter/deno.ts",
+    "src/adapter/bun.ts",
+    "tests/browser/**",
+    "tests/deno.test.ts",
+    "tests/deno-kv.test.ts",
+    "tests/bun.test.ts",
+    "bench/**"
+  ]
 }

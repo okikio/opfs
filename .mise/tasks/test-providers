@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+#MISE description="Run direct S3 and Azure Blob clients against local provider containers."
+set -euo pipefail
+
+COMPOSE="tests/provider/compose.yml"
+
+docker compose -f "$COMPOSE" up -d
+cleanup() {
+  docker compose -f "$COMPOSE" down -v --remove-orphans
+}
+trap cleanup EXIT
+
+wait_for_http() {
+  local name="$1"
+  local url="$2"
+  local status="000"
+  for _ in $(seq 1 60); do
+    status="$(curl -sS -o /dev/null -w '%{http_code}' "$url" 2>/dev/null || true)"
+    if [[ "$status" != "000" ]]; then
+      return 0
+    fi
+    sleep 1
+  done
+  echo "$name did not become reachable at $url" >&2
+  docker compose -f "$COMPOSE" logs "$name" >&2 || true
+  return 1
+}
+
+wait_for_http s3 http://127.0.0.1:8333/
+wait_for_http azure http://127.0.0.1:10000/devstoreaccount1
+
+deno ci
+deno test \
+  --allow-net=127.0.0.1:8333,127.0.0.1:10000 \
+  --sanitize-ops \
+  --sanitize-resources \
+  --trace-leaks \
+  tests/provider.test.ts

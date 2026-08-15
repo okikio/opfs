@@ -7,32 +7,68 @@
     "./adapter/opfs": "./src/adapter/opfs.ts",
     "./adapter/memory": "./src/adapter/memory.ts",
     "./adapter/deno": "./src/adapter/deno.ts",
+    "./adapter/deno-kv": "./src/adapter/deno-kv.ts",
     "./adapter/node": "./src/adapter/node.ts",
     "./adapter/bun": "./src/adapter/bun.ts",
     "./adapter/record": "./src/adapter/record.ts",
+    "./adapter/object": "./src/adapter/object.ts",
+    "./adapter/s3": "./src/adapter/s3.ts",
+    "./adapter/azure": "./src/adapter/azure.ts",
+    "./adapter/localstorage": "./src/adapter/localstorage.ts",
+    "./adapter/indexeddb": "./src/adapter/indexeddb.ts",
+    "./adapter/cache": "./src/adapter/cache.ts",
+    "./adapter/sqlite": "./src/adapter/sqlite.ts",
     "./adapter/unstorage": "./src/adapter/unstorage.ts",
     "./adapter/rxdb": "./src/adapter/rxdb.ts",
     "./adapter/db0": "./src/adapter/db0.ts",
     "./adapter/drizzle": "./src/adapter/drizzle.ts",
+    "./driver/kv": "./src/driver/kv.ts",
     "./driver/unstorage": "./src/driver/unstorage.ts",
+    "./s3": "./src/s3.ts",
+    "./azure": "./src/azure.ts",
     "./iframe": "./src/iframe.ts",
     "./path": "./src/path.ts",
-    "./schema": "./src/schema.ts"
+    "./schema": "./src/schema.ts",
+    "./bridge": "./src/bridge.ts",
+    "./bridge/definition": "./src/bridge/definition.ts",
+    "./bridge/unstorage": "./src/bridge/unstorage.ts",
+    "./bridge/rxdb": "./src/bridge/rxdb.ts",
+    "./bridge/db0": "./src/bridge/db0.ts",
+    "./bridge/drizzle": "./src/bridge/drizzle.ts",
+    "./bridge/kv": "./src/bridge/kv.ts",
+    "./capability": "./src/capability.ts",
+    "./metrics": "./src/metrics.ts",
+    "./plan": "./src/plan.ts",
+    "./request": "./src/request.ts"
   },
   "imports": {
-    "zod": "npm:zod@^4.4.3",
+    "@std/expect": "jsr:@std/expect@^1.0.20",
     "drizzle-orm": "npm:drizzle-orm@^0.45.2",
-    "mitata": "npm:mitata@^1.0.34"
+    "mitata": "npm:mitata@^1.0.34",
+    "zod": "npm:zod@^4.4.3",
+    "@playwright/test": "npm:@playwright/test@^1.62.1",
+    "vite": "npm:vite@^8.2.1",
+    "@std/async": "jsr:@std/async@^1.5.0",
+    "@std/bytes": "jsr:@std/bytes@^1.0.6",
+    "@std/path": "jsr:@std/path@^1.1.6",
+    "@std/streams": "jsr:@std/streams@^1.1.2",
+    "@std/xml": "jsr:@std/xml@^0.2.0",
+    "@std/encoding": "jsr:@std/encoding@^1.0.11",
+    "@aws-sdk/client-s3": "npm:@aws-sdk/client-s3@^3.1098.0",
+    "@aws-sdk/lib-storage": "npm:@aws-sdk/lib-storage@^3.1100.0",
+    "@azure/storage-blob": "npm:@azure/storage-blob@^12.33.0"
+  },
+  "nodeModulesDir": "auto",
+  "lock": {
+    "frozen": true
   },
   "compilerOptions": {
-    "types": [
-      "npm:@types/node"
-    ],
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
     "useUnknownInCatchVariables": true,
     "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
     "lib": [
       "dom",
       "dom.iterable",
@@ -40,25 +76,87 @@
       "deno.ns"
     ]
   },
+  "fmt": {
+    "lineWidth": 120,
+    "semiColons": true,
+    "singleQuote": false,
+    "useTabs": false,
+    "indentWidth": 2,
+    "include": [
+      "mod.ts",
+      "src/",
+      "tests/",
+      "bench/",
+      "docs/",
+      "README.md",
+      "AGENTS.md",
+      "deno.json",
+      "package.json"
+    ]
+  },
+  "lint": {
+    "rules": {
+      "tags": [
+        "recommended"
+      ],
+      "exclude": [
+        "no-slow-types",
+        "require-await"
+      ]
+    },
+    "include": [
+      "mod.ts",
+      "src/",
+      "tests/",
+      "bench/"
+    ]
+  },
   "tasks": {
-    "check": "deno task check:window && deno task check:worker && deno task check:server",
-    "check:window": "deno check mod.ts src/adapter/definition.ts src/adapter/opfs.ts src/adapter/memory.ts src/adapter/record.ts src/adapter/unstorage.ts src/adapter/rxdb.ts src/adapter/db0.ts src/adapter/drizzle.ts src/driver/unstorage.ts src/iframe.ts src/path.ts src/schema.ts",
-    "check:worker": "deno check tests/consumer.worker.ts",
-    "check:server": "deno check src/adapter/deno.ts src/adapter/node.ts src/adapter/bun.ts",
-    "test": "deno test tests/",
-    "test:browser": "deno run -A npm:vite tests/browser",
-    "fmt:code": "deno fmt mod.ts src/ tests/ deno.json package.json",
-    "fmt:check": "deno fmt --check mod.ts src/ tests/ deno.json package.json",
-    "lint": "deno lint mod.ts src/ tests/"
+    "deps:ci": "deno ci",
+    "check": "deno task check:core && deno task check:browser && deno task check:workers && deno task check:server && deno task check:tests && deno task check:deno-kv && deno task check:providers",
+    "check:core": "deno check mod.ts src/chunk.ts src/xml.ts src/request.ts src/metrics.ts src/capability.ts src/plan.ts src/bridge.ts src/bridge/definition.ts src/bridge/unstorage.ts src/bridge/rxdb.ts src/bridge/db0.ts src/bridge/drizzle.ts src/bridge/kv.ts src/adapter/definition.ts src/adapter/opfs.ts src/adapter/memory.ts src/adapter/record.ts src/adapter/object.ts src/adapter/unstorage.ts src/adapter/rxdb.ts src/adapter/db0.ts src/adapter/drizzle.ts src/driver/kv.ts src/driver/unstorage.ts src/iframe.ts src/path.ts src/schema.ts src/s3.ts src/azure.ts",
+    "check:browser": "deno check src/adapter/localstorage.ts src/adapter/indexeddb.ts src/adapter/cache.ts tests/browser/playwright.config.ts tests/browser/opfs.spec.ts tests/browser/worker.spec.ts tests/browser/iframe.spec.ts tests/browser/service-worker.spec.ts tests/browser/adapters.spec.ts tests/browser/fixtures/app.ts bench/browser/playwright.config.ts bench/browser/opfs.spec.ts",
+    "check:workers": "deno check tests/browser/fixtures/dedicated.ts tests/browser/fixtures/shared.ts tests/browser/fixtures/service.ts",
+    "check:server": "deno check src/adapter/deno.ts src/adapter/deno-kv.ts src/adapter/node.ts src/adapter/bun.ts src/adapter/sqlite.ts bench/deno.bench.ts bench/node.bench.ts bench/bun.bench.ts bench/sqlite.bench.ts",
+    "check:tests": "deno check tests/path.test.ts tests/memory.test.ts tests/filesystem.test.ts tests/ecosystems.test.ts tests/chunk.test.ts tests/object.test.ts tests/s3.test.ts tests/azure.test.ts tests/sqlite.test.ts tests/deno-kv-partition.test.ts tests/node.test.ts tests/deno.test.ts tests/bun.test.ts",
+    "check:deno-kv": "deno check --unstable-kv tests/deno-kv.test.ts bench/deno-kv.bench.ts",
+    "test": "deno task test:portable && deno task test:deno && deno task test:deno-kv",
+    "test:portable": "deno test --sanitize-ops --sanitize-resources --trace-leaks tests/path.test.ts tests/memory.test.ts tests/filesystem.test.ts tests/ecosystems.test.ts tests/chunk.test.ts tests/object.test.ts tests/s3.test.ts tests/azure.test.ts tests/sqlite.test.ts tests/deno-kv-partition.test.ts",
+    "test:deno": "deno test --allow-read --allow-write --sanitize-ops --sanitize-resources --trace-leaks tests/deno.test.ts",
+    "test:deno-kv": "deno test --unstable-kv --allow-read --allow-write --sanitize-ops --sanitize-resources --trace-leaks tests/deno-kv.test.ts",
+    "test:node": "node --test tests/path.test.ts tests/memory.test.ts tests/filesystem.test.ts tests/ecosystems.test.ts tests/chunk.test.ts tests/object.test.ts tests/s3.test.ts tests/azure.test.ts tests/sqlite.test.ts tests/deno-kv-partition.test.ts tests/node.test.ts",
+    "test:bun": "bun test tests/path.test.ts tests/memory.test.ts tests/filesystem.test.ts tests/ecosystems.test.ts tests/chunk.test.ts tests/object.test.ts tests/s3.test.ts tests/azure.test.ts tests/sqlite.test.ts tests/deno-kv-partition.test.ts tests/bun.test.ts",
+    "test:browser": "deno run -A npm:@playwright/test@1.62.1 test --config tests/browser/playwright.config.ts",
+    "test:browser:install": "deno run -A npm:playwright@1.62.1 install --with-deps chromium firefox webkit",
+    "test:stress": "deno test --sanitize-ops --sanitize-resources --shuffle=424242 --repeats=5 tests/path.test.ts tests/memory.test.ts tests/filesystem.test.ts tests/ecosystems.test.ts tests/chunk.test.ts tests/object.test.ts tests/s3.test.ts tests/azure.test.ts tests/sqlite.test.ts tests/deno-kv-partition.test.ts",
+    "test:coverage": "deno test --clean --coverage=.coverage --sanitize-ops --sanitize-resources tests/path.test.ts tests/memory.test.ts tests/filesystem.test.ts tests/ecosystems.test.ts tests/chunk.test.ts tests/object.test.ts tests/s3.test.ts tests/azure.test.ts tests/sqlite.test.ts tests/deno-kv-partition.test.ts && deno coverage .coverage --lcov --output=.coverage/lcov.info",
+    "bench": "deno task bench:memory && deno task bench:deno && deno task bench:deno-kv",
+    "bench:memory": "deno run -A bench/memory.bench.ts",
+    "bench:deno": "deno run -A bench/deno.bench.ts",
+    "bench:node": "node bench/node.bench.ts",
+    "bench:bun": "bun run bench/bun.bench.ts",
+    "bench:browser": "deno run -A npm:@playwright/test@1.62.1 test --config bench/browser/playwright.config.ts",
+    "doc": "deno doc --lint mod.ts",
+    "fmt": "deno fmt",
+    "fmt:check": "deno fmt --check",
+    "lint": "deno lint",
+    "release:check": "deno task check && deno task lint && deno task doc && deno task fmt:check && deno task test && deno task test:stress && deno publish --dry-run && deno pack --dry-run --no-deno-shim",
+    "pack:npm": "bash .mise/tasks/npm",
+    "bench:deno-kv": "deno run --unstable-kv -A bench/deno-kv.bench.ts",
+    "bench:sqlite": "node bench/sqlite.bench.ts",
+    "test:providers": "bash .mise/tasks/test-providers",
+    "check:providers": "deno check tests/provider.test.ts bench/provider.bench.ts",
+    "bench:providers": "bash .mise/tasks/bench-providers",
+    "bench:bun-providers": "bun run bench/bun-provider.bench.ts"
   },
   "publish": {
     "include": [
       "mod.ts",
       "src/",
       "README.md",
+      "LICENSE",
       "docs/",
-      "deno.json",
-      "package.json"
+      "deno.json"
     ]
   }
 }

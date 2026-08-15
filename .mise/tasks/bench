@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+#MISE description="Benchmark raw backends, direct adapters, and filesystem facade overhead."
+set -euo pipefail
+
+deno ci
+deno task bench:memory
+deno task bench:deno
+deno task bench:deno-kv
+deno task bench:node
+deno task bench:sqlite
+deno task bench:bun

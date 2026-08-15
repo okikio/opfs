@@ -3,7 +3,8 @@ monorepo_root = true
 
 [tools]
 node = "26"
-deno = "2.9"
+deno = "2"
+bun = "1.3.14"
 pnpm = "11.9.0"
 
 [settings]
