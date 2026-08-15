@@ -8,13 +8,13 @@ import { z } from "zod";
  * values at persistence and adapter seams.
  */
 export const PathSchema = z.string().refine(
-  (value) => value === "/" || (
+  (value: string) => value === "/" || (
     value.startsWith("/") &&
     !value.endsWith("/") &&
     !value.includes("//") &&
     !value.includes("\\") &&
     !value.includes("\0") &&
-    value.split("/").slice(1).every((part) => part.length > 0 && part !== "." && part !== "..")
+    value.split("/").slice(1).every((part: string) => part.length > 0 && part !== "." && part !== "..")
   ),
   "Expected a canonical virtual filesystem path.",
 );
@@ -83,20 +83,140 @@ export const WriteModeSchema = z.enum(["replace", "append", "update"]);
 export type WriteModeType = z.output<typeof WriteModeSchema>;
 
 /**
+ * How one operation is provided by the selected storage stack.
+ *
+ * `native` means the immediate backend performs the operation directly.
+ * `emulated` means the facade composes weaker primitives. `partitioned` means
+ * the logical operation is preserved by splitting one value into multiple
+ * provider records or blocks. `unsupported` means no safe implementation is
+ * available for the selected stack.
+ */
+export const SupportModeSchema = z.enum(["native", "emulated", "partitioned", "unsupported"]);
+
+/** A validated storage support mode. */
+export type SupportModeType = z.output<typeof SupportModeSchema>;
+
+/**
+ * Metrics collection cost selected for one filesystem or protocol client.
+ *
+ * `basic` counts operations, bytes, failures, and chosen native/emulated paths.
+ * `timing` also reads the monotonic clock around operations. `none` removes
+ * metrics bookkeeping from hot paths when the caller is measuring raw overhead.
+ */
+export const MetricsModeSchema = z.enum(["none", "basic", "timing"]);
+
+/** A validated metrics collection mode. */
+export type MetricsModeType = z.output<typeof MetricsModeSchema>;
+
+/**
+ * Physical partition policy for backends with a smaller value limit than the
+ * logical file size the application wants to expose.
+ */
+export const PartitionModeSchema = z.enum(["never", "auto", "always"]);
+
+/** A validated physical partition policy. */
+export type PartitionModeType = z.output<typeof PartitionModeSchema>;
+
+/**
+ * Inspectable physical layout used when one logical file spans provider values.
+ *
+ * `thresholdBytes` is the logical size where `auto` starts partitioning. When
+ * omitted, callers can use `partBytes` as the conservative threshold. `stream`
+ * means native stream writes use this layout so input size does not determine
+ * facade memory growth.
+ */
+export const AdapterPartitionSchema = z.object({
+  mode: PartitionModeSchema,
+  partBytes: z.number().int().positive(),
+  thresholdBytes: z.number().int().positive().optional(),
+  stream: z.boolean().optional(),
+  maxParts: z.number().int().positive().optional(),
+  layout: z.string().min(1),
+}).strict();
+
+/** A validated physical partition layout. */
+export type AdapterPartitionType = z.output<typeof AdapterPartitionSchema>;
+
+/**
+ * Optional backend limits that can be inspected before work begins.
+ *
+ * Missing values mean the adapter cannot state a portable hard limit. They do
+ * not mean unlimited. Provider-specific clients can expose additional limits
+ * through their own public constants and request planners.
+ */
+export const AdapterLimitsSchema = z.object({
+  /** Maximum logical file size accepted by this configured adapter. */
+  maxFileBytes: z.number().int().positive().optional(),
+  /** Maximum materialized value accepted by one physical backend record. */
+  maxValueBytes: z.number().int().positive().optional(),
+  /** Maximum serialized key size when the backend has one. */
+  maxKeyBytes: z.number().int().positive().optional(),
+  /** Minimum legal provider part/block size when multipart work is used. */
+  minPartBytes: z.number().int().positive().optional(),
+  /** Maximum legal provider part/block size. */
+  maxPartBytes: z.number().int().positive().optional(),
+  /** Maximum provider part/block count for one logical object. */
+  maxParts: z.number().int().positive().optional(),
+  /** Maximum useful provider concurrency known by this adapter. */
+  maxConcurrency: z.number().int().positive().optional(),
+  /** Maximum bytes in one transactional/batched provider mutation. */
+  maxBatchBytes: z.number().int().positive().optional(),
+}).strict();
+
+/** Portable hard limits known by one configured adapter. */
+export type AdapterLimitsType = z.output<typeof AdapterLimitsSchema>;
+
+/**
+ * Performance routes that the filesystem facade can deliberately bypass.
+ *
+ * Every field defaults to true. Disabling a route forces the semantically safe
+ * fallback where one exists. This is useful for differential testing and for
+ * applications that prefer a slower but more observable or more portable path.
+ */
+export const OptimizationSchema = z.object({
+  /** Use adapter-native streaming reads instead of materialized `readFile()`. */
+  streamRead: z.boolean(),
+  /** Use adapter-native streaming writes when the requested mode supports them. */
+  streamWrite: z.boolean(),
+  /** Forward byte ranges directly instead of materializing and slicing locally. */
+  rangeRead: z.boolean(),
+  /** Use adapter-native/server-side copy instead of read plus write. */
+  nativeCopy: z.boolean(),
+  /** Use adapter-native move/rename instead of copy then remove. */
+  nativeMove: z.boolean(),
+}).strict();
+
+/** Resolved performance-route policy for one filesystem facade. */
+export type OptimizationType = z.output<typeof OptimizationSchema>;
+
+/**
  * Stable adapter capability description.
  *
  * These flags describe native adapter operations, not operations that the
- * facade can emulate. For example, a database adapter can still expose
- * `openReadStream()` through the facade while `streamRead` remains `false`.
+ * facade can emulate. `streamWriteModes` is intentionally mode-specific: an
+ * object store can stream a complete replacement while append/update still
+ * require a read-modify-write cycle. `nativeCopy` identifies server-side or
+ * host-native copy so the facade does not move bytes through JavaScript when
+ * the backend can copy them directly.
  */
 export const AdapterCapabilitiesSchema = z.object({
+  /** Adapter can materialize file bytes through `readFile()`. */
   read: z.boolean(),
+  /** Adapter can commit materialized file bytes through `writeFile()`. */
   write: z.boolean(),
+  /** Adapter can open a native/bounded provider stream without facade materialization. */
   streamRead: z.boolean(),
-  streamWrite: z.boolean(),
+  /** Write modes that `writeStream()` can perform without facade materialization. */
+  streamWriteModes: z.array(WriteModeSchema).readonly(),
+  /** Adapter can satisfy byte ranges without reading the complete file first. */
   rangeRead: z.boolean(),
+  /** Adapter can copy bytes without routing them through the filesystem facade. */
+  nativeCopy: z.boolean(),
+  /** Adapter can move/rename through one backend-native operation. */
   nativeMove: z.boolean(),
+  /** Adapter exposes a long-lived asynchronous positional writer. */
   positionalWrite: z.boolean(),
+  /** Adapter exposes a synchronous random-access file resource. */
   syncAccess: z.boolean(),
 });
 
@@ -143,15 +263,21 @@ export type RecordVersionType = z.output<typeof RecordVersionSchema>;
  * record or reconstructing parents from strings.
  */
 const RecordBaseSchema = z.object({
+  /** Persistence format version used to reject incompatible record layouts. */
   version: RecordVersionSchema,
+  /** Canonical virtual path and durable logical record identity. */
   path: PathSchema,
+  /** Canonical direct-parent path indexed by listing-oriented backends. */
   parent: PathSchema,
+  /** Final path segment presented by directory iteration. */
   name: z.string(),
+  /** Last modification time represented as Unix epoch milliseconds. */
   lastModified: z.number().int().nonnegative(),
 });
 
 /** Persisted directory record used by record-store adapters. */
 export const DirectoryRecordSchema = RecordBaseSchema.extend({
+  /** Discriminator that prevents a directory row from carrying file bytes. */
   kind: z.literal("directory"),
 });
 
@@ -160,9 +286,13 @@ export type DirectoryRecordType = z.output<typeof DirectoryRecordSchema>;
 
 /** Persisted file record used by record-store adapters. */
 export const FileRecordSchema = RecordBaseSchema.extend({
+  /** Discriminator that selects the file-record branch. */
   kind: z.literal("file"),
+  /** Base64 file body used by JSON/document/SQL-compatible record stores. */
   data: z.string(),
+  /** Decoded byte length retained without re-decoding `data` during stat calls. */
   size: z.number().int().nonnegative(),
+  /** Media type retained by backends that can preserve file metadata. */
   mediaType: z.string(),
 });
 

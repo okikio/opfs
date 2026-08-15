@@ -1,3 +1,6 @@
+import { LimitedBytesTransformStream } from "@std/streams/limited-bytes-transform-stream";
+import { toBytes as readStreamBytes } from "@std/streams/to-bytes";
+
 import { FileSystemError, throwIfAborted } from "./error.ts";
 
 /** Write input accepted by the high-level filesystem facade. */
@@ -32,29 +35,51 @@ export async function toBytes(
   return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
 }
 
-/** Converts any supported write value into a ReadableStream without eager copying. */
-export function toByteStream(data: WriteDataType): ReadableStream<Uint8Array> {
-  if (isReadableStream(data)) return data;
-  if (isAsyncIterable(data)) {
-    const iterator = data[Symbol.asyncIterator]();
-    return new ReadableStream<Uint8Array>({
-      async pull(controller) {
-        const next = await iterator.next();
-        if (next.done) controller.close();
-        else controller.enqueue(next.value);
-      },
-      async cancel() {
-        if (typeof iterator.return === "function") await iterator.return();
-      },
-    });
+/** Underlying source that exposes one async iterable as a Web byte stream. */
+class AsyncIterableByteSource implements UnderlyingDefaultSource<Uint8Array> {
+  /** Iterator whose lifetime follows the returned Web stream. */
+  readonly #iterator: AsyncIterator<Uint8Array>;
+
+  /** Acquires exactly one iterator from the caller-supplied iterable. */
+  constructor(source: AsyncIterable<Uint8Array>) {
+    this.#iterator = source[Symbol.asyncIterator]();
   }
 
-  return new ReadableStream<Uint8Array>({
-    async start(controller) {
-      controller.enqueue(await toBytes(data));
-      controller.close();
-    },
-  });
+  /** Pulls one item and closes the Web stream when the iterable reaches EOF. */
+  async pull(controller: ReadableStreamDefaultController<Uint8Array>): Promise<void> {
+    const next = await this.#iterator.next();
+    if (next.done) controller.close();
+    else controller.enqueue(next.value);
+  }
+
+  /** Propagates consumer cancellation to an iterable that supports `return()`. */
+  async cancel(): Promise<void> {
+    await this.#iterator.return?.();
+  }
+}
+
+/** Underlying source that materializes one non-stream write value exactly once. */
+class MaterializedByteSource implements UnderlyingDefaultSource<Uint8Array> {
+  /** Caller value converted only when the stream starts. */
+  readonly #data: Exclude<WriteDataType, ReadableStream<Uint8Array> | AsyncIterable<Uint8Array>>;
+
+  /** Retains the caller value without copying it before stream consumption. */
+  constructor(data: Exclude<WriteDataType, ReadableStream<Uint8Array> | AsyncIterable<Uint8Array>>) {
+    this.#data = data;
+  }
+
+  /** Converts the value, emits one chunk, and closes the stream. */
+  async start(controller: ReadableStreamDefaultController<Uint8Array>): Promise<void> {
+    controller.enqueue(await toBytes(this.#data));
+    controller.close();
+  }
+}
+
+/** Converts any supported write value into a Web byte stream without eager copying. */
+export function toByteStream(data: WriteDataType): ReadableStream<Uint8Array> {
+  if (isReadableStream(data)) return data;
+  if (isAsyncIterable(data)) return new ReadableStream(new AsyncIterableByteSource(data));
+  return new ReadableStream(new MaterializedByteSource(data));
 }
 
 /**
@@ -71,58 +96,118 @@ export async function collectBytes(
   operation: string,
   path: string,
 ): Promise<Uint8Array> {
-  const reader = source.getReader();
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  let completed = false;
+  if (!Number.isSafeInteger(limit) || limit < 0) {
+    throw new RangeError("Buffered byte limit must be a non-negative safe integer.");
+  }
+
+  const abortable = withAbortSignal(source, signal, path, operation);
+  const limited = abortable.pipeThrough(new LimitedBytesTransformStream(limit, { error: true }));
 
   try {
-    while (true) {
-      throwIfAborted(signal, operation, path);
-      const next = await reader.read();
-      if (next.done) {
-        completed = true;
-        break;
-      }
-      total += next.value.byteLength;
-      if (total > limit) {
-        throw new FileSystemError(
-          "too-large",
-          operation,
-          path,
-          [
-            `${operation} for '${path}' requires more than ${limit} buffered bytes.`,
-            "Select a streaming adapter or raise maxBufferedWriteBytes.",
-          ].join(" "),
-        );
-      }
-      chunks.push(next.value);
-    }
+    return await readStreamBytes(limited);
   } catch (error) {
-    try {
-      await reader.cancel(error);
-    } catch {
-      // The original read, size, or cancellation failure is more actionable.
-    }
-    throw error;
-  } finally {
-    if (!completed) {
-      try {
-        await reader.cancel();
-      } catch {
-        // The producer can already be closed after a failure.
-      }
-    }
-    reader.releaseLock();
+    if (!(error instanceof RangeError)) throw error;
+    throw new FileSystemError(
+      "too-large",
+      operation,
+      path,
+      [
+        `${operation} for '${path}' requires more than ${limit} buffered bytes.`,
+        "Select a streaming adapter or raise maxBufferedWriteBytes.",
+      ].join(" "),
+      error,
+    );
+  }
+}
+
+/**
+ * Underlying source that binds one open byte reader to an AbortSignal.
+ *
+ * The class owns only the reader lock. It does not own the original stream.
+ * Terminal close, consumer cancellation, producer failure, and signal abort all
+ * pass through {@link close} so the reader is canceled at most once and its
+ * lock is always released.
+ */
+class AbortByteSource implements UnderlyingDefaultSource<Uint8Array> {
+  /** Reader lock acquired from the caller's stream. */
+  readonly #reader: ReadableStreamDefaultReader<Uint8Array>;
+  /** Signal that can end the already-open stream. */
+  readonly #signal: AbortSignal;
+  /** Filesystem operation name retained for normalized cancellation errors. */
+  readonly #operation: string;
+  /** Canonical path retained for normalized cancellation errors. */
+  readonly #path: string;
+  /** Controller becomes available when the wrapper stream starts. */
+  #controller: ReadableStreamDefaultController<Uint8Array> | undefined;
+  /** Prevents duplicate reader cancellation and duplicate lock release. */
+  #closed = false;
+
+  /** Acquires the source reader immediately so no second consumer can race it. */
+  constructor(source: ReadableStream<Uint8Array>, signal: AbortSignal, operation: string, path: string) {
+    this.#reader = source.getReader();
+    this.#signal = signal;
+    this.#operation = operation;
+    this.#path = path;
   }
 
-  const output = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) {
-    output.set(chunk, offset);
-    offset += chunk.byteLength;
+  /** Registers cancellation before the wrapper begins pulling source bytes. */
+  start(controller: ReadableStreamDefaultController<Uint8Array>): void {
+    this.#controller = controller;
+    this.#signal.addEventListener("abort", this.#abort, { once: true });
+    if (this.#signal.aborted) this.#abort();
   }
-  return output;
+
+  /** Reads one source chunk and releases the reader as soon as EOF is observed. */
+  async pull(controller: ReadableStreamDefaultController<Uint8Array>): Promise<void> {
+    throwIfAborted(this.#signal, this.#operation, this.#path);
+    try {
+      const next = await this.#reader.read();
+      if (next.done) {
+        controller.close();
+        await this.close();
+      } else {
+        controller.enqueue(next.value);
+      }
+    } catch (error) {
+      controller.error(error);
+      await this.close(error);
+    }
+  }
+
+  /** Propagates consumer cancellation to the source producer. */
+  async cancel(reason: unknown): Promise<void> {
+    await this.close(reason);
+  }
+
+  /**
+   * Cancels the source reader once and releases its lock.
+   *
+   * `ReadableStreamDefaultReader.cancel()` is awaited so a native producer can
+   * finish its cancellation work before the wrapper reports cleanup complete.
+   */
+  async close(reason?: unknown): Promise<void> {
+    if (this.#closed) return;
+    this.#closed = true;
+    this.#signal.removeEventListener("abort", this.#abort);
+    try {
+      await this.#reader.cancel(reason);
+    } finally {
+      this.#reader.releaseLock();
+    }
+  }
+
+  /** Converts an AbortSignal into the package's stable filesystem failure. */
+  readonly #abort = (): void => {
+    const error = new FileSystemError(
+      "aborted",
+      this.#operation,
+      this.#path,
+      `${this.#operation} was aborted for '${this.#path}'.`,
+      this.#signal.reason,
+    );
+    this.#controller?.error(error);
+    void this.close(error);
+  };
 }
 
 /**
@@ -139,56 +224,5 @@ export function withAbortSignal(
   operation = "read",
 ): ReadableStream<Uint8Array> {
   if (signal === undefined) return source;
-  const reader = source.getReader();
-  let closed = false;
-  let controller: ReadableStreamDefaultController<Uint8Array> | undefined;
-
-  const closeReader = async (reason?: unknown): Promise<void> => {
-    if (closed) return;
-    closed = true;
-    signal.removeEventListener("abort", onAbort);
-    try {
-      await reader.cancel(reason);
-    } finally {
-      reader.releaseLock();
-    }
-  };
-
-  const onAbort = (): void => {
-    const error = new FileSystemError(
-      "aborted",
-      operation,
-      path,
-      `${operation} was aborted for '${path}'.`,
-      signal.reason,
-    );
-    controller?.error(error);
-    void closeReader(error);
-  };
-
-  return new ReadableStream<Uint8Array>({
-    start(value) {
-      controller = value;
-      signal.addEventListener("abort", onAbort, { once: true });
-      if (signal.aborted) onAbort();
-    },
-    async pull(value) {
-      throwIfAborted(signal, operation, path);
-      try {
-        const next = await reader.read();
-        if (next.done) {
-          value.close();
-          await closeReader();
-        } else {
-          value.enqueue(next.value);
-        }
-      } catch (error) {
-        value.error(error);
-        await closeReader(error);
-      }
-    },
-    async cancel(reason) {
-      await closeReader(reason);
-    },
-  });
+  return new ReadableStream(new AbortByteSource(source, signal, operation, path));
 }

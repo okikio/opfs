@@ -26,12 +26,25 @@ export interface CreateWritableOptionsType {
 /** Command accepted by {@link WritableFileStreamType.write}. */
 export type WriteCommandType =
   | {
-    readonly type: "write";
-    readonly position?: number;
-    readonly data: Exclude<WriteDataType, ReadableStream<Uint8Array> | AsyncIterable<Uint8Array>>;
-  }
-  | { readonly type: "seek"; readonly position: number }
-  | { readonly type: "truncate"; readonly size: number };
+      /** Selects a byte write command. */
+      readonly type: "write";
+      /** Optional explicit position. Omit it to use the staged stream cursor. */
+      readonly position?: number;
+      /** Materialized write input inserted at the selected position. */
+      readonly data: Exclude<WriteDataType, ReadableStream<Uint8Array> | AsyncIterable<Uint8Array>>;
+    }
+  | {
+      /** Selects a cursor movement without changing file bytes. */
+      readonly type: "seek";
+      /** New zero-based staged cursor position. */
+      readonly position: number;
+    }
+  | {
+      /** Selects a staged file-size change. */
+      readonly type: "truncate";
+      /** New non-negative staged file size. */
+      readonly size: number;
+    };
 
 /** Input accepted by OPFS-compatible writable handles. */
 export type WritableChunkType =
@@ -44,8 +57,7 @@ export interface HandleType {
   readonly kind: EntryKindType;
   /** Final entry name. Root uses an empty string. */
   readonly name: string;
-  /** Canonical path used by this library. Native FileSystemHandle does not expose this property. */
-  /** Canonical virtual path that identifies this facade entry. */
+  /** Canonical virtual path that identifies this facade entry. Native FileSystemHandle does not expose it. */
   readonly path: string;
   /** Returns true when both facades represent the same path in the same filesystem. */
   isSameEntry(other: HandleType): Promise<boolean>;
@@ -111,8 +123,7 @@ function writeAt(existing: Uint8Array, position: number, data: Uint8Array): Uint
 
 /** Mutable staged image used behind FileSystemWritableFileStream-like methods. */
 class WriteSession {
-  /** Filesystem that receives the staged image only after close commits. */
-  /** Filesystem instance that owns path resolution and persistence for this handle. */
+  /** Filesystem instance that owns path resolution and receives the staged image only after close commits. */
   readonly #fileSystem: FileSystemType;
   /** Canonical file path whose current bytes seeded this write session. */
   readonly #path: string;
@@ -123,6 +134,7 @@ class WriteSession {
   /** Prevents a second commit and rejects writes after close or abort. */
   #done = false;
 
+  /** Starts one in-memory staged image from the file snapshot visible when the session opens. */
   constructor(fileSystem: FileSystemType, path: string, bytes: Uint8Array) {
     this.#fileSystem = fileSystem;
     this.#path = path;
@@ -199,6 +211,7 @@ export class WritableFileStream extends WritableStream<WritableChunkType> {
   /** In-memory staged write state committed only when the writable stream closes. */
   readonly #session: WriteSession;
 
+  /** Wraps one staged session in the browser-compatible WritableStream contract. */
   constructor(session: WriteSession) {
     super({
       write: async (chunk) => await session.write(chunk),
@@ -232,7 +245,7 @@ export class WritableFileStream extends WritableStream<WritableChunkType> {
   }
 
   /** Commits staged bytes and closes the stream. */
-  async close(): Promise<void> {
+  override async close(): Promise<void> {
     if (this.locked) throw new TypeError("Writable file stream is locked by another writer.");
     const writer = this.getWriter();
     try {
@@ -260,6 +273,7 @@ abstract class BaseHandle implements HandleType {
   /** Filesystem instance that owns path resolution and persistence for this handle. */
   readonly #fileSystem: FileSystemType;
 
+  /** Binds one normalized virtual path to the filesystem instance that owns its identity. */
   constructor(fileSystem: FileSystemType, path: string) {
     this.#fileSystem = fileSystem;
     this.path = normalizePath(path);

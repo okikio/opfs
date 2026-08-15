@@ -10,7 +10,6 @@ import type { HeldLockType } from "./lock.ts";
  * adapter's native file lock and the facade mutation lock are both released.
  */
 export interface SyncFileType extends Disposable {
-  /** Canonical virtual path held by this resource. */
   /** Canonical virtual path whose mutation lock is owned by this resource. */
   readonly path: string;
   /** True after the underlying adapter file has been closed. */
@@ -40,6 +39,7 @@ export class ManagedSyncFile implements SyncFileType {
   /** Facade mutation lock held for exactly the same lifetime as `#file`. */
   readonly #lock: HeldLockType;
 
+  /** Takes ownership of the adapter file and matching facade lock as one lifetime. */
   constructor(path: string, file: AdapterSyncFileType, lock: HeldLockType) {
     this.path = path;
     this.#file = file;

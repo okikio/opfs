@@ -1,3 +1,5 @@
+/// <reference lib="deno.unstable" />
+
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 
@@ -36,22 +38,23 @@ class FakeDenoKv implements DenoKvType {
   partGets = 0;
   listMatches = 0;
 
-  async get<T = unknown>(key: readonly unknown[]): Promise<DenoKvEntryType<T>> {
+  async get<T = unknown>(key: Deno.KvKey): Promise<DenoKvEntryType<T>> {
     if (key[1] === "part") this.partGets += 1;
     const found = this.values.get(id(key));
     return { key, value: (found?.value as T | undefined) ?? null };
   }
 
-  async set(key: readonly unknown[], value: unknown): Promise<void> {
+  async set(key: Deno.KvKey, value: unknown): Promise<void> {
     if (size(value) > DENO_KV_MAX_VALUE_BYTES) throw new RangeError("Deno KV value exceeds 64 KiB");
     this.values.set(id(key), { key: [...key], value });
   }
 
-  async delete(key: readonly unknown[]): Promise<void> {
+  async delete(key: Deno.KvKey): Promise<void> {
     this.values.delete(id(key));
   }
 
-  async *list<T = unknown>(selector: { readonly prefix: readonly unknown[] }): AsyncIterable<DenoKvEntryType<T>> {
+  async *list<T = unknown>(selector: Deno.KvListSelector, _options?: Deno.KvListOptions): AsyncIterable<DenoKvEntryType<T>> {
+    if (!("prefix" in selector)) return;
     for (const entry of this.values.values()) {
       if (!starts(entry.key, selector.prefix)) continue;
       this.listMatches += 1;

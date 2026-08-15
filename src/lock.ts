@@ -16,7 +16,7 @@ interface LockCoordinatorType {
   acquire(name: string, mode: LockModeType, signal?: AbortSignal): Promise<HeldLockType>;
 }
 
-/** One local lock request waiting for grant or AbortSignal cancellation. */
+/** One local lock request waiting for grant or cancellation. */
 interface PendingLockType {
   /** Requested reader or writer mode. */
   mode: LockModeType;
@@ -24,9 +24,9 @@ interface PendingLockType {
   resolve: (lock: HeldLockType) => void;
   /** Rejects the waiting acquire call when cancellation removes it from the queue. */
   reject: (reason: FileSystemError) => void;
-  /** Optional cancellation signal retained only while this request is queued. */
+  /** Cancellation signal retained only while this request is queued. */
   signal?: AbortSignal;
-  /** Listener removed at grant time so completed locks do not retain queued cancellation state. */
+  /** Listener removed at grant time so granted locks retain no queued cancellation state. */
   onAbort?: () => void;
 }
 
@@ -44,11 +44,12 @@ interface LocalLockStateType {
  * Process-realm lock registry shared by every local coordinator instance.
  *
  * Sharing by lock name makes separately created filesystem facades coordinate
- * when they deliberately use the same `lockPrefix`. Empty states are removed.
+ * when they deliberately use the same `lockPrefix`. Empty states are removed
+ * so dynamic file paths cannot grow this registry without limit.
  */
 const localStates = new Map<string, LocalLockStateType>();
 
-/** Returns the existing local state or creates its empty reader/writer queue. */
+/** Returns the existing local state or creates an empty reader/writer queue. */
 function getState(name: string): LocalLockStateType {
   let state = localStates.get(name);
   if (state === undefined) {
@@ -58,7 +59,7 @@ function getState(name: string): LocalLockStateType {
   return state;
 }
 
-/** Converts lock cancellation into the package's stable aborted error. */
+/** Converts lock cancellation into the package's stable aborted failure. */
 function getAbortError(signal: AbortSignal): FileSystemError {
   return new FileSystemError("aborted", "lock", undefined, "Lock acquisition was aborted.", signal.reason);
 }
@@ -68,38 +69,92 @@ function canGrant(state: LocalLockStateType, mode: LockModeType): boolean {
   return mode === "exclusive" ? !state.writer && state.readers === 0 : !state.writer;
 }
 
-/** Deletes unused lock state so dynamic file paths do not grow the registry forever. */
+/** Deletes unused lock state after the final owner and waiter leave. */
 function removeEmptyState(name: string, state: LocalLockStateType): void {
   if (!state.writer && state.readers === 0 && state.queue.length === 0) localStates.delete(name);
 }
 
-/** Grants one queued request and binds idempotent release to the same state. */
+/** Idempotent ownership token for one granted in-realm reader or writer. */
+class LocalHeldLock implements HeldLockType {
+  /** Lock registry name whose state must be updated at release. */
+  readonly #name: string;
+  /** Shared mutable state that records readers, writer, and waiters. */
+  readonly #state: LocalLockStateType;
+  /** Mode granted to this owner. */
+  readonly #mode: LockModeType;
+  /** Prevents a repeated release from decrementing state twice. */
+  #released = false;
+
+  /** Records the exact state and mode whose ownership this token represents. */
+  constructor(name: string, state: LocalLockStateType, mode: LockModeType) {
+    this.#name = name;
+    this.#state = state;
+    this.#mode = mode;
+  }
+
+  /** Releases once, then drains FIFO waiters against the updated occupancy. */
+  release(): void {
+    if (this.#released) return;
+    this.#released = true;
+    if (this.#mode === "exclusive") this.#state.writer = false;
+    else this.#state.readers -= 1;
+    drain(this.#name, this.#state);
+    removeEmptyState(this.#name, this.#state);
+  }
+}
+
+/** Grants one queued request and transfers release ownership to its waiter. */
 function grant(name: string, state: LocalLockStateType, pending: PendingLockType): void {
   if (pending.signal !== undefined && pending.onAbort !== undefined) {
     pending.signal.removeEventListener("abort", pending.onAbort);
   }
   if (pending.mode === "exclusive") state.writer = true;
   else state.readers += 1;
+  pending.resolve(new LocalHeldLock(name, state, pending.mode));
+}
 
-  let released = false;
-  pending.resolve({
-    release() {
-      if (released) return;
-      released = true;
-      if (pending.mode === "exclusive") state.writer = false;
-      else state.readers -= 1;
-      drain(name, state);
-      removeEmptyState(name, state);
-    },
-  });
+/** Removes one still-pending request after its AbortSignal fires. */
+function cancelPending(
+  name: string,
+  state: LocalLockStateType,
+  pending: PendingLockType,
+  signal: AbortSignal,
+): void {
+  const index = state.queue.indexOf(pending);
+  if (index < 0) return;
+  state.queue.splice(index, 1);
+  pending.reject(getAbortError(signal));
+  drain(name, state);
+  removeEmptyState(name, state);
+}
+
+/** Creates, wires, and either grants or queues one local lock request. */
+function enqueuePending(
+  name: string,
+  state: LocalLockStateType,
+  mode: LockModeType,
+  signal: AbortSignal | undefined,
+  resolve: (lock: HeldLockType) => void,
+  reject: (reason: FileSystemError) => void,
+): void {
+  const pending: PendingLockType = { mode, resolve, reject };
+  if (signal !== undefined) {
+    pending.signal = signal;
+    pending.onAbort = () => cancelPending(name, state, pending, signal);
+    signal.addEventListener("abort", pending.onAbort, { once: true });
+  }
+
+  // New readers queue behind an exclusive waiter so a writer cannot starve.
+  if (state.queue.length === 0 && canGrant(state, mode)) grant(name, state, pending);
+  else state.queue.push(pending);
 }
 
 /**
  * Grants queued readers until an exclusive request reaches the head.
  *
- * This FIFO rule prevents a steady stream of new readers from starving a queued
- * writer. It also makes abort removal deterministic because queue order remains
- * the only authority for pending requests.
+ * FIFO order prevents a steady stream of readers from starving a queued writer.
+ * It also makes cancellation deterministic because queue order remains the only
+ * authority for requests that do not yet own the lock.
  */
 function drain(name: string, state: LocalLockStateType): void {
   if (state.writer || state.queue.length === 0) return;
@@ -124,38 +179,20 @@ function drain(name: string, state: LocalLockStateType): void {
 /** In-realm FIFO reader/writer coordinator used when Web Locks are unavailable. */
 class LocalLockCoordinator implements LockCoordinatorType {
   /**
-   * Acquires one process-realm FIFO reader/writer lock.
+   * Acquires one in-realm FIFO reader/writer lock.
    *
-   * New readers do not bypass an already queued writer, which prevents writer
-   * starvation. Aborted queued requests are removed before the queue drains.
+   * New readers do not bypass an already queued writer. Aborted queued requests
+   * are removed before the queue drains, while an already granted owner retains
+   * the lock until its explicit release.
    */
   async acquire(name: string, mode: LockModeType, signal?: AbortSignal): Promise<HeldLockType> {
     if (signal?.aborted) throw getAbortError(signal);
     const state = getState(name);
-
-    return await new Promise<HeldLockType>((resolve, reject) => {
-      const pending: PendingLockType = { mode, resolve, reject };
-      if (signal !== undefined) {
-        pending.signal = signal;
-        pending.onAbort = () => {
-          const index = state.queue.indexOf(pending);
-          if (index < 0) return;
-          state.queue.splice(index, 1);
-          reject(getAbortError(signal));
-          drain(name, state);
-          removeEmptyState(name, state);
-        };
-        signal.addEventListener("abort", pending.onAbort, { once: true });
-      }
-
-      // New readers queue behind an exclusive waiter so a writer cannot starve.
-      if (state.queue.length === 0 && canGrant(state, mode)) grant(name, state, pending);
-      else state.queue.push(pending);
-    });
+    return await new Promise((resolve, reject) => enqueuePending(name, state, mode, signal, resolve, reject));
   }
 }
 
-/** Structural Web Locks subset kept independent of browser-specific declaration versions. */
+/** Structural Web Locks subset kept independent of browser declaration versions. */
 interface WebLocksType {
   /** Holds a browser Web Lock until the callback promise settles. */
   request<T>(
@@ -165,10 +202,34 @@ interface WebLocksType {
   ): Promise<T>;
 }
 
-/** Resolves navigator.locks lazily so server imports stay side-effect free. */
+/** Resolves `navigator.locks` lazily so server imports stay side-effect free. */
 function getWebLocks(): WebLocksType | undefined {
   const navigatorValue = Reflect.get(globalThis, "navigator") as { locks?: WebLocksType } | undefined;
   return navigatorValue?.locks;
+}
+
+/** Ownership token that releases a held Web Lock by settling its hold promise. */
+class WebHeldLock implements HeldLockType {
+  /** Resolves the promise awaited by the Web Locks callback. */
+  readonly #releaseRequest: () => void;
+  /** Browser request promise observed after release for late failures. */
+  readonly #request: Promise<void>;
+  /** Prevents repeated release from resolving the hold more than once. */
+  #released = false;
+
+  /** Captures the hold resolver and browser request that share one lifetime. */
+  constructor(releaseRequest: () => void, request: Promise<void>) {
+    this.#releaseRequest = releaseRequest;
+    this.#request = request;
+  }
+
+  /** Releases exactly once and consumes any later Web Locks request rejection. */
+  release(): void {
+    if (this.#released) return;
+    this.#released = true;
+    this.#releaseRequest();
+    void this.#request.catch(() => undefined);
+  }
 }
 
 /** Cross-tab/worker coordinator backed by the browser Web Locks API. */
@@ -176,50 +237,70 @@ class WebLockCoordinator implements LockCoordinatorType {
   /** Web Locks manager supplied by the current browser realm. */
   readonly #locks: WebLocksType;
 
+  /** Borrows the realm's Web Locks manager without changing its lifecycle. */
   constructor(locks: WebLocksType) {
     this.#locks = locks;
   }
 
   /**
-   * Acquires one process-realm FIFO reader/writer lock.
+   * Acquires one browser-managed shared or exclusive lock.
    *
-   * New readers do not bypass an already queued writer, which prevents writer
-   * starvation. Aborted queued requests are removed before the queue drains.
+   * The request callback waits on an explicit hold promise. The returned token
+   * resolves that promise, which makes the Web Locks API release ownership.
    */
   async acquire(name: string, mode: LockModeType, signal?: AbortSignal): Promise<HeldLockType> {
     throwIfAborted(signal, "lock");
 
-    let markAcquired: (() => void) | undefined;
-    const acquired = new Promise<void>((resolve) => { markAcquired = resolve; });
-    let releaseRequest: (() => void) | undefined;
-    const hold = new Promise<void>((resolve) => { releaseRequest = resolve; });
+    const acquired = Promise.withResolvers<void>();
+    const hold = Promise.withResolvers<void>();
     const options: { mode: LockModeType; signal?: AbortSignal } = { mode };
     if (signal !== undefined) options.signal = signal;
 
     const request = this.#locks.request(name, options, async () => {
-      markAcquired?.();
-      await hold;
+      acquired.resolve();
+      await hold.promise;
     });
-    await Promise.race([acquired, request]);
-
-    let released = false;
-    return {
-      release() {
-        if (released) return;
-        released = true;
-        releaseRequest?.();
-        void request.catch(() => undefined);
-      },
-    };
+    await Promise.race([acquired.promise, request]);
+    return new WebHeldLock(hold.resolve, request);
   }
+}
+
+/** No-op ownership token used only when coordination is explicitly disabled. */
+class NoopHeldLock implements HeldLockType {
+  /** No resource exists to release in `none` coordination mode. */
+  release(): void {}
 }
 
 /** Coordination mode that preserves cancellation checks but acquires no lock. */
 class NoopLockCoordinator implements LockCoordinatorType {
-  /** Returns an immediately released ownership token after preserving cancellation checks. */
+  /** Returns a no-op token after preserving the ordinary acquisition abort check. */
   async acquire(_name: string, _mode: LockModeType, signal?: AbortSignal): Promise<HeldLockType> {
     throwIfAborted(signal, "lock");
-    return { release() {} };
+    return new NoopHeldLock();
+  }
+}
+
+/** Lock token that owns a file path lock and its shared tree lock together. */
+class FileHeldLock implements HeldLockType {
+  /** Exclusive file lock released before tree ownership. */
+  readonly #file: HeldLockType;
+  /** Shared tree lock released after the file lock. */
+  readonly #tree: HeldLockType;
+  /** Prevents repeated release from forwarding twice. */
+  #released = false;
+
+  /** Takes ownership of both locks acquired for one file mutation. */
+  constructor(file: HeldLockType, tree: HeldLockType) {
+    this.#file = file;
+    this.#tree = tree;
+  }
+
+  /** Releases file ownership first, then the shared structural gate. */
+  release(): void {
+    if (this.#released) return;
+    this.#released = true;
+    this.#file.release();
+    this.#tree.release();
   }
 }
 
@@ -228,7 +309,7 @@ class NoopLockCoordinator implements LockCoordinatorType {
  *
  * File operations take a shared tree gate plus an exclusive path lock. Tree
  * mutations take the tree gate exclusively. This permits independent file
- * writes while preventing recursive remove/copy/move from racing those writes.
+ * writes while preventing recursive remove, copy, or move from racing them.
  */
 export class MutationLocks {
   /** Selected coordination backend for every lock name created by this facade. */
@@ -238,6 +319,7 @@ export class MutationLocks {
   /** Namespace used to derive stable file-lock names across cooperating facade instances. */
   readonly #prefix: string;
 
+  /** Selects no-op, in-realm, Web Locks, or automatic coordination once. */
   constructor(mode: CoordinationModeType, prefix: string) {
     this.#prefix = prefix;
     this.#treeName = `${prefix}:tree`;
@@ -260,20 +342,12 @@ export class MutationLocks {
     }
   }
 
-  /** Acquires the lock set used by one file mutation. */
+  /** Acquires the shared tree gate plus exclusive lock for one canonical file path. */
   async acquireFile(path: string, signal?: AbortSignal): Promise<HeldLockType> {
     const tree = await this.#coordinator.acquire(this.#treeName, "shared", signal);
     try {
       const file = await this.#coordinator.acquire(`${this.#prefix}:file:${path}`, "exclusive", signal);
-      let released = false;
-      return {
-        release() {
-          if (released) return;
-          released = true;
-          file.release();
-          tree.release();
-        },
-      };
+      return new FileHeldLock(file, tree);
     } catch (error) {
       tree.release();
       throw error;

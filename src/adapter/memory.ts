@@ -1,5 +1,6 @@
 import type { AdapterType } from "./definition.ts";
 import { createRecordAdapter, type RecordStoreType } from "./record.ts";
+import type { PathType } from "../path.ts";
 import type { RecordType } from "../schema.ts";
 
 /** In-memory record store useful for tests, demos, and temporary data. */
@@ -11,11 +12,52 @@ export interface MemoryRecordStoreType extends RecordStoreType {
 }
 
 /**
- * Creates a deterministic in-memory record store.
+ * Deterministic process-local record store.
  *
- * The returned store owns one Map and has no external resources. Records are
- * cloned on read and write so tests cannot mutate persistence by retaining an
- * object reference. The store is process-local and disappears with the realm.
+ * The store clones records on both write and read. A test that retains and
+ * mutates an object reference therefore cannot mutate persistence without a
+ * `set()` call. The class owns only its Map and has no disposal lifecycle.
+ */
+class MemoryRecordStore implements MemoryRecordStoreType {
+  /** Durable state for the lifetime of this JavaScript realm/store instance. */
+  readonly #records = new Map<string, RecordType>();
+
+  /** Number of explicit file/directory records. Root remains implicit. */
+  get size(): number {
+    return this.#records.size;
+  }
+
+  /** Removes every explicit record. */
+  clear(): void {
+    this.#records.clear();
+  }
+
+  /** Returns a cloned record so callers cannot mutate stored state by reference. */
+  async get(path: PathType): Promise<RecordType | null> {
+    const record = this.#records.get(path);
+    return record === undefined ? null : structuredClone(record);
+  }
+
+  /** Replaces one record with an owned clone. */
+  async set(record: RecordType): Promise<void> {
+    this.#records.set(record.path, structuredClone(record));
+  }
+
+  /** Removes one exact record. */
+  async delete(path: PathType): Promise<void> {
+    this.#records.delete(path);
+  }
+
+  /** Lazily yields cloned direct children. */
+  async *list(parent: PathType): AsyncIterableIterator<RecordType> {
+    for (const record of this.#records.values()) {
+      if (record.parent === parent) yield structuredClone(record);
+    }
+  }
+}
+
+/**
+ * Creates a deterministic in-memory record store.
  *
  * @example Inspect records while testing a record-store wrapper.
  * ```ts
@@ -26,19 +68,7 @@ export interface MemoryRecordStoreType extends RecordStoreType {
  * ```
  */
 export function createMemoryRecordStore(): MemoryRecordStoreType {
-  const records = new Map<string, RecordType>();
-  return {
-    get size() { return records.size; },
-    clear() { records.clear(); },
-    async get(path) { return records.get(path) ?? null; },
-    async set(record) { records.set(record.path, structuredClone(record)); },
-    async delete(path) { records.delete(path); },
-    async *list(parent) {
-      for (const record of records.values()) {
-        if (record.parent === parent) yield structuredClone(record);
-      }
-    },
-  };
+  return new MemoryRecordStore();
 }
 
 /**

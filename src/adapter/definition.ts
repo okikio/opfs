@@ -1,5 +1,14 @@
-import { AdapterCapabilitiesSchema, AdapterNameSchema } from "../schema.ts";
-import type { AdapterCapabilitiesType, CoordinationModeType, EntryKindType, WriteModeType } from "../schema.ts";
+import { AdapterCapabilitiesSchema, AdapterLimitsSchema, AdapterNameSchema, AdapterPartitionSchema } from "../schema.ts";
+import type {
+  AdapterCapabilitiesType,
+  AdapterLimitsType,
+  AdapterPartitionType,
+  CoordinationModeType,
+  EntryKindType,
+  MetricsModeType,
+  OptimizationType,
+  WriteModeType,
+} from "../schema.ts";
 import type { PathType } from "../path.ts";
 
 /** Options shared by adapter operations that can stop early. */
@@ -26,6 +35,12 @@ export interface AdapterWriteOptionsType extends AdapterSignalOptionsType {
   readonly truncate?: boolean;
   /** Media type to retain when the adapter stores metadata. */
   readonly mediaType?: string;
+}
+
+/** Options for an adapter-native copy. */
+export interface AdapterCopyOptionsType extends AdapterSignalOptionsType {
+  /** Replaces an existing destination when the backend operation supports it. */
+  readonly overwrite: boolean;
 }
 
 /** Options for an adapter-native move. */
@@ -128,6 +143,10 @@ export interface AdapterType {
   readonly name: string;
   /** Native operations available without facade emulation. */
   readonly capabilities: AdapterCapabilitiesType;
+  /** Portable hard limits known for this configured backend. Missing values mean unknown, not unlimited. */
+  readonly limits?: AdapterLimitsType;
+  /** Physical partition layout when this adapter can split one logical value across provider records. */
+  readonly partition?: AdapterPartitionType;
 
   /** Returns portable metadata, or `null` when the path does not exist. */
   stat(path: PathType, options?: AdapterSignalOptionsType): Promise<AdapterStatType | null>;
@@ -144,8 +163,10 @@ export interface AdapterType {
 
   /** Opens a native streaming read when `capabilities.streamRead` is true. */
   openReadStream?(path: PathType, options?: AdapterReadOptionsType): Promise<ReadableStream<Uint8Array>>;
-  /** Commits a stream without facade materialization when `capabilities.streamWrite` is true. */
+  /** Commits a stream without facade materialization for a mode listed in `streamWriteModes`. */
   writeStream?(path: PathType, source: ReadableStream<Uint8Array>, options: AdapterWriteOptionsType): Promise<void>;
+  /** Copies one file without routing its bytes through the facade. */
+  copy?(source: PathType, destination: PathType, options: AdapterCopyOptionsType): Promise<void>;
   /** Performs an adapter-native move when `capabilities.nativeMove` is true. */
   move?(source: PathType, destination: PathType, options: AdapterMoveOptionsType): Promise<void>;
   /** Opens long-lived asynchronous positional writes when `capabilities.positionalWrite` is true. */
@@ -169,6 +190,15 @@ export interface FileSystemOptionsType {
    * a higher value only when the selected record/database backend can accept it.
    */
   readonly maxBufferedWriteBytes?: number;
+  /**
+   * Performance routes that may be bypassed for differential testing or policy.
+   *
+   * Every omitted field defaults to true. Turning off native move is observable
+   * because the safe fallback is copy then remove and is therefore not atomic.
+   */
+  readonly optimizations?: Partial<OptimizationType>;
+  /** Metrics detail. Defaults to `basic`; use `none` for the lowest benchmark overhead. */
+  readonly metrics?: MetricsModeType;
   /** Closes the adapter when the filesystem facade is disposed. */
   readonly disposeAdapter?: boolean;
 }
@@ -178,7 +208,10 @@ export interface FileSystemOptionsType {
  *
  * The function performs no registration and no import-time mutation. It exists
  * to make custom adapter exports self-documenting while preserving the concrete
- * adapter type.
+ * adapter type. It also verifies required primitive methods and rejects any
+ * enabled optional capability whose corresponding method is absent. A method
+ * may still exist while its capability is false so a configured adapter can
+ * deliberately disable that route without changing its class shape.
  *
  * @example Define the minimum materialized adapter contract.
  * ```ts
@@ -188,8 +221,9 @@ export interface FileSystemOptionsType {
  *     read: true,
  *     write: true,
  *     streamRead: false,
- *     streamWrite: false,
+ *     streamWriteModes: [],
  *     rangeRead: false,
+ *     nativeCopy: false,
  *     nativeMove: false,
  *     positionalWrite: false,
  *     syncAccess: false,
@@ -204,7 +238,38 @@ export interface FileSystemOptionsType {
  * ```
  */
 export function defineAdapter<T extends AdapterType>(adapter: T): T {
-  AdapterNameSchema.parse(adapter.name);
-  AdapterCapabilitiesSchema.parse(adapter.capabilities);
+  try {
+    AdapterNameSchema.parse(adapter.name);
+    AdapterCapabilitiesSchema.parse(adapter.capabilities);
+    if (adapter.limits !== undefined) AdapterLimitsSchema.parse(adapter.limits);
+    if (adapter.partition !== undefined) AdapterPartitionSchema.parse(adapter.partition);
+
+    for (const name of ["stat", "readFile", "writeFile", "readDir", "createDir", "remove"] as const) {
+      if (typeof adapter[name] !== "function") {
+        throw new TypeError(`Adapter '${adapter.name}' is missing required method '${name}'.`);
+      }
+    }
+
+    const pairs = [
+      ["streamRead", adapter.capabilities.streamRead, adapter.openReadStream !== undefined],
+      ["nativeCopy", adapter.capabilities.nativeCopy, adapter.copy !== undefined],
+      ["nativeMove", adapter.capabilities.nativeMove, adapter.move !== undefined],
+      ["positionalWrite", adapter.capabilities.positionalWrite, adapter.openWritableFile !== undefined],
+      ["syncAccess", adapter.capabilities.syncAccess, adapter.openSyncFile !== undefined],
+    ] as const;
+    for (const [name, capability, method] of pairs) {
+      if (capability && !method) {
+        throw new TypeError(`Adapter '${adapter.name}' capability '${name}' does not match its implementation method.`);
+      }
+    }
+    if (adapter.capabilities.streamWriteModes.length > 0 && adapter.writeStream === undefined) {
+      throw new TypeError(
+        `Adapter '${adapter.name}' streamWriteModes do not match its writeStream implementation.`,
+      );
+    }
+  } catch (error) {
+    if (error instanceof TypeError) throw error;
+    throw new TypeError(error instanceof Error ? error.message : String(error));
+  }
   return adapter;
 }

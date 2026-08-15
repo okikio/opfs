@@ -33,11 +33,16 @@ export interface WritableFileType {
 
 /** Owns one adapter writable file for the same lifetime as one facade lock. */
 export class ManagedWritableFile implements WritableFileType {
+  /** Canonical virtual path whose exclusive mutation ownership lasts until settlement. */
   readonly path: string;
+  /** Adapter positional file. `undefined` is the sole terminal-state marker. */
   #file: AdapterWritableFileType | undefined;
+  /** Facade mutation lock released exactly when the adapter file settles. */
   readonly #lock: HeldLockType;
+  /** Optional operation signal checked before and after mutable backend work. */
   readonly #signal: AbortSignal | undefined;
 
+  /** Takes ownership of one adapter positional file and its matching facade lock. */
   constructor(
     path: string,
     file: AdapterWritableFileType,
@@ -50,6 +55,7 @@ export class ManagedWritableFile implements WritableFileType {
     this.#signal = signal;
   }
 
+  /** Reports terminal state from the adapter-resource marker without duplicating lifecycle state. */
   get closed(): boolean {
     return this.#file === undefined;
   }
@@ -68,6 +74,7 @@ export class ManagedWritableFile implements WritableFileType {
     return this.#file;
   }
 
+  /** Writes one complete byte view at an explicit position and rejects partial facade semantics. */
   async write(buffer: ArrayBufferView, options: { readonly at: number }): Promise<void> {
     if (!Number.isSafeInteger(options.at) || options.at < 0) {
       throw new RangeError("write position must be a non-negative safe integer.");
@@ -80,6 +87,7 @@ export class ManagedWritableFile implements WritableFileType {
     }
   }
 
+  /** Changes file length while preserving the same adapter resource and mutation lock. */
   async truncate(size: number): Promise<void> {
     if (!Number.isSafeInteger(size) || size < 0) {
       throw new RangeError("truncate size must be a non-negative safe integer.");
@@ -92,6 +100,7 @@ export class ManagedWritableFile implements WritableFileType {
     }
   }
 
+  /** Requests backend durability without ending positional-write ownership. */
   async flush(): Promise<void> {
     try {
       await this.#getFile("positional-flush").flush();
