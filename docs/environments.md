@@ -1,33 +1,33 @@
 Execution environments
 ======================
 
-`@okikio/opfs` separates the frontend filesystem model from backend availability. This lets the same core APIs compile in Window, WebWorker, Deno, Bun, and Node TypeScript targets while concrete adapters stay on explicit runtime subpaths.
+`@okikio/opfs` keeps the filesystem frontend separate from backend availability. The same core source can compile for Window,
+workers, Deno, Bun, and Node while runtime-specific adapters remain on explicit subpaths.
 
-Browser OPFS
-------------
+The package does not maintain a browser-brand or runtime-brand behavior table. It asks the current realm or adapter what it can
+actually do and preserves the resulting capability/failure information.
 
-The native OPFS adapter requires `navigator.storage.getDirectory()`.
+Browser OPFS follows the storage key of the current realm
+---------------------------------------------------------
 
-The package does not select behavior from a browser brand table. It probes the APIs the current realm exposes and preserves native failures when the browser denies storage.
+Native browser OPFS requires `navigator.storage.getDirectory()`.
 
-### Window
-
-Use the full async facade.
+In Window, use the asynchronous facade:
 
 ```ts
 const fileSystem = await openFileSystem();
 await fileSystem.writeFile("/state.json", "{}", { parents: true });
 ```
 
-Do not assume `createSyncAccessHandle()` is available in Window. The sync API is capability-gated.
+Do not assume synchronous access from Window. `openSyncFile()` succeeds only when the actual native file handle exposes the sync
+handle API and the adapter reports that capability.
 
-### DedicatedWorker
-
-The async facade works when OPFS is exposed. A DedicatedWorker is also the intended browser context for synchronous access handles in the File System standard.
+DedicatedWorker is the important worker case because browsers commonly expose synchronous OPFS access there. The library still
+probes the handle instead of saying "DedicatedWorker means sync":
 
 ```ts
 const capabilities = await probeOpfs();
-if (capabilities.syncAccessExposed) {
+if (capabilities.syncAccessHandleExposed) {
   const file = await fileSystem.openSyncFile("/database.sqlite", {
     create: true,
     parents: true,
@@ -40,138 +40,139 @@ if (capabilities.syncAccessExposed) {
 }
 ```
 
-### SharedWorker
-
-Use the async facade. Do not infer synchronous access only from the fact that code is running in a worker. The package checks the actual handle method.
-
-### ServiceWorker
-
-Use async filesystem methods and keep event lifetime explicit.
+SharedWorker and ServiceWorker use the same asynchronous filesystem APIs when storage is exposed. A ServiceWorker must keep the
+browser event alive itself. The filesystem cannot call `event.waitUntil()` on behalf of the application.
 
 ```ts
 self.addEventListener("message", (event) => {
-  const operation = (async () => {
-    const fileSystem = await openFileSystem();
-    await fileSystem.writeFile("/events/latest.json", "{}", {
-      parents: true,
-    });
-  })();
-
-  event.waitUntil(operation);
+  event.waitUntil(saveMessage(event.data));
 });
 ```
 
-The filesystem cannot extend a service-worker event lifetime on its own.
+Iframes need policy-aware tests, not a blanket promise
+-----------------------------------------------------
 
-Iframes
--------
+A same-origin iframe normally observes storage under the same applicable storage key as its embedding context.
 
-### Same-origin iframe
+A third-party iframe can be partitioned by browser privacy/storage policy. The package does not try to escape that policy
+implicitly. The optional iframe API is separate because requesting unpartitioned storage, where the browser supports it, belongs
+inside an explicit user-activation and permission flow.
 
-Normal `openFileSystem()` opens the storage associated with the iframe's current storage key.
-
-### Third-party iframe
-
-Browser storage partitioning can give a third-party iframe storage isolated by the embedding site. Normal `openFileSystem()` deliberately does not attempt to escape that policy.
-
-For browsers that support the Storage Access API extension for OPFS, the separate iframe module can request unpartitioned access:
-
-```ts
-import {
-  requestUnpartitionedFileSystem,
-  supportsUnpartitionedOpfsRequest,
-} from "@okikio/opfs/iframe";
-```
-
-The application must make the request from the appropriate user-activation/permission flow. The package never does it automatically.
-
-### Opaque sandbox
-
-A sandboxed iframe without a usable origin can reject storage access. Treat `probeOpfs().rootAvailable` and the returned root error as the source of truth for that context.
-
-Private browsing
-----------------
-
-Private/incognito modes can change storage quota, persistence, availability, or lifetime. The package does not fingerprint the browsing mode.
-
-The decision flow is:
+An opaque sandbox can reject storage because it has no usable origin. `probeOpfs()` returns the actual root result and normalized
+failure instead of inferring the outcome from the sandbox flag alone.
 
 ```text
-probe actual capability
-        |
-        +-- root available -> use selected OPFS strategy
-        |
-        +-- root unavailable -> inspect normalized error
-                                choose application fallback
+iframe starts
+    |
+    v
+probe actual storage API
+    |
+    +-- root opens ------> use selected strategy
+    |
+    `-- root rejected ---> preserve normalized reason -> application fallback
 ```
 
-This is more reliable than inferring behavior from a browser/private-mode label.
+Private browsing, packaged `file:` pages, enterprise browser policy, quota, and persistence can also change availability or
+lifetime. The package deliberately does not fingerprint private mode or promise OPFS on `file:` URLs. Probe the realm you are
+actually running in.
 
-`file:` documents
------------------
+Playwright tests the browser contexts directly
+----------------------------------------------
 
-Current browser behavior for OPFS in `file:` documents is not fully interoperable. The WHATWG File System issue tracker contains an active request to specify this case more clearly.
+The canonical browser suite uses Playwright Test projects for Chromium, Firefox, and WebKit. The test matrix exercises:
 
-Do not promise OPFS availability for a packaged `file:` application. Probe the actual context.
+| Context or behavior | Chromium | Firefox | WebKit |
+| --- | ---: | ---: | ---: |
+| Window async OPFS | probe + execute | probe + execute | probe + execute |
+| DedicatedWorker async | probe + execute | probe + execute | probe + execute |
+| DedicatedWorker sync handle | probe + open | probe + open | probe + open |
+| SharedWorker | probe + execute | probe + execute | probe + execute |
+| ServiceWorker | black-box + instrumentation | black-box | black-box |
+| same-origin iframe | probe + execute | probe + execute | probe + execute |
+| cross-origin iframe | observe policy result | observe policy result | observe policy result |
+| opaque sandbox | observe policy result | observe policy result | observe policy result |
+| fresh context isolation | execute | execute | execute |
+| persistent profile reopen | execute | execute | execute |
+| abort before commit | execute | execute | execute |
+| localStorage / IndexedDB / Cache adapters | execute | execute | execute |
 
-Web Locks
----------
+Playwright's deeper ServiceWorker inspection is Chromium-specific, so only that instrumentation is browser-specific. The actual
+ServiceWorker OPFS behavior stays a black-box page-to-worker message test in every browser that exposes the API.
 
-When `coordination: "auto"`, the facade uses Web Locks if `navigator.locks` is available. This can coordinate cooperating tabs and workers that share the same origin and lock names.
+Deno keeps the same library contracts with runtime-specific capabilities
+------------------------------------------------------------------------
 
-If Web Locks are unavailable, `auto` falls back to one-realm FIFO locks. That fallback cannot coordinate another tab, worker realm, or OS process.
+Use `@okikio/opfs/adapter/deno` for a host directory. The runtime needs the filesystem permissions required by the configured
+root. The adapter does not request permissions or inspect environment variables itself.
 
-Deno
-----
-
-Use `@okikio/opfs/adapter/deno`.
+Deno KV is a separate adapter because it is a record store, not a host filesystem:
 
 ```ts
-const fileSystem = createFileSystem(
-  createDenoAdapter({ root: "./data" }),
-  { coordination: "local" },
-);
+import { createFileSystem } from "@okikio/opfs";
+import { createDenoKvAdapter } from "@okikio/opfs/adapter/deno-kv";
+
+const kv = await Deno.openKv("./data.kv");
+const fileSystem = createFileSystem(createDenoKvAdapter(kv));
 ```
 
-The runtime needs filesystem permissions appropriate for the configured root. The adapter does not request broader permissions or inspect environment variables itself.
+Current Deno documentation still marks KV as unstable. Real Deno KV tests therefore use `--unstable-kv`. The production adapter
+accepts a structural KV contract, so simply importing the module does not require a global `Deno` object.
 
-Native move and sync random access are available through Deno filesystem APIs.
+Deno KV also has a much smaller physical value limit than an ordinary filesystem file. The adapter exposes that limit and a
+partition policy through `inspect()`. With the default `partition: "auto"`, small materialized files stay inline while large
+files and unknown-size replacement streams use a manifest plus raw byte parts. Callers that need a one-record layout can set
+`partition: "never"`; the adapter then stops advertising its partitioned replacement-stream lane and large values fail
+explicitly instead of changing layout.
 
-Bun
----
+Node and Bun use explicit host adapters
+---------------------------------------
 
-Use `@okikio/opfs/adapter/bun`.
+The Node adapter uses `node:fs` and `node:fs/promises`. It supports native streaming reads and writes, ranges, copy, rename,
+synchronous random access, and flush. The configured host root is the only host directory intentionally exposed through the
+virtual path namespace.
 
-The adapter uses Bun's file primitives where they provide a clear benefit and Bun's Node-compatible filesystem surface for directory/update/sync operations.
+The Bun adapter uses Bun file APIs for the direct byte path and Bun's Node-compatible filesystem APIs for directory, update,
+copy/move, and synchronous host-file behavior. The same public tests import `node:test`; Bun currently supports the in-process
+`node:test` API when those files are run with `bun test`.
 
-The root entrypoint never imports the Bun adapter, so browser code does not evaluate Bun-specific code accidentally.
+The Bun benchmark keeps two raw file-copy baselines: Node-compatible `copyFile()` and `Bun.write(destination, Bun.file(source))`.
+The second path lets Bun select its file-backed Blob fast path. A Bun-only provider benchmark also compares Bun's native
+`S3Client` with the AWS SDK baseline, this package's direct SigV4 client, the object adapter, and the filesystem facade. These
+measurements are evidence for route selection; they do not make runtime brand part of the portable API contract.
 
-Node
-----
+Electron can use the Node adapter in a trusted main-process layer. The OPFS-shaped API is not a reason to expose an arbitrary host
+root directly to untrusted renderer content. Use an application-specific IPC/service contract or browser OPFS where that matches
+the trust model.
 
-Use `@okikio/opfs/adapter/node`.
+Object clients are runtime-neutral Web clients, but deployment policy still matters
+-----------------------------------------------------------------------------------
 
-The adapter uses `node:fs` and `node:fs/promises`. It supports streaming, range reads, rename, synchronous random access, and flush.
+The S3 and Azure clients use Web Fetch, Web Crypto where signing is required, Web Streams, AbortSignal, and focused `@std/*`
+packages for concurrency, byte assembly, stream limits, path mapping, and XML. They are
+therefore usable across Deno, Bun, Node, browsers, and workers that expose those Web APIs.
 
-The configured host root is the only directory intentionally exposed through the virtual namespace.
+That does not make every deployment equally appropriate.
 
-Electron
---------
+A browser calling S3 directly needs CORS rules that permit the required methods and headers. More importantly, long-lived cloud
+storage secrets should not be shipped to untrusted browser code. Use short-lived scoped credentials or a trusted server design.
 
-The Node adapter is suitable for a trusted Electron main-process filesystem layer. Do not expose arbitrary host roots directly to untrusted renderer content merely because the frontend API resembles OPFS.
+The same applies to Azure. SAS tokens and bearer tokens should be scoped to the actual client threat model. The library accepts a
+refresh function so a long-lived process does not have to freeze one credential at client creation.
 
-A renderer can instead communicate with a controlled main-process service or use browser OPFS where that matches the application model.
+Provider endpoints can also have runtime-specific network rules. A Cloudflare Worker, browser extension, serverless host, or
+corporate browser policy can allow or reject different origins. Those network policies are outside the filesystem abstraction.
 
-Record/database backends
-------------------------
+Coordination scope is part of the execution environment
+-------------------------------------------------------
 
-RxDB, unstorage, db0, and Drizzle integrations work in any runtime where the injected upstream resource works and where the package's core Web APIs (`ReadableStream`, `Blob`, `File`, `TextEncoder`, AbortSignal) are available.
+`web-locks` can coordinate cooperating browser realms that share the relevant Web Locks namespace. `local` only coordinates one
+JavaScript realm. Separate OS processes and hosts need backend-level coordination where same-path atomicity matters.
 
-Their filesystem file bodies are record-backed, so stream writes are bounded-buffer operations rather than native streaming.
+Database/object adapters can use provider transactions, ETags, versions, advisory locks, or leases where the provider exposes
+them. The facade does not pretend an in-memory lock became distributed merely because the persisted bytes live on a remote
+service.
 
-Server coordination
--------------------
 
-`coordination: "local"` coordinates only within one JavaScript realm. It does not serialize writes across separate Node/Deno/Bun processes or separate hosts.
-
-Database-backed applications that need cross-process same-path atomicity must use backend-level transactions, leases, advisory locks, or another coordination mechanism suitable for that provider.
+Provider protocol details are kept in [S3 client protocol](./s3.md), [Azure Blob client protocol](./azure.md), and the
+[provider integration test guide](./providers.md). Shared Key is intended for trusted server/Azurite contexts because it exposes
+the Azure storage account key to the runtime.

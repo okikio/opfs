@@ -1,129 +1,67 @@
 @okikio/opfs
 ============
 
-`@okikio/opfs` gives application code one filesystem programming model across browser OPFS, Deno, Bun, Node, key-value stores, document databases, and SQL databases.
+`@okikio/opfs` is an OPFS-shaped filesystem programming model that can sit on top of browser OPFS, host filesystems,
+object stores, key-value stores, browser storage, document databases, and SQL databases.
 
-The frontend can use either path-based filesystem methods or OPFS-shaped file and directory handles. The backend is selected with an adapter.
+The public filesystem owns the semantics that application code should not have to rebuild: canonical virtual paths,
+OPFS-shaped handles, recursive copy and move, cancellation, staged writable files, bounded stream fallbacks, coordination,
+normalized failures, and resource ownership. An adapter translates those operations into one concrete backend.
 
 ```text
-application code
-      |
-      |  path API                           handle API
-      |  readFile('/a.txt')                 root.getFileHandle('a.txt')
-      |  writeFile('/a.txt', bytes)         file.createWritable()
-      +-------------------+-------------------------+
-                          |
-                          v
-                  FileSystemType
-                          |
-                          v
-                     AdapterType
-                          |
-       +------------------+-------------------+
-       |                  |                   |
-       v                  v                   v
- native filesystem     RecordStoreType     custom adapter
-       |                  |
-       |        +---------+---------+---------+
-       |        |         |         |         |
-       v        v         v         v         v
- OPFS/Deno/  unstorage   RxDB      db0     Drizzle
- Bun/Node
+application
+    |
+    +-- path API -------------------+
+    |   readFile / writeFile        |
+    |   copy / move / walk          |
+    |                               v
+    +-- OPFS-shaped handles --> FileSystemType
+                                    |
+                          canonical adapter operations
+                                    |
+              +---------------------+---------------------+
+              |                     |                     |
+              v                     v                     v
+         native files          record stores         object stores
+      OPFS / Node / Deno       KV / DB rows         S3 / Azure Blob
+            / Bun                  |
+                                   +-- localStorage
+                                   +-- IndexedDB
+                                   +-- Cache Storage
+                                   +-- Deno KV
+                                   +-- unstorage
+                                   +-- RxDB
+                                   +-- db0 / SQLite
+                                   `-- Drizzle
 ```
 
-This means OPFS-style application code does not have to know whether the bytes are in the browser's Origin Private File System, a server directory, an unstorage mount, an RxDB collection, a db0 database, or a Drizzle table.
+The reverse direction is useful too. `@okikio/opfs/driver/kv` exposes any `FileSystemType` as a small hierarchical key-value
+store, and `@okikio/opfs/driver/unstorage` adapts that view to unstorage. This means an application can give unstorage an OPFS,
+Node, Deno, Bun, S3, Azure Blob, IndexedDB, Deno KV, SQLite, or another custom OPFS backend without a second provider matrix.
 
-The reverse direction is also supported. `@okikio/opfs/driver/unstorage` exposes any `FileSystemType` as an unstorage driver. An application can therefore mount an OPFS, Deno, Bun, Node, RxDB, db0, or Drizzle-backed filesystem inside unstorage.
+Install and start with the backend you actually own
+----------------------------------------------------
 
-Why the adapter is the important abstraction
---------------------------------------------
-
-The browser File System API is a useful frontend contract, but OPFS is only one persistence system. A library that hard-codes `navigator.storage.getDirectory()` cannot reuse that filesystem code on a server or over a database.
-
-This package separates the two responsibilities:
-
-- `FileSystemType` owns virtual paths, OPFS-shaped handles, recursive operations, cancellation, coordination, errors, and resource lifecycle.
-- `AdapterType` owns the smallest backend primitive set needed to persist files and directories.
-- `RecordStoreType` maps the filesystem primitives onto value, document, or SQL records when a backend is not naturally file-based.
-
-The separation is deliberate. It keeps backend-specific behavior out of application code without pretending that every backend has the same performance or durability characteristics.
-
-Pre-release use
----------------
-
-This source tree is being prepared for JSR and npm publication. Until the package is published, consume it through the workspace or another explicit local source reference instead of assuming the registry entry exists. After release, the intended imports are:
+Deno and JSR can import the package directly:
 
 ```ts
-import { createFileSystem, openFileSystem } from "jsr:@okikio/opfs";
-```
-
-and the intended npm-compatible install is `npm install @okikio/opfs`. Release validation must prove both registry artifacts before these forms are treated as available.
-
-Drizzle integration also needs the optional peer dependency:
-
-```sh
-npm install drizzle-orm
-```
-
-The root module is browser-safe and does not import Node, Bun, Deno, RxDB, unstorage, db0, or Drizzle at import time. Runtime-specific integrations live on explicit subpaths.
-
-Use native browser OPFS
------------------------
-
-`openFileSystem()` is the shortest path when the browser's OPFS is the intended backend.
-
-```ts
-import { openFileSystem } from "@okikio/opfs";
+import { openFileSystem } from "jsr:@okikio/opfs";
 
 const fileSystem = await openFileSystem();
-
-await fileSystem.writeFile(
-  "/projects/kaiju/settings.json",
-  JSON.stringify({ capture: true }),
-  { parents: true },
-);
-
-const settings = JSON.parse(
-  await fileSystem.readText("/projects/kaiju/settings.json"),
-);
-```
-
-`openFileSystem()` is equivalent to opening the native OPFS root, creating the OPFS adapter, and passing it to `createFileSystem()`.
-
-```ts
-import { createFileSystem } from "@okikio/opfs";
-import { createOpfsAdapter } from "@okikio/opfs/adapter/opfs";
-
-const root = await navigator.storage.getDirectory();
-const fileSystem = createFileSystem(createOpfsAdapter(root));
-```
-
-Use one long-lived positional file
------------------------------------
-
-Media muxers and database engines can rewrite earlier byte ranges while output is still open. Use `openWritableFile()` for that access pattern instead of issuing one `writeFile(update)` operation per chunk.
-
-```ts
-const file = await fileSystem.openWritableFile("/output.mp4", {
-  create: true,
-  parents: true,
-});
-
 try {
-  await file.write(header, { at: 0 });
-  await file.write(mediaChunk, { at: offset });
-  await file.flush();
-  await file.close();
-} catch (error) {
-  await file.abort(error);
-  throw error;
+  await fileSystem.writeFile("/state/app.json", "{}", { parents: true });
+} finally {
+  await fileSystem.close();
 }
 ```
 
-The OPFS, Node, Deno, and Bun adapters advertise this capability. Record-backed adapters such as memory, unstorage, RxDB, db0, and Drizzle do not. They remain appropriate for small records and ordinary bounded writes, but the facade will not disguise repeated record replacement as a native positional-file resource.
+npm-compatible runtimes use the same TypeScript API:
 
-Use OPFS-shaped handles over Node
----------------------------------
+```sh
+npm install @okikio/opfs
+```
+
+Server code selects a concrete adapter instead of importing a different filesystem API:
 
 ```ts
 import { createFileSystem } from "@okikio/opfs";
@@ -133,284 +71,253 @@ const fileSystem = createFileSystem(
   createNodeAdapter({ root: "./data" }),
   { coordination: "local" },
 );
-
-const projects = await fileSystem.root.getDirectoryHandle("projects", {
-  create: true,
-});
-const file = await projects.getFileHandle("state.json", { create: true });
-const writable = await file.createWritable();
-
-await writable.write(JSON.stringify({ ready: true }));
-await writable.close();
 ```
 
-The application uses a File System API-shaped frontend. The bytes are written with Node filesystem APIs below `./data`.
+The root entrypoint is intentionally import-safe in browsers, workers, Deno, Bun, and Node. Runtime-specific dependencies stay
+on explicit subpaths. Importing `@okikio/opfs` does not import `node:fs`, inspect environment variables, connect to databases,
+or configure application logging.
 
-Deno and Bun use the same frontend:
+The first-party backend set is deliberately broad, but the layers stay small:
+
+| Subpath | Backend or role | Important behavior |
+| --- | --- | --- |
+| `adapter/opfs` | native browser OPFS | native handles, streams, sync access when exposed |
+| `adapter/node` | `node:fs` | streams, ranges, copy/rename, sync random access |
+| `adapter/deno` | Deno filesystem | streams, ranges, copy/rename, sync random access |
+| `adapter/bun` | Bun + Node-compatible fs | Bun read/write fast paths plus host filesystem operations |
+| `adapter/memory` | in-memory records | deterministic tests and temporary state |
+| `adapter/record` | `RecordStoreType` | common translation for value/document/SQL stores |
+| `adapter/object` | `ObjectStoreType` | common translation for object stores without hiding object semantics |
+| `adapter/s3` | `S3ClientType` | direct S3/S3-compatible storage, no AWS SDK |
+| `adapter/azure` | `AzureClientType` | direct Azure Blob REST storage, no Azure SDK |
+| `adapter/localstorage` | Web Storage | synchronous string store translated through records |
+| `adapter/indexeddb` | IndexedDB | indexed record persistence with caller-controlled database ownership |
+| `adapter/cache` | Cache Storage | record persistence in an injected Cache |
+| `adapter/deno-kv` | Deno KV | record persistence over a caller-owned KV database |
+| `adapter/sqlite` | connected SQLite | focused SQLite view over the same SQL record contract as db0 |
+| `adapter/unstorage` | unstorage `Storage` | forward bridge above the selected unstorage driver |
+| `adapter/rxdb` | RxDB collection | forward bridge above the selected RxStorage |
+| `adapter/db0` | db0 `Database` | SQL bridge across db0 dialects/connectors |
+| `adapter/drizzle` | Drizzle database + table | caller-owned schema and common CRUD bridge |
+| `driver/kv` | reverse key-value view | collision-safe key hierarchy over any filesystem |
+| `driver/unstorage` | reverse unstorage driver | lets unstorage consume any `FileSystemType` |
+
+Drizzle is an optional peer dependency because the integration is only loaded through its explicit subpath.
+
+Object storage is not flattened into a fake local disk
+-------------------------------------------------------
+
+S3 and Azure Blob can both back the filesystem facade, but they remain object stores underneath. That distinction affects
+performance and correctness.
+
+A complete replacement can stream to multipart/block upload. Append and update cannot normally mutate object bytes in place,
+so the object adapter performs a read-modify-write operation. When the provider exposes conditional writes, the previous ETag
+is used as an optimistic precondition so a concurrent writer fails rather than being silently overwritten.
+
+Native copy is also a separate capability. The filesystem asks the adapter to copy before it opens a source stream, so
+provider-side copy stays inside S3/Azure instead of becoming an accidental download and re-upload.
+
+```text
+filesystem.copy()
+      |
+      +-- nativeCopy ----> provider/server-side copy
+      |
+      `-- fallback ------> source stream -> bounded transfer -> destination
+```
+
+The direct S3 client implements Signature Version 4, range reads, ListObjectsV2, multipart upload, conditional completion,
+CopyObject, and multipart UploadPartCopy for objects above CopyObject's 5 GB source limit. It also checks S3's unusual
+success-with-error-body responses for copy and multipart completion.
 
 ```ts
 import { createFileSystem } from "@okikio/opfs";
-import { createDenoAdapter } from "@okikio/opfs/adapter/deno";
-// or: import { createBunAdapter } from "@okikio/opfs/adapter/bun";
+import { createS3Adapter } from "@okikio/opfs/adapter/s3";
+import { createS3Client } from "@okikio/opfs/s3";
 
-const fileSystem = createFileSystem(
-  createDenoAdapter({ root: "./data" }),
-  { coordination: "local" },
-);
-```
-
-Use unstorage as the backend
-----------------------------
-
-The adapter receives an already-created high-level unstorage `Storage` object. It therefore works above the individual unstorage driver choice.
-
-```ts
-import { createStorage } from "unstorage";
-import memoryDriver from "unstorage/drivers/memory";
-import { createFileSystem } from "@okikio/opfs";
-import { createUnstorageAdapter } from "@okikio/opfs/adapter/unstorage";
-
-const storage = createStorage({ driver: memoryDriver() });
-const fileSystem = createFileSystem(createUnstorageAdapter(storage));
-
-await fileSystem.writeFile("/cache/report.json", "{}", { parents: true });
-```
-
-The same bridge can sit above compatible unstorage fs, Redis, S3, MongoDB, IndexedDB, Cloudflare, Vercel, db0, Deno KV, and other current unstorage drivers. Some upstream drivers are read-only. Use `{ readOnly: true }` when mutations cannot be supported.
-
-Use RxDB as the backend
------------------------
-
-The RxDB integration targets an `RxCollection`, not one particular `RxStorage`. Create one collection from the exported schema and then use whichever RxStorage configuration is appropriate for that database.
-
-```ts
-import { createFileSystem } from "@okikio/opfs";
-import {
-  createRxDbAdapter,
-  RxDbRecordJsonSchema,
-} from "@okikio/opfs/adapter/rxdb";
-
-const database = await createRxDatabase({
-  name: "app",
-  storage: selectedRxStorage,
+const client = createS3Client({
+  endpoint: "https://s3.us-east-1.amazonaws.com",
+  bucket: "my-bucket",
+  region: "us-east-1",
+  credentials: { accessKeyId, secretAccessKey },
 });
 
-await database.addCollections({
-  files: { schema: RxDbRecordJsonSchema },
-});
-
-const fileSystem = createFileSystem(
-  createRxDbAdapter(database.files),
-  { coordination: "local" },
-);
+const fileSystem = createFileSystem(createS3Adapter(client));
 ```
 
-This design preserves RxDB's own storage-engine abstraction. It does not clone each RxStorage implementation into this package.
+S3 compatibility is a protocol family, not one identical product. The client therefore accepts endpoint, region, addressing,
+headers, and capability overrides. For example, an S3-compatible service that does not support multipart preconditions should
+set `conditionalWrite: false` instead of pretending the safety property exists. `client.request()` remains available for S3
+features that do not belong in the portable filesystem contract.
 
-Use db0 as the backend
-----------------------
+Azure uses its own REST model instead of being forced through an S3 abstraction. It supports SAS, Microsoft Entra bearer
+tokens, Shared Key, and caller-defined authorization headers. Large server-side copies use Put Block From URL after Azure's
+smaller synchronous Copy Blob From URL path is no longer sufficient.
 
-`createDb0Adapter()` targets db0's high-level `Database` contract. It selects portable SQL for the database's reported `sqlite`, `libsql`, `postgresql`, or `mysql` dialect.
+The protocol clients are documented separately because their wire contracts are larger than the filesystem adapter surface:
+
+- [S3 client protocol](./docs/s3.md) covers SigV4, request canonicalization, multipart upload/copy, conditions, limits, errors,
+  compatibility controls, and known non-goals.
+- [Azure Blob client protocol](./docs/azure.md) covers REST versions, SAS/bearer/Shared Key authorization, block upload/copy,
+  conditions, limits, errors, and Azurite behavior.
+- [Provider integration tests](./docs/providers.md) explains the Docker-backed SeaweedFS and Azurite test matrix and what those
+  emulators can and cannot prove.
+
+The facade makes capability, limits, routing, and cost inspectable
+----------------------------------------------------------------
+
+`AdapterCapabilitiesType` describes immediate adapter behavior. `FileSystemType.inspect()` describes the configured stack after
+facade fallbacks and optimization policy are applied. This distinction lets callers ask whether a route is `native`, `emulated`,
+`partitioned`, or `unsupported` without guessing from the adapter name.
 
 ```ts
-import { createFileSystem } from "@okikio/opfs";
-import { createDb0Adapter } from "@okikio/opfs/adapter/db0";
-
-const adapter = await createDb0Adapter(database, {
-  table: "opfs_entries",
-  initialize: true,
-});
-
 const fileSystem = createFileSystem(adapter, {
-  coordination: "local",
+  maxBufferedWriteBytes: 32 * 1024 * 1024,
+  metrics: "basic",
+  optimizations: {
+    nativeCopy: false,
+  },
 });
+
+console.log(fileSystem.inspect());
+console.log(fileSystem.plan({
+  operation: "write",
+  source: "stream",
+  mode: "replace",
+  size: 512 * 1024 * 1024,
+}));
 ```
 
-The table uses a SHA-256 path identifier as its primary key and stores the canonical path separately. This avoids requiring an arbitrary-length text primary key on MySQL while preserving the original virtual path.
+`inspect()` includes native capabilities, effective support, hard limits known by the adapter, partition layout, resolved
+optimization controls, the facade buffer ceiling, and a detached metrics snapshot. `plan()` is deterministic and does no I/O.
+When size is known it can reject a request before work begins, show expected facade materialization, or explain the physical
+part count selected by a partitioned adapter. Unknown provider limits remain unknown rather than being invented.
 
-Use Drizzle as the backend
---------------------------
+Write planning separates the resulting logical file from the bytes supplied by the current call. `size` checks logical
+file/partition limits. `inputBytes` checks whether a non-native input stream fits under `maxBufferedWriteBytes`. Replace usually
+needs only `size`; append/update should provide both values when they are known.
 
-Drizzle deliberately keeps database dialects and schemas explicit. The package therefore does not invent one universal Drizzle table definition. The caller supplies a connected database and a dialect-correct table with the required columns.
+Optimizations that select a materially different route are independently disableable: native stream read/write, direct range
+read, native/server-side copy, and native move. The fallback is used only when it can preserve the portable filesystem contract.
+For example, disabling provider-side copy can force bytes through this process and cannot reproduce provider-private control-plane
+metadata such as every ACL, tag, lock policy, or checksum policy. Portable file bytes and `mediaType` are preserved.
+
+`metrics: "none"` removes facade counter updates for baseline benchmarks. `basic` counts operations, bytes, failures, route
+selection, and peak facade materialization. `timing` adds monotonic durations. The direct S3 and Azure clients expose separate HTTP
+request/retry metrics so protocol overhead and facade overhead can be measured independently.
+
+Large values are a backend capability, not a promise that every value store is unlimited. `adapter/deno-kv` is the first record
+backend with a physical partition layout. Small files stay inline; large files use raw binary parts and a manifest-last commit.
+Metadata lookup, directory listing, byte ranges, and stream reads do not reconstruct the complete logical file. The partition
+policy is `never | auto | always`, so applications that do not want a changed durable layout can disable it explicitly.
+Materialized append/update writes also build a new generation part-by-part, so the existing logical file is not joined into one
+large base64 record before a small patch can be applied.
+
+`streamWriteModes` remains mode-specific. A simple record adapter can have no native stream lane, while Deno KV can advertise a
+partitioned replacement stream and an object store can advertise native replacement streaming. Append and update can still be
+emulated or unsupported independently. Deno KV's materialized append/update lane is direct, but streamed append/update remains
+emulated because the incoming stream must first fit under the facade buffer ceiling.
+
+Bridges make both integration directions explicit
+-------------------------------------------------
+
+Adapters remain `ecosystem -> OPFS`. Drivers remain `OPFS -> ecosystem`. A bridge groups both directions and records an explicit
+reason when one direction cannot honestly exist.
 
 ```ts
-import { sqliteTable, integer, text } from "drizzle-orm/sqlite-core";
-import { createFileSystem } from "@okikio/opfs";
-import { createDrizzleAdapter } from "@okikio/opfs/adapter/drizzle";
+import { UnstorageBridge, RxDbBridge } from "@okikio/opfs/bridge";
 
-const files = sqliteTable("opfs_entries", {
-  path: text("path").primaryKey(),
-  parent: text("parent").notNull(),
-  name: text("name").notNull(),
-  kind: text("kind").notNull(),
-  data: text("data"),
-  size: integer("size").notNull(),
-  lastModified: integer("lastModified").notNull(),
-  mediaType: text("mediaType"),
-});
+console.log(UnstorageBridge.directions);
+// { toOpfs: { supported: true }, fromOpfs: { supported: true } }
 
-const fileSystem = createFileSystem(
-  createDrizzleAdapter({ database, table: files }),
-  { coordination: "local" },
-);
+console.log(RxDbBridge.directions.fromOpfs);
+// unsupported: a filesystem is not an RxStorage query/conflict/change-stream engine
 ```
 
-`path` must be unique. The current bridge replaces a record with delete-then-insert so it can stay on Drizzle's common CRUD surface. That replacement is serialized by this library inside one JavaScript realm. If multiple server processes can write the same path, the application must add database-level serialization or a transaction appropriate for its dialect.
+The included bridge descriptors cover unstorage, RxDB, db0, Drizzle, and the generic reverse key-value view. Reverse KV and
+unstorage drivers also expose the backing filesystem's `inspect()`, `plan()`, and `getMetrics()` methods so capability, size,
+partition, optimization, and instrumentation decisions remain visible after the direction changes. Third parties can
+use `defineBridge()` without a global registry. An unsupported direction must include a reason, which prevents a bridge from
+silently pretending that asynchronous filesystem behavior can provide an unrelated synchronous or query-oriented contract.
 
-Expose a filesystem as an unstorage driver
+Use schemas directly
+--------------------
+
+Project-owned structural data is defined by Zod schemas and inferred TypeScript types. Schema constants end in `Schema`, and
+project-owned serializable types normally end in `Type`.
+
+```ts
+import { PathSchema, type PathType } from "@okikio/opfs/schema";
+
+const path: PathType = PathSchema.parse("/cache/result.bin");
+```
+
+Zod 4 schemas implement Standard Schema, so consumers that accept Standard Schema can use these exported schemas directly. The
+package does not maintain a parallel wrapper layer that could drift from the executable Zod contract.
+
+Test the semantics where they actually run
 ------------------------------------------
 
-This is the reverse adapter direction.
+Portable filesystem contracts use `node:test` and `@std/expect`. Deno runs the same portable test source, Node runs the same
+source, and Bun runs the same `node:test` API through its compatibility layer. Runtime-specific suites then prove the real host
+filesystem adapters.
 
-```ts
-import { createStorage } from "unstorage";
-import { createFileSystem } from "@okikio/opfs";
-import { createNodeAdapter } from "@okikio/opfs/adapter/node";
-import { createUnstorageDriver } from "@okikio/opfs/driver/unstorage";
+Playwright Test owns the browser matrix. The same tests run in Chromium, Firefox, and WebKit and exercise Window OPFS,
+DedicatedWorker, SharedWorker, ServiceWorker, same-origin and cross-origin iframes, opaque sandbox behavior, fresh-context
+isolation, persistent-profile reopen, cancellation, and browser storage adapters. Tests probe capabilities instead of selecting
+behavior from browser names.
 
-const fileSystem = createFileSystem(
-  createNodeAdapter({ root: "./data" }),
-);
-
-const storage = createStorage({
-  driver: createUnstorageDriver(fileSystem),
-});
-
-await storage.setItem("cache:result", { ready: true });
-```
-
-The driver reversibly maps unstorage's `:` key hierarchy to private virtual directories. Each logical key owns a dedicated `value` file inside its encoded key directory. This lets `foo` and `foo:bar` coexist even though a normal filesystem cannot make one path both a file and a directory. Characters such as `%`, `~`, `/`, spaces, and `?` are encoded so distinct keys do not collapse onto one filesystem entry.
-
-Streaming and record-backed adapters
-------------------------------------
-
-Native filesystem adapters can stream without materializing the complete file:
-
-| Adapter | stream read | stream write | range read | native move | sync random access |
-| --- | --- | --- | --- | --- | --- |
-| OPFS | yes | yes | yes | no portable native rename | DedicatedWorker when exposed |
-| Deno | yes | yes | yes | yes | yes |
-| Bun | yes | yes | yes | yes | yes |
-| Node | yes | yes | yes | yes | yes |
-| memory / record store | facade fallback | buffered | yes | no | no |
-| unstorage | facade fallback | buffered | yes | no | no |
-| RxDB | facade fallback | buffered | yes | no | no |
-| db0 | facade fallback | buffered | yes | no | no |
-| Drizzle | facade fallback | buffered | yes | no | no |
-
-Record-backed adapters use one validated record per file or directory. File data is base64 text. This is intentionally portable across JSON/document/SQL stores, but it increases byte storage by roughly one third before provider overhead.
-
-A streamed write to a non-streaming adapter is buffered by the facade. The default limit is 64 MiB:
-
-```ts
-const fileSystem = createFileSystem(adapter, {
-  maxBufferedWriteBytes: 16 * 1024 * 1024,
-});
-```
-
-If the stream crosses that limit, the producer is cancelled and the write fails with `FileSystemError` code `too-large`. The package does not silently consume unbounded memory.
-
-Paths and filesystem behavior
------------------------------
-
-All backends receive the same canonical virtual paths:
+Mitata benchmarks compare three layers where possible:
 
 ```text
-input:   projects/./kaiju/../state.json
-result:  /projects/state.json
+raw backend API
+      |
+      v
+adapter primitive
+      |
+      v
+FileSystemType facade
+      |
+      +-- coordination: none
+      `-- coordination: local
 ```
 
-The virtual root is `/`. Paths cannot escape above it. Backslashes and NUL characters are rejected so host-specific path rules do not leak into adapter behavior.
+Browser benchmarks compare raw native APIs, direct adapters, and the facade for OPFS, localStorage, IndexedDB, and Cache
+Storage in Chromium, Firefox, and WebKit. Node, Deno, and Bun benchmarks compare their raw filesystem APIs with direct adapters and the facade. Bun additionally compares
+Node-compatible `copyFile` with `Bun.write(destination, Bun.file(source))` rather than assuming one host copy path is faster.
+Deno KV and SQLite have the same raw-to-adapter-to-facade measurements.
 
-`readDir()` and `walk()` are lazy async iterators. Recursive copy and directory clearing use bounded concurrency. Copy and move reject overlapping source and destination trees before an overwrite can destroy source data.
+Provider benchmarks use the same local provider fixture but keep each layer separate: official AWS/Azure SDK baseline, direct
+protocol client, direct object adapter, facade with metrics disabled, and facade with basic metrics. A Bun-native S3 run compares
+Bun's Rust-backed `S3Client` against the same project layers. Multipart/block cases are separate from single-request writes so a
+different request plan is never presented as abstraction overhead.
 
-When an adapter advertises `nativeMove`, the facade uses it. Otherwise `move()` is copy-then-remove and is explicitly non-atomic.
+With the pinned mise toolchain:
 
-Coordination and ownership
---------------------------
-
-The default coordination mode is `auto`:
-
-```text
-file mutation
-    |
-    +-- shared tree lock
-    +-- exclusive path lock
-
-structural mutation
-    |
-    +-- exclusive tree lock
+```sh
+mise install
+mise run check
+mise run test
+mise run bench
+mise run test-browser
+mise run bench-browser
+mise run bench-providers
 ```
 
-`auto` uses Web Locks when available and otherwise falls back to one-realm FIFO locks. `web-locks` requires Web Locks. `local` forces the one-realm implementation. `none` means another subsystem owns coordination.
+GitHub Actions uses the same tool declarations and mise tasks. The workflow installs mise once per job, asks mise to install
+only the runtimes that job needs, and then calls `mise run ...`. Runtime matrix jobs override one configured version with
+`MISE_<TOOL>_VERSION`; the Node matrix uses this to test Node 22, 24, and 26 without introducing a second tool-version
+source. Third-party actions are pinned to immutable commit SHAs, and the mise binary version is pinned separately.
 
-Synchronous file resources keep the facade path lock for the full native file lifetime. Closing the sync file releases both the native resource and the facade lock.
+The focused Deno tasks are documented in [docs/validation.md](./docs/validation.md).
 
-Injected adapters, databases, collections, and storage objects are borrowed by default. Ownership changes only when an option explicitly says so, such as `disposeAdapter`, `disposeStorage`, `disposeDatabase`, or `disposeFileSystem`.
+Read the rest by the question you have
+--------------------------------------
 
-Errors
-------
-
-Public operations use `FileSystemError` with a stable `code`, `operation`, optional `path`, and original `cause`.
-
-```text
-unavailable
-not-found
-already-exists
-type-mismatch
-invalid-path
-invalid-operation
-not-supported
-locked
-quota-exceeded
-permission-denied
-aborted
-too-large
-unknown
-```
-
-The error mapper understands browser exception names and Node-style error codes such as `ENOENT` and `EEXIST`.
-
-Browser execution contexts
---------------------------
-
-Native OPFS support is capability-based, not browser-name-based. `probeOpfs()` reports what the current context can actually do. It does not attempt to classify private/incognito mode.
-
-The async OPFS adapter is usable where the browser exposes `navigator.storage.getDirectory()`. Synchronous OPFS access is only used when the current file handle exposes `createSyncAccessHandle()`.
-
-Third-party iframe storage is opened normally through the iframe's current storage key. A separate `@okikio/opfs/iframe` entrypoint exposes the explicit Storage Access API request for browsers that support unpartitioned OPFS access. The package never requests that permission automatically.
-
-Service-worker code must still attach filesystem work to `event.waitUntil()` because storage I/O does not extend the service-worker event lifetime by itself.
-
-Public entrypoints
-------------------
-
-```text
-@okikio/opfs
-@okikio/opfs/adapter
-@okikio/opfs/adapter/opfs
-@okikio/opfs/adapter/memory
-@okikio/opfs/adapter/deno
-@okikio/opfs/adapter/node
-@okikio/opfs/adapter/bun
-@okikio/opfs/adapter/record
-@okikio/opfs/adapter/unstorage
-@okikio/opfs/adapter/rxdb
-@okikio/opfs/adapter/db0
-@okikio/opfs/adapter/drizzle
-@okikio/opfs/driver/unstorage
-@okikio/opfs/iframe
-@okikio/opfs/path
-@okikio/opfs/schema
-```
-
-Read next
----------
-
-- [`docs/api.md`](docs/api.md) explains every public API family and resource contract.
-- [`docs/design.md`](docs/design.md) explains the adapter architecture, invariants, record model, coordination, and failure semantics.
-- [`docs/adapters.md`](docs/adapters.md) is the implementation guide for native, record, and custom adapters.
-- [`docs/ecosystems.md`](docs/ecosystems.md) explains RxDB, unstorage, db0, Drizzle, and their upstream integration points.
-- [`docs/environments.md`](docs/environments.md) covers browser contexts plus Deno, Bun, and Node.
-- [`docs/validation.md`](docs/validation.md) records what is tested, how it is tested, and what this host cannot verify.
-- [`docs/sources.md`](docs/sources.md) records the standards, upstream source, Kaiju, Mediad, and research inputs used for this design.
+- [Public API](./docs/api.md) explains the developer-facing filesystem and handle contracts.
+- [Adapters](./docs/adapters.md) explains every first-party backend and the contracts for custom storage.
+- [Architecture](./docs/design.md) explains invariants, streaming, copy/move, locks, ownership, and failure behavior.
+- [Ecosystems](./docs/ecosystems.md) explains unstorage, RxDB, db0, Drizzle, S3-compatible services, and reverse drivers.
+- [Environments](./docs/environments.md) explains Window, workers, iframes, Deno, Bun, Node, and provider clients.
+- [Validation](./docs/validation.md) defines the canonical test and benchmark matrix.
+- [Sources](./docs/sources.md) records the standards and upstream contracts that the implementation follows.
+- [Releasing](./docs/releasing.md) explains JSR/npm packaging and release checks.

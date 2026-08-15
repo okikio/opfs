@@ -27,6 +27,8 @@ const fileSystem = createFileSystem(adapter, {
   coordination: "auto",
   lockPrefix: "my-app:filesystem",
   maxBufferedWriteBytes: 64 * 1024 * 1024,
+  metrics: "basic",
+  optimizations: { nativeCopy: true },
   disposeAdapter: false,
 });
 ```
@@ -35,10 +37,67 @@ const fileSystem = createFileSystem(adapter, {
 
 - `coordination`: `auto`, `web-locks`, `local`, or `none`.
 - `lockPrefix`: stable lock namespace used for cooperating filesystem facades.
-- `maxBufferedWriteBytes`: maximum stream size materialized for non-streaming adapters.
+- `maxBufferedWriteBytes`: maximum stream/file size the facade may materialize for a fallback route.
+- `metrics`: `none`, `basic`, or `timing`. `none` is intended for baseline overhead measurements.
+- `optimizations`: partial override for `streamRead`, `streamWrite`, `rangeRead`, `nativeCopy`, and `nativeMove`. Every route defaults to enabled.
 - `disposeAdapter`: transfers adapter disposal ownership to the facade when true.
 
 `coordination` is runtime-validated by `CoordinationModeSchema`.
+
+
+Inspect and plan before I/O
+---------------------------
+
+### `inspect()`
+
+Returns a synchronous `InspectionType` for the configured filesystem stack. It contains:
+
+```text
+adapter
+native capabilities
+effective support
+known hard limits
+optional partition layout
+resolved optimization policy
+maxBufferedWriteBytes
+metrics mode and current metrics snapshot
+```
+
+Effective support uses `native | emulated | partitioned | unsupported`. Native capability flags never include facade emulation.
+This makes a caller able to distinguish a fast provider range read from a full-read-and-slice fallback, or a Deno KV partitioned
+stream from a complete-record materialization.
+
+### `plan(input)`
+
+Creates a deterministic `PlanType` without touching the backend. Supported operations are `read`, `write`, `copy`, and `move`.
+For writes, `size` is the resulting logical file size and is used for `maxFileBytes` and partition-count checks. `inputBytes` is
+the number of bytes supplied by the current write and is used for facade stream-buffer admission. For replace, omitted
+`inputBytes` falls back to `size` because those values are normally equal. Append/update callers should provide both when known.
+
+```ts
+const plan = fileSystem.plan({
+  operation: "write",
+  source: "stream",
+  mode: "replace",
+  size: 200 * 1024 * 1024,
+  inputBytes: 200 * 1024 * 1024,
+});
+
+if (!plan.supported) throw new Error(plan.reasons.join(" "));
+```
+
+An unknown limit remains unknown. The planner does not invent provider guarantees. For an unknown-size emulated stream, it warns
+that `maxBufferedWriteBytes` remains the runtime admission limit.
+
+### `getMetrics()`
+
+Returns a detached `MetricsType`. `basic` tracks counts, failures, bytes, native/emulated/partitioned route counts, current
+facade-owned buffered bytes, and peak buffered bytes. `timing` additionally records total and maximum durations. `none` keeps the
+hot-path collector inactive.
+
+Optimization controls can force a fallback for differential tests or application policy. A disabled optimization is never
+relabelled native. If the fallback cannot satisfy the request within `maxBufferedWriteBytes`, runtime execution and `plan()` both
+fail with the same `too-large`/unsupported condition when size is known.
 
 Path API
 --------
@@ -333,36 +392,127 @@ await writable.write({ type: "truncate", size: 100 });
 
 Blob also has a `type` property, so the implementation identifies a command only when `type` is exactly `write`, `seek`, or `truncate`.
 
-Adapter API
------------
+Adapter and storage API
+-----------------------
 
-`@okikio/opfs/adapter` exports the complete backend contract:
+`@okikio/opfs/adapter` exports the backend contract consumed by `createFileSystem()`. The required primitive set stays small:
 
-- `AdapterSignalOptionsType`
-- `AdapterReadOptionsType`
-- `AdapterWriteOptionsType`
-- `AdapterMoveOptionsType`
-- `AdapterDirectoryEntryType`
-- `AdapterFileStatType`
-- `AdapterDirectoryStatType`
-- `AdapterStatType`
-- `AdapterSyncFileType`
-- `AdapterType`
-- `FileSystemOptionsType`
-- `defineAdapter()`
+```text
+stat
+readFile
+writeFile
+readDir
+createDir
+remove
+```
 
-`defineAdapter()` validates `AdapterNameSchema` and `AdapterCapabilitiesSchema` without adding a registry or global mutation. Adapter methods always receive canonical virtual paths. See [adapters.md](./adapters.md) for every primitive and first-party adapter.
+Optional methods expose stronger native paths:
 
-Record API
-----------
+```text
+openReadStream  -> capabilities.streamRead
+writeStream     -> mode is present in capabilities.streamWriteModes
+copy            -> capabilities.nativeCopy
+move            -> capabilities.nativeMove
+openWritableFile -> capabilities.positionalWrite
+openSyncFile    -> capabilities.syncAccess
+```
 
-`@okikio/opfs/adapter/record` exports:
+The exported contract includes `AdapterCopyOptionsType` as well as the signal, read, write, move, stat, directory-entry,
+writable-file, sync-file, adapter, and filesystem option types. `defineAdapter()` validates the adapter name and capability
+record. It does not add a global registry or change the adapter.
 
-- `RecordStoreType`
-- `RecordAdapterOptionsType`
-- `createRecordAdapter()`
+The capability record describes what the backend performs natively. For example, an object adapter can expose
+`streamWriteModes: ["replace"]` because replacement can stream to multipart/block upload while append and update still need a
+read-modify-write cycle. The facade can emulate operations, but it does not relabel an emulation as native support.
 
-`@okikio/opfs/schema` exports the validated persistence schemas:
+### Record storage
+
+`@okikio/opfs/adapter/record` is the common translation point for backends that naturally store values, documents, or SQL rows.
+It exports `RecordStoreType`, `RecordAdapterOptionsType`, and `createRecordAdapter()`.
+
+A record store always supports the complete logical `get/set/delete/list` contract. Simple stores can stop there. More capable
+value stores can additionally expose `stat`, direct range `readFile`, `openReadStream`, selected direct materialized write modes,
+and selected `writeStream` modes through `RecordStoreCapabilitiesType`. `createRecordAdapter()` translates only the declared
+lanes into native adapter capabilities.
+
+The portable complete-record fallback uses the versioned `RecordType` union and base64 file bytes so JSON, Web Storage, RxDB,
+unstorage, and SQL text columns share one representation. A specialized store such as Deno KV can keep large body parts as raw
+binary values and use metadata-only/range/stream/direct-write lanes so the generic base64 representation is not on its
+large-file hot path. Deno KV declares materialized replace/append/update as direct store modes; append/update rebuild the next
+immutable generation part-by-part instead of reconstructing the previous complete logical file. Its stream lane remains
+replace-only, so streamed append/update can still require facade input buffering.
+
+### Object storage
+
+`@okikio/opfs/adapter/object` exports the provider-neutral object-storage layer:
+
+- `ObjectCapabilitiesSchema` / `ObjectCapabilitiesType`
+- `ObjectStatType` and `ObjectEntryType`
+- object GET, PUT, COPY, and LIST option types
+- `ObjectStoreType`
+- `ObjectAdapterOptionsType`
+- `createObjectAdapter()`
+
+`ObjectStoreType` preserves object concepts such as ETags, provider version IDs, user metadata, prefix listing, conditional
+writes, and server-side copy. `createObjectAdapter()` then maps that model into files and directories. Empty directories use
+trailing-slash marker objects, while ordinary prefix listing also recognizes directories created outside this library.
+
+The direct S3 API lives at `@okikio/opfs/s3`:
+
+```ts
+import { createS3Client } from "@okikio/opfs/s3";
+import { createS3Adapter } from "@okikio/opfs/adapter/s3";
+
+const client = createS3Client({
+  endpoint,
+  bucket,
+  region,
+  credentials,
+});
+const adapter = createS3Adapter(client);
+```
+
+`S3ClientType` extends `ObjectStoreType` and also exposes signed `request()`, `createUpload()`, `uploadPart()`,
+`completeUpload()`, and `abortUpload()`. The lower-level request method is the deliberate escape hatch for provider-specific
+S3 features that do not belong in the filesystem API.
+
+The Azure counterpart lives at `@okikio/opfs/azure` and `@okikio/opfs/adapter/azure`:
+
+```ts
+import { createAzureClient } from "@okikio/opfs/azure";
+import { createAzureAdapter } from "@okikio/opfs/adapter/azure";
+
+const client = createAzureClient({ endpoint, container, credential });
+const adapter = createAzureAdapter(client);
+```
+
+`AzureClientType` retains the REST request escape hatch, provider request IDs, range access, block upload, and server-side copy.
+
+The object-store interfaces are intentionally smaller than either provider protocol. See [S3 client protocol](./s3.md) and
+[Azure Blob client protocol](./azure.md) for signing, version gates, multipart/block lifecycles, limits, provider failures, and
+known unsupported operations.
+
+### Reverse key-value APIs
+
+`@okikio/opfs/driver/kv` exports `createKeyValueDriver()`. It maps colon-delimited keys onto private directories so both `foo`
+and `foo:bar` can exist at the same time:
+
+```text
+foo      -> /key-foo/value
+foo:bar  -> /key-foo/key-bar/value
+```
+
+The driver supports string/raw get and set, existence, metadata, hierarchical key enumeration, clear, and explicit filesystem
+ownership transfer. It also exposes `inspect()`, `plan()`, and `getMetrics()`. Those methods delegate to the backing
+`FileSystemType`, so a reverse ecosystem consumer sees the same effective routes, limits, partition policy, buffer ceiling, and
+observed metrics instead of receiving a second approximation of storage capability.
+
+`@okikio/opfs/driver/unstorage` is a thin translation over this generic driver. It supplies unstorage method names and
+`maxDepth` behavior while reusing the same collision-safe filesystem mapping.
+
+### Schemas
+
+`@okikio/opfs/schema` exports the executable project data contracts:
 
 - `PathSchema` / `PathType`
 - `AdapterNameSchema` / `AdapterNameType`
@@ -378,6 +528,23 @@ Record API
 - `RecordSchema` / `RecordType`
 - `Db0DialectSchema` / `Db0DialectType`
 - `SqlIdentifierSchema` / `SqlIdentifierType`
+
+The package exports Zod 4 schemas directly. Zod 4 implements Standard Schema, so a consumer that accepts that interface can use
+the same schema value without a second OPFS-owned wrapper contract.
+
+### Bridge descriptors
+
+`@okikio/opfs/bridge` groups the adapter and reverse-driver directions for an ecosystem. It does not replace either primitive.
+
+- `UnstorageBridge`: both directions.
+- `RxDbBridge`: collection to OPFS only.
+- `Db0Bridge`: database to OPFS only.
+- `DrizzleBridge`: database/table to OPFS only.
+- `KeyValueBridge`: OPFS to generic asynchronous key-value only.
+
+`defineBridge()` validates that `directions.toOpfs/fromOpfs` agree with the constructors. Every unsupported direction must state a
+reason. This is intentional for ecosystems where the reverse shape would require query, conflict, transaction, synchronous, or
+other semantics a filesystem does not own.
 
 Path utility API
 ----------------
