@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 #MISE description="Format project-owned source, tests, configuration, and documentation."
 set -euo pipefail
-deno fmt mod.ts src tests bench docs README.md AGENTS.md deno.json package.json tsconfig.json
+deno fmt

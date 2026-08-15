@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#MISE description="Run the portable and Deno filesystem suites."
+set -euo pipefail
+
+deno ci
+deno task test

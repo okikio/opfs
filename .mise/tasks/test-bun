@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#MISE description="Run the portable and Bun filesystem suites with the active mise Bun version."
+set -euo pipefail
+
+deno ci
+deno task test:bun

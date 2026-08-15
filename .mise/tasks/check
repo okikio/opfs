@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Type-check browser-safe TypeScript and every Deno runtime target."
+#MISE description="Install the frozen graph and run strict TypeScript checks."
 set -euo pipefail
-pnpm exec tsc -p tsconfig.json
+deno ci
 deno task check

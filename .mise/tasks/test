@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
-#MISE description="Run the same repository behavior suite through Node and Deno."
+#MISE description="Run the portable suite and each available first-party server runtime."
 set -euo pipefail
-node --test tests/adapters.test.ts
-deno test -A tests/
+
+deno ci
+deno task test:portable
+deno task test:deno
+deno task test:deno-kv
+deno task test:node
+deno task test:bun

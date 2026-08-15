@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#MISE description="Run the portable and Node filesystem suites with the active mise Node version."
+set -euo pipefail
+
+deno ci
+deno task test:node
