@@ -307,23 +307,18 @@ async function getPayloadHash(body: BodyInit | null | undefined): Promise<string
   return "UNSIGNED-PAYLOAD";
 }
 
-/** Converts one Uint8Array into a Fetch body with an owned ArrayBuffer. */
-function getRequestBody(bytes: Uint8Array): ArrayBuffer {
-	return Uint8Array.from(bytes).buffer;
-}
-
 /** Computes one HMAC-SHA256 step in the Signature Version 4 key derivation. */
-async function getHmac(key: BufferSource, value: string): Promise<ArrayBuffer> {
+async function getHmac(key: BufferSource, value: string): Promise<Uint8Array> {
   const cryptoKey = await crypto.subtle.importKey("raw", key, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  return await crypto.subtle.sign("HMAC", cryptoKey, textEncoder.encode(value));
+  return new Uint8Array(await crypto.subtle.sign("HMAC", cryptoKey, textEncoder.encode(value)));
 }
 
 /** Derives the date, region, and service-specific Signature Version 4 signing key. */
-async function getSigningKey(secret: string, date: string, region: string): Promise<ArrayBuffer> {
+async function getSigningKey(secret: string, date: string, region: string): Promise<Uint8Array> {
   const dateKey = await getHmac(textEncoder.encode(`AWS4${secret}`), date);
-  const regionKey = await getHmac(dateKey, region);
-  const serviceKey = await getHmac(regionKey, "s3");
-  return await getHmac(serviceKey, "aws4_request");
+  const regionKey = await getHmac(Uint8Array.from(dateKey), region);
+  const serviceKey = await getHmac(Uint8Array.from(regionKey), "s3");
+  return await getHmac(Uint8Array.from(serviceKey), "aws4_request");
 }
 
 /** Formats one UTC instant as the compact timestamp required by Signature Version 4. */
@@ -390,7 +385,7 @@ async function getSuccessXml(response: Response, operation: string) {
   const body = await response.text();
   if (!body.trim().startsWith("<")) return undefined;
   const root = parseXmlRoot(body);
-  const error = root.name.local === "Error" ? root : getXmlElements(root, "Error")[0];
+  const error = getXmlElements(root, "Error")[0];
   if (error === undefined) return root;
 
   throw new S3Error(getXmlValue(error, "Message") ?? `${operation} failed after HTTP 200.`, response, {
@@ -617,7 +612,7 @@ class S3Client implements S3ClientType {
     for (const [name, value] of Object.entries(options.metadata ?? {})) headers.set(`x-amz-meta-${name}`, value);
 
     await assertResponse(
-      await this.request({ method: "PUT", key, headers, body: getRequestBody(body), ...(options.signal === undefined ? {} : { signal: options.signal }) }),
+      await this.request({ method: "PUT", key, headers, body: Uint8Array.from(body), ...(options.signal === undefined ? {} : { signal: options.signal }) }),
       `PutObject ${key}`,
     );
     return (await this.head(key, options)) ?? { size: body.byteLength };
@@ -717,7 +712,7 @@ class S3Client implements S3ClientType {
       const scope = `${shortDate}/${this.#region}/s3/aws4_request`;
       const stringToSign = `AWS4-HMAC-SHA256\n${timestamp}\n${scope}\n${await getSha256(canonicalRequest)}`;
       const signingKey = await getSigningKey(credentials.secretAccessKey, shortDate, this.#region);
-      const signature = encodeHex(new Uint8Array(await getHmac(signingKey, stringToSign))).toLowerCase();
+      const signature = encodeHex(await getHmac(Uint8Array.from(signingKey), stringToSign)).toLowerCase();
       headers.set(
         "authorization",
         `AWS4-HMAC-SHA256 Credential=${credentials.accessKeyId}/${scope}, SignedHeaders=${signedHeaders}, Signature=${signature}`,
@@ -796,7 +791,7 @@ class S3Client implements S3ClientType {
         method: "PUT",
         key: upload.key,
         query: { partNumber: String(number), uploadId: upload.id },
-        body: getRequestBody(bytes),
+        body: Uint8Array.from(bytes),
         ...(signal === undefined ? {} : { signal }),
       }),
       `UploadPart ${upload.key}#${number}`,

@@ -15,9 +15,9 @@ export const RequestPolicySchema = z.object({
   /** Maximum retry delay in milliseconds. Defaults to 20 seconds. */
   maxDelayMs: z.number().int().nonnegative().optional(),
   /** Exponential delay multiplier. Defaults to 2. */
-  multiplier: z.number().finite().min(1).optional(),
+  multiplier: z.number().min(1).optional(),
   /** Random delay proportion accepted by `@std/async/retry`. Defaults to 0.5. */
-  jitter: z.number().finite().min(0).max(1).optional(),
+  jitter: z.number().min(0).max(1).optional(),
   /** Per-attempt deadline in milliseconds. `false` or omission leaves Fetch's own timeout policy unchanged. */
   timeoutMs: z.union([z.number().int().positive(), z.literal(false)]).optional(),
 }).strict();
@@ -59,10 +59,15 @@ export interface RequestMetricsType {
 export class RequestMetrics {
   /** Whether monotonic duration is measured. */
   readonly #timing: boolean;
+  /** Concrete Fetch attempts, including retries. */
   #requests = 0;
+  /** Fetch attempts made after the first attempt for one logical request. */
   #retries = 0;
+  /** Logical requests that exhausted retry policy or were canceled. */
   #failures = 0;
+  /** HTTP responses received, including service error status codes. */
   #responses = 0;
+  /** Accumulated Fetch wall-clock time when timing is enabled. */
   #durationMs = 0;
 
   /** Enables timing only when the caller explicitly requests it. */
@@ -223,13 +228,13 @@ export async function sendRequest(
   } = {},
 ): Promise<Response> {
   const policy = getRequestPolicy(options.policy);
-  const attempts = options.replayable === false ? 1 : policy.retries + 1;
+  const attempts = options.replayable === false ? 1 : (policy.retries ?? 0) + 1;
   let attempt = 0;
   let lastStarted = 0;
 
   try {
-    const minTimeout = Math.max(1, policy.minDelayMs);
-    const maxTimeout = Math.max(minTimeout, policy.maxDelayMs);
+    const minTimeout = Math.max(1, policy.minDelayMs ?? 0);
+    const maxTimeout = Math.max(minTimeout, policy.maxDelayMs ?? 0);
     return await retry(async () => {
       attempt += 1;
       const scoped = getSignal(options.signal, policy.timeoutMs);
@@ -258,8 +263,8 @@ export async function sendRequest(
       maxAttempts: attempts,
       minTimeout,
       maxTimeout,
-      multiplier: policy.multiplier,
-      jitter: policy.jitter,
+      ...(policy.multiplier === undefined ? {} : { multiplier: policy.multiplier }),
+      ...(policy.jitter === undefined ? {} : { jitter: policy.jitter }),
       ...(options.signal === undefined ? {} : { signal: options.signal }),
       isRetriable: (error: unknown) => error instanceof RetryResponseError || error instanceof RequestTransportError,
     });

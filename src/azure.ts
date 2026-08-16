@@ -330,11 +330,6 @@ function getBodyLength(body: BodyInit | null | undefined): number | undefined {
   return undefined;
 }
 
-/** Converts one byte buffer into an owned Fetch body without shared backing state. */
-function getRequestBody(bytes: Uint8Array): ArrayBuffer {
-	return Uint8Array.from(bytes).buffer;
-}
-
 /** Returns the service-version-specific Content-Length field used by Shared Key signing. */
 function getSignedContentLength(headers: Headers, version: AzureStorageVersionType): string {
   const value = headers.get("content-length") ?? "";
@@ -751,7 +746,7 @@ class AzureClient implements AzureClientType {
         key,
         query: { comp: "block", blockid: block.id },
         headers: { "content-type": "application/octet-stream" },
-        body: getRequestBody(block.bytes),
+        body: Uint8Array.from(block.bytes),
         ...(signal === undefined ? {} : { signal }),
       }),
       `Put Block ${key}#${block.number}`,
@@ -802,7 +797,13 @@ class AzureClient implements AzureClientType {
     const headers = this.#getWriteHeaders(options);
     headers.set("x-ms-blob-type", "BlockBlob");
     await assertResponse(
-      await this.request({ method: "PUT", key, headers, body: getRequestBody(body), ...(options.signal === undefined ? {} : { signal: options.signal }) }),
+      await this.request({
+        method: "PUT",
+        key,
+        headers,
+        body: Uint8Array.from(body),
+        ...(options.signal === undefined ? {} : { signal: options.signal })
+      }),
       `Put Blob ${key}`,
     );
     return (await this.head(key, options)) ?? { size: body.byteLength };

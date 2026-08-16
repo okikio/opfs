@@ -50,13 +50,21 @@ export interface MetricsType {
 
 /** Mutable form retained privately so snapshots cannot mutate live counters. */
 interface MutableMetricType {
+  /** Completed attempts, including failures. */
   count: number;
+  /** Attempts that reached a terminal failure. */
   failures: number;
+  /** Logical bytes attributed to this operation at this layer. */
   bytes: number;
+  /** Attempts routed through a backend-native operation. */
   native: number;
+  /** Attempts routed through a portable facade fallback. */
   emulated: number;
+  /** Attempts whose logical value used a partitioned physical representation. */
   partitioned: number;
+  /** Accumulated measured duration when timing mode is enabled. */
   durationMs: number;
+  /** Longest measured attempt when timing mode is enabled. */
   maxDurationMs: number;
 }
 

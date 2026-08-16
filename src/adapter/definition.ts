@@ -238,38 +238,33 @@ export interface FileSystemOptionsType {
  * ```
  */
 export function defineAdapter<T extends AdapterType>(adapter: T): T {
-  try {
-    AdapterNameSchema.parse(adapter.name);
-    AdapterCapabilitiesSchema.parse(adapter.capabilities);
-    if (adapter.limits !== undefined) AdapterLimitsSchema.parse(adapter.limits);
-    if (adapter.partition !== undefined) AdapterPartitionSchema.parse(adapter.partition);
+  AdapterNameSchema.parse(adapter.name);
+  AdapterCapabilitiesSchema.parse(adapter.capabilities);
+  if (adapter.limits !== undefined) AdapterLimitsSchema.parse(adapter.limits);
+  if (adapter.partition !== undefined) AdapterPartitionSchema.parse(adapter.partition);
 
-    for (const name of ["stat", "readFile", "writeFile", "readDir", "createDir", "remove"] as const) {
-      if (typeof adapter[name] !== "function") {
-        throw new TypeError(`Adapter '${adapter.name}' is missing required method '${name}'.`);
-      }
+  for (const name of ["stat", "readFile", "writeFile", "readDir", "createDir", "remove"] as const) {
+    if (typeof adapter[name] !== "function") {
+      throw new TypeError(`Adapter '${adapter.name}' is missing required method '${name}'.`);
     }
+  }
 
-    const pairs = [
-      ["streamRead", adapter.capabilities.streamRead, adapter.openReadStream !== undefined],
-      ["nativeCopy", adapter.capabilities.nativeCopy, adapter.copy !== undefined],
-      ["nativeMove", adapter.capabilities.nativeMove, adapter.move !== undefined],
-      ["positionalWrite", adapter.capabilities.positionalWrite, adapter.openWritableFile !== undefined],
-      ["syncAccess", adapter.capabilities.syncAccess, adapter.openSyncFile !== undefined],
-    ] as const;
-    for (const [name, capability, method] of pairs) {
-      if (capability && !method) {
-        throw new TypeError(`Adapter '${adapter.name}' capability '${name}' does not match its implementation method.`);
-      }
+  const pairs = [
+    ["streamRead", adapter.capabilities.streamRead, adapter.openReadStream !== undefined],
+    ["nativeCopy", adapter.capabilities.nativeCopy, adapter.copy !== undefined],
+    ["nativeMove", adapter.capabilities.nativeMove, adapter.move !== undefined],
+    ["positionalWrite", adapter.capabilities.positionalWrite, adapter.openWritableFile !== undefined],
+    ["syncAccess", adapter.capabilities.syncAccess, adapter.openSyncFile !== undefined],
+  ] as const;
+  for (const [name, capability, method] of pairs) {
+    if (capability && !method) {
+      throw new TypeError(`Adapter '${adapter.name}' capability '${name}' does not match its implementation method.`);
     }
-    if (adapter.capabilities.streamWriteModes.length > 0 && adapter.writeStream === undefined) {
-      throw new TypeError(
-        `Adapter '${adapter.name}' streamWriteModes do not match its writeStream implementation.`,
-      );
-    }
-  } catch (error) {
-    if (error instanceof TypeError) throw error;
-    throw new TypeError(error instanceof Error ? error.message : String(error));
+  }
+  if (adapter.capabilities.streamWriteModes.length > 0 && adapter.writeStream === undefined) {
+    throw new TypeError(
+      `Adapter '${adapter.name}' streamWriteModes do not match its writeStream implementation.`,
+    );
   }
   return adapter;
 }

@@ -112,11 +112,6 @@ function applyWrite(
   return output;
 }
 
-/** Narrows a mixed record-store result to a file record that still carries bytes. */
-function isFileRecord(record: RecordListType | RecordType | null): record is FileRecordType {
-	return record?.kind === "file" && "data" in record;
-}
-
 /** Fails before touching a record store when the adapter was intentionally opened read-only. */
 function assertWritable(readOnly: boolean, operation: string, path: string): void {
   if (readOnly) {
@@ -236,9 +231,9 @@ class RecordAdapter implements AdapterType {
 
     const existing = options.mode === "replace"
       ? new Uint8Array()
-      : isFileRecord(previous)
-      ? decodeBase64(previous.data)
-      : new Uint8Array();
+      : previous?.kind === "file" && "data" in previous && typeof previous.data === "string"
+        ? decodeBase64(previous.data)
+        : new Uint8Array();
     const bytes = applyWrite(existing, data, options.mode, options.at, options.truncate ?? false);
     await this.#store.set(RecordSchema.parse({
       version: 1,

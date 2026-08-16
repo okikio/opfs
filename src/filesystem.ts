@@ -310,16 +310,6 @@ function getOptimizations(value: FileSystemOptionsType["optimizations"]): Optimi
   return OptimizationSchema.parse({ ...DEFAULT_OPTIMIZATIONS, ...value });
 }
 
-/** Parses one public enum-like option and normalizes schema failures to TypeError. */
-function getValidatedOption<T>(parse: () => T): T {
-  try {
-    return parse();
-  } catch (error) {
-    if (error instanceof TypeError) throw error;
-    throw new TypeError(error instanceof Error ? error.message : String(error));
-  }
-}
-
 /** Computes the logical file size produced by one materialized write. */
 function getWriteSize(
   current: number,
@@ -470,10 +460,10 @@ class FileSystemFacade implements FileSystemType {
     this.adapter = adapter;
     this.maxBufferedWriteBytes = getBufferLimit(options.maxBufferedWriteBytes);
     this.optimizations = getOptimizations(options.optimizations);
-    this.metricsMode = getValidatedOption(() => MetricsModeSchema.parse(options.metrics ?? "basic"));
+    this.metricsMode = MetricsModeSchema.parse(options.metrics ?? "basic");
     this.#metrics = new Metrics(this.metricsMode);
     this.#locks = new MutationLocks(
-      getValidatedOption(() => CoordinationModeSchema.parse(options.coordination ?? "auto")),
+      CoordinationModeSchema.parse(options.coordination ?? "auto"),
       options.lockPrefix ?? DEFAULT_LOCK_PREFIX,
     );
     this.#disposeAdapter = options.disposeAdapter ?? false;
@@ -953,6 +943,10 @@ class FileSystemFacade implements FileSystemType {
         metricBytes = bytes.byteLength;
         buffered = bytes.byteLength;
         this.#metrics.buffer(buffered);
+        metricSupport = this.#support(
+          metricSupport,
+          getWriteSize(currentSize, bytes.byteLength, mode, options.at, options.truncate ?? false),
+        );
         await this.adapter.writeFile(normalized, bytes, adapterOptions);
       } else {
         const bytes = await toBytes(data);

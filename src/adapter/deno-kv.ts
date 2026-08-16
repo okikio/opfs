@@ -1,5 +1,3 @@
-/// <reference lib="deno.unstable" />
-
 import { pooledMap } from "@std/async/pool";
 import { concat } from "@std/bytes";
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
@@ -44,13 +42,13 @@ export interface DenoKvEntryType<T> {
 /** Structural Deno KV subset required by this adapter. */
 export interface DenoKvType {
   /** Reads one exact key. */
-  get<T = unknown>(key: Deno.KvKey): Promise<DenoKvEntryType<T>>;
+  get<T = unknown>(key: readonly unknown[]): Promise<DenoKvEntryType<T>>;
   /** Replaces one key. */
-  set(key: Deno.KvKey, value: unknown): Promise<unknown>;
+  set(key: readonly unknown[], value: unknown): Promise<unknown>;
   /** Removes one key. */
-  delete(key: Deno.KvKey): Promise<void>;
-  /** Streams keys with one prefix through the native Deno KV iterator surface. */
-  list<T = unknown>(selector: Deno.KvListSelector, options?: Deno.KvListOptions): AsyncIterable<DenoKvEntryType<T>>;
+  delete(key: readonly unknown[]): Promise<void>;
+  /** Streams keys with one prefix. */
+  list<T = unknown>(selector: { prefix: readonly unknown[] }, options?: unknown): AsyncIterable<DenoKvEntryType<T>>;
   /** Closes the database when the caller transfers ownership. */
   close?(): void;
 }
@@ -96,21 +94,23 @@ const DenoKvManifestSchema = z.object({
   file: DenoKvFileSchema,
 }).strict();
 
+/** Validated private manifest that publishes one complete partition generation. */
 type DenoKvManifestType = z.output<typeof DenoKvManifestSchema>;
+/** Physical value stored at one logical entry key: inline record or partition manifest. */
 type DenoKvStoredType = RecordType | DenoKvManifestType;
 
 /** Maps one exact virtual path to a Deno KV entry key derived from its parent and name. */
-function key(prefix: string, path: string): Deno.KvKey {
+function key(prefix: string, path: string): readonly unknown[] {
   return [prefix, "entry", dirname(path), basename(path)];
 }
 
 /** Prefix whose entries are exactly the direct children of one canonical parent path. */
-function listKey(prefix: string, parent: string): Deno.KvKey {
+function listKey(prefix: string, parent: string): readonly unknown[] {
   return [prefix, "entry", parent];
 }
 
 /** Maps one logical file generation and part number to a separate raw binary key. */
-function partKey(prefix: string, path: string, generation: string, index: number): Deno.KvKey {
+function partKey(prefix: string, path: string, generation: string, index: number): readonly unknown[] {
   return [prefix, "part", path, generation, index];
 }
 
