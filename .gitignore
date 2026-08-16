@@ -271,4 +271,4 @@ $RECYCLE.BIN/
 # Local frontend lead-list persistence used by demo mode.
 .data/
 .output/
-.vscode
+.vscode/
