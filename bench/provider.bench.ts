@@ -1,3 +1,5 @@
+import { env } from "node:process";
+
 import { GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client as AwsS3Client } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
 import { BlobServiceClient, StorageSharedKeyCredential } from "@azure/storage-blob";
@@ -9,18 +11,34 @@ import { createObjectAdapter } from "../src/adapter/object.ts";
 import { createAzureClient } from "../src/azure.ts";
 import { createS3Client } from "../src/s3.ts";
 
-/** Local provider fixture names match tests/provider/compose.yml. */
-const STORAGE_NAME = "opfs-test";
-const S3_ENDPOINT = "http://127.0.0.1:8333";
-const AZURITE_ACCOUNT = "devstoreaccount1";
-const AZURITE_KEY = "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==";
-const AZURE_ENDPOINT = `http://127.0.0.1:10000/${AZURITE_ACCOUNT}`;
+import {
+  AZURE_ACCOUNT,
+  AZURE_KEY,
+  S3_ACCESS_KEY,
+  S3_SECRET_KEY,
+  STORAGE_NAME,
+} from "../tests/provider/fixture.ts";
+
+/** Reads one provider endpoint supplied by the Testcontainers benchmark owner. */
+function getEndpoint(name: "OPFS_S3_ENDPOINT" | "OPFS_AZURE_ENDPOINT"): string {
+  const value = env[name];
+  if (value === undefined || value.length === 0) {
+    throw new Error(`${name} must be supplied by bench/providers.ts.`);
+  }
+  return value;
+}
+
+/** SeaweedFS endpoint started outside the timed benchmark region. */
+const S3_ENDPOINT = getEndpoint("OPFS_S3_ENDPOINT");
+/** Azurite Blob endpoint started outside the timed benchmark region. */
+const AZURE_ENDPOINT = getEndpoint("OPFS_AZURE_ENDPOINT");
 /** Small transfer keeps request/setup overhead visible instead of saturating loopback bandwidth. */
 const payload = new Uint8Array(256 * 1024);
 payload.fill(7);
 /** Multipart payload exercises each client's large-write scheduler separately. */
 const multipart = new Uint8Array(6 * 1024 * 1024);
 multipart.fill(11);
+/** Unique namespace prevents one benchmark process from colliding with another. */
 const prefix = `bench/${crypto.randomUUID()}`;
 
 /** Official AWS SDK baseline against the same SeaweedFS endpoint. */
@@ -28,7 +46,7 @@ const aws = new AwsS3Client({
   endpoint: S3_ENDPOINT,
   region: "us-east-1",
   forcePathStyle: true,
-  credentials: { accessKeyId: "admin", secretAccessKey: "secret" },
+  credentials: { accessKeyId: S3_ACCESS_KEY, secretAccessKey: S3_SECRET_KEY },
   maxAttempts: 1,
 });
 /** Direct project S3 client with retries/metrics disabled for pure path overhead. */
@@ -36,40 +54,48 @@ const s3 = createS3Client({
   endpoint: S3_ENDPOINT,
   bucket: STORAGE_NAME,
   region: "us-east-1",
-  credentials: { accessKeyId: "admin", secretAccessKey: "secret" },
+  credentials: { accessKeyId: S3_ACCESS_KEY, secretAccessKey: S3_SECRET_KEY },
   request: { retries: 0 },
   metrics: "none",
   partSize: 5 * 1024 * 1024,
 });
+/** Direct object-adapter layer used to isolate translation overhead from facade overhead. */
 const s3Adapter = createObjectAdapter(s3, { prefix: `${prefix}/s3-adapter` });
+/** Filesystem facade with instrumentation disabled for the lowest-overhead facade comparison. */
 const s3Facade = createFileSystem(createObjectAdapter(s3, { prefix: `${prefix}/s3-facade` }), {
   coordination: "none",
   metrics: "none",
 });
+/** Filesystem facade with basic counters enabled to measure instrumentation cost. */
 const s3Measured = createFileSystem(createObjectAdapter(s3, { prefix: `${prefix}/s3-metrics` }), {
   coordination: "none",
   metrics: "basic",
 });
 
 /** Official Azure SDK baseline against the same Azurite endpoint. */
-const azureCredential = new StorageSharedKeyCredential(AZURITE_ACCOUNT, AZURITE_KEY);
+const azureCredential = new StorageSharedKeyCredential(AZURE_ACCOUNT, AZURE_KEY);
+/** Official Azure service client used only as the provider SDK baseline. */
 const azureService = new BlobServiceClient(AZURE_ENDPOINT, azureCredential);
+/** Official Azure container client scoped to the same logical container as project tests. */
 const azureContainer = azureService.getContainerClient(STORAGE_NAME);
 await azureContainer.createIfNotExists();
 /** Direct project Azure client with retries/metrics disabled for pure path overhead. */
 const azure = createAzureClient({
   endpoint: AZURE_ENDPOINT,
   container: STORAGE_NAME,
-  credential: { kind: "shared-key", account: AZURITE_ACCOUNT, key: AZURITE_KEY },
+  credential: { kind: "shared-key", account: AZURE_ACCOUNT, key: AZURE_KEY },
   request: { retries: 0 },
   metrics: "none",
   blockSize: 1024 * 1024,
 });
+/** Direct Azure object-adapter layer used to isolate translation overhead. */
 const azureAdapter = createObjectAdapter(azure, { prefix: `${prefix}/azure-adapter` });
+/** Azure facade with metrics disabled for the lowest-overhead facade comparison. */
 const azureFacade = createFileSystem(createObjectAdapter(azure, { prefix: `${prefix}/azure-facade` }), {
   coordination: "none",
   metrics: "none",
 });
+/** Azure facade with basic counters enabled to measure instrumentation cost. */
 const azureMeasured = createFileSystem(createObjectAdapter(azure, { prefix: `${prefix}/azure-metrics` }), {
   coordination: "none",
   metrics: "basic",
@@ -91,9 +117,13 @@ function stream(bytes: Uint8Array): ReadableStream<Uint8Array> {
   });
 }
 
+/** Stable object key reused by the AWS SDK replacement/read samples. */
 const awsKey = `${prefix}/aws.bin`;
+/** Stable object key reused by the direct S3 client samples. */
 const s3Key = `${prefix}/s3-client.bin`;
+/** Stable blob key reused by the direct Azure client samples. */
 const azureKey = `${prefix}/azure-client.bin`;
+/** Official SDK blob client reused by replacement/read samples. */
 const azureOfficial = azureContainer.getBlockBlobClient(`${prefix}/azure-sdk.bin`);
 await aws.send(new PutObjectCommand({ Bucket: STORAGE_NAME, Key: awsKey, Body: payload }));
 await s3.put(s3Key, payload);

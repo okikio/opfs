@@ -6,19 +6,6 @@ import { join } from "node:path";
 import { createFileSystem } from "../mod.ts";
 import { createBunAdapter } from "../src/adapter/bun.ts";
 
-/** Minimal Bun runtime shape used by the benchmark without global Bun typings. */
-interface BunRuntimeType {
-  file(path: string): Blob & { bytes(): Promise<Uint8Array> };
-  write(path: string, data: Blob | Response | ArrayBufferView | ArrayBuffer | string): Promise<number>;
-}
-
-/** Resolves Bun only when the benchmark actually runs under Bun. */
-function getBun(): BunRuntimeType {
-  const runtime = Reflect.get(globalThis, "Bun") as BunRuntimeType | undefined;
-  if (runtime === undefined) throw new TypeError("bun.bench.ts requires the Bun runtime.");
-  return runtime;
-}
-
 /** Temporary benchmark root that keeps raw, adapter, and facade data isolated. */
 const root = await mkdtemp(join(tmpdir(), "okikio-opfs-bench-"));
 /** Host directory used by the direct runtime filesystem baseline. */
@@ -41,12 +28,10 @@ const adapter = createBunAdapter({ root: adapterRoot });
 const none = createFileSystem(createBunAdapter({ root: noneRoot }), { coordination: "none", metrics: "none" });
 /** Filesystem facade measured with same-realm local coordination. */
 const local = createFileSystem(createBunAdapter({ root: localRoot }), { coordination: "local", metrics: "none" });
-/** Bun runtime resolved lazily through the ambient global. */
-const bun = getBun();
 
 bench("bun/raw file: 64 KiB replace + read", async () => {
-  await bun.write(rawPath, payload);
-  await bun.file(rawPath).bytes();
+  await Bun.write(rawPath, payload);
+  await Bun.file(rawPath).bytes();
 });
 
 bench("bun/adapter: 64 KiB replace + read", async () => {
@@ -64,7 +49,7 @@ bench("bun/facade local: 64 KiB replace + read", async () => {
   await local.readFile("/bench.bin");
 });
 
-await bun.write(join(rawRoot, "source.bin"), payload);
+await Bun.write(join(rawRoot, "source.bin"), payload);
 await adapter.writeFile("/source.bin", payload, { mode: "replace" });
 await none.writeFile("/source.bin", payload);
 
@@ -73,7 +58,7 @@ bench("bun/raw node fs: 64 KiB copyFile", async () => {
 });
 
 bench("bun/raw Bun.write: 64 KiB BunFile copy", async () => {
-  await bun.write(join(rawRoot, "copy-bun.bin"), bun.file(join(rawRoot, "source.bin")));
+  await Bun.write(join(rawRoot, "copy-bun.bin"), Bun.file(join(rawRoot, "source.bin")));
 });
 
 bench("bun/adapter: 64 KiB native copy", async () => {
