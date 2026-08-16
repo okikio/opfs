@@ -84,9 +84,9 @@ describe("Node adapter", () => {
       prepare(sql) {
         const statement = database.prepare(sql);
         return {
-          all: async (...params: never[]) => statement.all(...params),
-          get: async (...params: never[]) => statement.get(...params),
-          run: async (...params: never[]) => statement.run(...params),
+          all: (...params) => statement.all(...params),
+          get: (...params) => statement.get(...params),
+          run: (...params) => statement.run(...params),
         };
       },
       close() { database.close(); },

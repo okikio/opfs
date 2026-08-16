@@ -1,5 +1,3 @@
-/// <reference lib="webworker" />
-
 import { openFileSystem, probeOpfs } from "../../../mod.ts";
 
 /** ServiceWorker global used to verify OPFS without relying on Playwright-only worker instrumentation. */
@@ -25,8 +23,8 @@ async function runServiceRequest(
   }
 }
 
-self.addEventListener("install", (event: ExtendableEvent) => event.waitUntil(self.skipWaiting()));
-self.addEventListener("activate", (event: ExtendableEvent) => event.waitUntil(self.clients.claim()));
+self.addEventListener("install", (event) => event.waitUntil(self.skipWaiting()));
+self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
 self.addEventListener("message", (event: ExtendableMessageEvent) => {
   const port = event.ports[0];
   if (port === undefined) return;

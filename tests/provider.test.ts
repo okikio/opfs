@@ -1,4 +1,4 @@
-import { describe, it } from "node:test";
+import { after, before, describe, it } from "node:test";
 import { expect } from "@std/expect";
 import { toBytes } from "@std/streams/to-bytes";
 
@@ -6,46 +6,57 @@ import { createFileSystem } from "../mod.ts";
 import { createObjectAdapter } from "../src/adapter/object.ts";
 import { createAzureClient } from "../src/azure.ts";
 import { createS3Client } from "../src/s3.ts";
+import {
+  AZURE_ACCOUNT,
+  AZURE_KEY,
+  openProviders,
+  type ProviderFixture,
+  S3_ACCESS_KEY,
+  S3_SECRET_KEY,
+  STORAGE_NAME,
+} from "./provider/fixture.ts";
 import { streamBytes } from "./stream.ts";
 
-/** Official Azurite development account used only by the local emulator. */
-const AZURITE_ACCOUNT = "devstoreaccount1";
-/** Official Azurite development key documented by the Azurite project. */
-const AZURITE_KEY = "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==";
-/** Provider container/bucket created by the Docker fixture. */
-const STORAGE_NAME = "opfs-test";
 /** Exact S3 multipart minimum used to force multipart behavior with a small fixture. */
 const S3_PART_SIZE = 5 * 1024 * 1024;
+/** Provider resources are shared across the suite so container startup is not repeated per assertion. */
+let providers: ProviderFixture | undefined;
+
+/** Returns the active provider fixture or fails if suite setup did not complete. */
+function getProviders(): ProviderFixture {
+  if (providers === undefined) throw new Error("Provider fixture is not open.");
+  return providers;
+}
 
 /** Returns a unique object-key prefix so failed test cleanup cannot collide with another run. */
 function getPrefix(provider: string): string {
   return `integration/${provider}/${crypto.randomUUID()}`;
 }
 
-/** Creates the local SeaweedFS S3 client used by Docker-backed integration tests. */
+/** Creates the SeaweedFS S3 client for the current Testcontainers endpoint. */
 function getS3Client() {
   return createS3Client({
-    endpoint: "http://127.0.0.1:8333",
+    endpoint: getProviders().s3Endpoint,
     bucket: STORAGE_NAME,
     region: "us-east-1",
-    credentials: { accessKeyId: "admin", secretAccessKey: "secret" },
+    credentials: { accessKeyId: S3_ACCESS_KEY, secretAccessKey: S3_SECRET_KEY },
     partSize: S3_PART_SIZE,
     concurrency: 2,
   });
 }
 
-/** Creates the local Azurite client with Shared Key authentication. */
+/** Creates the Azurite client for the current Testcontainers endpoint. */
 function getAzureClient() {
   return createAzureClient({
-    endpoint: `http://127.0.0.1:10000/${AZURITE_ACCOUNT}`,
+    endpoint: getProviders().azureEndpoint,
     container: STORAGE_NAME,
-    credential: { kind: "shared-key", account: AZURITE_ACCOUNT, key: AZURITE_KEY },
+    credential: { kind: "shared-key", account: AZURE_ACCOUNT, key: AZURE_KEY },
     blockSize: 1024 * 1024,
     concurrency: 2,
   });
 }
 
-/** Ensures the Azurite container exists before blob operations begin. */
+/** Ensures the logical Azure container exists before blob operations begin. */
 async function ensureAzureContainer(): Promise<void> {
   const client = getAzureClient();
   const response = await client.request({ method: "PUT", query: { restype: "container" } });
@@ -53,7 +64,17 @@ async function ensureAzureContainer(): Promise<void> {
   throw new Error(`Azurite container setup failed with HTTP ${response.status}: ${await response.text()}`);
 }
 
-describe("Docker-backed object providers", () => {
+before(async () => {
+  providers = await openProviders();
+});
+
+after(async () => {
+  const fixture = providers;
+  providers = undefined;
+  if (fixture !== undefined) await fixture.close();
+});
+
+describe("Testcontainers-backed object providers", () => {
   it("exercises S3 signing, ranges, conditions, multipart upload, copy, listing, and filesystem translation", async () => {
     const client = getS3Client();
     const prefix = getPrefix("s3");

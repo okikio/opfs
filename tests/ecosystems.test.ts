@@ -190,34 +190,14 @@ function createFakeDrizzle() {
     mediaType: { name: "mediaType" },
   };
   const rows: Array<Record<string, unknown>> = [];
-  const getCondition = (condition: unknown): { name: string; value: unknown } => {
-    if (typeof condition === "object" && condition !== null && "column" in condition && "value" in condition) {
-      const typed = condition as { column: { name: string }; value: unknown };
-      return { name: typed.column.name, value: typed.value };
-    }
-
-    if (typeof condition === "object" && condition !== null && "queryChunks" in condition) {
-      const chunks = (condition as { queryChunks?: readonly unknown[] }).queryChunks ?? [];
-      const column = chunks.find((chunk): chunk is { name: string } =>
-        typeof chunk === "object" && chunk !== null && "name" in chunk && typeof (chunk as { name?: unknown }).name === "string"
-      );
-      const value = chunks.find((chunk) =>
-        typeof chunk === "string" || typeof chunk === "number" || typeof chunk === "boolean"
-      );
-      if (column !== undefined) return { name: column.name, value };
-    }
-
-    throw new TypeError("Unsupported Drizzle condition shape in test double.");
-  };
   const database = {
     select() {
       return {
         from() {
           return {
-            where(condition: unknown) {
-              const selectedCondition = getCondition(condition);
+            where(condition: { column: { name: string }; value: unknown }) {
               const selected = () => rows
-                .filter((row) => row[selectedCondition.name] === selectedCondition.value)
+                .filter((row) => row[condition.column.name] === condition.value)
                 .map((row) => ({ ...row }));
               return {
                 then(resolve: (value: Record<string, unknown>[]) => unknown, reject: (reason: unknown) => unknown) {
@@ -234,10 +214,9 @@ function createFakeDrizzle() {
     },
     delete() {
       return {
-        where(condition: unknown) {
-          const selectedCondition = getCondition(condition);
+        where(condition: { column: { name: string }; value: unknown }) {
           for (let index = rows.length - 1; index >= 0; index -= 1) {
-            if (rows[index]?.[selectedCondition.name] === selectedCondition.value) rows.splice(index, 1);
+            if (rows[index]?.[condition.column.name] === condition.value) rows.splice(index, 1);
           }
           return Promise.resolve();
         },
