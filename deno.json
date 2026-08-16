@@ -56,12 +56,11 @@
     "@std/encoding": "jsr:@std/encoding@^1.0.11",
     "@aws-sdk/client-s3": "npm:@aws-sdk/client-s3@^3.1098.0",
     "@aws-sdk/lib-storage": "npm:@aws-sdk/lib-storage@^3.1100.0",
-    "@azure/storage-blob": "npm:@azure/storage-blob@^12.33.0"
+    "@azure/storage-blob": "npm:@azure/storage-blob@^12.33.0",
+    "testcontainers": "npm:testcontainers@^12.0.4",
+    "@testcontainers/azurite": "npm:@testcontainers/azurite@^12.0.4"
   },
   "nodeModulesDir": "auto",
-  "lock": {
-    "frozen": true
-  },
   "compilerOptions": {
     "strict": true,
     "noUncheckedIndexedAccess": true,
@@ -116,7 +115,7 @@
     "check": "deno task check:core && deno task check:browser && deno task check:workers && deno task check:server && deno task check:tests && deno task check:deno-kv && deno task check:providers",
     "check:core": "deno check mod.ts src/chunk.ts src/xml.ts src/request.ts src/metrics.ts src/capability.ts src/plan.ts src/bridge.ts src/bridge/definition.ts src/bridge/unstorage.ts src/bridge/rxdb.ts src/bridge/db0.ts src/bridge/drizzle.ts src/bridge/kv.ts src/adapter/definition.ts src/adapter/opfs.ts src/adapter/memory.ts src/adapter/record.ts src/adapter/object.ts src/adapter/unstorage.ts src/adapter/rxdb.ts src/adapter/db0.ts src/adapter/drizzle.ts src/driver/kv.ts src/driver/unstorage.ts src/iframe.ts src/path.ts src/schema.ts src/s3.ts src/azure.ts",
     "check:browser": "deno check src/adapter/localstorage.ts src/adapter/indexeddb.ts src/adapter/cache.ts tests/browser/playwright.config.ts tests/browser/opfs.spec.ts tests/browser/worker.spec.ts tests/browser/iframe.spec.ts tests/browser/service-worker.spec.ts tests/browser/adapters.spec.ts tests/browser/fixtures/app.ts bench/browser/playwright.config.ts bench/browser/opfs.spec.ts",
-    "check:workers": "deno check tests/browser/fixtures/dedicated.ts tests/browser/fixtures/shared.ts tests/browser/fixtures/service.ts",
+    "check:workers": "deno check --lib=esnext,webworker tests/browser/fixtures/dedicated.ts tests/browser/fixtures/shared.ts tests/browser/fixtures/service.ts",
     "check:server": "deno check src/adapter/deno.ts src/adapter/deno-kv.ts src/adapter/node.ts src/adapter/bun.ts src/adapter/sqlite.ts bench/deno.bench.ts bench/node.bench.ts bench/bun.bench.ts bench/sqlite.bench.ts",
     "check:tests": "deno check tests/path.test.ts tests/memory.test.ts tests/filesystem.test.ts tests/ecosystems.test.ts tests/chunk.test.ts tests/object.test.ts tests/s3.test.ts tests/azure.test.ts tests/sqlite.test.ts tests/deno-kv-partition.test.ts tests/node.test.ts tests/deno.test.ts tests/bun.test.ts",
     "check:deno-kv": "deno check --unstable-kv tests/deno-kv.test.ts bench/deno-kv.bench.ts",
@@ -144,9 +143,9 @@
     "pack:npm": "bash .mise/tasks/npm",
     "bench:deno-kv": "deno run --unstable-kv -A bench/deno-kv.bench.ts",
     "bench:sqlite": "node bench/sqlite.bench.ts",
-    "test:providers": "bash .mise/tasks/test-providers",
-    "check:providers": "deno check tests/provider.test.ts bench/provider.bench.ts",
-    "bench:providers": "bash .mise/tasks/bench-providers",
+    "test:providers": "node --test tests/provider.test.ts",
+    "check:providers": "deno check tests/provider/fixture.ts tests/provider.test.ts bench/provider.bench.ts bench/providers.ts",
+    "bench:providers": "node bench/providers.ts",
     "bench:bun-providers": "bun run bench/bun-provider.bench.ts"
   },
   "publish": {
@@ -158,5 +157,9 @@
       "docs/",
       "deno.json"
     ]
+  },
+  "allowScripts": {
+    "allow": [],
+    "deny": ["npm:cpu-features@0.0.10", "npm:fsevents@2.3.2", "npm:fsevents@2.3.3", "npm:protobufjs@7.6.5", "npm:ssh2@1.17.0"]
   }
 }

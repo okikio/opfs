@@ -159,8 +159,8 @@ The protocol clients are documented separately because their wire contracts are 
   compatibility controls, and known non-goals.
 - [Azure Blob client protocol](./docs/azure.md) covers REST versions, SAS/bearer/Shared Key authorization, block upload/copy,
   conditions, limits, errors, and Azurite behavior.
-- [Provider integration tests](./docs/providers.md) explains the Docker-backed SeaweedFS and Azurite test matrix and what those
-  emulators can and cannot prove.
+- [Provider integration tests](./docs/providers.md) explains the Testcontainers-backed SeaweedFS and Azurite matrix and what those
+  local providers can and cannot prove.
 
 The facade makes capability, limits, routing, and cost inspectable
 ----------------------------------------------------------------

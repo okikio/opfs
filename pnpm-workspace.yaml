@@ -2,3 +2,7 @@ nodeLinker: hoisted
 shamefullyHoist: true
 strictPeerDependencies: false
 autoInstallPeers: true
+allowBuilds:
+  cpu-features: false
+  protobufjs: false
+  ssh2: false
