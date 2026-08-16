@@ -412,15 +412,12 @@ not guarantee that Azure failed to accept a request before the signal reached th
 Azurite is an integration target, not the specification
 -------------------------------------------------------
 
-`tests/provider/compose.yml` runs the official Azurite Blob image with the
-well-known development account:
+`tests/provider/fixture.ts` uses the official `@testcontainers/azurite` module
+with the pinned Azurite image and the well-known development account.
+Testcontainers chooses a free mapped host port, so the concrete endpoint changes
+per run while the account identity remains `devstoreaccount1`.
 
-```text
-account: devstoreaccount1
-endpoint: http://127.0.0.1:10000/devstoreaccount1
-```
-
-The test uses Shared Key, creates a disposable container through the client's
+The test uses Shared Key, creates a disposable logical Azure container through the client's
 signed low-level request, then exercises PUT, HEAD, range GET, conditional
 create, block upload, server-side copy, list, delete, and the object-store
 filesystem adapter.

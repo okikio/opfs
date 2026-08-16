@@ -18,6 +18,10 @@ real server runtimes
     Node host filesystem + node:sqlite
     Bun host filesystem
 
+Testcontainers + node:test
+    SeaweedFS S3 compatibility / Azurite Blob interoperability
+    random host ports / readiness / owned cleanup
+
 Playwright Test
     Chromium / Firefox / WebKit
     Window / Worker / ServiceWorker / iframe / persistence / browser storage
@@ -111,6 +115,22 @@ GitHub Actions does not recreate this runtime setup with separate Node, Deno, an
 the pinned mise release and only the tools required by the current job. The job then calls the same focused mise task a
 maintainer can run locally, such as `mise run test-deno`, `mise run test-node`, or `mise run test-bun`. This keeps tool versions
 and test commands in the repository instead of duplicating them in workflow YAML.
+
+Testcontainers owns provider-service lifecycle
+---------------------------------------------
+
+`tests/provider.test.ts` remains a `node:test` suite. `tests/provider/fixture.ts` uses Testcontainers only to supply real local
+services. SeaweedFS runs through `GenericContainer`; Azurite uses the official `@testcontainers/azurite` module. Testcontainers
+selects free host ports, applies readiness checks, and owns container cleanup. No Docker Compose subprocess or project polling
+loop is required.
+
+```sh
+mise run test-providers
+```
+
+The provider job in GitHub Actions installs Deno and Node through mise and calls that same task. Docker-compatible runtime
+selection remains Testcontainers configuration, not package runtime logic. This is an interim fixture layer and does not constrain
+a future provider abstraction to the Docker API.
 
 Playwright owns browser installation and browser lifecycle
 ---------------------------------------------------------
@@ -226,8 +246,9 @@ Microbenchmarks are evidence about overhead in the measured operation. They are 
 Object-store latency, geographical distance, TLS, provider multipart behavior, and connection reuse can dominate the small
 client/facade cost.
 
-`mise run bench-providers` uses the pinned SeaweedFS/Azurite fixture to compare official SDK/native runtime baselines with the
-direct protocol clients, object adapters, and filesystem facade. S3 includes AWS SDK v3 and a Bun-native `S3Client` run; Azure
+`mise run bench-providers` starts the pinned SeaweedFS/Azurite services through Testcontainers and compares official SDK/native
+runtime baselines with the direct protocol clients, object adapters, and filesystem facade. `bench/providers.ts` owns provider
+startup before it launches benchmark programs, so image pull/readiness time is outside Mitata samples. S3 includes AWS SDK v3 and a Bun-native `S3Client` run; Azure
 uses `@azure/storage-blob`. The small write baseline includes the same follow-up stat/properties request as the direct project
 client, and multipart/block cases are separate. `metrics: "none"` versus `metrics: "basic"` makes instrumentation overhead
 visible instead of hiding it. Real-cloud performance still requires an opt-in controlled provider benchmark.
@@ -256,6 +277,9 @@ check:tests
 
 check:deno-kv
   Deno KV test source with the unstable KV flag
+
+check:providers
+  Testcontainers fixture + provider tests + provider benchmark orchestration
 ```
 
 The normal quality gates are:
@@ -296,11 +320,11 @@ deno task release:check
 Browser tests and browser benchmarks remain explicit matrix jobs because downloading three browser engines is a large operation
 and should not be hidden inside every local unit-test invocation.
 
-Docker-backed provider tests
-----------------------------
+Testcontainers provider tests
+-----------------------------
 
-`mise run test-providers` starts the pinned SeaweedFS S3 endpoint and Azurite Blob emulator from `tests/provider/compose.yml`,
-runs `tests/provider.test.ts`, and always removes the containers and volumes. The suite proves real HTTP/signing/interoperability
-for the direct clients. It does not replace deterministic request-shape tests or real-cloud conformance. See
-[providers.md](./providers.md) for the exact coverage and limitations. `mise run bench-providers` reuses the same containers for
-the official-client/direct-client/adapter/facade benchmark matrix.
+`mise run test-providers` runs `tests/provider.test.ts` under Node. The suite opens pinned SeaweedFS and Azurite services through
+Testcontainers, uses random mapped host ports, waits for provider readiness, and releases every owned container after the suite.
+It proves real HTTP/signing/interoperability for the direct clients without a repository-owned Docker Compose lifecycle. It does
+not replace deterministic request-shape tests or real-cloud conformance. See [providers.md](./providers.md) for the exact coverage
+and limitations. `mise run bench-providers` starts the same fixture outside the timed benchmark programs.

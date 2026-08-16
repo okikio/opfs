@@ -4,99 +4,136 @@ Object-provider integration tests
 Purpose
 -------
 
-The direct S3 and Azure clients own HTTP protocol behavior that a pure mock
-cannot prove.  This guide explains the local provider environment used to test
-real signing, request routing, range transfer, multipart/block state, copy,
-listing, and filesystem translation without requiring cloud credentials for
-every maintainer run.
+The direct S3 and Azure clients own HTTP protocol behavior that a pure mock cannot prove. This guide explains the local provider
+fixtures used to test real signing, request routing, ranges, multipart/block state, copy, listing, and filesystem translation
+without requiring cloud credentials for every maintainer run.
 
-The provider environment supplements deterministic unit tests.  It does not
-replace Amazon S3 or Azure specifications.
+Provider containers supplement deterministic protocol tests. They do not replace the Amazon S3 or Azure Blob specifications.
+They also do not become a production dependency or a storage abstraction. Testcontainers exists only in development tooling.
 
+Testcontainers owns provider lifecycle
+--------------------------------------
 
-Local topology
---------------
-
-`tests/provider/compose.yml` starts two independent object services:
+`tests/provider/fixture.ts` uses Testcontainers for Node.js instead of a repository-owned Docker Compose and polling harness:
 
 ```text
-Deno test process
-    |
-    +--> http://127.0.0.1:8333
-    |       SeaweedFS S3 endpoint
-    |       bucket: opfs-test
-    |       SigV4 credentials: admin / secret
-    |
-    `--> http://127.0.0.1:10000/devstoreaccount1
-            Azurite Blob endpoint
-            Shared Key development account
+node:test
+   |
+   v
+ProviderFixture
+   |
+   +--> Testcontainers GenericContainer
+   |       |
+   |       `--> SeaweedFS 4.41
+   |              S3-compatible API
+   |
+   `--> @testcontainers/azurite
+           |
+           `--> Azurite 3.36.0
+                  Azure Blob API
 ```
 
-The compose file pins explicit provider versions so a maintainer does not get a
-silent protocol change because `latest` moved:
+The images remain pinned:
 
 ```text
 chrislusf/seaweedfs:4.41
 mcr.microsoft.com/azure-storage/azurite:3.36.0
 ```
 
-SeaweedFS is used as an actively maintained independent S3-compatible server.
-Its role is interoperability testing.  Amazon S3 documentation remains the
-source of truth for AWS-specific request behavior.
+Testcontainers chooses free host ports and waits for the exposed service instead of requiring fixed `8333` and `10000` host
+ports. The S3 fixture combines listening-port and HTTP readiness. The official Azurite module owns its emulator-specific startup
+contract, uses in-memory persistence, skips only Azurite's API-version allow-list check, and exposes the mapped Blob endpoint.
 
-Azurite is Microsoft's local Azure Storage emulator.  It runs only the Blob
-service for this test matrix, with telemetry disabled and in-memory persistence.
-`--skipApiVersionCheck` allows the direct client to exercise the configured
-current REST version even when the emulator has not yet added an identical
-version allow-list.  This option does not make Azurite behavior identical to the
-Azure cloud service.
+SeaweedFS still uses `GenericContainer` because the Testcontainers Node catalog does not provide a SeaweedFS module. The code
+uses the official Azurite module because Testcontainers recommends a focused module when one exists instead of duplicating that
+container's configuration in every project.
 
+`ProviderFixture` owns every container it starts. `close()` is idempotent and attempts to stop every owned container even if one
+cleanup operation fails. Partial construction also stops SeaweedFS if Azurite cannot start. This keeps acquisition and cleanup in
+one place instead of spreading lifecycle work across shell traps, readiness polling, and the test body.
+
+Testcontainers is an interim compute layer
+------------------------------------------
+
+The project deliberately does not treat Testcontainers as the final runtime/provider abstraction. Testcontainers Node currently
+centers Docker-compatible container runtimes. Its documentation covers Docker directly and documents setup/limitations for
+Podman, Colima, and Rancher Desktop.
+
+That is sufficient for the current local service fixtures. It is not the model for future Apple `container`, WSL containers,
+microVMs, cloud VMs, Kubernetes, or other compute providers. A future environment/provider layer can replace how fixtures are
+started while preserving this test contract:
+
+```text
+provider fixture
+     |
+     +--> endpoint
+     +--> credentials
+     +--> lifecycle ownership
+     `--> diagnostics
+
+protocol/client tests consume only those facts
+```
+
+The provider test therefore does not inspect Docker container IDs or Docker networks after startup. Those are fixture mechanics,
+not S3/Azure test semantics.
 
 Run the provider suite
 ----------------------
 
-The canonical maintainer command is:
+The canonical command is:
 
 ```sh
 mise run test-providers
 ```
 
-The task performs this lifecycle:
+The task is intentionally small:
 
 ```text
-docker compose up -d
-        |
-        v
-poll S3 and Azure HTTP endpoints
-        |
-        v
-deno ci frozen-lock dependency install
-        |
-        v
-deno test tests/provider.test.ts
-        |
-        v
-always docker compose down -v
+mise
+  |
+  +--> deno ci
+  |
+  `--> node --test tests/provider.test.ts
+                 |
+                 `--> Testcontainers owns startup/readiness/cleanup
 ```
 
-Cleanup is registered before readiness polling.  A failing test therefore does
-not intentionally leave provider volumes or containers behind.  On readiness
-failure, the task prints compose logs before cleanup so the environment failure
-remains diagnosable.
+`node:test` remains the repository test runner. Testcontainers supplies resources to the test; it does not become a second test
+framework.
 
-The GitHub Actions `providers` job calls the same mise task.  CI does not carry a
-second provider-startup implementation.
+GitHub Actions calls the same mise task. The workflow installs mise, asks mise for the Deno and Node versions required by the
+provider job, and then runs `mise run test-providers`. GitHub Actions owns only job topology, permissions, runner selection,
+timeouts, and secrets. It does not duplicate provider startup commands.
 
-
-
-Provider benchmarks compare equivalent layers
+Playwright owns browser lifecycle separately
 --------------------------------------------
 
-The provider environment also backs an explicit benchmark matrix:
+Testcontainers and Playwright solve different lifecycle problems:
+
+```text
+node:test + Testcontainers
+    S3/Azure service interoperability
+
+Playwright Test
+    Chromium/Firefox/WebKit runtime interoperability
+    Window/Worker/ServiceWorker/iframe/storage lifecycle
+```
+
+The browser matrix stays under `tests/browser/`. Playwright owns browser installation, isolated `BrowserContext` instances,
+persistent profiles, traces, retries, and Vite fixture-server lifecycle. Provider tests do not launch browsers, and browser tests
+do not launch provider containers merely to share a framework.
+
+Provider benchmarks keep startup outside timed work
+----------------------------------------------------
+
+The same Testcontainers fixture owns provider startup for:
 
 ```sh
 mise run bench-providers
 ```
+
+`bench/providers.ts` starts SeaweedFS and Azurite once, obtains their random host endpoints, and passes those endpoints to the
+actual benchmark programs. Container startup, image pull, and readiness time therefore do not enter a Mitata sample.
 
 S3 is measured as:
 
@@ -119,107 +156,77 @@ FileSystemType with metrics none
 FileSystemType with metrics basic
 ```
 
-Write cases include the same post-write metadata request when the project client returns verified object metadata. Multipart is a
-separate benchmark from a small replacement because request-count and commit topology are different. This avoids presenting an
-SDK/client request-plan difference as facade overhead.
-
-The Bun provider run is separate because its native S3 implementation is runtime-specific. The local Bun filesystem benchmark
-also compares Node-compatible `copyFile` with `Bun.write(destination, Bun.file(source))`; the project does not switch the adapter
-copy path until measurements justify the change.
-
-These loopback benchmarks are overhead diagnostics, not cloud throughput claims. They should be repeated against controlled real
-provider environments before using them to choose production concurrency, retry, or part sizes.
+Small replacement and multipart/block cases remain separate. Different request plans must not be reported as facade overhead.
+Loopback results are diagnostics about client/abstraction cost, not cloud-throughput claims.
 
 What the live tests prove
 -------------------------
 
 The S3 path validates:
 
- -  a real SigV4 HTTP request accepted by an independent S3-compatible server;
- -  PUT and HEAD;
- -  byte-range GET;
- -  create-only conditional replacement;
- -  multipart stream upload with a legal non-final part size;
- -  provider-side copy;
- -  prefix listing;
- -  delete cleanup;
- -  `ObjectStoreType -> AdapterType -> FileSystemType` translation.
+- a real SigV4 HTTP request accepted by an independent S3-compatible server;
+- PUT and HEAD;
+- byte-range GET;
+- create-only conditional replacement;
+- multipart stream upload with a legal non-final part size;
+- provider-side copy;
+- prefix listing;
+- delete cleanup;
+- `ObjectStoreType -> AdapterType -> FileSystemType` translation.
 
 The Azure path validates:
 
- -  Shared Key accepted by Azurite;
- -  explicit container creation;
- -  Put Blob and Get Blob Properties;
- -  byte-range GET;
- -  create-only conditional replacement;
- -  Put Block / Put Block List streaming upload;
- -  same-account server-side copy;
- -  prefix listing;
- -  delete cleanup;
- -  `ObjectStoreType -> AdapterType -> FileSystemType` translation.
+- Shared Key accepted by Azurite;
+- explicit container creation;
+- Put Blob and Get Blob Properties;
+- byte-range GET;
+- create-only conditional replacement;
+- Put Block / Put Block List streaming upload;
+- same-account server-side copy;
+- prefix listing;
+- delete cleanup;
+- `ObjectStoreType -> AdapterType -> FileSystemType` translation.
 
-These are end-to-end HTTP tests.  The provider receives the actual headers,
-query fields, body bytes, XML, and signatures created by the library.
-
+The provider receives the actual headers, query fields, bytes, XML, and signatures created by the library.
 
 What the live tests do not prove
 --------------------------------
 
-A provider emulator/compatible server cannot prove all details of a cloud
-service.  The suite does not use it as an oracle for:
+A compatible server or emulator cannot prove every detail of a cloud service. The suite does not use it as the oracle for:
 
- -  exact AWS canonical-request text;
- -  AWS-only embedded error bodies returned with HTTP 200;
- -  every S3 service limit;
- -  Azure Shared Key string-to-sign construction independent of Azurite;
- -  every historical Azure service-version size limit;
- -  cloud identity/role acquisition;
- -  region routing and redirects;
- -  provider throttling behavior;
- -  cloud durability or consistency guarantees;
- -  billing, lifecycle, retention, encryption, replication, or versioning.
+- exact AWS canonical-request text;
+- AWS-only HTTP-200 embedded error bodies;
+- every S3 service limit;
+- Azure Shared Key construction independently of Azurite;
+- every historical Azure service-version size limit;
+- cloud role/identity acquisition;
+- region routing and redirects;
+- provider throttling;
+- cloud durability or consistency guarantees;
+- billing, retention, encryption, replication, or versioning.
 
-Those behaviors are covered by deterministic protocol tests where possible and
-remain candidates for opt-in real-cloud suites.
-
+Those cases belong to deterministic protocol tests where possible and opt-in real-cloud suites when a local provider cannot
+represent the behavior faithfully.
 
 Why the matrix keeps both test styles
 -------------------------------------
 
-A mock can assert an exact canonical signature, but it can accidentally accept a
-request no real server would parse.  A container can prove the request works,
-but an emulator can also be more permissive than the cloud service.
-
-The two test styles therefore protect different failure classes:
-
 | Test style | Strong at | Weak at |
 | ---------- | --------- | ------- |
 | Deterministic request test | Exact canonical text, headers, limits, branch selection | Real HTTP parser/auth integration |
-| Local provider container | Real socket/HTTP/auth/protocol interoperability | Complete cloud parity |
+| Testcontainers provider | Real socket/HTTP/auth/protocol interoperability | Complete cloud parity |
 | Optional real cloud | Actual provider behavior | Cost, credentials, availability, reproducibility |
 
-A client change that affects signing, multipart/block state, copy, conditional
-writes, or provider errors should add or update the deterministic test **and**
-the provider test when the behavior is supported by the local implementation.
-
+A client change that affects signing, multipart/block state, copy, conditions, retries, cancellation, or provider errors should
+update the deterministic test and the provider integration when the local implementation can represent that behavior.
 
 Future provider breadth
 -----------------------
 
-S3 compatibility should eventually be tested against more than one independent
-implementation when that adds a materially different contract.  Useful future
-candidates include Cloudflare R2, Backblaze B2 S3, DigitalOcean Spaces, and a
-real Amazon S3 bucket through opt-in CI.  These should not all become mandatory
-Docker services merely to increase a provider count.
+The current fixture is deliberately small. Additional S3-compatible services should be added only when they exercise a materially
+different contract, not to increase a provider count. Useful differences include addressing, copy/condition support, multipart
+errors, non-AWS region behavior, and pagination.
 
-The selection criterion is behavioral diversity:
-
- -  different addressing requirements;
- -  missing copy or conditional-write behavior;
- -  different multipart error behavior;
- -  non-AWS region/signing expectations;
- -  list/pagination differences that affect the portable contract.
-
-Azure should similarly gain an opt-in cloud test for the newest service version.
-Azurite remains valuable because it gives every contributor a deterministic
-Shared Key integration without cloud credentials.
+Network-fault fixtures are also a useful next layer. Testcontainers provides a Toxiproxy module, which can be used to prove
+retry, timeout, cancellation, and cleanup behavior against a real socket path without adding unreliable sleeps to the tests.
+That belongs in a focused failure suite rather than the normal happy-path provider test.

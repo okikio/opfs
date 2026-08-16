@@ -63,6 +63,29 @@ The canonical browser test architecture uses Playwright Test for Chromium, Firef
 ServiceWorker instrumentation because Playwright documents that inspection surface as Chromium-specific; observable
 ServiceWorker behavior remains a black-box test in the other browsers.
 
+Testcontainers
+--------------
+
+Primary documentation and source reviewed:
+
+- Testcontainers Node quickstart/usage: <https://node.testcontainers.org/quickstart/usage/>
+- containers and random mapped ports: <https://node.testcontainers.org/features/containers/>
+- wait strategies: <https://node.testcontainers.org/features/wait-strategies/>
+- supported container runtimes: <https://node.testcontainers.org/supported-container-runtimes/>
+- Azurite module: <https://node.testcontainers.org/modules/azurite/>
+- Toxiproxy module: <https://node.testcontainers.org/modules/toxiproxy/>
+- repository: <https://github.com/testcontainers/testcontainers-node>
+
+The provider suite keeps `node:test` as the test runner and uses Testcontainers only for service lifecycle. The official Azurite
+module is used instead of reproducing its container flags. SeaweedFS has no focused Testcontainers module, so the fixture uses
+`GenericContainer` with the pinned image and a composite listening-port/HTTP wait. Random mapped host ports avoid collisions
+between concurrent local runs.
+
+Testcontainers currently documents Docker directly and Docker-compatible configuration for Podman, Colima, and Rancher Desktop.
+Those runtimes have provider-specific caveats, including Ryuk behavior under Podman and delayed port forwarding under
+Colima/Rancher. The package therefore treats Testcontainers as an interim test-resource implementation, not as the future
+compute-provider API for OPFS.
+
 Deno, Node, and Bun
 -------------------
 
@@ -370,6 +393,6 @@ contracts are the implementation authority for this pass.
 Client protocol handoffs
 ------------------------
 
-The detailed implementation contracts live in [s3.md](./s3.md) and [azure.md](./azure.md). The Docker-backed interoperability
+The detailed implementation contracts live in [s3.md](./s3.md) and [azure.md](./azure.md). The Testcontainers-backed interoperability
 matrix is documented in [providers.md](./providers.md). These files separate protocol requirements from emulator evidence and
 record the unsupported surface explicitly.
