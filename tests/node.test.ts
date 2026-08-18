@@ -11,6 +11,7 @@ import { createDb0Adapter } from "../src/adapter/db0.ts";
 import { createNodeAdapter } from "../src/adapter/node.ts";
 import { createSqliteAdapter } from "../src/adapter/sqlite.ts";
 import type { Db0PrimitiveType } from "../src/driver/db0.ts";
+import { verifyHost } from "./host.ts";
 
 /** Normalizes db0-style parameters to Node SQLite's narrower accepted input set. */
 function toSqliteParams(params: readonly Db0PrimitiveType[]): SQLInputValue[] {
@@ -41,6 +42,17 @@ class SqliteDb0Database {
 }
 
 describe("Node adapter", () => {
+  it("preserves host range, directory removal, and overwrite semantics", async () => {
+    const root = await mkdtemp(join(tmpdir(), "okikio-opfs-"));
+    const fileSystem = createFileSystem(createNodeAdapter({ root }), { coordination: "local" });
+    try {
+      await verifyHost(fileSystem);
+    } finally {
+      await fileSystem.close();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("streams, renames, performs synchronous random access, and holds the path lock until close", async () => {
     const root = await mkdtemp(join(tmpdir(), "okikio-opfs-"));
     const fileSystem = createFileSystem(createNodeAdapter({ root }), { coordination: "local" });

@@ -1,3 +1,4 @@
+/// <reference types="deno" />
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 
@@ -7,6 +8,9 @@ import {
   DENO_KV_MAX_VALUE_BYTES,
   DENO_KV_SAFE_INLINE_BYTES,
   DENO_KV_SAFE_PART_BYTES,
+  type DenoKvAtomicType,
+  type DenoKvCheckType,
+  type DenoKvCommitType,
   type DenoKvEntryType,
   type DenoKvType,
 } from "../src/adapter/deno-kv.ts";
@@ -28,30 +32,123 @@ function size(value: unknown): number {
   return new TextEncoder().encode(JSON.stringify(value)).byteLength;
 }
 
+/** Creates a promise gate used to interleave one logical read with a concurrent overwrite. */
+function deferred(): { promise: Promise<void>; resolve: () => void } {
+  let resolve!: () => void;
+  const promise = new Promise<void>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+
+/** Mutation staged by the in-memory Deno KV atomic-operation double. */
+type FakeDenoKvMutationType =
+  | { readonly kind: "set"; readonly key: Deno.KvKey; readonly value: unknown }
+  | { readonly kind: "delete"; readonly key: Deno.KvKey };
+
 /**
- * Deno KV contract double with the documented per-value ceiling enforced.
+ * Optimistic transaction double that mirrors the Deno KV methods used by the driver.
+ *
+ * Checks are evaluated together immediately before mutation. This matters for the
+ * stale-writer test: all physical parts can exist while a failed version check
+ * still prevents their manifest from becoming visible.
+ */
+class FakeDenoKvAtomic implements DenoKvAtomicType {
+  readonly #database: FakeDenoKv;
+  readonly #checks: DenoKvCheckType[] = [];
+  readonly #mutations: FakeDenoKvMutationType[] = [];
+
+  constructor(database: FakeDenoKv) {
+    this.#database = database;
+  }
+
+  check(...checks: DenoKvCheckType[]): DenoKvAtomicType {
+    this.#checks.push(...checks);
+    return this;
+  }
+
+  set(key: Deno.KvKey, value: unknown): DenoKvAtomicType {
+    this.#mutations.push({ kind: "set", key, value });
+    return this;
+  }
+
+  delete(key: Deno.KvKey): DenoKvAtomicType {
+    this.#mutations.push({ kind: "delete", key });
+    return this;
+  }
+
+  async commit(): Promise<DenoKvCommitType> {
+    return this.#database.commit(this.#checks, this.#mutations);
+  }
+}
+
+/**
+ * Deno KV contract double with value ceilings, versionstamps, and atomic checks.
  *
  * It deliberately exposes stored tuples so tests can prove partition cleanup and
  * listing behavior without depending on a Deno executable in the portable suite.
+ * Versionstamps change for every replacement so the same double can reproduce an
+ * independent writer winning after another writer has already read stale state.
  */
 class FakeDenoKv implements DenoKvType {
-  readonly values = new Map<string, { key: Deno.KvKey; value: unknown }>();
+  readonly values = new Map<string, { key: Deno.KvKey; value: unknown; versionstamp: string }>();
+  #revision = 0;
   partGets = 0;
   listMatches = 0;
+  /** Optional gate that pauses physical part reads after the manifest has already been resolved. */
+  partReadGate?: Promise<void>;
+  /** Signals the first physical part read so the test can commit a concurrent generation. */
+  partReadStarted?: () => void;
+
+  /** Creates the next deterministic versionstamp for a provider mutation. */
+  #version(): string {
+    this.#revision += 1;
+    return this.#revision.toString(36).padStart(8, "0");
+  }
+
+  /** Applies one provider replacement after enforcing the documented value ceiling. */
+  #put(key: Deno.KvKey, value: unknown): void {
+    if (size(value) > DENO_KV_MAX_VALUE_BYTES) throw new RangeError("Deno KV value exceeds 64 KiB");
+    this.values.set(id(key), { key: [...key], value, versionstamp: this.#version() });
+  }
 
   async get<T = unknown>(key: Deno.KvKey): Promise<DenoKvEntryType<T>> {
-    if (key[1] === "part") this.partGets += 1;
+    if (key[1] === "part") {
+      this.partGets += 1;
+      this.partReadStarted?.();
+      if (this.partReadGate !== undefined) await this.partReadGate;
+    }
     const found = this.values.get(id(key));
-    return { key, value: (found?.value as T | undefined) ?? null };
+    return {
+      key,
+      value: (found?.value as T | undefined) ?? null,
+      versionstamp: found?.versionstamp ?? null,
+    };
   }
 
   async set(key: Deno.KvKey, value: unknown): Promise<void> {
-    if (size(value) > DENO_KV_MAX_VALUE_BYTES) throw new RangeError("Deno KV value exceeds 64 KiB");
-    this.values.set(id(key), { key: [...key], value });
+    this.#put(key, value);
   }
 
   async delete(key: Deno.KvKey): Promise<void> {
     this.values.delete(id(key));
+  }
+
+  atomic(): DenoKvAtomicType {
+    return new FakeDenoKvAtomic(this);
+  }
+
+  /** Evaluates one optimistic transaction without yielding between checks and mutations. */
+  commit(checks: readonly DenoKvCheckType[], mutations: readonly FakeDenoKvMutationType[]): DenoKvCommitType {
+    for (const check of checks) {
+      const current = this.values.get(id(check.key));
+      if ((current?.versionstamp ?? null) !== check.versionstamp) return { ok: false };
+    }
+    for (const mutation of mutations) {
+      if (mutation.kind === "set") this.#put(mutation.key, mutation.value);
+      else this.values.delete(id(mutation.key));
+    }
+    return { ok: true };
   }
 
   async *list<T = unknown>(selector: Deno.KvListSelector): AsyncIterable<DenoKvEntryType<T>> {
@@ -59,7 +156,7 @@ class FakeDenoKv implements DenoKvType {
     for (const entry of this.values.values()) {
       if (!starts(entry.key, selector.prefix)) continue;
       this.listMatches += 1;
-      yield { key: entry.key, value: entry.value as T };
+      yield { key: entry.key, value: entry.value as T, versionstamp: entry.versionstamp };
     }
   }
 }
@@ -88,6 +185,8 @@ describe("Deno KV partitioned records", () => {
   it("rejects an oversized physical key during driver preflight before provider I/O", () => {
     const database = new FakeDenoKv();
     const driver = createDenoKvDriver(database);
+    expect(driver.capabilities.replacement).toBe("atomic");
+    expect(driver.capabilities.transactions).toBe(true);
     const path = `/${"segment".repeat(500)}`;
 
     const plan = driver.plan({
@@ -372,16 +471,111 @@ describe("Deno KV partitioned records", () => {
     await fileSystem.close();
   });
 
-  it("removes the previous partition generation after a successful smaller overwrite", async () => {
+  it("keeps an in-flight reader on the superseded generation until explicit collection", async () => {
     const database = new FakeDenoKv();
+    const maintenance = createDenoKvDriver(database);
     const fileSystem = createFileSystem(createDenoKvAdapter(database), { coordination: "none" });
-    await fileSystem.writeFile("/value.bin", bytes(180 * 1024));
-    expect([...database.values.values()].some((entry) => entry.key[1] === "part")).toBe(true);
+    const initial = bytes(180 * 1024);
+    await fileSystem.writeFile("/value.bin", initial);
+    const oldParts = [...database.values.values()]
+      .filter((entry) => entry.key[1] === "part")
+      .map((entry) => id(entry.key));
+    expect(oldParts.length).toBeGreaterThan(0);
 
+    const started = deferred();
+    const release = deferred();
+    let signaled = false;
+    database.partReadStarted = () => {
+      if (signaled) return;
+      signaled = true;
+      started.resolve();
+    };
+    database.partReadGate = release.promise;
+
+    const read = fileSystem.readFile("/value.bin");
+    await started.promise;
     await fileSystem.writeFile("/value.bin", new Uint8Array([1, 2, 3]));
 
-    expect([...database.values.values()].some((entry) => entry.key[1] === "part")).toBe(false);
+    expect(oldParts.every((value) => database.values.has(value))).toBe(true);
+    release.resolve();
+    expect(await read).toEqual(initial);
     expect([...await fileSystem.readFile("/value.bin")]).toEqual([1, 2, 3]);
+
+    const guarded = await maintenance.collect({ minAgeMs: 60_000 });
+    expect(guarded.deleted).toBe(0);
+    expect(oldParts.every((value) => database.values.has(value))).toBe(true);
+
+    const reclaimed = await maintenance.collect({ minAgeMs: 0 });
+    expect(reclaimed.deleted).toBe(oldParts.length);
+    expect(oldParts.every((value) => !database.values.has(value))).toBe(true);
+    await fileSystem.close();
+  });
+
+  it("rejects a stale partitioned writer when another writer changes the logical entry", async () => {
+    const database = new FakeDenoKv();
+    const fileSystem = createFileSystem(createDenoKvAdapter(database), { coordination: "none" });
+    const initial = bytes(180 * 1024);
+    await fileSystem.writeFile("/value.bin", initial);
+    const originalParts = new Set(
+      [...database.values.values()]
+        .filter((entry) => entry.key[1] === "part")
+        .map((entry) => id(entry.key)),
+    );
+
+    const started = deferred();
+    const release = deferred();
+    let signaled = false;
+    database.partReadStarted = () => {
+      if (signaled) return;
+      signaled = true;
+      started.resolve();
+    };
+    database.partReadGate = release.promise;
+
+    const stale = fileSystem.writeFile("/value.bin", new Uint8Array([7]), { mode: "update", at: 0 });
+    await started.promise;
+    await fileSystem.writeFile("/value.bin", new Uint8Array([1, 2, 3]));
+    release.resolve();
+    delete database.partReadGate;
+
+    let failure: unknown;
+    try {
+      await stale;
+    } catch (error) {
+      failure = error;
+    }
+    expect(failure).toBeInstanceOf(FileSystemError);
+    if (failure instanceof FileSystemError) expect(failure.code).toBe("locked");
+    expect([...await fileSystem.readFile("/value.bin")]).toEqual([1, 2, 3]);
+
+    const remainingParts = [...database.values.values()]
+      .filter((entry) => entry.key[1] === "part")
+      .map((entry) => id(entry.key));
+    expect(remainingParts.every((key) => originalParts.has(key))).toBe(true);
+    await fileSystem.close();
+  });
+
+  it("keeps a retirement marker until a bounded collection pass removes the complete generation", async () => {
+    const database = new FakeDenoKv();
+    const driver = createDenoKvDriver(database);
+    const fileSystem = createFileSystem(createDenoKvAdapter(database), { coordination: "none" });
+    await fileSystem.writeFile("/bounded.bin", bytes(180 * 1024));
+    await fileSystem.writeFile("/bounded.bin", new Uint8Array([9]));
+
+    const retired = [...database.values.values()]
+      .filter((entry) => entry.key[1] === "retired")
+      .map((entry) => id(entry.key));
+    expect(retired.length).toBe(1);
+
+    const first = await driver.collect({ minAgeMs: 0, maxDeletes: 2 });
+    expect(first.deleted).toBe(2);
+    expect(first.truncated).toBe(true);
+    expect(database.values.has(retired[0]!)).toBe(true);
+
+    const second = await driver.collect({ minAgeMs: 0 });
+    expect(second.deleted).toBeGreaterThan(0);
+    expect(database.values.has(retired[0]!)).toBe(false);
+    expect([...await fileSystem.readFile("/bounded.bin")]).toEqual([9]);
     await fileSystem.close();
   });
 

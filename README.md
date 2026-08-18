@@ -230,7 +230,7 @@ user policy:     partition mode, part size, max parts, I/O concurrency
 derived:         logical file capacity for the selected layout
 ```
 
-Large files use immutable physical generations and a manifest-last visibility point:
+Large files use immutable physical generations, a manifest-last visibility point, and explicit age-gated reclamation:
 
 ```text
 old manifest -> old parts
@@ -238,15 +238,27 @@ old manifest -> old parts
 write new part 0..N
         |
         v
-write new manifest       visibility point
+atomic check old version
         |
         v
-remove old reachable generation
+commit retirement marker + new manifest
+                  visibility point
+        |
+        v
+old readers keep using immutable old parts
+        |
+        v
+collect after retirement grace
 ```
 
-A failed write does not publish a partial logical file. Unknown-length streamed replacement uses the partitioned lane
-when partitioning is enabled. `partition: "never"` disables that behavior and makes oversized/streaming requests fail or
-use a bounded facade fallback instead of changing durable layout silently.
+The metadata visibility commit uses Deno KV optimistic version checks, so an independent stale writer cannot publish over a
+newer logical entry. A failed write does not publish a partial logical file. A reader that already resolved the previous manifest can finish against its immutable generation after an overwrite commits
+while that generation remains inside the configured retirement grace. `collect()` measures a published generation's grace
+period
+from retirement, not from its potentially much older creation time. Unpublished crash leftovers have no retirement marker,
+so collection uses their generation creation time. Unknown-length streamed replacement uses the partitioned lane when
+partitioning is enabled. `partition: "never"` disables that behavior and makes oversized/streaming requests fail or use a
+bounded facade fallback instead of changing durable layout silently.
 
 The preflight planner also evaluates the concrete virtual path. Deno KV limits serialized keys, so file size alone is
 not enough to decide whether an operation is admissible.
@@ -327,9 +339,11 @@ Third-party packages can use `defineIntegration()` and the driver/adapter primit
 
 ## Testing and benchmarks follow the layers
 
-Portable behavior uses `node:test` with `@std/expect`. The same source is checked/run in the supported server runtimes
-where the runtime capability exists. Playwright Test owns actual Window, Worker, iframe, ServiceWorker, persistence, and
-browser-storage coverage. Testcontainers owns disposable SeaweedFS and Azurite provider fixtures.
+Deno is the primary runtime and release authority. Portable behavior uses `node:test` with `@std/expect` because Deno
+can run those contracts directly. Node and Bun run the same portable tests as compatibility lanes, plus their
+runtime-specific filesystem tests. Their ambient type extensions must not redefine the Deno-checked public core.
+Playwright Test owns actual Window, Worker, iframe, ServiceWorker, persistence, and browser-storage coverage.
+Testcontainers owns disposable SeaweedFS and Azurite provider fixtures.
 
 Provider benchmarks compare:
 

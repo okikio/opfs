@@ -275,3 +275,7 @@ $RECYCLE.BIN/
 .coverage/
 .test-results/
 .agents/
+
+# Playwright output
+test-results/
+playwright-report/

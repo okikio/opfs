@@ -23,7 +23,15 @@ test("window probes the actual capability and round-trips when OPFS is available
 test("an aborted write cannot commit", async ({ page }) => {
   await ready(page);
   const result = await page.evaluate(async () => await window.opfsTest.abort(`/abort/${crypto.randomUUID()}.txt`));
-  expect(["AbortError", "unavailable"]).toContain(result);
+  test.skip(!result.supported, "OPFS is unavailable in this browser context.");
+  expect(result).toEqual({ supported: true, name: "FileSystemError", code: "aborted" });
+});
+
+test("queued Web Locks cancellation is normalized to the package error", async ({ page }) => {
+  await ready(page);
+  const result = await page.evaluate(async () => await window.opfsTest.queuedAbort());
+  test.skip(!result.supported, "This browser does not expose the Web Locks API.");
+  expect(result).toEqual({ supported: true, name: "FileSystemError", code: "aborted" });
 });
 
 test("fresh browser contexts do not inherit another context's OPFS file", async ({ browser }) => {

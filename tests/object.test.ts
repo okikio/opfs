@@ -172,6 +172,7 @@ describe("object driver adapter", () => {
     expect((await fileSystem.stat("/empty")).kind).toBe("directory");
     expect((await fileSystem.stat("/external")).kind).toBe("directory");
     expect(store.values.has("empty/")).toBe(true);
+    expect(store.values.get("empty/")?.stat.metadata).toEqual({ okikio_opfs_kind: "directory" });
 
     const names: string[] = [];
     for await (const entry of fileSystem.readDir("/")) names.push(entry.name);

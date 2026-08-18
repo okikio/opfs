@@ -15,3 +15,9 @@ for (const kind of ["localstorage", "indexeddb", "cache"] as const) {
     expect(await page.evaluate(async ({ kind }) => await window.opfsTest.adapter(kind), { kind })).toBe(kind);
   });
 }
+
+test("IndexedDB append preserves both independent writers", async ({ page }) => {
+  await ready(page);
+  const value = await page.evaluate(async () => await window.opfsTest.indexedDbAppend());
+  expect(["baseAB", "baseBA"]).toContain(value);
+});

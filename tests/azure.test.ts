@@ -41,6 +41,34 @@ describe("Azure Blob client", () => {
     expect(createAzureDriverFromClient(client).inspect().ownership).toBe("borrowed");
   });
 
+  it("rejects invalid Azure metadata before provider I/O", async () => {
+    let requests = 0;
+    const client = createAzureClient({
+      endpoint: "https://account.blob.core.windows.net",
+      container: "data",
+      credential: { kind: "sas", token: "?sig=secret" },
+      fetch: async () => {
+        requests += 1;
+        return new Response(null, { status: 201 });
+      },
+    });
+
+    for (const metadata of [
+      { "bad-key": "value" },
+      { valid_key: "caf\u00e9" },
+      { Duplicate: "first", duplicate: "second" },
+    ]) {
+      try {
+        await client.put("metadata.bin", new Uint8Array([1]), { metadata });
+        throw new Error("expected Azure metadata validation failure");
+      } catch (error) {
+        expect(error).toBeInstanceOf(TypeError);
+      }
+    }
+
+    expect(requests).toBe(0);
+  });
+
   it("keeps SAS authorization on the source URL during provider-side copy", async () => {
     const requests: Request[] = [];
     const client = createAzureClient({

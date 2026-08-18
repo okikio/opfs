@@ -1,13 +1,13 @@
 {
   "compilerOptions": {
-    "target": "ESNext",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "target": "esnext",
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "lib": [
-      "ESNext",
-      "DOM",
-      "DOM.Iterable",
-      "DOM.AsyncIterable"
+      "esnext",
+      "dom",
+      "dom.iterable",
+      "dom.asynciterable"
     ],
     "strict": true,
     "noUncheckedIndexedAccess": true,

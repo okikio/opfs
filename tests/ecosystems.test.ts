@@ -1,5 +1,7 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
+import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { drizzle } from "drizzle-orm/sqlite-proxy";
 
 import { createFileSystem } from "../mod.ts";
 import { createDb0Adapter } from "../src/adapter/db0.ts";
@@ -176,62 +178,89 @@ class FakeDb0Database {
   }
 }
 
-/** Creates a minimal Drizzle CRUD surface and caller-owned table mapping for driver tests. */
-function createFakeDrizzle() {
-  const table = {
-    path: { name: "path" },
-    parent: { name: "parent" },
-    name: { name: "name" },
-    kind: { name: "kind" },
-    data: { name: "data" },
-    size: { name: "size" },
-    lastModified: { name: "lastModified" },
-    mediaType: { name: "mediaType" },
-  };
-  const rows: Array<Record<string, unknown>> = [];
-  const database = {
-    select() {
-      return {
-        from() {
-          return {
-            where(condition: { column: { name: string }; value: unknown }) {
-              const selected = () =>
-                rows
-                  .filter((row) => row[condition.column.name] === condition.value)
-                  .map((row) => ({ ...row }));
-              return {
-                then(resolve: (value: Record<string, unknown>[]) => unknown, reject: (reason: unknown) => unknown) {
-                  return Promise.resolve(selected()).then(resolve, reject);
-                },
-                limit(count: number) {
-                  return Promise.resolve(selected().slice(0, count));
-                },
-              };
-            },
-          };
-        },
-      };
-    },
-    delete() {
-      return {
-        where(condition: { column: { name: string }; value: unknown }) {
-          for (let index = rows.length - 1; index >= 0; index -= 1) {
-            if (rows[index]?.[condition.column.name] === condition.value) rows.splice(index, 1);
-          }
-          return Promise.resolve();
-        },
-      };
-    },
-    insert() {
-      return {
-        values(value: Record<string, unknown>) {
-          rows.push({ ...value });
-          return Promise.resolve();
-        },
-      };
-    },
-  };
-  return { database, table };
+/** Caller-owned SQLite table used to exercise the real Drizzle query builder. */
+const DrizzleTestTable = sqliteTable("opfs_entries", {
+  /** Canonical virtual path and logical primary key. */
+  path: text("path").primaryKey(),
+  /** Canonical direct parent used by directory listing. */
+  parent: text("parent").notNull(),
+  /** Final entry name. */
+  name: text("name").notNull(),
+  /** File or directory discriminator. */
+  kind: text("kind").notNull(),
+  /** Base64 file payload. Directories store null. */
+  data: text("data"),
+  /** Decoded file byte length. */
+  size: integer("size").notNull(),
+  /** Unix epoch milliseconds. */
+  lastModified: integer("last_modified").notNull(),
+  /** File media type. Directories store null. */
+  mediaType: text("media_type"),
+});
+
+/** Column order Drizzle emits when selecting the complete test table. */
+const DrizzleTestColumns = [
+  "path",
+  "parent",
+  "name",
+  "kind",
+  "data",
+  "size",
+  "last_modified",
+  "media_type",
+] as const;
+
+/** Physical row retained by the deterministic SQLite-proxy transport. */
+type DrizzleTestRowType = Record<(typeof DrizzleTestColumns)[number], unknown>;
+
+/** Extracts quoted identifiers from one generated SQL identifier list. */
+function getSqlNames(value: string): string[] {
+  return [...value.matchAll(/"([^"]+)"/g)].map((match) => match[1] ?? "");
+}
+
+/**
+ * Creates a deterministic transport under Drizzle's real SQLite proxy driver.
+ *
+ * The transport does not imitate Drizzle's `eq()` expression objects. Drizzle
+ * itself builds SQL from the real table and condition objects, then this small
+ * test database applies only the SELECT/INSERT/DELETE statements required by
+ * the generic record driver. This protects the integration from changes to
+ * Drizzle's private SQL-expression representation while keeping the test
+ * portable across Deno, Node, and Bun.
+ */
+function createTestDrizzle() {
+  const rows = new Map<string, DrizzleTestRowType>();
+  const database = drizzle(async (sql, params) => {
+    const normalized = sql.trim().toLowerCase();
+
+    if (normalized.startsWith("select ")) {
+      const condition = /"(path|parent)"\s*=\s*\?/.exec(sql)?.[1] as "path" | "parent" | undefined;
+      if (condition === undefined) throw new Error(`Unexpected Drizzle SELECT: ${sql}`);
+      const value = params[0];
+      const selected = [...rows.values()].filter((row) => row[condition] === value);
+      return { rows: selected.map((row) => DrizzleTestColumns.map((name) => row[name])) };
+    }
+
+    if (normalized.startsWith("insert ")) {
+      const match = /insert\s+into\s+"[^"]+"\s*\(([^)]+)\)\s*values/i.exec(sql);
+      if (match === null) throw new Error(`Unexpected Drizzle INSERT: ${sql}`);
+      const names = getSqlNames(match[1] ?? "");
+      const row = Object.fromEntries(names.map((name, index) => [name, params[index]])) as DrizzleTestRowType;
+      rows.set(String(row.path), row);
+      return { rows: [] };
+    }
+
+    if (normalized.startsWith("delete ")) {
+      const condition = /"path"\s*=\s*\?/.test(sql);
+      if (!condition) throw new Error(`Unexpected Drizzle DELETE: ${sql}`);
+      rows.delete(String(params[0]));
+      return { rows: [] };
+    }
+
+    throw new Error(`Unexpected Drizzle SQL: ${sql}`);
+  });
+
+  return { database, table: DrizzleTestTable };
 }
 
 /** Exercises the common record-backed filesystem contract against one ecosystem adapter. */
@@ -289,6 +318,39 @@ describe("ecosystem adapters", () => {
     expect(await driver.getItem("prefix:child")).toBe(null);
   });
 
+  it("does not build KV reads or removal on advisory exists checks", async () => {
+    const fileSystem = createFileSystem(createMemoryAdapter(), { coordination: "local" });
+    const bridge = createKeyValueBridge(fileSystem);
+    try {
+      await bridge.set("prefix", "parent-value");
+      await bridge.set("prefix:child", "child-value");
+      await bridge.setRaw("raw", new Uint8Array([1, 2, 3]));
+
+      // `exists()` is deliberately advisory. If the bridge reintroduces a
+      // check-then-act precondition, this replacement turns the race-prone
+      // extra lookup into an immediate regression failure.
+      fileSystem.exists = async () => {
+        throw new Error("KV bridge must not use advisory exists() as an operation precondition.");
+      };
+
+      expect(await bridge.get("prefix")).toBe("parent-value");
+      expect(await bridge.get("missing")).toBeNull();
+      expect(await bridge.getRaw("raw")).toEqual(new Uint8Array([1, 2, 3]));
+      expect(await bridge.getRaw("missing")).toBeNull();
+      expect((await bridge.meta("prefix"))?.modified).toBeInstanceOf(Date);
+      expect(await bridge.meta("missing")).toBeNull();
+      expect(await bridge.keys("prefix")).toContain("prefix:child");
+      expect(await bridge.keys("missing")).toEqual([]);
+      await bridge.remove("missing");
+      await bridge.clear("missing");
+      await bridge.clear("prefix", { preserveExact: true });
+      expect(await bridge.get("prefix")).toBe("parent-value");
+      expect(await bridge.get("prefix:child")).toBeNull();
+    } finally {
+      await fileSystem.close();
+    }
+  });
+
   it("targets RxCollection above the selected RxStorage engine", async () => {
     expect(RxDbRecordJsonSchema.primaryKey).toBe("path");
     expect(RxDbRecordJsonSchema.indexes).toEqual(["parent"]);
@@ -313,8 +375,8 @@ describe("ecosystem adapters", () => {
   }
 
   it("uses the common Drizzle CRUD surface with a caller-owned table", async () => {
-    const { database, table } = createFakeDrizzle();
-    const fileSystem = createFileSystem(createDrizzleAdapter({ database, table } as never), { coordination: "local" });
+    const { database, table } = createTestDrizzle();
+    const fileSystem = createFileSystem(createDrizzleAdapter({ database, table }), { coordination: "local" });
     await exerciseRecordBackend(fileSystem);
   });
 });

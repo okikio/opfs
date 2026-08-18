@@ -3,8 +3,20 @@ import { expect } from "@std/expect";
 
 import { createFileSystem } from "../mod.ts";
 import { createDenoAdapter } from "../src/adapter/deno.ts";
+import { verifyHost } from "./host.ts";
 
 describe("Deno adapter", () => {
+  it("preserves host range, directory removal, and overwrite semantics", async () => {
+    const root = await Deno.makeTempDir({ prefix: "okikio-opfs-" });
+    const fileSystem = createFileSystem(createDenoAdapter({ root }), { coordination: "local" });
+    try {
+      await verifyHost(fileSystem);
+    } finally {
+      await fileSystem.close();
+      await Deno.remove(root, { recursive: true });
+    }
+  });
+
   it("uses real Deno filesystem and synchronous file APIs", async () => {
     const root = await Deno.makeTempDir({ prefix: "okikio-opfs-" });
     const fileSystem = createFileSystem(createDenoAdapter({ root }), { coordination: "local" });

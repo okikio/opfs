@@ -1,10 +1,11 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 
-import { createFileSystem, FileSystemError, probeOpfs } from "../mod.ts";
+import { createFileSystem, FileSystemError, probeOpfs, toFileSystemError } from "../mod.ts";
 import { defineAdapter } from "../src/adapter/definition.ts";
 import { createMemoryAdapter } from "../src/adapter/memory.ts";
 import { basename, dirname, isAncestorPath, joinPath, normalizePath, splitPath } from "../src/path.ts";
+import { withAbortSignal } from "../src/stream.ts";
 
 /** Creates an isolated memory-backed facade so lock state cannot leak between filesystem tests. */
 function createMemoryFileSystem(name: string = crypto.randomUUID(), options: Record<string, unknown> = {}) {
@@ -122,6 +123,64 @@ describe("filesystem facade", () => {
     }
   });
 
+  it("normalizes queued Web Locks cancellation to the package aborted failure", async () => {
+    const original = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+    const requested: string[] = [];
+    Object.defineProperty(globalThis, "navigator", {
+      configurable: true,
+      value: {
+        locks: {
+          request(name: string, options: { mode: string; signal?: AbortSignal }, callback: () => Promise<void>) {
+            requested.push(name);
+            if (name.endsWith(":file:/queued.txt")) {
+              return new Promise<void>((_resolve, reject) => {
+                options.signal?.addEventListener(
+                  "abort",
+                  () => reject(new DOMException("Queued lock request was aborted.", "AbortError")),
+                  { once: true },
+                );
+              });
+            }
+            return callback();
+          },
+        },
+      },
+    });
+    try {
+      const fileSystem = createFileSystem(createMemoryAdapter(), {
+        coordination: "web-locks",
+        lockPrefix: "test:web-lock-abort",
+      });
+      const controller = new AbortController();
+      const write = fileSystem.writeFile("/queued.txt", "data", { signal: controller.signal });
+      await waitFor(() => requested.some((name) => name.endsWith(":file:/queued.txt")));
+      controller.abort("cancel queued write");
+      await expectFileSystemError(write, "aborted");
+      await fileSystem.close();
+    } finally {
+      if (original === undefined) Reflect.deleteProperty(globalThis, "navigator");
+      else Object.defineProperty(globalThis, "navigator", original);
+    }
+  });
+
+  it("preserves stable package error fields when normalizing an error from another realm", () => {
+    const foreign = {
+      name: "FileSystemError",
+      message: "foreign read was aborted",
+      code: "aborted",
+      operation: "read",
+      path: "/foreign.bin",
+    };
+
+    const normalized = toFileSystemError(foreign, "fallback", "/ignored.bin");
+
+    expect(normalized).toBeInstanceOf(FileSystemError);
+    expect(normalized.code).toBe("aborted");
+    expect(normalized.operation).toBe("read");
+    expect(normalized.path).toBe("/foreign.bin");
+    expect(normalized.message).toBe("foreign read was aborted");
+  });
+
   it("keeps canonical path behavior stable", () => {
     expect(normalizePath("a/./b/../c")).toBe("/a/c");
     expect(joinPath("/a", "b", "../c")).toBe("/a/c");
@@ -129,6 +188,7 @@ describe("filesystem facade", () => {
     expect(dirname("/a/c")).toBe("/a");
     expect(basename("/a/c")).toBe("c");
     expect(isAncestorPath("/a", "/a/c")).toBe(true);
+    expect(normalizePath("/caf\u00e9")).not.toBe(normalizePath("/cafe\u0301"));
     expect(() => normalizePath("../../escape")).toThrow(FileSystemError);
     expect(() => normalizePath("a\\b")).toThrow(FileSystemError);
   });
@@ -242,8 +302,41 @@ describe("filesystem facade", () => {
     await fileSystem.writeFile("/abort.bin", new Uint8Array(1024), { parents: true });
     const controller = new AbortController();
     const stream = await fileSystem.openReadStream("/abort.bin", { signal: controller.signal });
+    const reader = stream.getReader();
     controller.abort("stop");
-    await expectFileSystemError(new Response(stream).arrayBuffer(), "aborted");
+    await expectFileSystemError(reader.read(), "aborted");
+  });
+
+  it("keeps abort authoritative when reader cancellation cleanup rejects", async () => {
+    const source = new ReadableStream<Uint8Array>({
+      pull() {},
+      cancel() {
+        throw new Error("reader cleanup failed");
+      },
+    });
+    const controller = new AbortController();
+    const stream = withAbortSignal(source, controller.signal, "/abort-cleanup.bin");
+    const reader = stream.getReader();
+
+    controller.abort("stop");
+
+    await expectFileSystemError(reader.read(), "aborted");
+  });
+
+  it("keeps the producer failure authoritative when reader cleanup also fails", async () => {
+    const source = new ReadableStream<Uint8Array>({
+      pull() {
+        throw new Error("producer failed");
+      },
+      cancel() {
+        throw new Error("reader cleanup failed");
+      },
+    });
+    const controller = new AbortController();
+    const stream = withAbortSignal(source, controller.signal, "/producer.bin");
+    const reader = stream.getReader();
+
+    await expect(reader.read()).rejects.toThrow("producer failed");
   });
 
   it("disposes an adapter only when ownership is explicit", async () => {
