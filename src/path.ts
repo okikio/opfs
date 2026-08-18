@@ -19,6 +19,11 @@ function failPath(path: string, message: string): never {
  * interpreted as separators. This keeps the same virtual path on Windows,
  * Unix, OPFS, databases, and key-value stores.
  *
+ * Unicode code points are preserved exactly. The function does not apply NFC,
+ * NFD, or another Unicode normalization form. Two canonically equivalent names
+ * therefore remain distinct virtual paths unless the selected backend itself
+ * aliases them.
+ *
  * @example
  * ```ts
  * normalizePath("reports/../cache/data.bin"); // "/cache/data.bin"

@@ -1,4 +1,4 @@
-import type { ErrorCodeType } from "./schema.ts";
+import { ErrorCodeSchema, type ErrorCodeType } from "./schema.ts";
 
 /**
  * Error returned by the high-level filesystem and first-party adapters.
@@ -37,6 +37,30 @@ export function getErrorName(error: unknown): string {
   return "Error";
 }
 
+/**
+ * Reconstructs a package error thrown by another worker or iframe realm.
+ *
+ * `instanceof` is realm-specific. The public error fields are deliberately
+ * serializable, so the normalizer recognizes that stable shape and creates a
+ * local {@link FileSystemError} without degrading its code to `unknown`.
+ */
+function fromForeignFileSystemError(error: unknown): FileSystemError | undefined {
+  if (typeof error !== "object" || error === null || getErrorName(error) !== "FileSystemError") return undefined;
+  const code = ErrorCodeSchema.safeParse(Reflect.get(error, "code"));
+  const operation = Reflect.get(error, "operation");
+  const path = Reflect.get(error, "path");
+  if (!code.success || typeof operation !== "string") return undefined;
+  if (path !== undefined && typeof path !== "string") return undefined;
+  const cause = Reflect.get(error, "cause");
+  return new FileSystemError(
+    code.data,
+    operation,
+    path,
+    getErrorMessage(error),
+    cause === undefined ? error : cause,
+  );
+}
+
 /** Returns a runtime error code such as `ENOENT` when one is exposed. */
 function getRuntimeErrorCode(error: unknown): string | undefined {
   if (typeof error !== "object" || error === null || !("code" in error)) return undefined;
@@ -61,6 +85,8 @@ export function getErrorMessage(error: unknown): string {
  */
 export function toFileSystemError(error: unknown, operation: string, path?: string): FileSystemError {
   if (error instanceof FileSystemError) return error;
+  const foreign = fromForeignFileSystemError(error);
+  if (foreign !== undefined) return foreign;
 
   const name = getErrorName(error);
   const runtimeCode = getRuntimeErrorCode(error);

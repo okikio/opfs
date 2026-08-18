@@ -14,10 +14,10 @@ import type {
 } from "./driver/object.ts";
 import { split } from "./chunk.ts";
 import {
+  type FetchType,
   RequestMetrics,
   type RequestMetricsType,
   type RequestPolicyType,
-  RequestTransportError,
   sendRequest,
 } from "./request.ts";
 import { type AdapterLimitsType, MetricsModeSchema, type MetricsModeType } from "./schema.ts";
@@ -95,7 +95,7 @@ export interface AzureClientOptionsType {
   /** Blob REST version. Defaults to {@link AZURE_STORAGE_VERSION}. */
   readonly version?: AzureStorageVersionType;
   /** Fetch implementation. */
-  readonly fetch?: typeof fetch;
+  readonly fetch?: FetchType;
   /** Clock used by `x-ms-date` and deterministic Shared Key tests. */
   readonly now?: () => Date;
   /** Streaming block size. Defaults to 8 MiB. */
@@ -235,6 +235,39 @@ function encodePath(value: string): string {
 /** Compares protocol strings by code-unit order rather than locale collation. */
 function compareText(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
+}
+
+/**
+ * Adds Azure metadata only after validating the provider's header contract.
+ *
+ * Azure accepts metadata names that start with a letter or underscore and then
+ * contain only ASCII letters, digits, or underscores. Metadata values must also
+ * be ASCII. Validate before request construction so a caller gets a local,
+ * deterministic failure instead of a provider HTTP 400 after bytes may already
+ * have been staged for a multipart write. `Headers.set()` remains responsible
+ * for the ordinary HTTP header-value syntax, such as rejecting embedded CR/LF.
+ */
+function setMetadata(headers: Headers, metadata: Readonly<Record<string, string>> | undefined): void {
+  const names = new Set<string>();
+  for (const [name, value] of Object.entries(metadata ?? {})) {
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
+      throw new TypeError(
+        `Azure metadata key ${JSON.stringify(name)} must start with a letter or underscore and contain only ASCII ` +
+          "letters, numbers, or underscores.",
+      );
+    }
+    const normalized = name.toLowerCase();
+    if (names.has(normalized)) {
+      throw new TypeError(`Azure metadata contains the case-insensitive duplicate key ${JSON.stringify(name)}.`);
+    }
+    names.add(normalized);
+    for (const character of value) {
+      if (character.codePointAt(0)! > 0x7f) {
+        throw new TypeError(`Azure metadata value for ${JSON.stringify(name)} must contain only ASCII characters.`);
+      }
+    }
+    headers.set(`x-ms-meta-${name}`, value);
+  }
 }
 
 /**
@@ -517,7 +550,7 @@ class AzureClient implements AzureClientType {
   /** REST service version sent on every authorized request. */
   readonly #version: AzureStorageVersionType;
   /** Fetch implementation used for all provider traffic. */
-  readonly #fetch: typeof fetch;
+  readonly #fetch: FetchType;
   /** Clock used for request authorization. */
   readonly #now: () => Date;
   /** Block size used by streamed uploads. */
@@ -697,13 +730,9 @@ class AzureClient implements AzureClientType {
         ...(signal === undefined ? {} : { signal }),
       };
       if (options.body instanceof ReadableStream) init.duplex = "half";
-      try {
-        return await this.#fetch(url, init);
-      } catch (error) {
-        if (options.signal?.aborted) throw error;
-        throw new RequestTransportError(error);
-      }
+      return { input: url, init };
     }, {
+      fetch: this.#fetch,
       ...(this.#requestPolicy === undefined ? {} : { policy: this.#requestPolicy }),
       ...(options.signal === undefined ? {} : { signal: options.signal }),
       replayable,
@@ -771,9 +800,7 @@ class AzureClient implements AzureClientType {
     }
     if (options.ifMatch !== undefined) headers.set("if-match", options.ifMatch);
     if (options.ifNoneMatch !== undefined) headers.set("if-none-match", options.ifNoneMatch);
-    if ("metadata" in options) {
-      for (const [name, value] of Object.entries(options.metadata ?? {})) headers.set(`x-ms-meta-${name}`, value);
-    }
+    if ("metadata" in options) setMetadata(headers, options.metadata);
     return headers;
   }
 
@@ -993,7 +1020,7 @@ class AzureClient implements AzureClientType {
     const headers = this.#getWriteHeaders(options);
     headers.set("content-type", "application/xml");
     if (source.mediaType !== undefined) headers.set("x-ms-blob-content-type", source.mediaType);
-    for (const [name, value] of Object.entries(source.metadata ?? {})) headers.set(`x-ms-meta-${name}`, value);
+    setMetadata(headers, source.metadata);
     await assertResponse(
       await this.request({
         method: "PUT",

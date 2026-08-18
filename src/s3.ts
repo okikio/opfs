@@ -4,10 +4,10 @@ import { z } from "zod";
 
 import { split } from "./chunk.ts";
 import {
+  type FetchType,
   RequestMetrics,
   type RequestMetricsType,
   type RequestPolicyType,
-  RequestTransportError,
   sendRequest,
 } from "./request.ts";
 import { type AdapterLimitsType, MetricsModeSchema, type MetricsModeType } from "./schema.ts";
@@ -84,7 +84,7 @@ export interface S3ClientOptionsType {
   /** URL addressing style. Path style is the compatibility-oriented default. */
   readonly addressing?: S3AddressingType;
   /** Fetch implementation. The global Web Fetch API is used by default. */
-  readonly fetch?: typeof fetch;
+  readonly fetch?: FetchType;
   /** Clock used for Signature Version 4 timestamps. */
   readonly now?: () => Date;
   /** Multipart part size. Defaults to 8 MiB and must be between 5 MiB and 5 GiB. */
@@ -503,7 +503,7 @@ class S3Client implements S3ClientType {
   /** Path-style or virtual-hosted-style URL strategy. */
   readonly #addressing: S3AddressingType;
   /** Fetch implementation used for every request. */
-  readonly #fetch: typeof fetch;
+  readonly #fetch: FetchType;
   /** Clock injected for deterministic signing and tests. */
   readonly #now: () => Date;
   /** Configured minimum multipart upload size. */
@@ -788,13 +788,9 @@ class S3Client implements S3ClientType {
         ...(signal === undefined ? {} : { signal }),
       };
       if (options.body instanceof ReadableStream) init.duplex = "half";
-      try {
-        return await this.#fetch(url, init);
-      } catch (error) {
-        if (options.signal?.aborted) throw error;
-        throw new RequestTransportError(error);
-      }
+      return { input: url, init };
     }, {
+      fetch: this.#fetch,
       ...(this.#requestPolicy === undefined ? {} : { policy: this.#requestPolicy }),
       ...(options.signal === undefined ? {} : { signal: options.signal }),
       replayable,

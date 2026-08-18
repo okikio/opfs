@@ -1,4 +1,4 @@
-import { FileSystemError, throwIfAborted } from "./error.ts";
+import { FileSystemError, throwIfAborted, toFileSystemError } from "./error.ts";
 import type { CoordinationModeType } from "./schema.ts";
 
 /** Lock access required for one operation. */
@@ -260,8 +260,15 @@ class WebLockCoordinator implements LockCoordinatorType {
       acquired.resolve();
       await hold.promise;
     });
-    await Promise.race([acquired.promise, request]);
-    return new WebHeldLock(hold.resolve, request);
+    try {
+      await Promise.race([acquired.promise, request]);
+      return new WebHeldLock(hold.resolve, request);
+    } catch (error) {
+      // Web Locks rejects a queued request with a realm-native AbortError.
+      // Normalize at the coordinator seam because several facade operations
+      // acquire their lock before entering the adapter error-normalization path.
+      throw toFileSystemError(error, "lock");
+    }
   }
 }
 

@@ -170,7 +170,10 @@ class AbortByteSource implements UnderlyingDefaultSource<Uint8Array> {
       }
     } catch (error) {
       controller.error(error);
-      await this.close(error);
+      // Reader cancellation is cleanup after the producer has already failed.
+      // Do not let a second cleanup rejection replace the producer's original
+      // failure, especially on runtimes whose native streams reject cancel().
+      await this.close(error).catch(() => undefined);
     }
   }
 
@@ -206,7 +209,10 @@ class AbortByteSource implements UnderlyingDefaultSource<Uint8Array> {
       this.#signal.reason,
     );
     this.#controller?.error(error);
-    void this.close(error);
+    // The abort failure above is authoritative. Cancellation only releases the
+    // borrowed reader, so a runtime-specific cancel() rejection must not become
+    // a second unhandled failure after callers have already observed `aborted`.
+    void this.close(error).catch(() => undefined);
   };
 }
 
