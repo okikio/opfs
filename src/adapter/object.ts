@@ -39,7 +39,7 @@ interface DirectoryEvidenceType {
 }
 
 /** Private metadata key that distinguishes library-created directory markers from empty files. */
-const DIRECTORY_META = "okikio-opfs-kind";
+const DIRECTORY_META = "okikio_opfs_kind";
 /** Metadata value written to directory marker objects. */
 const DIRECTORY_VALUE = "directory";
 
