@@ -7,7 +7,7 @@ const CROSS_URL = "http://127.0.0.1:4174/tests/browser/fixtures/frame.html";
 
 /** Waits until an iframe has installed the shared browser test API. */
 async function waitForApi(frame: import("@playwright/test").Frame): Promise<void> {
-  await frame.waitForFunction(() => Boolean((window as unknown as { opfsTest?: { ready?: boolean } }).opfsTest?.ready));
+  await frame.waitForFunction(() => Boolean((globalThis as unknown as { opfsTest?: { ready?: boolean } }).opfsTest?.ready));
 }
 
 test("same-origin iframe observes its real OPFS placement", async ({ page }) => {
@@ -23,7 +23,7 @@ test("same-origin iframe observes its real OPFS placement", async ({ page }) => 
   const frame = await framePromise;
   await waitForApi(frame);
   const result = await frame.evaluate(async () =>
-    await window.opfsTest.roundTrip(`/frames/${crypto.randomUUID()}.txt`, "same")
+    await globalThis.opfsTest.roundTrip(`/frames/${crypto.randomUUID()}.txt`, "same")
   );
   expect(result.probe?.embedded).toBe(true);
   expect(result.probe?.sameOriginTop).toBe(true);
@@ -43,7 +43,7 @@ test("cross-origin iframe reports partition/policy behavior instead of guessing 
   }, CROSS_URL);
   const frame = await framePromise;
   await waitForApi(frame);
-  const probe = await frame.evaluate(async () => await window.opfsTest.probe());
+  const probe = await frame.evaluate(async () => await globalThis.opfsTest.probe());
   expect(probe.embedded).toBe(true);
   expect(probe.sameOriginTop).toBe(false);
   if (!probe.rootAvailable) expect(probe.rootError).toBeDefined();
@@ -54,7 +54,7 @@ test("opaque sandbox reports the platform result without browser-name assumption
   await page.evaluate(() => {
     const frame = document.createElement("iframe");
     frame.sandbox.add("allow-scripts");
-    frame.srcdoc = "<!doctype html><script>window.ready=true</script>";
+    frame.srcdoc = "<!doctype html><script>globalThis.ready=true</script>";
     document.body.append(frame);
   });
   const frame = page.frames().find((candidate) => candidate !== page.mainFrame())!;

@@ -14,13 +14,7 @@ import type {
 } from "../driver/file.ts";
 
 import type {
-  ObjectCopyOptionsType,
   ObjectDriverType,
-  ObjectEntryType,
-  ObjectGetOptionsType,
-  ObjectListOptionsType,
-  ObjectListType,
-  ObjectPutOptionsType,
   ObjectStatType,
 } from "../driver/object.ts";
 

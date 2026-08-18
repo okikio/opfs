@@ -31,7 +31,7 @@ function report(
 
 test("reports raw native OPFS, direct adapter, and facade overhead", async ({ browserName, page }, testInfo) => {
   await ready(page);
-  const result = await page.evaluate(async () => await window.opfsTest.benchmark(25, 64 * 1024));
+  const result = await page.evaluate(async () => await globalThis.opfsTest.benchmark(25, 64 * 1024));
   test.skip(result === null, "OPFS is unavailable in this browser context.");
   expect(result!.rawMs).toBeGreaterThan(0);
   expect(result!.adapterMs).toBeGreaterThan(0);
@@ -48,7 +48,7 @@ for (const backend of ["localstorage", "indexeddb", "cache"] as const) {
   test(`reports raw ${backend}, direct adapter, and facade overhead`, async ({ browserName, page }, testInfo) => {
     await ready(page);
     const result = await page.evaluate(
-      async ({ backend }) => await window.opfsTest.benchmarkAdapter(backend, 20, 16 * 1024),
+      async ({ backend }) => await globalThis.opfsTest.benchmarkAdapter(backend, 20, 16 * 1024),
       { backend },
     );
     test.skip(result === null, `${backend} is unavailable in this browser context.`);

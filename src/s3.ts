@@ -933,6 +933,19 @@ class S3Client implements S3ClientType {
     const partSize = this.#getPartSize(options.size);
     let chunks = getChunks(body, partSize);
 
+    // Preserve the already-consumed chunks before replacing the iterator.
+    // A single chunk larger than PutObject's hard limit still enters multipart
+    // instead of failing only because delayed multipart is enabled.
+    async function* retained(
+      _first: IteratorResult<S3ChunkType>,
+      _second: IteratorResult<S3ChunkType>,
+      _chunks: AsyncGenerator<S3ChunkType>
+    ): AsyncGenerator<S3ChunkType> {
+      yield _first.value;
+      if (!_second.done) yield _second.value;
+      for await (const chunk of _chunks) yield chunk;
+    }
+
     if (this.optimizations.delayedMultipart) {
       const first = await chunks.next();
       if (first.done) return await this.#putBytes(key, new Uint8Array(), options);
@@ -947,17 +960,7 @@ class S3Client implements S3ClientType {
         return await this.#putBytes(key, first.value.bytes, options);
       }
 
-      // Preserve the already-consumed chunks before replacing the iterator.
-      // A single chunk larger than PutObject's hard limit still enters multipart
-      // instead of failing only because delayed multipart is enabled.
-      const rest = chunks;
-      async function* retained(): AsyncGenerator<S3ChunkType> {
-        yield first.value;
-        if (!second.done) yield second.value;
-        for await (const chunk of rest) yield chunk;
-      }
-
-      chunks = retained();
+      chunks = retained(first, second, chunks);
     }
 
     const upload = await this.createUpload(key, options);

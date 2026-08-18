@@ -204,8 +204,7 @@ export function defineRecordDriver(
     write: !(options.readOnly ?? false),
   });
 
-  let base!: DriverType;
-  base = defineDriver({
+  const base = defineDriver({
     ...options,
     kind: "record",
     provides: options.provides ?? [

@@ -6,13 +6,13 @@ const APP_URL = "http://127.0.0.1:4173/tests/browser/fixtures/index.html";
 /** Opens the fixture page and waits for its OPFS test API. */
 async function ready(page: import("@playwright/test").Page): Promise<void> {
   await page.goto(APP_URL);
-  await page.waitForFunction(() => Boolean((window as unknown as { opfsTest?: { ready?: boolean } }).opfsTest?.ready));
+  await page.waitForFunction(() => Boolean((globalThis as unknown as { opfsTest?: { ready?: boolean } }).opfsTest?.ready));
 }
 
 test("DedicatedWorker uses real OPFS and probes synchronous access", async ({ page }) => {
   await ready(page);
   const result = await page.evaluate(async () =>
-    await window.opfsTest.dedicated(`/dedicated/${crypto.randomUUID()}.txt`, "dedicated")
+    await globalThis.opfsTest.dedicated(`/dedicated/${crypto.randomUUID()}.txt`, "dedicated")
   );
   test.skip(!result.supported, "DedicatedWorker is not exposed in this browser context.");
   expect(result.probe?.context).toBe("dedicated-worker");
@@ -27,7 +27,7 @@ test("DedicatedWorker uses real OPFS and probes synchronous access", async ({ pa
 test("SharedWorker uses the browser's actual storage capability", async ({ page }) => {
   await ready(page);
   const result = await page.evaluate(async () =>
-    await window.opfsTest.shared(`/shared/${crypto.randomUUID()}.txt`, "shared")
+    await globalThis.opfsTest.shared(`/shared/${crypto.randomUUID()}.txt`, "shared")
   );
   test.skip(!result.supported, "SharedWorker is not exposed in this browser context.");
   expect(["shared-worker", "worker"]).toContain(result.probe?.context);

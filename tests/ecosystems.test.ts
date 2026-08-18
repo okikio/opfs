@@ -8,44 +8,10 @@ import { createDb0Adapter } from "../src/adapter/db0.ts";
 import { createDrizzleAdapter } from "../src/adapter/drizzle.ts";
 import { createMemoryAdapter } from "../src/adapter/memory.ts";
 import { createRxDbAdapter, RxDbRecordJsonSchema } from "../src/adapter/rxdb.ts";
-import { createUnstorageAdapter } from "../src/adapter/unstorage.ts";
 import { createKeyValueBridge } from "../src/bridge/kv.ts";
 import { createUnstorageBridge } from "../src/bridge/unstorage.ts";
 import { Db0Integration, DrizzleIntegration, RxDbIntegration, UnstorageIntegration } from "../src/integration.ts";
 import { defineIntegration } from "../src/integration/definition.ts";
-
-/** In-memory unstorage-shaped resource used to verify driver-to-adapter semantics and disposal ownership. */
-class MemoryUnstorage {
-  /** Stored unstorage values keyed exactly as the adapter writes them. */
-  #values = new Map<string, unknown>();
-  /** Records whether explicit database ownership was disposed. */
-  disposed = false;
-
-  /** Returns one cloned value so tests cannot pass through shared object identity. */
-  async getItem(key: string): Promise<unknown> {
-    return structuredClone(this.#values.get(key) ?? null);
-  }
-
-  /** Replaces one key with a cloned value. */
-  async setItem(key: string, value: unknown): Promise<void> {
-    this.#values.set(key, structuredClone(value));
-  }
-
-  /** Removes one exact unstorage key. */
-  async removeItem(key: string): Promise<void> {
-    this.#values.delete(key);
-  }
-
-  /** Lists keys under the requested unstorage prefix. */
-  async getKeys(base = ""): Promise<string[]> {
-    return [...this.#values.keys()].filter((key) => key.startsWith(base));
-  }
-
-  /** Marks the database disposed for adapter-ownership assertions. */
-  async dispose(): Promise<void> {
-    this.disposed = true;
-  }
-}
 
 /** Minimal RxDocument-shaped value that preserves JSON reads and incremental removal. */
 class FakeRxDocument {

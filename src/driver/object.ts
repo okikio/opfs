@@ -234,8 +234,7 @@ export function defineObjectDriver(
     versions: backend.capabilities.versions ?? false,
   });
 
-  let base!: DriverType;
-  base = defineDriver({
+  const base = defineDriver({
     ...options,
     name: options.name || backend.name,
     kind: "object",

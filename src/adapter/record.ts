@@ -14,14 +14,10 @@ import { basename, dirname, type PathType, ROOT_PATH } from "../path.ts";
 import {
   type AdapterLimitsType,
   type AdapterPartitionType,
-  type DirectoryRecordType,
-  type FileRecordType,
   RecordSchema,
-  type RecordType,
-  type WriteModeType,
 } from "../schema.ts";
 
-import type { RecordDriverType, RecordListType } from "../driver/record.ts";
+import type { RecordDriverType } from "../driver/record.ts";
 
 /** Options for a filesystem adapter created from a record driver. */
 export interface RecordAdapterOptionsType {

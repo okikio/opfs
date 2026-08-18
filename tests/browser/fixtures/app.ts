@@ -566,7 +566,7 @@ async function roundTripAdapter(kind: BrowserAdapterType): Promise<string> {
   }
 }
 
-window.opfsTest = {
+globalThis.opfsTest = {
   ready: true,
   probe: probeOpfs,
   roundTrip: roundTripOpfs,

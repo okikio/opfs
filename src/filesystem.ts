@@ -353,8 +353,7 @@ async function settleConcurrent(active: Set<Promise<void>>, failures: unknown[],
 
 /** Tracks one bounded child mutation and records its first failure without an unhandled rejection. */
 function trackConcurrent(active: Set<Promise<void>>, failures: unknown[], operation: Promise<void>): void {
-  let tracked!: Promise<void>;
-  tracked = operation.catch((error) => {
+  const tracked = operation.catch((error) => {
     failures.push(error);
     throw error;
   }).finally(() => active.delete(tracked));
