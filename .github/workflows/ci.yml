@@ -29,13 +29,7 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: |
-          if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = '0000000000000000000000000000000000000000' ]; then
-            BASE_SHA="$(git rev-list --max-parents=0 "$HEAD_SHA")"
-          fi
-          npx --yes \
-            --package=@commitlint/cli@21.2.1 \
-            commitlint --default-config --from "$BASE_SHA" --to "$HEAD_SHA" --verbose
+        run: mise run commits
 
   quality:
     name: Deno quality and package dry-runs

@@ -76,12 +76,10 @@ jobs:
         with:
           version: '2026.8.6'
           install_args: deno
-      - name: Restore frozen dependencies
-        run: deno ci
-      - name: Reverify tagged package
-        run: deno publish --dry-run --set-version "${{ needs.resolve.outputs.version }}"
-      - name: Publish JSR package
-        run: deno publish --set-version "${{ needs.resolve.outputs.version }}"
+      - name: Publish verified JSR package
+        env:
+          RELEASE_VERSION: ${{ needs.resolve.outputs.version }}
+        run: mise run publish-jsr
 
   npm:
     name: Publish npm
@@ -100,17 +98,11 @@ jobs:
       - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
         with:
           version: '2026.8.6'
-          install_args: deno node bun
-      - name: Upgrade npm for trusted publishing
-        run: npm install --global npm@11
-      - name: Build and verify npm tarball
-        env:
-          RELEASE_VERSION: ${{ needs.resolve.outputs.version }}
-        run: mise run verify-npm
+          install_args: deno node bun npm:npm
       - name: Detect first npm publication
         id: package
         run: |
-          if npm view @okikio/opfs version > /dev/null 2>&1; then
+          if mise run npm-exists; then
             echo 'exists=true' >> "$GITHUB_OUTPUT"
           else
             echo 'exists=false' >> "$GITHUB_OUTPUT"
@@ -133,10 +125,7 @@ jobs:
           echo "mode=$MODE" >> "$GITHUB_OUTPUT"
       - name: Publish npm package
         env:
-          MODE: ${{ steps.auth.outputs.mode }}
+          RELEASE_VERSION: ${{ needs.resolve.outputs.version }}
+          NPM_AUTH_MODE: ${{ steps.auth.outputs.mode }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          if [ "$MODE" = token ]; then
-            npm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
-          fi
-          npm publish .release/npm/*.tgz --access public --provenance
+        run: mise run publish-npm
