@@ -76,6 +76,10 @@ The root entrypoint remains import-safe in Window, Worker, Deno, Bun, and Node c
 explicit subpaths. Importing the root package does not connect to a provider, read credentials, start workers, or
 configure application logging.
 
+For host filesystem drivers, `root` is a lexical virtual-path mapping rather than a security sandbox. Node, Deno, and Bun
+native file operations can follow symbolic links already present below that directory. Use a trusted host root when an
+independent process or untrusted user can mutate the host filesystem.
+
 ## Layer inventory
 
 The first-party integration set is broad, but each layer has one job.
@@ -203,8 +207,10 @@ S3 REST / Azure Blob REST
 ```
 
 A complete replacement can stream through multipart/block upload. Append and update normally require read-modify-write.
-Server-side copy remains a separate capability because routing bytes through JavaScript is not equivalent to a provider
-control plane copy.
+For generic record drivers, backend transaction availability does not make the adapter's separate read and replace steps
+atomic across independent owners. Stronger append/update semantics require a native driver mode, provider condition, or
+external serialization. Server-side copy remains a separate capability because routing bytes through JavaScript is not
+equivalent to a provider control plane copy.
 
 The S3 client exposes two optimization switches that are useful to inspect and benchmark:
 
