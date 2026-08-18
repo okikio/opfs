@@ -1,6 +1,7 @@
 {
   "version": "5",
   "specifiers": {
+    "jsr:@okikio/undent@~0.3.3": "0.3.3",
     "jsr:@std/assert@^1.0.19": "1.0.19",
     "jsr:@std/async@^1.5.0": "1.5.0",
     "jsr:@std/bytes@^1.0.6": "1.0.6",
@@ -15,6 +16,7 @@
     "npm:@aws-sdk/client-s3@^3.1098.0": "3.1111.0",
     "npm:@aws-sdk/lib-storage@^3.1100.0": "3.1111.0_@aws-sdk+client-s3@3.1111.0",
     "npm:@azure/storage-blob@^12.33.0": "12.33.0",
+    "npm:@deno/shim-deno@~0.19.2": "0.19.2",
     "npm:@jsr/std__async@^1.5.0": "1.5.0",
     "npm:@jsr/std__bytes@^1.0.6": "1.0.6",
     "npm:@jsr/std__encoding@^1.0.11": "1.0.11",
@@ -22,17 +24,25 @@
     "npm:@jsr/std__path@^1.1.6": "1.1.6",
     "npm:@jsr/std__streams@^1.1.2": "1.1.2",
     "npm:@jsr/std__xml@0.2": "0.2.0",
+    "npm:@okikio/undent@~0.3.3": "0.3.3",
+    "npm:@playwright/test@1.62.1": "1.62.1",
     "npm:@playwright/test@^1.62.1": "1.62.1",
     "npm:@testcontainers/azurite@^12.0.4": "12.1.0",
+    "npm:@types/deno@*": "2.7.0",
+    "npm:@types/deno@^2.7.0": "2.7.0",
     "npm:@types/node@^26.2.0": "26.2.0",
     "npm:drizzle-orm@~0.45.2": "0.45.2",
     "npm:mitata@^1.0.34": "1.0.34",
     "npm:testcontainers@^12.0.4": "12.1.0",
     "npm:typescript@^7.0.2": "7.0.2",
+    "npm:vite@8.2.1": "8.2.1_@types+node@26.2.0",
     "npm:vite@^8.2.1": "8.2.1_@types+node@26.2.0",
     "npm:zod@^4.4.3": "4.4.3"
   },
   "jsr": {
+    "@okikio/undent@0.3.3": {
+      "integrity": "890c688327fe4defc917ace44f8e9de85322881aed43d3c24176e530f86b18fa"
+    },
     "@std/assert@1.0.19": {
       "integrity": "eaada96ee120cb980bc47e040f82814d786fe8162ecc53c91d8df60b8755991e",
       "dependencies": [
@@ -419,6 +429,16 @@
     "@balena/dockerignore@1.0.2": {
       "integrity": "sha512-wMue2Sy4GAVTk6Ic4tJVcnfdau+gx2EnG7S+uAEe+TWJFqE4YoWN4/H8MSLj4eYJKxGg26lZwboEniNiNwZQ6Q=="
     },
+    "@deno/shim-deno-test@0.5.0": {
+      "integrity": "sha512-4nMhecpGlPi0cSzT67L+Tm+GOJqvuk8gqHBziqcUQOarnuIax1z96/gJHCSIz2Z0zhxE6Rzwb3IZXPtFh51j+w=="
+    },
+    "@deno/shim-deno@0.19.2": {
+      "integrity": "sha512-q3VTHl44ad8T2Tw2SpeAvghdGOjlnLPDNO2cpOxwMrBE/PVas6geWpbpIgrM+czOCH0yejp0yi8OaTuB+NU40Q==",
+      "dependencies": [
+        "@deno/shim-deno-test",
+        "which@4.0.0"
+      ]
+    },
     "@grpc/grpc-js@1.14.4": {
       "integrity": "sha512-k9Dj3DV/itK9D06Y8f190Qgop7/Ui+D0njFV3LHMPwPT75DpXLQohE9Wmz0QElrJnzsjB7KPWiKJbOl7IPDArQ==",
       "dependencies": [
@@ -528,6 +548,9 @@
     },
     "@nodable/entities@3.0.0": {
       "integrity": "sha512-8L9xFeTYKhm49xfIypoe2W5wV1m/3Z58kT+7kR9A8OyFxcPduI4VmxaUMQyKYrRjUoLLSXv6EKKID5Tvj9cUVw=="
+    },
+    "@okikio/undent@0.3.3": {
+      "integrity": "sha512-kj5dZUpIT/KbpTjAi2a+SwZ9DaRSBWJYrgzN65zs2sjXVjk7TLyFCPDYERUKj1Rzaup/fF9QhKe/QkajDskdkw=="
     },
     "@oxc-project/types@0.144.0": {
       "integrity": "sha512-nuhZIOLuI6TFQ32I/WnUx+SCPY7SdSKwgnFHydAuoS1+Z4BRcaP+RRJmGzl9lw+0OFF7UmaESf7KQRXaNLHypg=="
@@ -645,47 +668,47 @@
     "@rolldown/pluginutils@1.0.1": {
       "integrity": "sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw=="
     },
-    "@smithy/core@3.33.0": {
-      "integrity": "sha512-uKbkxgqLyepQDZoq8aRSdUqD1ID//rOqG96ixBhp++O7vBtmwYM6fwldGhr9HJP0iYrdc7GP/AlgzPWEZIrNRg==",
+    "@smithy/core@3.33.2": {
+      "integrity": "sha512-CUGXpnPkVdjUCbix+83sWLW9VFgQOm44MDOx/ihITJMAnOZKvL8YYIc7DR9pP/tZ8CIRvMiON/TucvygqbHO3w==",
       "dependencies": [
         "@smithy/types",
         "tslib"
       ]
     },
-    "@smithy/credential-provider-imds@4.5.0": {
-      "integrity": "sha512-2jsPi+7Zv2hSzD9IXR9D7DTqSn7mv4XalzRm+bESh53jiaUS3NKEUbpQFTJP0HhQy9qzZvluxQ3yS24zdRrqsA==",
-      "dependencies": [
-        "@smithy/core",
-        "@smithy/types",
-        "tslib"
-      ]
-    },
-    "@smithy/fetch-http-handler@5.7.0": {
-      "integrity": "sha512-W/exA8T0LEzCQtJ02w4IzaEQPIspgarqZprb7W8FwnYiDowgCrjl2fTQ6FvuSSUnJORuepBF81abmBJwqh+0XQ==",
+    "@smithy/credential-provider-imds@4.5.2": {
+      "integrity": "sha512-A9uSdn72ozbRUSit0eib0TW7nXuNPlaeM0zcGkJ+nE6tFcSDbnmtwoxbTCFBukVQcszDAyvsd7+rTduPTXpygg==",
       "dependencies": [
         "@smithy/core",
         "@smithy/types",
         "tslib"
       ]
     },
-    "@smithy/node-http-handler@4.11.0": {
-      "integrity": "sha512-ssHIZsadPUA3lGdnoByxfnjtb9xPYQLvdfJRLKIwxOoa6tO1suG4sLFSsgd7D/CsvYd8QbBIuKTImuJha5l6aQ==",
+    "@smithy/fetch-http-handler@5.7.2": {
+      "integrity": "sha512-nZyWTmSpJEXl6VtWVMBJve/7x12DZu6sIX1z1a+ZMaHlQQRs9Zpu6NbTe/gmxYXVRpkjxyDYpZ5gx2IM6f/Wkw==",
       "dependencies": [
         "@smithy/core",
         "@smithy/types",
         "tslib"
       ]
     },
-    "@smithy/signature-v4@5.7.0": {
-      "integrity": "sha512-hCynhm22wMJ8wTF9crcwu8mxggtUrSLLJgDcGUvYFBqpofxycYJCGKOMYg4xtPPFtgNiDJSYmhsWLTrcU/g59Q==",
+    "@smithy/node-http-handler@4.11.2": {
+      "integrity": "sha512-avwAh9HM3h2lcfjvP3zYIZGf+XVgLQ91wOJ2qoFbNpW1UZeZb33aGlhTZvtkANHfcGhJroRY64525OjfgOg30g==",
       "dependencies": [
         "@smithy/core",
         "@smithy/types",
         "tslib"
       ]
     },
-    "@smithy/types@4.17.0": {
-      "integrity": "sha512-Aw4joiM0ZdErpo39lCj8phT2lxoiKZV+KZzBxnnQhWVtU2Is/WffQSL04uUWRcXUse9Ln8vXZK6V/FwqRVnQpg==",
+    "@smithy/signature-v4@5.7.2": {
+      "integrity": "sha512-P7Ki6px6OOrxVtx8K7nLmyx4SlXUW/uTKDdMG44UHefmPGSRMBKe2v+TM59WdLcpUIrBrnuCsIqiM2MbsZjmhw==",
+      "dependencies": [
+        "@smithy/core",
+        "@smithy/types",
+        "tslib"
+      ]
+    },
+    "@smithy/types@4.17.2": {
+      "integrity": "sha512-FOKpVZob9MPTn2znRzGrnsMHv7BOsKVw3XiP/cOyYLDVZ9qKp4nifIiSCuUU/fIj5Vu0UOAxCFr+qRAtG0NUkA==",
       "dependencies": [
         "tslib"
       ]
@@ -695,6 +718,9 @@
       "dependencies": [
         "testcontainers"
       ]
+    },
+    "@types/deno@2.7.0": {
+      "integrity": "sha512-Y6fWcV8KpYeO3Lik/RiYnUxtr/LWqoeACciU0CA+dr1U/45tGgaX3HWQQAPCNN53raN4Rr4Fht4y6qsUH57fDA=="
     },
     "@types/docker-modem@3.0.6": {
       "integrity": "sha512-yKpAGEuKRSS8wwx0joknWxsmLha78wNMe9R2S3UNsVOkZded8UqOrV8KoeDXoXsjndxwyF3eIhyClGbO1SEhEg==",
@@ -1047,7 +1073,7 @@
       "dependencies": [
         "path-key",
         "shebang-command",
-        "which"
+        "which@2.0.2"
       ]
     },
     "debug@4.4.3": {
@@ -1225,6 +1251,9 @@
     },
     "isexe@2.0.0": {
       "integrity": "sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw=="
+    },
+    "isexe@3.1.5": {
+      "integrity": "sha512-6B3tLtFqtQS4ekarvLVMZ+X+VlvQekbe4taUkf/rhVO3d/h0M2rfARm/pXLcPEsjjMsFgrFgSrhQIxcSVrBz8w=="
     },
     "jackspeak@3.4.3": {
       "integrity": "sha512-OGlZQpz2yfahA/Rd1Y8Cd9SIEsqvXkLVoSw/cgwhnhFMDbsQFeZYoJJ7bIZBS9BcamUW96asq/npPWugM+RQBw==",
@@ -1779,7 +1808,14 @@
     "which@2.0.2": {
       "integrity": "sha512-BLI3Tl1TW3Pvl70l3yq3Y64i+awpwXqsGBYWkkqMtnbXgrMD+yj7rhW0kuEDxzJaYXGjEW5ogapKNMEKNMjibA==",
       "dependencies": [
-        "isexe"
+        "isexe@2.0.0"
+      ],
+      "bin": true
+    },
+    "which@4.0.0": {
+      "integrity": "sha512-GlaYyEb07DPxYCKhKzplCWBJtvxZcZMrL+4UkrTSJHHPyZU4mYYTv3qaOe77H7EODLSSopAUFAc6W8U4yqvscg==",
+      "dependencies": [
+        "isexe@3.1.5"
       ],
       "bin": true
     },
@@ -1841,6 +1877,7 @@
   },
   "workspace": {
     "dependencies": [
+      "jsr:@okikio/undent@~0.3.3",
       "jsr:@std/async@^1.5.0",
       "jsr:@std/bytes@^1.0.6",
       "jsr:@std/encoding@^1.0.11",
@@ -1853,6 +1890,7 @@
       "npm:@azure/storage-blob@^12.33.0",
       "npm:@playwright/test@^1.62.1",
       "npm:@testcontainers/azurite@^12.0.4",
+      "npm:@types/deno@*",
       "npm:drizzle-orm@~0.45.2",
       "npm:mitata@^1.0.34",
       "npm:testcontainers@^12.0.4",
@@ -1864,6 +1902,7 @@
         "npm:@aws-sdk/client-s3@^3.1098.0",
         "npm:@aws-sdk/lib-storage@^3.1100.0",
         "npm:@azure/storage-blob@^12.33.0",
+        "npm:@deno/shim-deno@~0.19.2",
         "npm:@jsr/std__async@^1.5.0",
         "npm:@jsr/std__bytes@^1.0.6",
         "npm:@jsr/std__encoding@^1.0.11",
@@ -1871,8 +1910,10 @@
         "npm:@jsr/std__path@^1.1.6",
         "npm:@jsr/std__streams@^1.1.2",
         "npm:@jsr/std__xml@0.2",
+        "npm:@okikio/undent@~0.3.3",
         "npm:@playwright/test@^1.62.1",
         "npm:@testcontainers/azurite@^12.0.4",
+        "npm:@types/deno@^2.7.0",
         "npm:@types/node@^26.2.0",
         "npm:drizzle-orm@~0.45.2",
         "npm:mitata@^1.0.34",

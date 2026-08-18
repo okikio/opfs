@@ -1,9 +1,5 @@
-import type {
-  AdapterDirectoryEntryType,
-  AdapterSignalOptionsType,
-  AdapterType,
-  FileSystemOptionsType,
-} from "./adapter/definition.ts";
+import type { AdapterType, FileSystemOptionsType } from "./adapter/definition.ts";
+import type { FileDriverDirectoryEntryType, FileDriverSignalOptionsType } from "./driver/file.ts";
 import { FileSystemError, throwIfAborted, toFileSystemError } from "./error.ts";
 import { MutationLocks } from "./lock.ts";
 import { basename, dirname, isAncestorPath, joinPath, normalizePath, ROOT_PATH, splitPath } from "./path.ts";
@@ -24,12 +20,12 @@ import {
   isReadableStream,
   toBytes,
   toByteStream,
-  type WriteDataType,
   withAbortSignal,
+  type WriteDataType,
 } from "./stream.ts";
 import { ManagedSyncFile, type SyncFileType } from "./sync.ts";
 import { ManagedWritableFile, type WritableFileType } from "./writable.ts";
-import { DirectoryHandle, FileHandle, type DirectoryHandleType, type FileHandleType } from "./handle.ts";
+import { DirectoryHandle, type DirectoryHandleType, FileHandle, type FileHandleType } from "./handle.ts";
 
 /** Default lock namespace used when the caller does not provide one. */
 const DEFAULT_LOCK_PREFIX = "@okikio/opfs";
@@ -46,7 +42,12 @@ const DEFAULT_OPTIMIZATIONS: OptimizationType = {
   nativeMove: true,
 };
 
-/** Options for operations that support cancellation. */
+/**
+ * Options for operations that support cancellation.
+ *
+ * Cancellation is best-effort across every backend. Work that already committed
+ * at the provider or host runtime may still be visible after an abort.
+ */
 export interface SignalOptionsType {
   /** Stops work that has not committed yet. */
   readonly signal?: AbortSignal;
@@ -305,9 +306,18 @@ function getBufferLimit(value: number | undefined): number {
   return limit;
 }
 
+/** Parses one facade option and reports invalid caller configuration as `TypeError`. */
+function parseOption<T>(schema: { parse(value: unknown): T }, value: unknown, name: string): T {
+  try {
+    return schema.parse(value);
+  } catch (cause) {
+    throw new TypeError(`Invalid filesystem ${name}.`, { cause });
+  }
+}
+
 /** Resolves a partial optimization policy to the strict public shape. */
 function getOptimizations(value: FileSystemOptionsType["optimizations"]): OptimizationType {
-  return OptimizationSchema.parse({ ...DEFAULT_OPTIMIZATIONS, ...value });
+  return parseOption(OptimizationSchema, { ...DEFAULT_OPTIMIZATIONS, ...value }, "optimizations");
 }
 
 /** Computes the logical file size produced by one materialized write. */
@@ -325,7 +335,7 @@ function getWriteSize(
 }
 
 /** Projects a facade cancellation signal into the adapter operation contract. */
-function getAdapterSignalOptions(signal: AbortSignal | undefined): AdapterSignalOptionsType {
+function getAdapterSignalOptions(signal: AbortSignal | undefined): FileDriverSignalOptionsType {
   return signal === undefined ? {} : { signal };
 }
 
@@ -380,7 +390,7 @@ async function ensureParents(adapter: AdapterType, path: string, signal?: AbortS
 function makeDirectoryEntry(
   fileSystem: FileSystemType,
   parent: string,
-  entry: AdapterDirectoryEntryType,
+  entry: FileDriverDirectoryEntryType,
 ): DirectoryEntryType {
   const path = joinPath(parent, entry.name);
   return {
@@ -460,30 +470,34 @@ class FileSystemFacade implements FileSystemType {
     this.adapter = adapter;
     this.maxBufferedWriteBytes = getBufferLimit(options.maxBufferedWriteBytes);
     this.optimizations = getOptimizations(options.optimizations);
-    this.metricsMode = MetricsModeSchema.parse(options.metrics ?? "basic");
+    this.metricsMode = parseOption(MetricsModeSchema, options.metrics ?? "basic", "metrics mode");
     this.#metrics = new Metrics(this.metricsMode);
     this.#locks = new MutationLocks(
-      CoordinationModeSchema.parse(options.coordination ?? "auto"),
+      parseOption(CoordinationModeSchema, options.coordination ?? "auto", "coordination mode"),
       options.lockPrefix ?? DEFAULT_LOCK_PREFIX,
     );
     this.#disposeAdapter = options.disposeAdapter ?? false;
     this.root = new DirectoryHandle(this, ROOT_PATH);
   }
 
-
   /** Returns effective support, configured limits, policy, and a current metrics snapshot. */
   inspect(): InspectionType {
     this.#assertOpen();
+    const driverMetrics = this.adapter.driver.getMetrics?.();
     return {
-      adapter: this.adapter.name,
-      native: this.adapter.capabilities,
+      driver: this.adapter.driver.inspect(),
+      adapter: {
+        name: this.adapter.name,
+        native: this.adapter.capabilities,
+        ...(this.adapter.limits === undefined ? {} : { limits: this.adapter.limits }),
+        ...(this.adapter.partition === undefined ? {} : { partition: this.adapter.partition }),
+      },
       support: getSupport(this.adapter, this.optimizations),
-      limits: this.adapter.limits ?? {},
-      ...(this.adapter.partition === undefined ? {} : { partition: this.adapter.partition }),
       optimizations: this.optimizations,
       maxBufferedWriteBytes: this.maxBufferedWriteBytes,
       metricsMode: this.metricsMode,
       metrics: this.#metrics.snapshot(),
+      ...(driverMetrics === undefined ? {} : { driverMetrics }),
     };
   }
 
@@ -502,11 +516,17 @@ class FileSystemFacade implements FileSystemType {
     return this.#metrics.snapshot();
   }
 
-  /** Selects partitioned accounting when a configured physical layout will split a known logical value. */
+  /** Selects partitioned accounting only when facade emulation did not already define the route. */
   #support(route: SupportModeType, bytes?: number): SupportModeType {
+    // Facade materialization is the most important logical cost to report. The
+    // nested driver plan still describes any partitioned physical layout used
+    // after the buffer has been materialized.
+    if (route === "emulated") return route;
     const partition = this.adapter.partition;
     if (partition === undefined || partition.mode === "never" || bytes === undefined) return route;
-    return partition.mode === "always" || bytes > (partition.thresholdBytes ?? partition.partBytes) ? "partitioned" : route;
+    return partition.mode === "always" || bytes > (partition.thresholdBytes ?? partition.partBytes)
+      ? "partitioned"
+      : route;
   }
 
   /** Rejects all operations after the caller closes this facade. */
@@ -810,7 +830,9 @@ class FileSystemFacade implements FileSystemType {
       if (ranged && this.adapter.capabilities.rangeRead && !this.optimizations.rangeRead) {
         const complete = await this.adapter.readFile(normalized, getAdapterSignalOptions(options.signal));
         const at = options.at ?? 0;
-        const end = options.length === undefined ? complete.byteLength : Math.min(complete.byteLength, at + options.length);
+        const end = options.length === undefined
+          ? complete.byteLength
+          : Math.min(complete.byteLength, at + options.length);
         bytes = complete.subarray(Math.min(at, complete.byteLength), end);
       } else {
         bytes = await this.adapter.readFile(normalized, {
@@ -923,12 +945,14 @@ class FileSystemFacade implements FileSystemType {
         metricSupport = getSupport(this.adapter, this.optimizations).streamWrite[mode];
         let source = toByteStream(data);
         if (this.metricsMode !== "none") {
-          source = source.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
-            transform(chunk, controller) {
-              metricBytes = (metricBytes ?? 0) + chunk.byteLength;
-              controller.enqueue(chunk);
-            },
-          }));
+          source = source.pipeThrough(
+            new TransformStream<Uint8Array, Uint8Array>({
+              transform(chunk, controller) {
+                metricBytes = (metricBytes ?? 0) + chunk.byteLength;
+                controller.enqueue(chunk);
+              },
+            }),
+          );
         }
         await this.adapter.writeStream!(normalized, source, adapterOptions);
       } else if (stream) {
@@ -1067,7 +1091,8 @@ class FileSystemFacade implements FileSystemType {
     };
     const streamRead = this.optimizations.streamRead && this.adapter.capabilities.streamRead &&
       this.adapter.openReadStream !== undefined;
-    const streamWrite = this.optimizations.streamWrite && this.adapter.capabilities.streamWriteModes.includes("replace") &&
+    const streamWrite = this.optimizations.streamWrite &&
+      this.adapter.capabilities.streamWriteModes.includes("replace") &&
       this.adapter.writeStream !== undefined;
 
     if (streamRead) {
@@ -1286,7 +1311,12 @@ class FileSystemFacade implements FileSystemType {
       }
       if (stat === null) {
         if (!options.create) {
-          throw new FileSystemError("not-found", "open-writable-file", normalized, `File '${normalized}' does not exist.`);
+          throw new FileSystemError(
+            "not-found",
+            "open-writable-file",
+            normalized,
+            `File '${normalized}' does not exist.`,
+          );
         }
         if (options.parents) await ensureParents(this.adapter, dirname(normalized), options.signal);
         const parent = await this.adapter.stat(dirname(normalized), getAdapterSignalOptions(options.signal));
@@ -1406,6 +1436,11 @@ class FileSystemFacade implements FileSystemType {
 
 /**
  * Creates the OPFS-shaped facade over any filesystem adapter.
+ *
+ * This is the point where the architecture becomes user-facing. The selected
+ * driver still owns native requirements, limits, metrics, and disposal rules.
+ * The adapter still owns the primitive translation. This function only adds the
+ * portable OPFS-shaped behavior above those layers.
  *
  * @example Deno-backed frontend
  * ```ts

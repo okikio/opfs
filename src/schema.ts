@@ -8,14 +8,15 @@ import { z } from "zod";
  * values at persistence and adapter seams.
  */
 export const PathSchema = z.string().refine(
-  (value: string) => value === "/" || (
-    value.startsWith("/") &&
-    !value.endsWith("/") &&
-    !value.includes("//") &&
-    !value.includes("\\") &&
-    !value.includes("\0") &&
-    value.split("/").slice(1).every((part: string) => part.length > 0 && part !== "." && part !== "..")
-  ),
+  (value: string) =>
+    value === "/" || (
+      value.startsWith("/") &&
+      !value.endsWith("/") &&
+      !value.includes("//") &&
+      !value.includes("\\") &&
+      !value.includes("\0") &&
+      value.split("/").slice(1).every((part: string) => part.length > 0 && part !== "." && part !== "..")
+    ),
   "Expected a canonical virtual filesystem path.",
 );
 
@@ -300,7 +301,7 @@ export const FileRecordSchema = RecordBaseSchema.extend({
 export type FileRecordType = z.output<typeof FileRecordSchema>;
 
 /**
- * Persisted record format shared by RxDB, unstorage, db0, and Drizzle bridges.
+ * Persisted record format shared by RxDB, unstorage, db0, and Drizzle record drivers.
  *
  * File bytes use base64 text because every target ecosystem can preserve JSON
  * strings. This costs about one third more storage than raw bytes. Native file
@@ -322,3 +323,103 @@ export const SqlIdentifierSchema = z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/);
 
 /** A validated unqualified SQL identifier. */
 export type SqlIdentifierType = z.output<typeof SqlIdentifierSchema>;
+
+/** Storage family owned by one backend driver. */
+export const DriverKindSchema = z.enum(["file", "record", "object"]);
+
+/** A validated backend driver family. */
+export type DriverKindType = z.output<typeof DriverKindSchema>;
+
+/** Why one driver limit exists. */
+export const LimitKindSchema = z.enum(["hard", "policy", "dynamic"]);
+
+/** A validated limit kind. */
+export type LimitKindType = z.output<typeof LimitKindSchema>;
+
+/** Layer that supplied one limit value. */
+export const LimitSourceSchema = z.enum(["provider", "implementation", "user", "probe"]);
+
+/** A validated limit source. */
+export type LimitSourceType = z.output<typeof LimitSourceSchema>;
+
+/** Unit used by one numeric limit. */
+export const LimitUnitSchema = z.enum(["bytes", "count", "milliseconds", "operations"]);
+
+/** A validated limit unit. */
+export type LimitUnitType = z.output<typeof LimitUnitSchema>;
+
+/**
+ * One inspectable storage limit with explicit provenance.
+ *
+ * A hard provider limit is not interchangeable with a project safety policy or
+ * a user-selected ceiling. `value` can be absent only for a dynamic limit whose
+ * current value has not been probed.
+ */
+export const LimitSchema = z.object({
+  code: z.string().min(1),
+  kind: LimitKindSchema,
+  source: LimitSourceSchema,
+  unit: LimitUnitSchema,
+  value: z.number().nonnegative().optional(),
+  detail: z.string().min(1).optional(),
+}).strict().superRefine((value, ctx) => {
+  if (value.value === undefined && value.kind !== "dynamic") {
+    ctx.addIssue({ code: "custom", message: "Only dynamic limits can omit their current value." });
+  }
+});
+
+/** A validated storage limit. */
+export type LimitType = z.output<typeof LimitSchema>;
+
+/** Current state of one driver requirement. */
+export const RequirementStateSchema = z.enum(["available", "missing", "unknown"]);
+
+/** A validated requirement state. */
+export type RequirementStateType = z.output<typeof RequirementStateSchema>;
+
+/**
+ * One runtime, provider, permission, or configuration requirement.
+ *
+ * Definitions can report `unknown` before probing. Configured drivers should
+ * prefer `available` or `missing` when the state is already known.
+ */
+export const RequirementSchema = z.object({
+  code: z.string().min(1),
+  state: RequirementStateSchema,
+  reason: z.string().min(1).optional(),
+}).strict().superRefine((value, ctx) => {
+  if (value.state === "missing" && value.reason === undefined) {
+    ctx.addIssue({ code: "custom", message: "Missing requirements need a concrete reason." });
+  }
+});
+
+/** A validated driver requirement. */
+export type RequirementType = z.output<typeof RequirementSchema>;
+
+/** Ownership state for one configured driver backend resource. */
+export const DriverOwnershipSchema = z.enum(["none", "borrowed", "owned"]);
+
+/** A validated configured-driver backend ownership state. */
+export type DriverOwnershipType = z.output<typeof DriverOwnershipSchema>;
+
+/**
+ * One independently controllable driver optimization.
+ *
+ * `changesBehavior` means request count, failure timing, storage layout,
+ * consistency, atomicity, or another observable property can differ when the
+ * optimization is enabled. Such optimizations must be disableable.
+ */
+export const DriverOptimizationSchema = z.object({
+  code: z.string().min(1),
+  enabled: z.boolean(),
+  changesBehavior: z.boolean(),
+  disableable: z.boolean(),
+  detail: z.string().min(1).optional(),
+}).strict().superRefine((value, ctx) => {
+  if (value.changesBehavior && !value.disableable) {
+    ctx.addIssue({ code: "custom", message: "Behavior-changing optimizations must be disableable." });
+  }
+});
+
+/** A validated driver optimization declaration. */
+export type DriverOptimizationType = z.output<typeof DriverOptimizationSchema>;

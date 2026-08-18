@@ -26,25 +26,25 @@ export interface CreateWritableOptionsType {
 /** Command accepted by {@link WritableFileStreamType.write}. */
 export type WriteCommandType =
   | {
-      /** Selects a byte write command. */
-      readonly type: "write";
-      /** Optional explicit position. Omit it to use the staged stream cursor. */
-      readonly position?: number;
-      /** Materialized write input inserted at the selected position. */
-      readonly data: Exclude<WriteDataType, ReadableStream<Uint8Array> | AsyncIterable<Uint8Array>>;
-    }
+    /** Selects a byte write command. */
+    readonly type: "write";
+    /** Optional explicit position. Omit it to use the staged stream cursor. */
+    readonly position?: number;
+    /** Materialized write input inserted at the selected position. */
+    readonly data: Exclude<WriteDataType, ReadableStream<Uint8Array> | AsyncIterable<Uint8Array>>;
+  }
   | {
-      /** Selects a cursor movement without changing file bytes. */
-      readonly type: "seek";
-      /** New zero-based staged cursor position. */
-      readonly position: number;
-    }
+    /** Selects a cursor movement without changing file bytes. */
+    readonly type: "seek";
+    /** New zero-based staged cursor position. */
+    readonly position: number;
+  }
   | {
-      /** Selects a staged file-size change. */
-      readonly type: "truncate";
-      /** New non-negative staged file size. */
-      readonly size: number;
-    };
+    /** Selects a staged file-size change. */
+    readonly type: "truncate";
+    /** New non-negative staged file size. */
+    readonly size: number;
+  };
 
 /** Input accepted by OPFS-compatible writable handles. */
 export type WritableChunkType =

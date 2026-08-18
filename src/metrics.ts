@@ -48,6 +48,30 @@ export interface MetricsType {
   readonly operations: Readonly<Partial<Record<MetricOperationType, MetricEntryType>>>;
 }
 
+/** Physical backend counters reported by a configured driver when available. */
+export interface DriverMetricsType {
+  /** Concrete provider or operating-system requests observed by the driver. */
+  readonly requests?: number;
+  /** Additional provider requests made after retryable failures. */
+  readonly retries?: number;
+  /** Terminal backend operations or requests that failed. */
+  readonly failures?: number;
+  /** Provider responses received when the backend has a request/response protocol. */
+  readonly responses?: number;
+  /** Logical payload bytes accepted from or returned to the adapter when measured. */
+  readonly logicalBytes?: number;
+  /** Physical bytes transferred to or from the backend when measurable. */
+  readonly physicalBytes?: number;
+  /** Physical partitions, blocks, chunks, or multipart parts processed. */
+  readonly parts?: number;
+  /** Highest simultaneous backend work count observed. */
+  readonly peakActive?: number;
+  /** Total measured backend wall-clock duration. */
+  readonly durationMs?: number;
+  /** Time spent releasing failed multipart/partition state when measured. */
+  readonly cleanupDurationMs?: number;
+}
+
 /** Mutable form retained privately so snapshots cannot mutate live counters. */
 interface MutableMetricType {
   /** Completed attempts, including failures. */

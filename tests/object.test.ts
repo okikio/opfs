@@ -65,7 +65,9 @@ class MemoryObjectBackend implements ObjectBackendType {
     const value = this.values.get(key);
     if (value === undefined) return new Response(null, { status: 404 }).body!;
     const start = options.at ?? 0;
-    const end = options.length === undefined ? value.bytes.byteLength : Math.min(value.bytes.byteLength, start + options.length);
+    const end = options.length === undefined
+      ? value.bytes.byteLength
+      : Math.min(value.bytes.byteLength, start + options.length);
     const bytes = value.bytes.slice(start, end);
     return new ReadableStream({
       start(controller) {
@@ -226,7 +228,6 @@ describe("object driver adapter", () => {
     if (stat.kind === "file") expect(stat.mediaType).toBe("application/x-test");
     await fileSystem.close();
   });
-
 
   it("rejects an oversized emulated copy when its streaming read route is disabled", async () => {
     const store = new MemoryObjectBackend();

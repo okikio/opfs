@@ -50,7 +50,13 @@ describe("driver contract", () => {
       requirements: [{ code: "database", state: "available" }],
       limits: [
         { code: "value-bytes", kind: "hard", source: "provider", unit: "bytes", value: 64 * 1024 },
-        { code: "quota-bytes", kind: "dynamic", source: "probe", unit: "bytes", detail: "Probe storage quota before admission." },
+        {
+          code: "quota-bytes",
+          kind: "dynamic",
+          source: "probe",
+          unit: "bytes",
+          detail: "Probe storage quota before admission.",
+        },
       ],
       optimizations: [
         { code: "partition", enabled: true, changesBehavior: true, disableable: true },
@@ -72,11 +78,13 @@ describe("driver contract", () => {
   });
 
   it("rejects a behavior-changing optimization that cannot be disabled", () => {
-    expect(() => defineDriver({
-      name: "unsafe",
-      kind: "object",
-      optimizations: [{ code: "cache", enabled: true, changesBehavior: true, disableable: false }],
-    })).toThrow(TypeError);
+    expect(() =>
+      defineDriver({
+        name: "unsafe",
+        kind: "object",
+        optimizations: [{ code: "cache", enabled: true, changesBehavior: true, disableable: false }],
+      })
+    ).toThrow(TypeError);
   });
 
   it("lets a third-party record driver preflight logical size before an adapter exists", () => {
@@ -85,16 +93,18 @@ describe("driver contract", () => {
       limits: [{ code: "file-bytes", kind: "policy", source: "user", unit: "bytes", value: 8 }],
     });
 
-    expect(driver.plan({ operation: "write", path: "/small.bin", size: 8, source: "bytes", mode: "replace" })).toMatchObject({
-      supported: true,
-      support: "native",
-    });
-    expect(driver.plan({ operation: "write", path: "/large.bin", size: 9, source: "bytes", mode: "replace" })).toMatchObject({
-      supported: false,
-      support: "unsupported",
-      problems: [{ code: "file-too-large", layer: "driver", severity: "error" }],
-      actions: [{ kind: "reduce-input" }, { kind: "select-driver" }],
-    });
+    expect(driver.plan({ operation: "write", path: "/small.bin", size: 8, source: "bytes", mode: "replace" }))
+      .toMatchObject({
+        supported: true,
+        support: "native",
+      });
+    expect(driver.plan({ operation: "write", path: "/large.bin", size: 9, source: "bytes", mode: "replace" }))
+      .toMatchObject({
+        supported: false,
+        support: "unsupported",
+        problems: [{ code: "file-too-large", layer: "driver", severity: "error" }],
+        actions: [{ kind: "reduce-input" }, { kind: "select-driver" }],
+      });
   });
 
   it("enforces read-only policy at the driver seam before an adapter exists", () => {
@@ -115,10 +125,11 @@ describe("driver contract", () => {
     expect(driver.capabilities.write).toBe(false);
     expect(driver.provides.includes("set")).toBe(false);
     expect(driver.provides.includes("delete")).toBe(false);
-    expect(driver.plan({ operation: "write", path: "/value", size: 0, source: "bytes", mode: "replace" })).toMatchObject({
-      supported: false,
-      problems: [{ code: "read-only", layer: "driver", severity: "error" }],
-    });
+    expect(driver.plan({ operation: "write", path: "/value", size: 0, source: "bytes", mode: "replace" }))
+      .toMatchObject({
+        supported: false,
+        problems: [{ code: "read-only", layer: "driver", severity: "error" }],
+      });
     expect(() => driver.set(record)).toThrow();
   });
 

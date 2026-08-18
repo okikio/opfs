@@ -1,179 +1,141 @@
-import type { InspectionType } from "../capability.ts";
-import type { FileSystemType } from "../filesystem.ts";
-import type { MetricsType } from "../metrics.ts";
-import type { PlanInputType, PlanType } from "../plan.ts";
-import { createKeyValueDriver } from "./kv.ts";
+import { defineRecordDriver, type RecordBackendType, type RecordDriverType } from "./record.ts";
+import { normalizePath, type PathType, splitPath } from "../path.ts";
+import { RecordSchema } from "../schema.ts";
 
-/** Metadata shape understood by unstorage drivers. */
-export interface UnstorageDriverMetaType {
-  /** Last access time when known. */
-  readonly atime?: Date;
-  /** Last modification time when known. */
-  readonly mtime?: Date;
-  /** Additional provider-specific metadata. */
-  readonly [key: string]: string | number | boolean | object | Date | null | undefined;
+/**
+ * Structural subset of unstorage's current `Storage` API used by this driver.
+ *
+ * The driver intentionally depends on the high-level Storage object, not a
+ * specific driver. A storage created with memory, IndexedDB, Redis, S3, db0,
+ * Cloudflare, filesystem, or another current unstorage driver can therefore be
+ * supplied without a second OPFS storage implementation.
+ */
+export interface UnstorageStorageType {
+  /** Reads one decoded storage value. */
+  getItem<T = unknown>(key: string, options?: Record<string, unknown>): Promise<T | null>;
+  /** Stores one serializable value. */
+  setItem<T>(key: string, value: T, options?: Record<string, unknown>): Promise<void>;
+  /** Removes one key. */
+  removeItem(key: string, options?: Record<string, unknown> | boolean): Promise<void>;
+  /** Lists keys below an optional base key. */
+  getKeys(base?: string, options?: Record<string, unknown>): Promise<string[]>;
+  /** Releases mounted drivers owned by the Storage object. */
+  dispose?(): Promise<void>;
 }
 
-/** Options accepted by unstorage driver methods. */
-export interface UnstorageDriverTransactionOptionsType {
-  /** Optional traversal depth used by getKeys. */
-  readonly maxDepth?: number;
-  /** Additional unstorage/provider transaction options. */
-  readonly [key: string]: unknown;
-}
-
-/** Driver contract compatible with unstorage's stable Driver surface used here. */
-export interface UnstorageDriverType {
-  /** Returns the exact filesystem capabilities, limits, and partition policy behind this driver. */
-  inspect(): InspectionType;
-  /** Preflights one underlying filesystem operation without touching storage. */
-  plan(input: PlanInputType): PlanType;
-  /** Returns current filesystem metrics without exposing mutable counters. */
-  getMetrics(): MetricsType;
-  /** Stable driver identity reported to unstorage. */
-  readonly name: string;
-  /** Declares native interpretation of unstorage's `maxDepth` listing option. */
-  readonly flags: { readonly maxDepth: true };
-  /** Tests whether one exact unstorage key has a value. */
-  hasItem(key: string, options: UnstorageDriverTransactionOptionsType): Promise<boolean>;
-  /** Reads one value as UTF-8 text. */
-  getItem(key: string, options?: UnstorageDriverTransactionOptionsType): Promise<string | null>;
-  /** Replaces one value from UTF-8 text. */
-  setItem(key: string, value: string, options: UnstorageDriverTransactionOptionsType): Promise<void>;
-  /** Reads one value without text decoding. */
-  getItemRaw(key: string, options: UnstorageDriverTransactionOptionsType): Promise<Uint8Array | null>;
-  /** Replaces one value from raw byte-compatible input. */
-  setItemRaw(key: string, value: string | Blob | ArrayBuffer | ArrayBufferView, options: UnstorageDriverTransactionOptionsType): Promise<void>;
-  /** Removes one exact value while preserving descendants. */
-  removeItem(key: string, options: UnstorageDriverTransactionOptionsType): Promise<void>;
-  /** Returns filesystem-backed metadata for one exact value. */
-  getMeta(key: string, options: UnstorageDriverTransactionOptionsType): Promise<UnstorageDriverMetaType | null>;
-  /** Lists colon-delimited descendant keys below one base prefix. */
-  getKeys(base: string, options: UnstorageDriverTransactionOptionsType): Promise<string[]>;
-  /** Removes descendants below one base prefix according to unstorage clear semantics. */
-  clear(base: string, options: UnstorageDriverTransactionOptionsType): Promise<void>;
-  /** Releases filesystem ownership only when creation explicitly transferred it. */
-  dispose(): Promise<void>;
-}
-
-/** Options for the reverse unstorage driver. */
+/** Options for the unstorage-backed record driver. */
 export interface UnstorageDriverOptionsType {
-  /** Virtual directory that contains unstorage keys. Defaults to `/`. */
-  readonly root?: string;
-  /** Closes the injected filesystem when unstorage disposes the driver. */
-  readonly disposeFileSystem?: boolean;
+  /** Key prefix reserved for filesystem records. Defaults to `opfs`. */
+  readonly prefix?: string;
+  /** Prevents all mutations. Useful with read-only HTTP/GitHub drivers. */
+  readonly readOnly?: boolean;
+  /** Disposes the injected Storage object when the filesystem closes. */
+  readonly disposeStorage?: boolean;
+}
+
+/** Encodes one virtual path name into an unstorage key segment without `:` or `%`. */
+function encodeSegment(value: string): string {
+  return encodeURIComponent(value).replace(/~/g, "%7E").replace(/%/g, "~");
+}
+
+/** Reverses {@link encodeSegment} for keys owned by this driver. */
+function decodeSegment(value: string): string {
+  return decodeURIComponent(value.replace(/~/g, "%"));
+}
+
+/** Removes trailing unstorage separators while retaining a non-empty namespace. */
+function normalizePrefix(prefix: string): string {
+  return prefix.replace(/:+$/g, "") || "opfs";
+}
+
+/** Maps one canonical virtual path to the private unstorage record namespace. */
+function getKey(prefix: string, path: string): string {
+  const parts = splitPath(path);
+  return parts.length === 0 ? `${prefix}:entry` : `${prefix}:entry:${parts.map(encodeSegment).join(":")}`;
+}
+
+/** Maps a driver-owned unstorage key back to a canonical path, or null for foreign keys. */
+function getPath(prefix: string, key: string): PathType | null {
+  const base = `${prefix}:entry`;
+  if (key === base) return "/";
+  if (!key.startsWith(`${base}:`)) return null;
+  const encoded = key.slice(base.length + 1).split(":");
+  return normalizePath(encoded.map(decodeSegment).join("/"));
 }
 
 /**
- * unstorage-compatible view over the generic filesystem key-value driver.
+ * Record-store projection over any compatible unstorage `Storage` instance.
  *
- * The class owns only unstorage naming and `maxDepth` translation. Key
- * encoding, prefix collisions, filesystem ownership, and value persistence
- * remain in {@link KeyValueDriverType}.
+ * The class targets the high-level Storage surface rather than one driver.
+ * Driver-specific replication, retries, durability, limits, and provider SDKs
+ * remain owned by unstorage and the selected driver.
  */
-class UnstorageDriver implements UnstorageDriverType {
-  /** Stable driver name reported to unstorage. */
-  readonly name = "@okikio/opfs";
-  /** Declares that this driver interprets unstorage's `maxDepth` option. */
-  readonly flags = { maxDepth: true } as const;
-  /** Generic KV projection that owns filesystem mapping and optional disposal. */
-  readonly #driver: ReturnType<typeof createKeyValueDriver>;
+class UnstorageBackend implements RecordBackendType {
+  /** unstorage Storage borrowed from or transferred by the caller. */
+  readonly #storage: UnstorageStorageType;
+  /** Reserved unstorage namespace for filesystem records. */
+  readonly #prefix: string;
+  /** Whether disposal also disposes the injected Storage. */
+  readonly #disposeStorage: boolean;
 
-  /** Creates one unstorage projection over the already-configured filesystem. */
-  constructor(fileSystem: FileSystemType, options: UnstorageDriverOptionsType) {
-    this.#driver = createKeyValueDriver(fileSystem, options);
+  /** Resolves namespace and ownership policy once. */
+  constructor(storage: UnstorageStorageType, options: UnstorageDriverOptionsType) {
+    this.#storage = storage;
+    this.#prefix = normalizePrefix(options.prefix ?? "opfs");
+    this.#disposeStorage = options.disposeStorage ?? false;
   }
 
-  /** Returns the effective capability and limit report of the backing filesystem. */
-  inspect(): InspectionType {
-    return this.#driver.inspect();
+  /** Reads and validates one exact unstorage record. */
+  async get(path: PathType) {
+    const value = await this.#storage.getItem(getKey(this.#prefix, path));
+    return value === null ? null : RecordSchema.parse(value);
   }
 
-  /** Uses the backing filesystem planner without duplicating storage policy in the unstorage layer. */
-  plan(input: PlanInputType): PlanType {
-    return this.#driver.plan(input);
+  /** Replaces one exact unstorage record. */
+  async set(record: Parameters<RecordBackendType["set"]>[0]): Promise<void> {
+    await this.#storage.setItem(getKey(this.#prefix, record.path), record);
   }
 
-  /** Returns the backing filesystem's detached metrics snapshot. */
-  getMetrics(): MetricsType {
-    return this.#driver.getMetrics();
-  }
-
-  /** Tests one exact unstorage key. */
-  async hasItem(key: string, _options: UnstorageDriverTransactionOptionsType): Promise<boolean> {
-    return await this.#driver.has(key);
-  }
-
-  /** Reads one UTF-8 unstorage value or `null` when absent. */
-  async getItem(key: string, _options?: UnstorageDriverTransactionOptionsType): Promise<string | null> {
-    return await this.#driver.get(key);
-  }
-
-  /** Replaces one UTF-8 unstorage value. */
-  async setItem(key: string, value: string, _options: UnstorageDriverTransactionOptionsType): Promise<void> {
-    await this.#driver.set(key, value);
-  }
-
-  /** Reads one raw unstorage value without text transcoding. */
-  async getItemRaw(key: string, _options: UnstorageDriverTransactionOptionsType): Promise<Uint8Array | null> {
-    return await this.#driver.getRaw(key);
-  }
-
-  /** Replaces one raw unstorage value. */
-  async setItemRaw(
-    key: string,
-    value: string | Blob | ArrayBuffer | ArrayBufferView,
-    _options: UnstorageDriverTransactionOptionsType,
-  ): Promise<void> {
-    await this.#driver.setRaw(key, value);
-  }
-
-  /** Removes only the exact unstorage key. */
-  async removeItem(key: string, _options: UnstorageDriverTransactionOptionsType): Promise<void> {
-    await this.#driver.remove(key);
-  }
-
-  /** Projects filesystem modification time into unstorage metadata. */
-  async getMeta(key: string, _options: UnstorageDriverTransactionOptionsType): Promise<UnstorageDriverMetaType | null> {
-    const meta = await this.#driver.meta(key);
-    return meta === null || meta.modified === undefined ? null : { mtime: meta.modified };
+  /** Removes one exact unstorage record. */
+  async delete(path: PathType): Promise<void> {
+    await this.#storage.removeItem(getKey(this.#prefix, path));
   }
 
   /**
-   * Lists keys with unstorage's trailing-colon descendant semantics.
+   * Lists direct children below one encoded directory key.
    *
-   * A base such as `foo:` excludes the exact `foo` value while retaining
-   * descendants. The generic KV layer deliberately does not own that
-   * unstorage-specific rule.
+   * `maxDepth: 1` is an optional upstream optimization. Correctness still comes
+   * from the explicit path-depth filter because not every unstorage driver
+   * advertises or honors the same listing acceleration.
    */
-  async getKeys(base: string, options: UnstorageDriverTransactionOptionsType): Promise<string[]> {
-    const exactBase = base.replace(/:+$/g, "");
-    const excludesExactBase = base.endsWith(":") && exactBase.length > 0;
-    const values = await this.#driver.keys(base, options.maxDepth === undefined ? undefined : { maxDepth: options.maxDepth });
-    return excludesExactBase ? values.filter((key) => key !== exactBase) : values;
+  async *list(parent: PathType) {
+    const parentDepth = splitPath(parent).length;
+    const keys = await this.#storage.getKeys(getKey(this.#prefix, parent), { maxDepth: 1 });
+    for (const storageKey of keys) {
+      const path = getPath(this.#prefix, storageKey);
+      if (path === null || path === parent || splitPath(path).length !== parentDepth + 1) continue;
+      const value = await this.#storage.getItem(storageKey);
+      if (value !== null) yield RecordSchema.parse(value);
+    }
   }
 
-  /** Removes a key subtree while preserving the exact base for trailing-colon calls. */
-  async clear(base: string, _options: UnstorageDriverTransactionOptionsType): Promise<void> {
-    await this.#driver.clear(base, { preserveExact: base.endsWith(":") && base.replace(/:+$/g, "").length > 0 });
-  }
-
-  /** Releases optional filesystem ownership through the generic driver. */
+  /** Disposes the injected Storage only when ownership was explicitly transferred. */
   async dispose(): Promise<void> {
-    await this.#driver.dispose();
+    if (this.#disposeStorage) await this.#storage.dispose?.();
   }
 }
 
-/**
- * Creates an unstorage driver backed by this package's filesystem facade.
- *
- * This is the reverse direction of `createUnstorageAdapter()`. The generic
- * key-value driver owns the collision-safe filesystem mapping, while the
- * unstorage class translates method names and `maxDepth` behavior.
- */
+/** Creates an independently useful record driver from one unstorage `Storage`. */
 export function createUnstorageDriver(
-  fileSystem: FileSystemType,
+  storage: UnstorageStorageType,
   options: UnstorageDriverOptionsType = {},
-): UnstorageDriverType {
-  return new UnstorageDriver(fileSystem, options);
+): RecordDriverType {
+  return defineRecordDriver(new UnstorageBackend(storage, options), {
+    name: "unstorage",
+    capabilities: { replacement: "best-effort", transactions: false, binary: false },
+    requirements: [{ code: "unstorage", state: "available" }],
+    optimizations: [],
+    readOnly: options.readOnly ?? false,
+    disposeBackend: options.disposeStorage ?? false,
+  });
 }

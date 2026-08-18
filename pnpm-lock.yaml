@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@okikio/undent':
+        specifier: ^0.3.3
+        version: 0.3.3
       '@std/async':
         specifier: npm:@jsr/std__async@^1.5.0
         version: '@jsr/std__async@1.5.0'
@@ -39,6 +42,9 @@ importers:
       '@azure/storage-blob':
         specifier: ^12.33.0
         version: 12.33.0
+      '@deno/shim-deno':
+        specifier: ^0.19.2
+        version: 0.19.2
       '@playwright/test':
         specifier: ^1.62.1
         version: 1.62.1
@@ -48,6 +54,9 @@ importers:
       '@testcontainers/azurite':
         specifier: ^12.0.4
         version: 12.1.0
+      '@types/deno':
+        specifier: ^2.7.0
+        version: 2.7.0
       '@types/node':
         specifier: ^26.2.0
         version: 26.2.0
@@ -205,6 +214,12 @@ packages:
   '@balena/dockerignore@1.0.2':
     resolution: {integrity: sha512-wMue2Sy4GAVTk6Ic4tJVcnfdau+gx2EnG7S+uAEe+TWJFqE4YoWN4/H8MSLj4eYJKxGg26lZwboEniNiNwZQ6Q==}
 
+  '@deno/shim-deno-test@0.5.0':
+    resolution: {integrity: sha512-4nMhecpGlPi0cSzT67L+Tm+GOJqvuk8gqHBziqcUQOarnuIax1z96/gJHCSIz2Z0zhxE6Rzwb3IZXPtFh51j+w==}
+
+  '@deno/shim-deno@0.19.2':
+    resolution: {integrity: sha512-q3VTHl44ad8T2Tw2SpeAvghdGOjlnLPDNO2cpOxwMrBE/PVas6geWpbpIgrM+czOCH0yejp0yi8OaTuB+NU40Q==}
+
   '@grpc/grpc-js@1.14.4':
     resolution: {integrity: sha512-k9Dj3DV/itK9D06Y8f190Qgop7/Ui+D0njFV3LHMPwPT75DpXLQohE9Wmz0QElrJnzsjB7KPWiKJbOl7IPDArQ==}
     engines: {node: '>=12.10.0'}
@@ -261,6 +276,10 @@ packages:
 
   '@nodable/entities@3.0.0':
     resolution: {integrity: sha512-8L9xFeTYKhm49xfIypoe2W5wV1m/3Z58kT+7kR9A8OyFxcPduI4VmxaUMQyKYrRjUoLLSXv6EKKID5Tvj9cUVw==}
+
+  '@okikio/undent@0.3.3':
+    resolution: {integrity: sha512-kj5dZUpIT/KbpTjAi2a+SwZ9DaRSBWJYrgzN65zs2sjXVjk7TLyFCPDYERUKj1Rzaup/fF9QhKe/QkajDskdkw==}
+    engines: {node: '>=20'}
 
   '@oxc-project/types@0.144.0':
     resolution: {integrity: sha512-nuhZIOLuI6TFQ32I/WnUx+SCPY7SdSKwgnFHydAuoS1+Z4BRcaP+RRJmGzl9lw+0OFF7UmaESf7KQRXaNLHypg==}
@@ -420,6 +439,9 @@ packages:
 
   '@testcontainers/azurite@12.1.0':
     resolution: {integrity: sha512-4l7vMOY92UPTe8sXyS0ZHbKjrpt9cXbg7HIHKrb3hbE5diU6T7Suu4hsM8ExNNnKTk2WEJX3Rl36BY7wRfrA1Q==}
+
+  '@types/deno@2.7.0':
+    resolution: {integrity: sha512-Y6fWcV8KpYeO3Lik/RiYnUxtr/LWqoeACciU0CA+dr1U/45tGgaX3HWQQAPCNN53raN4Rr4Fht4y6qsUH57fDA==}
 
   '@types/docker-modem@3.0.6':
     resolution: {integrity: sha512-yKpAGEuKRSS8wwx0joknWxsmLha78wNMe9R2S3UNsVOkZded8UqOrV8KoeDXoXsjndxwyF3eIhyClGbO1SEhEg==}
@@ -959,6 +981,10 @@ packages:
   isexe@2.0.0:
     resolution: {integrity: sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw==}
 
+  isexe@3.1.5:
+    resolution: {integrity: sha512-6B3tLtFqtQS4ekarvLVMZ+X+VlvQekbe4taUkf/rhVO3d/h0M2rfARm/pXLcPEsjjMsFgrFgSrhQIxcSVrBz8w==}
+    engines: {node: '>=18'}
+
   jackspeak@3.4.3:
     resolution: {integrity: sha512-OGlZQpz2yfahA/Rd1Y8Cd9SIEsqvXkLVoSw/cgwhnhFMDbsQFeZYoJJ7bIZBS9BcamUW96asq/npPWugM+RQBw==}
 
@@ -1349,6 +1375,11 @@ packages:
     engines: {node: '>= 8'}
     hasBin: true
 
+  which@4.0.0:
+    resolution: {integrity: sha512-GlaYyEb07DPxYCKhKzplCWBJtvxZcZMrL+4UkrTSJHHPyZU4mYYTv3qaOe77H7EODLSSopAUFAc6W8U4yqvscg==}
+    engines: {node: ^16.13.0 || >=18.0.0}
+    hasBin: true
+
   wrap-ansi@7.0.0:
     resolution: {integrity: sha512-YVGIj2kamLSTxw6NsZjoBxfSwsn0ycdesmc4p+Q21c5zPuZ1pl+NfxVdxPtdHvmNVOQ6XSYG4AUtyt/Fi7D16Q==}
     engines: {node: '>=10'}
@@ -1680,6 +1711,13 @@ snapshots:
 
   '@balena/dockerignore@1.0.2': {}
 
+  '@deno/shim-deno-test@0.5.0': {}
+
+  '@deno/shim-deno@0.19.2':
+    dependencies:
+      '@deno/shim-deno-test': 0.5.0
+      which: 4.0.0
+
   '@grpc/grpc-js@1.14.4':
     dependencies:
       '@grpc/proto-loader': 0.8.1
@@ -1751,6 +1789,8 @@ snapshots:
       - supports-color
 
   '@nodable/entities@3.0.0': {}
+
+  '@okikio/undent@0.3.3': {}
 
   '@oxc-project/types@0.144.0': {}
 
@@ -1866,6 +1906,8 @@ snapshots:
       - bare-buffer
       - react-native-b4a
       - supports-color
+
+  '@types/deno@2.7.0': {}
 
   '@types/docker-modem@3.0.6':
     dependencies:
@@ -2262,6 +2304,8 @@ snapshots:
   isarray@1.0.0: {}
 
   isexe@2.0.0: {}
+
+  isexe@3.1.5: {}
 
   jackspeak@3.4.3:
     dependencies:
@@ -2686,6 +2730,10 @@ snapshots:
   which@2.0.2:
     dependencies:
       isexe: 2.0.0
+
+  which@4.0.0:
+    dependencies:
+      isexe: 3.1.5
 
   wrap-ansi@7.0.0:
     dependencies:

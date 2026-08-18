@@ -37,7 +37,6 @@ export function getErrorName(error: unknown): string {
   return "Error";
 }
 
-
 /** Returns a runtime error code such as `ENOENT` when one is exposed. */
 function getRuntimeErrorCode(error: unknown): string | undefined {
   if (typeof error !== "object" || error === null || !("code" in error)) return undefined;
@@ -67,27 +66,47 @@ export function toFileSystemError(error: unknown, operation: string, path?: stri
   const runtimeCode = getRuntimeErrorCode(error);
   let code: FileSystemError["code"] = "unknown";
   switch (runtimeCode ?? name) {
-    case "AbortError": code = "aborted"; break;
+    case "AbortError":
+      code = "aborted";
+      break;
     case "NotFoundError":
-    case "ENOENT": code = "not-found"; break;
+    case "ENOENT":
+      code = "not-found";
+      break;
     case "AlreadyExists":
-    case "EEXIST": code = "already-exists"; break;
+    case "EEXIST":
+      code = "already-exists";
+      break;
     case "TypeMismatchError":
     case "ENOTDIR":
-    case "EISDIR": code = "type-mismatch"; break;
+    case "EISDIR":
+      code = "type-mismatch";
+      break;
     case "NoModificationAllowedError":
-    case "EBUSY": code = "locked"; break;
+    case "EBUSY":
+      code = "locked";
+      break;
     case "QuotaExceededError":
-    case "ENOSPC": code = "quota-exceeded"; break;
+    case "ENOSPC":
+      code = "quota-exceeded";
+      break;
     case "NotAllowedError":
     case "SecurityError":
     case "EACCES":
-    case "EPERM": code = "permission-denied"; break;
+    case "EPERM":
+      code = "permission-denied";
+      break;
     case "NotSupportedError":
-    case "ENOTSUP": code = "not-supported"; break;
+    case "ENOTSUP":
+      code = "not-supported";
+      break;
     case "InvalidModificationError":
-    case "InvalidStateError": code = "invalid-operation"; break;
-    case "UnknownError": code = operation === "open" ? "unavailable" : "unknown"; break;
+    case "InvalidStateError":
+      code = "invalid-operation";
+      break;
+    case "UnknownError":
+      code = operation === "open" ? "unavailable" : "unknown";
+      break;
   }
 
   const location = path === undefined ? "" : ` '${path}'`;

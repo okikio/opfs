@@ -79,9 +79,7 @@ class FakeRxCollection {
     return {
       exec: async () => {
         const record = this.#records.get(path);
-        return record === undefined
-          ? null
-          : new FakeRxDocument(record, () => this.#records.delete(path));
+        return record === undefined ? null : new FakeRxDocument(record, () => this.#records.delete(path));
       },
     };
   }
@@ -89,9 +87,10 @@ class FakeRxCollection {
   /** Returns direct children selected by their stored parent path. */
   find({ selector }: { selector: { parent: string } }) {
     return {
-      exec: async () => [...this.#records.values()]
-        .filter((record) => record.parent === selector.parent)
-        .map((record) => new FakeRxDocument(record, () => this.#records.delete(String(record.path)))),
+      exec: async () =>
+        [...this.#records.values()]
+          .filter((record) => record.parent === selector.parent)
+          .map((record) => new FakeRxDocument(record, () => this.#records.delete(String(record.path)))),
     };
   }
 
@@ -196,9 +195,10 @@ function createFakeDrizzle() {
         from() {
           return {
             where(condition: { column: { name: string }; value: unknown }) {
-              const selected = () => rows
-                .filter((row) => row[condition.column.name] === condition.value)
-                .map((row) => ({ ...row }));
+              const selected = () =>
+                rows
+                  .filter((row) => row[condition.column.name] === condition.value)
+                  .map((row) => ({ ...row }));
               return {
                 then(resolve: (value: Record<string, unknown>[]) => unknown, reject: (reason: unknown) => unknown) {
                   return Promise.resolve(selected()).then(resolve, reject);
@@ -260,10 +260,12 @@ describe("ecosystem adapters", () => {
   });
 
   it("rejects integration metadata that hides why a direction is unsupported", () => {
-    expect(() => defineIntegration({
-      name: "invalid-integration",
-      directions: { toOpfs: { supported: false }, fromOpfs: { supported: false, reason: "not implemented" } },
-    })).toThrow(TypeError);
+    expect(() =>
+      defineIntegration({
+        name: "invalid-integration",
+        directions: { toOpfs: { supported: false }, fromOpfs: { supported: false, reason: "not implemented" } },
+      })
+    ).toThrow(TypeError);
   });
 
   it("exposes any filesystem as an unstorage driver without key collisions", async () => {

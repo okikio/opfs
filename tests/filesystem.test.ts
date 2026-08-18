@@ -64,18 +64,24 @@ describe("filesystem facade", () => {
   it("rejects invalid adapter and facade contracts", async () => {
     const valid = createMemoryAdapter();
     expect(() => defineAdapter({ ...valid, name: "" })).toThrow(TypeError);
-    expect(() => defineAdapter({
-      ...valid,
-      capabilities: { ...valid.capabilities, streamRead: "yes" },
-    } as never)).toThrow(TypeError);
-    expect(() => defineAdapter({
-      ...valid,
-      capabilities: { ...valid.capabilities, nativeCopy: true },
-    })).toThrow(TypeError);
-    expect(() => defineAdapter({
-      ...valid,
-      capabilities: { ...valid.capabilities, streamWriteModes: ["replace"] },
-    })).toThrow(TypeError);
+    expect(() =>
+      defineAdapter({
+        ...valid,
+        capabilities: { ...valid.capabilities, streamRead: "yes" },
+      } as never)
+    ).toThrow(TypeError);
+    expect(() =>
+      defineAdapter({
+        ...valid,
+        capabilities: { ...valid.capabilities, nativeCopy: true },
+      })
+    ).toThrow(TypeError);
+    expect(() =>
+      defineAdapter({
+        ...valid,
+        capabilities: { ...valid.capabilities, streamWriteModes: ["replace"] },
+      })
+    ).toThrow(TypeError);
     expect(() => createFileSystem(valid, { coordination: "invalid" as never })).toThrow(TypeError);
     let invalidWriteRejected = false;
     try {

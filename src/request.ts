@@ -25,22 +25,6 @@ export const RequestPolicySchema = z.object({
 /** A validated direct-client request policy. */
 export type RequestPolicyType = z.output<typeof RequestPolicySchema>;
 
-/** Fully resolved retry policy used by the transport loop. */
-export interface ResolvedRequestPolicyType {
-  /** Additional attempts after the first request. */
-  readonly retries: number;
-  /** Base retry delay in milliseconds. */
-  readonly minDelayMs: number;
-  /** Maximum retry delay in milliseconds. */
-  readonly maxDelayMs: number;
-  /** Exponential backoff multiplier. */
-  readonly multiplier: number;
-  /** Random delay proportion accepted by the retry helper. */
-  readonly jitter: number;
-  /** Optional per-attempt timeout that can disable the helper deadline when false. */
-  readonly timeoutMs?: number | false;
-}
-
 /** Detached counters for one direct protocol client. */
 export interface RequestMetricsType {
   /** Total HTTP requests actually sent, including retries. */
@@ -112,9 +96,6 @@ export class RequestMetrics {
 
 /** Marker for a failure thrown by the concrete Fetch transport after request construction succeeded. */
 export class RequestTransportError extends Error {
-  /** Original Fetch failure retained for the terminal caller. */
-  override readonly cause: unknown;
-
   constructor(cause: unknown) {
     super("Storage request transport failed.");
     this.name = "RequestTransportError";
@@ -144,7 +125,11 @@ function integer(value: number | undefined, fallback: number, name: string, mini
 }
 
 /** Resolves and validates the shared request policy. */
-export function getRequestPolicy(policy: RequestPolicyType | undefined): ResolvedRequestPolicyType {
+export function getRequestPolicy(
+  policy: RequestPolicyType | undefined,
+): Required<Omit<RequestPolicyType, "timeoutMs">> & {
+  readonly timeoutMs?: number | false;
+} {
   const parsed = RequestPolicySchema.parse(policy ?? {});
   const retries = integer(parsed.retries, 3, "retries", 0);
   const minDelayMs = integer(parsed.minDelayMs, 200, "minDelayMs", 0);
@@ -182,13 +167,18 @@ function getSignal(signal: AbortSignal | undefined, timeoutMs: number | false | 
   readonly signal?: AbortSignal;
   readonly cleanup: () => void;
 } {
-  if (timeoutMs === undefined || timeoutMs === false) return { ...(signal === undefined ? {} : { signal }), cleanup() {} };
+  if (timeoutMs === undefined || timeoutMs === false) {
+    return { ...(signal === undefined ? {} : { signal }), cleanup() {} };
+  }
 
   const controller = new AbortController();
   const onAbort = () => controller.abort(signal?.reason);
   if (signal?.aborted) onAbort();
   else signal?.addEventListener("abort", onAbort, { once: true });
-  const timer = setTimeout(() => controller.abort(new DOMException(`Request timed out after ${timeoutMs} ms.`, "TimeoutError")), timeoutMs);
+  const timer = setTimeout(
+    () => controller.abort(new DOMException(`Request timed out after ${timeoutMs} ms.`, "TimeoutError")),
+    timeoutMs,
+  );
   return {
     signal: controller.signal,
     cleanup() {
@@ -200,7 +190,9 @@ function getSignal(signal: AbortSignal | undefined, timeoutMs: number | false | 
 
 /** Extracts the original error from `@std/async/retry` without coupling to its error class. */
 function cause(error: unknown): unknown {
-  if (typeof error === "object" && error !== null && "cause" in error) return (error as { cause?: unknown }).cause ?? error;
+  if (typeof error === "object" && error !== null && "cause" in error) {
+    return (error as { cause?: unknown }).cause ?? error;
+  }
   return error;
 }
 
@@ -228,13 +220,11 @@ export async function sendRequest(
   } = {},
 ): Promise<Response> {
   const policy = getRequestPolicy(options.policy);
-  const attempts = options.replayable === false ? 1 : (policy.retries ?? 0) + 1;
+  const attempts = options.replayable === false ? 1 : policy.retries! + 1;
   let attempt = 0;
   let lastStarted = 0;
 
   try {
-    const minTimeout = Math.max(1, policy.minDelayMs ?? 0);
-    const maxTimeout = Math.max(minTimeout, policy.maxDelayMs ?? 0);
     return await retry(async () => {
       attempt += 1;
       const scoped = getSignal(options.signal, policy.timeoutMs);
@@ -261,10 +251,10 @@ export async function sendRequest(
       }
     }, {
       maxAttempts: attempts,
-      minTimeout,
-      maxTimeout,
-      ...(policy.multiplier === undefined ? {} : { multiplier: policy.multiplier }),
-      ...(policy.jitter === undefined ? {} : { jitter: policy.jitter }),
+      minTimeout: policy.minDelayMs!,
+      maxTimeout: policy.maxDelayMs!,
+      multiplier: policy.multiplier!,
+      jitter: policy.jitter!,
       ...(options.signal === undefined ? {} : { signal: options.signal }),
       isRetriable: (error: unknown) => error instanceof RetryResponseError || error instanceof RequestTransportError,
     });

@@ -2,220 +2,287 @@ import { z } from "zod";
 
 import type { AdapterType } from "./adapter/definition.ts";
 import { getSupport } from "./capability.ts";
+import {
+  ActionSchema,
+  type ActionType,
+  DriverPlanSchema,
+  type DriverPlanType,
+  ProblemSchema,
+  type ProblemType,
+} from "./driver/definition.ts";
+import { normalizePath } from "./path.ts";
 import type { OptimizationType, SupportModeType } from "./schema.ts";
 import { SupportModeSchema, WriteModeSchema } from "./schema.ts";
 
-/** Kind of input presented to a filesystem write planner. */
+/**
+ * Physical source form supplied to a planned write.
+ *
+ * The planner distinguishes already-materialized bytes from an open stream
+ * because stream buffering and partitioning decisions depend on that difference.
+ */
 export const WriteSourceSchema = z.enum(["bytes", "stream"]);
-
-/** A validated write-source shape. */
+/** Validated physical write-source form. */
 export type WriteSourceType = z.output<typeof WriteSourceSchema>;
-
-/** Operations that have materially different storage routes. */
+/**
+ * Filesystem operations supported by deterministic preflight planning.
+ *
+ * Planning intentionally covers the routes where size, buffering, partitioning,
+ * or fallback behavior most often changes the caller's decision.
+ */
 export const PlanOperationSchema = z.enum(["read", "write", "copy", "move"]);
-
-/** A validated plannable operation. */
+/** Validated preflight operation name. */
 export type PlanOperationType = z.output<typeof PlanOperationSchema>;
 
-/** Serializable preflight request for one storage operation. */
+/**
+ * Serializable preflight request for one concrete filesystem operation.
+ *
+ * The public request still uses caller-friendly paths and optional defaults.
+ * `createPlan()` normalizes those values before it asks the driver for a native
+ * planning result.
+ */
 export const PlanInputSchema = z.discriminatedUnion("operation", [
   z.object({
     operation: z.literal("read"),
-    /** Known logical file size. */
+    path: z.string().optional(),
     size: z.number().int().nonnegative().optional(),
-    /** Whether the caller requests only a byte range. */
     range: z.boolean().default(false),
   }).strict(),
   z.object({
     operation: z.literal("write"),
-    /** Known logical output size. Unknown stream sizes can omit it. */
+    path: z.string().optional(),
     size: z.number().int().nonnegative().optional(),
-    /** Bytes supplied by this write. Used to preflight facade stream materialization. */
     inputBytes: z.number().int().nonnegative().optional(),
-    /** Byte collection or streaming producer. */
     source: WriteSourceSchema,
-    /** Replace, append, or update semantics. */
     mode: WriteModeSchema.default("replace"),
   }).strict(),
   z.object({
     operation: z.literal("copy"),
-    /** Known source byte size when the caller already has it. */
+    path: z.string().optional(),
+    destination: z.string().optional(),
     size: z.number().int().nonnegative().optional(),
   }).strict(),
   z.object({
     operation: z.literal("move"),
-    /** Known source byte size when the caller already has it. */
+    path: z.string().optional(),
+    destination: z.string().optional(),
     size: z.number().int().nonnegative().optional(),
   }).strict(),
 ]);
-
-/** A validated storage preflight request. */
+/** Input accepted by filesystem preflight before defaults and path normalization. */
 export type PlanInputType = z.input<typeof PlanInputSchema>;
 
-/** Serializable preflight result explaining the selected route and limits. */
+/**
+ * Structured preflight result for the complete driver -> adapter -> filesystem stack.
+ *
+ * The driver result is preserved inside the combined plan so callers can see
+ * which problems came from the backend itself and which were added by adapter or
+ * filesystem policy.
+ */
 export const PlanSchema = z.object({
-  /** Requested operation. */
   operation: PlanOperationSchema,
-  /** Whether the configured stack can safely attempt the request. */
   supported: z.boolean(),
-  /** Native, emulated, partitioned, or unsupported route selected for the request. */
   support: SupportModeSchema,
-  /** Expected facade materialization when it is statically known. */
+  driver: DriverPlanSchema,
   bufferBytes: z.number().int().nonnegative().optional(),
-  /** Physical part size when a partitioned adapter route is selected. */
   partBytes: z.number().int().positive().optional(),
-  /** Physical part count when both size and partition shape are known. */
   parts: z.number().int().positive().optional(),
-  /** Concrete reasons that determined the route. */
-  reasons: z.array(z.string()).readonly(),
-  /** Non-fatal constraints the caller may want to act on. */
-  warnings: z.array(z.string()).readonly(),
+  problems: z.array(ProblemSchema).readonly(),
+  actions: z.array(ActionSchema).readonly(),
 }).strict();
-
-/** A validated storage preflight result. */
+/** Validated complete-stack preflight result. */
 export type PlanType = z.output<typeof PlanSchema>;
 
-/** Inputs needed by the pure planner without importing the filesystem class. */
+/**
+ * Internal facade state required to combine adapter and driver preflight.
+ *
+ * `createPlan()` stays pure by accepting the small amount of resolved facade
+ * state it needs instead of reaching into a concrete filesystem instance.
+ */
 export interface PlanContextType {
-  /** Configured adapter. */
   readonly adapter: AdapterType;
-  /** Resolved facade optimization policy. */
   readonly optimizations: OptimizationType;
-  /** Facade materialization ceiling. */
   readonly maxBufferedWriteBytes: number;
 }
 
-/** Marks a result unsupported while preserving accumulated explanatory text. */
-function unsupported(operation: PlanOperationType, reasons: string[], warnings: string[]): PlanType {
-  return PlanSchema.parse({ operation, supported: false, support: "unsupported", reasons, warnings });
+/**
+ * Creates one validated adapter/filesystem problem for the combined plan.
+ *
+ * Keeping this helper local ensures synthetic plan problems use the same schema
+ * shape as driver-produced problems.
+ */
+function problem(
+  code: string,
+  layer: "adapter" | "filesystem",
+  severity: "info" | "warning" | "error",
+  message: string,
+): ProblemType {
+  return ProblemSchema.parse({ code, layer, severity, message });
 }
 
-/** Applies adapter hard file-size and partition-count limits before route selection. */
-function checkSize(
-  input: PlanInputType,
-  context: PlanContextType,
-  reasons: string[],
-  warnings: string[],
-): { support?: SupportModeType; partBytes?: number; parts?: number } | null {
-  const size = input.size;
-  if (size === undefined) {
-    if (context.adapter.limits?.maxFileBytes !== undefined) {
-      warnings.push(`Adapter file limit is ${context.adapter.limits.maxFileBytes} bytes; the requested size is unknown.`);
-    }
-    return {};
-  }
-
-  const maxFileBytes = context.adapter.limits?.maxFileBytes;
-  if (maxFileBytes !== undefined && size > maxFileBytes) {
-    reasons.push(`Requested size ${size} exceeds adapter maxFileBytes ${maxFileBytes}.`);
-    return null;
-  }
-
-  const partition = context.adapter.partition;
-  if (partition === undefined || partition.mode === "never") return {};
-  const threshold = partition.thresholdBytes ?? partition.partBytes;
-  const shouldPartition = partition.mode === "always" || size > threshold;
-  if (!shouldPartition) return {};
-
-  const parts = Math.max(1, Math.ceil(size / partition.partBytes));
-  if (partition.maxParts !== undefined && parts > partition.maxParts) {
-    reasons.push(`Partitioned value requires ${parts} parts, above adapter maximum ${partition.maxParts}.`);
-    return null;
-  }
-  reasons.push(`Adapter stores this logical value as ${parts} physical parts of at most ${partition.partBytes} bytes.`);
-  return { support: "partitioned", partBytes: partition.partBytes, parts };
+/** Creates one validated recovery/configuration action for the combined plan. */
+function action(kind: ActionType["kind"], detail?: string): ActionType {
+  return ActionSchema.parse({ kind, ...(detail === undefined ? {} : { detail }) });
 }
 
 /**
- * Creates a deterministic storage preflight plan without performing I/O.
+ * Creates a canonical driver request from a public filesystem preflight request.
  *
- * The planner answers two separate questions: whether the operation is safe to
- * attempt, and which storage route it will use. Unknown provider limits remain
- * warnings rather than being guessed. Applications can therefore reject large
- * work early, change a buffer/partition policy, or select another adapter.
+ * This is the seam where facade-friendly input becomes backend-friendly input:
+ * paths are normalized, defaults are resolved, and only driver-relevant fields
+ * cross the boundary.
+ */
+function getDriverPlan(input: z.output<typeof PlanInputSchema>, adapter: AdapterType): DriverPlanType {
+  return adapter.driver.plan({
+    operation: input.operation,
+    ...(input.path === undefined ? {} : { path: normalizePath(input.path) }),
+    ...((input.operation === "copy" || input.operation === "move") && input.destination !== undefined
+      ? { destination: normalizePath(input.destination) }
+      : {}),
+    ...(input.size === undefined ? {} : { size: input.size }),
+    ...(input.operation === "write"
+      ? {
+        source: input.source,
+        mode: input.mode,
+        ...(input.inputBytes === undefined ? {} : { inputBytes: input.inputBytes }),
+      }
+      : {}),
+    ...(input.operation === "read" ? { range: input.range } : {}),
+  });
+}
+
+/**
+ * Creates a deterministic plan without performing storage I/O.
+ *
+ * The plan starts from the driver's native answer, then layers in adapter and
+ * filesystem consequences such as buffering warnings, non-atomic move fallbacks,
+ * and route-level unsupported results.
+ *
+ * @example Preflight a streamed write.
+ * ```ts
+ * import { createPlan } from "@okikio/opfs/plan";
+ *
+ * const plan = createPlan({
+ *   operation: "write",
+ *   path: "/archive.bin",
+ *   source: "stream",
+ *   size: 8 * 1024,
+ *   mode: "replace",
+ * }, {
+ *   adapter,
+ *   optimizations,
+ *   maxBufferedWriteBytes: 64 * 1024 * 1024,
+ * });
+ * ```
+ *
+ * @example Detect a large emulated move before work starts.
+ * ```ts
+ * import { createPlan } from "@okikio/opfs/plan";
+ *
+ * const plan = createPlan({
+ *   operation: "move",
+ *   path: "/from.bin",
+ *   destination: "/to.bin",
+ *   size: 512 * 1024 * 1024,
+ * }, {
+ *   adapter,
+ *   optimizations,
+ *   maxBufferedWriteBytes: 64 * 1024 * 1024,
+ * });
+ * ```
  */
 export function createPlan(input: PlanInputType, context: PlanContextType): PlanType {
   const request = PlanInputSchema.parse(input);
-  const reasons: string[] = [];
-  const warnings: string[] = [];
+  const driver = getDriverPlan(request, context.adapter);
   const support = getSupport(context.adapter, context.optimizations);
-  const size = checkSize(request, context, reasons, warnings);
-  if (size === null) return unsupported(request.operation, reasons, warnings);
+  const problems: ProblemType[] = [...driver.problems];
+  const actions: ActionType[] = [...driver.actions];
+  let route: SupportModeType;
+  let bufferBytes: number | undefined;
 
   if (request.operation === "read") {
-    const route = request.range ? support.rangeRead : support.read;
-    if (route === "unsupported") {
-      reasons.push("Configured adapter cannot read file bytes.");
-      return unsupported(request.operation, reasons, warnings);
+    route = request.range ? support.rangeRead : support.read;
+    if (request.range && route === "emulated") {
+      problems.push(problem(
+        "range-materialized",
+        "filesystem",
+        "warning",
+        "The requested byte range requires a complete materialized read before slicing.",
+      ));
     }
-    reasons.push(request.range && route === "emulated"
-      ? "Byte range will be produced after a materialized read."
-      : request.range ? "Adapter can read the requested byte range directly." : "Adapter can read the file directly.");
-    return PlanSchema.parse({ operation: request.operation, supported: true, support: route, reasons, warnings });
-  }
-
-  if (request.operation === "write") {
-    let route = request.source === "stream" ? support.streamWrite[request.mode] : support.write;
-    let bufferBytes: number | undefined;
+  } else if (request.operation === "write") {
+    route = request.source === "stream" ? support.streamWrite[request.mode] : support.write;
     const inputBytes = request.inputBytes ?? (request.mode === "replace" ? request.size : undefined);
-    if (route === "unsupported") {
-      reasons.push(`Configured adapter cannot perform ${request.mode} writes.`);
-      return unsupported(request.operation, reasons, warnings);
-    }
     if (request.source === "stream" && route === "emulated") {
       if (inputBytes !== undefined && inputBytes > context.maxBufferedWriteBytes) {
-        reasons.push(
-          `Stream requires facade materialization but ${inputBytes} input bytes exceeds maxBufferedWriteBytes ${context.maxBufferedWriteBytes}.`,
+        route = "unsupported";
+        problems.push(problem(
+          "buffer-too-large",
+          "filesystem",
+          "error",
+          `The stream needs ${inputBytes} buffered bytes, above maxBufferedWriteBytes=${context.maxBufferedWriteBytes}.`,
+        ));
+        actions.push(action("reduce-input"), action("select-driver", "Select a driver with native streaming writes."));
+      } else {
+        bufferBytes = inputBytes;
+        problems.push(
+          problem(
+            "stream-buffered",
+            "filesystem",
+            "warning",
+            inputBytes === undefined
+              ? `The stream will be buffered and will fail if it crosses maxBufferedWriteBytes=${context.maxBufferedWriteBytes}.`
+              : `The facade will buffer ${inputBytes} bytes before the adapter write.`,
+          ),
         );
-        return unsupported(request.operation, reasons, warnings);
       }
-      bufferBytes = inputBytes;
-      warnings.push(
-        inputBytes === undefined
-          ? `Stream is not native for ${request.mode}; input size is unknown and the facade will fail if it crosses maxBufferedWriteBytes ${context.maxBufferedWriteBytes}.`
-          : `Stream is not native for ${request.mode}; the facade will materialize ${inputBytes} input bytes under maxBufferedWriteBytes ${context.maxBufferedWriteBytes}.`,
-      );
     }
-    if (size.support === "partitioned") route = "partitioned";
-    reasons.push(route === "native"
-      ? "Configured adapter has a direct write route for this input."
-      : route === "partitioned"
-      ? "Logical file write is preserved through the adapter's partition layout."
-      : "Facade will emulate the requested write using materialized adapter primitives.");
-    return PlanSchema.parse({
-      operation: request.operation,
-      supported: true,
-      support: route,
-      ...(bufferBytes === undefined ? {} : { bufferBytes }),
-      ...(size.partBytes === undefined ? {} : { partBytes: size.partBytes }),
-      ...(size.parts === undefined ? {} : { parts: size.parts }),
-      reasons,
-      warnings,
-    });
+    if (driver.support === "partitioned" && route !== "unsupported") route = "partitioned";
+  } else {
+    route = request.operation === "copy" ? support.copy : support.move;
+    if (request.operation === "move" && route === "emulated") {
+      problems.push(problem(
+        "move-not-atomic",
+        "filesystem",
+        "warning",
+        "The selected move route is copy followed by remove and is not atomic.",
+      ));
+    }
+    if (route === "emulated" && request.size !== undefined && request.size > context.maxBufferedWriteBytes) {
+      const canStream = support.streamRead === "native" &&
+        (support.streamWrite.replace === "native" || support.streamWrite.replace === "partitioned");
+      if (!canStream) {
+        route = "unsupported";
+        problems.push(problem(
+          "copy-buffer-too-large",
+          "filesystem",
+          "error",
+          `${request.operation} would materialize ${request.size} bytes, above maxBufferedWriteBytes=${context.maxBufferedWriteBytes}.`,
+        ));
+        actions.push(action("select-driver", "Select a driver with a complete streaming read/write route."));
+      }
+    }
   }
 
-  const route = request.operation === "copy" ? support.copy : support.move;
   if (route === "unsupported") {
-    reasons.push(`Configured adapter cannot ${request.operation} with either a native route or safe facade fallback.`);
-    return unsupported(request.operation, reasons, warnings);
+    problems.push(problem(
+      "route-unsupported",
+      "adapter",
+      "error",
+      `Adapter '${context.adapter.name}' cannot safely perform this ${request.operation} request with the configured policies.`,
+    ));
+    actions.push(action("select-driver"));
   }
 
-  if (route === "emulated" && request.size !== undefined && request.size > context.maxBufferedWriteBytes) {
-    const streamedRead = support.streamRead === "native";
-    const streamedWrite = support.streamWrite.replace === "native" || support.streamWrite.replace === "partitioned";
-    if (!streamedRead || !streamedWrite) {
-      reasons.push(
-        `${request.operation} fallback would materialize ${request.size} bytes because a complete streaming read/write path is unavailable; maxBufferedWriteBytes is ${context.maxBufferedWriteBytes}.`,
-      );
-      return unsupported(request.operation, reasons, warnings);
-    }
-  }
-
-  if (request.operation === "move" && route === "emulated") {
-    warnings.push("Emulated move is copy followed by remove and is not atomic.");
-  }
-  reasons.push(route === "native"
-    ? `Adapter has a native ${request.operation} route.`
-    : `${request.operation} will be composed from facade read/write/remove primitives.`);
-  return PlanSchema.parse({ operation: request.operation, supported: true, support: route, reasons, warnings });
+  const supported = route !== "unsupported" && !problems.some((value) => value.severity === "error");
+  return PlanSchema.parse({
+    operation: request.operation,
+    supported,
+    support: supported ? route : "unsupported",
+    driver,
+    ...(bufferBytes === undefined ? {} : { bufferBytes }),
+    ...(driver.partBytes === undefined ? {} : { partBytes: driver.partBytes }),
+    ...(driver.parts === undefined ? {} : { parts: driver.parts }),
+    problems,
+    actions,
+  });
 }

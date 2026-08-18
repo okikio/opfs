@@ -1,4 +1,4 @@
-import type { AdapterWritableFileType } from "./adapter/definition.ts";
+import type { FileDriverWritableFileType } from "./driver/file.ts";
 import { FileSystemError, throwIfAborted, toFileSystemError } from "./error.ts";
 import type { HeldLockType } from "./lock.ts";
 
@@ -36,7 +36,7 @@ export class ManagedWritableFile implements WritableFileType {
   /** Canonical virtual path whose exclusive mutation ownership lasts until settlement. */
   readonly path: string;
   /** Adapter positional file. `undefined` is the sole terminal-state marker. */
-  #file: AdapterWritableFileType | undefined;
+  #file: FileDriverWritableFileType | undefined;
   /** Facade mutation lock released exactly when the adapter file settles. */
   readonly #lock: HeldLockType;
   /** Optional operation signal checked before and after mutable backend work. */
@@ -45,7 +45,7 @@ export class ManagedWritableFile implements WritableFileType {
   /** Takes ownership of one adapter positional file and its matching facade lock. */
   constructor(
     path: string,
-    file: AdapterWritableFileType,
+    file: FileDriverWritableFileType,
     lock: HeldLockType,
     signal?: AbortSignal,
   ) {
@@ -61,7 +61,7 @@ export class ManagedWritableFile implements WritableFileType {
   }
 
   /** Returns the live backend file and rejects ordinary work after termination. */
-  #getFile(operation: string): AdapterWritableFileType {
+  #getFile(operation: string): FileDriverWritableFileType {
     if (this.#file === undefined) {
       throw new FileSystemError(
         "invalid-operation",

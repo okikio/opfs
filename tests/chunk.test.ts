@@ -25,8 +25,12 @@ describe("byte stream chunking", () => {
   it("cancels the source when the consumer stops before the stream ends", async () => {
     let cancelled = false;
     const source = new ReadableStream<Uint8Array>({
-      pull(controller) { controller.enqueue(new Uint8Array(8)); },
-      cancel() { cancelled = true; },
+      pull(controller) {
+        controller.enqueue(new Uint8Array(8));
+      },
+      cancel() {
+        cancelled = true;
+      },
     });
 
     for await (const _chunk of split(source, 4)) break;

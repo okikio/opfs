@@ -1,16 +1,25 @@
 /**
- * Adapter-independent filesystem APIs with an OPFS-compatible frontend.
+ * OPFS-shaped filesystem APIs over explicit storage drivers and adapters.
  *
- * The package has two independent layers:
+ * The public storage path is:
  *
- * 1. `createFileSystem(adapter)` provides high-level path APIs and OPFS-shaped
- *    file/directory handle facades over any backend adapter.
- * 2. `openFileSystem()` selects the browser's native Origin Private File System
- *    as that backend.
+ * ```text
+ * protocol/native API -> client -> driver -> adapter -> FileSystemType
+ *                                                    |
+ *                                                    `-> bridge -> ecosystem
+ * ```
  *
- * Runtime-specific and ecosystem adapters live on explicit subpaths so browser
- * bundles do not import Node, Bun, Deno, RxDB, unstorage, db0, or Drizzle by
- * accident.
+ * A client owns a wire protocol when one exists. A driver owns independently
+ * useful backend behavior, requirements, limits, optimizations, planning, and
+ * physical metrics. An adapter translates that driver into the small portable
+ * filesystem primitive set. `FileSystemType` owns path semantics, coordination,
+ * recursive operations, fallbacks, and OPFS-shaped handles. Reverse ecosystem
+ * contracts live under explicit `bridge/*` subpaths.
+ *
+ * `openFileSystem()` is the browser convenience path. It acquires the native
+ * OPFS root, creates the OPFS file driver and adapter, then returns the same
+ * `FileSystemType` used by every other backend. Importing this root module does
+ * not open storage or import server/provider integrations.
  *
  * @example Use native browser OPFS.
  * ```ts
@@ -20,16 +29,15 @@
  * await fileSystem.writeFile("/cache/result.json", "{}", { parents: true });
  * ```
  *
- * @example Use the same frontend over an injected adapter.
+ * @example Compose an injected backend.
  * ```ts
  * import { createFileSystem } from "@okikio/opfs";
- * import { createMemoryAdapter } from "@okikio/opfs/adapter/memory";
+ * import { createMemoryDriver } from "@okikio/opfs/driver/memory";
+ * import { createRecordAdapter } from "@okikio/opfs/adapter/record";
  *
- * const fileSystem = createFileSystem(createMemoryAdapter());
- * const file = await fileSystem.root.getFileHandle("hello.txt", { create: true });
- * const writable = await file.createWritable();
- * await writable.write("hello");
- * await writable.close();
+ * const driver = createMemoryDriver();
+ * const fileSystem = createFileSystem(createRecordAdapter(driver));
+ * await fileSystem.writeFile("/hello.txt", "hello", { parents: true });
  * ```
  *
  * @module
@@ -81,18 +89,27 @@ export type {
   AdapterLimitsType,
   AdapterPartitionType,
   CoordinationModeType,
+  DriverKindType,
+  DriverOptimizationType,
+  DriverOwnershipType,
   EntryKindType,
   ErrorCodeType,
+  LimitKindType,
+  LimitSourceType,
+  LimitType,
+  LimitUnitType,
   MetricsModeType,
   OpfsContextType,
   OptimizationType,
   PartitionModeType,
+  RequirementStateType,
+  RequirementType,
   SupportModeType,
   WriteModeType,
 } from "./src/schema.ts";
 export type { FileSystemOptionsType } from "./src/adapter/definition.ts";
 export type { InspectionType, SupportType, WriteSupportType } from "./src/capability.ts";
-export type { MetricsType, MetricEntryType, MetricOperationType } from "./src/metrics.ts";
+export type { DriverMetricsType, MetricEntryType, MetricOperationType, MetricsType } from "./src/metrics.ts";
 export { PlanInputSchema, PlanOperationSchema, PlanSchema, WriteSourceSchema } from "./src/plan.ts";
 export type { PlanInputType, PlanOperationType, PlanType, WriteSourceType } from "./src/plan.ts";
 export type { OpfsCapabilitiesType, OpfsProbeErrorType, OpfsStorageEstimateType } from "./src/probe.ts";

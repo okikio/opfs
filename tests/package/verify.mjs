@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawn } from "node:child_process";
@@ -12,9 +12,7 @@ function command(file, args, options = {}) {
   return new Promise((resolvePromise, reject) => {
     const child = spawn(file, args, { stdio: "inherit", ...options });
     child.on("error", reject);
-    child.on("exit", (code) => code === 0
-      ? resolvePromise()
-      : reject(new Error(`${file} exited with ${code}.`)));
+    child.on("exit", (code) => code === 0 ? resolvePromise() : reject(new Error(`${file} exited with ${code}.`)));
   });
 }
 
@@ -79,7 +77,9 @@ try {
   await writeFile(join(consumer, "package.json"), `${JSON.stringify({ private: true, type: "module" }, null, 2)}\n`);
   await command("npm", ["install", "--ignore-scripts", "--no-audit", "--no-fund", tarball], { cwd: consumer });
 
-  await writeFile(join(consumer, "smoke.mjs"), undent`
+  await writeFile(
+    join(consumer, "smoke.mjs"),
+    undent`
     import { createFileSystem } from '@okikio/opfs';
     import { createMemoryAdapter } from '@okikio/opfs/adapter/memory';
     import { normalizePath } from '@okikio/opfs/path';
@@ -90,7 +90,8 @@ try {
     await import('@okikio/opfs/adapter/node');
     await import('@okikio/opfs/adapter/deno');
     await import('@okikio/opfs/adapter/bun');
-`);
+`,
+  );
   await command("node", ["smoke.mjs"], { cwd: consumer });
 
   const hasDeno = await hasCommand("deno");
@@ -98,20 +99,26 @@ try {
   if (hasDeno) await command("deno", ["run", "--node-modules-dir=manual", "smoke.mjs"], { cwd: consumer });
   if (hasBun) await command("bun", ["smoke.mjs"], { cwd: consumer });
 
-  await writeFile(join(consumer, "consumer.ts"), undent`
+  await writeFile(
+    join(consumer, "consumer.ts"),
+    undent`
     import { createFileSystem, type FileSystemType } from '@okikio/opfs';
     import { createMemoryAdapter } from '@okikio/opfs/adapter/memory';
     const fileSystem: FileSystemType = createFileSystem(createMemoryAdapter());
     await fileSystem.writeFile('/types.txt', 'ok', { parents: true });
-`);
+`,
+  );
   if (hasDeno) await command("deno", ["check", "--node-modules-dir=manual", "consumer.ts"], { cwd: consumer });
 
-  await writeFile(join(consumer, "browser.mjs"), undent`
+  await writeFile(
+    join(consumer, "browser.mjs"),
+    undent`
     import { createFileSystem } from '@okikio/opfs';
     import { createMemoryAdapter } from '@okikio/opfs/adapter/memory';
     import { normalizePath } from '@okikio/opfs/path';
     export const smoke = () => [createFileSystem(createMemoryAdapter()), normalizePath('a/../b')];
-`);
+`,
+  );
   if (hasDeno) {
     await command("deno", [
       "bundle",

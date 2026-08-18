@@ -1,5 +1,5 @@
 import { FileSystemError, toFileSystemError } from "./error.ts";
-import type { AdapterSyncFileType } from "./adapter/definition.ts";
+import type { FileDriverSyncFileType } from "./driver/file.ts";
 import type { HeldLockType } from "./lock.ts";
 
 /**
@@ -35,12 +35,12 @@ export class ManagedSyncFile implements SyncFileType {
   /** Canonical virtual path whose mutation lock is owned by this resource. */
   readonly path: string;
   /** Native adapter resource. `undefined` is the sole closed-state marker. */
-  #file: AdapterSyncFileType | undefined;
+  #file: FileDriverSyncFileType | undefined;
   /** Facade mutation lock held for exactly the same lifetime as `#file`. */
   readonly #lock: HeldLockType;
 
   /** Takes ownership of the adapter file and matching facade lock as one lifetime. */
-  constructor(path: string, file: AdapterSyncFileType, lock: HeldLockType) {
+  constructor(path: string, file: FileDriverSyncFileType, lock: HeldLockType) {
     this.path = path;
     this.#file = file;
     this.#lock = lock;
@@ -52,7 +52,7 @@ export class ManagedSyncFile implements SyncFileType {
   }
 
   /** Returns the live native file or rejects use after close. */
-  #getFile(): AdapterSyncFileType {
+  #getFile(): FileDriverSyncFileType {
     if (this.#file === undefined) {
       throw new FileSystemError(
         "invalid-operation",
