@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+#MISE description="Reverify and publish one immutable release to JSR."
+set -euo pipefail
+
+: "${RELEASE_VERSION:?RELEASE_VERSION is required}"
+deno ci
+deno publish --dry-run --set-version "$RELEASE_VERSION"
+deno publish --set-version "$RELEASE_VERSION"

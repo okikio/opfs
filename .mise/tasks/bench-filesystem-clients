@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#MISE description="Benchmark AWS Mountpoint and Azure BlobFuse mounts against driver, adapter, and facade layers."
+set -euo pipefail
+
+deno ci
+deno task bench:filesystem-clients

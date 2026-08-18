@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Return success when @okikio/opfs already exists on npm."
+set -euo pipefail
+
+npm view @okikio/opfs version >/dev/null 2>&1

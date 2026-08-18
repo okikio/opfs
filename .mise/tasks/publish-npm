@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+#MISE description="Build, verify, and publish one immutable release to npm."
+set -euo pipefail
+
+: "${RELEASE_VERSION:?RELEASE_VERSION is required}"
+MODE="${NPM_AUTH_MODE:-trusted}"
+if [[ "$MODE" == token ]]; then
+  : "${NPM_TOKEN:?NPM_TOKEN is required for token authentication}"
+  npm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
+fi
+
+mise run verify-npm
+npm publish .release/npm/*.tgz --access public --provenance
