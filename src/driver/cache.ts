@@ -2,7 +2,12 @@ import { defineRecordDriver, type RecordBackendType, type RecordDriverType } fro
 import { type PathType, splitPath } from "../path.ts";
 import { PathSchema, RecordSchema } from "../schema.ts";
 
-/** Options for a Cache API-backed record driver. */
+/**
+ * Options for a Cache API-backed record driver.
+ *
+ * The prefix reserves one synthetic request namespace inside the injected cache
+ * so filesystem records do not collide with ordinary application responses.
+ */
 export interface CacheDriverOptionsType {
   /** Private URL namespace used as Cache keys. */
   readonly prefix?: string;
@@ -10,12 +15,22 @@ export interface CacheDriverOptionsType {
   readonly readOnly?: boolean;
 }
 
-/** Encodes one path into a synthetic HTTPS request URL that never needs network access. */
+/**
+ * Encodes one path into a synthetic HTTPS request URL that never needs network access.
+ *
+ * Cache Storage keys are requests, not arbitrary strings. The driver therefore
+ * uses a private synthetic origin purely as a reversible namespace.
+ */
 function request(prefix: string, path: PathType): Request {
   return new Request(`https://opfs.invalid/${encodeURIComponent(prefix)}/${encodeURIComponent(path)}`);
 }
 
-/** Decodes an driver-owned Cache request URL. */
+/**
+ * Decodes a driver-owned Cache request URL.
+ *
+ * Invalid or foreign requests are ignored so the injected cache can contain
+ * unrelated application entries without corrupting filesystem listing.
+ */
 function getPath(prefix: string, value: Request): PathType | null {
   const url = new URL(value.url);
   const parts = url.pathname.slice(1).split("/");
@@ -81,7 +96,13 @@ class CacheBackend implements RecordBackendType {
   }
 }
 
-/** Creates a Cache Storage record driver over one injected Cache. */
+/**
+ * Creates a Cache Storage record driver over one injected `Cache`.
+ *
+ * This backend is honest about its contract: responses are cached JSON records,
+ * not durable files. Browser quota, eviction, and opaque persistence policy all
+ * remain provider facts that callers can inspect but not override.
+ */
 export function createCacheDriver(cache: Cache, options: CacheDriverOptionsType = {}): RecordDriverType {
   const backend = new CacheBackend(cache, options);
   return defineRecordDriver(backend, {

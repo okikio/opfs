@@ -13,7 +13,13 @@ import { FileSystemError, throwIfAborted, toFileSystemError } from "../error.ts"
 import { basename, dirname, type PathType, ROOT_PATH, splitPath } from "../path.ts";
 import { toByteStream } from "../stream.ts";
 
-/** Minimal file handle contract required from browser OPFS. */
+/**
+ * Minimal file handle contract required from browser OPFS.
+ *
+ * The driver deliberately avoids depending on the full DOM lib surface. It only
+ * models the native operations that the backend actually needs to implement the
+ * portable file-driver contract.
+ */
 interface NativeFileHandleType {
   /** Native File System API discriminator. */
   readonly kind: "file";
@@ -27,7 +33,13 @@ interface NativeFileHandleType {
   createSyncAccessHandle?: () => Promise<FileDriverSyncFileType>;
 }
 
-/** Minimal directory handle contract required from browser OPFS. */
+/**
+ * Minimal directory handle contract required from browser OPFS.
+ *
+ * This shape is intentionally narrower than the browser interface so the driver
+ * can stay focused on traversal and mutation semantics rather than browser-only
+ * convenience methods.
+ */
 interface NativeDirectoryHandleType {
   /** Native File System API discriminator. */
   readonly kind: "directory";
@@ -43,7 +55,12 @@ interface NativeDirectoryHandleType {
   entries(): AsyncIterableIterator<[string, NativeFileHandleType | NativeDirectoryHandleType]>;
 }
 
-/** Native OPFS file driver with the root retained for advanced browser interop. */
+/**
+ * Native OPFS file driver with the root retained for advanced browser interop.
+ *
+ * The retained root is useful when advanced browser code needs the original
+ * handle after the portable facade has already been composed.
+ */
 export interface OpfsDriverType extends FileDriverType {
   readonly nativeRoot: FileSystemDirectoryHandle;
 }

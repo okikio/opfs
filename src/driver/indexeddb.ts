@@ -1,7 +1,13 @@
 import { defineRecordDriver, type RecordBackendType, type RecordDriverType } from "./record.ts";
 import { RecordSchema } from "../schema.ts";
 
-/** Options for an existing IndexedDB database. */
+/**
+ * Options for an existing IndexedDB database.
+ *
+ * The driver stores one logical filesystem record per object-store row. The
+ * parent index keeps direct-child listing cheap without reparsing every stored
+ * path on each read.
+ */
 export interface IndexedDbDriverOptionsType {
   /** Object store containing records. Defaults to `entries`. */
   readonly store?: string;
@@ -13,7 +19,12 @@ export interface IndexedDbDriverOptionsType {
   readonly readOnly?: boolean;
 }
 
-/** Options used when this package opens and owns an IndexedDB database. */
+/**
+ * Options used when this package opens and owns an IndexedDB database.
+ *
+ * These settings describe the package-owned database shape. They do not apply
+ * retroactively to a caller-owned database that already exists.
+ */
 export interface IndexedDbOpenOptionsType extends Omit<IndexedDbDriverOptionsType, "disposeDatabase"> {
   /** Database name. Defaults to `okikio-opfs`. */
   readonly name?: string;
@@ -21,7 +32,12 @@ export interface IndexedDbOpenOptionsType extends Omit<IndexedDbDriverOptionsTyp
   readonly version?: number;
 }
 
-/** Converts one IDBRequest completion into a Promise while retaining native errors. */
+/**
+ * Converts one `IDBRequest` completion into a Promise while retaining native errors.
+ *
+ * IndexedDB signals success and failure through events. The driver normalizes
+ * that event lifecycle once so backend methods can use ordinary async control flow.
+ */
 function result<T>(request: IDBRequest<T>): Promise<T> {
   const pending = Promise.withResolvers<T>();
   request.onsuccess = () => pending.resolve(request.result);
@@ -29,7 +45,12 @@ function result<T>(request: IDBRequest<T>): Promise<T> {
   return pending.promise;
 }
 
-/** Waits for transaction commit instead of treating request success as durable completion. */
+/**
+ * Waits for transaction commit instead of treating request success as durable completion.
+ *
+ * Individual request success only means the operation was accepted into the
+ * transaction. The write is not durable until the transaction completes.
+ */
 function committed(transaction: IDBTransaction): Promise<void> {
   const pending = Promise.withResolvers<void>();
   transaction.oncomplete = () => pending.resolve();
@@ -38,7 +59,12 @@ function committed(transaction: IDBTransaction): Promise<void> {
   return pending.promise;
 }
 
-/** Applies the record-store object-store/index schema during an IndexedDB upgrade event. */
+/**
+ * Applies the record-store object-store and parent-index schema during upgrade.
+ *
+ * The upgrade path is idempotent so repeated opens can reuse the same database
+ * name without forcing callers to drop storage between test runs or upgrades.
+ */
 function upgradeDatabase(request: IDBOpenDBRequest, storeName: string, parentIndex: string): void {
   const database = request.result;
   const store = database.objectStoreNames.contains(storeName)
@@ -106,7 +132,13 @@ class IndexedDbBackend implements RecordBackendType {
   }
 }
 
-/** Creates an independently useful IndexedDB record driver. */
+/**
+ * Creates an independently useful IndexedDB record driver.
+ *
+ * IndexedDB is the strongest browser-hosted record backend in this package's
+ * default set because it can preserve transaction boundaries and asynchronous
+ * durability without pretending to be native OPFS.
+ */
 export function createIndexedDbDriver(
   database: IDBDatabase,
   options: IndexedDbDriverOptionsType = {},
@@ -126,7 +158,13 @@ export function createIndexedDbDriver(
   });
 }
 
-/** Opens and owns an IndexedDB database prepared for OPFS records. */
+/**
+ * Opens and owns an IndexedDB database prepared for OPFS records.
+ *
+ * Use this when the package should create the object store and parent index for
+ * you. The returned driver owns the opened database handle and closes it when
+ * the driver is disposed.
+ */
 export async function openIndexedDbDriver(options: IndexedDbOpenOptionsType = {}): Promise<RecordDriverType> {
   const name = options.name ?? "okikio-opfs";
   const version = options.version ?? 1;

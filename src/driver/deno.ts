@@ -16,7 +16,13 @@ import { createLocalPath } from "./local.ts";
 import { throwIfAborted, toFileSystemError } from "../error.ts";
 import type { PathType } from "../path.ts";
 
-/** Options for the Deno-native file driver. */
+/**
+ * Options for the Deno-native file driver.
+ *
+ * The configured `root` is the only host directory visible through the virtual
+ * filesystem. Deno-specific I/O semantics stay in the driver rather than being
+ * flattened into the adapter or facade layers.
+ */
 export interface DenoDriverOptionsType {
   /** Host directory exposed as virtual `/`. */
   readonly root: string;
@@ -389,6 +395,8 @@ export function createDenoDriver(options: DenoDriverOptionsType): FileDriverType
     name: "deno",
     requirements: [{ code: "deno-filesystem", state: "available" }],
     limits: [],
+    // Deno already exposes the required file semantics directly, so the driver
+    // does not need additional behavior-changing optimization toggles here.
     optimizations: [],
   });
 }

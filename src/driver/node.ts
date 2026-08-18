@@ -23,7 +23,12 @@ type NodeFsPromisesType = typeof import("node:fs/promises");
 /** Node stream module shape used only to convert native streams to Web Streams. */
 type NodeStreamType = typeof import("node:stream");
 
-/** Options for the Node filesystem driver. */
+/**
+ * Options for the Node filesystem driver.
+ *
+ * The configured `root` becomes the only host directory visible through the
+ * portable filesystem. Every virtual path is resolved beneath that root.
+ */
 export interface NodeDriverOptionsType {
   /** Host directory exposed as virtual `/`. */
   readonly root: string;
@@ -431,6 +436,8 @@ export function createNodeDriver(options: NodeDriverOptionsType): FileDriverType
     name: "node",
     requirements: [{ code: "node-filesystem", state: "available" }],
     limits: [],
+    // Node already exposes the required file semantics directly, so the driver
+    // does not need additional behavior-changing optimization toggles here.
     optimizations: [],
   });
 }

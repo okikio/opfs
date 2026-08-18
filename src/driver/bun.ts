@@ -28,7 +28,12 @@ interface BunRuntimeType {
   write(path: string, data: Blob | Response | ArrayBufferView | ArrayBuffer | string): Promise<number>;
 }
 
-/** Options for exposing one host directory through Bun. */
+/**
+ * Options for exposing one host directory through Bun.
+ *
+ * Bun shares the same host-root contract as the Node and Deno file drivers so
+ * the portable path model stays identical across host runtimes.
+ */
 export type BunDriverOptionsType = NodeDriverOptionsType;
 
 /**
@@ -201,6 +206,8 @@ export function createBunDriver(options: BunDriverOptionsType): FileDriverType {
     ownership: "none",
     requirements: [{ code: "bun-runtime", state: "available" }],
     limits: [],
+    // These toggles document the fast paths Bun contributes beyond the shared
+    // Node-compatible host filesystem fallback used for the rest of the file API.
     optimizations: [
       { code: "bun-file-read", enabled: true, changesBehavior: false, disableable: true },
       { code: "bun-write-replace", enabled: true, changesBehavior: false, disableable: true },
