@@ -203,10 +203,8 @@ class OpfsWritableFile implements FileDriverWritableFileType {
   /** Writes one byte view at its explicit file position. */
   async write(buffer: ArrayBufferView, options: { readonly at: number }): Promise<void> {
     const view = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
-    const data = buffer.buffer instanceof ArrayBuffer
-      ? new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength)
-      : Uint8Array.from(view);
-    await this.#getWritable().write({ type: "write", position: options.at, data });
+    const data = buffer.buffer instanceof ArrayBuffer ? view : Uint8Array.from(view);
+    await this.#getWritable().write({ type: "write", position: options.at, data: data as Uint8Array<ArrayBuffer> });
   }
 
   /** Changes the staged file size. */

@@ -13,15 +13,15 @@ import type {
 } from "./file.ts";
 import { createLocalPath } from "./local.ts";
 import { createNodeDriver, type NodeDriverOptionsType } from "./node.ts";
-import { throwIfAborted } from "../error.ts";
+import { FileSystemError, throwIfAborted } from "../error.ts";
 import type { PathType } from "../path.ts";
 import { withAbortSignal } from "../stream.ts";
 
 /** Minimal Bun file object used without requiring global Bun types in core declarations. */
-interface BunFileType extends Blob {}
+export interface BunFileType extends Blob {}
 
 /** Bun runtime methods required by the fast read and replace-write paths. */
-interface BunRuntimeType {
+export interface BunRuntimeType {
   /** Opens a lazy `BunFile` for one host path. */
   file(path: string): BunFileType;
   /** Replaces one host file with bytes or a stream-compatible body. */
@@ -42,7 +42,7 @@ export type BunDriverOptionsType = NodeDriverOptionsType;
  * Keeping this lookup out of module evaluation lets Node and Deno inspect or
  * type-check the explicit Bun subpath without requiring the `Bun` global.
  */
-function getBun(): BunRuntimeType {
+export function getBun(): BunRuntimeType {
   const runtime = Reflect.get(globalThis, "Bun") as BunRuntimeType | undefined;
   if (runtime === undefined || typeof runtime.file !== "function" || typeof runtime.write !== "function") {
     throw new TypeError("Bun driver requires the Bun runtime.");
@@ -55,11 +55,12 @@ function getBun(): BunRuntimeType {
  *
  * Bun owns the lazy read and complete replacement paths. Operations that need
  * directory traversal, positioned writes, rename, or synchronous descriptors
- * delegate to Bun's Node-compatible filesystem layer through `NodeAdapter`.
- * The two paths share the same `@std/path` host-root mapper, so neither can
- * address a host path outside the configured root.
+ * delegate to Bun's Node-compatible filesystem layer through the Node driver.
+ * Both paths share the same lexical host-root mapper. As with Node, a symbolic
+ * link already present below that root can resolve outside it, so this mapping
+ * is not a security isolation mechanism for untrusted host filesystem content.
  */
-class BunBackend implements FileBackendType {
+export class BunBackend implements FileBackendType {
   /** Stable driver identity used in diagnostics. */
   readonly name = "bun";
   /** Native capabilities inherited from Bun's Node-compatible filesystem. */
@@ -87,6 +88,12 @@ class BunBackend implements FileBackendType {
   /** Reads only the requested slice through Bun's lazy `BunFile` object. */
   async readFile(path: PathType, options: FileDriverReadOptionsType = {}): Promise<Uint8Array> {
     throwIfAborted(options.signal, "read", path);
+    if (options.length === 0) {
+      const stat = await this.#node.stat(path, options);
+      if (stat === null) throw new FileSystemError("not-found", "read", path, `File '${path}' does not exist.`);
+      if (stat.kind === "directory") throw new FileSystemError("type-mismatch", "read", path, `'${path}' is a directory.`);
+      return new Uint8Array();
+    }
     const file = this.#bun.file(this.#hostPath(path));
     const start = options.at ?? 0;
     const end = options.length === undefined ? file.size : Math.min(file.size, start + options.length);
@@ -96,6 +103,12 @@ class BunBackend implements FileBackendType {
   /** Returns Bun's native Blob stream for the requested byte range. */
   async openReadStream(path: PathType, options: FileDriverReadOptionsType = {}): Promise<ReadableStream<Uint8Array>> {
     throwIfAborted(options.signal, "read", path);
+    if (options.length === 0) {
+      const stat = await this.#node.stat(path, options);
+      if (stat === null) throw new FileSystemError("not-found", "read", path, `File '${path}' does not exist.`);
+      if (stat.kind === "directory") throw new FileSystemError("type-mismatch", "read", path, `'${path}' is a directory.`);
+      return new ReadableStream<Uint8Array>({ start(controller) { controller.close(); } });
+    }
     const file = this.#bun.file(this.#hostPath(path));
     const start = options.at ?? 0;
     const end = options.length === undefined ? file.size : Math.min(file.size, start + options.length);

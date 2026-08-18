@@ -13,21 +13,23 @@ import type {
   FileDriverWriteOptionsType,
 } from "./file.ts";
 import { createLocalPath } from "./local.ts";
-import { throwIfAborted, toFileSystemError } from "../error.ts";
+import { FileSystemError, throwIfAborted, toFileSystemError } from "../error.ts";
 import type { PathType } from "../path.ts";
 
 /** Node built-in filesystem module shape used through `process.getBuiltinModule()`. */
-type NodeFsType = typeof import("node:fs");
+export type NodeFsType = typeof import("node:fs");
 /** Node promise-based filesystem module shape used through `process.getBuiltinModule()`. */
-type NodeFsPromisesType = typeof import("node:fs/promises");
+export type NodeFsPromisesType = typeof import("node:fs/promises");
 /** Node stream module shape used only to convert native streams to Web Streams. */
-type NodeStreamType = typeof import("node:stream");
+export type NodeStreamType = typeof import("node:stream");
 
 /**
  * Options for the Node filesystem driver.
  *
- * The configured `root` becomes the only host directory visible through the
- * portable filesystem. Every virtual path is resolved beneath that root.
+ * The configured `root` is the lexical host namespace represented by virtual
+ * `/`. Virtual `..` escape is rejected, but native Node calls follow symbolic
+ * links already present below that root. Treat the configured root as trusted
+ * host storage rather than a process-level security isolation mechanism.
  */
 export interface NodeDriverOptionsType {
   /** Host directory exposed as virtual `/`. */
@@ -37,7 +39,7 @@ export interface NodeDriverOptionsType {
 }
 
 /** Opens one update-mode file, creating it only when the path was absent. */
-async function openUpdateFile(
+export async function openUpdateFile(
   fs: NodeFsPromisesType,
   path: string,
   virtualPath: string,
@@ -58,7 +60,7 @@ async function openUpdateFile(
  * producer is cancelled before the file closes so upstream work does not keep
  * producing bytes for a terminal operation.
  */
-async function writeStreamToFile(
+export async function writeStreamToFile(
   fs: NodeFsPromisesType,
   hostPath: string,
   virtualPath: string,
@@ -116,7 +118,7 @@ async function writeStreamToFile(
  * undefined` as the only closed-state marker. `abort()` cannot roll back bytes
  * already written to a normal host file; it only releases the descriptor.
  */
-class NodeWritableFile implements FileDriverWritableFileType {
+export class NodeWritableFile implements FileDriverWritableFileType {
   /** Canonical virtual path used in lifecycle diagnostics. */
   readonly #path: PathType;
   /** Native file descriptor, cleared before terminal close/abort. */
@@ -176,7 +178,7 @@ class NodeWritableFile implements FileDriverWritableFileType {
  * that operation at the explicit position and moves the wrapper cursor to the
  * end of the operation, matching the package sync-file contract.
  */
-class NodeSyncFile implements FileDriverSyncFileType {
+export class NodeSyncFile implements FileDriverSyncFileType {
   /** Node sync API used for descriptor operations. */
   readonly #fs: NodeFsType;
   /** Canonical virtual path used in lifecycle diagnostics. */
@@ -249,7 +251,7 @@ class NodeSyncFile implements FileDriverSyncFileType {
  * the constructor. The package root and unrelated runtime subpaths therefore do not
  * load Node built-ins merely because this source exists in the package.
  */
-class NodeBackend implements FileBackendType {
+export class NodeBackend implements FileBackendType {
   /** Stable driver identity used in diagnostics. */
   readonly name = "node";
   /** Native Node filesystem operations exposed without facade emulation. */
@@ -307,6 +309,7 @@ class NodeBackend implements FileBackendType {
     const file = await this.#fsp.open(this.#hostPath(path), "r");
     try {
       const info = await file.stat();
+      if (info.isDirectory()) throw new FileSystemError("type-mismatch", "read", path, `'${path}' is a directory.`);
       const start = options.at ?? 0;
       const length = Math.max(0, Math.min(options.length ?? info.size - start, info.size - start));
       const output = new Uint8Array(length);
@@ -325,9 +328,18 @@ class NodeBackend implements FileBackendType {
   /** Opens a native Node read stream and projects it as a Web byte stream. */
   async openReadStream(path: PathType, options: FileDriverReadOptionsType = {}): Promise<ReadableStream<Uint8Array>> {
     throwIfAborted(options.signal, "read", path);
+    const target = this.#hostPath(path);
+    if (options.length === 0) {
+      // `createReadStream({ start, end: start })` yields one byte because Node's
+      // `end` is inclusive. Stat once to preserve not-found/type failures, then
+      // return the exact empty range requested by the portable contract.
+      const info = await this.#fsp.stat(target);
+      if (info.isDirectory()) throw new FileSystemError("type-mismatch", "read", path, `'${path}' is a directory.`);
+      return new ReadableStream<Uint8Array>({ start(controller) { controller.close(); } });
+    }
     const start = options.at ?? 0;
-    const end = options.length === undefined ? undefined : Math.max(start, start + options.length - 1);
-    const stream = this.#fs.createReadStream(this.#hostPath(path), { start, ...(end === undefined ? {} : { end }) });
+    const end = options.length === undefined ? undefined : start + options.length - 1;
+    const stream = this.#fs.createReadStream(target, { start, ...(end === undefined ? {} : { end }) });
     return this.#stream.Readable.toWeb(stream) as unknown as ReadableStream<Uint8Array>;
   }
 
@@ -387,10 +399,23 @@ class NodeBackend implements FileBackendType {
     await this.#fsp.mkdir(this.#hostPath(path));
   }
 
-  /** Removes one host file or empty directory. Recursive policy belongs to the facade. */
+  /**
+   * Removes exactly one host file, symbolic link, or empty directory.
+   *
+   * A plain host `rm(path)` is not a portable one-entry directory primitive:
+   * supported Node/Bun runs can report `ERR_FS_EISDIR` for a directory. The
+   * driver must nevertheless remove one already-empty directory because recursive policy
+   * lives in the filesystem facade. `lstat()` also keeps a final symbolic link
+   * distinct from the directory it may reference, so deletion removes the link
+   * itself instead of following it.
+   */
   async remove(path: PathType, options: FileDriverSignalOptionsType = {}): Promise<void> {
     throwIfAborted(options.signal, "remove", path);
-    await this.#fsp.rm(this.#hostPath(path));
+    const target = this.#hostPath(path);
+    const info = await this.#fsp.lstat(target);
+    throwIfAborted(options.signal, "remove", path);
+    if (info.isDirectory()) await this.#fsp.rmdir(target);
+    else await this.#fsp.unlink(target);
   }
 
   /** Uses `copyFile()` so source bytes do not route through JavaScript buffers. */

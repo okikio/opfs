@@ -48,13 +48,13 @@ export interface Db0DriverOptionsType {
 }
 
 /** Columns read from every db0 filesystem row. */
-const DB0_ROW_COLUMNS_SQL = "path, parent_path, name, kind, data, size, last_modified, media_type";
+export const DB0_ROW_COLUMNS_SQL = "path, parent_path, name, kind, data, size, last_modified, media_type";
 
 /** Columns written by the db0 record driver. */
-const DB0_WRITE_COLUMNS_SQL = `id, ${DB0_ROW_COLUMNS_SQL}`;
+export const DB0_WRITE_COLUMNS_SQL = `id, ${DB0_ROW_COLUMNS_SQL}`;
 
 /** Database row shape after db0 driver decoding and before record validation. */
-interface Db0RowType {
+export interface Db0RowType {
   /** Canonical virtual path returned by the connector. */
   readonly path: string;
   /** Canonical direct-parent path stored in the SQL row. */
@@ -145,7 +145,7 @@ async function getPathId(path: string): Promise<string> {
 }
 
 /** Builds only the small DDL subset verified across db0's four public dialects. */
-function getCreateTableSql(table: string, dialect: Db0DialectType): string {
+export function getCreateTableSql(table: string, dialect: Db0DialectType): string {
   const q = quoteIdentifier(table, dialect);
   const integer = dialect === "postgresql" || dialect === "mysql" ? "BIGINT" : "INTEGER";
   const columns = dialect === "mysql"
@@ -175,7 +175,7 @@ function getCreateTableSql(table: string, dialect: Db0DialectType): string {
 }
 
 /** Builds one atomic row replacement using each dialect's native upsert form. */
-function getUpsertSql(table: string, dialect: Db0DialectType): string {
+export function getUpsertSql(table: string, dialect: Db0DialectType): string {
   const q = quoteIdentifier(table, dialect);
   const values = placeholders(9).join(", ");
   const assignments = dialect === "mysql"
@@ -213,7 +213,7 @@ function getUpsertSql(table: string, dialect: Db0DialectType): string {
  * record behavior separate and makes connector-specific parameter translation
  * remain db0's responsibility.
  */
-class Db0Backend implements RecordBackendType {
+export class Db0Backend implements RecordBackendType {
   /** Connected database borrowed or transferred by the caller. */
   readonly #database: Db0DatabaseType;
   /** Prepared exact-path selection. */
@@ -310,7 +310,7 @@ export async function createDb0Driver(
   );
   return defineRecordDriver(backend, {
     name: "db0",
-    capabilities: { replacement: "atomic", transactions: true, binary: false },
+    capabilities: { replacement: "atomic", transactions: false, binary: false },
     requirements: [{ code: `db0-${dialect}`, state: "available" }],
     optimizations: [],
     disposeBackend: options.disposeDatabase ?? false,

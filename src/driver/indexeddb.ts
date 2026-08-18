@@ -1,5 +1,10 @@
+import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
+
 import { defineRecordDriver, type RecordBackendType, type RecordDriverType } from "./record.ts";
-import { RecordSchema } from "../schema.ts";
+import type { FileDriverWriteOptionsType } from "./file.ts";
+import { FileSystemError, throwIfAborted } from "../error.ts";
+import { basename, dirname, type PathType } from "../path.ts";
+import { RecordSchema, type RecordType } from "../schema.ts";
 
 /**
  * Options for an existing IndexedDB database.
@@ -38,7 +43,7 @@ export interface IndexedDbOpenOptionsType extends Omit<IndexedDbDriverOptionsTyp
  * IndexedDB signals success and failure through events. The driver normalizes
  * that event lifecycle once so backend methods can use ordinary async control flow.
  */
-function result<T>(request: IDBRequest<T>): Promise<T> {
+export function result<T>(request: IDBRequest<T>): Promise<T> {
   const pending = Promise.withResolvers<T>();
   request.onsuccess = () => pending.resolve(request.result);
   request.onerror = () => pending.reject(request.error ?? new Error("IndexedDB request failed."));
@@ -51,12 +56,30 @@ function result<T>(request: IDBRequest<T>): Promise<T> {
  * Individual request success only means the operation was accepted into the
  * transaction. The write is not durable until the transaction completes.
  */
-function committed(transaction: IDBTransaction): Promise<void> {
+export function committed(transaction: IDBTransaction): Promise<void> {
   const pending = Promise.withResolvers<void>();
   transaction.oncomplete = () => pending.resolve();
   transaction.onabort = () => pending.reject(transaction.error ?? new Error("IndexedDB transaction aborted."));
   transaction.onerror = () => pending.reject(transaction.error ?? new Error("IndexedDB transaction failed."));
   return pending.promise;
+}
+
+/** Builds the next complete file bytes while one IndexedDB transaction owns the current record. */
+export function writeBytes(
+  existing: Uint8Array,
+  data: Uint8Array,
+  mode: FileDriverWriteOptionsType["mode"],
+  at: number | undefined,
+  truncate: boolean,
+): Uint8Array {
+  if (mode === "replace") return data.slice();
+  const position = mode === "append" ? existing.byteLength : at ?? 0;
+  const size = Math.max(existing.byteLength, position + data.byteLength);
+  let output = new Uint8Array(size);
+  output.set(existing);
+  output.set(data, position);
+  if (truncate) output = output.slice(0, position + data.byteLength);
+  return output;
 }
 
 /**
@@ -65,7 +88,7 @@ function committed(transaction: IDBTransaction): Promise<void> {
  * The upgrade path is idempotent so repeated opens can reuse the same database
  * name without forcing callers to drop storage between test runs or upgrades.
  */
-function upgradeDatabase(request: IDBOpenDBRequest, storeName: string, parentIndex: string): void {
+export function upgradeDatabase(request: IDBOpenDBRequest, storeName: string, parentIndex: string): void {
   const database = request.result;
   const store = database.objectStoreNames.contains(storeName)
     ? request.transaction!.objectStore(storeName)
@@ -80,7 +103,7 @@ function upgradeDatabase(request: IDBOpenDBRequest, storeName: string, parentInd
  * individual request success event as commit authority. Direct-child listing
  * uses the configured `parent` index.
  */
-class IndexedDbBackend implements RecordBackendType {
+export class IndexedDbBackend implements RecordBackendType {
   /** IndexedDB database borrowed or owned according to driver options. */
   readonly #database: IDBDatabase;
   /** Object store containing validated filesystem records. */
@@ -110,6 +133,64 @@ class IndexedDbBackend implements RecordBackendType {
     const transaction = this.#database.transaction(this.#storeName, "readwrite");
     transaction.objectStore(this.#storeName).put(record);
     await committed(transaction);
+  }
+
+  /**
+   * Applies replace, append, or positioned update in one IndexedDB readwrite transaction.
+   *
+   * The generic record adapter cannot make `get()` followed by `set()` atomic
+   * across tabs because each call opens its own transaction. Keeping the read,
+   * byte-image update, and `put()` inside one transaction lets IndexedDB's
+   * object-store serialization protect same-path read-modify-write operations
+   * from independent package instances that use this driver.
+   */
+  async writeFile(path: PathType, data: Uint8Array, options: FileDriverWriteOptionsType): Promise<void> {
+    throwIfAborted(options.signal, "write", path);
+    const transaction = this.#database.transaction(this.#storeName, "readwrite");
+    const done = committed(transaction);
+    const store = transaction.objectStore(this.#storeName);
+    const abort = () => {
+      try {
+        transaction.abort();
+      } catch {
+        // The transaction may have reached a terminal state between signal
+        // delivery and this callback. Its existing result remains authoritative.
+      }
+    };
+    options.signal?.addEventListener("abort", abort, { once: true });
+
+    try {
+      const value = await result(store.get(path));
+      throwIfAborted(options.signal, "write", path);
+      const previous = value === undefined ? null : RecordSchema.parse(value);
+      if (previous?.kind === "directory") {
+        throw new FileSystemError("type-mismatch", "write", path, `'${path}' is a directory.`);
+      }
+
+      const existing = options.mode === "replace" || previous === null
+        ? new Uint8Array()
+        : decodeBase64(previous.data);
+      const bytes = writeBytes(existing, data, options.mode, options.at, options.truncate ?? false);
+      const record: RecordType = RecordSchema.parse({
+        version: 1,
+        path,
+        parent: dirname(path),
+        name: basename(path),
+        kind: "file",
+        data: encodeBase64(bytes),
+        size: bytes.byteLength,
+        lastModified: Date.now(),
+        mediaType: options.mediaType ?? (previous?.kind === "file" ? previous.mediaType : ""),
+      });
+      store.put(record);
+      await done;
+    } catch (error) {
+      abort();
+      await done.catch(() => undefined);
+      throw error;
+    } finally {
+      options.signal?.removeEventListener("abort", abort);
+    }
   }
 
   /** Removes one record and waits for the readwrite transaction to commit. */
@@ -147,6 +228,7 @@ export function createIndexedDbDriver(
   return defineRecordDriver(backend, {
     name: "indexeddb",
     capabilities: {
+      writeModes: ["replace", "append", "update"],
       replacement: "atomic",
       transactions: true,
       binary: false,

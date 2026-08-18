@@ -41,13 +41,28 @@ export type RecordReplacementType = z.output<typeof RecordReplacementSchema>;
  * writes. The record adapter uses them to choose honest fallbacks.
  */
 export const RecordDriverCapabilitiesSchema = z.object({
+  /** Backend can satisfy byte ranges without reconstructing the complete logical file. */
   rangeRead: z.boolean(),
+  /** Backend can expose file bytes as a native stream. */
   streamRead: z.boolean(),
+  /** Configured driver permits mutation. */
   write: z.boolean(),
+  /** Write modes implemented as one backend-native operation instead of adapter read-modify-write. */
   writeModes: z.array(WriteModeSchema).readonly(),
+  /** Stream write modes implemented by the backend without facade materialization. */
   streamWriteModes: z.array(WriteModeSchema).readonly(),
+  /** Atomicity of one complete logical-record replacement performed by `set()`. */
   replacement: RecordReplacementSchema,
+  /** Backend can preserve native binary data without the portable base64 representation. */
   binary: z.boolean(),
+  /**
+   * Backend exposes transaction mechanics used by its own driver operations.
+   *
+   * This flag does not upgrade the generic record adapter's `get()` then `set()`
+   * append/update fallback into one transaction. Cross-owner atomic append or
+   * update requires a native `writeFile()`/`writeStream()` mode or a stronger
+   * backend-specific operation that the driver explicitly advertises.
+   */
   transactions: z.boolean(),
 }).strict();
 
@@ -104,12 +119,12 @@ export interface DefineRecordDriverOptionsType extends Omit<DefineDriverOptionsT
 }
 
 /** Returns whether one preflight operation needs backend mutation. */
-function mutates(operation: DriverPlanInputType["operation"]): boolean {
+export function mutates(operation: DriverPlanInputType["operation"]): boolean {
   return operation === "write" || operation === "copy" || operation === "move" || operation === "remove";
 }
 
 /** Creates a deterministic read-only rejection before backend-specific planning. */
-function readOnlyPlan(input: DriverPlanInputType): DriverPlanType {
+export function readOnlyPlan(input: DriverPlanInputType): DriverPlanType {
   const request = DriverPlanInputSchema.parse(input);
   return DriverPlanSchema.parse({
     operation: request.operation,
@@ -126,7 +141,7 @@ function readOnlyPlan(input: DriverPlanInputType): DriverPlanType {
 }
 
 /** Creates the default record-driver plan from known file size and configured limits. */
-function createRecordPlan(base: DriverType, input: DriverPlanInputType): DriverPlanType {
+export function createRecordPlan(base: DriverType, input: DriverPlanInputType): DriverPlanType {
   const request = DriverPlanInputSchema.parse(input);
   const maxFile = base.limits.find((limit) => limit.code === "file-bytes" && limit.value !== undefined);
   if (request.size !== undefined && maxFile?.value !== undefined && request.size > maxFile.value) {

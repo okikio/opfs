@@ -7,9 +7,11 @@ import { normalizePath } from "../path.ts";
  * The class exists so the mapping operation has one named implementation
  * instead of a closure hidden inside {@link createLocalPath}. The configured
  * root is resolved once. Every later path is normalized through the virtual
- * path contract and then checked against the resolved host-root prefix.
+ * path contract and then checked against the resolved host-root prefix. This is
+ * lexical containment only: native filesystem calls can still follow a symbolic
+ * link already present inside the configured root.
  */
-class LocalPath {
+export class LocalPath {
   /** Absolute host directory represented by virtual `/`. */
   readonly #root: string;
   /** Root plus the native path separator, used for descendant checks. */
@@ -44,8 +46,10 @@ class LocalPath {
  * Creates the host-path mapper shared by the Deno, Node, and Bun file drivers.
  *
  * `@std/path` selects the current operating-system path rules. The mapper then
- * applies the OPFS virtual-path invariant on every conversion, so a virtual
- * path can never expose a host path outside `root`.
+ * applies the OPFS virtual-path invariant on every conversion and rejects `..`
+ * or platform-specific lexical escape from `root`. It does not resolve symbolic
+ * links. A host root that can contain links created by untrusted or independent
+ * processes is therefore a namespace mapping, not a security isolation layer.
  *
  * The returned function is bound to one immutable {@link LocalPath} instance.
  * Callers therefore keep the compact function API without placing the actual
