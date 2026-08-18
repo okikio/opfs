@@ -1,3 +1,4 @@
+/// <reference types="bun-types" />
 import { bench, run } from "mitata";
 import { copyFile, mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -5,6 +6,32 @@ import { join } from "node:path";
 
 import { createFileSystem } from "../mod.ts";
 import { createBunAdapter } from "../src/adapter/bun.ts";
+
+/** Minimal Bun file surface used by this benchmark without ambient Bun declarations. */
+interface BunBenchFileType extends Blob {
+  /** Materializes the file bytes for the direct runtime read baseline. */
+  bytes(): Promise<Uint8Array<ArrayBuffer>>;
+}
+
+/** Bun runtime operations measured by the direct filesystem baseline. */
+interface BunBenchRuntimeType {
+  /** Opens one lazy Bun file for a host path. */
+  file(path: string): BunBenchFileType;
+  /** Replaces one host file with supported Bun input. */
+  write(path: string, data: Blob | Response | ArrayBufferView | ArrayBuffer | string): Promise<number>;
+}
+
+/** Resolves Bun lazily so Deno can type-check the benchmark source. */
+function getBun() {
+  const runtime = Reflect.get(globalThis, "Bun");
+  if (runtime === undefined || typeof runtime.file !== "function" || typeof runtime.write !== "function") {
+    throw new TypeError("Bun benchmark requires the Bun runtime.");
+  }
+  return runtime;
+}
+
+/** Bun runtime under test. */
+const bun = getBun();
 
 /** Temporary benchmark root that keeps raw, adapter, and facade data isolated. */
 const root = await mkdtemp(join(tmpdir(), "okikio-opfs-bench-"));
@@ -30,8 +57,8 @@ const none = createFileSystem(createBunAdapter({ root: noneRoot }), { coordinati
 const local = createFileSystem(createBunAdapter({ root: localRoot }), { coordination: "local", metrics: "none" });
 
 bench("bun/raw file: 64 KiB replace + read", async () => {
-  await Bun.write(rawPath, payload);
-  await Bun.file(rawPath).bytes();
+  await bun.write(rawPath, payload);
+  await bun.file(rawPath).bytes();
 });
 
 bench("bun/adapter: 64 KiB replace + read", async () => {
@@ -49,7 +76,7 @@ bench("bun/facade local: 64 KiB replace + read", async () => {
   await local.readFile("/bench.bin");
 });
 
-await Bun.write(join(rawRoot, "source.bin"), payload);
+await bun.write(join(rawRoot, "source.bin"), payload);
 await adapter.writeFile("/source.bin", payload, { mode: "replace" });
 await none.writeFile("/source.bin", payload);
 
@@ -58,7 +85,7 @@ bench("bun/raw node fs: 64 KiB copyFile", async () => {
 });
 
 bench("bun/raw Bun.write: 64 KiB BunFile copy", async () => {
-  await Bun.write(join(rawRoot, "copy-bun.bin"), Bun.file(join(rawRoot, "source.bin")));
+  await bun.write(join(rawRoot, "copy-bun.bin"), bun.file(join(rawRoot, "source.bin")));
 });
 
 bench("bun/adapter: 64 KiB native copy", async () => {

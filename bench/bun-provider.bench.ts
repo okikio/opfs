@@ -1,4 +1,4 @@
-import { S3Client as BunS3Client } from "bun";
+/// <reference types="bun-types" />
 import { toBytes } from "@std/streams/to-bytes";
 import { bench, run } from "mitata";
 
@@ -9,8 +9,74 @@ import { createS3Client } from "../src/s3.ts";
 
 import { S3_ACCESS_KEY, S3_SECRET_KEY, STORAGE_NAME } from "../tests/provider/fixture.ts";
 
+/** Bun S3 file methods measured by the provider benchmark. */
+interface BunS3FileType {
+  /** Reads provider metadata without materializing the object body. */
+  stat(): Promise<unknown>;
+  /** Materializes the object for the direct native read baseline. */
+  bytes(): Promise<Uint8Array>;
+  /** Opens Bun's multipart network sink. */
+  writer(options: { readonly partSize: number; readonly queueSize: number; readonly retry: number }): BunS3WriterType;
+}
+
+/** Bun multipart sink used for the native provider baseline. */
+interface BunS3WriterType {
+  /** Queues bytes into the multipart upload. */
+  write(data: Uint8Array): number | Promise<number>;
+  /** Flushes pending parts and commits the object. */
+  end(): void | Promise<void>;
+}
+
+/** Bun S3 client methods required by this benchmark. */
+interface BunS3ClientType {
+  /** Replaces one object. */
+  write(path: string, data: Uint8Array): Promise<number>;
+  /** Opens one lazy remote object. */
+  file(path: string): BunS3FileType;
+}
+
+/** Constructor shape for Bun's native S3 client. */
+interface BunS3ClientConstructorType {
+  new (options: {
+    readonly endpoint: string;
+    readonly bucket: string;
+    readonly region: string;
+    readonly accessKeyId: string;
+    readonly secretAccessKey: string;
+    readonly virtualHostedStyle: boolean;
+    readonly retry: number;
+    readonly partSize: number;
+    readonly queueSize: number;
+  }): BunS3ClientType;
+}
+
+/** Bun runtime subset required for the native S3 comparison lane. */
+interface BunProviderRuntimeType {
+  readonly S3Client: BunS3ClientConstructorType;
+}
+
+/** Resolves Bun lazily so the Deno check matrix can inspect this benchmark source. */
+function getBun() {
+  const runtime = Reflect.get(globalThis, "Bun");
+  if (runtime === undefined || typeof runtime?.S3Client !== "function") {
+    throw new TypeError("Bun provider benchmark requires the Bun runtime.");
+  }
+  return runtime;
+}
+
+/** Bun runtime under test. */
+const bunRuntime = getBun();
+
+/** Reads one environment value through Bun's Node-compatible process global without ambient Node declarations. */
+function getEnv(name: string): string | undefined {
+  const runtimeProcess = Reflect.get(globalThis, "process") as
+    | { readonly env?: Record<string, string | undefined> }
+    | undefined;
+  return runtimeProcess?.env?.[name];
+}
+
 /** SeaweedFS endpoint started by the Node Testcontainers benchmark owner. */
-const S3_ENDPOINT = Bun.env.OPFS_S3_ENDPOINT;
+const S3_ENDPOINT = getEnv("OPFS_S3_ENDPOINT");
 if (S3_ENDPOINT === undefined || S3_ENDPOINT.length === 0) {
   throw new Error("OPFS_S3_ENDPOINT must be supplied by bench/providers.ts.");
 }
@@ -26,7 +92,7 @@ const multipart = new Uint8Array(6 * 1024 * 1024);
 multipart.fill(19);
 
 /** Bun's current native Rust-backed S3 client baseline. */
-const bun = new BunS3Client({
+const bun = new bunRuntime.S3Client({
   endpoint: S3_ENDPOINT,
   bucket: BUCKET,
   region: "us-east-1",
