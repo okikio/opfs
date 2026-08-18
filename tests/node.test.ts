@@ -89,7 +89,9 @@ describe("Node adapter", () => {
           run: (...params) => statement.run(...params),
         };
       },
-      close() { database.close(); },
+      close() {
+        database.close();
+      },
     }, { disposeDatabase: true });
     const fileSystem = createFileSystem(adapter, { coordination: "none", disposeAdapter: true });
     try {

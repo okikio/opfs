@@ -1,5 +1,4 @@
-/// <reference lib="deno.unstable" />
-
+/// <reference types="deno" />
 import { bench, run } from "mitata";
 
 import { createFileSystem } from "../mod.ts";
@@ -17,7 +16,10 @@ const rawKey = ["bench", "raw"] as const;
 /** Direct Deno KV adapter measured without facade overhead. */
 const adapter = createDenoKvAdapter(database, { prefix: "bench-adapter" });
 /** Filesystem facade backed by the same Deno KV database with coordination disabled. */
-const fileSystem = createFileSystem(createDenoKvAdapter(database, { prefix: "bench-facade" }), { coordination: "none", metrics: "none" });
+const fileSystem = createFileSystem(createDenoKvAdapter(database, { prefix: "bench-facade" }), {
+  coordination: "none",
+  metrics: "none",
+});
 
 bench("deno-kv/raw: 64 KiB replace + get", async () => {
   await database.set(rawKey, payload);

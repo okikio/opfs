@@ -89,7 +89,9 @@ describe("Testcontainers-backed object providers", () => {
       const original = new TextEncoder().encode("0123456789");
       const written = await client.put(basic, original, { mediaType: "text/plain", ifNoneMatch: "*" });
       expect(written.size).toBe(original.byteLength);
-      if (written.etag === undefined) throw new Error("S3 provider did not return an ETag for a completed object write.");
+      if (written.etag === undefined) {
+        throw new Error("S3 provider did not return an ETag for a completed object write.");
+      }
       expect((await client.head(basic))?.etag).toBe(written.etag);
       expect(new TextDecoder().decode(await toBytes(await client.get(basic, { at: 3, length: 4 })))).toBe("3456");
       await expect(client.put(basic, original, { ifNoneMatch: "*" })).rejects.toBeDefined();
@@ -106,7 +108,9 @@ describe("Testcontainers-backed object providers", () => {
       const page = await client.list({ prefix: `${prefix}/`, delimiter: "/" });
       expect(page.objects.some((entry) => entry.key === basic)).toBe(true);
 
-      await using fileSystem = createFileSystem(createObjectAdapter(createS3DriverFromClient(client), { prefix }), { coordination: "none" });
+      await using fileSystem = createFileSystem(createObjectAdapter(createS3DriverFromClient(client), { prefix }), {
+        coordination: "none",
+      });
       await fileSystem.writeFile("/facade/state.txt", "through facade", { parents: true });
       expect(await fileSystem.readText("/facade/state.txt")).toBe("through facade");
       expect((await client.head(facadeKey))?.size).toBe(14);
@@ -130,7 +134,9 @@ describe("Testcontainers-backed object providers", () => {
       const original = new TextEncoder().encode("0123456789");
       const written = await client.put(basic, original, { mediaType: "text/plain", ifNoneMatch: "*" });
       expect(written.size).toBe(original.byteLength);
-      if (written.etag === undefined) throw new Error("Azure provider did not return an ETag for a completed blob write.");
+      if (written.etag === undefined) {
+        throw new Error("Azure provider did not return an ETag for a completed blob write.");
+      }
       expect((await client.head(basic))?.etag).toBe(written.etag);
       expect(new TextDecoder().decode(await toBytes(await client.get(basic, { at: 3, length: 4 })))).toBe("3456");
       await expect(client.put(basic, original, { ifNoneMatch: "*" })).rejects.toBeDefined();
@@ -147,7 +153,9 @@ describe("Testcontainers-backed object providers", () => {
       const page = await client.list({ prefix: `${prefix}/`, delimiter: "/" });
       expect(page.objects.some((entry) => entry.key === basic)).toBe(true);
 
-      await using fileSystem = createFileSystem(createObjectAdapter(createAzureDriverFromClient(client), { prefix }), { coordination: "none" });
+      await using fileSystem = createFileSystem(createObjectAdapter(createAzureDriverFromClient(client), { prefix }), {
+        coordination: "none",
+      });
       await fileSystem.writeFile("/facade/state.txt", "through facade", { parents: true });
       expect(await fileSystem.readText("/facade/state.txt")).toBe("through facade");
       expect((await client.head(facadeKey))?.size).toBe(14);

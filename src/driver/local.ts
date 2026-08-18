@@ -1,4 +1,4 @@
-import { SEPARATOR, resolve } from "@std/path";
+import { resolve, SEPARATOR } from "@std/path";
 import { normalizePath } from "../path.ts";
 
 /**
@@ -41,7 +41,7 @@ class LocalPath {
 }
 
 /**
- * Creates the host-path mapper shared by the Deno, Node, and Bun adapters.
+ * Creates the host-path mapper shared by the Deno, Node, and Bun file drivers.
  *
  * `@std/path` selects the current operating-system path rules. The mapper then
  * applies the OPFS virtual-path invariant on every conversion, so a virtual

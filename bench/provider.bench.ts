@@ -9,15 +9,11 @@ import { bench, run } from "mitata";
 import { createFileSystem } from "../mod.ts";
 import { createObjectAdapter } from "../src/adapter/object.ts";
 import { createAzureClient } from "../src/azure.ts";
+import { createAzureDriverFromClient } from "../src/driver/azure.ts";
+import { createS3DriverFromClient } from "../src/driver/s3.ts";
 import { createS3Client } from "../src/s3.ts";
 
-import {
-  AZURE_ACCOUNT,
-  AZURE_KEY,
-  S3_ACCESS_KEY,
-  S3_SECRET_KEY,
-  STORAGE_NAME,
-} from "../tests/provider/fixture.ts";
+import { AZURE_ACCOUNT, AZURE_KEY, S3_ACCESS_KEY, S3_SECRET_KEY, STORAGE_NAME } from "../tests/provider/fixture.ts";
 
 /** Reads one provider endpoint supplied by the Testcontainers benchmark owner. */
 function getEndpoint(name: "OPFS_S3_ENDPOINT" | "OPFS_AZURE_ENDPOINT"): string {
@@ -59,15 +55,17 @@ const s3 = createS3Client({
   metrics: "none",
   partSize: 5 * 1024 * 1024,
 });
+/** Driver layer used to isolate backend metadata/planning overhead from protocol-client overhead. */
+const s3Driver = createS3DriverFromClient(s3);
 /** Direct object-adapter layer used to isolate translation overhead from facade overhead. */
-const s3Adapter = createObjectAdapter(s3, { prefix: `${prefix}/s3-adapter` });
+const s3Adapter = createObjectAdapter(s3Driver, { prefix: `${prefix}/s3-adapter` });
 /** Filesystem facade with instrumentation disabled for the lowest-overhead facade comparison. */
-const s3Facade = createFileSystem(createObjectAdapter(s3, { prefix: `${prefix}/s3-facade` }), {
+const s3Facade = createFileSystem(createObjectAdapter(s3Driver, { prefix: `${prefix}/s3-facade` }), {
   coordination: "none",
   metrics: "none",
 });
 /** Filesystem facade with basic counters enabled to measure instrumentation cost. */
-const s3Measured = createFileSystem(createObjectAdapter(s3, { prefix: `${prefix}/s3-metrics` }), {
+const s3Measured = createFileSystem(createObjectAdapter(s3Driver, { prefix: `${prefix}/s3-metrics` }), {
   coordination: "none",
   metrics: "basic",
 });
@@ -88,15 +86,17 @@ const azure = createAzureClient({
   metrics: "none",
   blockSize: 1024 * 1024,
 });
+/** Driver layer used to isolate Azure backend metadata/planning overhead. */
+const azureDriver = createAzureDriverFromClient(azure);
 /** Direct Azure object-adapter layer used to isolate translation overhead. */
-const azureAdapter = createObjectAdapter(azure, { prefix: `${prefix}/azure-adapter` });
+const azureAdapter = createObjectAdapter(azureDriver, { prefix: `${prefix}/azure-adapter` });
 /** Azure facade with metrics disabled for the lowest-overhead facade comparison. */
-const azureFacade = createFileSystem(createObjectAdapter(azure, { prefix: `${prefix}/azure-facade` }), {
+const azureFacade = createFileSystem(createObjectAdapter(azureDriver, { prefix: `${prefix}/azure-facade` }), {
   coordination: "none",
   metrics: "none",
 });
 /** Azure facade with basic counters enabled to measure instrumentation cost. */
-const azureMeasured = createFileSystem(createObjectAdapter(azure, { prefix: `${prefix}/azure-metrics` }), {
+const azureMeasured = createFileSystem(createObjectAdapter(azureDriver, { prefix: `${prefix}/azure-metrics` }), {
   coordination: "none",
   metrics: "basic",
 });
@@ -121,14 +121,20 @@ function stream(bytes: Uint8Array): ReadableStream<Uint8Array> {
 const awsKey = `${prefix}/aws.bin`;
 /** Stable object key reused by the direct S3 client samples. */
 const s3Key = `${prefix}/s3-client.bin`;
+/** Stable object key reused by the S3 driver samples. */
+const s3DriverKey = `${prefix}/s3-driver.bin`;
 /** Stable blob key reused by the direct Azure client samples. */
 const azureKey = `${prefix}/azure-client.bin`;
+/** Stable blob key reused by the Azure driver samples. */
+const azureDriverKey = `${prefix}/azure-driver.bin`;
 /** Official SDK blob client reused by replacement/read samples. */
 const azureOfficial = azureContainer.getBlockBlobClient(`${prefix}/azure-sdk.bin`);
 await aws.send(new PutObjectCommand({ Bucket: STORAGE_NAME, Key: awsKey, Body: payload }));
 await s3.put(s3Key, payload);
+await s3Driver.put(s3DriverKey, payload);
 await azureOfficial.uploadData(payload);
 await azure.put(azureKey, payload);
+await azureDriver.put(azureDriverKey, payload);
 await s3Adapter.writeFile("/bench.bin", payload, { mode: "replace" });
 await s3Facade.writeFile("/bench.bin", payload);
 await s3Measured.writeFile("/bench.bin", payload);
@@ -142,6 +148,9 @@ bench("provider/s3 AWS SDK: 256 KiB replace + stat", async () => {
 });
 bench("provider/s3 direct client: 256 KiB replace + stat", async () => {
   await s3.put(s3Key, payload);
+});
+bench("provider/s3 driver: 256 KiB replace + stat", async () => {
+  await s3Driver.put(s3DriverKey, payload);
 });
 bench("provider/s3 direct adapter: 256 KiB replace + stat", async () => {
   await s3Adapter.writeFile("/bench.bin", payload, { mode: "replace" });
@@ -158,6 +167,9 @@ bench("provider/s3 AWS SDK: 256 KiB read", async () => {
 });
 bench("provider/s3 direct client: 256 KiB read", async () => {
   await toBytes(await s3.get(s3Key));
+});
+bench("provider/s3 driver: 256 KiB read", async () => {
+  await toBytes(await s3Driver.get(s3DriverKey));
 });
 bench("provider/s3 direct adapter: 256 KiB read", async () => {
   await s3Adapter.readFile("/bench.bin");
@@ -186,6 +198,9 @@ bench("provider/azure official SDK: 256 KiB replace + stat", async () => {
 bench("provider/azure direct client: 256 KiB replace + stat", async () => {
   await azure.put(azureKey, payload);
 });
+bench("provider/azure driver: 256 KiB replace + stat", async () => {
+  await azureDriver.put(azureDriverKey, payload);
+});
 bench("provider/azure direct adapter: 256 KiB replace + stat", async () => {
   await azureAdapter.writeFile("/bench.bin", payload, { mode: "replace" });
 });
@@ -201,6 +216,9 @@ bench("provider/azure official SDK: 256 KiB read", async () => {
 });
 bench("provider/azure direct client: 256 KiB read", async () => {
   await toBytes(await azure.get(azureKey));
+});
+bench("provider/azure driver: 256 KiB read", async () => {
+  await toBytes(await azureDriver.get(azureDriverKey));
 });
 bench("provider/azure direct adapter: 256 KiB read", async () => {
   await azureAdapter.readFile("/bench.bin");

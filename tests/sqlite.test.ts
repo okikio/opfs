@@ -51,7 +51,13 @@ class MemorySqlite {
       };
     }
     if (sql.startsWith("DELETE")) {
-      return { all: () => [], get: () => undefined, run: (id) => { this.rows.delete(String(id)); } };
+      return {
+        all: () => [],
+        get: () => undefined,
+        run: (id) => {
+          this.rows.delete(String(id));
+        },
+      };
     }
     throw new Error(`unexpected SQL: ${sql}`);
   }

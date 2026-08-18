@@ -3,6 +3,7 @@ import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
 import { z } from "zod";
 
 import type {
+  ObjectBackendType,
   ObjectCopyOptionsType,
   ObjectEntryType,
   ObjectGetOptionsType,
@@ -10,26 +11,18 @@ import type {
   ObjectListType,
   ObjectPutOptionsType,
   ObjectStatType,
-  ObjectStoreType,
-} from "./adapter/object.ts";
+} from "./driver/object.ts";
 import { split } from "./chunk.ts";
 import {
   RequestMetrics,
-  RequestTransportError,
   type RequestMetricsType,
   type RequestPolicyType,
+  RequestTransportError,
   sendRequest,
 } from "./request.ts";
-import { MetricsModeSchema, type AdapterLimitsType, type MetricsModeType } from "./schema.ts";
+import { type AdapterLimitsType, MetricsModeSchema, type MetricsModeType } from "./schema.ts";
 import { toByteStream } from "./stream.ts";
-import {
-  createXmlElement,
-  createXmlText,
-  getXmlElements,
-  getXmlValue,
-  parseXmlRoot,
-  stringifyXml,
-} from "./xml.ts";
+import { createXmlElement, createXmlText, getXmlElements, getXmlValue, parseXmlRoot, stringifyXml } from "./xml.ts";
 
 /** Current fully deployed Azure Storage REST service version used by default. */
 export const AZURE_STORAGE_VERSION = "2026-04-06";
@@ -50,44 +43,46 @@ export type AzureStorageVersionType = z.output<typeof AzureStorageVersionSchema>
  */
 export type AzureCredentialType =
   | Readonly<{
-      /** Selects SAS query authorization. */
-      readonly kind: "sas";
-      /** SAS token with or without a leading `?`; the client merges it into every request URL. */
-      readonly token: string;
-    }>
+    /** Selects SAS query authorization. */
+    readonly kind: "sas";
+    /** SAS token with or without a leading `?`; the client merges it into every request URL. */
+    readonly token: string;
+  }>
   | Readonly<{
-      /** Selects Microsoft Entra bearer authorization. */
-      readonly kind: "bearer";
-      /** Static token or refresh function evaluated immediately before each request. */
-      readonly token: string | (() => string | Promise<string>);
-    }>
+    /** Selects Microsoft Entra bearer authorization. */
+    readonly kind: "bearer";
+    /** Static token or refresh function evaluated immediately before each request. */
+    readonly token: string | (() => string | Promise<string>);
+  }>
   | Readonly<{
-      /** Selects Azure Storage Shared Key authorization. */
-      readonly kind: "shared-key";
-      /** Storage account name used in the Authorization header and canonical resource. */
-      readonly account: string;
-      /** Base64-encoded storage account key used only for HMAC-SHA256 signing. */
-      readonly key: string;
-    }>
+    /** Selects Azure Storage Shared Key authorization. */
+    readonly kind: "shared-key";
+    /** Storage account name used in the Authorization header and canonical resource. */
+    readonly account: string;
+    /** Base64-encoded storage account key used only for HMAC-SHA256 signing. */
+    readonly key: string;
+  }>
   | Readonly<{
-      /** Selects caller-owned authorization headers. */
-      readonly kind: "headers";
-      /**
-       * Returns headers after the request URL and ordinary headers are known.
-       *
-       * This escape hatch supports provider-specific authorization without
-       * letting the client guess whether those credentials also authorize a
-       * server-side copy source.
-       */
-      readonly get: (request: Readonly<{
+    /** Selects caller-owned authorization headers. */
+    readonly kind: "headers";
+    /**
+     * Returns headers after the request URL and ordinary headers are known.
+     *
+     * This escape hatch supports provider-specific authorization without
+     * letting the client guess whether those credentials also authorize a
+     * server-side copy source.
+     */
+    readonly get: (
+      request: Readonly<{
         /** HTTP method that will be sent. */
         readonly method: string;
         /** Final request URL including service and SAS query parameters. */
         readonly url: URL;
         /** Headers assembled before custom authorization is applied. */
         readonly headers: Headers;
-      }>) => HeadersInit | Promise<HeadersInit>;
-    }>;
+      }>,
+    ) => HeadersInit | Promise<HeadersInit>;
+  }>;
 
 /** Options used to create one Azure Blob Storage client. */
 export interface AzureClientOptionsType {
@@ -111,6 +106,10 @@ export interface AzureClientOptionsType {
   readonly headers?: HeadersInit;
   /** Retry/backoff and optional per-attempt timeout policy. */
   readonly request?: RequestPolicyType;
+  /** Enables staged Put Block uploads for streams and blobs larger than Put Blob. Defaults to true. */
+  readonly blockUpload?: boolean;
+  /** Enables Azure server-side copy routes. Defaults to true. */
+  readonly serverCopy?: boolean;
   /** Direct-client HTTP instrumentation. Defaults to `basic`; `none` removes counter updates. */
   readonly metrics?: MetricsModeType;
 }
@@ -134,7 +133,9 @@ export interface AzureRequestOptionsType {
 }
 
 /** Azure Blob client used directly or as an object-store backend. */
-export interface AzureClientType extends ObjectStoreType {
+export interface AzureClientType extends ObjectBackendType {
+  /** Resolved client optimization switches used by driver inspection. */
+  readonly optimizations: Readonly<{ blockUpload: boolean; serverCopy: boolean }>;
   /** Returns detached direct HTTP request metrics. */
   getMetrics(): RequestMetricsType;
   /** Sends one Blob REST request with the configured authorization strategy. */
@@ -421,7 +422,9 @@ async function assertResponse(response: Response, operation: string): Promise<Re
   }
   throw new AzureError(message, response, {
     ...(code === undefined ? {} : { code }),
-    ...(response.headers.get("x-ms-request-id") === null ? {} : { requestId: response.headers.get("x-ms-request-id")! }),
+    ...(response.headers.get("x-ms-request-id") === null
+      ? {}
+      : { requestId: response.headers.get("x-ms-request-id")! }),
   });
 }
 
@@ -534,6 +537,8 @@ class AzureClient implements AzureClientType {
   readonly name = "azure";
   /** Native operations guaranteed for this configured credential/version pair. */
   readonly capabilities: AzureClientType["capabilities"];
+  /** Resolved behavior-changing client optimization switches. */
+  readonly optimizations: Readonly<{ blockUpload: boolean; serverCopy: boolean }>;
   /** Portable Azure limits exposed to the filesystem planner. */
   readonly limits: AdapterLimitsType;
 
@@ -545,12 +550,17 @@ class AzureClient implements AzureClientType {
     this.#version = AzureStorageVersionSchema.parse(options.version ?? AZURE_STORAGE_VERSION);
     this.#fetch = options.fetch ?? fetch;
     this.#now = options.now ?? (() => new Date());
-    this.#blockSize = options.blockSize ?? Math.min(DEFAULT_BLOCK_SIZE, getBlockLimit(this.#version));
+    const blockLimit = getBlockLimit(this.#version);
+    this.#blockSize = options.blockSize ?? Math.min(DEFAULT_BLOCK_SIZE, blockLimit);
     this.#concurrency = options.concurrency ?? 4;
     this.#headers = new Headers(options.headers);
     this.#requestPolicy = options.request;
     this.#metricsMode = MetricsModeSchema.parse(options.metrics ?? "basic");
     this.#metrics = this.#metricsMode === "none" ? undefined : new RequestMetrics(this.#metricsMode === "timing");
+    this.optimizations = Object.freeze({
+      blockUpload: options.blockUpload ?? true,
+      serverCopy: options.serverCopy ?? true,
+    });
 
     if (this.#container.length === 0) throw new TypeError("Azure container cannot be empty.");
     if (this.#credential.kind === "shared-key" && !atLeast(this.#version, SHARED_KEY_VERSION)) {
@@ -558,9 +568,10 @@ class AzureClient implements AzureClientType {
         `Azure Shared Key support starts at Blob service version ${SHARED_KEY_VERSION}; received ${this.#version}.`,
       );
     }
-    const blockLimit = getBlockLimit(this.#version);
     if (!Number.isSafeInteger(this.#blockSize) || this.#blockSize < 1 || this.#blockSize > blockLimit) {
-      throw new RangeError(`Azure blockSize must be between 1 and ${blockLimit} bytes for service version ${this.#version}.`);
+      throw new RangeError(
+        `Azure blockSize must be between 1 and ${blockLimit} bytes for service version ${this.#version}.`,
+      );
     }
     if (!Number.isSafeInteger(this.#concurrency) || this.#concurrency < 1) {
       throw new RangeError("Azure concurrency must be a positive integer.");
@@ -574,9 +585,12 @@ class AzureClient implements AzureClientType {
     this.capabilities = {
       rangeRead: true,
       streamRead: true,
-      streamWrite: true,
-      copy,
+      streamWrite: this.optimizations.blockUpload,
+      copy: this.optimizations.serverCopy && copy,
       conditionalWrite: true,
+      multipart: this.optimizations.blockUpload,
+      metadata: true,
+      versions: false,
     };
     this.limits = {
       maxFileBytes: getBlockLimit(this.#version) * AZURE_LIMITS.maxCommittedBlocks,
@@ -591,7 +605,9 @@ class AzureClient implements AzureClientType {
   #getAddress(key?: string): URL {
     const url = new URL(this.#endpoint);
     const root = this.#endpoint.pathname.replace(/\/$/, "");
-    url.pathname = `${root}/${encodeURIComponent(this.#container)}${key === undefined || key.length === 0 ? "" : `/${encodePath(key)}`}`;
+    url.pathname = `${root}/${encodeURIComponent(this.#container)}${
+      key === undefined || key.length === 0 ? "" : `/${encodePath(key)}`
+    }`;
     if (this.#credential.kind === "sas") {
       const params = new URLSearchParams(this.#credential.token.replace(/^\?/, ""));
       for (const [name, value] of params) url.searchParams.append(name, value);
@@ -657,11 +673,19 @@ class AzureClient implements AzureClientType {
       headers.set("x-ms-date", this.#now().toUTCString());
 
       const bodyLength = getBodyLength(options.body);
-      if (bodyLength !== undefined && !headers.has("content-length") && options.method !== "GET" && options.method !== "HEAD") {
+      if (
+        bodyLength !== undefined && !headers.has("content-length") && options.method !== "GET" &&
+        options.method !== "HEAD"
+      ) {
         headers.set("content-length", String(bodyLength));
       }
-      if (this.#credential.kind === "shared-key" && options.body instanceof ReadableStream && !headers.has("content-length")) {
-        throw new TypeError("Azure Shared Key requests with a streamed low-level body require an explicit content-length header.");
+      if (
+        this.#credential.kind === "shared-key" && options.body instanceof ReadableStream &&
+        !headers.has("content-length")
+      ) {
+        throw new TypeError(
+          "Azure Shared Key requests with a streamed low-level body require an explicit content-length header.",
+        );
       }
       await this.#authorize(options.method, url, headers);
 
@@ -689,7 +713,11 @@ class AzureClient implements AzureClientType {
 
   /** Returns blob properties or null for an absent blob. */
   async head(key: string, options?: { readonly signal?: AbortSignal }): Promise<ObjectStatType | null> {
-    const response = await this.request({ method: "HEAD", key, ...(options?.signal === undefined ? {} : { signal: options.signal }) });
+    const response = await this.request({
+      method: "HEAD",
+      key,
+      ...(options?.signal === undefined ? {} : { signal: options.signal }),
+    });
     if (response.status === 404) return null;
     await assertResponse(response, `Get Blob Properties ${key}`);
     return getStat(response.headers);
@@ -704,7 +732,12 @@ class AzureClient implements AzureClientType {
       headers.set("x-ms-range", `bytes=${start}-${end}`);
     }
     const response = await assertResponse(
-      await this.request({ method: "GET", key, headers, ...(options.signal === undefined ? {} : { signal: options.signal }) }),
+      await this.request({
+        method: "GET",
+        key,
+        headers,
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      }),
       `Get Blob ${key}`,
     );
     return response.body ?? getByteStream(new Uint8Array());
@@ -716,12 +749,16 @@ class AzureClient implements AzureClientType {
     const blockLimit = getBlockLimit(this.#version);
     const maxBlobBytes = blockLimit * AZURE_LIMITS.maxCommittedBlocks;
     if (!Number.isSafeInteger(expectedSize) || expectedSize < 0 || expectedSize > maxBlobBytes) {
-      throw new RangeError(`Azure block blob size must be between 0 and ${maxBlobBytes} bytes for service version ${this.#version}.`);
+      throw new RangeError(
+        `Azure block blob size must be between 0 and ${maxBlobBytes} bytes for service version ${this.#version}.`,
+      );
     }
     const required = Math.ceil(expectedSize / AZURE_LIMITS.maxCommittedBlocks);
     const size = Math.max(this.#blockSize, required);
     if (size > blockLimit) {
-      throw new RangeError(`Azure block blob requires blocks larger than ${blockLimit} bytes for service version ${this.#version}.`);
+      throw new RangeError(
+        `Azure block blob requires blocks larger than ${blockLimit} bytes for service version ${this.#version}.`,
+      );
     }
     return size;
   }
@@ -729,7 +766,9 @@ class AzureClient implements AzureClientType {
   /** Builds destination metadata and HTTP preconditions for Put/commit operations. */
   #getWriteHeaders(options: ObjectPutOptionsType | ObjectCopyOptionsType): Headers {
     const headers = new Headers();
-    if ("mediaType" in options && options.mediaType !== undefined) headers.set("x-ms-blob-content-type", options.mediaType);
+    if ("mediaType" in options && options.mediaType !== undefined) {
+      headers.set("x-ms-blob-content-type", options.mediaType);
+    }
     if (options.ifMatch !== undefined) headers.set("if-match", options.ifMatch);
     if (options.ifNoneMatch !== undefined) headers.set("if-none-match", options.ifNoneMatch);
     if ("metadata" in options) {
@@ -746,7 +785,7 @@ class AzureClient implements AzureClientType {
         key,
         query: { comp: "block", blockid: block.id },
         headers: { "content-type": "application/octet-stream" },
-        body: Uint8Array.from(block.bytes),
+        body: block.bytes as Uint8Array<ArrayBuffer>,
         ...(signal === undefined ? {} : { signal }),
       }),
       `Put Block ${key}#${block.number}`,
@@ -755,7 +794,12 @@ class AzureClient implements AzureClientType {
   }
 
   /** Commits one ordered block list and applies destination metadata/preconditions atomically. */
-  async #commitBlocks(key: string, ids: readonly string[], options: ObjectPutOptionsType, size: number): Promise<ObjectStatType> {
+  async #commitBlocks(
+    key: string,
+    ids: readonly string[],
+    options: ObjectPutOptionsType,
+    size: number,
+  ): Promise<ObjectStatType> {
     const headers = this.#getWriteHeaders(options);
     headers.set("content-type", "application/xml");
     await assertResponse(
@@ -773,9 +817,17 @@ class AzureClient implements AzureClientType {
   }
 
   /** Uploads a stream as uncommitted blocks and publishes it only after all blocks succeed. */
-  async #putBlocks(key: string, body: ReadableStream<Uint8Array>, options: ObjectPutOptionsType): Promise<ObjectStatType> {
+  async #putBlocks(
+    key: string,
+    body: ReadableStream<Uint8Array>,
+    options: ObjectPutOptionsType,
+  ): Promise<ObjectStatType> {
     const blockSize = this.#getBlockSize(options.size);
-    const blocks = pooledMap(this.#concurrency, getBlocks(body, blockSize), (block) => this.#putBlock(key, block, options.signal));
+    const blocks = pooledMap(
+      this.#concurrency,
+      getBlocks(body, blockSize),
+      (block) => this.#putBlock(key, block, options.signal),
+    );
     const ids: string[] = [];
     let size = 0;
     for await (const block of blocks) {
@@ -792,6 +844,12 @@ class AzureClient implements AzureClientType {
   /** Uses one Put Blob request when the selected service version permits the byte length. */
   async #putBytes(key: string, body: Uint8Array, options: ObjectPutOptionsType): Promise<ObjectStatType> {
     if (body.byteLength > getPutBlobLimit(this.#version)) {
+      if (!this.optimizations.blockUpload) {
+        throw new RangeError(
+          `Blob is ${body.byteLength} bytes, above the single Put Blob limit ${getPutBlobLimit(this.#version)} ` +
+            "while blockUpload is disabled.",
+        );
+      }
       return await this.#putBlocks(key, getByteStream(body), { ...options, size: body.byteLength });
     }
     const headers = this.#getWriteHeaders(options);
@@ -801,8 +859,8 @@ class AzureClient implements AzureClientType {
         method: "PUT",
         key,
         headers,
-        body: Uint8Array.from(body),
-        ...(options.signal === undefined ? {} : { signal: options.signal })
+        body: body as Uint8Array<ArrayBuffer>,
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
       }),
       `Put Blob ${key}`,
     );
@@ -810,15 +868,29 @@ class AzureClient implements AzureClientType {
   }
 
   /** Replaces one blob, using block upload when a single Put Blob is insufficient or the body streams. */
-  async put(key: string, body: Uint8Array | ReadableStream<Uint8Array>, options: ObjectPutOptionsType = {}): Promise<ObjectStatType> {
-    return body instanceof Uint8Array
-      ? await this.#putBytes(key, body, options)
-      : await this.#putBlocks(key, body, options);
+  async put(
+    key: string,
+    body: Uint8Array | ReadableStream<Uint8Array>,
+    options: ObjectPutOptionsType = {},
+  ): Promise<ObjectStatType> {
+    if (body instanceof Uint8Array) return await this.#putBytes(key, body, options);
+    if (!this.optimizations.blockUpload) {
+      await body.cancel().catch(() => undefined);
+      throw new TypeError(
+        "Azure streamed writes require blockUpload; enable it or let the filesystem adapter buffer " +
+          "a bounded stream before calling put().",
+      );
+    }
+    return await this.#putBlocks(key, body, options);
   }
 
   /** Removes one exact blob. Missing blobs are already in the requested state. */
   async delete(key: string, options?: { readonly signal?: AbortSignal }): Promise<void> {
-    const response = await this.request({ method: "DELETE", key, ...(options?.signal === undefined ? {} : { signal: options.signal }) });
+    const response = await this.request({
+      method: "DELETE",
+      key,
+      ...(options?.signal === undefined ? {} : { signal: options.signal }),
+    });
     if (response.status === 404) return;
     await assertResponse(response, `Delete Blob ${key}`);
   }
@@ -832,7 +904,9 @@ class AzureClient implements AzureClientType {
       key: getXmlValue(blob, "Name") ?? "",
       size: Number.isSafeInteger(size) && size >= 0 ? size : 0,
       ...(modified === undefined ? {} : { lastModified: new Date(modified).getTime() }),
-      ...(getXmlValue(properties, "Content-Type") === undefined ? {} : { mediaType: getXmlValue(properties, "Content-Type")! }),
+      ...(getXmlValue(properties, "Content-Type") === undefined
+        ? {}
+        : { mediaType: getXmlValue(properties, "Content-Type")! }),
       ...(getXmlValue(properties, "Etag") === undefined ? {} : { etag: getXmlValue(properties, "Etag")! }),
     };
   }
@@ -868,8 +942,12 @@ class AzureClient implements AzureClientType {
     const headers = new Headers({ "x-ms-copy-source": this.#getAddress(source).toString() });
     if (options.sourceIfMatch !== undefined) headers.set("x-ms-source-if-match", options.sourceIfMatch);
     if (options.sourceIfNoneMatch !== undefined) headers.set("x-ms-source-if-none-match", options.sourceIfNoneMatch);
-    if (options.sourceIfModifiedSince !== undefined) headers.set("x-ms-source-if-modified-since", options.sourceIfModifiedSince.toUTCString());
-    if (options.sourceIfUnmodifiedSince !== undefined) headers.set("x-ms-source-if-unmodified-since", options.sourceIfUnmodifiedSince.toUTCString());
+    if (options.sourceIfModifiedSince !== undefined) {
+      headers.set("x-ms-source-if-modified-since", options.sourceIfModifiedSince.toUTCString());
+    }
+    if (options.sourceIfUnmodifiedSince !== undefined) {
+      headers.set("x-ms-source-if-unmodified-since", options.sourceIfUnmodifiedSince.toUTCString());
+    }
     if (this.#credential.kind === "bearer") {
       if (!atLeast(this.#version, SOURCE_BEARER_VERSION)) {
         throw new AzureError(
@@ -883,7 +961,12 @@ class AzureClient implements AzureClientType {
   }
 
   /** Copies one source range into one uncommitted destination block. */
-  async #copyBlock(source: string, destination: string, block: AzureCopyBlockType, options: ObjectCopyOptionsType): Promise<AzureCopyBlockType> {
+  async #copyBlock(
+    source: string,
+    destination: string,
+    block: AzureCopyBlockType,
+    options: ObjectCopyOptionsType,
+  ): Promise<AzureCopyBlockType> {
     const headers = await this.#getCopyHeaders(source, options);
     headers.set("x-ms-source-range", `bytes=${block.start}-${block.end}`);
     headers.set("content-length", "0");
@@ -901,7 +984,12 @@ class AzureClient implements AzureClientType {
   }
 
   /** Commits copied ranges while preserving source media type/metadata and destination preconditions. */
-  async #commitCopy(destination: string, blocks: readonly AzureCopyBlockType[], source: ObjectStatType, options: ObjectCopyOptionsType): Promise<ObjectStatType> {
+  async #commitCopy(
+    destination: string,
+    blocks: readonly AzureCopyBlockType[],
+    source: ObjectStatType,
+    options: ObjectCopyOptionsType,
+  ): Promise<ObjectStatType> {
     const headers = this.#getWriteHeaders(options);
     headers.set("content-type", "application/xml");
     if (source.mediaType !== undefined) headers.set("x-ms-blob-content-type", source.mediaType);
@@ -921,19 +1009,31 @@ class AzureClient implements AzureClientType {
   }
 
   /** Copies a source up to 256 MiB through synchronous Copy Blob From URL. */
-  async #copyBlob(source: string, destination: string, sourceStat: ObjectStatType, options: ObjectCopyOptionsType): Promise<ObjectStatType> {
+  async #copyBlob(
+    source: string,
+    destination: string,
+    sourceStat: ObjectStatType,
+    options: ObjectCopyOptionsType,
+  ): Promise<ObjectStatType> {
     const headers = await this.#getCopyHeaders(source, options);
     const destinationHeaders = this.#getWriteHeaders(options);
     destinationHeaders.forEach((value, name) => headers.set(name, value));
     headers.set("x-ms-requires-sync", "true");
     headers.set("content-length", "0");
     const response = await assertResponse(
-      await this.request({ method: "PUT", key: destination, headers, ...(options.signal === undefined ? {} : { signal: options.signal }) }),
+      await this.request({
+        method: "PUT",
+        key: destination,
+        headers,
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      }),
       `Copy Blob From URL ${source} -> ${destination}`,
     );
     if (response.headers.get("x-ms-copy-status") !== "success") {
       throw new AzureError("Copy Blob From URL did not report synchronous success.", response, {
-        ...(response.headers.get("x-ms-request-id") === null ? {} : { requestId: response.headers.get("x-ms-request-id")! }),
+        ...(response.headers.get("x-ms-request-id") === null
+          ? {}
+          : { requestId: response.headers.get("x-ms-request-id")! }),
       });
     }
     return (await this.head(destination, options)) ?? { size: sourceStat.size };
@@ -950,6 +1050,9 @@ class AzureClient implements AzureClientType {
    * client.
    */
   async copy(source: string, destination: string, options: ObjectCopyOptionsType = {}): Promise<ObjectStatType> {
+    if (!this.optimizations.serverCopy) {
+      throw new TypeError("Azure serverCopy optimization is disabled for this client.");
+    }
     if (!atLeast(this.#version, URL_COPY_VERSION)) {
       throw new AzureError(
         `Azure service version ${this.#version} does not support URL-based server-side copy.`,
@@ -975,11 +1078,15 @@ class AzureClient implements AzureClientType {
     const requiredBlockSize = Math.ceil(sourceStat.size / AZURE_LIMITS.maxCommittedBlocks);
     const copyBlockSize = Math.max(this.#blockSize, requiredBlockSize);
     if (copyBlockSize > copyLimit) {
-      throw new RangeError(`Azure server-side copy requires blocks larger than ${copyLimit} bytes for service version ${this.#version}.`);
+      throw new RangeError(
+        `Azure server-side copy requires blocks larger than ${copyLimit} bytes for service version ${this.#version}.`,
+      );
     }
     const blockCount = Math.ceil(sourceStat.size / copyBlockSize);
     if (blockCount > AZURE_LIMITS.maxCommittedBlocks) {
-      throw new RangeError(`Azure server-side copy needs ${blockCount} blocks; the service permits ${AZURE_LIMITS.maxCommittedBlocks}.`);
+      throw new RangeError(
+        `Azure server-side copy needs ${blockCount} blocks; the service permits ${AZURE_LIMITS.maxCommittedBlocks}.`,
+      );
     }
 
     const copied = pooledMap(

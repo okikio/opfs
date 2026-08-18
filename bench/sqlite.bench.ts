@@ -21,7 +21,10 @@ const facadeDatabase = new DatabaseSync(":memory:");
 /** Direct SQLite adapter measured without facade semantics. */
 const adapter = await createSqliteAdapter(adapterDatabase);
 /** Filesystem facade backed by SQLite with coordination disabled. */
-const fileSystem = createFileSystem(await createSqliteAdapter(facadeDatabase), { coordination: "none", metrics: "none" });
+const fileSystem = createFileSystem(await createSqliteAdapter(facadeDatabase), {
+  coordination: "none",
+  metrics: "none",
+});
 
 bench("sqlite/raw BLOB: 64 KiB replace + get", () => {
   rawSet.run("/bench.bin", payload);

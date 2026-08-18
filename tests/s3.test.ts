@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 
-import { createS3Client, S3Error, S3_LIMITS } from "../src/s3.ts";
+import { createS3Client, S3_LIMITS, S3Error } from "../src/s3.ts";
 import { createS3Driver, createS3DriverFromClient } from "../src/driver/s3.ts";
 import { RequestCapture } from "./http.ts";
 import { streamBytes } from "./stream.ts";
@@ -14,7 +14,11 @@ const credentials = {
 
 /** Creates one S3-style XML response without coupling tests to an HTTP server. */
 function xml(value: string, init: ResponseInit = {}): Response {
-  return new Response(value, { status: 200, headers: { "content-type": "application/xml", ...(init.headers ?? {}) }, ...init });
+  return new Response(value, {
+    status: 200,
+    headers: { "content-type": "application/xml", ...(init.headers ?? {}) },
+    ...init,
+  });
 }
 
 /** Refreshable credential source used to prove per-request SigV4 resolution. */
@@ -75,7 +79,8 @@ describe("S3 client", () => {
       bucket: "bucket",
       region: "auto",
       credentials,
-      fetch: async () => xml(`<?xml version="1.0" encoding="UTF-8"?>
+      fetch: async () =>
+        xml(`<?xml version="1.0" encoding="UTF-8"?>
         <ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
           <Contents><Key>root/a.txt</Key><LastModified>2026-08-14T12:00:00.000Z</LastModified><ETag>&quot;a&quot;</ETag><Size>4</Size></Contents>
           <CommonPrefixes><Prefix>root/nested/</Prefix></CommonPrefixes>
@@ -99,14 +104,16 @@ describe("S3 client", () => {
       fetch: async (input) => {
         const url = new URL(input instanceof Request ? input.url : input);
         if (url.searchParams.has("uploadId")) {
-          return xml(`<Error><Code>InternalError</Code><Message>assembly failed</Message><RequestId>r1</RequestId></Error>`);
+          return xml(
+            `<Error><Code>InternalError</Code><Message>assembly failed</Message><RequestId>r1</RequestId></Error>`,
+          );
         }
         return new Response(null, { status: 200 });
       },
     });
 
     try {
-      await client.completeUpload({ key: "large.bin", id: "upload" }, [{ number: 1, etag: "\"part\"" }]);
+      await client.completeUpload({ key: "large.bin", id: "upload" }, [{ number: 1, etag: '"part"' }]);
       throw new Error("expected embedded multipart failure");
     } catch (error) {
       expect(error).toBeInstanceOf(S3Error);
@@ -138,22 +145,29 @@ describe("S3 client", () => {
           return new Response(null, { status: 200, headers: { etag: `\"p${url.searchParams.get("partNumber")}\"` } });
         }
         if (request.method === "POST" && url.searchParams.has("uploadId")) {
-          return xml("<CompleteMultipartUploadResult><ETag>\"final\"</ETag></CompleteMultipartUploadResult>");
+          return xml('<CompleteMultipartUploadResult><ETag>"final"</ETag></CompleteMultipartUploadResult>');
         }
         if (request.method === "HEAD") {
-          return new Response(null, { status: 200, headers: { "content-length": String(fiveMiB + 1), etag: "\"final\"" } });
+          return new Response(null, {
+            status: 200,
+            headers: { "content-length": String(fiveMiB + 1), etag: '"final"' },
+          });
         }
         return new Response(null, { status: 200 });
       },
     });
 
     const body = streamBytes([new Uint8Array(fiveMiB), new Uint8Array([1])]);
-    await client.put("large.bin", body, { ifMatch: "\"old\"" });
+    await client.put("large.bin", body, { ifMatch: '"old"' });
 
-    const initiate = requests.find((request) => request.method === "POST" && new URL(request.url).searchParams.has("uploads"));
-    const complete = requests.find((request) => request.method === "POST" && new URL(request.url).searchParams.has("uploadId"));
+    const initiate = requests.find((request) =>
+      request.method === "POST" && new URL(request.url).searchParams.has("uploads")
+    );
+    const complete = requests.find((request) =>
+      request.method === "POST" && new URL(request.url).searchParams.has("uploadId")
+    );
     expect(initiate?.headers.has("if-match")).toBe(false);
-    expect(complete?.headers.get("if-match")).toBe("\"old\"");
+    expect(complete?.headers.get("if-match")).toBe('"old"');
   });
 
   it("delays multipart creation for a small unknown-length stream by default", async () => {
@@ -167,16 +181,18 @@ describe("S3 client", () => {
         const request = new Request(input, init);
         requests.push(request);
         if (request.method === "HEAD") {
-          return new Response(null, { status: 200, headers: { "content-length": "3", etag: "\"small\"" } });
+          return new Response(null, { status: 200, headers: { "content-length": "3", etag: '"small"' } });
         }
-        return new Response(null, { status: 200, headers: { etag: "\"small\"" } });
+        return new Response(null, { status: 200, headers: { etag: '"small"' } });
       },
     });
 
     await client.put("small.bin", streamBytes([new Uint8Array([1, 2, 3])]));
 
-    expect(requests.some((request) => request.method === "POST" && new URL(request.url).searchParams.has("uploads"))).toBe(false);
-    expect(requests.some((request) => request.method === "PUT" && !new URL(request.url).searchParams.has("partNumber"))).toBe(true);
+    expect(requests.some((request) => request.method === "POST" && new URL(request.url).searchParams.has("uploads")))
+      .toBe(false);
+    expect(requests.some((request) => request.method === "PUT" && !new URL(request.url).searchParams.has("partNumber")))
+      .toBe(true);
   });
 
   it("can disable delayed multipart when request lifecycle parity is required", async () => {
@@ -195,13 +211,13 @@ describe("S3 client", () => {
           return xml("<InitiateMultipartUploadResult><UploadId>u-small</UploadId></InitiateMultipartUploadResult>");
         }
         if (request.method === "PUT" && url.searchParams.has("partNumber")) {
-          return new Response(null, { status: 200, headers: { etag: "\"part-1\"" } });
+          return new Response(null, { status: 200, headers: { etag: '"part-1"' } });
         }
         if (request.method === "POST" && url.searchParams.has("uploadId")) {
-          return xml("<CompleteMultipartUploadResult><ETag>\"small\"</ETag></CompleteMultipartUploadResult>");
+          return xml('<CompleteMultipartUploadResult><ETag>"small"</ETag></CompleteMultipartUploadResult>');
         }
         if (request.method === "HEAD") {
-          return new Response(null, { status: 200, headers: { "content-length": "3", etag: "\"small\"" } });
+          return new Response(null, { status: 200, headers: { "content-length": "3", etag: '"small"' } });
         }
         return new Response(null, { status: 500 });
       },
@@ -209,8 +225,10 @@ describe("S3 client", () => {
 
     await client.put("small.bin", streamBytes([new Uint8Array([1, 2, 3])]));
 
-    expect(requests.some((request) => request.method === "POST" && new URL(request.url).searchParams.has("uploads"))).toBe(true);
-    expect(requests.some((request) => request.method === "PUT" && new URL(request.url).searchParams.has("partNumber"))).toBe(true);
+    expect(requests.some((request) => request.method === "POST" && new URL(request.url).searchParams.has("uploads")))
+      .toBe(true);
+    expect(requests.some((request) => request.method === "PUT" && new URL(request.url).searchParams.has("partNumber")))
+      .toBe(true);
   });
 
   it("retains provider request identity on S3 errors", async () => {
@@ -219,10 +237,11 @@ describe("S3 client", () => {
       bucket: "bucket",
       region: "auto",
       credentials,
-      fetch: async () => xml(
-        "<Error><Code>AccessDenied</Code><Message>denied</Message><RequestId>request-1</RequestId><HostId>host-1</HostId></Error>",
-        { status: 403 },
-      ),
+      fetch: async () =>
+        xml(
+          "<Error><Code>AccessDenied</Code><Message>denied</Message><RequestId>request-1</RequestId><HostId>host-1</HostId></Error>",
+          { status: 403 },
+        ),
     });
 
     try {
@@ -246,10 +265,12 @@ describe("S3 client", () => {
       fetch: async (input, init) => {
         const request = input instanceof Request ? input : new Request(input, init);
         if (request.method === "HEAD" && request.url.endsWith("/source.bin")) {
-          return new Response(null, { status: 200, headers: { "content-length": "4", etag: "\"source\"" } });
+          return new Response(null, { status: 200, headers: { "content-length": "4", etag: '"source"' } });
         }
         if (request.method === "PUT") {
-          return xml("<Error><Code>SlowDown</Code><Message>copy failed</Message><RequestId>copy-r1</RequestId></Error>");
+          return xml(
+            "<Error><Code>SlowDown</Code><Message>copy failed</Message><RequestId>copy-r1</RequestId></Error>",
+          );
         }
         return new Response(null, { status: 404 });
       },
@@ -284,7 +305,7 @@ describe("S3 client", () => {
         if (request.method === "HEAD" && url.pathname.endsWith("/source.bin")) {
           return new Response(null, {
             status: 200,
-            headers: { "content-length": String(size), etag: "\"source\"", "content-type": "application/octet-stream" },
+            headers: { "content-length": String(size), etag: '"source"', "content-type": "application/octet-stream" },
           });
         }
         if (request.method === "POST" && url.searchParams.has("uploads")) {
@@ -298,21 +319,21 @@ describe("S3 client", () => {
           return xml("<CompleteMultipartUploadResult><ETag>&quot;final&quot;</ETag></CompleteMultipartUploadResult>");
         }
         if (request.method === "HEAD") {
-          return new Response(null, { status: 200, headers: { "content-length": String(size), etag: "\"final\"" } });
+          return new Response(null, { status: 200, headers: { "content-length": String(size), etag: '"final"' } });
         }
         return new Response(null, { status: 200 });
       },
     });
 
-    await client.copy!("source.bin", "copy.bin", { sourceIfMatch: "\"source\"" });
+    await client.copy!("source.bin", "copy.bin", { sourceIfMatch: '"source"' });
 
     const parts = requests.filter((request) => new URL(request.url).searchParams.has("partNumber"));
     expect(parts).toHaveLength(5);
     expect(parts[0]?.headers.get("x-amz-copy-source-range")).toBe(`bytes=0-${1024 * 1024 * 1024 - 1}`);
-    expect(parts[0]?.headers.get("x-amz-copy-source-if-match")).toBe("\"source\"");
-    expect(requests.some((request) => request.method === "PUT" && !new URL(request.url).searchParams.has("partNumber"))).toBe(false);
+    expect(parts[0]?.headers.get("x-amz-copy-source-if-match")).toBe('"source"');
+    expect(requests.some((request) => request.method === "PUT" && !new URL(request.url).searchParams.has("partNumber")))
+      .toBe(false);
   });
-
 
   it("surfaces embedded UploadPartCopy failures and aborts the unfinished multipart copy", async () => {
     let aborted = false;
@@ -328,13 +349,15 @@ describe("S3 client", () => {
         const request = new Request(input, init);
         const url = new URL(request.url);
         if (request.method === "HEAD" && url.pathname.endsWith("/source.bin")) {
-          return new Response(null, { status: 200, headers: { "content-length": String(size), etag: "\"source\"" } });
+          return new Response(null, { status: 200, headers: { "content-length": String(size), etag: '"source"' } });
         }
         if (request.method === "POST" && url.searchParams.has("uploads")) {
           return xml("<InitiateMultipartUploadResult><UploadId>copy-upload</UploadId></InitiateMultipartUploadResult>");
         }
         if (request.method === "PUT" && url.searchParams.has("partNumber")) {
-          return xml("<Error><Code>SlowDown</Code><Message>copy part failed</Message><RequestId>part-r1</RequestId></Error>");
+          return xml(
+            "<Error><Code>SlowDown</Code><Message>copy part failed</Message><RequestId>part-r1</RequestId></Error>",
+          );
         }
         if (request.method === "DELETE" && url.searchParams.has("uploadId")) {
           aborted = true;
@@ -374,7 +397,7 @@ describe("S3 client", () => {
           return xml("<InitiateMultipartUploadResult><UploadId>size-upload</UploadId></InitiateMultipartUploadResult>");
         }
         if (request.method === "PUT" && url.searchParams.has("partNumber")) {
-          return new Response(null, { status: 200, headers: { etag: "\"part\"" } });
+          return new Response(null, { status: 200, headers: { etag: '"part"' } });
         }
         if (request.method === "DELETE" && url.searchParams.has("uploadId")) {
           return new Response(null, { status: 204 });
@@ -390,7 +413,8 @@ describe("S3 client", () => {
     )).rejects.toThrow(RangeError);
 
     expect(requests.some((request) => request.method === "DELETE")).toBe(true);
-    expect(requests.some((request) => request.method === "POST" && new URL(request.url).searchParams.has("uploadId"))).toBe(false);
+    expect(requests.some((request) => request.method === "POST" && new URL(request.url).searchParams.has("uploadId")))
+      .toBe(false);
   });
 
   it("keeps the object ceiling equal to the exact multipart part-count limit", () => {
@@ -398,21 +422,25 @@ describe("S3 client", () => {
   });
 
   it("rejects multipart sizes outside the documented S3 part range", () => {
-    expect(() => createS3Client({
-      endpoint: "https://storage.example",
-      bucket: "bucket",
-      region: "auto",
-      credentials,
-      partSize: S3_LIMITS.minPartBytes - 1,
-    })).toThrow(RangeError);
+    expect(() =>
+      createS3Client({
+        endpoint: "https://storage.example",
+        bucket: "bucket",
+        region: "auto",
+        credentials,
+        partSize: S3_LIMITS.minPartBytes - 1,
+      })
+    ).toThrow(RangeError);
 
-    expect(() => createS3Client({
-      endpoint: "https://storage.example",
-      bucket: "bucket",
-      region: "auto",
-      credentials,
-      partSize: S3_LIMITS.maxPartBytes + 1,
-    })).toThrow(RangeError);
+    expect(() =>
+      createS3Client({
+        endpoint: "https://storage.example",
+        bucket: "bucket",
+        region: "auto",
+        credentials,
+        partSize: S3_LIMITS.maxPartBytes + 1,
+      })
+    ).toThrow(RangeError);
   });
 
   it("sorts multipart parts and rejects duplicate part numbers before commit", async () => {
@@ -430,7 +458,7 @@ describe("S3 client", () => {
 
     await client.completeUpload(
       { key: "ordered.bin", id: "upload" },
-      [{ number: 2, etag: "\"b\"" }, { number: 1, etag: "\"a\"" }],
+      [{ number: 2, etag: '"b"' }, { number: 1, etag: '"a"' }],
       { expectedSize: 10 },
     );
     const body = await requests[0]!.text();
@@ -439,7 +467,7 @@ describe("S3 client", () => {
 
     await expect(client.completeUpload(
       { key: "duplicate.bin", id: "upload" },
-      [{ number: 1, etag: "\"a\"" }, { number: 1, etag: "\"b\"" }],
+      [{ number: 1, etag: '"a"' }, { number: 1, etag: '"b"' }],
     )).rejects.toThrow(RangeError);
   });
 
@@ -457,7 +485,7 @@ describe("S3 client", () => {
         requests.push(request);
         const url = new URL(request.url);
         if (request.method === "HEAD" && url.pathname.endsWith("/source.bin")) {
-          return new Response(null, { status: 200, headers: { "content-length": String(size), etag: "\"source\"" } });
+          return new Response(null, { status: 200, headers: { "content-length": String(size), etag: '"source"' } });
         }
         if (request.method === "POST" && url.searchParams.has("uploads")) {
           return xml("<InitiateMultipartUploadResult><UploadId>u</UploadId></InitiateMultipartUploadResult>");
@@ -468,20 +496,22 @@ describe("S3 client", () => {
         if (request.method === "POST" && url.searchParams.has("uploadId")) {
           return xml("<CompleteMultipartUploadResult><ETag>&quot;done&quot;</ETag></CompleteMultipartUploadResult>");
         }
-        return new Response(null, { status: 200, headers: { "content-length": String(size), etag: "\"done\"" } });
+        return new Response(null, { status: 200, headers: { "content-length": String(size), etag: '"done"' } });
       },
     });
 
     await client.copy!("source.bin", "copy.bin", {
-      sourceIfMatch: "\"source\"",
-      sourceIfNoneMatch: "\"stale\"",
+      sourceIfMatch: '"source"',
+      sourceIfNoneMatch: '"stale"',
       ifNoneMatch: "*",
     });
 
     const part = requests.find((request) => new URL(request.url).searchParams.has("partNumber"));
-    const complete = requests.find((request) => request.method === "POST" && new URL(request.url).searchParams.has("uploadId"));
-    expect(part?.headers.get("x-amz-copy-source-if-match")).toBe("\"source\"");
-    expect(part?.headers.get("x-amz-copy-source-if-none-match")).toBe("\"stale\"");
+    const complete = requests.find((request) =>
+      request.method === "POST" && new URL(request.url).searchParams.has("uploadId")
+    );
+    expect(part?.headers.get("x-amz-copy-source-if-match")).toBe('"source"');
+    expect(part?.headers.get("x-amz-copy-source-if-none-match")).toBe('"stale"');
     expect(part?.headers.has("if-none-match")).toBe(false);
     expect(complete?.headers.get("if-none-match")).toBe("*");
   });
@@ -507,7 +537,9 @@ describe("S3 client", () => {
     expect(capture.latest?.url).toBe(
       "https://bucket-name.storage.example/folder/a%20b.txt?a%20b=%21%2A&z=1&z=2",
     );
-    expect(capture.latest?.headers.get("authorization")).toContain("SignedHeaders=host;x-amz-content-sha256;x-amz-date");
+    expect(capture.latest?.headers.get("authorization")).toContain(
+      "SignedHeaders=host;x-amz-content-sha256;x-amz-date",
+    );
   });
 
   it("resolves temporary credentials for every request and signs the session token", async () => {
@@ -549,7 +581,6 @@ describe("S3 client", () => {
 
     expect(capture.latest?.headers.get("x-amz-content-sha256")).toBe("UNSIGNED-PAYLOAD");
   });
-
 
   it("hashes replayable low-level Web bodies instead of weakening them to UNSIGNED-PAYLOAD", async () => {
     const bodies: BodyInit[] = [
@@ -657,7 +688,6 @@ describe("S3 client", () => {
     expect(cleanupSignal).not.toBe(controller.signal);
     expect(cleanupSignal?.aborted).toBe(false);
   });
-
 });
 
 describe("S3 request policy", () => {
@@ -822,9 +852,10 @@ describe("S3 request policy", () => {
       region: "auto",
       credentials,
       request: { retries: 0, timeoutMs: 5 },
-      fetch: async (_input, init) => await new Promise<Response>((_resolve, reject) => {
-        init?.signal?.addEventListener("abort", () => reject(init.signal?.reason), { once: true });
-      }),
+      fetch: async (_input, init) =>
+        await new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(init.signal?.reason), { once: true });
+        }),
     });
 
     await expect(client.request({ method: "GET", key: "slow" })).rejects.toMatchObject({ name: "TimeoutError" });

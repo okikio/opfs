@@ -4,6 +4,7 @@ import { bench, run } from "mitata";
 
 import { createFileSystem } from "../mod.ts";
 import { createObjectAdapter } from "../src/adapter/object.ts";
+import { createS3DriverFromClient } from "../src/driver/s3.ts";
 import { createS3Client } from "../src/s3.ts";
 
 import { S3_ACCESS_KEY, S3_SECRET_KEY, STORAGE_NAME } from "../tests/provider/fixture.ts";
@@ -47,15 +48,17 @@ const s3 = createS3Client({
   partSize: 5 * 1024 * 1024,
   concurrency: 4,
 });
+/** Driver layer used to isolate project backend overhead from the direct client. */
+const driver = createS3DriverFromClient(s3);
 /** Direct object-adapter layer used to isolate translation overhead. */
-const adapter = createObjectAdapter(s3, { prefix: `${PREFIX}/adapter` });
+const adapter = createObjectAdapter(driver, { prefix: `${PREFIX}/adapter` });
 /** Filesystem facade with metrics disabled. */
-const facade = createFileSystem(createObjectAdapter(s3, { prefix: `${PREFIX}/facade` }), {
+const facade = createFileSystem(createObjectAdapter(driver, { prefix: `${PREFIX}/facade` }), {
   coordination: "none",
   metrics: "none",
 });
 /** Filesystem facade with basic counters enabled. */
-const measured = createFileSystem(createObjectAdapter(s3, { prefix: `${PREFIX}/metrics` }), {
+const measured = createFileSystem(createObjectAdapter(driver, { prefix: `${PREFIX}/metrics` }), {
   coordination: "none",
   metrics: "basic",
 });
@@ -64,9 +67,12 @@ const measured = createFileSystem(createObjectAdapter(s3, { prefix: `${PREFIX}/m
 const bunKey = `${PREFIX}/bun.bin`;
 /** Stable object key reused by direct project client samples. */
 const directKey = `${PREFIX}/direct.bin`;
+/** Stable object key reused by project driver samples. */
+const driverKey = `${PREFIX}/driver.bin`;
 await bun.write(bunKey, payload);
 await bun.file(bunKey).stat();
 await s3.put(directKey, payload);
+await driver.put(driverKey, payload);
 await adapter.writeFile("/bench.bin", payload, { mode: "replace" });
 await facade.writeFile("/bench.bin", payload);
 await measured.writeFile("/bench.bin", payload);
@@ -77,6 +83,9 @@ bench("provider/s3 Bun S3Client: 256 KiB replace + stat", async () => {
 });
 bench("provider/s3 project direct client: 256 KiB replace + stat", async () => {
   await s3.put(directKey, payload);
+});
+bench("provider/s3 project driver: 256 KiB replace + stat", async () => {
+  await driver.put(driverKey, payload);
 });
 bench("provider/s3 project direct adapter: 256 KiB replace + stat", async () => {
   await adapter.writeFile("/bench.bin", payload, { mode: "replace" });
@@ -93,6 +102,9 @@ bench("provider/s3 Bun S3File: 256 KiB read", async () => {
 });
 bench("provider/s3 project direct client: 256 KiB read", async () => {
   await toBytes(await s3.get(directKey));
+});
+bench("provider/s3 project driver: 256 KiB read", async () => {
+  await toBytes(await driver.get(driverKey));
 });
 bench("provider/s3 project direct adapter: 256 KiB read", async () => {
   await adapter.readFile("/bench.bin");

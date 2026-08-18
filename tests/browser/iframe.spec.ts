@@ -22,7 +22,9 @@ test("same-origin iframe observes its real OPFS placement", async ({ page }) => 
   });
   const frame = await framePromise;
   await waitForApi(frame);
-  const result = await frame.evaluate(async () => await window.opfsTest.roundTrip(`/frames/${crypto.randomUUID()}.txt`, "same"));
+  const result = await frame.evaluate(async () =>
+    await window.opfsTest.roundTrip(`/frames/${crypto.randomUUID()}.txt`, "same")
+  );
   expect(result.probe?.embedded).toBe(true);
   expect(result.probe?.sameOriginTop).toBe(true);
   if (result.probe?.rootAvailable) expect(result.value).toBe("same");

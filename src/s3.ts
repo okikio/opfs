@@ -5,22 +5,16 @@ import { z } from "zod";
 import { split } from "./chunk.ts";
 import {
   RequestMetrics,
-  RequestTransportError,
   type RequestMetricsType,
   type RequestPolicyType,
+  RequestTransportError,
   sendRequest,
 } from "./request.ts";
-import { MetricsModeSchema, type AdapterLimitsType, type MetricsModeType } from "./schema.ts";
-import {
-  createXmlElement,
-  createXmlText,
-  getXmlElements,
-  getXmlValue,
-  parseXmlRoot,
-  stringifyXml,
-} from "./xml.ts";
+import { type AdapterLimitsType, MetricsModeSchema, type MetricsModeType } from "./schema.ts";
+import { createXmlElement, createXmlText, getXmlElements, getXmlValue, parseXmlRoot, stringifyXml } from "./xml.ts";
 
 import type {
+  ObjectBackendType,
   ObjectCopyOptionsType,
   ObjectEntryType,
   ObjectGetOptionsType,
@@ -28,8 +22,7 @@ import type {
   ObjectListType,
   ObjectPutOptionsType,
   ObjectStatType,
-  ObjectStoreType,
-} from "./adapter/object.ts";
+} from "./driver/object.ts";
 
 /** S3 URL addressing shape used when constructing signed request URLs. */
 export const S3AddressingSchema = z.enum(["path", "virtual"]);
@@ -110,6 +103,10 @@ export interface S3ClientOptionsType {
   readonly abortTimeoutMs?: number;
   /** Retry/backoff and optional per-attempt timeout policy. */
   readonly request?: RequestPolicyType;
+  /** Delays multipart creation until the stream proves it needs more than one bounded part. Defaults to true. */
+  readonly delayedMultipart?: boolean;
+  /** Reuses the derived SigV4 signing key while credentials/date/region are unchanged. Defaults to true. */
+  readonly signingKeyCache?: boolean;
   /** Direct-client HTTP instrumentation. Defaults to `basic`; `none` removes counter updates. */
   readonly metrics?: MetricsModeType;
 }
@@ -176,7 +173,11 @@ export class S3Error extends Error {
   readonly response: Response;
 
   /** Creates a provider-aware S3 failure without discarding the original response. */
-  constructor(message: string, response: Response, details: { code?: string; requestId?: string; hostId?: string } = {}) {
+  constructor(
+    message: string,
+    response: Response,
+    details: { code?: string; requestId?: string; hostId?: string } = {},
+  ) {
     super(message);
     this.name = "S3Error";
     this.status = response.status;
@@ -195,7 +196,9 @@ export class S3Error extends Error {
  * A caller can therefore compose custom storage-class, encryption, checksum,
  * object-lock, or provider-specific requests without importing the AWS SDK.
  */
-export interface S3ClientType extends ObjectStoreType {
+export interface S3ClientType extends ObjectBackendType {
+  /** Resolved client optimization switches used by driver inspection. */
+  readonly optimizations: Readonly<{ delayedMultipart: boolean; signingKeyCache: boolean }>;
   /** Returns detached direct HTTP request metrics. */
   getMetrics(): RequestMetricsType;
   /** Sends an arbitrary bucket/object request after Signature Version 4 signing. */
@@ -254,7 +257,10 @@ function compareText(left: string, right: string): number {
 
 /** Percent-encodes one Signature Version 4 component using RFC 3986's unreserved set. */
 function encode(value: string): string {
-  return encodeURIComponent(value).replace(/[!'()*]/g, (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`);
+  return encodeURIComponent(value).replace(
+    /[!'()*]/g,
+    (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
 }
 
 /** Encodes a slash-delimited path while retaining path separators required by S3. */
@@ -316,9 +322,9 @@ async function getHmac(key: BufferSource, value: string): Promise<Uint8Array> {
 /** Derives the date, region, and service-specific Signature Version 4 signing key. */
 async function getSigningKey(secret: string, date: string, region: string): Promise<Uint8Array> {
   const dateKey = await getHmac(textEncoder.encode(`AWS4${secret}`), date);
-  const regionKey = await getHmac(Uint8Array.from(dateKey), region);
-  const serviceKey = await getHmac(Uint8Array.from(regionKey), "s3");
-  return await getHmac(Uint8Array.from(serviceKey), "aws4_request");
+  const regionKey = await getHmac(dateKey as Uint8Array<ArrayBuffer>, region);
+  const serviceKey = await getHmac(regionKey as Uint8Array<ArrayBuffer>, "s3");
+  return await getHmac(serviceKey as Uint8Array<ArrayBuffer>, "aws4_request");
 }
 
 /** Formats one UTC instant as the compact timestamp required by Signature Version 4. */
@@ -453,7 +459,9 @@ function getListObject(content: Parameters<typeof getXmlValue>[0]): ObjectEntryT
 /** Validates and orders part references before S3 commits a multipart upload. */
 function normalizeParts(parts: readonly S3PartType[]): S3PartType[] {
   if (parts.length === 0) throw new RangeError("CompleteMultipartUpload requires at least one part.");
-  if (parts.length > S3_LIMITS.maxParts) throw new RangeError(`S3 permits at most ${S3_LIMITS.maxParts} multipart parts.`);
+  if (parts.length > S3_LIMITS.maxParts) {
+    throw new RangeError(`S3 permits at most ${S3_LIMITS.maxParts} multipart parts.`);
+  }
 
   const sorted = [...parts].sort((left, right) => left.number - right.number);
   let previous = 0;
@@ -514,6 +522,10 @@ class S3Client implements S3ClientType {
   readonly #metricsMode: MetricsModeType;
   /** Mutable direct HTTP counters when instrumentation is enabled. */
   readonly #metrics: RequestMetrics | undefined;
+  /** Resolved client optimization switches. */
+  readonly optimizations: Readonly<{ delayedMultipart: boolean; signingKeyCache: boolean }>;
+  /** One-entry derived SigV4 key cache. The raw secret is retained only as long as the client already retains credentials. */
+  #signingKey: { secret: string; date: string; region: string; key: Uint8Array } | undefined;
 
   /** Validates configuration and creates one import-safe S3 client. */
   constructor(options: S3ClientOptionsType) {
@@ -532,14 +544,28 @@ class S3Client implements S3ClientType {
     this.#requestPolicy = options.request;
     this.#metricsMode = MetricsModeSchema.parse(options.metrics ?? "basic");
     this.#metrics = this.#metricsMode === "none" ? undefined : new RequestMetrics(this.#metricsMode === "timing");
+    this.optimizations = Object.freeze({
+      delayedMultipart: options.delayedMultipart ?? true,
+      signingKeyCache: options.signingKeyCache ?? true,
+    });
 
     if (this.#bucket.length === 0) throw new TypeError("S3 bucket cannot be empty.");
     if (this.#region.length === 0) throw new TypeError("S3 region cannot be empty.");
-    if (!Number.isSafeInteger(this.#partSize) || this.#partSize < S3_LIMITS.minPartBytes || this.#partSize > S3_LIMITS.maxPartBytes) {
-      throw new RangeError(`S3 partSize must be between ${S3_LIMITS.minPartBytes} and ${S3_LIMITS.maxPartBytes} bytes.`);
+    if (
+      !Number.isSafeInteger(this.#partSize) || this.#partSize < S3_LIMITS.minPartBytes ||
+      this.#partSize > S3_LIMITS.maxPartBytes
+    ) {
+      throw new RangeError(
+        `S3 partSize must be between ${S3_LIMITS.minPartBytes} and ${S3_LIMITS.maxPartBytes} bytes.`,
+      );
     }
-    if (!Number.isSafeInteger(this.#copyPartSize) || this.#copyPartSize < S3_LIMITS.minPartBytes || this.#copyPartSize > S3_LIMITS.maxPartBytes) {
-      throw new RangeError(`S3 copyPartSize must be between ${S3_LIMITS.minPartBytes} and ${S3_LIMITS.maxPartBytes} bytes.`);
+    if (
+      !Number.isSafeInteger(this.#copyPartSize) || this.#copyPartSize < S3_LIMITS.minPartBytes ||
+      this.#copyPartSize > S3_LIMITS.maxPartBytes
+    ) {
+      throw new RangeError(
+        `S3 copyPartSize must be between ${S3_LIMITS.minPartBytes} and ${S3_LIMITS.maxPartBytes} bytes.`,
+      );
     }
     if (!Number.isSafeInteger(this.#concurrency) || this.#concurrency < 1) {
       throw new RangeError("S3 concurrency must be a positive integer.");
@@ -554,6 +580,9 @@ class S3Client implements S3ClientType {
       streamWrite: true,
       copy: options.copy ?? true,
       conditionalWrite: options.conditionalWrite ?? true,
+      multipart: true,
+      metadata: true,
+      versions: false,
     } as const;
     this.limits = {
       maxFileBytes: S3_LIMITS.maxObjectBytes,
@@ -562,6 +591,19 @@ class S3Client implements S3ClientType {
       maxParts: S3_LIMITS.maxParts,
       maxConcurrency: this.#concurrency,
     };
+  }
+
+  /** Returns the derived SigV4 key, reusing one safe per-client cache entry when enabled. */
+  async #getSigningKey(secret: string, date: string): Promise<Uint8Array> {
+    if (this.optimizations.signingKeyCache) {
+      const cached = this.#signingKey;
+      if (cached !== undefined && cached.secret === secret && cached.date === date && cached.region === this.#region) {
+        return cached.key;
+      }
+    }
+    const key = await getSigningKey(secret, date, this.#region);
+    if (this.optimizations.signingKeyCache) this.#signingKey = { secret, date, region: this.#region, key };
+    return key;
   }
 
   /** Builds the request URL and canonical URI for one bucket/object address. */
@@ -584,7 +626,9 @@ class S3Client implements S3ClientType {
     }
     const required = Math.ceil(expectedSize / S3_LIMITS.maxParts);
     const size = Math.max(this.#partSize, required);
-    if (size > S3_LIMITS.maxPartBytes) throw new RangeError(`S3 object requires multipart parts larger than ${S3_LIMITS.maxPartBytes} bytes.`);
+    if (size > S3_LIMITS.maxPartBytes) {
+      throw new RangeError(`S3 object requires multipart parts larger than ${S3_LIMITS.maxPartBytes} bytes.`);
+    }
     return size;
   }
 
@@ -592,9 +636,15 @@ class S3Client implements S3ClientType {
   #getCopyHeaders(source: string, options: ObjectCopyOptionsType): Headers {
     const headers = new Headers({ "x-amz-copy-source": `/${encode(this.#bucket)}/${encodePath(source)}` });
     if (options.sourceIfMatch !== undefined) headers.set("x-amz-copy-source-if-match", options.sourceIfMatch);
-    if (options.sourceIfNoneMatch !== undefined) headers.set("x-amz-copy-source-if-none-match", options.sourceIfNoneMatch);
-    if (options.sourceIfModifiedSince !== undefined) headers.set("x-amz-copy-source-if-modified-since", options.sourceIfModifiedSince.toUTCString());
-    if (options.sourceIfUnmodifiedSince !== undefined) headers.set("x-amz-copy-source-if-unmodified-since", options.sourceIfUnmodifiedSince.toUTCString());
+    if (options.sourceIfNoneMatch !== undefined) {
+      headers.set("x-amz-copy-source-if-none-match", options.sourceIfNoneMatch);
+    }
+    if (options.sourceIfModifiedSince !== undefined) {
+      headers.set("x-amz-copy-source-if-modified-since", options.sourceIfModifiedSince.toUTCString());
+    }
+    if (options.sourceIfUnmodifiedSince !== undefined) {
+      headers.set("x-amz-copy-source-if-unmodified-since", options.sourceIfUnmodifiedSince.toUTCString());
+    }
     if (options.ifMatch !== undefined) headers.set("if-match", options.ifMatch);
     if (options.ifNoneMatch !== undefined) headers.set("if-none-match", options.ifNoneMatch);
     return headers;
@@ -603,7 +653,9 @@ class S3Client implements S3ClientType {
   /** Writes one materialized object with PutObject and optional write preconditions. */
   async #putBytes(key: string, body: Uint8Array, options: ObjectPutOptionsType): Promise<ObjectStatType> {
     if (body.byteLength > S3_LIMITS.maxPutBytes) {
-      throw new RangeError(`S3 PutObject accepts at most ${S3_LIMITS.maxPutBytes} bytes. Use a stream for multipart upload.`);
+      throw new RangeError(
+        `S3 PutObject accepts at most ${S3_LIMITS.maxPutBytes} bytes. Use a stream for multipart upload.`,
+      );
     }
     const headers = new Headers();
     if (options.mediaType !== undefined) headers.set("content-type", options.mediaType);
@@ -612,7 +664,13 @@ class S3Client implements S3ClientType {
     for (const [name, value] of Object.entries(options.metadata ?? {})) headers.set(`x-amz-meta-${name}`, value);
 
     await assertResponse(
-      await this.request({ method: "PUT", key, headers, body: Uint8Array.from(body), ...(options.signal === undefined ? {} : { signal: options.signal }) }),
+      await this.request({
+        method: "PUT",
+        key,
+        headers,
+        body: body as Uint8Array<ArrayBuffer>,
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      }),
       `PutObject ${key}`,
     );
     return (await this.head(key, options)) ?? { size: body.byteLength };
@@ -642,7 +700,9 @@ class S3Client implements S3ClientType {
       `UploadPartCopy ${source}[${range.start}-${range.end}] -> ${upload.key}#${range.number}`,
     );
     const etag = root === undefined ? undefined : getXmlValue(root, "ETag");
-    if (etag === undefined) throw new S3Error(`UploadPartCopy ${range.number} response did not contain ETag.`, response);
+    if (etag === undefined) {
+      throw new S3Error(`UploadPartCopy ${range.number} response did not contain ETag.`, response);
+    }
     return { number: range.number, etag };
   }
 
@@ -699,7 +759,9 @@ class S3Client implements S3ClientType {
       const signingHeaders = new Headers(headers);
       signingHeaders.set("host", url.host);
       const signedNames = Array.from(signingHeaders.keys()).map((name) => name.toLowerCase()).sort(compareText);
-      const canonicalHeaders = signedNames.map((name) => `${name}:${getHeaderValue(signingHeaders.get(name) ?? "")}`).join("\n") + "\n";
+      const canonicalHeaders = signedNames.map((name) =>
+        `${name}:${getHeaderValue(signingHeaders.get(name) ?? "")}`
+      ).join("\n") + "\n";
       const signedHeaders = signedNames.join(";");
       const canonicalRequest = [
         options.method.toUpperCase(),
@@ -711,8 +773,8 @@ class S3Client implements S3ClientType {
       ].join("\n");
       const scope = `${shortDate}/${this.#region}/s3/aws4_request`;
       const stringToSign = `AWS4-HMAC-SHA256\n${timestamp}\n${scope}\n${await getSha256(canonicalRequest)}`;
-      const signingKey = await getSigningKey(credentials.secretAccessKey, shortDate, this.#region);
-      const signature = encodeHex(await getHmac(Uint8Array.from(signingKey), stringToSign)).toLowerCase();
+      const signingKey = await this.#getSigningKey(credentials.secretAccessKey, shortDate);
+      const signature = encodeHex(await getHmac(signingKey as Uint8Array<ArrayBuffer>, stringToSign)).toLowerCase();
       headers.set(
         "authorization",
         `AWS4-HMAC-SHA256 Credential=${credentials.accessKeyId}/${scope}, SignedHeaders=${signedHeaders}, Signature=${signature}`,
@@ -727,8 +789,7 @@ class S3Client implements S3ClientType {
       };
       if (options.body instanceof ReadableStream) init.duplex = "half";
       try {
-        const request = new Request(url, init);
-        return await this.#fetch(request, init);
+        return await this.#fetch(url, init);
       } catch (error) {
         if (options.signal?.aborted) throw error;
         throw new RequestTransportError(error);
@@ -743,7 +804,11 @@ class S3Client implements S3ClientType {
 
   /** Returns exact-object metadata, or `null` when the object does not exist. */
   async head(key: string, options?: { readonly signal?: AbortSignal }): Promise<ObjectStatType | null> {
-    const response = await this.request({ method: "HEAD", key, ...(options?.signal === undefined ? {} : { signal: options.signal }) });
+    const response = await this.request({
+      method: "HEAD",
+      key,
+      ...(options?.signal === undefined ? {} : { signal: options.signal }),
+    });
     if (response.status === 404) return null;
     await assertResponse(response, `HeadObject ${key}`);
     return getStat(response.headers);
@@ -758,7 +823,12 @@ class S3Client implements S3ClientType {
       headers.set("range", `bytes=${start}-${end}`);
     }
     const response = await assertResponse(
-      await this.request({ method: "GET", key, headers, ...(options.signal === undefined ? {} : { signal: options.signal }) }),
+      await this.request({
+        method: "GET",
+        key,
+        headers,
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      }),
       `GetObject ${key}`,
     );
     return response.body ?? new Blob().stream();
@@ -770,7 +840,14 @@ class S3Client implements S3ClientType {
     if (options.mediaType !== undefined) headers.set("content-type", options.mediaType);
     for (const [name, value] of Object.entries(options.metadata ?? {})) headers.set(`x-amz-meta-${name}`, value);
     const response = await assertResponse(
-      await this.request({ method: "POST", key, query: { uploads: "" }, headers, retry: false, ...(options.signal === undefined ? {} : { signal: options.signal }) }),
+      await this.request({
+        method: "POST",
+        key,
+        query: { uploads: "" },
+        headers,
+        retry: false,
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      }),
       `CreateMultipartUpload ${key}`,
     );
     const id = getXmlValue(parseXmlRoot(await response.text()), "UploadId");
@@ -791,7 +868,7 @@ class S3Client implements S3ClientType {
         method: "PUT",
         key: upload.key,
         query: { partNumber: String(number), uploadId: upload.id },
-        body: Uint8Array.from(bytes),
+        body: bytes as Uint8Array<ArrayBuffer>,
         ...(signal === undefined ? {} : { signal }),
       }),
       `UploadPart ${upload.key}#${number}`,
@@ -802,7 +879,11 @@ class S3Client implements S3ClientType {
   }
 
   /** Commits uploaded parts after validating part identity and ordering. */
-  async completeUpload(upload: S3UploadType, parts: readonly S3PartType[], options: S3CompleteOptionsType = {}): Promise<void> {
+  async completeUpload(
+    upload: S3UploadType,
+    parts: readonly S3PartType[],
+    options: S3CompleteOptionsType = {},
+  ): Promise<void> {
     const normalized = normalizeParts(parts);
     const headers = new Headers({ "content-type": "application/xml" });
     if (options.ifMatch !== undefined) headers.set("if-match", options.ifMatch);
@@ -846,10 +927,43 @@ class S3Client implements S3ClientType {
    * the client abort the multipart upload, which prevents a late part from
    * arriving after the abort request.
    */
-  async put(key: string, body: Uint8Array | ReadableStream<Uint8Array>, options: ObjectPutOptionsType = {}): Promise<ObjectStatType> {
+  async put(
+    key: string,
+    body: Uint8Array | ReadableStream<Uint8Array>,
+    options: ObjectPutOptionsType = {},
+  ): Promise<ObjectStatType> {
     if (body instanceof Uint8Array) return await this.#putBytes(key, body, options);
 
     const partSize = this.#getPartSize(options.size);
+    let chunks = getChunks(body, partSize);
+
+    if (this.optimizations.delayedMultipart) {
+      const first = await chunks.next();
+      if (first.done) return await this.#putBytes(key, new Uint8Array(), options);
+
+      const second = await chunks.next();
+      if (second.done && first.value.bytes.byteLength <= S3_LIMITS.maxPutBytes) {
+        if (options.size !== undefined && first.value.bytes.byteLength !== options.size) {
+          throw new RangeError(
+            `S3 streamed body produced ${first.value.bytes.byteLength} bytes but options.size declared ${options.size}.`,
+          );
+        }
+        return await this.#putBytes(key, first.value.bytes, options);
+      }
+
+      // Preserve the already-consumed chunks before replacing the iterator.
+      // A single chunk larger than PutObject's hard limit still enters multipart
+      // instead of failing only because delayed multipart is enabled.
+      const rest = chunks;
+      async function* retained(): AsyncGenerator<S3ChunkType> {
+        yield first.value;
+        if (!second.done) yield second.value;
+        for await (const chunk of rest) yield chunk;
+      }
+
+      chunks = retained();
+    }
+
     const upload = await this.createUpload(key, options);
     let size = 0;
     const parts: S3PartType[] = [];
@@ -857,7 +971,7 @@ class S3Client implements S3ClientType {
     try {
       const uploaded = pooledMap(
         this.#concurrency,
-        getChunks(body, partSize),
+        chunks,
         (chunk) => this.#uploadChunk(upload, chunk, options.signal),
       );
       for await (const result of uploaded) {
@@ -891,7 +1005,11 @@ class S3Client implements S3ClientType {
 
   /** Removes one exact object. A missing object is treated as already removed. */
   async delete(key: string, options?: { readonly signal?: AbortSignal }): Promise<void> {
-    const response = await this.request({ method: "DELETE", key, ...(options?.signal === undefined ? {} : { signal: options.signal }) });
+    const response = await this.request({
+      method: "DELETE",
+      key,
+      ...(options?.signal === undefined ? {} : { signal: options.signal }),
+    });
     if (response.status === 404) return;
     await assertResponse(response, `DeleteObject ${key}`);
   }
@@ -931,8 +1049,12 @@ class S3Client implements S3ClientType {
    */
   async copy(source: string, destination: string, options: ObjectCopyOptionsType = {}): Promise<ObjectStatType> {
     const sourceStat = await this.head(source, options);
-    if (sourceStat === null) throw new S3Error(`Copy source '${source}' does not exist.`, new Response(null, { status: 404 }));
-    if (sourceStat.size > S3_LIMITS.maxObjectBytes) throw new RangeError(`S3 copy source exceeds ${S3_LIMITS.maxObjectBytes} bytes.`);
+    if (sourceStat === null) {
+      throw new S3Error(`Copy source '${source}' does not exist.`, new Response(null, { status: 404 }));
+    }
+    if (sourceStat.size > S3_LIMITS.maxObjectBytes) {
+      throw new RangeError(`S3 copy source exceeds ${S3_LIMITS.maxObjectBytes} bytes.`);
+    }
 
     if (sourceStat.size <= S3_LIMITS.maxCopyBytes) {
       const response = await this.request({

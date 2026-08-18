@@ -1,19 +1,18 @@
 import type { AdapterType } from "./definition.ts";
 import { createObjectAdapter, type ObjectAdapterOptionsType } from "./object.ts";
 import type { S3ClientType } from "../s3.ts";
+import { createS3DriverFromClient } from "../driver/s3.ts";
 
 /** S3 filesystem mapping options. */
 export type S3AdapterOptionsType = ObjectAdapterOptionsType;
 
 /**
- * Creates an OPFS-shaped adapter over a preconfigured S3-compatible client.
+ * Creates the OPFS translation over a preconfigured S3 protocol client.
  *
- * The S3 client remains useful independently. The adapter adds virtual
- * directories, filesystem write modes, recursive facade operations, and path
- * coordination without hiding S3's object semantics. Injection keeps
- * credentials, endpoint selection, and client lifecycle outside the generic
- * filesystem layer.
+ * The client remains independently useful. A configured S3 driver is inserted
+ * between the protocol client and filesystem adapter so limits, requirements,
+ * and provider optimization policy remain separately inspectable.
  */
 export function createS3Adapter(client: S3ClientType, options: S3AdapterOptionsType = {}): AdapterType {
-  return createObjectAdapter(client, options);
+  return createObjectAdapter(createS3DriverFromClient(client), options);
 }

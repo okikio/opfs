@@ -11,7 +11,9 @@ async function ready(page: import("@playwright/test").Page): Promise<void> {
 
 test("window probes the actual capability and round-trips when OPFS is available", async ({ page }) => {
   await ready(page);
-  const result = await page.evaluate(async () => await window.opfsTest.roundTrip(`/window/${crypto.randomUUID()}.txt`, "window"));
+  const result = await page.evaluate(async () =>
+    await window.opfsTest.roundTrip(`/window/${crypto.randomUUID()}.txt`, "window")
+  );
   expect(result.supported).toBe(true);
   expect(result.probe?.context).toBe("window");
   if (result.probe?.rootAvailable) expect(result.value).toBe("window");
@@ -29,7 +31,9 @@ test("fresh browser contexts do not inherit another context's OPFS file", async 
   const first = await browser.newContext();
   const firstPage = await first.newPage();
   await ready(firstPage);
-  const written = await firstPage.evaluate(async ({ path }) => await window.opfsTest.roundTrip(path, "private"), { path });
+  const written = await firstPage.evaluate(async ({ path }) => await window.opfsTest.roundTrip(path, "private"), {
+    path,
+  });
   await first.close();
   if (!written.probe?.rootAvailable) {
     expect(written.probe?.rootError).toBeDefined();
@@ -51,7 +55,9 @@ test("a persistent profile reopens the same OPFS data", async ({ browserName }, 
   const first = await browserType.launchPersistentContext(profile);
   const firstPage = await first.newPage();
   await ready(firstPage);
-  const written = await firstPage.evaluate(async ({ path }) => await window.opfsTest.roundTrip(path, "persisted"), { path });
+  const written = await firstPage.evaluate(async ({ path }) => await window.opfsTest.roundTrip(path, "persisted"), {
+    path,
+  });
   await first.close();
   if (!written.probe?.rootAvailable) {
     expect(written.probe?.rootError).toBeDefined();

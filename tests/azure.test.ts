@@ -8,7 +8,11 @@ import { streamBytes } from "./stream.ts";
 
 /** Creates one Azure-style XML response without coupling tests to an HTTP server. */
 function xml(value: string, init: ResponseInit = {}): Response {
-  return new Response(value, { status: 200, headers: { "content-type": "application/xml", ...(init.headers ?? {}) }, ...init });
+  return new Response(value, {
+    status: 200,
+    headers: { "content-type": "application/xml", ...(init.headers ?? {}) },
+    ...init,
+  });
 }
 
 /** Refreshable bearer source used to prove per-request token resolution. */
@@ -47,7 +51,7 @@ describe("Azure Blob client", () => {
         const request = new Request(input, init);
         requests.push(request);
         if (request.method === "HEAD") {
-          return new Response(null, { status: 200, headers: { "content-length": "4", etag: "\"etag\"" } });
+          return new Response(null, { status: 200, headers: { "content-length": "4", etag: '"etag"' } });
         }
         return new Response(null, { status: 202, headers: { "x-ms-copy-status": "success" } });
       },
@@ -92,22 +96,25 @@ describe("Azure Blob client", () => {
         requests.push(request);
         const url = new URL(request.url);
         if (request.method === "HEAD" && url.pathname.endsWith("/source.bin")) {
-          return new Response(null, { status: 200, headers: { "content-length": String(size), etag: "\"source-etag\"" } });
+          return new Response(null, {
+            status: 200,
+            headers: { "content-length": String(size), etag: '"source-etag"' },
+          });
         }
         if (request.method === "HEAD") {
-          return new Response(null, { status: 200, headers: { "content-length": String(size), etag: "\"copy-etag\"" } });
+          return new Response(null, { status: 200, headers: { "content-length": String(size), etag: '"copy-etag"' } });
         }
         return new Response(null, { status: 201 });
       },
     });
 
-    await client.copy!("source.bin", "copy.bin", { sourceIfMatch: "\"source-etag\"" });
+    await client.copy!("source.bin", "copy.bin", { sourceIfMatch: '"source-etag"' });
 
     const blocks = requests.filter((request) => new URL(request.url).searchParams.get("comp") === "block");
     expect(blocks).toHaveLength(3);
     expect(blocks[0]?.headers.get("x-ms-source-range")).toBe(`bytes=0-${100 * 1024 * 1024 - 1}`);
     expect(blocks[0]?.headers.get("x-ms-copy-source-authorization")).toBe("Bearer token");
-    expect(blocks[0]?.headers.get("x-ms-source-if-match")).toBe("\"source-etag\"");
+    expect(blocks[0]?.headers.get("x-ms-source-if-match")).toBe('"source-etag"');
     expect(requests.some((request) => new URL(request.url).searchParams.get("comp") === "blocklist")).toBe(true);
   });
 
@@ -128,7 +135,8 @@ describe("Azure Blob client", () => {
       endpoint: "https://account.blob.core.windows.net",
       container: "data",
       credential: { kind: "sas", token: "?sig=secret" },
-      fetch: async () => xml(`
+      fetch: async () =>
+        xml(`
         <EnumerationResults>
           <Blobs>
             <Blob>
@@ -157,10 +165,11 @@ describe("Azure Blob client", () => {
       endpoint: "https://account.blob.core.windows.net",
       container: "data",
       credential: { kind: "sas", token: "?sig=secret" },
-      fetch: async () => xml("<Error><Code>AuthorizationFailure</Code><Message>denied</Message></Error>", {
-        status: 403,
-        headers: { "x-ms-request-id": "request-1" },
-      }),
+      fetch: async () =>
+        xml("<Error><Code>AuthorizationFailure</Code><Message>denied</Message></Error>", {
+          status: 403,
+          headers: { "x-ms-request-id": "request-1" },
+        }),
     });
 
     try {
@@ -200,18 +209,19 @@ describe("Azure Blob client", () => {
     expect(request?.headers.get("content-length")).toBe("0");
   });
 
-
   it("rejects Shared Key service versions older than the implemented signing format", () => {
-    expect(() => createAzureClient({
-      endpoint: "http://127.0.0.1:10000/devstoreaccount1",
-      container: "opfs-test",
-      credential: {
-        kind: "shared-key",
-        account: "devstoreaccount1",
-        key: "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==",
-      },
-      version: "2009-07-17",
-    })).toThrow(RangeError);
+    expect(() =>
+      createAzureClient({
+        endpoint: "http://127.0.0.1:10000/devstoreaccount1",
+        container: "opfs-test",
+        credential: {
+          kind: "shared-key",
+          account: "devstoreaccount1",
+          key: "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==",
+        },
+        version: "2009-07-17",
+      })
+    ).toThrow(RangeError);
   });
 
   it("signs zero Content-Length according to the selected Shared Key service version", async () => {
@@ -234,11 +244,12 @@ describe("Azure Blob client", () => {
       key: "zero.bin",
       body: new Uint8Array(),
     });
-    await createAzureClient({ ...options, version: "2015-02-21", fetch: modernCapture.fetch.bind(modernCapture) }).request({
-      method: "PUT",
-      key: "zero.bin",
-      body: new Uint8Array(),
-    });
+    await createAzureClient({ ...options, version: "2015-02-21", fetch: modernCapture.fetch.bind(modernCapture) })
+      .request({
+        method: "PUT",
+        key: "zero.bin",
+        body: new Uint8Array(),
+      });
 
     expect(oldCapture.latest?.headers.get("authorization")).toBe(
       "SharedKey devstoreaccount1:l0m1mkwouin+1Fe6pBOf3LgSCgsrZMzD4luPiqfRonQ=",
@@ -286,17 +297,21 @@ describe("Azure Blob client", () => {
     });
 
     expect(legacyEmpty.latest?.headers.get("authorization")).toBe(legacyAbsent.latest?.headers.get("authorization"));
-    expect(modernEmpty.latest?.headers.get("authorization")).not.toBe(modernAbsent.latest?.headers.get("authorization"));
+    expect(modernEmpty.latest?.headers.get("authorization")).not.toBe(
+      modernAbsent.latest?.headers.get("authorization"),
+    );
   });
 
   it("validates block size against the selected Azure REST service version", () => {
-    expect(() => createAzureClient({
-      endpoint: "https://account.blob.core.windows.net",
-      container: "data",
-      credential: { kind: "sas", token: "?sig=secret" },
-      version: "2015-04-05",
-      blockSize: AZURE_LIMITS.legacyBlockBytes + 1,
-    })).toThrow(RangeError);
+    expect(() =>
+      createAzureClient({
+        endpoint: "https://account.blob.core.windows.net",
+        container: "data",
+        credential: { kind: "sas", token: "?sig=secret" },
+        version: "2015-04-05",
+        blockSize: AZURE_LIMITS.legacyBlockBytes + 1,
+      })
+    ).toThrow(RangeError);
   });
 
   it("keeps destination conditions off Put Block and applies them at Put Block List", async () => {
@@ -310,7 +325,7 @@ describe("Azure Blob client", () => {
         const request = new Request(input, init);
         requests.push(request);
         if (request.method === "HEAD") {
-          return new Response(null, { status: 200, headers: { "content-length": "6", etag: "\"done\"" } });
+          return new Response(null, { status: 200, headers: { "content-length": "6", etag: '"done"' } });
         }
         return new Response(null, { status: 201 });
       },
@@ -334,7 +349,7 @@ describe("Azure Blob client", () => {
       fetch: async (input, init) => {
         const request = new Request(input, init);
         if (request.method === "HEAD") {
-          return new Response(null, { status: 200, headers: { "content-length": "4", etag: "\"source\"" } });
+          return new Response(null, { status: 200, headers: { "content-length": "4", etag: '"source"' } });
         }
         return new Response(null, { status: 201 });
       },
@@ -369,7 +384,6 @@ describe("Azure Blob client", () => {
 
     expect(first.latest?.headers.get("authorization")).toBe(second.latest?.headers.get("authorization"));
   });
-
 
   it("collapses unquoted Shared Key whitespace without changing quoted-string whitespace", async () => {
     const now = () => new Date("2026-08-14T12:00:00.000Z");
@@ -415,10 +429,11 @@ describe("Azure Blob client", () => {
       endpoint: "https://account.blob.core.windows.net",
       container: "data",
       credential: { kind: "sas", token: "?sig=secret" },
-      fetch: async () => new Response("upstream gateway failed", {
-        status: 502,
-        headers: { "x-ms-request-id": "gateway-request" },
-      }),
+      fetch: async () =>
+        new Response("upstream gateway failed", {
+          status: 502,
+          headers: { "x-ms-request-id": "gateway-request" },
+        }),
     });
 
     try {
@@ -525,7 +540,6 @@ describe("Azure Blob client", () => {
     )).rejects.toThrow(RangeError);
     expect(fetches).toBe(0);
   });
-
 });
 
 describe("Azure request policy", () => {

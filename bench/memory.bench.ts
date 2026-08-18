@@ -2,7 +2,8 @@ import { encodeBase64 } from "@std/encoding/base64";
 import { bench, run } from "mitata";
 
 import { createFileSystem } from "../mod.ts";
-import { createMemoryAdapter, createMemoryRecordStore } from "../src/adapter/memory.ts";
+import { createMemoryAdapter } from "../src/adapter/memory.ts";
+import { createMemoryDriver } from "../src/driver/memory.ts";
 import type { RecordType } from "../src/schema.ts";
 
 /** Fixed 64 KiB payload shared by all in-memory benchmark paths. */
@@ -13,7 +14,7 @@ const encoded = encodeBase64(payload);
 /** Raw Map baseline with no adapter or record translation. */
 const raw = new Map<string, Uint8Array>();
 /** Direct RecordStore baseline used to isolate record serialization cost. */
-const store = createMemoryRecordStore();
+const store = createMemoryDriver();
 /** Canonical file record written directly to the RecordStore baseline. */
 const record: RecordType = {
   version: 1,
@@ -39,7 +40,7 @@ bench("memory/raw Map: 64 KiB replace + read", () => {
   raw.get("/bench.bin")!.slice();
 });
 
-bench("memory/RecordStore: 64 KiB set + get", async () => {
+bench("memory/driver: 64 KiB set + get", async () => {
   await store.set(record);
   await store.get(record.path);
 });

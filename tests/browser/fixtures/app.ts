@@ -357,7 +357,10 @@ async function benchmarkAdapter(
 
   const facadeName = `opfs-bench-facade-${id}`;
   const facadeCache = await caches.open(facadeName);
-  const fileSystem = createFileSystem(createCacheAdapter(facadeCache, { prefix: id }), { coordination: "none", metrics: "none" });
+  const fileSystem = createFileSystem(createCacheAdapter(facadeCache, { prefix: id }), {
+    coordination: "none",
+    metrics: "none",
+  });
   try {
     await fileSystem.ensureDir("/bench");
     const facadeStart = performance.now();
