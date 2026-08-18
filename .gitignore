@@ -272,3 +272,6 @@ $RECYCLE.BIN/
 .data/
 .output/
 .vscode/
+.coverage/
+.test-results/
+.agents/
