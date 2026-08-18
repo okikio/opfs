@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+/** Compile-time assertion that fails when a boolean type is not `true`. */
+type AssertTrue<T extends true> = T;
+
+/** Bidirectional assignability check used to catch schema/type drift. */
+type IsEquivalent<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+
 /**
  * Canonical virtual path stored and exchanged by adapters.
  *
@@ -133,11 +139,17 @@ export type PartitionModeType = "never" | "auto" | "always";
  * facade memory growth.
  */
 export const AdapterPartitionSchema = z.object({
+  /** Partitioning policy selected for this adapter. */
   mode: PartitionModeSchema,
+  /** Physical part or block size used by the layout. */
   partBytes: z.number().int().positive(),
+  /** Logical size where `auto` starts partitioning when the adapter knows it. */
   thresholdBytes: z.number().int().positive().optional(),
+  /** Whether streamed writes already use the partitioned layout. */
   stream: z.boolean().optional(),
+  /** Maximum physical part or block count when the adapter knows it. */
   maxParts: z.number().int().positive().optional(),
+  /** Stable name of the physical layout strategy. */
   layout: z.string().min(1),
 }).strict();
 
@@ -156,6 +168,10 @@ export interface AdapterPartitionType {
   /** Stable name of the physical layout strategy. */
   readonly layout: string;
 }
+
+type _AdapterPartitionTypeMatchesSchema = AssertTrue<
+  IsEquivalent<AdapterPartitionType, z.output<typeof AdapterPartitionSchema>>
+>;
 
 /**
  * Optional backend limits that can be inspected before work begins.
@@ -203,6 +219,10 @@ export interface AdapterLimitsType {
   readonly maxBatchBytes?: number | undefined;
 }
 
+type _AdapterLimitsTypeMatchesSchema = AssertTrue<
+  IsEquivalent<AdapterLimitsType, z.output<typeof AdapterLimitsSchema>>
+>;
+
 /**
  * Performance routes that the filesystem facade can deliberately bypass.
  *
@@ -236,6 +256,10 @@ export interface OptimizationType {
   /** Enables adapter-native move or rename routes when available. */
   readonly nativeMove: boolean;
 }
+
+type _OptimizationTypeMatchesSchema = AssertTrue<
+  IsEquivalent<OptimizationType, z.output<typeof OptimizationSchema>>
+>;
 
 /**
  * Stable adapter capability description.
@@ -290,6 +314,10 @@ export interface AdapterCapabilitiesType {
   readonly syncAccess: boolean;
 }
 
+type _AdapterCapabilitiesTypeMatchesSchema = AssertTrue<
+  IsEquivalent<AdapterCapabilitiesType, z.output<typeof AdapterCapabilitiesSchema>>
+>;
+
 /**
  * Stable error categories exposed by the package.
  *
@@ -328,6 +356,8 @@ export type ErrorCodeType =
   | "aborted"
   | "too-large"
   | "unknown";
+
+type _ErrorCodeTypeMatchesSchema = AssertTrue<IsEquivalent<ErrorCodeType, z.output<typeof ErrorCodeSchema>>>;
 
 /** Version stored with record-backed filesystem entries. */
 export const RecordVersionSchema = z.literal(1);
@@ -409,11 +439,15 @@ export const DriverKindSchema = z.enum(["file", "record", "object"]);
 /** A validated backend driver family. */
 export type DriverKindType = "file" | "record" | "object";
 
+type _DriverKindTypeMatchesSchema = AssertTrue<IsEquivalent<DriverKindType, z.output<typeof DriverKindSchema>>>;
+
 /** Why one driver limit exists. */
 export const LimitKindSchema = z.enum(["hard", "policy", "dynamic"]);
 
 /** A validated limit kind. */
 export type LimitKindType = "hard" | "policy" | "dynamic";
+
+type _LimitKindTypeMatchesSchema = AssertTrue<IsEquivalent<LimitKindType, z.output<typeof LimitKindSchema>>>;
 
 /** Layer that supplied one limit value. */
 export const LimitSourceSchema = z.enum(["provider", "implementation", "user", "probe"]);
@@ -421,11 +455,17 @@ export const LimitSourceSchema = z.enum(["provider", "implementation", "user", "
 /** A validated limit source. */
 export type LimitSourceType = "provider" | "implementation" | "user" | "probe";
 
+type _LimitSourceTypeMatchesSchema = AssertTrue<
+  IsEquivalent<LimitSourceType, z.output<typeof LimitSourceSchema>>
+>;
+
 /** Unit used by one numeric limit. */
 export const LimitUnitSchema = z.enum(["bytes", "count", "milliseconds", "operations"]);
 
 /** A validated limit unit. */
 export type LimitUnitType = "bytes" | "count" | "milliseconds" | "operations";
+
+type _LimitUnitTypeMatchesSchema = AssertTrue<IsEquivalent<LimitUnitType, z.output<typeof LimitUnitSchema>>>;
 
 /**
  * One inspectable storage limit with explicit provenance.
@@ -435,11 +475,17 @@ export type LimitUnitType = "bytes" | "count" | "milliseconds" | "operations";
  * current value has not been probed.
  */
 export const LimitSchema = z.object({
+  /** Stable machine-readable limit code. */
   code: z.string().min(1),
+  /** Whether the limit is hard, policy-driven, or dynamic. */
   kind: LimitKindSchema,
+  /** Layer that supplied the limit value. */
   source: LimitSourceSchema,
+  /** Unit used by the numeric value. */
   unit: LimitUnitSchema,
+  /** Current numeric limit when known. */
   value: z.number().nonnegative().optional(),
+  /** Human-readable context for diagnostics. */
   detail: z.string().min(1).optional(),
 }).strict().superRefine((value, ctx) => {
   if (value.value === undefined && value.kind !== "dynamic") {
@@ -463,11 +509,17 @@ export interface LimitType {
   readonly detail?: string | undefined;
 }
 
+type _LimitTypeMatchesSchema = AssertTrue<IsEquivalent<LimitType, z.output<typeof LimitSchema>>>;
+
 /** Current state of one driver requirement. */
 export const RequirementStateSchema = z.enum(["available", "missing", "unknown"]);
 
 /** A validated requirement state. */
 export type RequirementStateType = "available" | "missing" | "unknown";
+
+type _RequirementStateTypeMatchesSchema = AssertTrue<
+  IsEquivalent<RequirementStateType, z.output<typeof RequirementStateSchema>>
+>;
 
 /**
  * One runtime, provider, permission, or configuration requirement.
@@ -476,8 +528,11 @@ export type RequirementStateType = "available" | "missing" | "unknown";
  * prefer `available` or `missing` when the state is already known.
  */
 export const RequirementSchema = z.object({
+  /** Stable machine-readable requirement code. */
   code: z.string().min(1),
+  /** Current known availability state. */
   state: RequirementStateSchema,
+  /** Concrete reason when the requirement is missing. */
   reason: z.string().min(1).optional(),
 }).strict().superRefine((value, ctx) => {
   if (value.state === "missing" && value.reason === undefined) {
@@ -495,11 +550,17 @@ export interface RequirementType {
   readonly reason?: string | undefined;
 }
 
+type _RequirementTypeMatchesSchema = AssertTrue<IsEquivalent<RequirementType, z.output<typeof RequirementSchema>>>;
+
 /** Ownership state for one configured driver backend resource. */
 export const DriverOwnershipSchema = z.enum(["none", "borrowed", "owned"]);
 
 /** A validated configured-driver backend ownership state. */
 export type DriverOwnershipType = "none" | "borrowed" | "owned";
+
+type _DriverOwnershipTypeMatchesSchema = AssertTrue<
+  IsEquivalent<DriverOwnershipType, z.output<typeof DriverOwnershipSchema>>
+>;
 
 /**
  * One independently controllable driver optimization.
@@ -509,10 +570,15 @@ export type DriverOwnershipType = "none" | "borrowed" | "owned";
  * optimization is enabled. Such optimizations must be disableable.
  */
 export const DriverOptimizationSchema = z.object({
+  /** Stable machine-readable optimization code. */
   code: z.string().min(1),
+  /** Current enabled state. */
   enabled: z.boolean(),
+  /** Whether this optimization changes observable behavior. */
   changesBehavior: z.boolean(),
+  /** Whether callers can turn this optimization off. */
   disableable: z.boolean(),
+  /** Human-readable detail for diagnostics or documentation. */
   detail: z.string().min(1).optional(),
 }).strict().superRefine((value, ctx) => {
   if (value.changesBehavior && !value.disableable) {
@@ -533,3 +599,7 @@ export interface DriverOptimizationType {
   /** Human-readable detail for diagnostics or documentation. */
   readonly detail?: string | undefined;
 }
+
+type _DriverOptimizationTypeMatchesSchema = AssertTrue<
+  IsEquivalent<DriverOptimizationType, z.output<typeof DriverOptimizationSchema>>
+>;

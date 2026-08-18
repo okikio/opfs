@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+/** Compile-time assertion that fails when a boolean type is not `true`. */
+type AssertTrue<T extends true> = T;
+
+/** Bidirectional assignability check used to catch schema/type drift. */
+type IsEquivalent<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+
 import type { AdapterType } from "./adapter/definition.ts";
 import { getSupport } from "./capability.ts";
 import {
@@ -135,34 +141,66 @@ export interface MovePlanInputType {
  */
 export const PlanInputSchema = z.discriminatedUnion("operation", [
   z.object({
+    /** Selects a read preflight request. */
     operation: z.literal("read"),
+    /** Path the caller plans to read. */
     path: z.string().optional(),
+    /** Caller-known logical size when available. */
     size: z.number().int().nonnegative().optional(),
+    /** Whether the read plans a byte range instead of the full file. */
     range: z.boolean().default(false),
   }).strict(),
   z.object({
+    /** Selects a write preflight request. */
     operation: z.literal("write"),
+    /** Path the caller plans to write. */
     path: z.string().optional(),
+    /** Caller-known logical size when available. */
     size: z.number().int().nonnegative().optional(),
+    /** Caller-known already-buffered byte count when streaming. */
     inputBytes: z.number().int().nonnegative().optional(),
+    /** Physical source form for the write request. */
     source: WriteSourceSchema,
+    /** Requested write semantics. */
     mode: WriteModeSchema.default("replace"),
   }).strict(),
   z.object({
+    /** Selects a copy preflight request. */
     operation: z.literal("copy"),
+    /** Source path the caller plans to copy. */
     path: z.string().optional(),
+    /** Destination path for the copy request. */
     destination: z.string().optional(),
+    /** Caller-known logical size when available. */
     size: z.number().int().nonnegative().optional(),
   }).strict(),
   z.object({
+    /** Selects a move preflight request. */
     operation: z.literal("move"),
+    /** Source path the caller plans to move. */
     path: z.string().optional(),
+    /** Destination path for the move request. */
     destination: z.string().optional(),
+    /** Caller-known logical size when available. */
     size: z.number().int().nonnegative().optional(),
   }).strict(),
 ]);
 /** Input accepted by filesystem preflight before defaults and path normalization. */
 export type PlanInputType = ReadPlanInputType | WritePlanInputType | CopyPlanInputType | MovePlanInputType;
+
+type _ReadPlanInputTypeMatchesSchema = AssertTrue<
+  IsEquivalent<ReadPlanInputType, z.input<(typeof PlanInputSchema.options)[0]>>
+>;
+type _WritePlanInputTypeMatchesSchema = AssertTrue<
+  IsEquivalent<WritePlanInputType, z.input<(typeof PlanInputSchema.options)[1]>>
+>;
+type _CopyPlanInputTypeMatchesSchema = AssertTrue<
+  IsEquivalent<CopyPlanInputType, z.input<(typeof PlanInputSchema.options)[2]>>
+>;
+type _MovePlanInputTypeMatchesSchema = AssertTrue<
+  IsEquivalent<MovePlanInputType, z.input<(typeof PlanInputSchema.options)[3]>>
+>;
+type _PlanInputTypeMatchesSchema = AssertTrue<IsEquivalent<PlanInputType, z.input<typeof PlanInputSchema>>>;
 
 /**
  * Structured preflight result for the complete driver -> adapter -> filesystem stack.
@@ -172,14 +210,23 @@ export type PlanInputType = ReadPlanInputType | WritePlanInputType | CopyPlanInp
  * filesystem policy.
  */
 export const PlanSchema = z.object({
+  /** Filesystem operation that was planned. */
   operation: PlanOperationSchema,
+  /** Whether the complete storage stack can perform the request safely. */
   supported: z.boolean(),
+  /** Effective support mode after driver, adapter, and facade policy are combined. */
   support: SupportModeSchema,
+  /** Backend-native planning result preserved inside the full plan. */
   driver: DriverPlanSchema,
+  /** Facade-owned buffering required before the request can proceed. */
   bufferBytes: z.number().int().nonnegative().optional(),
+  /** Physical part or block size when partitioning is involved. */
   partBytes: z.number().int().positive().optional(),
+  /** Physical part or block count when partitioning is involved. */
   parts: z.number().int().positive().optional(),
+  /** Structured problems found across the complete storage stack. */
   problems: z.array(ProblemSchema).readonly(),
+  /** Structured actions the caller can take next. */
   actions: z.array(ActionSchema).readonly(),
 }).strict();
 /** Validated complete-stack preflight result. */
@@ -203,6 +250,8 @@ export interface PlanType {
   /** Structured actions the caller can take next. */
   readonly actions: readonly ActionType[];
 }
+
+type _PlanTypeMatchesSchema = AssertTrue<IsEquivalent<PlanType, z.output<typeof PlanSchema>>>;
 
 /**
  * Internal facade state required to combine adapter and driver preflight.

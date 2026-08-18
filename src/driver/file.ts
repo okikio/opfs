@@ -6,14 +6,23 @@ import type { DriverType } from "./definition.ts";
 
 /** Native operations implemented by a file-shaped backend driver. */
 export const FileDriverCapabilitiesSchema = z.object({
+  /** Backend can materialize file bytes through `readFile()`. */
   read: z.boolean(),
+  /** Backend can commit materialized file bytes through `writeFile()`. */
   write: z.boolean(),
+  /** Backend can open a native read stream. */
   streamRead: z.boolean(),
+  /** Write modes that `writeStream()` can perform natively. */
   streamWriteModes: z.array(WriteModeSchema).readonly(),
+  /** Backend can satisfy byte ranges without whole-file materialization. */
   rangeRead: z.boolean(),
+  /** Backend can copy one entry through a native route. */
   copy: z.boolean(),
+  /** Backend can move or rename one entry through a native route. */
   move: z.boolean(),
+  /** Backend exposes a long-lived asynchronous positional writer. */
   positionalWrite: z.boolean(),
+  /** Backend exposes a synchronous random-access file resource. */
   syncAccess: z.boolean(),
 }).strict();
 

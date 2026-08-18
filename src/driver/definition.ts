@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+/** Compile-time assertion that fails when a boolean type is not `true`. */
+type AssertTrue<T extends true> = T;
+
+/** Bidirectional assignability check used to catch schema/type drift. */
+type IsEquivalent<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+
 import type { DriverMetricsType } from "../metrics.ts";
 import {
   DriverKindSchema,
@@ -77,10 +83,15 @@ export type ActionKindType =
  * choices, and unsupported routes without parsing prose.
  */
 export const ProblemSchema = z.object({
+  /** Stable machine-readable problem code. */
   code: z.string().min(1),
+  /** Layer that identified the problem. */
   layer: ProblemLayerSchema,
+  /** Severity used by diagnostics and policy. */
   severity: ProblemSeveritySchema,
+  /** Human-readable summary of the problem. */
   message: z.string().min(1),
+  /** Related limit when the problem comes from a specific ceiling or budget. */
   limit: LimitSchema.optional(),
 }).strict();
 
@@ -98,6 +109,8 @@ export interface ProblemType {
   readonly limit?: LimitType | undefined;
 }
 
+type _ProblemTypeMatchesSchema = AssertTrue<IsEquivalent<ProblemType, z.output<typeof ProblemSchema>>>;
+
 /**
  * One structured action available to the caller after planning.
  *
@@ -106,8 +119,11 @@ export interface ProblemType {
  * orchestration policy.
  */
 export const ActionSchema = z.object({
+  /** Coarse-grained next step the caller can take. */
   kind: ActionKindSchema,
+  /** Optional machine-readable qualifier for UI or policy routing. */
   code: z.string().min(1).optional(),
+  /** Optional human-readable action detail. */
   detail: z.string().min(1).optional(),
 }).strict();
 
@@ -120,6 +136,8 @@ export interface ActionType {
   /** Optional human-readable action detail. */
   readonly detail?: string | undefined;
 }
+
+type _ActionTypeMatchesSchema = AssertTrue<IsEquivalent<ActionType, z.output<typeof ActionSchema>>>;
 
 /**
  * Operations that a backend driver can preflight without performing I/O.
@@ -140,13 +158,21 @@ export type DriverOperationType = "stat" | "read" | "write" | "list" | "copy" | 
  * input before an adapter calls a driver, and direct driver callers must supply canonical paths. `size` can be omitted for an unknown-length stream.
  */
 export const DriverPlanInputSchema = z.object({
+  /** Backend-native operation being preflighted. */
   operation: DriverOperationSchema,
+  /** Canonical source path when the operation targets one path. */
   path: PathSchema.optional(),
+  /** Canonical destination path for copy and move operations. */
   destination: PathSchema.optional(),
+  /** Caller-known logical byte size when available. */
   size: z.number().int().nonnegative().optional(),
+  /** Caller-known already-buffered byte count for streamed work. */
   inputBytes: z.number().int().nonnegative().optional(),
+  /** Physical input source form for write operations. */
   source: z.enum(["bytes", "stream"]).optional(),
+  /** Requested write semantics for write operations. */
   mode: WriteModeSchema.optional(),
+  /** Whether a read request targets a byte range instead of the full file. */
   range: z.boolean().optional(),
 }).strict();
 
@@ -170,6 +196,10 @@ export interface DriverPlanInputType {
   readonly range?: boolean | undefined;
 }
 
+type _DriverPlanInputTypeMatchesSchema = AssertTrue<
+  IsEquivalent<DriverPlanInputType, z.output<typeof DriverPlanInputSchema>>
+>;
+
 /**
  * Serializable result returned by a backend driver planner.
  *
@@ -179,12 +209,19 @@ export interface DriverPlanInputType {
  * into the adapter and filesystem plan.
  */
 export const DriverPlanSchema = z.object({
+  /** Backend-native operation that was planned. */
   operation: DriverOperationSchema,
+  /** Whether the request can proceed under current facts and policy. */
   supported: z.boolean(),
+  /** Effective support mode for the backend-native route. */
   support: SupportModeSchema,
+  /** Physical part or block size when partitioning is involved. */
   partBytes: z.number().int().positive().optional(),
+  /** Physical part or block count when partitioning is involved. */
   parts: z.number().int().positive().optional(),
+  /** Structured problems reported by driver planning. */
   problems: z.array(ProblemSchema).readonly(),
+  /** Structured actions the caller can take next. */
   actions: z.array(ActionSchema).readonly(),
 }).strict();
 
@@ -206,6 +243,10 @@ export interface DriverPlanType {
   readonly actions: readonly ActionType[];
 }
 
+type _DriverPlanTypeMatchesSchema = AssertTrue<
+  IsEquivalent<DriverPlanType, z.output<typeof DriverPlanSchema>>
+>;
+
 /**
  * Serializable configured-driver report exposed through filesystem inspection.
  *
@@ -213,12 +254,19 @@ export interface DriverPlanType {
  * surface in diagnostics before any storage work starts.
  */
 export const DriverInspectionSchema = z.object({
+  /** Stable configured driver name. */
   name: z.string().min(1),
+  /** Backend family implemented by this driver. */
   kind: DriverKindSchema,
+  /** Stable backend-native operations and capabilities. */
   provides: z.array(z.string().min(1)).readonly(),
+  /** Ownership of any long-lived backend resource. */
   ownership: DriverOwnershipSchema,
+  /** Requirements already known for this configured instance. */
   requirements: z.array(RequirementSchema).readonly(),
+  /** Limits with provider, policy, or probe provenance. */
   limits: z.array(LimitSchema).readonly(),
+  /** Independently visible driver optimization switches. */
   optimizations: z.array(DriverOptimizationSchema).readonly(),
 }).strict();
 
@@ -239,6 +287,10 @@ export interface DriverInspectionType {
   /** Independently visible driver optimization switches. */
   readonly optimizations: readonly DriverOptimizationType[];
 }
+
+type _DriverInspectionTypeMatchesSchema = AssertTrue<
+  IsEquivalent<DriverInspectionType, z.output<typeof DriverInspectionSchema>>
+>;
 
 /**
  * Common behavior implemented by every configured storage driver.
