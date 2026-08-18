@@ -48,6 +48,7 @@ export { openFileSystem } from "./src/adapter/opfs.ts";
 export { FileSystemError, getErrorMessage, getErrorName, toFileSystemError } from "./src/error.ts";
 export { getOpfsContext } from "./src/context.ts";
 export { probeOpfs } from "./src/probe.ts";
+export { WritableFileStream } from "./src/handle.ts";
 export type {
   CopyOptionsType,
   DirectoryEntryType,
@@ -71,7 +72,10 @@ export type {
   WalkOptionsType,
   WriteOptionsType,
 } from "./src/filesystem.ts";
+export type { AdapterType, FileSystemOptionsType } from "./src/adapter/definition.ts";
+export type { OpenFileSystemOptionsType } from "./src/adapter/opfs.ts";
 export type {
+  CreateWritableOptionsType,
   DirectoryHandleType,
   FileHandleType,
   HandleCreateOptionsType,
@@ -84,6 +88,18 @@ export type {
 export type { SyncFileType } from "./src/sync.ts";
 export type { WritableFileType } from "./src/writable.ts";
 export type { WriteDataType } from "./src/stream.ts";
+export type { BrowserGlobalType } from "./src/context.ts";
+export type {
+  FileDriverCopyOptionsType,
+  FileDriverDirectoryEntryType,
+  FileDriverMoveOptionsType,
+  FileDriverReadOptionsType,
+  FileDriverSignalOptionsType,
+  FileDriverStatType,
+  FileDriverSyncFileType,
+  FileDriverWritableFileType,
+  FileDriverWriteOptionsType,
+} from "./src/driver/file.ts";
 export type {
   AdapterCapabilitiesType,
   AdapterLimitsType,
@@ -101,15 +117,35 @@ export type {
   MetricsModeType,
   OpfsContextType,
   OptimizationType,
+  PathType,
   PartitionModeType,
   RequirementStateType,
   RequirementType,
   SupportModeType,
   WriteModeType,
 } from "./src/schema.ts";
-export type { FileSystemOptionsType } from "./src/adapter/definition.ts";
-export type { InspectionType, SupportType, WriteSupportType } from "./src/capability.ts";
+export type {
+  ActionKindType,
+  ActionType,
+  DriverPlanInputType,
+  DriverInspectionType,
+  DriverOperationType,
+  DriverPlanType,
+  DriverType,
+  ProblemLayerType,
+  ProblemSeverityType,
+  ProblemType,
+} from "./src/driver/definition.ts";
+export type { AdapterInspectionType, InspectionType, SupportType, WriteSupportType } from "./src/capability.ts";
 export type { DriverMetricsType, MetricEntryType, MetricOperationType, MetricsType } from "./src/metrics.ts";
-export { PlanInputSchema, PlanOperationSchema, PlanSchema, WriteSourceSchema } from "./src/plan.ts";
-export type { PlanInputType, PlanOperationType, PlanType, WriteSourceType } from "./src/plan.ts";
+export type {
+  CopyPlanInputType,
+  MovePlanInputType,
+  PlanInputType,
+  PlanOperationType,
+  PlanType,
+  ReadPlanInputType,
+  WritePlanInputType,
+  WriteSourceType,
+} from "./src/plan.ts";
 export type { OpfsCapabilitiesType, OpfsProbeErrorType, OpfsStorageEstimateType } from "./src/probe.ts";

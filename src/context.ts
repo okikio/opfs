@@ -6,7 +6,7 @@ import type { OpfsContextType } from "./schema.ts";
  * The library intentionally avoids browser-name checks. Runtime placement is
  * inferred from the globals that define Window and Worker execution models.
  */
-interface BrowserGlobalType {
+export interface BrowserGlobalType {
   /** Window document marker. */
   readonly document?: object;
   /** ServiceWorker registration marker. */

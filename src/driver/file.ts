@@ -48,11 +48,13 @@ export interface FileDriverWriteOptionsType extends FileDriverSignalOptionsType 
 
 /** Options for a file-driver native copy. */
 export interface FileDriverCopyOptionsType extends FileDriverSignalOptionsType {
+  /** Replaces an existing destination when true. */
   readonly overwrite: boolean;
 }
 
 /** Options for a file-driver native move. */
 export interface FileDriverMoveOptionsType extends FileDriverSignalOptionsType {
+  /** Replaces an existing destination when true. */
   readonly overwrite: boolean;
 }
 
@@ -65,7 +67,7 @@ export interface FileDriverDirectoryEntryType {
 }
 
 /** Portable file metadata returned by a file driver. */
-export interface FileDriverFileStatType {
+interface FileDriverFileStatType {
   /** Portable discriminator for file metadata. */
   readonly kind: "file";
   /** File length in bytes. */
@@ -77,15 +79,37 @@ export interface FileDriverFileStatType {
 }
 
 /** Portable directory metadata returned by a file driver. */
-export interface FileDriverDirectoryStatType {
+interface FileDriverDirectoryStatType {
   /** Portable discriminator for directory metadata. */
   readonly kind: "directory";
   /** Last-modified Unix epoch milliseconds when the backend can observe it. */
   readonly lastModified?: number;
 }
 
-/** Portable file/directory metadata returned by a file driver. */
-export type FileDriverStatType = FileDriverFileStatType | FileDriverDirectoryStatType;
+/**
+ * Portable file or directory metadata returned by a file driver.
+ *
+ * The union stays small because callers only need the portable metadata needed
+ * by adapters and filesystem planning, not every runtime-specific detail from a
+ * host stat structure.
+ */
+export type FileDriverStatType =
+  | {
+    /** Portable discriminator for file metadata. */
+    readonly kind: "file";
+    /** File length in bytes. */
+    readonly size: number;
+    /** Last-modified Unix epoch milliseconds. */
+    readonly lastModified: number;
+    /** Media type, or an empty string when the backend does not know one. */
+    readonly mediaType: string;
+  }
+  | {
+    /** Portable discriminator for directory metadata. */
+    readonly kind: "directory";
+    /** Last-modified Unix epoch milliseconds when the backend can observe it. */
+    readonly lastModified?: number | undefined;
+  };
 
 /**
  * Long-lived asynchronous positional file owned by a file driver.

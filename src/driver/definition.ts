@@ -27,7 +27,7 @@ import {
 export const ProblemLayerSchema = z.enum(["client", "driver", "adapter", "filesystem"]);
 
 /** A validated storage problem layer. */
-export type ProblemLayerType = z.output<typeof ProblemLayerSchema>;
+export type ProblemLayerType = "client" | "driver" | "adapter" | "filesystem";
 
 /**
  * Severity of one storage planning problem.
@@ -38,7 +38,7 @@ export type ProblemLayerType = z.output<typeof ProblemLayerSchema>;
 export const ProblemSeveritySchema = z.enum(["info", "warning", "error"]);
 
 /** A validated storage planning problem severity. */
-export type ProblemSeverityType = z.output<typeof ProblemSeveritySchema>;
+export type ProblemSeverityType = "info" | "warning" | "error";
 
 /**
  * Action a caller can take after a storage preflight result.
@@ -59,7 +59,15 @@ export const ActionKindSchema = z.enum([
 ]);
 
 /** A validated storage planning action. */
-export type ActionKindType = z.output<typeof ActionKindSchema>;
+export type ActionKindType =
+  | "partition"
+  | "change-policy"
+  | "select-driver"
+  | "reduce-input"
+  | "enable-optimization"
+  | "disable-optimization"
+  | "probe"
+  | "retry";
 
 /**
  * One structured problem found while planning a storage operation.
@@ -77,7 +85,18 @@ export const ProblemSchema = z.object({
 }).strict();
 
 /** A validated storage planning problem. */
-export type ProblemType = z.output<typeof ProblemSchema>;
+export interface ProblemType {
+  /** Stable machine-readable problem code. */
+  readonly code: string;
+  /** Layer that identified the problem. */
+  readonly layer: ProblemLayerType;
+  /** Severity used by diagnostics and policy. */
+  readonly severity: ProblemSeverityType;
+  /** Human-readable summary of the problem. */
+  readonly message: string;
+  /** Related limit when the problem comes from a specific ceiling or budget. */
+  readonly limit?: LimitType | undefined;
+}
 
 /**
  * One structured action available to the caller after planning.
@@ -93,7 +112,14 @@ export const ActionSchema = z.object({
 }).strict();
 
 /** A validated storage planning action. */
-export type ActionType = z.output<typeof ActionSchema>;
+export interface ActionType {
+  /** Coarse-grained next step the caller can take. */
+  readonly kind: ActionKindType;
+  /** Optional machine-readable qualifier for UI or policy routing. */
+  readonly code?: string | undefined;
+  /** Optional human-readable action detail. */
+  readonly detail?: string | undefined;
+}
 
 /**
  * Operations that a backend driver can preflight without performing I/O.
@@ -105,7 +131,7 @@ export type ActionType = z.output<typeof ActionSchema>;
 export const DriverOperationSchema = z.enum(["stat", "read", "write", "list", "copy", "move", "remove"]);
 
 /** A validated backend driver operation. */
-export type DriverOperationType = z.output<typeof DriverOperationSchema>;
+export type DriverOperationType = "stat" | "read" | "write" | "list" | "copy" | "move" | "remove";
 
 /**
  * Concrete operation shape presented to a backend driver planner.
@@ -125,7 +151,24 @@ export const DriverPlanInputSchema = z.object({
 }).strict();
 
 /** A validated backend driver preflight request. */
-export type DriverPlanInputType = z.output<typeof DriverPlanInputSchema>;
+export interface DriverPlanInputType {
+  /** Backend-native operation being preflighted. */
+  readonly operation: DriverOperationType;
+  /** Canonical source path when the operation targets one path. */
+  readonly path?: string | undefined;
+  /** Canonical destination path for copy and move operations. */
+  readonly destination?: string | undefined;
+  /** Caller-known logical byte size when available. */
+  readonly size?: number | undefined;
+  /** Caller-known already-buffered byte count for streamed work. */
+  readonly inputBytes?: number | undefined;
+  /** Physical input source form for write operations. */
+  readonly source?: "bytes" | "stream" | undefined;
+  /** Requested write semantics for write operations. */
+  readonly mode?: "replace" | "append" | "update" | undefined;
+  /** Whether a read request targets a byte range instead of the full file. */
+  readonly range?: boolean | undefined;
+}
 
 /**
  * Serializable result returned by a backend driver planner.
@@ -146,7 +189,22 @@ export const DriverPlanSchema = z.object({
 }).strict();
 
 /** A validated backend driver preflight result. */
-export type DriverPlanType = z.output<typeof DriverPlanSchema>;
+export interface DriverPlanType {
+  /** Backend-native operation that was planned. */
+  readonly operation: DriverOperationType;
+  /** Whether the request can proceed under current facts and policy. */
+  readonly supported: boolean;
+  /** Effective support mode for the backend-native route. */
+  readonly support: "native" | "emulated" | "partitioned" | "unsupported";
+  /** Physical part or block size when partitioning is involved. */
+  readonly partBytes?: number | undefined;
+  /** Physical part or block count when partitioning is involved. */
+  readonly parts?: number | undefined;
+  /** Structured problems reported by driver planning. */
+  readonly problems: readonly ProblemType[];
+  /** Structured actions the caller can take next. */
+  readonly actions: readonly ActionType[];
+}
 
 /**
  * Serializable configured-driver report exposed through filesystem inspection.
@@ -165,7 +223,22 @@ export const DriverInspectionSchema = z.object({
 }).strict();
 
 /** A validated configured-driver report. */
-export type DriverInspectionType = z.output<typeof DriverInspectionSchema>;
+export interface DriverInspectionType {
+  /** Stable configured driver name. */
+  readonly name: string;
+  /** Backend family implemented by this driver. */
+  readonly kind: DriverKindType;
+  /** Stable backend-native operations and capabilities. */
+  readonly provides: readonly string[];
+  /** Ownership of any long-lived backend resource. */
+  readonly ownership: DriverOwnershipType;
+  /** Requirements already known for this configured instance. */
+  readonly requirements: readonly RequirementType[];
+  /** Limits with provider, policy, or probe provenance. */
+  readonly limits: readonly LimitType[];
+  /** Independently visible driver optimization switches. */
+  readonly optimizations: readonly DriverOptimizationType[];
+}
 
 /**
  * Common behavior implemented by every configured storage driver.

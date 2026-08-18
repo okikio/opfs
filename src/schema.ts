@@ -21,7 +21,7 @@ export const PathSchema = z.string().refine(
 );
 
 /** A validated canonical virtual filesystem path. */
-export type PathType = z.output<typeof PathSchema>;
+export type PathType = string;
 
 /** Stable non-empty diagnostic name assigned to one adapter implementation. */
 export const AdapterNameSchema = z.string().min(1);
@@ -38,7 +38,7 @@ export type AdapterNameType = z.output<typeof AdapterNameSchema>;
 export const EntryKindSchema = z.enum(["file", "directory"]);
 
 /** A validated filesystem entry kind. */
-export type EntryKindType = z.output<typeof EntryKindSchema>;
+export type EntryKindType = "file" | "directory";
 
 /**
  * Execution contexts that can host browser storage access.
@@ -58,7 +58,13 @@ export const OpfsContextSchema = z.enum([
 ]);
 
 /** A validated browser execution context classification. */
-export type OpfsContextType = z.output<typeof OpfsContextSchema>;
+export type OpfsContextType =
+  | "window"
+  | "dedicated-worker"
+  | "shared-worker"
+  | "service-worker"
+  | "worker"
+  | "unknown";
 
 /**
  * Mutation coordination policies supported by {@link createFileSystem}.
@@ -70,7 +76,7 @@ export type OpfsContextType = z.output<typeof OpfsContextSchema>;
 export const CoordinationModeSchema = z.enum(["auto", "web-locks", "local", "none"]);
 
 /** A validated mutation coordination policy. */
-export type CoordinationModeType = z.output<typeof CoordinationModeSchema>;
+export type CoordinationModeType = "auto" | "web-locks" | "local" | "none";
 
 /**
  * Write modes shared by the facade and adapters.
@@ -81,7 +87,7 @@ export type CoordinationModeType = z.output<typeof CoordinationModeSchema>;
 export const WriteModeSchema = z.enum(["replace", "append", "update"]);
 
 /** A validated file write mode. */
-export type WriteModeType = z.output<typeof WriteModeSchema>;
+export type WriteModeType = "replace" | "append" | "update";
 
 /**
  * How one operation is provided by the selected storage stack.
@@ -95,7 +101,7 @@ export type WriteModeType = z.output<typeof WriteModeSchema>;
 export const SupportModeSchema = z.enum(["native", "emulated", "partitioned", "unsupported"]);
 
 /** A validated storage support mode. */
-export type SupportModeType = z.output<typeof SupportModeSchema>;
+export type SupportModeType = "native" | "emulated" | "partitioned" | "unsupported";
 
 /**
  * Metrics collection cost selected for one filesystem or protocol client.
@@ -107,7 +113,7 @@ export type SupportModeType = z.output<typeof SupportModeSchema>;
 export const MetricsModeSchema = z.enum(["none", "basic", "timing"]);
 
 /** A validated metrics collection mode. */
-export type MetricsModeType = z.output<typeof MetricsModeSchema>;
+export type MetricsModeType = "none" | "basic" | "timing";
 
 /**
  * Physical partition policy for backends with a smaller value limit than the
@@ -116,7 +122,7 @@ export type MetricsModeType = z.output<typeof MetricsModeSchema>;
 export const PartitionModeSchema = z.enum(["never", "auto", "always"]);
 
 /** A validated physical partition policy. */
-export type PartitionModeType = z.output<typeof PartitionModeSchema>;
+export type PartitionModeType = "never" | "auto" | "always";
 
 /**
  * Inspectable physical layout used when one logical file spans provider values.
@@ -136,7 +142,20 @@ export const AdapterPartitionSchema = z.object({
 }).strict();
 
 /** A validated physical partition layout. */
-export type AdapterPartitionType = z.output<typeof AdapterPartitionSchema>;
+export interface AdapterPartitionType {
+  /** Partitioning policy selected for this adapter. */
+  readonly mode: PartitionModeType;
+  /** Physical part or block size used by the layout. */
+  readonly partBytes: number;
+  /** Logical size where `auto` starts partitioning when known. */
+  readonly thresholdBytes?: number | undefined;
+  /** Whether streamed writes already use the partitioned layout. */
+  readonly stream?: boolean | undefined;
+  /** Maximum physical part or block count when known. */
+  readonly maxParts?: number | undefined;
+  /** Stable name of the physical layout strategy. */
+  readonly layout: string;
+}
 
 /**
  * Optional backend limits that can be inspected before work begins.
@@ -165,7 +184,24 @@ export const AdapterLimitsSchema = z.object({
 }).strict();
 
 /** Portable hard limits known by one configured adapter. */
-export type AdapterLimitsType = z.output<typeof AdapterLimitsSchema>;
+export interface AdapterLimitsType {
+  /** Maximum logical file size accepted by this configured adapter. */
+  readonly maxFileBytes?: number | undefined;
+  /** Maximum materialized backend value size when the backend has one. */
+  readonly maxValueBytes?: number | undefined;
+  /** Maximum serialized key size when the backend has one. */
+  readonly maxKeyBytes?: number | undefined;
+  /** Minimum legal provider part or block size. */
+  readonly minPartBytes?: number | undefined;
+  /** Maximum legal provider part or block size. */
+  readonly maxPartBytes?: number | undefined;
+  /** Maximum provider part or block count for one logical object. */
+  readonly maxParts?: number | undefined;
+  /** Maximum useful concurrency known by this adapter. */
+  readonly maxConcurrency?: number | undefined;
+  /** Maximum bytes allowed in one batched or transactional mutation. */
+  readonly maxBatchBytes?: number | undefined;
+}
 
 /**
  * Performance routes that the filesystem facade can deliberately bypass.
@@ -188,7 +224,18 @@ export const OptimizationSchema = z.object({
 }).strict();
 
 /** Resolved performance-route policy for one filesystem facade. */
-export type OptimizationType = z.output<typeof OptimizationSchema>;
+export interface OptimizationType {
+  /** Enables adapter-native streaming reads when available. */
+  readonly streamRead: boolean;
+  /** Enables adapter-native streaming writes when available. */
+  readonly streamWrite: boolean;
+  /** Enables native range reads when available. */
+  readonly rangeRead: boolean;
+  /** Enables adapter-native or server-side copy routes when available. */
+  readonly nativeCopy: boolean;
+  /** Enables adapter-native move or rename routes when available. */
+  readonly nativeMove: boolean;
+}
 
 /**
  * Stable adapter capability description.
@@ -222,7 +269,26 @@ export const AdapterCapabilitiesSchema = z.object({
 });
 
 /** Native operations implemented by one adapter. */
-export type AdapterCapabilitiesType = z.output<typeof AdapterCapabilitiesSchema>;
+export interface AdapterCapabilitiesType {
+  /** Adapter can materialize file bytes through `readFile()`. */
+  readonly read: boolean;
+  /** Adapter can commit materialized file bytes through `writeFile()`. */
+  readonly write: boolean;
+  /** Adapter can open a native read stream. */
+  readonly streamRead: boolean;
+  /** Write modes that `writeStream()` can perform natively. */
+  readonly streamWriteModes: readonly WriteModeType[];
+  /** Adapter can satisfy byte ranges without whole-file materialization. */
+  readonly rangeRead: boolean;
+  /** Adapter can copy bytes without routing them through the facade. */
+  readonly nativeCopy: boolean;
+  /** Adapter can move or rename through one backend-native route. */
+  readonly nativeMove: boolean;
+  /** Adapter exposes a long-lived asynchronous positional writer. */
+  readonly positionalWrite: boolean;
+  /** Adapter exposes a synchronous random-access file resource. */
+  readonly syncAccess: boolean;
+}
 
 /**
  * Stable error categories exposed by the package.
@@ -248,7 +314,20 @@ export const ErrorCodeSchema = z.enum([
 ]);
 
 /** A validated package error category. */
-export type ErrorCodeType = z.output<typeof ErrorCodeSchema>;
+export type ErrorCodeType =
+  | "unavailable"
+  | "not-found"
+  | "already-exists"
+  | "type-mismatch"
+  | "invalid-path"
+  | "invalid-operation"
+  | "not-supported"
+  | "locked"
+  | "quota-exceeded"
+  | "permission-denied"
+  | "aborted"
+  | "too-large"
+  | "unknown";
 
 /** Version stored with record-backed filesystem entries. */
 export const RecordVersionSchema = z.literal(1);
@@ -328,25 +407,25 @@ export type SqlIdentifierType = z.output<typeof SqlIdentifierSchema>;
 export const DriverKindSchema = z.enum(["file", "record", "object"]);
 
 /** A validated backend driver family. */
-export type DriverKindType = z.output<typeof DriverKindSchema>;
+export type DriverKindType = "file" | "record" | "object";
 
 /** Why one driver limit exists. */
 export const LimitKindSchema = z.enum(["hard", "policy", "dynamic"]);
 
 /** A validated limit kind. */
-export type LimitKindType = z.output<typeof LimitKindSchema>;
+export type LimitKindType = "hard" | "policy" | "dynamic";
 
 /** Layer that supplied one limit value. */
 export const LimitSourceSchema = z.enum(["provider", "implementation", "user", "probe"]);
 
 /** A validated limit source. */
-export type LimitSourceType = z.output<typeof LimitSourceSchema>;
+export type LimitSourceType = "provider" | "implementation" | "user" | "probe";
 
 /** Unit used by one numeric limit. */
 export const LimitUnitSchema = z.enum(["bytes", "count", "milliseconds", "operations"]);
 
 /** A validated limit unit. */
-export type LimitUnitType = z.output<typeof LimitUnitSchema>;
+export type LimitUnitType = "bytes" | "count" | "milliseconds" | "operations";
 
 /**
  * One inspectable storage limit with explicit provenance.
@@ -369,13 +448,26 @@ export const LimitSchema = z.object({
 });
 
 /** A validated storage limit. */
-export type LimitType = z.output<typeof LimitSchema>;
+export interface LimitType {
+  /** Stable machine-readable limit code. */
+  readonly code: string;
+  /** Whether the limit is hard, policy-driven, or dynamic. */
+  readonly kind: LimitKindType;
+  /** Layer that supplied the limit value. */
+  readonly source: LimitSourceType;
+  /** Unit used by the numeric value. */
+  readonly unit: LimitUnitType;
+  /** Current numeric limit when known. */
+  readonly value?: number | undefined;
+  /** Human-readable context for diagnostics. */
+  readonly detail?: string | undefined;
+}
 
 /** Current state of one driver requirement. */
 export const RequirementStateSchema = z.enum(["available", "missing", "unknown"]);
 
 /** A validated requirement state. */
-export type RequirementStateType = z.output<typeof RequirementStateSchema>;
+export type RequirementStateType = "available" | "missing" | "unknown";
 
 /**
  * One runtime, provider, permission, or configuration requirement.
@@ -394,13 +486,20 @@ export const RequirementSchema = z.object({
 });
 
 /** A validated driver requirement. */
-export type RequirementType = z.output<typeof RequirementSchema>;
+export interface RequirementType {
+  /** Stable machine-readable requirement code. */
+  readonly code: string;
+  /** Current known availability state. */
+  readonly state: RequirementStateType;
+  /** Concrete reason when the requirement is missing. */
+  readonly reason?: string | undefined;
+}
 
 /** Ownership state for one configured driver backend resource. */
 export const DriverOwnershipSchema = z.enum(["none", "borrowed", "owned"]);
 
 /** A validated configured-driver backend ownership state. */
-export type DriverOwnershipType = z.output<typeof DriverOwnershipSchema>;
+export type DriverOwnershipType = "none" | "borrowed" | "owned";
 
 /**
  * One independently controllable driver optimization.
@@ -422,4 +521,15 @@ export const DriverOptimizationSchema = z.object({
 });
 
 /** A validated driver optimization declaration. */
-export type DriverOptimizationType = z.output<typeof DriverOptimizationSchema>;
+export interface DriverOptimizationType {
+  /** Stable machine-readable optimization code. */
+  readonly code: string;
+  /** Current enabled state. */
+  readonly enabled: boolean;
+  /** Whether this optimization changes observable behavior. */
+  readonly changesBehavior: boolean;
+  /** Whether callers can turn this optimization off. */
+  readonly disableable: boolean;
+  /** Human-readable detail for diagnostics or documentation. */
+  readonly detail?: string | undefined;
+}

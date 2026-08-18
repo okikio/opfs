@@ -14,6 +14,47 @@ import { normalizePath } from "./path.ts";
 import type { OptimizationType, SupportModeType } from "./schema.ts";
 import { SupportModeSchema, WriteModeSchema } from "./schema.ts";
 
+/** Validated read preflight input after defaults are applied. */
+interface ReadPlanInputResolvedType {
+  readonly operation: "read";
+  readonly path?: string | undefined;
+  readonly size?: number | undefined;
+  readonly range: boolean;
+}
+
+/** Validated write preflight input after defaults are applied. */
+interface WritePlanInputResolvedType {
+  readonly operation: "write";
+  readonly path?: string | undefined;
+  readonly size?: number | undefined;
+  readonly inputBytes?: number | undefined;
+  readonly source: WriteSourceType;
+  readonly mode: "replace" | "append" | "update";
+}
+
+/** Validated copy preflight input. */
+interface CopyPlanInputResolvedType {
+  readonly operation: "copy";
+  readonly path?: string | undefined;
+  readonly destination?: string | undefined;
+  readonly size?: number | undefined;
+}
+
+/** Validated move preflight input. */
+interface MovePlanInputResolvedType {
+  readonly operation: "move";
+  readonly path?: string | undefined;
+  readonly destination?: string | undefined;
+  readonly size?: number | undefined;
+}
+
+/** Validated preflight input shape after schema defaults are applied. */
+type ResolvedPlanInputType =
+  | ReadPlanInputResolvedType
+  | WritePlanInputResolvedType
+  | CopyPlanInputResolvedType
+  | MovePlanInputResolvedType;
+
 /**
  * Physical source form supplied to a planned write.
  *
@@ -22,7 +63,7 @@ import { SupportModeSchema, WriteModeSchema } from "./schema.ts";
  */
 export const WriteSourceSchema = z.enum(["bytes", "stream"]);
 /** Validated physical write-source form. */
-export type WriteSourceType = z.output<typeof WriteSourceSchema>;
+export type WriteSourceType = "bytes" | "stream";
 /**
  * Filesystem operations supported by deterministic preflight planning.
  *
@@ -31,7 +72,59 @@ export type WriteSourceType = z.output<typeof WriteSourceSchema>;
  */
 export const PlanOperationSchema = z.enum(["read", "write", "copy", "move"]);
 /** Validated preflight operation name. */
-export type PlanOperationType = z.output<typeof PlanOperationSchema>;
+export type PlanOperationType = "read" | "write" | "copy" | "move";
+
+/** Preflight input for a read request before schema defaults are applied. */
+export interface ReadPlanInputType {
+  /** Selects a read preflight request. */
+  readonly operation: "read";
+  /** Path the caller plans to read. */
+  readonly path?: string | undefined;
+  /** Caller-known logical size when available. */
+  readonly size?: number | undefined;
+  /** Whether the read plans a byte range instead of the full file. */
+  readonly range?: boolean | undefined;
+}
+
+/** Preflight input for a write request before schema defaults are applied. */
+export interface WritePlanInputType {
+  /** Selects a write preflight request. */
+  readonly operation: "write";
+  /** Path the caller plans to write. */
+  readonly path?: string | undefined;
+  /** Caller-known logical size when available. */
+  readonly size?: number | undefined;
+  /** Caller-known already-buffered byte count when streaming. */
+  readonly inputBytes?: number | undefined;
+  /** Physical source form for the write request. */
+  readonly source: WriteSourceType;
+  /** Requested write semantics. */
+  readonly mode?: "replace" | "append" | "update" | undefined;
+}
+
+/** Preflight input for a copy request. */
+export interface CopyPlanInputType {
+  /** Selects a copy preflight request. */
+  readonly operation: "copy";
+  /** Source path the caller plans to copy. */
+  readonly path?: string | undefined;
+  /** Destination path for the copy request. */
+  readonly destination?: string | undefined;
+  /** Caller-known logical size when available. */
+  readonly size?: number | undefined;
+}
+
+/** Preflight input for a move request. */
+export interface MovePlanInputType {
+  /** Selects a move preflight request. */
+  readonly operation: "move";
+  /** Source path the caller plans to move. */
+  readonly path?: string | undefined;
+  /** Destination path for the move request. */
+  readonly destination?: string | undefined;
+  /** Caller-known logical size when available. */
+  readonly size?: number | undefined;
+}
 
 /**
  * Serializable preflight request for one concrete filesystem operation.
@@ -69,7 +162,7 @@ export const PlanInputSchema = z.discriminatedUnion("operation", [
   }).strict(),
 ]);
 /** Input accepted by filesystem preflight before defaults and path normalization. */
-export type PlanInputType = z.input<typeof PlanInputSchema>;
+export type PlanInputType = ReadPlanInputType | WritePlanInputType | CopyPlanInputType | MovePlanInputType;
 
 /**
  * Structured preflight result for the complete driver -> adapter -> filesystem stack.
@@ -90,7 +183,26 @@ export const PlanSchema = z.object({
   actions: z.array(ActionSchema).readonly(),
 }).strict();
 /** Validated complete-stack preflight result. */
-export type PlanType = z.output<typeof PlanSchema>;
+export interface PlanType {
+  /** Filesystem operation that was planned. */
+  readonly operation: PlanOperationType;
+  /** Whether the complete storage stack can perform the request safely. */
+  readonly supported: boolean;
+  /** Effective support mode after driver, adapter, and facade policy are combined. */
+  readonly support: SupportModeType;
+  /** Backend-native planning result preserved inside the full plan. */
+  readonly driver: DriverPlanType;
+  /** Facade-owned buffering required before the request can proceed. */
+  readonly bufferBytes?: number | undefined;
+  /** Physical part or block size when partitioning is involved. */
+  readonly partBytes?: number | undefined;
+  /** Physical part or block count when partitioning is involved. */
+  readonly parts?: number | undefined;
+  /** Structured problems found across the complete storage stack. */
+  readonly problems: readonly ProblemType[];
+  /** Structured actions the caller can take next. */
+  readonly actions: readonly ActionType[];
+}
 
 /**
  * Internal facade state required to combine adapter and driver preflight.
@@ -131,7 +243,7 @@ function action(kind: ActionType["kind"], detail?: string): ActionType {
  * paths are normalized, defaults are resolved, and only driver-relevant fields
  * cross the boundary.
  */
-function getDriverPlan(input: z.output<typeof PlanInputSchema>, adapter: AdapterType): DriverPlanType {
+function getDriverPlan(input: ResolvedPlanInputType, adapter: AdapterType): DriverPlanType {
   return adapter.driver.plan({
     operation: input.operation,
     ...(input.path === undefined ? {} : { path: normalizePath(input.path) }),
