@@ -108,6 +108,11 @@ function depth(value: string): number {
   return count;
 }
 
+/** Returns whether one normalized filesystem failure means the requested entry is absent. */
+function missing(error: unknown): boolean {
+  return typeof error === "object" && error !== null && Reflect.get(error, "code") === "not-found";
+}
+
 /**
  * Collision-safe key-value projection over one filesystem.
  *
@@ -124,7 +129,7 @@ function depth(value: string): number {
  * The class borrows the filesystem unless `disposeFileSystem` explicitly
  * transfers ownership. It never configures storage, logging, or global state.
  */
-class KeyValueBridgeImpl implements KeyValueBridgeType {
+export class KeyValueBridgeImpl implements KeyValueBridgeType {
   /** Filesystem that stores the encoded hierarchy and value leaves. */
   readonly #fileSystem: FileSystemType;
   /** Canonical directory below which all key data is stored. */
@@ -159,10 +164,15 @@ class KeyValueBridgeImpl implements KeyValueBridgeType {
     return await this.#fileSystem.exists(path(this.#root, value), { kind: "file" });
   }
 
-  /** Reads one UTF-8 value without treating a missing key as a filesystem failure. */
+  /** Reads one UTF-8 value without a check-then-read race. */
   async get(value: string): Promise<string | null> {
     const file = path(this.#root, value);
-    return await this.#fileSystem.exists(file, { kind: "file" }) ? await this.#fileSystem.readText(file) : null;
+    try {
+      return await this.#fileSystem.readText(file);
+    } catch (error) {
+      if (missing(error)) return null;
+      throw error;
+    }
   }
 
   /** Replaces one UTF-8 value and creates hierarchy directories when needed. */
@@ -170,10 +180,15 @@ class KeyValueBridgeImpl implements KeyValueBridgeType {
     await this.#fileSystem.writeFile(path(this.#root, value), data, { parents: true, mode: "replace" });
   }
 
-  /** Reads one raw byte value without text transcoding. */
+  /** Reads one raw byte value without a check-then-read race. */
   async getRaw(value: string): Promise<Uint8Array | null> {
     const file = path(this.#root, value);
-    return await this.#fileSystem.exists(file, { kind: "file" }) ? await this.#fileSystem.readFile(file) : null;
+    try {
+      return await this.#fileSystem.readFile(file);
+    } catch (error) {
+      if (missing(error)) return null;
+      throw error;
+    }
   }
 
   /** Replaces one raw value using the filesystem's normal write-data contract. */
@@ -181,18 +196,25 @@ class KeyValueBridgeImpl implements KeyValueBridgeType {
     await this.#fileSystem.writeFile(path(this.#root, value), data, { parents: true, mode: "replace" });
   }
 
-  /** Removes only the exact value leaf and leaves descendant keys intact. */
+  /** Removes only the exact value leaf and treats a concurrent/missing delete as complete. */
   async remove(value: string): Promise<void> {
-    const file = path(this.#root, value);
-    if (await this.#fileSystem.exists(file, { kind: "file" })) await this.#fileSystem.remove(file);
+    try {
+      await this.#fileSystem.remove(path(this.#root, value));
+    } catch (error) {
+      if (!missing(error)) throw error;
+    }
   }
 
-  /** Projects filesystem modification time into the small KV metadata contract. */
+  /** Projects filesystem modification time without an advisory existence precondition. */
   async meta(value: string): Promise<KeyValueMetaType | null> {
     const file = path(this.#root, value);
-    if (!(await this.#fileSystem.exists(file, { kind: "file" }))) return null;
-    const valueStat = await this.#fileSystem.stat(file);
-    return valueStat.kind === "file" ? { modified: new Date(valueStat.lastModified) } : null;
+    try {
+      const valueStat = await this.#fileSystem.stat(file);
+      return valueStat.kind === "file" ? { modified: new Date(valueStat.lastModified) } : null;
+    } catch (error) {
+      if (missing(error)) return null;
+      throw error;
+    }
   }
 
   /**
@@ -204,14 +226,22 @@ class KeyValueBridgeImpl implements KeyValueBridgeType {
    */
   async keys(base = "", options: { readonly maxDepth?: number } = {}): Promise<string[]> {
     const baseDirectory = directory(this.#root, base);
-    if (!(await this.#fileSystem.exists(baseDirectory, { kind: "directory" }))) return [];
-
     const output: string[] = [];
-    for await (const entry of this.#fileSystem.walk(baseDirectory, { includeFiles: true, includeDirectories: false })) {
-      const value = key(this.#root, entry.path);
-      if (value === null) continue;
-      if (options.maxDepth !== undefined && depth(value) > options.maxDepth) continue;
-      output.push(value);
+    try {
+      for await (const entry of this.#fileSystem.walk(baseDirectory, {
+        includeFiles: true,
+        includeDirectories: false,
+      })) {
+        const value = key(this.#root, entry.path);
+        if (value === null) continue;
+        if (options.maxDepth !== undefined && depth(value) > options.maxDepth) continue;
+        output.push(value);
+      }
+    } catch (error) {
+      // Listing is not a snapshot. If another owner removes the subtree while
+      // it is being enumerated, return the values observed before disappearance
+      // instead of turning an advisory race into a filesystem exception.
+      if (!missing(error)) throw error;
     }
     return output;
   }
@@ -225,14 +255,17 @@ class KeyValueBridgeImpl implements KeyValueBridgeType {
    */
   async clear(base = "", options: { readonly preserveExact?: boolean } = {}): Promise<void> {
     const baseDirectory = directory(this.#root, base);
-    if (!(await this.#fileSystem.exists(baseDirectory, { kind: "directory" }))) return;
-    if (!options.preserveExact) {
-      await this.#fileSystem.emptyDir(baseDirectory);
-      return;
-    }
+    try {
+      if (!options.preserveExact) {
+        await this.#fileSystem.emptyDir(baseDirectory);
+        return;
+      }
 
-    for await (const entry of this.#fileSystem.readDir(baseDirectory)) {
-      if (entry.kind === "directory") await this.#fileSystem.remove(entry.path, { recursive: true });
+      for await (const entry of this.#fileSystem.readDir(baseDirectory)) {
+        if (entry.kind === "directory") await this.#fileSystem.remove(entry.path, { recursive: true });
+      }
+    } catch (error) {
+      if (!missing(error)) throw error;
     }
   }
 

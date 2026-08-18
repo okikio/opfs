@@ -13,7 +13,10 @@ import {
   DENO_KV_MAX_VALUE_BYTES,
   DENO_KV_SAFE_INLINE_BYTES,
   DENO_KV_SAFE_PART_BYTES,
+  type DenoKvAtomicType,
+  type DenoKvCheckType,
   type DenoKvCollectOptionsType,
+  type DenoKvCommitType,
   type DenoKvCollectResultType,
   type DenoKvDriverOptionsType,
   type DenoKvDriverType,
@@ -41,7 +44,16 @@ export {
 export type DenoKvAdapterOptionsType = DenoKvDriverOptionsType;
 
 /** Minimal Deno KV entry and database contracts consumed by the driver. */
-export type { DenoKvCollectOptionsType, DenoKvCollectResultType, DenoKvDriverType, DenoKvEntryType, DenoKvType };
+export type {
+  DenoKvAtomicType,
+  DenoKvCheckType,
+  DenoKvCollectOptionsType,
+  DenoKvCollectResultType,
+  DenoKvCommitType,
+  DenoKvDriverType,
+  DenoKvEntryType,
+  DenoKvType,
+};
 
 /** Resolves a positive integer adapter setting before projecting driver policy. */
 function positive(value: number | undefined, fallback: number, name: string): number {
