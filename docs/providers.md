@@ -1,232 +1,233 @@
-Object-provider integration tests
-=================================
+# Provider and filesystem baseline tests
 
-Purpose
--------
+## Purpose
 
-The direct S3 and Azure clients own HTTP protocol behavior that a pure mock cannot prove. This guide explains the local provider
-fixtures used to test real signing, request routing, ranges, multipart/block state, copy, listing, and filesystem translation
-without requiring cloud credentials for every maintainer run.
+S3 and Azure Blob have two kinds of external baseline:
 
-Provider containers supplement deterministic protocol tests. They do not replace the Amazon S3 or Azure Blob specifications.
-They also do not become a production dependency or a storage abstraction. Testcontainers exists only in development tooling.
+1. protocol/API clients such as the AWS SDK and Azure SDK;
+2. filesystem clients such as AWS Mountpoint and Azure BlobFuse.
 
-Testcontainers owns provider lifecycle
---------------------------------------
+They answer different questions. SDK/provider tests validate object protocol behavior. Filesystem-client benchmarks
+compare the performance and semantics of a mature provider-to-filesystem translation against this package's own
+driver/adapter/facade stack.
 
-`tests/provider/fixture.ts` uses Testcontainers for Node.js instead of a repository-owned Docker Compose and polling harness:
+## Testcontainers owns disposable protocol providers
 
-```text
-node:test
-   |
-   v
-ProviderFixture
-   |
-   +--> Testcontainers GenericContainer
-   |       |
-   |       `--> SeaweedFS 4.41
-   |              S3-compatible API
-   |
-   `--> @testcontainers/azurite
-           |
-           `--> Azurite 3.36.0
-                  Azure Blob API
-```
-
-The images remain pinned:
+`tests/provider/fixture.ts` starts local provider services with Testcontainers for Node.js.
 
 ```text
-chrislusf/seaweedfs:4.41
-mcr.microsoft.com/azure-storage/azurite:3.36.0
+node:test / Mitata
+       |
+ ProviderFixture
+       |
+       +-- SeaweedFS
+       |     S3-compatible endpoint
+       |
+       `-- Azurite
+             Azure Blob endpoint
 ```
 
-Testcontainers chooses free host ports and waits for the exposed service instead of requiring fixed `8333` and `10000` host
-ports. The S3 fixture combines listening-port and HTTP readiness. The official Azurite module owns its emulator-specific startup
-contract, uses in-memory persistence, skips only Azurite's API-version allow-list check, and exposes the mapped Blob endpoint.
+The fixture uses mapped host ports and Testcontainers-owned readiness/cleanup. There is no repository-owned Docker
+Compose lifecycle, fixed provider port, curl readiness loop, or shell trap for these services.
 
-SeaweedFS still uses `GenericContainer` because the Testcontainers Node catalog does not provide a SeaweedFS module. The code
-uses the official Azurite module because Testcontainers recommends a focused module when one exists instead of duplicating that
-container's configuration in every project.
+The provider fixture is test infrastructure only. Public package code does not import Testcontainers.
 
-`ProviderFixture` owns every container it starts. `close()` is idempotent and attempts to stop every owned container even if one
-cleanup operation fails. Partial construction also stops SeaweedFS if Azurite cannot start. This keeps acquisition and cleanup in
-one place instead of spreading lifecycle work across shell traps, readiness polling, and the test body.
+## SeaweedFS S3 target
 
-Testcontainers is an interim compute layer
-------------------------------------------
-
-The project deliberately does not treat Testcontainers as the final runtime/provider abstraction. Testcontainers Node currently
-centers Docker-compatible container runtimes. Its documentation covers Docker directly and documents setup/limitations for
-Podman, Colima, and Rancher Desktop.
-
-That is sufficient for the current local service fixtures. It is not the model for future Apple `container`, WSL containers,
-microVMs, cloud VMs, Kubernetes, or other compute providers. A future environment/provider layer can replace how fixtures are
-started while preserving this test contract:
+SeaweedFS is used as one independent S3-compatible implementation. The test config supplies endpoint, bucket, region,
+and test credentials to:
 
 ```text
-provider fixture
-     |
-     +--> endpoint
-     +--> credentials
-     +--> lifecycle ownership
-     `--> diagnostics
-
-protocol/client tests consume only those facts
+AWS SDK
+project S3 client
+project S3 driver
+project S3 adapter
+FileSystemType
 ```
 
-The provider test therefore does not inspect Docker container IDs or Docker networks after startup. Those are fixture mechanics,
-not S3/Azure test semantics.
+Tests cover the implemented shared contract, including:
 
-Run the provider suite
-----------------------
+- signed put/head/get/delete;
+- byte ranges;
+- conditional create/replace where supported by the fixture;
+- multipart streamed replacement;
+- server-side copy;
+- prefix/delimiter listing;
+- filesystem directory/object translation.
 
-The canonical command is:
+SeaweedFS does not define Amazon S3 semantics. AWS-specific limits and canonical signing behavior remain covered by
+deterministic protocol tests and AWS primary documentation.
+
+## Azurite target
+
+The official `@testcontainers/azurite` module supplies a Blob endpoint and test account credentials.
+
+The provider suite exercises:
+
+```text
+Azure SDK
+project Azure client
+project Azure driver
+project Azure adapter
+FileSystemType
+```
+
+Coverage includes:
+
+- Shared Key authentication against the emulator;
+- blob put/head/range/delete;
+- block upload and block-list commit;
+- server-side copy;
+- container listing/prefix translation;
+- filesystem translation.
+
+Azurite is an emulator. A green Azurite result is interoperability evidence, not proof of every cloud Azure service
+version or feature.
+
+## Provider benchmark staircase
+
+`bench/provider.bench.ts` keeps every layer visible.
+
+S3:
+
+```text
+AWS SDK
+  -> project S3 client
+  -> project S3 driver
+  -> project object adapter
+  -> facade metrics:none
+  -> facade metrics:basic
+```
+
+Azure:
+
+```text
+Azure SDK
+  -> project Azure client
+  -> project Azure driver
+  -> project object adapter
+  -> facade metrics:none
+  -> facade metrics:basic
+```
+
+These are separate benchmark samples, not one chain executed for each operation. The staircase wording means each result
+adds one project layer over the same configured provider.
+
+`bench/bun-provider.bench.ts` adds Bun's native S3 client as another S3 baseline when Bun is available.
+
+Container startup and image pull are completed before measured Mitata cases begin.
+
+## Physical versus logical metrics
+
+The provider client/driver can report physical counters such as requests, retries, responses, failures, and
+multipart/block work. The facade reports logical filesystem operations and facade buffering.
+
+A benchmark should not infer provider requests from logical operations. One logical large write can become many physical
+parts.
+
+## AWS Mountpoint baseline
+
+AWS Mountpoint is a separate filesystem-client comparator. It translates file operations to S3 and deliberately supports
+a subset of ordinary filesystem semantics.
+
+The package does not assume Mountpoint is a generic S3-compatible implementation. The benchmark target should use Amazon
+S3 when that is the intended conformance/performance comparison. A custom endpoint can be used for local experimentation
+when Mountpoint supports the selected endpoint configuration, but that does not turn the result into an AWS-supported
+compatibility claim.
+
+Mountpoint setup/mount lifecycle is external to the normal Testcontainers provider fixture because it is a host
+FUSE/system client. After the mount exists, set:
 
 ```sh
-mise run test-providers
+OPFS_MOUNTPOINT_S3_ROOT=/path/to/mount
+mise run bench-filesystem-clients
 ```
 
-The task is intentionally small:
+The benchmark then measures:
 
 ```text
-mise
-  |
-  +--> deno ci
-  |
-  `--> node --test tests/provider.test.ts
-                 |
-                 `--> Testcontainers owns startup/readiness/cleanup
+raw Node fs against the mount
+Node file driver against the mount
+file adapter against the driver
+FileSystemType against the adapter
 ```
 
-`node:test` remains the repository test runner. Testcontainers supplies resources to the test; it does not become a second test
-framework.
+This shows the project overhead when the provider-to-filesystem translation is owned by Mountpoint rather than by the
+package's S3 client/driver.
 
-GitHub Actions calls the same mise task. The workflow installs mise, asks mise for the Deno and Node versions required by the
-provider job, and then runs `mise run test-providers`. GitHub Actions owns only job topology, permissions, runner selection,
-timeouts, and secrets. It does not duplicate provider startup commands.
+## Azure BlobFuse baseline
 
-Playwright owns browser lifecycle separately
---------------------------------------------
+BlobFuse is the analogous Azure Blob filesystem-client comparator. It also has caching/configuration semantics that can
+change observable filesystem behavior and performance.
 
-Testcontainers and Playwright solve different lifecycle problems:
-
-```text
-node:test + Testcontainers
-    S3/Azure service interoperability
-
-Playwright Test
-    Chromium/Firefox/WebKit runtime interoperability
-    Window/Worker/ServiceWorker/iframe/storage lifecycle
-```
-
-The browser matrix stays under `tests/browser/`. Playwright owns browser installation, isolated `BrowserContext` instances,
-persistent profiles, traces, retries, and Vite fixture-server lifecycle. Provider tests do not launch browsers, and browser tests
-do not launch provider containers merely to share a framework.
-
-Provider benchmarks keep startup outside timed work
-----------------------------------------------------
-
-The same Testcontainers fixture owns provider startup for:
+Provision/mount BlobFuse externally, then run:
 
 ```sh
-mise run bench-providers
+OPFS_BLOBFUSE_ROOT=/path/to/mount
+mise run bench-filesystem-clients
 ```
 
-`bench/providers.ts` starts SeaweedFS and Azurite once, obtains their random host endpoints, and passes those endpoints to the
-actual benchmark programs. Container startup, image pull, and readiness time therefore do not enter a Mitata sample.
+The same raw -> driver -> adapter -> facade staircase is measured.
 
-S3 is measured as:
+Caching mode and write mode must be recorded with benchmark results. A cached BlobFuse read is not semantically
+equivalent to a direct uncached REST read simply because both return the same bytes in one sample.
+
+## Why filesystem-client mounts are not a default CI job
+
+Mountpoint and BlobFuse need operating-system packages, FUSE support, mount permissions, and cleanup. Those requirements
+are materially different from a disposable HTTP test container.
+
+The repository therefore provides a canonical benchmark program and mise task, while the runner owns system-level mount
+setup. A dedicated privileged benchmark runner can automate installation/mounting without making ordinary pull-request
+CI depend on FUSE privileges.
+
+## Comparable operations only
+
+Filesystem clients do not necessarily implement all POSIX operations, and object stores do not naturally have POSIX
+semantics. The benchmark therefore starts from supported operations rather than treating an unsupported operation as a
+slow operation.
+
+For each baseline, record:
 
 ```text
-AWS SDK v3 baseline
-Bun native S3Client baseline
-@okikio/opfs direct SigV4 client
-direct ObjectStore adapter
-FileSystemType with metrics none
-FileSystemType with metrics basic
+operation
+native/support status
+cache mode
+write mode
+payload size
+concurrency
+elapsed/throughput
+request/physical metrics when available
 ```
 
-Azure is measured as:
+A performance comparison is valid only when the operation semantics being compared are close enough to answer the same
+question.
 
-```text
-@azure/storage-blob baseline
-@okikio/opfs direct Azure REST client
-direct ObjectStore adapter
-FileSystemType with metrics none
-FileSystemType with metrics basic
-```
+## Real cloud suites
 
-Small replacement and multipart/block cases remain separate. Different request plans must not be reported as facade overhead.
-Loopback results are diagnostics about client/abstraction cost, not cloud-throughput claims.
+Local provider fixtures should be supplemented by opt-in cloud suites before high-confidence releases of protocol
+changes.
 
-What the live tests prove
--------------------------
+Amazon S3:
 
-The S3 path validates:
+- short-lived credentials;
+- disposable bucket/prefix;
+- explicit cleanup;
+- same deterministic operation set used locally where service semantics match.
 
-- a real SigV4 HTTP request accepted by an independent S3-compatible server;
-- PUT and HEAD;
-- byte-range GET;
-- create-only conditional replacement;
-- multipart stream upload with a legal non-final part size;
-- provider-side copy;
-- prefix listing;
-- delete cleanup;
-- `ObjectStoreType -> AdapterType -> FileSystemType` translation.
+Azure Blob:
 
-The Azure path validates:
+- short-lived identity/SAS credentials;
+- disposable container/prefix;
+- explicit cleanup;
+- service-version coverage relevant to the changed code.
 
-- Shared Key accepted by Azurite;
-- explicit container creation;
-- Put Blob and Get Blob Properties;
-- byte-range GET;
-- create-only conditional replacement;
-- Put Block / Put Block List streaming upload;
-- same-account server-side copy;
-- prefix listing;
-- delete cleanup;
-- `ObjectStoreType -> AdapterType -> FileSystemType` translation.
+Cloud credentials must never become required for ordinary portable tests.
 
-The provider receives the actual headers, query fields, bytes, XML, and signatures created by the library.
+## Failure injection
 
-What the live tests do not prove
---------------------------------
+Network fault injection is still future work. Toxiproxy or another socket-level test service can add latency, reset,
+timeout, retry, cancellation, and multipart/block cleanup scenarios around the real provider clients.
 
-A compatible server or emulator cannot prove every detail of a cloud service. The suite does not use it as the oracle for:
-
-- exact AWS canonical-request text;
-- AWS-only HTTP-200 embedded error bodies;
-- every S3 service limit;
-- Azure Shared Key construction independently of Azurite;
-- every historical Azure service-version size limit;
-- cloud role/identity acquisition;
-- region routing and redirects;
-- provider throttling;
-- cloud durability or consistency guarantees;
-- billing, retention, encryption, replication, or versioning.
-
-Those cases belong to deterministic protocol tests where possible and opt-in real-cloud suites when a local provider cannot
-represent the behavior faithfully.
-
-Why the matrix keeps both test styles
--------------------------------------
-
-| Test style | Strong at | Weak at |
-| ---------- | --------- | ------- |
-| Deterministic request test | Exact canonical text, headers, limits, branch selection | Real HTTP parser/auth integration |
-| Testcontainers provider | Real socket/HTTP/auth/protocol interoperability | Complete cloud parity |
-| Optional real cloud | Actual provider behavior | Cost, credentials, availability, reproducibility |
-
-A client change that affects signing, multipart/block state, copy, conditions, retries, cancellation, or provider errors should
-update the deterministic test and the provider integration when the local implementation can represent that behavior.
-
-Future provider breadth
------------------------
-
-The current fixture is deliberately small. Additional S3-compatible services should be added only when they exercise a materially
-different contract, not to increase a provider count. Useful differences include addressing, copy/condition support, multipart
-errors, non-AWS region behavior, and pagination.
-
-Network-fault fixtures are also a useful next layer. Testcontainers provides a Toxiproxy module, which can be used to prove
-retry, timeout, cancellation, and cleanup behavior against a real socket path without adding unreliable sleeps to the tests.
-That belongs in a focused failure suite rather than the normal happy-path provider test.
+It should remain test-fixture infrastructure. The public OPFS/client/driver architecture must not depend on a
+fault-injection service.

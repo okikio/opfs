@@ -1,10 +1,10 @@
-Research and source register
-============================
+# Research and source register
 
 Research date: 2026-08-15.
 
-This register records the external contracts used to design and test the implementation. Source code and provider behavior can
-change, so a release review should recheck current primary sources rather than assuming this date remains current.
+This register records the external contracts used to design and test the implementation. Source code and provider
+behavior can change, so a release review should recheck current primary sources rather than assuming this date remains
+current.
 
 Use this authority order when sources disagree:
 
@@ -13,11 +13,10 @@ Use this authority order when sources disagree:
 3. current package implementation and tests;
 4. older experiments and secondary performance reports.
 
-The package intentionally distinguishes implemented behavior from provider claims and proposals. A compatibility note in this
-file is not evidence that an adapter passed a live integration test against that provider.
+The package intentionally distinguishes implemented behavior from provider claims and proposals. A compatibility note in
+this file is not evidence that an adapter passed a live integration test against that provider.
 
-Browser File System and OPFS
-----------------------------
+## Browser File System and OPFS
 
 Primary sources:
 
@@ -46,8 +45,7 @@ Secondary OPFS/performance context reviewed earlier in the project:
 
 These sources informed performance questions. They do not override the File System Standard or real browser tests.
 
-Playwright
-----------
+## Playwright
 
 Primary documentation:
 
@@ -63,8 +61,7 @@ The canonical browser test architecture uses Playwright Test for Chromium, Firef
 ServiceWorker instrumentation because Playwright documents that inspection surface as Chromium-specific; observable
 ServiceWorker behavior remains a black-box test in the other browsers.
 
-Testcontainers
---------------
+## Testcontainers
 
 Primary documentation and source reviewed:
 
@@ -76,18 +73,17 @@ Primary documentation and source reviewed:
 - Toxiproxy module: <https://node.testcontainers.org/modules/toxiproxy/>
 - repository: <https://github.com/testcontainers/testcontainers-node>
 
-The provider suite keeps `node:test` as the test runner and uses Testcontainers only for service lifecycle. The official Azurite
-module is used instead of reproducing its container flags. SeaweedFS has no focused Testcontainers module, so the fixture uses
-`GenericContainer` with the pinned image and a composite listening-port/HTTP wait. Random mapped host ports avoid collisions
-between concurrent local runs.
+The provider suite keeps `node:test` as the test runner and uses Testcontainers only for service lifecycle. The official
+Azurite module is used instead of reproducing its container flags. SeaweedFS has no focused Testcontainers module, so
+the fixture uses `GenericContainer` with the pinned image and a composite listening-port/HTTP wait. Random mapped host
+ports avoid collisions between concurrent local runs.
 
-Testcontainers currently documents Docker directly and Docker-compatible configuration for Podman, Colima, and Rancher Desktop.
-Those runtimes have provider-specific caveats, including Ryuk behavior under Podman and delayed port forwarding under
-Colima/Rancher. The package therefore treats Testcontainers as an interim test-resource implementation, not as the future
-compute-provider API for OPFS.
+Testcontainers currently documents Docker directly and Docker-compatible configuration for Podman, Colima, and Rancher
+Desktop. Those runtimes have provider-specific caveats, including Ryuk behavior under Podman and delayed port forwarding
+under Colima/Rancher. The package therefore treats Testcontainers as an interim test-resource implementation, not as the
+future compute-provider API for OPFS.
 
-Deno, Node, and Bun
--------------------
+## Deno, Node, and Bun
 
 Primary runtime sources:
 
@@ -99,111 +95,92 @@ Primary runtime sources:
 - Bun benchmarking guidance: <https://bun.com/docs/project/benchmarking>
 - Node documentation: <https://nodejs.org/docs/latest/api/>
 
-Current Deno documentation treats `node:test` as a first-class test API and currently marks Deno KV unstable. The real Deno KV
-suite therefore uses `--unstable-kv` without making that flag part of unrelated source imports. Current Deno KV documentation
-states a 2 KiB serialized key limit, a 64 KiB serialized value limit, 1,000 mutations per atomic operation, and an 800 KiB total
-atomic-operation limit. The Deno KV adapter exposes these constraints and uses a configurable manifest/part layout instead of
-pretending one logical file must fit in one 64 KiB value.
+Current Deno documentation treats `node:test` as a first-class test API and currently marks Deno KV unstable. The real
+Deno KV suite therefore uses `--unstable-kv` without making that flag part of unrelated source imports. Current Deno KV
+documentation states a 2 KiB serialized key limit, a 64 KiB serialized value limit, 1,000 mutations per atomic
+operation, and an 800 KiB total atomic-operation limit. The Deno KV adapter exposes these constraints and uses a
+configurable manifest/part layout instead of pretending one logical file must fit in one 64 KiB value.
 
-Current Bun compatibility documentation says its in-process `node:test` API works when files run under `bun test`, while some
-advanced Node test-runner/reporting features remain incomplete. The repository uses the common `describe`/`it`/hooks subset and
-keeps the test API itself as `node:test`.
+Current Bun compatibility documentation says its in-process `node:test` API works when files run under `bun test`, while
+some advanced Node test-runner/reporting features remain incomplete. The repository uses the common
+`describe`/`it`/hooks subset and keeps the test API itself as `node:test`.
 
-Bun's current File I/O documentation says `Bun.write(destination, Bun.file(source))` selects fast platform system calls for
-file-to-file copies. The current Bun Rust source also keeps file-backed Blob state distinct so file-to-file paths can avoid a
-naive user-space read/write loop. The benchmark therefore compares Bun's direct copy shape with Node-compatible `copyFile`
-before changing the adapter implementation.
+Bun's current File I/O documentation says `Bun.write(destination, Bun.file(source))` selects fast platform system calls
+for file-to-file copies. The current Bun Rust source also keeps file-backed Blob state distinct so file-to-file paths
+can avoid a naive user-space read/write loop. The benchmark therefore compares Bun's direct copy shape with
+Node-compatible `copyFile` before changing the adapter implementation.
 
-Bun's S3 documentation exposes `S3Client`, `S3File`, `write`, `stat`, `stream`, and multipart `writer()` APIs. A Bun-only provider
-benchmark now uses that native implementation as a second S3 baseline beside AWS SDK v3. The project does not treat Bun main
-branch implementation work as proof about a released runtime; the mise pin remains the current released version selected by the
-repository until a deliberate toolchain update.
+Bun's S3 documentation exposes `S3Client`, `S3File`, `write`, `stat`, `stream`, and multipart `writer()` APIs. A
+Bun-only provider benchmark now uses that native implementation as a second S3 baseline beside AWS SDK v3. The project
+does not treat Bun main branch implementation work as proof about a released runtime; the mise pin remains the current
+released version selected by the repository until a deliberate toolchain update.
 
-Deno standard libraries and Standard Schema
--------------------------------------------
+## Deno standard libraries and Standard Schema
 
-Primary sources reviewed from the current `denoland/std` repository and JSR
-packages:
+Primary sources reviewed from the current `denoland/std` repository and JSR packages:
 
- -  `@std/async`: <https://jsr.io/@std/async>
- -  `@std/bytes`: <https://jsr.io/@std/bytes>
- -  `@std/encoding`: <https://jsr.io/@std/encoding>
- -  `@std/expect`: <https://jsr.io/@std/expect>
- -  `@std/fs`: <https://jsr.io/@std/fs>
- -  `@std/http`: <https://jsr.io/@std/http>
- -  `@std/path`: <https://jsr.io/@std/path>
- -  `@std/streams`: <https://jsr.io/@std/streams>
- -  `@std/xml`: <https://jsr.io/@std/xml>
- -  `@std/crypto`: <https://jsr.io/@std/crypto>
- -  Standard Schema: <https://standardschema.dev/>
- -  Zod 4: <https://zod.dev/>
+- `@std/async`: <https://jsr.io/@std/async>
+- `@std/bytes`: <https://jsr.io/@std/bytes>
+- `@std/encoding`: <https://jsr.io/@std/encoding>
+- `@std/expect`: <https://jsr.io/@std/expect>
+- `@std/fs`: <https://jsr.io/@std/fs>
+- `@std/http`: <https://jsr.io/@std/http>
+- `@std/path`: <https://jsr.io/@std/path>
+- `@std/streams`: <https://jsr.io/@std/streams>
+- `@std/xml`: <https://jsr.io/@std/xml>
+- `@std/crypto`: <https://jsr.io/@std/crypto>
+- Standard Schema: <https://standardschema.dev/>
+- Zod 4: <https://zod.dev/>
 
-The review was operation-led. A standard package replaces project code only
-when its contract matches the filesystem or provider requirement without hiding
-a stronger invariant.
+The review was operation-led. A standard package replaces project code only when its contract matches the filesystem or
+provider requirement without hiding a stronger invariant.
 
-`@std/async/pool` owns bounded multipart and block concurrency. The stable
-`pooledMap()` contract limits active requests and lets already-started requests
-settle after one item fails. S3 cleanup waits for that settlement before it
-sends `AbortMultipartUpload`, so a late part cannot arrive after the cleanup
-request.
+`@std/async/pool` owns bounded multipart and block concurrency. The stable `pooledMap()` contract limits active requests
+and lets already-started requests settle after one item fails. S3 cleanup waits for that settlement before it sends
+`AbortMultipartUpload`, so a late part cannot arrive after the cleanup request.
 
-`@std/async/retry` owns the direct clients' exponential backoff, jitter, AbortSignal, and retriable-error loop. The protocol
-layer still classifies whether a request may enter that loop. One-shot streams are not replayed, and S3 multipart initiation and
-completion disable automatic retry because a lost response can make the remote lifecycle outcome ambiguous. The low-level
-request APIs also expose `retry: false` for provider-specific operations.
+`@std/async/retry` owns the direct clients' exponential backoff, jitter, AbortSignal, and retriable-error loop. The
+protocol layer still classifies whether a request may enter that loop. One-shot streams are not replayed, and S3
+multipart initiation and completion disable automatic retry because a lost response can make the remote lifecycle
+outcome ambiguous. The low-level request APIs also expose `retry: false` for provider-specific operations.
 
-`@std/bytes/concat` owns byte-array concatenation used by bounded chunk
-assembly. The package does not maintain another concatenation implementation.
+`@std/bytes/concat` owns byte-array concatenation used by bounded chunk assembly. The package does not maintain another
+concatenation implementation.
 
-`@std/streams` owns bounded materialization through
-`LimitedBytesTransformStream` and final stream collection through `toBytes()`.
-The current `FixedChunkStream` API is still marked unstable, so fixed-size
-provider chunks remain in the package's small streaming adapter until that
-standard contract is suitable for a public dependency.
+`@std/streams` owns bounded materialization through `LimitedBytesTransformStream` and final stream collection through
+`toBytes()`. The current `FixedChunkStream` API is still marked unstable, so fixed-size provider chunks remain in the
+package's small streaming adapter until that standard contract is suitable for a public dependency.
 
-`@std/encoding` owns Base64 and hexadecimal encoding through their direct
-subpaths. S3 uses hexadecimal SHA-256 output, Azure Shared Key and block IDs
-use Base64, and record stores use Base64 for portable byte persistence.
+`@std/encoding` owns Base64 and hexadecimal encoding through their direct subpaths. S3 uses hexadecimal SHA-256 output,
+Azure Shared Key and block IDs use Base64, and record stores use Base64 for portable byte persistence.
 
-`@std/path` owns host path normalization and resolution for the Deno, Bun, and
-Node adapters. The OPFS virtual path model remains project-owned because it
-rejects and normalizes a different namespace than an operating-system path.
+`@std/path` owns host path normalization and resolution for the Deno, Bun, and Node adapters. The OPFS virtual path
+model remains project-owned because it rejects and normalizes a different namespace than an operating-system path.
 
-`@std/fs` was reviewed for copy, move, walk, ensure, and host filesystem
-operations. Those are intentionally not used inside the primitive Deno/Bun/Node
-adapters. The public filesystem facade already owns recursive copy/move/walk,
-overwrite, cancellation, and adapter-neutral semantics. Calling `@std/fs` from
-one host adapter would duplicate that layer and introduce host-only symlink and
-filesystem assumptions. `@std/path`, by contrast, directly replaces custom host
-path manipulation without changing facade semantics.
+`@std/fs` was reviewed for copy, move, walk, ensure, and host filesystem operations. Those are intentionally not used
+inside the primitive Deno/Bun/Node adapters. The public filesystem facade already owns recursive copy/move/walk,
+overwrite, cancellation, and adapter-neutral semantics. Calling `@std/fs` from one host adapter would duplicate that
+layer and introduce host-only symlink and filesystem assumptions. `@std/path`, by contrast, directly replaces custom
+host path manipulation without changing facade semantics.
 
-`@std/http/etag` was reviewed for conditional request support. The clients keep
-provider ETags opaque instead of generating or evaluating them locally. S3
-multipart ETags and Azure ETags are provider tokens, not hashes that this
-library should reinterpret. The package therefore forwards `If-Match` and
-`If-None-Match` values to the provider rather than applying `@std/http/etag` in
-the client. The unstable HTTP message-signature utilities also do not implement
-AWS Signature Version 4 or Azure Shared Key.
+`@std/http/etag` was reviewed for conditional request support. The clients keep provider ETags opaque instead of
+generating or evaluating them locally. S3 multipart ETags and Azure ETags are provider tokens, not hashes that this
+library should reinterpret. The package therefore forwards `If-Match` and `If-None-Match` values to the provider rather
+than applying `@std/http/etag` in the client. The unstable HTTP message-signature utilities also do not implement AWS
+Signature Version 4 or Azure Shared Key.
 
-`@std/xml` owns provider control-document parsing and serialization. S3 list,
-error, multipart, and copy responses and Azure list/error/block-list documents
-use the standard XML tree instead of regular expressions or hand-written XML
+`@std/xml` owns provider control-document parsing and serialization. S3 list, error, multipart, and copy responses and
+Azure list/error/block-list documents use the standard XML tree instead of regular expressions or hand-written XML
 escaping. Storage payloads themselves do not pass through XML parsing.
 
-`@std/crypto` was reviewed but is not used for provider signing. Web Crypto
-already exposes browser-compatible SHA-256 and HMAC-SHA256, while the standard
-crypto package does not implement AWS Signature Version 4 or Azure Shared Key
-canonicalization. Adding it would introduce a wrapper without removing the
-protocol code that actually carries the risk.
+`@std/crypto` was reviewed but is not used for provider signing. Web Crypto already exposes browser-compatible SHA-256
+and HMAC-SHA256, while the standard crypto package does not implement AWS Signature Version 4 or Azure Shared Key
+canonicalization. Adding it would introduce a wrapper without removing the protocol code that actually carries the risk.
 
-`@std/expect` remains the assertion API on top of `node:test`. Zod 4 implements
-Standard Schema, so the repository exports the Zod schemas directly instead of
-maintaining a second validation wrapper for Standard Schema consumers.
+`@std/expect` remains the assertion API on top of `node:test`. Zod 4 implements Standard Schema, so the repository
+exports the Zod schemas directly instead of maintaining a second validation wrapper for Standard Schema consumers.
 
-
-S3 and Signature Version 4
---------------------------
+## S3 and Signature Version 4
 
 AWS primary references:
 
@@ -222,7 +199,8 @@ AWS primary references:
 
 Implementation details derived from these contracts include:
 
-- canonical signing includes `host` even though browser Fetch does not let application code set the Host header directly;
+- canonical signing includes `host` even though browser Fetch does not let application code set the Host header
+  directly;
 - multipart upload parts are bounded and the destination publishes on CompleteMultipartUpload;
 - conditional `If-Match`/`If-None-Match` behavior belongs to multipart completion for the commit path used here;
 - CompleteMultipartUpload can return an HTTP 200 response whose XML body later reports an error;
@@ -230,11 +208,10 @@ Implementation details derived from these contracts include:
 - CopyObject has a 5 GB source limit, so larger provider-side copies use UploadPartCopy;
 - multipart uploads permit at most 10,000 parts and have defined part-size limits.
 
-The package uses Web Crypto and Web Fetch rather than the AWS SDK so the direct client remains small, runtime-neutral, and
-explicit about the S3 protocol surface it actually implements.
+The package uses Web Crypto and Web Fetch rather than the AWS SDK so the direct client remains small, runtime-neutral,
+and explicit about the S3 protocol surface it actually implements.
 
-S3-compatible providers
------------------------
+## S3-compatible providers
 
 Provider-specific primary sources reviewed for compatibility differences:
 
@@ -258,11 +235,11 @@ Backblaze B2 S3-compatible API:
 
 - S3-compatible API: <https://www.backblaze.com/docs/cloud-storage-s3-compatible-api>
 
-These providers illustrate why capability overrides exist. Endpoint, region, addressing, copy support, multipart preconditions,
-checksum behavior, and unsupported control-plane operations can differ even when basic object requests use the S3 protocol.
+These providers illustrate why capability overrides exist. Endpoint, region, addressing, copy support, multipart
+preconditions, checksum behavior, and unsupported control-plane operations can differ even when basic object requests
+use the S3 protocol.
 
-Azure Blob Storage
-------------------
+## Azure Blob Storage
 
 Microsoft primary references:
 
@@ -274,16 +251,16 @@ Microsoft primary references:
 - Copy Blob From URL: <https://learn.microsoft.com/rest/api/storageservices/copy-blob-from-url>
 - Put Block From URL: <https://learn.microsoft.com/rest/api/storageservices/put-block-from-url>
 - List Blobs: <https://learn.microsoft.com/rest/api/storageservices/list-blobs>
-- Versioning for Azure Storage services: <https://learn.microsoft.com/rest/api/storageservices/versioning-for-the-azure-storage-services>
+- Versioning for Azure Storage services:
+  <https://learn.microsoft.com/rest/api/storageservices/versioning-for-the-azure-storage-services>
 
-The implementation keeps the service version explicit because accepted block sizes and Shared Key canonicalization depend on
-the service version. Shared Key support starts at the augmented Blob format introduced in `2009-09-19`; zero-length
-`Content-Length` signing changes after `2014-02-14`, and empty `x-ms-*` header canonicalization changes at `2016-05-31`.
-Current copy behavior uses synchronous Copy Blob From URL for the smaller path and Put Block From URL ranges for large
-provider-side copies.
+The implementation keeps the service version explicit because accepted block sizes and Shared Key canonicalization
+depend on the service version. Shared Key support starts at the augmented Blob format introduced in `2009-09-19`;
+zero-length `Content-Length` signing changes after `2014-02-14`, and empty `x-ms-*` header canonicalization changes at
+`2016-05-31`. Current copy behavior uses synchronous Copy Blob From URL for the smaller path and Put Block From URL
+ranges for large provider-side copies.
 
-Unstorage
----------
+## Unstorage
 
 Primary sources:
 
@@ -293,12 +270,11 @@ Primary sources:
 - custom drivers: <https://unstorage.unjs.io/guide/custom-driver>
 - built-in driver catalog: <https://unstorage.unjs.io/drivers>
 
-The forward bridge targets `Storage`, not individual unstorage drivers. The reverse driver implements the stable Driver subset
-needed for values, raw bytes, metadata, keys, clear, and disposal. `maxDepth` is advertised because the reverse driver applies
-the depth filter itself.
+The forward driver targets unstorage `Storage`, not individual unstorage backend implementations. The reverse bridge
+implements the stable unstorage `Driver` subset needed for values, raw bytes, metadata, keys, clear, and disposal.
+`maxDepth` is advertised because the bridge applies the depth filter itself.
 
-RxDB
-----
+## RxDB
 
 Primary sources:
 
@@ -306,11 +282,10 @@ Primary sources:
 - RxStorage interface: <https://github.com/pubkey/rxdb/blob/master/src/types/rx-storage.interface.d.ts>
 - RxCollection implementation: <https://github.com/pubkey/rxdb/blob/master/src/rx-collection.ts>
 
-The bridge accepts an RxCollection. RxDB retains responsibility for the selected RxStorage, replication, conflicts,
+The driver accepts an RxCollection. RxDB retains responsibility for the selected RxStorage, replication, conflicts,
 multi-instance behavior, wrappers, and licensing.
 
-db0 and Drizzle
----------------
+## db0 and Drizzle
 
 Primary sources:
 
@@ -319,35 +294,38 @@ Primary sources:
 - Drizzle ORM: <https://orm.drizzle.team/>
 - Drizzle repository: <https://github.com/drizzle-team/drizzle-orm>
 
-The db0 bridge targets the Database/dialect contract rather than connector names. Direct SQLite reuses that same record schema.
-Drizzle keeps table/DDL ownership with the application because its schema builders and database behavior are dialect-specific.
+The db0 record driver targets the Database/dialect contract rather than connector names. Direct SQLite reuses that same
+record schema. The Drizzle record driver keeps table/DDL ownership with the application because its schema builders and
+database behavior are dialect-specific.
 
-Upstream issue and pull-request review
---------------------------------------
+## Upstream issue and pull-request review
 
-Current upstream issue/PR review was used to find failure modes that happy-path API docs do not reveal. The implementation does
-not copy another library's behavior blindly; the issues are evidence for tests and invariants.
+Current upstream issue/PR review was used to find failure modes that happy-path API docs do not reveal. The
+implementation does not copy another library's behavior blindly; the issues are evidence for tests and invariants.
 
-Bun S3/Rust work reviewed included fixes for retry coverage, exponential backoff, timeouts, manual redirect handling, option
-propagation, multipart abort on writer error, long SigV4 inputs, in-place multipart part assembly, XML parsing, proxy handling,
-and worker-termination lifetime safety. The repeated lessons are: signed redirects must not be followed automatically, remote
-cleanup has its own lifecycle, part concurrency needs a memory budget, and retry policy must not be inferred from body type alone.
+Bun S3/Rust work reviewed included fixes for retry coverage, exponential backoff, timeouts, manual redirect handling,
+option propagation, multipart abort on writer error, long SigV4 inputs, in-place multipart part assembly, XML parsing,
+proxy handling, and worker-termination lifetime safety. The repeated lessons are: signed redirects must not be followed
+automatically, remote cleanup has its own lifecycle, part concurrency needs a memory budget, and retry policy must not
+be inferred from body type alone.
 
-AWS SDK v3 issues reviewed included very large upload memory growth, unknown-size multipart completion hangs, empty-stream lockups,
-stream chunk-integrity regressions, conditional-header gaps in `lib-storage`, browser decompression/checksum mismatches, socket
-exhaustion, and S3-compatible provider deserialization/endpoint regressions. The project benchmark keeps the AWS SDK as a
-baseline while retaining a smaller direct protocol client with independently testable semantics.
+AWS SDK v3 issues reviewed included very large upload memory growth, unknown-size multipart completion hangs,
+empty-stream lockups, stream chunk-integrity regressions, conditional-header gaps in `lib-storage`, browser
+decompression/checksum mismatches, socket exhaustion, and S3-compatible provider deserialization/endpoint regressions.
+The project benchmark keeps the AWS SDK as a baseline while retaining a smaller direct protocol client with
+independently testable semantics.
 
-Azure SDK issues reviewed included paused-stream abort hangs, invalid upload buffer arguments producing zero-byte blobs, large
-buffer/block-size constraints, historical stream/file data corruption, copy polling request noise, and concurrency/default-size
-questions. These reinforce explicit size/concurrency limits, bounded block admission, real abort tests, and provider request-count
-benchmarks.
+Azure SDK issues reviewed included paused-stream abort hangs, invalid upload buffer arguments producing zero-byte blobs,
+large buffer/block-size constraints, historical stream/file data corruption, copy polling request noise, and
+concurrency/default-size questions. These reinforce explicit size/concurrency limits, bounded block admission, real
+abort tests, and provider request-count benchmarks.
 
-Unstorage issues reviewed included non-atomic filesystem writes, S3 pagination/prefix bugs, XML entity decoding, file/prefix
-collisions, SQL disposal, binary Redis storage, and Cloudflare Cache method binding. RxDB issues reviewed included OPFS/Expo file
-truncation after crashes or rapid writes, large-replication corruption, and concurrency/benchmark questions. db0 issues reviewed
-included connector/dialect exposure, caller-owned connections, deprecated sqlite3, and Drizzle result-shape mismatches. These are
-why the OPFS project keeps ownership, collision semantics, partial-result failure, and backend capability differences explicit.
+Unstorage issues reviewed included non-atomic filesystem writes, S3 pagination/prefix bugs, XML entity decoding,
+file/prefix collisions, SQL disposal, binary Redis storage, and Cloudflare Cache method binding. RxDB issues reviewed
+included OPFS/Expo file truncation after crashes or rapid writes, large-replication corruption, and
+concurrency/benchmark questions. db0 issues reviewed included connector/dialect exposure, caller-owned connections,
+deprecated sqlite3, and Drizzle result-shape mismatches. These are why the OPFS project keeps ownership, collision
+semantics, partial-result failure, and backend capability differences explicit.
 
 Deno KV issue review also covered historical reports about large prefix-list cost and selector/transaction limits:
 
@@ -355,10 +333,11 @@ Deno KV issue review also covered historical reports about large prefix-list cos
 - <https://github.com/denoland/deno/issues/19798>
 - <https://github.com/denoland/deno/issues/19284>
 
-The Deno KV physical key layout therefore indexes a logical entry by `(namespace, "entry", parentPath, name)`. Listing one
-directory uses `(namespace, "entry", parentPath)` as the provider prefix, so descendants of a child directory are not part of
-that prefix result. Physical body parts use the complete canonical path as one tuple component rather than expanding each path
-segment into the provider prefix. This keeps exact lookup and direct-child enumeration aligned with the filesystem contract.
+The Deno KV physical key layout therefore indexes a logical entry by `(namespace, "entry", parentPath, name)`. Listing
+one directory uses `(namespace, "entry", parentPath)` as the provider prefix, so descendants of a child directory are
+not part of that prefix result. Physical body parts use the complete canonical path as one tuple component rather than
+expanding each path segment into the provider prefix. This keeps exact lookup and direct-child enumeration aligned with
+the filesystem contract.
 
 Recent Drizzle issue review included SQLite/libSQL transaction-lifetime failures and migration/data-loss cases:
 
@@ -368,12 +347,12 @@ Recent Drizzle issue review included SQLite/libSQL transaction-lifetime failures
 - <https://github.com/drizzle-team/drizzle-orm/issues/5564>
 - <https://github.com/drizzle-team/drizzle-orm/issues/2463>
 
-These are not all adapter-runtime bugs, but they reinforce a deliberate contract here: the generic Drizzle bridge does not
-claim universal cross-process atomic replacement or own application migrations. The caller keeps dialect/driver/table lifecycle
-and can provide a stronger database-specific transaction strategy when that concrete driver proves the required semantics.
+These are not all driver-runtime bugs, but they reinforce a deliberate contract here: the generic Drizzle record driver
+does not claim universal cross-process atomic replacement or own application migrations. The caller keeps
+dialect/driver/table lifecycle and can provide a stronger database-specific transaction strategy when that concrete
+driver proves the required semantics.
 
-Project architecture and writing sources
-----------------------------------------
+## Project architecture and writing sources
 
 The implementation was reviewed against the attached/current project guides covering:
 
@@ -386,13 +365,49 @@ The implementation was reviewed against the attached/current project guides cove
 - runtime-neutral TypeScript and explicit runtime subpaths;
 - verification against real runtimes and extracted release artifacts.
 
-Older OPFS experiments were treated as intent/history only. The current repository, current project rules, and current upstream
-contracts are the implementation authority for this pass.
+Older OPFS experiments were treated as intent/history only. The current repository, current project rules, and current
+upstream contracts are the implementation authority for this pass.
 
+## Client protocol handoffs
 
-Client protocol handoffs
-------------------------
+The detailed implementation contracts live in [s3.md](./s3.md) and [azure.md](./azure.md). The Testcontainers-backed
+interoperability matrix is documented in [providers.md](./providers.md). These files separate protocol requirements from
+emulator evidence and record the unsupported surface explicitly.
 
-The detailed implementation contracts live in [s3.md](./s3.md) and [azure.md](./azure.md). The Testcontainers-backed interoperability
-matrix is documented in [providers.md](./providers.md). These files separate protocol requirements from emulator evidence and
-record the unsupported surface explicitly.
+## Filesystem-client baselines
+
+AWS Mountpoint primary sources reviewed on 2026-08-15:
+
+- Amazon S3 Mountpoint overview: <https://docs.aws.amazon.com/AmazonS3/latest/userguide/mountpoint.html>
+- Mountpoint usage: <https://docs.aws.amazon.com/AmazonS3/latest/userguide/mountpoint-usage.html>
+- Mountpoint configuration source: <https://github.com/awslabs/mountpoint-s3/blob/main/doc/CONFIGURATION.md>
+
+Mountpoint is a high-throughput S3 filesystem client, not a full POSIX filesystem. AWS documents that it can list/read
+existing objects and create new files, while operations such as modifying existing files, symbolic links, and file
+locking are not general Mountpoint capabilities. The benchmark therefore compares only operations whose semantics are
+close enough to answer the same question. `--endpoint-url` and `--force-path-style` can support controlled endpoint
+experiments, but an alternate endpoint is not an AWS compatibility guarantee.
+
+Azure BlobFuse primary sources reviewed on 2026-08-15:
+
+- BlobFuse repository: <https://github.com/Azure/azure-storage-fuse>
+- Microsoft limitations/known issues: <https://learn.microsoft.com/azure/storage/blobs/blobfuse2-known-issues>
+
+BlobFuse translates Linux FUSE operations to Azure Blob requests. Its cache modes and unsupported/altered filesystem
+operations are part of benchmark semantics. In particular, cache configuration can change freshness and request count,
+while operations such as file locking and several extended/POSIX operations are not supported. Benchmark output must
+therefore record cache/write mode rather than treating every mounted file operation as equivalent to direct REST access.
+
+## Mise and registry publishing
+
+Primary tool/release sources reviewed on 2026-08-15:
+
+- mise npm backend: <https://mise.jdx.dev/dev-tools/backends/npm.html>
+- mise settings: <https://mise.jdx.dev/configuration/settings.html>
+- npm trusted publishing: <https://docs.npmjs.com/trusted-publishers/>
+- npm provenance: <https://docs.npmjs.com/generating-provenance-statements/>
+
+Mise can install npm-distributed CLI tools directly through the `npm:` backend. The release configuration therefore pins
+the npm CLI through mise instead of depending on the npm version bundled with a selected Node release. npm's current
+trusted-publishing requirements call for npm CLI 11.5.1 or later and Node 22.14.0 or later; the repository pins npm
+11.18.0 for the publish job.

@@ -1,192 +1,127 @@
-Public API guide
-================
+# Public API guide
 
-This guide is organized by developer task. Exact low-level schemas and types are also available through the explicit package subpaths.
+## Purpose
 
-Open or create a filesystem
----------------------------
+The public API is organized by layer. Normal application code can use the root filesystem facade and convenience
+adapters. Storage libraries and infrastructure code can use the explicit client, driver, adapter, bridge, and
+integration subpaths.
+
+```text
+client -> driver -> adapter -> FileSystemType -> bridge
+```
+
+No public constructor requires a global registry.
+
+## Filesystem root
 
 ### `openFileSystem(options?)`
 
-Opens the browser's native Origin Private File System and returns `FileSystemType`.
+Opens the current browser realm's native Origin Private File System and returns `FileSystemType`.
 
 ```ts
 import { openFileSystem } from "@okikio/opfs";
 
-const fileSystem = await openFileSystem();
+await using fileSystem = await openFileSystem();
+await fileSystem.writeFile("/state.json", "{}", { parents: true });
 ```
 
-Use this only when native browser OPFS is the chosen backend. Server runtimes should create a runtime adapter and pass it to `createFileSystem()`.
+This convenience path composes native OPFS root -> OPFS driver -> OPFS adapter -> filesystem facade.
 
 ### `createFileSystem(adapter, options?)`
 
 Creates the adapter-independent facade.
 
 ```ts
-const fileSystem = createFileSystem(adapter, {
-  coordination: "auto",
-  lockPrefix: "my-app:filesystem",
-  maxBufferedWriteBytes: 64 * 1024 * 1024,
-  metrics: "basic",
-  optimizations: { nativeCopy: true },
-  disposeAdapter: false,
-});
+import { createFileSystem } from "@okikio/opfs";
+import { createNodeAdapter } from "@okikio/opfs/adapter/node";
+
+const fileSystem = createFileSystem(
+  createNodeAdapter({ root: "./data" }),
+  {
+    coordination: "local",
+    maxBufferedWriteBytes: 64 * 1024 * 1024,
+    metrics: "basic",
+    disposeAdapter: true,
+  },
+);
 ```
 
-`FileSystemOptionsType`:
+Important `FileSystemOptionsType` fields:
 
-- `coordination`: `auto`, `web-locks`, `local`, or `none`.
-- `lockPrefix`: stable lock namespace used for cooperating filesystem facades.
-- `maxBufferedWriteBytes`: maximum stream/file size the facade may materialize for a fallback route.
-- `metrics`: `none`, `basic`, or `timing`. `none` is intended for baseline overhead measurements.
-- `optimizations`: partial override for `streamRead`, `streamWrite`, `rangeRead`, `nativeCopy`, and `nativeMove`. Every route defaults to enabled.
-- `disposeAdapter`: transfers adapter disposal ownership to the facade when true.
+- `coordination`: `auto | web-locks | local | none`;
+- `lockPrefix`: stable namespace for cooperating facade locks;
+- `maxBufferedWriteBytes`: maximum facade-owned materialization for fallback routes;
+- `metrics`: `none | basic | timing`;
+- `optimizations`: independent facade route switches;
+- `disposeAdapter`: transfer adapter ownership to the facade.
 
-`coordination` is runtime-validated by `CoordinationModeSchema`.
+## Filesystem methods
 
-
-Inspect and plan before I/O
----------------------------
-
-### `inspect()`
-
-Returns a synchronous `InspectionType` for the configured filesystem stack. It contains:
+`FileSystemType` exposes the portable API:
 
 ```text
-adapter
-native capabilities
-effective support
-known hard limits
-optional partition layout
-resolved optimization policy
-maxBufferedWriteBytes
-metrics mode and current metrics snapshot
+getDirectoryHandle
+getFileHandle
+getFile
+stat
+exists
+mkdir
+ensureDir
+ensureFile
+readFile
+readText
+openReadStream
+writeFile
+readDir
+walk
+copy
+move
+remove
+emptyDir
+openWritableFile
+openSyncFile
+inspect
+plan
+getMetrics
+close
+root
 ```
 
-Effective support uses `native | emulated | partitioned | unsupported`. Native capability flags never include facade emulation.
-This makes a caller able to distinguish a fast provider range read from a full-read-and-slice fallback, or a Deno KV partitioned
-stream from a complete-record materialization.
+All path methods use the canonical virtual namespace. Public input is normalized before adapter/driver calls.
 
-### `plan(input)`
-
-Creates a deterministic `PlanType` without touching the backend. Supported operations are `read`, `write`, `copy`, and `move`.
-For writes, `size` is the resulting logical file size and is used for `maxFileBytes` and partition-count checks. `inputBytes` is
-the number of bytes supplied by the current write and is used for facade stream-buffer admission. For replace, omitted
-`inputBytes` falls back to `size` because those values are normally equal. Append/update callers should provide both when known.
-
-```ts
-const plan = fileSystem.plan({
-  operation: "write",
-  source: "stream",
-  mode: "replace",
-  size: 200 * 1024 * 1024,
-  inputBytes: 200 * 1024 * 1024,
-});
-
-if (!plan.supported) throw new Error(plan.reasons.join(" "));
-```
-
-An unknown limit remains unknown. The planner does not invent provider guarantees. For an unknown-size emulated stream, it warns
-that `maxBufferedWriteBytes` remains the runtime admission limit.
-
-### `getMetrics()`
-
-Returns a detached `MetricsType`. `basic` tracks counts, failures, bytes, native/emulated/partitioned route counts, current
-facade-owned buffered bytes, and peak buffered bytes. `timing` additionally records total and maximum durations. `none` keeps the
-hot-path collector inactive.
-
-Optimization controls can force a fallback for differential tests or application policy. A disabled optimization is never
-relabelled native. If the fallback cannot satisfy the request within `maxBufferedWriteBytes`, runtime execution and `plan()` both
-fail with the same `too-large`/unsupported condition when size is known.
-
-Path API
---------
-
-### `getDirectoryHandle(path, options?)`
-
-Returns a package `DirectoryHandleType` for one directory.
-
-Options:
-
-- `create`: create exactly that directory when absent.
-- `recursive`: create missing ancestors as well.
-- `signal`: abort before commit.
-
-The virtual root `/` always exists.
-
-### `getFileHandle(path, options?)`
-
-Returns a package `FileHandleType`.
-
-Options:
-
-- `create`: create the file when absent.
-- `parents`: create missing parent directories.
-- `signal`: abort before commit.
-
-A read-only lookup never creates a file or directory.
-
-### `getFile(path, options?)`
-
-Returns a `File` snapshot. Changes written later are not reflected in the already-returned File object.
-
-### `stat(path, options?)`
-
-Returns:
-
-```ts
-type StatType = FileStatType | DirectoryStatType;
-```
-
-File stat includes canonical path, name, size, last-modified milliseconds, and media type. Directory stat includes canonical path, name, and last-modified when the adapter provides it.
-
-### `exists(path, options?)`
-
-Returns an advisory boolean. `kind` can restrict the answer to `file` or `directory`.
-
-Do not use `exists()` as a substitute for operation error handling. Another context can mutate the backend after the check.
-
-### `mkdir(path, options?)`
-
-Creates one directory. `recursive: true` creates missing ancestors.
-
-### `ensureDir(path, options?)`
-
-Ensures a directory and its parents exist. A file at the same path produces `type-mismatch`.
-
-### `ensureFile(path, options?)`
-
-Ensures an empty file exists and creates its parent directories.
-
-Read APIs
----------
+## Read APIs
 
 ### `readFile(path, options?)`
 
 Returns `Uint8Array`.
 
-Options:
+Options include:
 
-- `at`: zero-based byte offset.
-- `length`: maximum bytes after `at`.
-- `signal`: cancellation.
+```text
+at       zero-based offset
+length   maximum bytes after at
+signal   cancellation
+```
+
+A driver/adapter with native range support can avoid materializing the complete file. Otherwise the facade can emulate
+the range and reports that route through `inspect()`/`plan()`.
 
 ### `readText(path, options?)`
 
-Reads bytes and decodes them. `encoding` defaults to UTF-8.
+Reads file bytes and decodes text. UTF-8 is the default encoding.
 
 ### `openReadStream(path, options?)`
 
 Returns `ReadableStream<Uint8Array>`.
 
-If the adapter provides native stream reads, the facade forwards them. Otherwise it creates a stream from the adapter's materialized read result. Cancellation remains connected after the stream opens.
+When a native stream exists and `optimizations.streamRead` is enabled, the facade forwards it. Otherwise a readable
+backend can be adapted to a materialized stream. `inspect().support.streamRead` identifies the effective route.
 
-Write API
----------
+## Write APIs
 
 ### `writeFile(path, data, options?)`
 
-Accepted `WriteDataType` values:
+Accepted input:
 
 ```text
 string
@@ -197,137 +132,115 @@ ReadableStream<Uint8Array>
 AsyncIterable<Uint8Array>
 ```
 
-Options:
+Write modes:
 
-- `mode`: `replace` (default), `append`, or `update`.
-- `at`: starting byte offset for update mode.
-- `truncate`: truncate at the final cursor.
-- `parents`: create missing parents.
-- `mediaType`: metadata for record/native adapters that can preserve it.
-- `signal`: cancellation.
-
-The mode is runtime-validated by `WriteModeSchema`.
-
-A non-streaming adapter buffers stream input up to `maxBufferedWriteBytes`. Crossing the limit cancels the producer and throws `too-large`.
-
-Long-lived positional output
-----------------------------
-
-### `openWritableFile(path, options?)`
-
-Returns `WritableFileType` only when `adapter.capabilities.positionalWrite` is true. The facade does not emulate this operation with repeated `writeFile(..., { mode: "update" })` calls because a record-backed adapter can otherwise rematerialize the complete file for every chunk.
-
-Options:
-
-- `create`: create an empty file when it is absent.
-- `parents`: create missing parent directories when `create` is true.
-- `signal`: cancel ordinary work before commit. Cleanup through `close()` or `abort()` still releases the owned resource after cancellation.
-
-The returned resource owns the file mutation lock for its complete lifetime. The create/check/open sequence occurs under that same lock, so another mutation cannot enter between file creation and adapter open.
-
-```ts
-const file = await fileSystem.openWritableFile("/media/output.mp4", {
-  create: true,
-  parents: true,
-});
-
-try {
-  await file.write(header, { at: 0 });
-  await file.write(chunk, { at: chunkOffset });
-  await file.flush();
-  await file.close();
-} catch (error) {
-  await file.abort(error);
-  throw error;
-}
+```text
+replace
+append
+update
 ```
 
-`write()` is positional, `truncate()` changes byte length, and `flush()` requests backend durability without closing. `close()` and `abort()` are idempotent terminal operations. A browser OPFS writable can discard its staged image on abort. Host filesystems generally cannot roll back bytes already written, so an application that needs publish-on-success semantics should write a staging path and move it after close.
+Important options:
 
-Record/database adapters report `positionalWrite: false`. They remain valid for ordinary materialized writes and bounded stream buffering, but they are not presented as a large-file positional output path.
+```text
+at
+truncate
+parents
+mediaType
+signal
+```
 
-Directory iteration
--------------------
+A streaming source uses a driver-native stream route only when the selected write mode supports it and the route is
+enabled. Otherwise the facade materializes the stream under `maxBufferedWriteBytes`. Crossing that limit cancels the
+producer when possible and fails with `too-large`.
+
+## Directory and tree APIs
 
 ### `readDir(path, options?)`
 
-Lazy direct-child iterator.
-
-```ts
-for await (const entry of fileSystem.readDir("/projects")) {
-  console.log(entry.kind, entry.name, entry.path);
-}
-```
+Returns a lazy direct-child iterator.
 
 ### `walk(path, options?)`
 
-Lazy recursive iterator.
-
-Options:
-
-- `maxDepth`: maximum depth below the requested path.
-- `includeRoot`: include the requested path itself before descendants.
-- `includeFiles`: yield files. Defaults to true.
-- `includeDirectories`: yield directories. Defaults to true.
-- `signal`: cancel traversal between yielded entries.
-
-The iterator does not eagerly collect the entire tree.
-
-Structural operations
----------------------
+Returns a lazy recursive iterator. Options control depth, root inclusion, file inclusion, directory inclusion, and
+cancellation. The facade does not collect the complete tree first.
 
 ### `copy(source, destination, options?)`
 
-Copies one file or tree. Directory file bodies use bounded `concurrency`, default 4.
-
-`overwrite: true` replaces the destination tree instead of merging stale entries into it.
-
-Source and destination cannot be the same path or ancestors of each other.
+Copies one file or directory tree. The facade uses native/server-side copy when the adapter provides it and the route is
+enabled. Otherwise it composes read/write work with bounded concurrency.
 
 ### `move(source, destination, options?)`
 
-Uses adapter-native move when `nativeMove` is true. Otherwise calls copy then remove. The fallback is not atomic.
+Uses native move when available. The fallback is copy then remove and is not atomic. `plan()` returns a structured
+warning for that route.
 
 ### `remove(path, options?)`
 
-Removes one file or empty directory. `recursive: true` removes descendants first.
-
-The virtual root cannot be removed.
+Removes one entry or recursively removes descendants when requested. The virtual root cannot be removed.
 
 ### `emptyDir(path?, options?)`
 
-Removes children while retaining the directory. `path` defaults to `/`. Child removals use bounded concurrency.
+Removes children while keeping the directory. Root is the default.
 
-Synchronous file API
---------------------
+## OPFS-shaped handles
 
-### `openSyncFile(path, options?)`
+Every facade exposes `root: DirectoryHandleType`.
 
-Returns `SyncFileType` only when `adapter.capabilities.syncAccess` is true.
+`DirectoryHandleType`:
 
-Options:
-
-- `create`
-- `parents`
-- `signal`
-
-The resource owns its native file and the facade path lock for the complete lifetime.
-
-```ts
-const file = await fileSystem.openSyncFile("/db.sqlite", {
-  create: true,
-  parents: true,
-});
-
-try {
-  file.writeAll(bytes, { at: 0 });
-  file.flush();
-} finally {
-  file.close();
-}
+```text
+kind
+name
+path
+getDirectoryHandle
+getFileHandle
+removeEntry
+resolve
+entries
+keys
+values
+isSameEntry
+Symbol.asyncIterator
 ```
 
-`SyncFileType` operations:
+`FileHandleType`:
+
+```text
+kind
+name
+path
+getFile
+createWritable
+createSyncAccessHandle
+isSameEntry
+```
+
+These are package facades, not native browser handle instances. `path` is a package-specific canonical virtual path.
+
+## Writable files
+
+`createWritable()` returns `WritableFileStreamType` with OPFS-style commands:
+
+```ts
+await writable.write(bytes);
+await writable.write({ type: "write", position: 10, data: bytes });
+await writable.write({ type: "seek", position: 20 });
+await writable.write({ type: "truncate", size: 100 });
+await writable.close();
+```
+
+The staged image commits on close and is discarded on abort. Large sequential writes should prefer `writeFile()` because
+that path can select a native streaming driver route.
+
+`openWritableFile()` exposes a direct asynchronous positional resource only when the adapter reports that capability.
+
+## Synchronous files
+
+`openSyncFile(path, options?)` returns `SyncFileType` only when the selected adapter exposes native synchronous random
+access.
+
+Operations:
 
 ```text
 read
@@ -339,288 +252,529 @@ flush
 close
 ```
 
-`writeAll()` loops over partial native writes.
+The facade keeps the path lock for the complete resource lifetime. `writeAll()` handles partial native writes.
 
-OPFS-shaped handle API
-----------------------
+## Inspection
 
-Every `FileSystemType` has `root: DirectoryHandleType`.
+### `fileSystem.inspect()`
 
-### Directory handle
-
-```text
-kind
-name
-path
-getDirectoryHandle()
-getFileHandle()
-removeEntry()
-resolve()
-entries()
-keys()
-values()
-isSameEntry()
-[Symbol.asyncIterator]()
-```
-
-### File handle
-
-```text
-kind
-name
-path
-getFile()
-createWritable()
-createSyncAccessHandle()
-isSameEntry()
-```
-
-These are package facades, not native browser handle instances. Their `path` property is package-specific.
-
-### `createWritable()`
-
-Returns `WritableFileStreamType`. The staged image commits on close and discards on abort.
-
-Supported write commands:
+Returns `InspectionType`:
 
 ```ts
-await writable.write(data);
-await writable.write({ type: "write", position: 10, data });
-await writable.write({ type: "seek", position: 20 });
-await writable.write({ type: "truncate", size: 100 });
+const inspection = fileSystem.inspect();
+
+inspection.driver;
+inspection.adapter;
+inspection.support;
+inspection.optimizations;
+inspection.maxBufferedWriteBytes;
+inspection.metricsMode;
+inspection.metrics;
+inspection.driverMetrics;
 ```
 
-Blob also has a `type` property, so the implementation identifies a command only when `type` is exactly `write`, `seek`, or `truncate`.
+`inspection.driver` contains:
 
-Adapter and storage API
------------------------
+- `provides`: stable operation/capability identifiers exposed by this configured driver;
+- `ownership`: `none`, `borrowed`, or `owned` for the long-lived backend resource;
+- backend-native requirements and their current availability;
+- provenance-aware provider, implementation, user, and probe limits;
+- independently controllable driver optimization state.
 
-`@okikio/opfs/adapter` exports the backend contract consumed by `createFileSystem()`. The required primitive set stays small:
+`provides` is intentionally an open string vocabulary. A third-party driver can add a provider-specific operation
+without waiting for a core enum revision. The stable core driver families still expose typed operational methods
+separately.
+
+`inspection.adapter` contains the translation layer's native route flags and compact translation summaries.
+
+`inspection.support` contains effective routes after facade fallback and optimization policy:
 
 ```text
-stat
-readFile
-writeFile
-readDir
-createDir
-remove
+native
+emulated
+partitioned
+unsupported
 ```
 
-Optional methods expose stronger native paths:
+`inspection.metrics` is logical facade work. `inspection.driverMetrics`, when present, is physical backend/protocol
+work.
+
+## Planning
+
+### `fileSystem.plan(input)`
+
+Preflights a concrete request without touching storage.
+
+Supported high-level operations are currently:
 
 ```text
-openReadStream  -> capabilities.streamRead
-writeStream     -> mode is present in capabilities.streamWriteModes
-copy            -> capabilities.nativeCopy
-move            -> capabilities.nativeMove
-openWritableFile -> capabilities.positionalWrite
-openSyncFile    -> capabilities.syncAccess
+read
+write
+copy
+move
 ```
 
-The exported contract includes `AdapterCopyOptionsType` as well as the signal, read, write, move, stat, directory-entry,
-writable-file, sync-file, adapter, and filesystem option types. `defineAdapter()` validates the adapter name and capability
-record. It does not add a global registry or change the adapter.
-
-The capability record describes what the backend performs natively. For example, an object adapter can expose
-`streamWriteModes: ["replace"]` because replacement can stream to multipart/block upload while append and update still need a
-read-modify-write cycle. The facade can emulate operations, but it does not relabel an emulation as native support.
-
-### Record storage
-
-`@okikio/opfs/adapter/record` is the common translation point for backends that naturally store values, documents, or SQL rows.
-It exports `RecordStoreType`, `RecordAdapterOptionsType`, and `createRecordAdapter()`.
-
-A record store always supports the complete logical `get/set/delete/list` contract. Simple stores can stop there. More capable
-value stores can additionally expose `stat`, direct range `readFile`, `openReadStream`, selected direct materialized write modes,
-and selected `writeStream` modes through `RecordStoreCapabilitiesType`. `createRecordAdapter()` translates only the declared
-lanes into native adapter capabilities.
-
-The portable complete-record fallback uses the versioned `RecordType` union and base64 file bytes so JSON, Web Storage, RxDB,
-unstorage, and SQL text columns share one representation. A specialized store such as Deno KV can keep large body parts as raw
-binary values and use metadata-only/range/stream/direct-write lanes so the generic base64 representation is not on its
-large-file hot path. Deno KV declares materialized replace/append/update as direct store modes; append/update rebuild the next
-immutable generation part-by-part instead of reconstructing the previous complete logical file. Its stream lane remains
-replace-only, so streamed append/update can still require facade input buffering.
-
-### Object storage
-
-`@okikio/opfs/adapter/object` exports the provider-neutral object-storage layer:
-
-- `ObjectCapabilitiesSchema` / `ObjectCapabilitiesType`
-- `ObjectStatType` and `ObjectEntryType`
-- object GET, PUT, COPY, and LIST option types
-- `ObjectStoreType`
-- `ObjectAdapterOptionsType`
-- `createObjectAdapter()`
-
-`ObjectStoreType` preserves object concepts such as ETags, provider version IDs, user metadata, prefix listing, conditional
-writes, and server-side copy. `createObjectAdapter()` then maps that model into files and directories. Empty directories use
-trailing-slash marker objects, while ordinary prefix listing also recognizes directories created outside this library.
-
-The direct S3 API lives at `@okikio/opfs/s3`:
+Example:
 
 ```ts
-import { createS3Client } from "@okikio/opfs/s3";
-import { createS3Adapter } from "@okikio/opfs/adapter/s3";
-
-const client = createS3Client({
-  endpoint,
-  bucket,
-  region,
-  credentials,
+const plan = fileSystem.plan({
+  operation: "write",
+  path: "/archive.bin",
+  source: "stream",
+  size: 800 * 1024 * 1024,
+  inputBytes: 800 * 1024 * 1024,
+  mode: "replace",
 });
-const adapter = createS3Adapter(client);
+
+if (!plan.supported) {
+  console.log(plan.problems);
+  console.log(plan.actions);
+}
 ```
 
-`S3ClientType` extends `ObjectStoreType` and also exposes signed `request()`, `createUpload()`, `uploadPart()`,
-`completeUpload()`, and `abortUpload()`. The lower-level request method is the deliberate escape hatch for provider-specific
-S3 features that do not belong in the filesystem API.
+`PlanType` includes:
 
-The Azure counterpart lives at `@okikio/opfs/azure` and `@okikio/opfs/adapter/azure`:
+```text
+operation
+supported
+support
+driver
+bufferBytes
+partBytes
+parts
+problems[]
+actions[]
+```
+
+Problems have a stable code, layer, severity, message, and optional referenced limit. Actions have a stable kind and
+optional code/detail.
+
+## Driver API
+
+`@okikio/opfs/driver` exports the generic driver definition model:
+
+- `ProblemLayerSchema` / `ProblemLayerType`;
+- `ProblemSeveritySchema` / `ProblemSeverityType`;
+- `ActionKindSchema` / `ActionKindType`;
+- `ProblemSchema` / `ProblemType`;
+- `ActionSchema` / `ActionType`;
+- `DriverOperationSchema` / `DriverOperationType`;
+- `DriverPlanInputSchema` / `DriverPlanInputType`;
+- `DriverPlanSchema` / `DriverPlanType`;
+- `DriverInspectionSchema` / `DriverInspectionType`;
+- `DriverType`;
+- `DefineDriverOptionsType`;
+- `defineDriver()`.
+
+`defineDriver()` validates definition metadata. Concrete storage should normally use one of the family contracts below.
+
+## File-driver API
+
+`@okikio/opfs/driver/file` exports:
+
+- `FileDriverCapabilitiesSchema` / `FileDriverCapabilitiesType`;
+- `FileDriverSignalOptionsType`;
+- `FileDriverReadOptionsType`;
+- `FileDriverWriteOptionsType`;
+- `FileDriverCopyOptionsType`;
+- `FileDriverMoveOptionsType`;
+- `FileDriverDirectoryEntryType`;
+- `FileDriverFileStatType`;
+- `FileDriverDirectoryStatType`;
+- `FileDriverStatType`;
+- `FileDriverWritableFileType`;
+- `FileDriverSyncFileType`;
+- `FileDriverType`;
+- `FileBackendType`;
+- `DefineFileDriverOptionsType`;
+- `defineFileDriver()`.
+
+The associated adapter is `createFileAdapter(driver)` from `@okikio/opfs/adapter/file`.
+
+## Record-driver API
+
+`@okikio/opfs/driver/record` exports:
+
+- `RecordListType`;
+- `RecordReplacementSchema` / `RecordReplacementType`;
+- `RecordDriverCapabilitiesSchema` / `RecordDriverCapabilitiesType`;
+- `RecordBackendType`;
+- `RecordDriverType`;
+- `DefineRecordDriverOptionsType`;
+- `defineRecordDriver()`.
+
+The associated adapter is `createRecordAdapter(driver)` from `@okikio/opfs/adapter/record`.
+
+## Object-driver API
+
+`@okikio/opfs/driver/object` exports:
+
+- `ObjectDriverCapabilitiesSchema` / `ObjectDriverCapabilitiesType`;
+- `ObjectStatType`;
+- `ObjectEntryType`;
+- `ObjectListType`;
+- `ObjectGetOptionsType`;
+- `ObjectPutOptionsType`;
+- `ObjectCopyOptionsType`;
+- `ObjectListOptionsType`;
+- `ObjectBackendType`;
+- `ObjectDriverType`;
+- `DefineObjectDriverOptionsType`;
+- `defineObjectDriver()`.
+
+The associated adapter is `createObjectAdapter(driver)` from `@okikio/opfs/adapter/object`.
+
+## Adapter API
+
+`@okikio/opfs/adapter` exports:
+
+- `AdapterType`;
+- `FileSystemOptionsType`;
+- `defineAdapter()`.
+
+Every `AdapterType` has a `driver` reference. Adapter capability flags describe direct translation routes. They do not
+replace `driver.inspect()` or `FileSystemType.inspect()`.
+
+## First-party file constructors
+
+### Browser OPFS
 
 ```ts
-import { createAzureClient } from "@okikio/opfs/azure";
-import { createAzureAdapter } from "@okikio/opfs/adapter/azure";
+import { createOpfsDriver } from "@okikio/opfs/driver/opfs";
+import { createOpfsAdapter } from "@okikio/opfs/adapter/opfs";
 
-const client = createAzureClient({ endpoint, container, credential });
-const adapter = createAzureAdapter(client);
+const root = await navigator.storage.getDirectory();
+const driver = createOpfsDriver(root);
+const adapter = createOpfsAdapter(root); // convenience path creates its own driver
 ```
 
-`AzureClientType` retains the REST request escape hatch, provider request IDs, range access, block upload, and server-side copy.
+`createOpfsDriver(root)` returns `OpfsDriverType`. `createOpfsAdapter(root)` returns `OpfsAdapterType` and retains
+`nativeRoot`.
 
-The object-store interfaces are intentionally smaller than either provider protocol. See [S3 client protocol](./s3.md) and
-[Azure Blob client protocol](./azure.md) for signing, version gates, multipart/block lifecycles, limits, provider failures, and
-known unsupported operations.
+### Node
 
-### Reverse key-value APIs
+```ts
+createNodeDriver({ root: "./data" });
+createNodeAdapter({ root: "./data" });
+```
 
-`@okikio/opfs/driver/kv` exports `createKeyValueDriver()`. It maps colon-delimited keys onto private directories so both `foo`
-and `foo:bar` can exist at the same time:
+Types: `NodeDriverOptionsType`, `NodeAdapterOptionsType`.
+
+### Deno
+
+```ts
+createDenoDriver({ root: "./data" });
+createDenoAdapter({ root: "./data" });
+```
+
+Types: `DenoDriverOptionsType`, `DenoAdapterOptionsType`.
+
+### Bun
+
+```ts
+createBunDriver({ root: "./data" });
+createBunAdapter({ root: "./data" });
+```
+
+Types: `BunDriverOptionsType`, `BunAdapterOptionsType`.
+
+## First-party record constructors
+
+### Memory
+
+```ts
+createMemoryDriver();
+createMemoryAdapter();
+```
+
+### Deno KV
+
+```ts
+const driver = createDenoKvDriver(database, {
+  partition: "auto",
+  partBytes: 48 * 1024,
+  inlineBytes: 32 * 1024,
+  maxParts: 10_000,
+  concurrency: 8,
+});
+```
+
+Exports include:
 
 ```text
-foo      -> /key-foo/value
-foo:bar  -> /key-foo/key-bar/value
+DENO_KV_MAX_KEY_BYTES
+DENO_KV_MAX_VALUE_BYTES
+DENO_KV_MAX_ATOMIC_BYTES
+DENO_KV_SAFE_PART_BYTES
+DENO_KV_SAFE_INLINE_BYTES
+DENO_KV_DEFAULT_PART_BYTES
+DENO_KV_DEFAULT_INLINE_BYTES
+DENO_KV_DEFAULT_MAX_PARTS
+DENO_KV_DEFAULT_CONCURRENCY
+DENO_KV_DEFAULT_COLLECT_AGE_MS
+DENO_KV_DEFAULT_COLLECT_DELETES
+DenoKvEntryType
+DenoKvType
+DenoKvDriverOptionsType
+DenoKvCollectOptionsType
+DenoKvCollectResultType
+DenoKvDriverType
 ```
 
-The driver supports string/raw get and set, existence, metadata, hierarchical key enumeration, clear, and explicit filesystem
-ownership transfer. It also exposes `inspect()`, `plan()`, and `getMetrics()`. Those methods delegate to the backing
-`FileSystemType`, so a reverse ecosystem consumer sees the same effective routes, limits, partition policy, buffer ceiling, and
-observed metrics instead of receiving a second approximation of storage capability.
+The specialized `DenoKvDriverType` also exposes `collect(options?)` for bounded, age-gated reclamation of unreachable
+physical parts. The adapter path exports the same provider constants and maintenance types plus `createDenoKvAdapter()`
+and `DenoKvAdapterOptionsType`.
 
-`@okikio/opfs/driver/unstorage` is a thin translation over this generic driver. It supplies unstorage method names and
-`maxDepth` behavior while reusing the same collision-safe filesystem mapping.
+### localStorage
 
-### Schemas
+`driver/localstorage` exports `LocalStorageType`, `LocalStorageDriverOptionsType`, and `createLocalStorageDriver()`.
+`adapter/localstorage` exports `createLocalStorageAdapter()`.
 
-`@okikio/opfs/schema` exports the executable project data contracts:
+### IndexedDB
 
-- `PathSchema` / `PathType`
-- `AdapterNameSchema` / `AdapterNameType`
-- `EntryKindSchema` / `EntryKindType`
-- `OpfsContextSchema` / `OpfsContextType`
-- `CoordinationModeSchema` / `CoordinationModeType`
-- `WriteModeSchema` / `WriteModeType`
-- `AdapterCapabilitiesSchema` / `AdapterCapabilitiesType`
-- `ErrorCodeSchema` / `ErrorCodeType`
-- `RecordVersionSchema` / `RecordVersionType`
-- `DirectoryRecordSchema` / `DirectoryRecordType`
-- `FileRecordSchema` / `FileRecordType`
-- `RecordSchema` / `RecordType`
-- `Db0DialectSchema` / `Db0DialectType`
-- `SqlIdentifierSchema` / `SqlIdentifierType`
+`driver/indexeddb` exports `IndexedDbDriverOptionsType`, `IndexedDbOpenOptionsType`, and `createIndexedDbDriver()`.
+`adapter/indexeddb` exports `createIndexedDbAdapter()`.
 
-The package exports Zod 4 schemas directly. Zod 4 implements Standard Schema, so a consumer that accepts that interface can use
-the same schema value without a second OPFS-owned wrapper contract.
+### Cache Storage
 
-### Bridge descriptors
+`driver/cache` exports `CacheDriverOptionsType` and `createCacheDriver()`. `adapter/cache` exports
+`createCacheAdapter()`.
 
-`@okikio/opfs/bridge` groups the adapter and reverse-driver directions for an ecosystem. It does not replace either primitive.
+### unstorage
 
-- `UnstorageBridge`: both directions.
-- `RxDbBridge`: collection to OPFS only.
-- `Db0Bridge`: database to OPFS only.
-- `DrizzleBridge`: database/table to OPFS only.
-- `KeyValueBridge`: OPFS to generic asynchronous key-value only.
+`driver/unstorage` exports `UnstorageStorageType`, `UnstorageDriverOptionsType`, and `createUnstorageDriver()`.
+`adapter/unstorage` exports `createUnstorageAdapter()`.
 
-`defineBridge()` validates that `directions.toOpfs/fromOpfs` agree with the constructors. Every unsupported direction must state a
-reason. This is intentional for ecosystems where the reverse shape would require query, conflict, transaction, synchronous, or
-other semantics a filesystem does not own.
+### RxDB
 
-Path utility API
-----------------
+`driver/rxdb` exports the structural collection/document/query contracts, `RxDbRecordJsonSchema`, and
+`createRxDbDriver()`. `adapter/rxdb` exports `createRxDbAdapter()`.
 
-`@okikio/opfs/path` exposes the canonical virtual-path model used by adapters:
+### db0
 
-- `ROOT_PATH`: the canonical `/` root.
-- `normalizePath(path)`: resolves `.`, `..`, duplicate separators, and relative input while rejecting root escape, backslashes, and NUL.
-- `splitPath(path)`: returns canonical path segments without `/`.
-- `joinPath(...parts)`: joins inputs and returns a canonical `PathType`.
-- `dirname(path)`: returns the canonical parent path.
-- `basename(path)`: returns the final name. Root returns an empty string.
-- `isAncestorPath(ancestor, path)`: tests strict ancestry after normalization.
-- `validateName(name)`: validates one direct File System API child name.
-- `PathType`: validated canonical virtual path type.
+`driver/db0` exports `Db0PrimitiveType`, statement/database contracts, `Db0DriverOptionsType`, and `createDb0Driver()`.
+The constructor is asynchronous because table initialization can perform database I/O.
 
-Use the high-level filesystem methods for normal application work. These helpers are primarily for adapters, drivers, and code that persists canonical paths.
+`adapter/db0` exports `createDb0Adapter()`.
 
-Error API
----------
+### Drizzle
 
-The root module exports `FileSystemError`, `getErrorName()`, `getErrorMessage()`, and `toFileSystemError()`.
-
-`FileSystemError` carries:
+`driver/drizzle` exports:
 
 ```text
-code       stable ErrorCodeType
-operation  filesystem operation that failed
-path       canonical path when one exists
-cause      original runtime/provider failure when retained
+DrizzleTableType
+DrizzleRowType
+DrizzleDriverOptionsType
+createDrizzleDriver
 ```
 
-`toFileSystemError()` maps known DOMException names and server error codes such as `ENOENT`, `EEXIST`, and quota/permission failures into the stable package categories. Unknown provider failures remain `unknown` and retain the original cause.
+`adapter/drizzle` exports `createDrizzleAdapter()`.
 
-`getErrorName()` and `getErrorMessage()` are safe extraction helpers for diagnostics where the caught value is `unknown`.
+### SQLite
 
-Browser capability APIs
------------------------
+`driver/sqlite` exports:
 
-### `probeOpfs()`
+```text
+SqliteStatementType
+SqliteDatabaseType
+SqliteDriverOptionsType
+createSqliteDriver
+```
 
-Returns a non-throwing `OpfsCapabilitiesType` report with:
+`adapter/sqlite` exports `createSqliteAdapter()`.
 
-- execution context;
-- root availability and normalized root error;
-- embedded/same-origin-top facts when observable;
-- Web Locks availability;
-- sync access exposure;
-- storage estimate when available;
-- persistence status when available.
+## Object clients and drivers
 
-It does not report `isIncognito` or `isPrivate`.
+### S3 client
 
-### `getOpfsContext()`
+`@okikio/opfs/s3` exports:
 
-Classifies the current browser execution context as window, dedicated worker, shared worker, service worker, generic worker, or unknown.
+- `S3AddressingSchema` / `S3AddressingType`;
+- `S3CredentialsSchema` / `S3CredentialsType`;
+- `S3CredentialSourceType`;
+- `S3_LIMITS`;
+- `S3ClientOptionsType`;
+- `S3RequestOptionsType`;
+- `S3CompleteOptionsType`;
+- `S3UploadType`;
+- `S3PartType`;
+- `S3Error`;
+- `S3ClientType`;
+- `createS3Client()`.
 
-### iframe subpath
+Important client optimization options:
+
+```text
+delayedMultipart
+signingKeyCache
+```
+
+The driver paths are:
+
+```ts
+createS3Driver(options);
+createS3DriverFromClient(client);
+```
+
+The convenience adapter is:
+
+```ts
+createS3Adapter(client, options?);
+```
+
+For explicit layering, use `createObjectAdapter(createS3DriverFromClient(client))`.
+
+### Azure Blob client
+
+`@okikio/opfs/azure` exports:
+
+- `AZURE_STORAGE_VERSION`;
+- `AzureStorageVersionSchema` / `AzureStorageVersionType`;
+- `AzureCredentialType`;
+- `AzureClientOptionsType`;
+- `AzureRequestOptionsType`;
+- `AzureClientType`;
+- `AzureError`;
+- `AZURE_LIMITS`;
+- `createAzureClient()`.
+
+Important optimization options:
+
+```text
+blockUpload
+serverCopy
+```
+
+The driver paths are:
+
+```ts
+createAzureDriver(options);
+createAzureDriverFromClient(client);
+```
+
+The convenience adapter is `createAzureAdapter(client, options?)`.
+
+## Bridge API
+
+`@okikio/opfs/bridge/kv` exports:
+
+- `KeyValueMetaType`;
+- `KeyValueBridgeOptionsType`;
+- `KeyValueBridgeType`;
+- `createKeyValueBridge()`.
+
+The bridge includes `inspect()`, `plan()`, and `getMetrics()` so consumers can reason about the storage stack beneath
+the KV projection.
+
+`@okikio/opfs/bridge/unstorage` exports:
+
+- `UnstorageBridgeMetaType`;
+- `UnstorageBridgeTransactionOptionsType`;
+- `UnstorageBridgeType`;
+- `UnstorageBridgeOptionsType`;
+- `createUnstorageBridge()`.
+
+## Integration API
+
+`@okikio/opfs/integration/definition` exports:
+
+- `IntegrationDirectionSchema` / `IntegrationDirectionType`;
+- `IntegrationDirectionsSchema` / `IntegrationDirectionsType`;
+- `IntegrationType`;
+- `defineIntegration()`.
+
+`@okikio/opfs/integration` exports current first-party direction definitions:
+
+```text
+UnstorageIntegration
+RxDbIntegration
+Db0Integration
+DrizzleIntegration
+DrizzleIntegrationSourceType
+```
+
+Direction metadata never makes an unsupported reverse contract executable.
+
+## Schema and path API
+
+`@okikio/opfs/schema` owns project serializable schemas and their inferred types. Important groups include:
+
+```text
+PathSchema / PathType
+WriteModeSchema / WriteModeType
+CoordinationModeSchema / CoordinationModeType
+AdapterCapabilitiesSchema / AdapterCapabilitiesType
+SupportModeSchema / SupportModeType
+MetricsModeSchema / MetricsModeType
+PartitionModeSchema / PartitionModeType
+RecordSchema / RecordType
+DriverKindSchema / DriverKindType
+LimitKindSchema / LimitKindType
+LimitSourceSchema / LimitSourceType
+LimitUnitSchema / LimitUnitType
+LimitSchema / LimitType
+RequirementStateSchema / RequirementStateType
+RequirementSchema / RequirementType
+DriverOptimizationSchema / DriverOptimizationType
+```
+
+`@okikio/opfs/path` exposes canonical virtual-path helpers:
+
+```text
+ROOT_PATH
+normalizePath
+splitPath
+joinPath
+dirname
+basename
+isAncestorPath
+validateName
+PathType
+```
+
+## Error API
+
+The root module exports:
+
+```text
+FileSystemError
+getErrorName
+getErrorMessage
+toFileSystemError
+```
+
+`FileSystemError` carries stable code, operation, optional canonical path, and original cause.
+
+## Browser capability API
+
+The root exports `probeOpfs()` and `getOpfsContext()`.
+
+`probeOpfs()` returns a non-throwing current-realm report. It probes actual APIs/policy rather than maintaining a
+browser-brand table.
 
 `@okikio/opfs/iframe` exports:
 
-- `supportsUnpartitionedOpfsRequest()`
-- `requestUnpartitionedFileSystem()`
-
-The request is explicit because browser permission/user-activation requirements must remain under application control.
-
-Lifecycle
----------
-
-`FileSystemType` implements `AsyncDisposable`.
-
-```ts
-await fileSystem.close();
+```text
+supportsUnpartitionedOpfsRequest
+requestUnpartitionedFileSystem
 ```
 
-or with supported explicit resource management syntax:
+The application remains responsible for the permission/user-activation flow.
+
+## Metrics API
+
+`@okikio/opfs/metrics` exports logical facade metrics plus `DriverMetricsType`.
+
+Logical facade metrics count operations, failures, logical bytes, native/emulated/partitioned routes, buffering, and
+optional timing.
+
+Driver metrics are physical and provider-specific enough to include request/retry/part/physical-byte/cleanup information
+without forcing that data into logical filesystem counters.
+
+## Lifecycle
+
+`FileSystemType` implements async disposal. Closing is idempotent. The adapter is disposed only when ownership was
+transferred. Each adapter/driver/bridge has its own explicit ownership option for injected resources.
 
 ```ts
 await using fileSystem = createFileSystem(adapter, {
@@ -628,4 +782,5 @@ await using fileSystem = createFileSystem(adapter, {
 });
 ```
 
-Closing is idempotent. The adapter is closed only when ownership was explicitly transferred.
+Cancellation and disposal remain distinct. A caller can cancel one operation without implicitly disposing a shared
+storage resource.

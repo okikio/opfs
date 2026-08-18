@@ -1,115 +1,499 @@
-Architecture and invariants
-===========================
+# Architecture and invariants
 
-The architecture starts from one rule:
+## Purpose
 
-> The filesystem facade owns filesystem semantics. An adapter owns the mechanics of one backend.
+`@okikio/opfs` is a storage programming model with an OPFS-shaped filesystem frontend. The package supports storage
+systems that have very different native contracts. Browser OPFS exposes file and directory handles. Node, Deno, and Bun
+expose host file APIs. Deno KV and IndexedDB expose values and transactions. S3 and Azure Blob expose object protocols.
+Drizzle, db0, RxDB, and unstorage sit above their own storage engines.
 
-That rule matters because OPFS, Node files, Deno KV, SQLite, S3, and Azure Blob do not have the same native operations. A useful
-portable library must make common application behavior consistent without hiding those differences from performance-sensitive
-or correctness-sensitive code.
+The architecture keeps those differences visible while giving applications one portable filesystem API where that API
+can be implemented correctly.
 
-The complete data path is:
-
-```text
-                              application
-                                  |
-                  +---------------+---------------+
-                  |                               |
-                  v                               v
-              path API                     OPFS-shaped handles
-       readFile / writeFile / walk      DirectoryHandle / FileHandle
-                  |                               |
-                  +---------------+---------------+
-                                  |
-                                  v
-                            FileSystemType
-                                  |
-          normalize paths / normalize failures / cancellation
-          parent creation / recursive operations / staging
-          file locks / tree locks / sync-file lock lifetime
-          stream selection / bounded materialization / ownership
-                                  |
-                                  v
-                             AdapterType
-                 +----------------+----------------+
-                 |                |                |
-                 v                v                v
-          native filesystem   record storage   object storage
-           OPFS/Node/Deno     KV/doc/SQL       S3/Azure Blob
-                 |                |                |
-                 |         RecordStoreType    ObjectStoreType
-                 |                |                |
-                 v                v                v
-            native bytes      versioned row      object key
-```
-
-The frontend therefore has one filesystem contract, but the adapter capability record still tells the truth about how that
-backend gets the work done.
-
-The adapter contract stays deliberately small
----------------------------------------------
-
-Every adapter implements six primitives: `stat`, `readFile`, `writeFile`, `readDir`, `createDir`, and `remove`. Everything else
-is an optional acceleration or stronger native lifecycle.
-
-This avoids a common adapter failure mode where every backend reimplements recursive copy, walk, parent creation, handles,
-locking, and error normalization separately. If those policies live in every adapter, semantics drift as soon as one backend gets
-a bug fix that the others do not.
-
-Optional operations exist only when the backend can perform them natively:
+The defining path is:
 
 ```text
-streamRead      -> openReadStream
-write mode      -> writeStream when mode is in streamWriteModes
-nativeCopy      -> copy
-nativeMove      -> move
-positionalWrite -> openWritableFile
-syncAccess      -> openSyncFile
+native API / ecosystem
+        |
+        v
+      client            optional protocol client
+        |
+        v
+      driver            backend-native persistence
+        |
+        v
+      adapter           driver -> canonical filesystem primitives
+        |
+        v
+   FileSystemType       portable OPFS-shaped behavior
+        |
+        v
+      bridge            FileSystemType -> real ecosystem contract
 ```
 
-`streamWriteModes` is intentionally a list. A local file can stream replace, append, and update. An object store can usually
-stream a complete replacement but cannot append bytes to an existing object in place. One `streamWrite: true` flag would hide
-that difference and make callers reason from a capability that was too broad.
+`integration` definitions are separate metadata that describe which of the two directions exist. They are not executable
+bridges.
 
-The adapter can additionally publish hard `limits` and a durable `partition` description. Those are facts about the configured
-backend, not policy guesses. `FileSystemType.inspect()` combines them with resolved optimization controls and effective facade
-support. `plan()` uses the same information before I/O, so runtime execution and preflight selection share one route model.
+## Layer ownership
 
-Route-changing optimizations are facade policy:
+### Client
+
+A client owns a wire protocol when the protocol is useful independently of the filesystem abstraction.
+
+Current examples:
 
 ```text
-streamRead
-streamWrite
-rangeRead
-nativeCopy
-nativeMove
+src/s3.ts       S3 REST + SigV4 + multipart + request policy
+src/azure.ts    Azure Blob REST + authentication + block upload + request policy
 ```
 
-Each defaults to enabled and can be disabled independently. This is deliberately different from capability detection. The adapter
-should expose the strongest implementation it has; the caller can force the safe fallback for differential tests, observability,
-provider workarounds, or policy. A disabled route is never relabelled native.
+A client can expose protocol operations that do not belong in a filesystem. For example, an S3 client can retain ETags,
+conditional requests, upload IDs, provider request IDs, presigned requests, object metadata, and multipart controls.
 
-`nativeCopy` is also separate. A provider-side S3 or Azure copy can move terabytes without transferring the source through this
-process, even though the same provider has no filesystem rename. The facade checks native copy before opening a source stream.
-That ordering is a performance invariant, not an implementation detail:
+Node, Deno, Bun, OPFS, IndexedDB, and localStorage do not need a package-owned protocol client. They begin at the driver
+layer.
+
+### Driver
+
+A driver owns one configured backend's storage mechanics. It must remain useful without `FileSystemType`.
+
+A driver owns:
+
+- backend-native operations;
+- required resources and current availability facts;
+- provider hard limits;
+- implementation safety limits;
+- caller-selected policy limits;
+- dynamic limits that still require a probe;
+- driver-specific optimization switches;
+- deterministic preflight planning;
+- physical backend metrics when available;
+- disposal of resources whose ownership was explicitly transferred.
+
+A driver does not own recursive filesystem semantics merely because the adapter above it needs them.
+
+The three reusable driver families are:
 
 ```text
-correct selection
-filesystem.copy()
-      |
-      +-- native copy available -> adapter.copy()
-      |
-      `-- no native copy -------> open source stream -> transfer
+FileDriverType
+  OPFS / Node / Deno / Bun
 
-incorrect selection
-open source stream -> discover native copy -> source GET was already wasted
+RecordDriverType
+  memory / Deno KV / localStorage / IndexedDB / Cache
+  SQLite rows / db0 / Drizzle / RxDB / unstorage
+
+ObjectDriverType
+  S3 / Azure Blob / custom object storage
 ```
 
-Paths are virtual identities, not host paths
--------------------------------------------
+These families preserve stronger native concepts. They are not a forced lowest-common-denominator interface.
 
-Every adapter receives a canonical `PathType`:
+### Adapter
+
+An adapter is deliberately smaller. It translates one driver into the filesystem primitive set consumed by
+`FileSystemType`.
+
+Required adapter primitives:
+
+```text
+stat
+readFile
+writeFile
+readDir
+createDir
+remove
+```
+
+Optional direct routes:
+
+```text
+openReadStream
+writeStream
+copy
+move
+openWritableFile
+openSyncFile
+```
+
+The adapter reports whether those direct routes are native. It does not say that a portable operation is unavailable
+merely because the facade can emulate it.
+
+This distinction is important:
+
+```text
+adapter.nativeMove = false
+FileSystemType.move() can still exist as copy + remove
+```
+
+The first value describes the translation layer. The second describes the effective public route.
+
+### FileSystemType
+
+`FileSystemType` owns portable filesystem behavior:
+
+- canonical virtual paths;
+- parent creation;
+- OPFS-shaped file and directory handles;
+- recursive walk, copy, move, remove, and empty-directory operations;
+- staged writable-file semantics;
+- synchronization and lock lifetime;
+- bounded stream materialization when a backend cannot stream;
+- normalized filesystem failures;
+- logical metrics;
+- adapter/facade optimization switches;
+- composition of driver preflight with adapter and facade policy.
+
+The facade must not claim that an emulated route has the atomicity, consistency, or memory behavior of a native route.
+
+### Bridge
+
+A bridge starts from an existing `FileSystemType` and implements another ecosystem's real contract.
+
+Current bridges are:
+
+```text
+bridge/kv           hierarchical asynchronous key/value view
+bridge/unstorage    unstorage Driver-shaped view
+```
+
+A bridge is valid only when the filesystem can satisfy the ecosystem contract. A filesystem cannot become a SQL engine
+by renaming methods. A real RxDB reverse bridge would need to implement the complete `RxStorage` semantics, including
+conflict, query, checkpoint, change-stream, cleanup, and lifecycle behavior.
+
+### Integration definition
+
+`integration/definition` stores import-safe direction metadata:
+
+```text
+toOpfs     ecosystem/native resource -> driver/adapter -> FileSystemType
+fromOpfs   FileSystemType -> ecosystem bridge
+```
+
+An unsupported direction must state why it is unsupported. A definition never substitutes for the missing executable
+contract.
+
+## Driver definitions and third-party extension
+
+`defineDriver()` is the smallest third-party extension seam. It validates structured driver metadata without registering
+global state.
+
+```ts
+import { defineDriver } from "@okikio/opfs/driver";
+
+const driver = defineDriver({
+  name: "example",
+  kind: "record",
+  provides: ["get", "set", "delete", "list"],
+  ownership: "borrowed",
+  requirements: [
+    { code: "database", state: "available" },
+  ],
+  limits: [
+    {
+      code: "value-bytes",
+      kind: "hard",
+      source: "provider",
+      unit: "bytes",
+      value: 64 * 1024,
+    },
+  ],
+  optimizations: [
+    {
+      code: "partition",
+      enabled: true,
+      changesBehavior: true,
+      disableable: true,
+    },
+  ],
+});
+```
+
+`provides` records stable backend capability names for inspection. It is an open vocabulary so a provider-specific
+driver can report operations beyond the three core driver families. `ownership` reports the long-lived backend resource
+relationship:
+
+```text
+none      no disposable external backend resource is owned by this driver
+borrowed  the caller retains ownership of the injected backend resource
+owned     the driver owns the backend resource and can release it
+```
+
+This report is separate from method presence. Typed file, record, and object driver contracts remain the operational
+API.
+
+A concrete storage implementation should normally use `defineFileDriver()`, `defineRecordDriver()`, or
+`defineObjectDriver()` so its operational contract is type-checked as well as its metadata.
+
+No process-global driver or adapter registry is required. A package can export a definition and normal constructors. The
+application chooses and composes them explicitly.
+
+## Requirements describe availability
+
+A requirement is structured data with a stable `code` and one state:
+
+```text
+available
+missing
+unknown
+```
+
+A requirement can describe facts such as:
+
+```text
+Deno KV database supplied
+IndexedDB exposed in the current realm
+S3 credentials resolved
+browser OPFS root acquired
+transaction capability supplied by a database integration
+```
+
+A driver should not run hidden provider I/O from `inspect()` merely to turn every unknown into a known value. Dynamic
+facts can remain unknown until the caller runs an explicit probe or performs the operation.
+
+## Limits have provenance
+
+A numeric limit is not meaningful unless the caller can tell where it came from.
+
+`LimitType` records:
+
+```text
+code
+kind      hard | policy | dynamic
+source    provider | implementation | user | probe
+unit      bytes | count | milliseconds | operations
+value     optional for a dynamic unknown
+```
+
+Examples:
+
+```text
+Deno KV serialized value ceiling
+  kind: hard
+  source: provider
+
+Deno KV conservative inline decoded-body budget
+  kind: policy
+  source: implementation/user
+
+maxParts chosen by the application
+  kind: policy
+  source: user
+
+available browser storage quota
+  kind: dynamic
+  source: probe
+```
+
+Missing limits mean unknown. They never mean unlimited.
+
+## Optimizations are inspectable policy
+
+Every optimization that can change observable behavior must be independently disableable.
+
+Observable behavior includes more than returned bytes. It includes:
+
+- request count;
+- failure timing;
+- storage layout;
+- atomicity or visibility points;
+- consistency/caching behavior;
+- provider-side resource lifetime;
+- retry/cancellation timing;
+- memory use when the alternate route has different materialization behavior.
+
+`DriverOptimizationSchema` enforces the critical invariant:
+
+> `changesBehavior: true` requires `disableable: true`.
+
+Current examples include:
+
+```text
+S3 delayed multipart promotion
+S3 derived signing-key cache
+Azure block upload
+Azure server-side copy
+Deno KV partition layout
+```
+
+The facade has its own route switches for streaming, ranges, native copy, and native move. Driver and facade switches
+remain separate because they control different layers.
+
+## Planning is deterministic
+
+A driver planner accepts the concrete operation shape:
+
+```text
+operation
+canonical path
+canonical destination when relevant
+logical size when known
+input bytes when different from final size
+bytes vs stream source
+write mode
+range flag
+```
+
+`plan()` performs no storage or network I/O. It returns:
+
+```text
+supported
+support       native | partitioned | unsupported at the driver layer
+partBytes
+parts
+problems[]
+actions[]
+```
+
+Problems and actions are structured. Their human messages are not the identity used by application logic.
+
+The facade planner then adds adapter and filesystem facts. One final plan can therefore explain all of these at once:
+
+```text
+driver: Deno KV key exceeds a provider serialized-key ceiling
+adapter: no native range route
+filesystem: requested stream would exceed maxBufferedWriteBytes
+```
+
+The caller can distinguish each cause and choose a concrete action.
+
+## File drivers
+
+A file driver is closest to native OPFS semantics. Node, Deno, Bun, and browser OPFS can expose direct ranges, streams,
+native copy/move, asynchronous positional files, or synchronous random access when the runtime supports them.
+
+The adapter above a file driver is intentionally close to delegation:
+
+```text
+Node file APIs
+    |
+Node file driver
+    |
+file adapter
+    |
+FileSystemType
+```
+
+The host-path mapper lives with drivers. It maps virtual `/` below one configured host directory and rejects escape from
+that host root.
+
+## Record drivers
+
+Record storage naturally addresses complete values or documents instead of files. `RecordDriverType` therefore defines
+logical record operations plus optional stronger byte lanes.
+
+Portable record methods:
+
+```text
+get(path)
+set(record)
+delete(path)
+list(parent)
+```
+
+Optional stronger methods:
+
+```text
+stat(path)                 metadata without body reconstruction
+readFile(path, range)      direct byte/range access
+openReadStream(path)       direct streaming
+writeFile(path, bytes)     direct write modes
+writeStream(path, stream)  direct streaming write modes
+```
+
+The driver declares replacement semantics, binary support, and transaction availability separately. This lets a SQLite
+or Deno KV driver preserve stronger behavior without pretending localStorage has it.
+
+The generic record format remains a portable fallback. It uses base64 file bodies because JSON/document/text-column
+stores can all preserve that representation. A specialized driver is free to use native BLOB/byte storage internally and
+expose the same logical record contract above it.
+
+## Object drivers
+
+Object storage preserves object semantics before the adapter translates them into files/directories.
+
+An object driver can retain:
+
+- ranged GET;
+- conditional writes;
+- validators/ETags;
+- provider object versions;
+- metadata;
+- native/server-side copy;
+- multipart/block upload;
+- continuation tokens;
+- provider request metrics.
+
+The filesystem adapter does not remove these concepts from the driver. It uses the subset required to provide canonical
+filesystem primitives.
+
+## Partitioning belongs to drivers
+
+Partitioning changes physical storage layout, so it belongs at the backend driver layer.
+
+Examples:
+
+```text
+Deno KV     one logical file -> manifest + value parts
+S3          one object upload -> multipart upload parts
+Azure Blob  one blob upload -> blocks + committed block list
+SQL         possible future file row -> part rows / BLOB segments
+```
+
+These systems have different visibility, cleanup, atomicity, and retry rules. A universal facade chunker would hide
+those provider-specific guarantees.
+
+A partitioning strategy should describe:
+
+```text
+whether it changes durable layout
+its activation policy
+part size
+part count ceiling
+visibility/commit point
+cleanup behavior
+streaming capability
+memory behavior
+whether callers can disable it
+```
+
+## Deno KV reference layout
+
+Deno KV demonstrates the full model.
+
+The provider documents serialized key/value limits. The driver also chooses smaller decoded-body budgets because a raw
+byte count is not equal to serialized value size.
+
+The large-file layout uses an immutable generation and manifest-last publication:
+
+```text
+old manifest -> old generation
+
+write new part 0
+write new part 1
+...
+write new part N
+       |
+       v
+write new manifest       logical visibility point
+       |
+       v
+remove old reachable generation
+```
+
+If part writing fails, the new manifest is not published. The previous generation remains visible. The driver
+best-effort removes parts from the failed generation.
+
+A process crash before publication can still leave unreachable physical parts. That is storage leakage, not a partially
+visible logical file. `DenoKvDriverType.collect()` exposes explicit, age-gated reclamation. The default one-hour grace
+period avoids ordinary collection racing a recent unpublished generation, and `maxDeletes` bounds one maintenance pass.
+Background deletion is not hidden inside ordinary reads or writes.
+
+The Deno KV planner also estimates physical tuple size from the concrete logical path. A file can be small enough to fit
+by byte count while its physical key is too large. The planner reports that condition before provider I/O.
+
+## Filesystem path invariant
+
+Every adapter and driver path that participates in the filesystem seam is canonical:
 
 ```text
 /
@@ -117,281 +501,247 @@ Every adapter receives a canonical `PathType`:
 /a/b.txt
 ```
 
-The adapter seam rejects or never receives forms such as:
+The public facade can accept normalizable input, but `normalizePath()` runs before backend calls. Root escape,
+backslashes, and NUL are rejected.
+
+The virtual path namespace is not an operating-system path namespace. Host file drivers map the canonical path below one
+configured host root.
+
+## Streaming and memory invariant
+
+Large file size must not automatically become JavaScript heap size.
+
+A native streaming route is used only when the selected driver and adapter expose it and the corresponding optimization
+is enabled. Otherwise the facade can materialize an input only up to `maxBufferedWriteBytes`.
 
 ```text
-a/b
-/a/
-/a//b
-/a/./b
-/a/../b
-/a\b
+stream
+  |
+  +-- native driver route --------------------> bounded backend streaming
+  |
+  `-- facade fallback -> bounded collector
+                         |
+                         +-- under limit -> materialized adapter write
+                         `-- over limit  -> cancel producer + too-large
 ```
 
-Public methods accept more convenient input and call `normalizePath()` first. This lets callers write ordinary path-like input
-without making every adapter repeat normalization rules.
+The capability report distinguishes those routes. It does not label a buffered fallback as native streaming.
 
-The host filesystem adapters map this virtual namespace under one configured host root. A virtual path cannot escape that root
-after host resolution. The virtual namespace does not expose symbolic-link identity, permission bits, or arbitrary host paths
-as part of the portable contract.
+## Writable-file invariant
 
-Record stores and object stores need different translation layers
------------------------------------------------------------------
+OPFS-shaped `createWritable()` stages a logical file image and commits on close. Abort discards the staged image.
 
-A value store naturally answers "what value is stored at this key?" It does not naturally answer filesystem questions such as
-"what are the direct children of this directory?" `RecordStoreType` supplies the reusable record translation for that family.
+This is useful compatibility behavior, not the preferred large sequential write path. A caller that can use
+`writeFile()` gives the facade a chance to select a true streaming adapter route.
 
-The complete persisted record has a canonical `path` plus a separate `parent`. Direct directory listing can therefore use an
-index or prefix query over `parent` instead of scanning and parsing every path. File bytes are base64 so the fallback shape can
-survive JSON, Web Storage, document databases, and SQL text. The extra storage and encoding work is accepted only for this
-complete-record path. Native file and object adapters do not use that representation.
+## Synchronous-file lifetime
 
-The record contract also has optional byte lanes. A store can provide metadata-only stat, direct ranges, streaming reads, direct
-materialized writes for selected modes, or streaming writes for selected modes. The generic record adapter advertises only the
-lanes the store declares. Deno KV uses these lanes so a partitioned file is not reconstructed into one base64 record for stat,
-listing, range reads, streaming reads, materialized append/update, or streamed replacement. Its append/update lane constructs a
-new immutable generation one part at a time. This still performs provider I/O for untouched bytes, but it keeps JavaScript memory
-bounded by the configured part/concurrency policy. Simpler record stores keep the small complete-record contract.
-
-An object store has a different strength: large objects, byte ranges, prefix listing, whole-object replacement, conditional
-requests, and provider-side copy. `ObjectStoreType` preserves those concepts before `createObjectAdapter()` translates them into
-filesystem operations.
-
-Files map directly to object keys. Empty directories need a marker object because a pure prefix does not exist until at least one
-child exists:
+A synchronous file has two coupled resources:
 
 ```text
-/photos              -> photos/              marker
-/photos/a.jpg        -> photos/a.jpg
-/photos/2026/b.jpg   -> photos/2026/b.jpg
+facade path lock <------ same lifetime ------> driver sync file
+       |                                         |
+       +---------------- close() ----------------+
 ```
 
-The adapter also accepts implicit directories inferred from foreign prefixes. This matters when the bucket/container is not
-created exclusively by this library.
+The path lock must remain held for the native file lifetime. `writeAll()` repeats partial writes until the complete
+input is written or the backend reports no progress.
 
-An object namespace can contain both `mixed` and `mixed/child`. A real filesystem cannot. The filesystem view resolves an exact
-`mixed` object as the file, because exact `stat()` already does that. Reads and writes follow the same rule. This creates one
-stable interpretation for a foreign namespace instead of making `stat()` and `writeFile()` disagree.
+## Coordination invariant
 
-Streaming stays native only when the backend really streams
------------------------------------------------------------
+The facade coordinates callers that use the same library lock namespace.
 
-`writeFile()` accepts strings, Blob, ArrayBuffer, typed-array views, ReadableStream, and AsyncIterable input.
-
-When the selected adapter supports native streaming for the requested write mode, the facade forwards a byte stream directly.
-When it does not, the facade collects the stream below `maxBufferedWriteBytes` and then calls the materialized adapter write.
-Crossing the limit cancels the producer and returns `too-large`.
-
-```text
-ReadableStream
-      |
-      +-- native mode supported ------> adapter.writeStream()
-      |
-      `-- no direct adapter stream lane
-             |
-             v
-       bounded collector
-        |           |
-        |           +-- over limit -> cancel producer -> too-large
-        v
-    Uint8Array
-        |
-        v
- adapter.writeFile()
-```
-
-This makes memory behavior visible. A simple record-backed adapter can accept streamed input through the public API while still
-reporting an emulated stream route because the complete record is materialized before storage. A specialized record store can
-report a partitioned stream lane when its own physical layout preserves backpressure. Deno KV does exactly that for
-replacement streams when partitioning is enabled.
-
-Partitioning is not hidden as an optimization. It changes durable physical layout, so the adapter publishes `mode`, part size,
-threshold, maximum parts, and layout identity. Deno KV exposes `never | auto | always`. Its parts are written under a new
-generation and the manifest is committed last. A pre-manifest crash can leak unreachable parts but cannot publish a partial new
-logical file.
-
-Multipart and block-upload clients use `@std/async/pool` for bounded request admission. The surrounding client still owns the
-provider lifecycle: S3 waits for already-started part requests before it sends AbortMultipartUpload, while Azure documents that
-uncommitted blocks have no equivalent abort operation. The pool limits concurrent work; it does not become authority for remote
-commit, cleanup, or the terminal provider failure.
-
-HTTP retry policy is separate from body replayability. Direct clients rebuild authorization on every retry and use exponential
-backoff with jitter, but a mechanically replayable request can still be semantically non-idempotent. S3 multipart initiation and
-completion therefore disable automatic request retry. Uploaded parts use stable part numbers and can use the normal retry policy.
-The low-level S3/Azure request APIs expose `retry: false` so a caller can make the same decision for provider-specific operations.
-One-shot `ReadableStream` request bodies are never retried automatically.
-
-Object append and update are optimistic read-modify-write
---------------------------------------------------------
-
-Object stores do not expose a portable in-place byte update. Append and update therefore use the current object as the starting
-image, modify that image, and replace the object.
-
-Without a precondition, two writers can both read version A and then publish different replacements; the later one silently
-loses the earlier write. When the object client advertises conditional writes, the adapter uses the current ETag as `If-Match`.
-A concurrent change then fails the replacement instead of becoming silent data loss.
-
-```text
-writer A: HEAD ETag=A -> GET A ---------> PUT if-match A -> succeeds
-writer B: HEAD ETag=A -> GET A -------------------------> PUT if-match A -> fails
-```
-
-If a provider claims conditional writes but does not return an ETag for an existing object, the adapter refuses append/update.
-That is safer than publishing an unconditional write while the capability record says optimistic protection exists.
-
-The provider client can disable `conditionalWrite` when a compatible protocol implementation does not support the required
-precondition. The library does not choose provider behavior from a provider-name table.
-
-Copy and move preserve their real commit behavior
--------------------------------------------------
-
-Native host filesystems use their copy and rename operations when available. Object stores use provider-side copy when the
-client can do it. The facade removes/rejects the destination according to its own overwrite contract before invoking native copy,
-so the adapter does not have to invent another overwrite policy.
-
-When no native copy exists, file bytes move through a stream when both ends support streaming or through bounded materialization
-otherwise.
-
-A native move can be atomic or near-atomic according to the host/provider operation. The portable fallback is explicitly:
-
-```text
-copy source -> destination
-      |
-      +-- copy failed -> source remains
-      |
-      `-- copy succeeded -> remove source
-```
-
-That fallback is not atomic. A failure after copy and before remove can leave both entries. The API documents this instead of
-claiming POSIX rename semantics on every backend.
-
-Before copy or move, source and destination are checked for overlap. The library never removes an overwrite destination that is
-an ancestor or descendant of the source.
-
-Coordination protects cooperating callers, not the whole storage system
-------------------------------------------------------------------------
-
-There are two classes of mutation.
-
-A file mutation acquires a shared tree lock plus an exclusive lock for that canonical file path:
+File mutation:
 
 ```text
 shared tree lock
       |
-exclusive /a/file lock
+exclusive file-path lock
       |
-write or sync-file lifetime
+write / writable file / sync file lifetime
 ```
 
-A structural mutation such as recursive copy, move, remove, or empty-directory work acquires the exclusive tree lock:
+Structural mutation:
 
 ```text
 exclusive tree lock
       |
-structural mutation
+copy / move / recursive remove / emptyDir
 ```
 
-Independent files can therefore make progress concurrently while a tree mutation cannot race an active library file mutation.
-The in-realm lock implementation queues new readers behind an already-waiting writer so a busy read/write workload does not
-starve structural work.
+`local` coordination only spans one JavaScript realm. `web-locks` can coordinate cooperating browser realms that share
+the lock namespace. `none` performs no library coordination.
 
-`coordination: "web-locks"` uses the browser Web Locks API. `auto` uses Web Locks when exposed and falls back to in-realm FIFO
-coordination. `local` is one-realm coordination only. `none` preserves cancellation and adapter semantics but makes the caller
-responsible for concurrency.
+Database or distributed applications that require cross-process serialization must use the database/provider's real
+transaction, lease, advisory-lock, or equivalent primitive. A local facade lock cannot provide that guarantee.
 
-None of these modes becomes a distributed lock. Separate Node processes, browser profiles, hosts, or independent applications
-need provider/database coordination when same-path atomicity matters across those processes.
+## Copy and move invariant
 
-Synchronous and asynchronous writable resources own locks for their complete lifetime
---------------------------------------------------------------------------------------
+Native copy and native move are separate capabilities.
 
-A synchronous file is not one short method call. It owns both the adapter file resource and the facade path lock until close:
+A native copy can avoid routing bytes through JavaScript. Object stores commonly provide this even when they cannot
+provide rename semantics.
+
+When native move is absent:
 
 ```text
-facade path lock <-------- same lifetime --------> adapter sync file
-       |                                              |
-       +------------------- close() ------------------+
+source -> copy -> destination
+  |
+  `---------- remove source after successful copy
 ```
 
-This prevents an asynchronous write through the same facade from entering while synchronous random access is active.
-`writeAll()` loops over partial native writes until the complete input is written or the backend reports no progress.
+This fallback is not atomic. A failure after copy can leave both paths. Inspection and planning identify the route as
+emulated.
 
-The OPFS-shaped `createWritable()` facade stages one file image and commits it on close. Abort discards the staged image. This is
-useful for compatibility with File System API write commands, including seek and truncate. It is not the recommended path for
-very large sequential files because the staged image is materialized. `FileSystemType.writeFile()` can use an adapter's native
-streaming path instead.
+Source/destination overlap is checked before recursive structural work. An overwrite cannot delete an ancestor or
+descendant that contains the source.
 
-Integration direction is explicit
----------------------------------
+## Database topology invariant
 
-An adapter is `ecosystem -> OPFS`. A driver is `OPFS -> ecosystem`. A bridge is only a descriptor that groups those directions;
-it does not add a third translation layer to each operation.
+Two database directions must remain distinct.
+
+Database-backed filesystem:
 
 ```text
-ecosystem/client -> adapter -> FileSystemType -> driver -> ecosystem contract
+Drizzle/db0/RxDB/SQLite database
+          |
+      record driver
+          |
+      record adapter
+          |
+     FileSystemType
 ```
 
-Some ecosystems are genuinely bidirectional. unstorage has a storage contract that can be consumed as a record backend and a
-driver contract that can be implemented over `FileSystemType`. RxDB, db0, and Drizzle are not symmetric: their reverse
-contracts require query, conflict, dialect, schema, or change-stream semantics a filesystem does not own. `defineBridge()`
-therefore requires an explicit reason for unsupported directions instead of encouraging a false adapter.
-
-Cancellation and disposal are different operations
---------------------------------------------------
-
-An `AbortSignal` asks active work to stop before a commit when possible. Closing a filesystem ends ownership of the facade.
-Closing the facade does not dispose the adapter unless `disposeAdapter: true` transferred that ownership.
-
-The same rule continues below the adapter:
+SQLite database stored on OPFS:
 
 ```text
-caller creates database/client/cache
-      |
-      +--> adapter borrows it
-      |       |
-      |       +--> filesystem closes
-      |       `--> resource remains open
-      |
-      `--> caller still owns resource
+application
+    |
+  Drizzle
+    |
+SQLite engine
+    |
+SQLite VFS
+    |
+FileSystemType / native OPFS
 ```
 
-An adapter option such as `disposeDatabase`, `disposeStore`, or another explicit ownership flag changes that lifecycle. The
-option exists because connection pools, RxDB collections, unstorage instances, object clients, and caches are commonly shared by
-more than one subsystem.
+The current `driver/sqlite` and `adapter/sqlite` implement the first topology. They do not implement a SQLite VFS. A
+future VFS must implement the SQLite engine's real file/VFS contract.
 
-Errors normalize the portable category without erasing the provider cause
--------------------------------------------------------------------------
+## Resource ownership
 
-Browsers use DOMException names. Node/Deno/Bun expose host error codes. Databases and cloud providers have their own errors.
-`toFileSystemError()` maps known failures to stable package categories while retaining the original `cause`.
-
-S3 and Azure clients also retain provider request identities on their own errors. Those IDs matter when a service returns an
-unexpected result and the provider support logs are the only authoritative trace.
-
-Import safety follows the package graph
----------------------------------------
-
-The root package exports the portable facade, native browser OPFS convenience path, schemas, errors, handles, and capability
-probes. It does not export every adapter from the root.
+Injected resources are borrowed by default.
 
 ```text
-@okikio/opfs                    browser-safe core + native OPFS
-@okikio/opfs/adapter/node       node:fs imports
-@okikio/opfs/adapter/deno       Deno runtime APIs
-@okikio/opfs/adapter/bun        Bun + Node-compatible APIs
-@okikio/opfs/s3                 Web Fetch/Crypto S3 client
-@okikio/opfs/azure              Web Fetch Azure Blob client
-@okikio/opfs/adapter/drizzle    optional drizzle-orm peer
+caller creates database/client/filesystem
+        |
+        +--> driver/adapter/bridge borrows it
+        |
+        `--> caller remains owner
 ```
 
-Importing a module does not read environment variables, configure logs, connect to providers, start workers, or mutate a global
-adapter registry.
+Ownership transfers only through an explicit option such as:
 
-Schemas are executable contracts, not duplicated type declarations
--------------------------------------------------------------------
+```text
+disposeDatabase
+disposeStorage
+disposeDriver
+disposeAdapter
+disposeFileSystem
+```
 
-Project-owned structural values use Zod schemas and inferred TypeScript output types. Public schema constants end in `Schema`.
-Serializable project-owned types normally end in `Type`.
+Disposal is idempotent at the owning layer where the public contract promises idempotency. A library must not close a
+shared connection or filesystem merely because a facade closes. A driver only exposes backend disposal when its
+construction options transferred ownership, so higher layers cannot accidentally dispose a borrowed database or storage
+instance.
 
-Zod 4 implements Standard Schema. The exported Zod value is therefore also the Standard Schema value. Creating a second OPFS
-schema wrapper would add maintenance without adding a stronger contract.
+Read-only policy is also a driver property for record backends. A read-only driver reports `write: false`, omits
+optional write primitives, and rejects direct mutations before backend I/O. Adapters preserve that state rather than
+inventing a second write policy that can disagree with the driver.
+
+## Cancellation invariant
+
+Cancellation asks active work to stop. Disposal releases owned resources. They are different operations.
+
+Long-running drivers check the signal before expensive work and between bounded chunks. When the facade aborts a stream
+write, it cancels the producer when practical so upstream work does not continue after the file operation has become
+terminal.
+
+Provider cleanup can need a separate bounded signal. For example, canceling an S3 multipart write must not use the
+already aborted caller signal for the `AbortMultipartUpload` cleanup request.
+
+## Error invariant
+
+Backends fail with different error types. The facade normalizes known filesystem conditions to `FileSystemError` codes
+while retaining the original cause.
+
+```text
+DOMException / Node error code / provider error
+                  |
+                  v
+          FileSystemError
+             code
+             operation
+             path
+             cause
+```
+
+Protocol clients keep their own rich errors where provider-specific data matters. Translation into a filesystem error
+happens at the storage/filesystem layer, not by deleting provider information at the client.
+
+## Metrics are layered
+
+Logical and physical work are not the same metric.
+
+`MetricsType` belongs to `FileSystemType` and records logical operations, logical bytes, route selection, facade
+buffering, and optional facade timing.
+
+`DriverMetricsType` belongs to a driver and can record physical work such as:
+
+```text
+provider requests
+retries
+responses/failures
+logical payload bytes
+physical bytes
+parts/blocks/chunks
+peak active provider work
+backend duration
+cleanup duration
+```
+
+The benchmark matrix should compare each layer independently rather than attributing every cost to the facade.
+
+## Import-safety invariant
+
+The root package is browser-safe. Runtime/provider code remains on explicit subpaths.
+
+```text
+@okikio/opfs
+@okikio/opfs/driver/node
+@okikio/opfs/driver/deno
+@okikio/opfs/driver/bun
+@okikio/opfs/driver/s3
+@okikio/opfs/driver/azure
+@okikio/opfs/adapter/*
+@okikio/opfs/bridge/*
+```
+
+Importing a module does not connect to storage, read environment variables, start a worker, configure global logging, or
+mutate a process registry.
+
+## Review rules
+
+A storage change is not complete until these questions have concrete answers:
+
+1. Which layer owns the behavior?
+2. Is the provider/native contract preserved below the adapter?
+3. Are provider, implementation, user, and dynamic limits distinguishable?
+4. Can an observable optimization be disabled?
+5. Does planning use the actual path/size/source shape needed to detect known limits?
+6. Is growing work bounded by bytes, parts, concurrency, retries, or time?
+7. Who owns cancellation and who owns disposal?
+8. Does an emulated route state its weaker atomicity, consistency, or memory behavior?
+9. Does a reverse bridge implement the ecosystem's real contract?
+10. Do tests and benchmarks exercise the layer being claimed rather than bypassing it?

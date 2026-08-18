@@ -1,330 +1,419 @@
-Validation strategy
-===================
+# Validation strategy
 
-The test architecture separates portable filesystem semantics from the runtimes and providers that supply concrete storage.
-This is deliberate. A fast memory test should not be the evidence for browser OPFS interoperability, and a browser test should
-not be the only evidence for a deterministic path or copy invariant.
+## Purpose
 
-The canonical layers are:
+Validation follows the storage layers. A memory test is not evidence for browser OPFS interoperability. A fake HTTP test
+is not evidence that an S3-compatible server accepts the request. A facade benchmark is not enough to identify whether
+overhead came from the protocol client, driver, adapter, metrics, or provider.
+
+The canonical model is:
 
 ```text
 node:test + @std/expect
-    portable schemas, paths, facade behavior, record/object translations,
-    ecosystem bridges, S3/Azure protocol behavior with deterministic fakes
+    schemas / paths / driver contracts / adapter translation / facade semantics
+    deterministic S3/Azure protocol tests
+    record/object/database contract tests
 
-real server runtimes
-    Deno host filesystem
-    Deno KV
-    Node host filesystem + node:sqlite
-    Bun host filesystem
-
-Testcontainers + node:test
-    SeaweedFS S3 compatibility / Azurite Blob interoperability
-    random host ports / readiness / owned cleanup
+Deno / Node / Bun runtime tests
+    actual host filesystem behavior
+    Deno KV runtime behavior
 
 Playwright Test
     Chromium / Firefox / WebKit
-    Window / Worker / ServiceWorker / iframe / persistence / browser storage
+    Window / Worker / iframe / ServiceWorker / persistence
 
-Mitata
-    raw backend baseline -> adapter primitive -> filesystem facade
+Testcontainers + node:test
+    disposable SeaweedFS and Azurite provider interoperability
+
+Mitata + Playwright benchmarks
+    native/client -> driver -> adapter -> facade -> facade+metrics
 ```
 
-A test states the contract it protects. Avoid tests that only mirror the current implementation line by line.
+## Repository command authority
 
-Portable tests protect filesystem semantics
--------------------------------------------
-
-The portable suite uses `node:test` with `describe` and `it`, plus `@std/expect` for expectations. Deno runs these same source
-files directly. Node runs the same source. Bun runs the same `node:test` API through `bun test`.
-
-The suite covers:
-
-- schema acceptance/rejection and Standard Schema exposure;
-- canonical path normalization and root-escape rejection;
-- file and directory handle semantics;
-- replace, append, update, truncate, and byte-range behavior;
-- staged writable close versus abort;
-- stream cancellation after the operation becomes terminal;
-- bounded stream materialization for simple record adapters;
-- Deno KV partitioned large-file stat/list/range/stream behavior, bounded append/update patching, and manifest-last visibility;
-- optimization-disabled differential paths and matching preflight plans;
-- filesystem route/peak-buffer metrics;
-- copy/move overwrite and source/destination overlap protection;
-- file mutation versus structural mutation coordination;
-- queued cancellation recovery;
-- sync-file lock lifetime and partial-write looping;
-- adapter disposal ownership;
-- record-store semantics;
-- generic object-store directories, ranges, streaming replacement, optimistic read-modify-write, and native copy;
-- foreign object layouts where an exact file key and a child prefix coexist;
-- unstorage forward and reverse integration;
-- the generic reverse key-value driver and collision-safe keys;
-- RxDB, db0 dialect, Drizzle, and direct SQLite translation;
-- S3 Signature Version 4, XML list/error parsing, multipart commit preconditions, HTTP-200 embedded failures, multipart
-  server-side copy, retry/backoff, timeout, manual redirects, one-shot body admission, and non-idempotent multipart lifecycle retry guards;
-- Azure list/error parsing, large server-side range copy, bearer/SAS source authorization, provider request identities,
-  retry/backoff, and one-shot/explicit no-retry behavior.
-
-Focused commands:
+Mise owns tool versions and repository commands.
 
 ```sh
-deno task test:portable
-deno task test:node
-deno task test:bun
-```
-
-The deterministic stress run shuffles and repeats the portable suite so hidden test order does not become a dependency:
-
-```sh
-deno task test:stress
-```
-
-Runtime suites prove runtime adapters against the real API
-----------------------------------------------------------
-
-`tests/deno.test.ts` exercises the real Deno host filesystem adapter. `tests/node.test.ts` exercises real Node host filesystem
-operations and runs the SQL bridge against Node's built-in SQLite engine. `tests/bun.test.ts` exercises the Bun adapter against
-Bun's actual runtime.
-
-Deno KV has a separate real integration test because current Deno requires the unstable KV flag:
-
-```sh
-deno task test:deno-kv
-```
-
-The adapter module is still type-checked with the server set. The unstable flag belongs to the real Deno KV execution, not to
-unrelated package imports.
-
-The normal server-runtime matrix is:
-
-```sh
-deno task test:deno
-deno task test:deno-kv
-deno task test:node
-deno task test:bun
-```
-
-The pinned mise task runs these after installing the frozen dependency graph:
-
-```sh
+mise install
+mise run check
 mise run test
-```
-
-GitHub Actions does not recreate this runtime setup with separate Node, Deno, and Bun setup actions. `jdx/mise-action` installs
-the pinned mise release and only the tools required by the current job. The job then calls the same focused mise task a
-maintainer can run locally, such as `mise run test-deno`, `mise run test-node`, or `mise run test-bun`. This keeps tool versions
-and test commands in the repository instead of duplicating them in workflow YAML.
-
-Testcontainers owns provider-service lifecycle
----------------------------------------------
-
-`tests/provider.test.ts` remains a `node:test` suite. `tests/provider/fixture.ts` uses Testcontainers only to supply real local
-services. SeaweedFS runs through `GenericContainer`; Azurite uses the official `@testcontainers/azurite` module. Testcontainers
-selects free host ports, applies readiness checks, and owns container cleanup. No Docker Compose subprocess or project polling
-loop is required.
-
-```sh
-mise run test-providers
-```
-
-The provider job in GitHub Actions installs Deno and Node through mise and calls that same task. Docker-compatible runtime
-selection remains Testcontainers configuration, not package runtime logic. This is an interim fixture layer and does not constrain
-a future provider abstraction to the Docker API.
-
-Playwright owns browser installation and browser lifecycle
----------------------------------------------------------
-
-The browser suite lives under `tests/browser/`. There is no custom browser-launch loop or custom test-result protocol.
-Playwright owns browser installation, contexts, server lifecycle, traces, retries, and test attribution.
-
-Install the compatible browser builds, then run the matrix:
-
-```sh
-deno task test:browser:install
-deno task test:browser
-```
-
-or:
-
-```sh
+mise run test-node
+mise run test-deno
+mise run test-bun
 mise run test-browser
-```
-
-The same semantic tests run in Chromium, Firefox, and WebKit. Tests probe runtime capability and then assert the actual result.
-They do not encode statements such as "Firefox has no sync OPFS" or "WebKit always rejects this iframe" into the test logic.
-Those are exactly the assumptions an interoperability suite is supposed to detect when browser behavior changes.
-
-The browser cases include:
-
-```text
-Window
-  OPFS probe
-  async write/read
-  abort before commit
-
-DedicatedWorker
-  async OPFS
-  synchronous handle probe and open attempt
-
-SharedWorker
-  async OPFS through the actual SharedWorker realm
-
-ServiceWorker
-  black-box registration + postMessage in all browsers
-  deeper serviceWorkers() instrumentation in Chromium only
-
-iframes
-  same-origin
-  cross-origin
-  opaque sandbox
-
-storage lifecycle
-  fresh BrowserContext isolation
-  persistent profile close/reopen
-
-browser record adapters
-  localStorage
-  IndexedDB
-  Cache Storage
-```
-
-The iframe and ServiceWorker tests report unsupported runtime APIs as capability skips. A supported realm whose OPFS root is
-rejected is not silently skipped; the test asserts that a normalized root failure is present.
-
-Benchmarks measure overhead against the direct backend
-------------------------------------------------------
-
-A benchmark without a raw baseline cannot tell whether the adapter is fast or merely whether one code path is faster than
-another OPFS code path. The benchmark layout therefore keeps three layers visible:
-
-```text
-raw backend
-    |
-    v
-adapter primitive
-    |
-    v
-FileSystemType
-    |
-    +-- coordination: none
-    `-- coordination: local
-```
-
-`bench/memory.bench.ts` measures raw `Map`, direct `RecordStoreType`, direct memory adapter, and facade overhead. This exposes the
-cost of record serialization separately from the higher-level filesystem contract.
-
-`bench/node.bench.ts`, `bench/deno.bench.ts`, and `bench/bun.bench.ts` compare raw host filesystem reads/writes and copy with
-the direct adapter and facade. Bun measures both Node-compatible `copyFile` and `Bun.write(destination, Bun.file(source))` so a
-future adapter change has a runtime baseline instead of an assumption. `bench/deno-kv.bench.ts` does the same for real local Deno
-KV, and `bench/sqlite.bench.ts` compares a raw SQLite BLOB row with the direct record adapter and facade. Metrics are disabled for
-facade baseline measurements.
-
-```sh
-deno task bench:memory
-deno task bench:deno
-deno task bench:deno-kv
-deno task bench:node
-deno task bench:sqlite
-deno task bench:bun
-```
-
-`mise run bench` runs the server/memory set with the pinned runtimes.
-
-The browser benchmark keeps the raw browser API, direct adapter, and facade visible in each real browser. Native OPFS uses 25
-replace/read iterations with a 64 KiB payload. localStorage, IndexedDB, and Cache Storage use 20 iterations with a 16 KiB
-payload. Each sample records the raw, adapter, and facade durations plus the adapter/raw, facade/raw, and facade/adapter ratios
-as a Playwright attachment.
-
-```sh
-deno task bench:browser
-# or
+mise run test-providers
+mise run bench
+mise run bench-providers
 mise run bench-browser
+mise run bench-filesystem-clients
+mise run quality
 ```
 
-Microbenchmarks are evidence about overhead in the measured operation. They are not universal provider throughput numbers.
-Object-store latency, geographical distance, TLS, provider multipart behavior, and connection reuse can dominate the small
-client/facade cost.
+GitHub Actions owns only GitHub-specific orchestration: triggers, permissions, matrices, secrets, outputs, immutable
+release refs, and calls into those mise tasks.
 
-`mise run bench-providers` starts the pinned SeaweedFS/Azurite services through Testcontainers and compares official SDK/native
-runtime baselines with the direct protocol clients, object adapters, and filesystem facade. `bench/providers.ts` owns provider
-startup before it launches benchmark programs, so image pull/readiness time is outside Mitata samples. S3 includes AWS SDK v3 and a Bun-native `S3Client` run; Azure
-uses `@azure/storage-blob`. The small write baseline includes the same follow-up stat/properties request as the direct project
-client, and multipart/block cases are separate. `metrics: "none"` versus `metrics: "basic"` makes instrumentation overhead
-visible instead of hiding it. Real-cloud performance still requires an opt-in controlled provider benchmark.
+## Portable tests
 
-Type, lint, format, and documentation gates stay separate
----------------------------------------------------------
+Portable tests use `node:test` with `describe`/`it` and `@std/expect`. Deno and Node consume the same TypeScript source.
+Bun uses the same test contracts where its runner/runtime supports them.
 
-`deno task check` type-checks the code in environment-focused groups so unrelated ambient globals do not accidentally make an
-invalid target look valid:
+Important portable suites:
 
 ```text
-check:core
-  root/core + provider-neutral adapters/clients + reverse drivers
+tests/path.test.ts
+    canonical path parsing / root escape / names
 
-check:browser
-  Window/browser storage adapters + Playwright specs/config
+tests/driver.test.ts
+    driver definition validation
+    requirement/limit provenance
+    behavior-changing optimization disableability
+    direct third-party driver planning
 
-check:workers
-  DedicatedWorker / SharedWorker / ServiceWorker fixtures with WebWorker libs
+tests/memory.test.ts
+    deterministic record driver/adapter/facade behavior
 
-check:server
-  Deno / Deno KV / Node / Bun / SQLite adapters and server benchmarks
+tests/filesystem.test.ts
+    locks / staged writes / copy / move / cancellation / lifecycle
 
-check:tests
-  portable + runtime test source
+tests/ecosystems.test.ts
+    unstorage / RxDB / db0 / Drizzle
+    integration direction metadata
+    real reverse unstorage bridge
 
-check:deno-kv
-  Deno KV test source with the unstable KV flag
+tests/object.test.ts
+    generic object driver -> object adapter -> facade contract
 
-check:providers
-  Testcontainers fixture + provider tests + provider benchmark orchestration
+tests/s3.test.ts
+    deterministic S3 REST/SigV4/multipart/copy/retry behavior
+
+tests/azure.test.ts
+    deterministic Azure REST/auth/block/copy/retry behavior
+
+tests/deno-kv-partition.test.ts
+    partition layout using an in-memory Deno KV contract double
+
+tests/sqlite.test.ts
+    direct SQLite row-driver behavior
 ```
 
-The normal quality gates are:
+A test should identify the contract it protects. Avoid tests that merely restate private implementation steps.
+
+## Driver tests
+
+A driver is a public extension seam and therefore receives direct tests before an adapter exists.
+
+The generic suite proves:
+
+- structured requirements are retained;
+- provider, implementation, user, and probe limits keep their provenance;
+- an optimization with `changesBehavior: true` cannot declare `disableable: false`;
+- driver planning can reject a known impossible input without storage I/O;
+- structured problems/actions are stable machine data.
+
+Backend-specific driver tests then protect physical rules. Deno KV is the most important reference because byte size,
+path/key size, partition policy, and provider ceilings all affect admission.
+
+## Deno KV validation
+
+The portable Deno KV partition suite uses a deterministic contract double. It proves:
+
+- no stored test value crosses the documented serialized value ceiling enforced by the double;
+- conservative `partBytes`/`inlineBytes` safety budgets reject unsafe configuration;
+- a long physical key is rejected during driver preflight before provider I/O;
+- `partition: "never"` returns structured `change-policy`/`select-driver` actions for oversized input;
+- large logical files reconstruct exactly;
+- directory listing does not load file body parts;
+- range reads touch only overlapping parts;
+- streamed replacement uses bounded partition writes without facade buffering;
+- disabling the facade stream-write optimization forces the bounded facade fallback;
+- append/update preserve untouched bytes;
+- manifest-last replacement never publishes a partial new generation.
+
+The Deno-native suite uses the real Deno KV API when the runtime is available. It remains the release evidence for
+actual serialization/provider behavior; the contract double does not replace it.
+
+## Host filesystem runtime tests
+
+Node, Deno, and Bun each run real host-file tests because a shared structural contract cannot prove runtime I/O
+behavior.
+
+The runtime suites cover the applicable routes:
+
+```text
+replace / append / update
+ranges
+native streams
+native copy
+native move
+asynchronous positional files
+sync random access
+flush
+close/disposal
+cancellation
+```
+
+Bun tests also verify the Bun-specific read/replace route rather than only the Node-compatible fallback.
+
+## Browser tests use Playwright
+
+Playwright owns browser lifecycle and cross-browser orchestration. The matrix covers Chromium, Firefox, and WebKit
+instead of encoding a Chromium-only browser assumption.
+
+Browser cases include:
+
+```text
+Window async OPFS
+DedicatedWorker
+SharedWorker
+ServiceWorker observable behavior
+same-origin iframe
+cross-origin iframe
+opaque sandbox iframe
+persistent/reopen behavior
+browser record adapters
+locking/cancellation where the browser exposes the capability
+```
+
+Synchronous OPFS access is probed from the actual realm/handle. A test does not infer support from browser name or
+worker type.
+
+Playwright's deeper ServiceWorker instrumentation is browser-specific, so cross-browser service-worker tests use a
+page-owned registration/message path when direct runner instrumentation is unavailable.
+
+## Provider tests use Testcontainers
+
+`tests/provider/fixture.ts` owns disposable provider services through Testcontainers.
+
+```text
+ProviderFixture
+  |
+  +-- SeaweedFS S3-compatible endpoint
+  `-- Azurite Blob endpoint
+```
+
+Testcontainers selects mapped host ports and owns readiness/disposal. The repository does not keep a parallel Docker
+Compose, fixed-port, curl-polling lifecycle.
+
+Provider tests exercise:
+
+```text
+protocol client
+  -> provider
+
+driver
+  -> client/provider
+
+adapter
+  -> driver
+
+FileSystemType
+  -> adapter
+```
+
+The provider suite proves interoperability with SeaweedFS/Azurite. It does not redefine Amazon S3 or Azure Blob
+specifications. Deterministic protocol tests continue to protect exact signing, conditions, limits, and error parsing.
+
+## Stress and lifecycle tests
+
+`test:stress` runs the portable suite repeatedly with a fixed shuffle seed. Its purpose is to expose ordering, lock,
+cleanup, and state-sharing defects that one deterministic order can hide.
+
+Lifecycle-sensitive code must test:
+
+- successful cleanup;
+- cleanup after failure;
+- caller cancellation;
+- post-open stream cancellation;
+- close exactly once;
+- abort exactly once;
+- use after close/abort;
+- ownership transfer versus borrowed resources;
+- cleanup with a separate signal when the caller signal is already aborted.
+
+## Coverage
+
+Coverage is useful evidence, not architectural proof. The coverage task exists to find unexecuted branches in portable
+code. A high line percentage does not prove that provider limits, cancellation, or resource ownership are correct.
+
+## Benchmarks measure each layer
+
+Every benchmark should identify the cost added by one layer.
+
+For an object protocol:
+
+```text
+official/native SDK baseline
+          |
+project protocol client
+          |
+project object driver
+          |
+project object adapter
+          |
+FileSystemType metrics:none
+          |
+FileSystemType metrics:basic
+```
+
+For a host/native filesystem:
+
+```text
+raw runtime filesystem API
+          |
+project file driver
+          |
+project file adapter
+          |
+FileSystemType
+```
+
+For memory/record storage:
+
+```text
+raw Map/value structure
+          |
+record driver
+          |
+record adapter
+          |
+FileSystemType
+```
+
+The benchmark result should include throughput/latency plus semantic context. A faster route is not a valid substitute
+if it has different supported operations, consistency, atomicity, or caching semantics.
+
+## Provider benchmarks
+
+`bench/provider.bench.ts` uses the Testcontainers provider fixture and compares:
+
+S3:
+
+```text
+AWS SDK
+project S3 client
+project S3 driver
+project object adapter
+facade metrics:none
+facade metrics:basic
+```
+
+Azure:
+
+```text
+Azure SDK
+project Azure client
+project Azure driver
+project object adapter
+facade metrics:none
+facade metrics:basic
+```
+
+`bench/bun-provider.bench.ts` also compares Bun's native S3 client against the same project layers when Bun is
+available.
+
+Provider container startup/readiness happens before measured samples. Container pull/start time is not benchmark data.
+
+## Filesystem-client baselines
+
+`bench/filesystem-provider.bench.ts` compares already-mounted provider filesystem clients through the same local-file
+staircase:
+
+```text
+raw mounted path
+  -> Node file driver
+  -> file adapter
+  -> FileSystemType
+```
+
+Environment variables select mounted roots:
 
 ```sh
-deno ci
-deno task check
-deno task lint
-deno task doc
-deno task fmt:check
+OPFS_MOUNTPOINT_S3_ROOT=/mnt/s3 \
+OPFS_BLOBFUSE_ROOT=/mnt/azure \
+mise run bench-filesystem-clients
 ```
 
-`deno ci` is important because the committed manifests and lockfile must describe one dependency graph. A changed dependency is
-not ready for release until the real lockfile has been regenerated and the frozen install succeeds.
+The external mounts are intentionally not started inside the normal Testcontainers fixture. AWS Mountpoint and Azure
+BlobFuse are FUSE/system clients with host privileges, installation, mount, and unmount lifecycle beyond a normal
+application container. A dedicated benchmark runner can provision them and then call the same mise task.
 
-Release validation checks the artifact, not only the source tree
----------------------------------------------------------------
+Only comparable operations should be measured. Unsupported filesystem operations are capability differences, not
+benchmark failures.
 
-Before publication, the repository runs the complete source-level checks plus registry dry-runs. npm packaging uses Deno's
-package output and then adjusts Drizzle from a normal generated dependency to the optional peer relationship authored by this
-project.
+## Browser benchmarks
 
-The artifact gate should verify:
+The Playwright benchmark compares raw native OPFS calls against the package's OPFS driver, adapter, and facade where
+practical. Each browser result is separate. A result from one browser is not generalized to another engine.
 
-1. the public export map contains every intended subpath and no internal-only file;
-2. the generated npm package has JavaScript/declarations that import in Node, Deno, and Bun;
-3. browser-safe imports bundle without pulling server-only adapters into the root graph;
-4. optional Drizzle remains optional until its subpath is imported;
-5. package files exclude tests, benchmarks, coverage, temporary output, and repository-only tooling;
-6. the extracted artifact passes the same checks that are meaningful after packaging.
+## Metrics cost is measurable
 
-The release command is:
+Facade metrics support:
 
-```sh
-deno task release:check
+```text
+none
+basic
+timing
 ```
 
-Browser tests and browser benchmarks remain explicit matrix jobs because downloading three browser engines is a large operation
-and should not be hidden inside every local unit-test invocation.
+`none` is the instrumentation baseline. `basic` records counters without per-operation timing. `timing` adds monotonic
+clock work. Benchmarks keep those modes separate so metrics overhead cannot hide inside the main facade result.
 
-Testcontainers provider tests
------------------------------
+Driver physical metrics are also distinct from facade metrics. S3/Azure request/retry/part work should not be inferred
+from one logical filesystem write.
 
-`mise run test-providers` runs `tests/provider.test.ts` under Node. The suite opens pinned SeaweedFS and Azurite services through
-Testcontainers, uses random mapped host ports, waits for provider readiness, and releases every owned container after the suite.
-It proves real HTTP/signing/interoperability for the direct clients without a repository-owned Docker Compose lifecycle. It does
-not replace deterministic request-shape tests or real-cloud conformance. See [providers.md](./providers.md) for the exact coverage
-and limitations. `mise run bench-providers` starts the same fixture outside the timed benchmark programs.
+## Quality gate
+
+`mise run quality` owns the Deno-centric release quality gate:
+
+```text
+frozen dependency install
+strict check graph
+lint
+public documentation lint
+format check
+stress tests
+coverage tests
+JSR dry-run
+npm/deno package dry-run
+```
+
+`mise run test`, browser tests, provider tests, and runtime matrix jobs add the environment-specific evidence.
+
+## Agent validation
+
+A ChatGPT/agent host can lack Deno, Bun, Docker, mise, package registry access, or Playwright browsers. Temporary
+validation support belongs under `.agents/` and never becomes production code.
+
+Allowed fallback rules:
+
+1. Keep production source Deno/browser/server-native.
+2. Use the installed Node.js/TypeScript toolchain for supplemental strict checks.
+3. Add narrow `.agents/` declarations/stubs only for dependencies unavailable in the host.
+4. Do not change production imports merely to satisfy the agent host.
+5. Report missing canonical runtime gates explicitly.
+
+A validation-only type stub can prove project TypeScript structure. It cannot prove the external dependency's real
+runtime or full type contract. Release CI must run against the actual dependency graph.
+
+## Artifact verification
+
+Before delivering a modified ZIP:
+
+1. run every available strict/type/behavior/configuration check on the working tree;
+2. inspect stale exports/imports and documentation terminology;
+3. inspect package exports and publish payload;
+4. remove generated validation/build dependency state;
+5. create the ZIP;
+6. extract that exact ZIP to a clean directory;
+7. recreate only validation-side host declarations if needed;
+8. rerun the available checks against the extracted artifact;
+9. compare source/extracted file lists;
+10. record SHA-256.
+
+The extracted artifact is the final thing that must pass the claimed checks. A green mutable working tree is not enough.
+
+## Release evidence
+
+A release-ready claim requires all applicable canonical gates, including Deno, Node, Bun, Playwright, provider
+containers, package dry-runs, and lockfile validation. If the current host cannot run one of those environments, the
+result is recorded as unverified rather than passed.
