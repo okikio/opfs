@@ -6,17 +6,23 @@ Validation follows the storage layers. A memory test is not evidence for browser
 is not evidence that an S3-compatible server accepts the request. A facade benchmark is not enough to identify whether
 overhead came from the protocol client, driver, adapter, metrics, or provider.
 
+Deno is the primary project runtime and the primary release authority. Portable tests still use `node:test` and
+`@std/expect` because Deno can run those test contracts directly. Node and Bun are compatibility targets; a Node- or
+Bun-specific type extension must not redefine the public core contract that Deno checks.
+
 The canonical model is:
 
 ```text
-node:test + @std/expect
+Deno check + Deno test
+    primary type and runtime authority
     schemas / paths / driver contracts / adapter translation / facade semantics
     deterministic S3/Azure protocol tests
     record/object/database contract tests
+    Deno filesystem and Deno KV behavior
 
-Deno / Node / Bun runtime tests
-    actual host filesystem behavior
-    Deno KV runtime behavior
+Node / Bun compatibility tests
+    same portable contracts where supported
+    actual runtime-specific host filesystem behavior
 
 Playwright Test
     Chromium / Firefox / WebKit
@@ -74,23 +80,37 @@ tests/memory.test.ts
 
 tests/filesystem.test.ts
     locks / staged writes / copy / move / cancellation / lifecycle
+    queued Web Locks abort normalization / cross-realm package errors
+    authoritative stream failure when reader cleanup also rejects
+
+tests/request.test.ts
+    shared HTTP retry / zero-delay policy / single-attempt bypass
+    deterministic preparation failures / transport retry / attempt timeout
 
 tests/ecosystems.test.ts
     unstorage / RxDB / db0 / Drizzle
     integration direction metadata
     real reverse unstorage bridge
+    real Drizzle SQLite-proxy query builder over a deterministic test transport
 
 tests/object.test.ts
     generic object driver -> object adapter -> facade contract
+    provider-safe private directory-marker metadata
 
 tests/s3.test.ts
     deterministic S3 REST/SigV4/multipart/copy/retry behavior
 
 tests/azure.test.ts
     deterministic Azure REST/auth/block/copy/retry behavior
+    metadata contract validation before provider I/O
 
 tests/deno-kv-partition.test.ts
     partition layout using an in-memory Deno KV contract double
+    in-flight generation reads / optimistic stale-writer rejection / bounded collection
+
+tests/host.ts
+    shared Deno / Node / Bun range and directory-mutation conformance scenario
+    real host APIs rather than memory-record behavior
 
 tests/sqlite.test.ts
     direct SQLite row-driver behavior
@@ -127,6 +147,9 @@ The portable Deno KV partition suite uses a deterministic contract double. It pr
 - streamed replacement uses bounded partition writes without facade buffering;
 - disabling the facade stream-write optimization forces the bounded facade fallback;
 - append/update preserve untouched bytes;
+- an in-flight reader can finish against the immutable generation it resolved before an overwrite;
+- a versionstamp check rejects a stale writer after another writer changes the logical entry;
+- failed stale publication removes its unpublished physical generation;
 - manifest-last replacement never publishes a partial new generation.
 
 The Deno-native suite uses the real Deno KV API when the runtime is available. It remains the release evidence for
@@ -141,8 +164,11 @@ The runtime suites cover the applicable routes:
 
 ```text
 replace / append / update
-ranges
+ranges, including zero-length and multi-chunk ranged streams
 native streams
+empty and recursive directory removal
+emptyDir with nested directories
+overwrite copy/move onto directory destinations
 native copy
 native move
 asynchronous positional files
@@ -157,7 +183,9 @@ Bun tests also verify the Bun-specific read/replace route rather than only the N
 ## Browser tests use Playwright
 
 Playwright owns browser lifecycle and cross-browser orchestration. The matrix covers Chromium, Firefox, and WebKit
-instead of encoding a Chromium-only browser assumption.
+instead of encoding a Chromium-only browser assumption. Playwright starts a web-server command from the configuration
+directory by default, so each Vite command explicitly serves the repository root. `webServer.url` then probes concrete
+fixture HTML that returns a readiness status instead of probing a root with no `index.html`.
 
 Browser cases include:
 
@@ -234,6 +262,10 @@ Lifecycle-sensitive code must test:
 
 Coverage is useful evidence, not architectural proof. The coverage task exists to find unexecuted branches in portable
 code. A high line percentage does not prove that provider limits, cancellation, or resource ownership are correct.
+
+The portable coverage report does not execute every runtime-only Node, Deno, or Bun driver branch. Read its percentages
+together with the separate host runtime suites. This distinction is important for operations whose native APIs differ from
+the memory model, such as empty-directory removal and ranged-stream resource ownership.
 
 ## Benchmarks measure each layer
 

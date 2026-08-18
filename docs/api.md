@@ -173,7 +173,9 @@ enabled. Otherwise it composes read/write work with bounded concurrency.
 ### `move(source, destination, options?)`
 
 Uses native move when available. The fallback is copy then remove and is not atomic. `plan()` returns a structured
-warning for that route.
+warning for that route. On host filesystems, facade checks cannot exclude an independent process changing the source or
+destination between checks and the native rename/copy call; applications that need stronger cross-process serialization
+must own that policy outside the facade.
 
 ### `remove(path, options?)`
 
@@ -230,8 +232,10 @@ await writable.write({ type: "truncate", size: 100 });
 await writable.close();
 ```
 
-The staged image commits on close and is discarded on abort. Large sequential writes should prefer `writeFile()` because
-that path can select a native streaming driver route.
+The staged image commits on close and is discarded on abort. The writable keeps the complete staged file image in
+JavaScript memory, and `keepExistingData` must first read the current complete file snapshot. Large sequential writes should
+therefore prefer `writeFile()` because that path can select a native streaming driver route. Use `openWritableFile()` when
+the selected adapter exposes direct asynchronous positional writes.
 
 `openWritableFile()` exposes a direct asynchronous positional resource only when the adapter reports that capability.
 
@@ -514,6 +518,9 @@ DENO_KV_DEFAULT_CONCURRENCY
 DENO_KV_DEFAULT_COLLECT_AGE_MS
 DENO_KV_DEFAULT_COLLECT_DELETES
 DenoKvEntryType
+DenoKvCheckType
+DenoKvCommitType
+DenoKvAtomicType
 DenoKvType
 DenoKvDriverOptionsType
 DenoKvCollectOptionsType
@@ -521,9 +528,15 @@ DenoKvCollectResultType
 DenoKvDriverType
 ```
 
-The specialized `DenoKvDriverType` also exposes `collect(options?)` for bounded, age-gated reclamation of unreachable
-physical parts. The adapter path exports the same provider constants and maintenance types plus `createDenoKvAdapter()`
-and `DenoKvAdapterOptionsType`.
+The driver requires Deno KV's atomic check/set/delete contract for the small logical visibility commit. It uses the
+versionstamp returned by the initial exact read to reject stale writers before a new manifest becomes visible. File body
+parts remain outside the atomic operation.
+
+The specialized `DenoKvDriverType` also exposes `collect(options?)` for bounded, age-gated reclamation of superseded and
+unpublished physical parts. Published generations use their retirement time for the grace period, which lets an in-flight reader finish against the
+immutable generation it already resolved while that configured grace remains active. Unpublished crash leftovers use generation creation
+time. The adapter path re-exports the same provider constants, Deno KV structural contracts, and maintenance types plus
+`createDenoKvAdapter()` and `DenoKvAdapterOptionsType`.
 
 ### localStorage
 
@@ -732,6 +745,9 @@ validateName
 PathType
 ```
 
+`normalizePath()` preserves Unicode code points exactly. It does not apply NFC, NFD, or another Unicode normalization
+form. Canonically equivalent spellings therefore remain distinct virtual paths unless the selected backend aliases them.
+
 ## Error API
 
 The root module exports:
@@ -744,6 +760,17 @@ toFileSystemError
 ```
 
 `FileSystemError` carries stable code, operation, optional canonical path, and original cause.
+
+## Shared HTTP request API
+
+`@okikio/opfs/request` exports the retry and transport contracts used by the direct S3 and Azure clients.
+
+- `RequestPolicySchema` / `RequestPolicyType`: retries, delay, jitter, and optional per-attempt timeout.
+- `FetchType`: the standard callable Fetch shape accepted for dependency injection. It intentionally does not include
+  runtime-specific properties such as Bun's `fetch.preconnect()`.
+- `RequestMetrics` / `RequestMetricsType`: concrete HTTP request, retry, response, failure, and optional duration counters.
+- `sendRequest()`: shared attempt orchestration used by protocol clients. Request preparation runs before the concrete
+  Fetch counter starts, so a deterministic signing or credential failure is not reported as network I/O.
 
 ## Browser capability API
 

@@ -119,7 +119,8 @@ import { createDenoDriver } from "@okikio/opfs/driver/deno";
 ```
 
 The configured `root` becomes virtual `/`. The runtime needs the filesystem permissions selected by the host
-application.
+application. The virtual path mapper rejects lexical escape, but Deno follows symbolic links during normal file I/O. Use
+a trusted host root; this option is not a sandbox against another process that can modify that directory.
 
 Deno KV is a separate record driver under `driver/deno-kv`. It is not the host-filesystem driver.
 
@@ -129,7 +130,8 @@ Use `driver/node` and `adapter/node`. The driver uses `node:fs`/`node:fs/promise
 runtime subpath and maps virtual paths below one configured host root.
 
 Node supports native streaming, ranges, copy, rename/move, positional writes, and synchronous random access where
-implemented by the driver.
+implemented by the driver. The root check is lexical. Existing or concurrently created symbolic links can resolve outside
+the configured directory, so use a trusted root rather than relying on it for security isolation.
 
 The package engine range starts at Node 22.18. A validation host below that version can provide supplemental evidence
 but cannot stand in for the declared runtime matrix.
@@ -139,7 +141,8 @@ but cannot stand in for the declared runtime matrix.
 Use `driver/bun` and `adapter/bun`.
 
 The driver resolves Bun lazily. It uses Bun's native file primitives for the paths where they provide a clear benefit
-and the Node-compatible file driver for operations that require stronger host-filesystem behavior.
+and the Node-compatible file driver for operations that require stronger host-filesystem behavior. It inherits the same
+trusted-root/symbolic-link constraint as Node.
 
 Bun runtime tests are required before claiming Bun behavior complete. Structural TypeScript compatibility alone is not
 runtime evidence.
@@ -156,7 +159,10 @@ localStorage, IndexedDB, Cache Storage, RxDB, unstorage, db0, Drizzle, and SQLit
 upstream resource and the required Web primitives are available.
 
 The driver describes backend requirements. The adapter/facade describes effective filesystem routes. Database-backed
-record storage generally cannot claim native streaming unless the driver implements a dedicated byte lane.
+record storage generally cannot claim native streaming unless the driver implements a dedicated byte lane. A backend's
+transaction support does not make the generic adapter's read-modify-write append/update sequence atomic across tabs,
+processes, or hosts. Cross-owner safety must come from a native driver write mode, provider condition, or application-level
+serialization.
 
 ## Server coordination
 

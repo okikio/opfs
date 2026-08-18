@@ -373,8 +373,10 @@ file adapter
 FileSystemType
 ```
 
-The host-path mapper lives with drivers. It maps virtual `/` below one configured host directory and rejects escape from
-that host root.
+The host-path mapper lives with drivers. It rejects lexical virtual-path escape from one configured host directory. Native
+Node, Deno, and Bun filesystem calls can still follow symbolic links that already exist below that directory. The host root
+is therefore a trusted namespace mapping, not a security isolation mechanism against another process that can create or
+replace links.
 
 ## Record drivers
 
@@ -401,11 +403,15 @@ writeStream(path, stream)  direct streaming write modes
 ```
 
 The driver declares replacement semantics, binary support, and transaction availability separately. This lets a SQLite
-or Deno KV driver preserve stronger behavior without pretending localStorage has it.
+or Deno KV driver preserve stronger behavior without pretending localStorage has it. Transaction availability describes
+backend mechanics used by native driver operations. It does not make the generic adapter's separate `get()` then `set()`
+append/update fallback atomic across independent owners.
 
 The generic record format remains a portable fallback. It uses base64 file bodies because JSON/document/text-column
 stores can all preserve that representation. A specialized driver is free to use native BLOB/byte storage internally and
-expose the same logical record contract above it.
+expose the same logical record contract above it. IndexedDB is one such stronger execution path for write semantics: the
+driver performs replace, append, and update inside one readwrite transaction instead of delegating those modes to the
+generic split read/replace fallback.
 
 ## Object drivers
 
@@ -463,7 +469,8 @@ Deno KV demonstrates the full model.
 The provider documents serialized key/value limits. The driver also chooses smaller decoded-body budgets because a raw
 byte count is not equal to serialized value size.
 
-The large-file layout uses an immutable generation and manifest-last publication:
+The large-file layout uses an immutable generation, manifest-last publication, and a retirement marker for the generation
+that is about to lose visibility:
 
 ```text
 old manifest -> old generation
@@ -474,19 +481,29 @@ write new part 1
 write new part N
        |
        v
-write new manifest       logical visibility point
+check old versionstamp
        |
        v
-remove old reachable generation
+atomic retirement marker + new manifest commit
+                 logical visibility point
+       |
+       v
+old readers can finish during configured retirement grace
+       |
+       v
+explicit collection after retirement grace
 ```
 
-If part writing fails, the new manifest is not published. The previous generation remains visible. The driver
-best-effort removes parts from the failed generation.
+If part writing fails, the new manifest is not published. If the logical entry changes while parts are prepared, the
+optimistic version check also rejects the stale publication. The previous or independently committed generation remains
+visible. The driver
+best-effort removes parts from the failed unpublished generation.
 
 A process crash before publication can still leave unreachable physical parts. That is storage leakage, not a partially
-visible logical file. `DenoKvDriverType.collect()` exposes explicit, age-gated reclamation. The default one-hour grace
-period avoids ordinary collection racing a recent unpublished generation, and `maxDeletes` bounds one maintenance pass.
-Background deletion is not hidden inside ordinary reads or writes.
+visible logical file. `DenoKvDriverType.collect()` exposes explicit, age-gated reclamation. For a published generation, the
+default one-hour grace starts when that generation is retired, so a generation that was visible for days is not immediately
+reclaimed after a new write commits. An unpublished crash leftover has no retirement marker and uses its generation creation
+time instead. `maxDeletes` bounds one maintenance pass. Background deletion is not hidden inside ordinary reads or writes.
 
 The Deno KV planner also estimates physical tuple size from the concrete logical path. A file can be small enough to fit
 by byte count while its physical key is too large. The planner reports that condition before provider I/O.
@@ -505,7 +522,8 @@ The public facade can accept normalizable input, but `normalizePath()` runs befo
 backslashes, and NUL are rejected.
 
 The virtual path namespace is not an operating-system path namespace. Host file drivers map the canonical path below one
-configured host root.
+configured host root and reject lexical escape. That mapping does not resolve every symbolic-link component before each
+I/O call, so callers must not use the root option as a sandbox for untrusted host filesystem contents.
 
 ## Streaming and memory invariant
 
@@ -594,7 +612,8 @@ This fallback is not atomic. A failure after copy can leave both paths. Inspecti
 emulated.
 
 Source/destination overlap is checked before recursive structural work. An overwrite cannot delete an ancestor or
-descendant that contains the source.
+descendant that contains the source. On Node, Deno, and Bun, these checks coordinate package callers but cannot make a
+separate host process participate. External filesystem mutation can still race the later native copy or rename call.
 
 ## Database topology invariant
 

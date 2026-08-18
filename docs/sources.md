@@ -98,8 +98,9 @@ Primary runtime sources:
 Current Deno documentation treats `node:test` as a first-class test API and currently marks Deno KV unstable. The real
 Deno KV suite therefore uses `--unstable-kv` without making that flag part of unrelated source imports. Current Deno KV
 documentation states a 2 KiB serialized key limit, a 64 KiB serialized value limit, 1,000 mutations per atomic
-operation, and an 800 KiB total atomic-operation limit. The Deno KV adapter exposes these constraints and uses a
-configurable manifest/part layout instead of pretending one logical file must fit in one 64 KiB value.
+operation, and an 800 KiB total atomic-operation limit. The Deno KV driver uses a versionstamp check plus a small atomic
+metadata commit for logical visibility, while file bodies remain in the configurable manifest/part layout instead of being
+forced into one 64 KiB value.
 
 Current Bun compatibility documentation says its in-process `node:test` API works when files run under `bun test`, while
 some advanced Node test-runner/reporting features remain incomplete. The repository uses the common
@@ -142,7 +143,10 @@ and lets already-started requests settle after one item fails. S3 cleanup waits 
 `@std/async/retry` owns the direct clients' exponential backoff, jitter, AbortSignal, and retriable-error loop. The
 protocol layer still classifies whether a request may enter that loop. One-shot streams are not replayed, and S3
 multipart initiation and completion disable automatic retry because a lost response can make the remote lifecycle
-outcome ambiguous. The low-level request APIs also expose `retry: false` for provider-specific operations.
+outcome ambiguous. The low-level request APIs also expose `retry: false` for provider-specific operations. Single-attempt
+requests bypass `retry()` completely. The project also permits a deterministic zero-delay retry policy; because the
+standard helper requires a positive `maxTimeout`, the adapter supplies a positive validation ceiling while keeping
+`minTimeout` at zero so the requested delay remains zero.
 
 `@std/bytes/concat` owns byte-array concatenation used by bounded chunk assembly. The package does not maintain another
 concatenation implementation.

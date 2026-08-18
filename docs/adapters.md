@@ -152,13 +152,19 @@ Record capability metadata also identifies:
 ```text
 replacement   atomic | best-effort
 binary        native binary storage available
-transactions  driver has provider transaction behavior relevant to its writes
+transactions  driver can use provider transactions inside its own native operations
 ```
 
 A custom record driver uses `defineRecordDriver()` and then `createRecordAdapter()`.
 
 The generic record adapter does not claim native streaming. If the driver does not provide `writeStream()`, the facade
 can materialize an input only under `maxBufferedWriteBytes`.
+
+`transactions: true` is deliberately narrower than "every filesystem write mode is transactional." Generic `append`
+and `update` first read the current record and later replace it. Those two steps are not one backend transaction unless
+the driver exposes that mode through a native `writeFile()` or `writeStream()` lane. A second process, tab, or client can
+therefore race the generic fallback even when the underlying database supports transactions. Deno KV's native partitioned
+write modes and object-store ETag conditions are examples of stronger routes that close this gap explicitly.
 
 ### Memory
 
@@ -182,28 +188,35 @@ applies after serialization, so accepting the full provider number as decoded ap
 
 The driver planner also evaluates the concrete path against a conservative serialized-key estimate before provider I/O.
 
-`DenoKvDriverType.collect()` performs explicit maintenance for crash-left physical generations. It scans only the
-private part namespace, retains the published generation, ignores recent unpublished generations for a one-hour grace
-period by default, and stops after the caller's deletion budget. Ordinary reads and writes never start this scan
-implicitly.
+`DenoKvDriverType.collect()` performs explicit maintenance for superseded and crash-left physical generations. It scans
+only the private part namespace and always retains the currently published generation. A superseded published generation
+uses a retirement marker committed atomically with the new logical entry after an optimistic version check. The default
+one-hour grace therefore starts when visibility changes rather than when the generation was originally created. An
+unpublished crash leftover has no retirement marker and uses its generation creation time. The pass
+stops after the caller's deletion budget. Ordinary reads and writes never start this scan implicitly.
 
 ### localStorage
 
 The localStorage driver maps canonical records into a private key prefix. It inherits Web Storage's synchronous
 underlying API, but the package presents the normal asynchronous driver contract to keep the storage stack composable.
+Directory listing scans the private key namespace, so recursive traversal cost grows with the number of stored entries.
 
 Applications should treat browser quota as dynamic. The driver does not invent a stable quota number.
 
 ### IndexedDB
 
 The IndexedDB driver borrows or owns an injected database according to options. It uses an object store and a parent
-index for direct-child listing. The application remains responsible for database versioning/upgrades outside the driver
-unless ownership is explicitly transferred.
+index for direct-child listing. Replace, append, and update run through one readwrite transaction, so independent browser
+owners using the same object store do not lose an append/update through the generic record adapter's split read/replace
+sequence. The application remains responsible for database versioning/upgrades outside the driver unless ownership is
+explicitly transferred.
 
 ### Cache Storage
 
 The Cache driver stores records under private request URLs. Cache Storage is a record/value persistence mechanism here,
-not an HTTP cache policy abstraction. The driver only interprets entries in its private namespace.
+not an HTTP cache policy abstraction. The driver only interprets entries in its private namespace. Direct-child listing
+starts from `cache.keys()` and inspects matching records, so repeated recursive traversal is substantially more expensive
+than an indexed parent lookup. Do not treat Cache Storage as equivalent to IndexedDB for directory-heavy workloads.
 
 ### unstorage
 
@@ -275,6 +288,11 @@ native copy when available
 An object driver can also report object-specific capability details, provider limits, continuation behavior,
 partition/upload policy, and physical metrics.
 
+Filesystem semantics can amplify provider requests. A single logical write can require file and directory classification,
+parent validation, and the final PUT, so object-backed facade operations can issue several HEAD/LIST requests before the
+data request. This is a known translation cost, not hidden native filesystem behavior. Use the provider benchmark staircase
+to measure client, driver, adapter, and facade cost separately before changing validation or consistency rules.
+
 ### S3
 
 The S3 client owns REST, SigV4, request policy, multipart operations, copy, listing, and protocol errors.
@@ -290,7 +308,8 @@ See `s3.md`.
 The Azure client owns Blob REST, authentication, block upload, server-side copy, listing, and provider errors.
 
 `createAzureDriver(client)` adds backend inspection. `createAzureAdapter(driver)` supplies filesystem translation. Block
-upload and server copy are independently disableable. See `azure.md`.
+upload and server copy are independently disableable. Azure metadata is validated before provider I/O, and the shared object
+adapter uses the Azure-compatible `okikio_opfs_kind` key for private directory markers. See `azure.md`.
 
 ## Adapter contract
 

@@ -188,6 +188,17 @@ and the HTTP header is:
 Authorization: SharedKey account-name:signature
 ```
 
+## Metadata is validated before provider I/O
+
+Azure Blob metadata names and values have a stricter contract than generic object-store metadata. A metadata key must
+start with an ASCII letter or underscore. Later characters can only be ASCII letters, digits, or underscores. Metadata
+values must be ASCII. Names are case-insensitive at the service, so the client also rejects two caller keys that differ only
+by case. The client validates these rules before it creates an upload or block-list request. This prevents a known-invalid
+metadata object from reaching Azure after upload work has already started.
+
+The object adapter uses `okikio_opfs_kind` for its private directory marker. The underscore form is intentional: the older
+`okikio-opfs-kind` spelling contains hyphens and Azure rejects it as an invalid metadata key.
+
 The deterministic unit suite signs Azurite requests with the documented `devstoreaccount1` key and a fixed timestamp. It
 freezes exact signatures on both sides of the `2014-02-14` zero-length change, verifies the `2016-05-31` empty-header
 change, and rejects Shared Key versions older than `2009-09-19`. This makes the tests independent from the
@@ -380,7 +391,9 @@ credentials and Shared Key dates. Redirects are manual so authorization is not s
 
 A one-shot `ReadableStream` receives one attempt. The low-level `request()` API also accepts `retry: false` because
 replayability does not prove that a provider-specific operation is safe to repeat. `request: { retries: 0 }` disables
-automatic retry for the client. Provider-specific `Retry-After` interpretation is not yet modeled.
+automatic retry for the client. A request admitted for only one attempt bypasses the retry engine entirely. A zero-delay policy
+remains valid even though the underlying standard helper requires a positive maximum timeout. Provider-specific `Retry-After`
+interpretation is not yet modeled.
 
 `getMetrics()` returns request, retry, terminal-failure, response, and optional Fetch-duration counters.
 `metrics: "none"` is the baseline benchmark setting; `basic` counts; `timing` adds monotonic duration.
