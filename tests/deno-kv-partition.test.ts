@@ -5,9 +5,12 @@ import { createFileSystem, FileSystemError } from "../mod.ts";
 import {
   createDenoKvAdapter,
   DENO_KV_MAX_VALUE_BYTES,
+  DENO_KV_SAFE_INLINE_BYTES,
+  DENO_KV_SAFE_PART_BYTES,
   type DenoKvEntryType,
   type DenoKvType,
 } from "../src/adapter/deno-kv.ts";
+import { createDenoKvDriver } from "../src/driver/deno-kv.ts";
 
 /** Stable JSON-ish key string used only by the in-memory Deno KV contract double. */
 function id(key: readonly unknown[]): string {
@@ -66,6 +69,90 @@ function bytes(length: number): Uint8Array {
 }
 
 describe("Deno KV partitioned records", () => {
+
+  it("rejects configuration that treats Deno KV serialized ceilings as raw payload budgets", () => {
+    const database = new FakeDenoKv();
+
+    expect(() => createDenoKvDriver(database, {
+      partBytes: DENO_KV_SAFE_PART_BYTES + 1,
+    })).toThrow(RangeError);
+    expect(() => createDenoKvDriver(database, {
+      inlineBytes: DENO_KV_SAFE_INLINE_BYTES + 1,
+    })).toThrow(RangeError);
+  });
+
+  it("rejects an oversized physical key during driver preflight before provider I/O", () => {
+    const database = new FakeDenoKv();
+    const driver = createDenoKvDriver(database);
+    const path = `/${"segment".repeat(500)}`;
+
+    const plan = driver.plan({
+      operation: "write",
+      path,
+      size: 1,
+      source: "bytes",
+      mode: "replace",
+    });
+
+    expect(plan.supported).toBe(false);
+    expect(plan.support).toBe("unsupported");
+    expect(plan.problems).toContainEqual(expect.objectContaining({
+      code: "key-too-large",
+      layer: "driver",
+      severity: "error",
+      limit: expect.objectContaining({
+        code: "serialized-key-bytes",
+        kind: "hard",
+        source: "provider",
+      }),
+    }));
+    expect(database.values.size).toBe(0);
+  });
+
+  it("collects old unreachable physical generations without touching the published generation", async () => {
+    const database = new FakeDenoKv();
+    const driver = createDenoKvDriver(database, { partBytes: 48 * 1024 });
+    const fileSystem = createFileSystem(createDenoKvAdapter(database, { partBytes: 48 * 1024 }), {
+      coordination: "none",
+    });
+    await fileSystem.writeFile("/value.bin", bytes(96 * 1024));
+
+    const visibleParts = [...database.values.values()]
+      .filter((entry) => entry.key[1] === "part")
+      .map((entry) => id(entry.key));
+    const oldGeneration = `${(Date.now() - 2 * 60 * 60 * 1000).toString(36)}-orphan`;
+    await database.set(["okikio-opfs", "part", "/value.bin", oldGeneration, 0], new Uint8Array([1]));
+    await database.set(["okikio-opfs", "part", "/value.bin", oldGeneration, 1], new Uint8Array([2]));
+
+    const result = await driver.collect();
+
+    expect(result.deleted).toBe(2);
+    expect(result.truncated).toBe(false);
+    expect(database.values.has(id(["okikio-opfs", "part", "/value.bin", oldGeneration, 0]))).toBe(false);
+    expect(visibleParts.every((value) => database.values.has(value))).toBe(true);
+    expect(await fileSystem.readFile("/value.bin")).toEqual(bytes(96 * 1024));
+    await fileSystem.close();
+  });
+
+  it("returns an actionable preflight result when partitioning is disabled", () => {
+    const database = new FakeDenoKv();
+    const driver = createDenoKvDriver(database, { partition: "never", inlineBytes: 32 * 1024 });
+
+    const plan = driver.plan({
+      operation: "write",
+      path: "/large.bin",
+      size: 96 * 1024,
+      source: "bytes",
+      mode: "replace",
+    });
+
+    expect(plan.supported).toBe(false);
+    expect(plan.problems).toContainEqual(expect.objectContaining({ code: "partition-disabled" }));
+    expect(plan.actions).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: "change-policy" }),
+      expect.objectContaining({ kind: "select-driver" }),
+    ]));
+  });
   it("stores a large logical file below the physical value ceiling and reconstructs it exactly", async () => {
     const database = new FakeDenoKv();
     const fileSystem = createFileSystem(createDenoKvAdapter(database, { partBytes: 48 * 1024 }), {
@@ -78,8 +165,8 @@ describe("Deno KV partitioned records", () => {
 
     expect(await fileSystem.readFile("/large.bin")).toEqual(input);
     const inspection = fileSystem.inspect();
-    expect(inspection.partition?.layout).toBe("deno-kv-parts-v2");
-    expect(inspection.limits.maxValueBytes).toBe(DENO_KV_MAX_VALUE_BYTES);
+    expect(inspection.adapter.partition?.layout).toBe("deno-kv-parts-v2");
+    expect(inspection.adapter.limits?.maxValueBytes).toBe(DENO_KV_MAX_VALUE_BYTES);
     expect(fileSystem.plan({ operation: "write", source: "bytes", size: input.byteLength }).support).toBe("partitioned");
     expect([...database.values.values()].every((entry) => size(entry.value) <= DENO_KV_MAX_VALUE_BYTES)).toBe(true);
     await fileSystem.close();

@@ -1,5 +1,4 @@
-/// <reference lib="deno.unstable" />
-
+/// <reference types="deno" />
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 

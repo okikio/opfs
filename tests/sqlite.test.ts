@@ -63,6 +63,14 @@ class MemorySqlite {
 }
 
 describe("direct SQLite adapter", () => {
+  it("reports an injected SQLite database as borrowed unless disposal is transferred", async () => {
+    const borrowed = await createSqliteAdapter(new MemorySqlite());
+    const owned = await createSqliteAdapter(new MemorySqlite(), { disposeDatabase: true });
+
+    expect(borrowed.driver.inspect().ownership).toBe("borrowed");
+    expect(owned.driver.inspect().ownership).toBe("owned");
+  });
+
   it("reuses the SQLite db0 record contract and explicit ownership", async () => {
     const database = new MemorySqlite();
     const adapter = await createSqliteAdapter(database, { disposeDatabase: true });

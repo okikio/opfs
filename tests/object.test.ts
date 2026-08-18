@@ -2,8 +2,10 @@ import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 
 import { createFileSystem } from "../mod.ts";
+import { createObjectAdapter } from "../src/adapter/object.ts";
 import {
-  createObjectAdapter,
+  defineObjectDriver,
+  type ObjectBackendType,
   type ObjectCopyOptionsType,
   type ObjectEntryType,
   type ObjectGetOptionsType,
@@ -11,8 +13,7 @@ import {
   type ObjectListType,
   type ObjectPutOptionsType,
   type ObjectStatType,
-  type ObjectStoreType,
-} from "../src/adapter/object.ts";
+} from "../src/driver/object.ts";
 
 /** Materialized object and metadata retained by the in-memory provider double. */
 interface StoredObjectType {
@@ -32,7 +33,7 @@ async function collect(source: ReadableStream<Uint8Array>): Promise<Uint8Array> 
  * pretending to be a filesystem. Counters make it possible to prove when the
  * facade takes a provider-native path instead of silently downloading bytes.
  */
-class MemoryObjectStore implements ObjectStoreType {
+class MemoryObjectBackend implements ObjectBackendType {
   /** Stable adapter/provider name surfaced through the object-store contract. */
   readonly name = "object-test";
   /** Native paths the provider double deliberately claims for facade-selection tests. */
@@ -140,15 +141,27 @@ class MemoryObjectStore implements ObjectStoreType {
   }
 }
 
-/** Creates a facade plus its observable provider double for one object-store test. */
-function createObjectFileSystem(store = new MemoryObjectStore()) {
+/** Attaches driver metadata to the deterministic object backend used by tests. */
+function createMemoryObjectDriver(store: MemoryObjectBackend) {
+  return defineObjectDriver(store, {
+    name: store.name,
+    requirements: [],
+    limits: [],
+    optimizations: [],
+  });
+}
+
+/** Creates a facade plus its observable provider backend for one object-store test. */
+function createObjectFileSystem(store = new MemoryObjectBackend()) {
+  const driver = createMemoryObjectDriver(store);
   return {
     store,
-    fileSystem: createFileSystem(createObjectAdapter(store), { coordination: "none" }),
+    driver,
+    fileSystem: createFileSystem(createObjectAdapter(driver), { coordination: "none" }),
   };
 }
 
-describe("object-store adapter", () => {
+describe("object driver adapter", () => {
   it("preserves empty directories and implicit prefix directories", async () => {
     const { store, fileSystem } = createObjectFileSystem();
     await fileSystem.mkdir("/empty", { recursive: true });
@@ -188,8 +201,8 @@ describe("object-store adapter", () => {
   });
 
   it("can disable native copy and exposes the emulated route through inspection and metrics", async () => {
-    const store = new MemoryObjectStore();
-    const fileSystem = createFileSystem(createObjectAdapter(store), {
+    const store = new MemoryObjectBackend();
+    const fileSystem = createFileSystem(createObjectAdapter(createMemoryObjectDriver(store)), {
       coordination: "none",
       optimizations: { nativeCopy: false },
       metrics: "basic",
@@ -216,8 +229,8 @@ describe("object-store adapter", () => {
 
 
   it("rejects an oversized emulated copy when its streaming read route is disabled", async () => {
-    const store = new MemoryObjectStore();
-    const fileSystem = createFileSystem(createObjectAdapter(store), {
+    const store = new MemoryObjectBackend();
+    const fileSystem = createFileSystem(createObjectAdapter(createMemoryObjectDriver(store)), {
       coordination: "none",
       optimizations: { nativeCopy: false, streamRead: false },
       maxBufferedWriteBytes: 2,
@@ -231,8 +244,8 @@ describe("object-store adapter", () => {
   });
 
   it("fails an oversized streamed copy before opening the source when direct stream writes are disabled", async () => {
-    const store = new MemoryObjectStore();
-    const fileSystem = createFileSystem(createObjectAdapter(store), {
+    const store = new MemoryObjectBackend();
+    const fileSystem = createFileSystem(createObjectAdapter(createMemoryObjectDriver(store)), {
       coordination: "none",
       optimizations: { nativeCopy: false, streamWrite: false },
       maxBufferedWriteBytes: 2,

@@ -5,6 +5,8 @@ import { toBytes } from "@std/streams/to-bytes";
 import { createFileSystem } from "../mod.ts";
 import { createObjectAdapter } from "../src/adapter/object.ts";
 import { createAzureClient } from "../src/azure.ts";
+import { createAzureDriverFromClient } from "../src/driver/azure.ts";
+import { createS3DriverFromClient } from "../src/driver/s3.ts";
 import { createS3Client } from "../src/s3.ts";
 import {
   AZURE_ACCOUNT,
@@ -104,7 +106,7 @@ describe("Testcontainers-backed object providers", () => {
       const page = await client.list({ prefix: `${prefix}/`, delimiter: "/" });
       expect(page.objects.some((entry) => entry.key === basic)).toBe(true);
 
-      await using fileSystem = createFileSystem(createObjectAdapter(client, { prefix }), { coordination: "none" });
+      await using fileSystem = createFileSystem(createObjectAdapter(createS3DriverFromClient(client), { prefix }), { coordination: "none" });
       await fileSystem.writeFile("/facade/state.txt", "through facade", { parents: true });
       expect(await fileSystem.readText("/facade/state.txt")).toBe("through facade");
       expect((await client.head(facadeKey))?.size).toBe(14);
@@ -145,7 +147,7 @@ describe("Testcontainers-backed object providers", () => {
       const page = await client.list({ prefix: `${prefix}/`, delimiter: "/" });
       expect(page.objects.some((entry) => entry.key === basic)).toBe(true);
 
-      await using fileSystem = createFileSystem(createObjectAdapter(client, { prefix }), { coordination: "none" });
+      await using fileSystem = createFileSystem(createObjectAdapter(createAzureDriverFromClient(client), { prefix }), { coordination: "none" });
       await fileSystem.writeFile("/facade/state.txt", "through facade", { parents: true });
       expect(await fileSystem.readText("/facade/state.txt")).toBe("through facade");
       expect((await client.head(facadeKey))?.size).toBe(14);

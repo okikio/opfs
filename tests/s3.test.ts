@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 
 import { createS3Client, S3Error, S3_LIMITS } from "../src/s3.ts";
+import { createS3Driver, createS3DriverFromClient } from "../src/driver/s3.ts";
 import { RequestCapture } from "./http.ts";
 import { streamBytes } from "./stream.ts";
 
@@ -29,6 +30,20 @@ class S3CredentialSource {
 }
 
 describe("S3 client", () => {
+  it("reports direct clients as owned and injected clients as borrowed", () => {
+    const options = {
+      endpoint: "https://storage.example",
+      bucket: "bucket",
+      region: "auto",
+      credentials,
+      fetch: async () => new Response(null, { status: 200 }),
+    };
+    const client = createS3Client(options);
+
+    expect(createS3Driver(options).inspect().ownership).toBe("owned");
+    expect(createS3DriverFromClient(client).inspect().ownership).toBe("borrowed");
+  });
+
   it("creates a deterministic Signature Version 4 request", async () => {
     let request: Request | undefined;
     const client = createS3Client({
@@ -141,6 +156,63 @@ describe("S3 client", () => {
     expect(complete?.headers.get("if-match")).toBe("\"old\"");
   });
 
+  it("delays multipart creation for a small unknown-length stream by default", async () => {
+    const requests: Request[] = [];
+    const client = createS3Client({
+      endpoint: "https://storage.example",
+      bucket: "bucket",
+      region: "us-east-1",
+      credentials,
+      fetch: async (input, init) => {
+        const request = new Request(input, init);
+        requests.push(request);
+        if (request.method === "HEAD") {
+          return new Response(null, { status: 200, headers: { "content-length": "3", etag: "\"small\"" } });
+        }
+        return new Response(null, { status: 200, headers: { etag: "\"small\"" } });
+      },
+    });
+
+    await client.put("small.bin", streamBytes([new Uint8Array([1, 2, 3])]));
+
+    expect(requests.some((request) => request.method === "POST" && new URL(request.url).searchParams.has("uploads"))).toBe(false);
+    expect(requests.some((request) => request.method === "PUT" && !new URL(request.url).searchParams.has("partNumber"))).toBe(true);
+  });
+
+  it("can disable delayed multipart when request lifecycle parity is required", async () => {
+    const requests: Request[] = [];
+    const client = createS3Client({
+      endpoint: "https://storage.example",
+      bucket: "bucket",
+      region: "us-east-1",
+      credentials,
+      delayedMultipart: false,
+      fetch: async (input, init) => {
+        const request = new Request(input, init);
+        requests.push(request);
+        const url = new URL(request.url);
+        if (request.method === "POST" && url.searchParams.has("uploads")) {
+          return xml("<InitiateMultipartUploadResult><UploadId>u-small</UploadId></InitiateMultipartUploadResult>");
+        }
+        if (request.method === "PUT" && url.searchParams.has("partNumber")) {
+          return new Response(null, { status: 200, headers: { etag: "\"part-1\"" } });
+        }
+        if (request.method === "POST" && url.searchParams.has("uploadId")) {
+          return xml("<CompleteMultipartUploadResult><ETag>\"small\"</ETag></CompleteMultipartUploadResult>");
+        }
+        if (request.method === "HEAD") {
+          return new Response(null, { status: 200, headers: { "content-length": "3", etag: "\"small\"" } });
+        }
+        return new Response(null, { status: 500 });
+      },
+    });
+
+    await client.put("small.bin", streamBytes([new Uint8Array([1, 2, 3])]));
+
+    expect(requests.some((request) => request.method === "POST" && new URL(request.url).searchParams.has("uploads"))).toBe(true);
+    expect(requests.some((request) => request.method === "PUT" && new URL(request.url).searchParams.has("partNumber"))).toBe(true);
+  });
+
   it("retains provider request identity on S3 errors", async () => {
     const client = createS3Client({
       endpoint: "https://storage.example",
@@ -171,8 +243,8 @@ describe("S3 client", () => {
       bucket: "bucket",
       region: "auto",
       credentials,
-      fetch: async (input) => {
-        const request = input instanceof Request ? input : new Request(input);
+      fetch: async (input, init) => {
+        const request = input instanceof Request ? input : new Request(input, init);
         if (request.method === "HEAD" && request.url.endsWith("/source.bin")) {
           return new Response(null, { status: 200, headers: { "content-length": "4", etag: "\"source\"" } });
         }
@@ -293,6 +365,7 @@ describe("S3 client", () => {
       bucket: "bucket",
       region: "us-east-1",
       credentials,
+      delayedMultipart: false,
       fetch: async (input, init) => {
         const request = new Request(input, init);
         requests.push(request);
@@ -553,6 +626,7 @@ describe("S3 client", () => {
       region: "us-east-1",
       credentials,
       abortTimeoutMs: 5_000,
+      delayedMultipart: false,
       fetch: async (input, init) => {
         const request = new Request(input, init);
         const url = new URL(request.url);

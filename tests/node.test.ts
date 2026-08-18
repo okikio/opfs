@@ -10,7 +10,7 @@ import { createDb0Adapter } from "../src/adapter/db0.ts";
 import { createNodeAdapter } from "../src/adapter/node.ts";
 import { createSqliteAdapter } from "../src/adapter/sqlite.ts";
 
-/** Real Node SQLite database wrapped in the db0 shape used by the adapter contract. */
+/** Real Node SQLite database wrapped in the db0 shape used by the record driver contract. */
 class SqliteDb0Database {
   /** Selects db0 SQLite SQL generation. */
   readonly dialect = "sqlite" as const;

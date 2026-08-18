@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 
 import { AZURE_LIMITS, AzureError, createAzureClient } from "../src/azure.ts";
+import { createAzureDriver, createAzureDriverFromClient } from "../src/driver/azure.ts";
 import { RequestCapture } from "./http.ts";
 import { streamBytes } from "./stream.ts";
 
@@ -23,6 +24,19 @@ class BearerTokenSource {
 }
 
 describe("Azure Blob client", () => {
+  it("reports direct clients as owned and injected clients as borrowed", () => {
+    const options = {
+      endpoint: "https://account.blob.core.windows.net",
+      container: "data",
+      credential: { kind: "sas" as const, token: "?sig=secret" },
+      fetch: async () => new Response(null, { status: 200 }),
+    };
+    const client = createAzureClient(options);
+
+    expect(createAzureDriver(options).inspect().ownership).toBe("owned");
+    expect(createAzureDriverFromClient(client).inspect().ownership).toBe("borrowed");
+  });
+
   it("keeps SAS authorization on the source URL during provider-side copy", async () => {
     const requests: Request[] = [];
     const client = createAzureClient({
@@ -45,6 +59,24 @@ describe("Azure Blob client", () => {
     expect(copy?.headers.get("x-ms-copy-source")).toContain("/data/source.txt?");
     expect(copy?.headers.get("x-ms-copy-source")).toContain("sig=secret");
     expect(copy?.headers.get("x-ms-requires-sync")).toBe("true");
+  });
+
+  it("exposes behavior-changing Azure optimizations as independent switches", async () => {
+    const client = createAzureClient({
+      endpoint: "https://account.blob.core.windows.net",
+      container: "data",
+      credential: { kind: "sas", token: "?sig=secret" },
+      blockUpload: false,
+      serverCopy: false,
+      fetch: async () => new Response(null, { status: 500 }),
+    });
+
+    expect(client.optimizations).toEqual({ blockUpload: false, serverCopy: false });
+    expect(client.capabilities.streamWrite).toBe(false);
+    expect(client.capabilities.copy).toBe(false);
+
+    await expect(client.put("stream.bin", streamBytes([new Uint8Array([1])]))).rejects.toThrow(TypeError);
+    await expect(client.copy!("source.bin", "copy.bin")).rejects.toThrow(TypeError);
   });
 
   it("uses Put Block From URL for blobs above the 256 MiB synchronous copy limit", async () => {
@@ -99,7 +131,14 @@ describe("Azure Blob client", () => {
       fetch: async () => xml(`
         <EnumerationResults>
           <Blobs>
-            <Blob><Name>root/a.txt</Name><Properties><Content-Length>4</Content-Length><Content-Type>text/plain</Content-Type><Etag>&quot;e&quot;</Etag></Properties></Blob>
+            <Blob>
+              <Name>root/a.txt</Name>
+              <Properties>
+                <Content-Length>4</Content-Length>
+                <Content-Type>text/plain</Content-Type>
+                <Etag>&quot;e&quot;</Etag>
+              </Properties>
+            </Blob>
             <BlobPrefix><Name>root/nested/</Name></BlobPrefix>
           </Blobs>
           <NextMarker>next</NextMarker>

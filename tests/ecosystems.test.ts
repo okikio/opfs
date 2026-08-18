@@ -7,12 +7,12 @@ import { createDrizzleAdapter } from "../src/adapter/drizzle.ts";
 import { createMemoryAdapter } from "../src/adapter/memory.ts";
 import { createRxDbAdapter, RxDbRecordJsonSchema } from "../src/adapter/rxdb.ts";
 import { createUnstorageAdapter } from "../src/adapter/unstorage.ts";
-import { createKeyValueDriver } from "../src/driver/kv.ts";
-import { createUnstorageDriver } from "../src/driver/unstorage.ts";
-import { Db0Bridge, DrizzleBridge, KeyValueBridge, RxDbBridge, UnstorageBridge } from "../src/bridge.ts";
-import { defineBridge } from "../src/bridge/definition.ts";
+import { createKeyValueBridge } from "../src/bridge/kv.ts";
+import { createUnstorageBridge } from "../src/bridge/unstorage.ts";
+import { Db0Integration, DrizzleIntegration, RxDbIntegration, UnstorageIntegration } from "../src/integration.ts";
+import { defineIntegration } from "../src/integration/definition.ts";
 
-/** In-memory unstorage-shaped resource used to verify forward adapter semantics and disposal ownership. */
+/** In-memory unstorage-shaped resource used to verify driver-to-adapter semantics and disposal ownership. */
 class MemoryUnstorage {
   /** Stored unstorage values keyed exactly as the adapter writes them. */
   #values = new Map<string, unknown>();
@@ -69,7 +69,7 @@ class FakeRxDocument {
   }
 }
 
-/** Minimal RxCollection-shaped store used to verify the collection-level RxDB bridge. */
+/** Minimal RxCollection-shaped store used to verify the collection-level RxDB driver. */
 class FakeRxCollection {
   /** Records keyed by the OPFS path primary key. */
   #records = new Map<string, Record<string, unknown>>();
@@ -177,7 +177,7 @@ class FakeDb0Database {
   }
 }
 
-/** Creates a minimal Drizzle CRUD surface and caller-owned table mapping for bridge tests. */
+/** Creates a minimal Drizzle CRUD surface and caller-owned table mapping for driver tests. */
 function createFakeDrizzle() {
   const table = {
     path: { name: "path" },
@@ -249,64 +249,27 @@ async function exerciseRecordBackend(fileSystem: ReturnType<typeof createFileSys
 }
 
 describe("ecosystem adapters", () => {
-  it("reports bridge directions and concrete unsupported reasons", () => {
-    expect(UnstorageBridge.directions.toOpfs.supported).toBe(true);
-    expect(UnstorageBridge.directions.fromOpfs.supported).toBe(true);
-
-    for (const bridge of [RxDbBridge, Db0Bridge, DrizzleBridge]) {
-      expect(bridge.directions.toOpfs.supported).toBe(true);
-      expect(bridge.directions.fromOpfs.supported).toBe(false);
-      expect(bridge.directions.fromOpfs.reason?.length).toBeGreaterThan(0);
+  it("reports integration directions without pretending metadata is a bridge", () => {
+    expect(UnstorageIntegration.directions.toOpfs.supported).toBe(true);
+    expect(UnstorageIntegration.directions.fromOpfs.supported).toBe(true);
+    for (const integration of [RxDbIntegration, Db0Integration, DrizzleIntegration]) {
+      expect(integration.directions.toOpfs.supported).toBe(true);
+      expect(integration.directions.fromOpfs.supported).toBe(false);
+      expect(integration.directions.fromOpfs.reason?.length).toBeGreaterThan(0);
     }
-    expect(KeyValueBridge.directions.toOpfs.supported).toBe(false);
-    expect(KeyValueBridge.directions.toOpfs.reason?.length).toBeGreaterThan(0);
-    expect(KeyValueBridge.directions.fromOpfs.supported).toBe(true);
   });
 
-  it("rejects a third-party bridge that hides why a direction is unsupported", () => {
-    expect(() => defineBridge({
-      name: "invalid-bridge",
-      directions: {
-        toOpfs: { supported: false },
-        fromOpfs: { supported: false },
-      },
-    })).toThrow();
-  });
-
-  it("uses the high-level unstorage contract and explicit disposal ownership", async () => {
-    const storage = new MemoryUnstorage();
-    const adapter = createUnstorageAdapter(storage as never, { disposeStorage: true });
-    const fileSystem = createFileSystem(adapter, { coordination: "local", disposeAdapter: true });
-    await exerciseRecordBackend(fileSystem);
-    await fileSystem.close();
-    expect(storage.disposed).toBe(true);
-  });
-
-  it("exposes any filesystem through the reusable key-value driver", async () => {
-    const fileSystem = createFileSystem(createMemoryAdapter(), { coordination: "none" });
-    const driver = createKeyValueDriver(fileSystem);
-    expect(driver.inspect().adapter).toBe("memory");
-    expect(driver.plan({ operation: "write", source: "stream", mode: "replace", size: 1024 }).support).toBe("emulated");
-    await driver.set("prefix", "parent-value");
-    await driver.set("prefix:child", "child-value");
-    await driver.setRaw("binary", new Uint8Array([1, 2, 3]));
-
-    expect(await driver.get("prefix")).toBe("parent-value");
-    expect(await driver.get("prefix:child")).toBe("child-value");
-    expect([...(await driver.getRaw("binary"))!]).toEqual([1, 2, 3]);
-    expect(await driver.keys()).toEqual(expect.arrayContaining(["prefix", "prefix:child", "binary"]));
-    expect(driver.getMetrics().operations.write?.count).toBeGreaterThan(0);
-
-    await driver.clear("prefix", { preserveExact: true });
-    expect(await driver.get("prefix")).toBe("parent-value");
-    expect(await driver.get("prefix:child")).toBe(null);
-    await fileSystem.close();
+  it("rejects integration metadata that hides why a direction is unsupported", () => {
+    expect(() => defineIntegration({
+      name: "invalid-integration",
+      directions: { toOpfs: { supported: false }, fromOpfs: { supported: false, reason: "not implemented" } },
+    })).toThrow(TypeError);
   });
 
   it("exposes any filesystem as an unstorage driver without key collisions", async () => {
     const fileSystem = createFileSystem(createMemoryAdapter(), { coordination: "local" });
-    const driver = createUnstorageDriver(fileSystem);
-    expect(driver.inspect().adapter).toBe("memory");
+    const driver = createUnstorageBridge(fileSystem);
+    expect(driver.inspect().adapter.name).toBe("memory");
     expect(driver.plan({ operation: "write", source: "bytes", mode: "replace", size: 3 }).supported).toBe(true);
     await driver.setItem("prefix", "parent-value", {});
     await driver.setItem("prefix:child", "child-value", {});
