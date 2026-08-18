@@ -51,7 +51,7 @@ export const DENO_KV_DEFAULT_COLLECT_DELETES = 10_000;
 /** Structural Deno KV entry used by the driver. */
 export interface DenoKvEntryType<T> {
   /** Stored tuple returned by exact reads and prefix iteration. */
-  readonly key: readonly unknown[];
+  readonly key: Deno.KvKey;
   /** Stored value, or null for a missing exact get. */
   readonly value: T | null;
 }
@@ -59,13 +59,18 @@ export interface DenoKvEntryType<T> {
 /** Structural Deno KV subset required by this driver. */
 export interface DenoKvType {
   /** Reads one exact key. */
-  get<T = unknown>(key: readonly unknown[]): Promise<DenoKvEntryType<T>>;
+  get<T = unknown>(key: Deno.KvKey): Promise<DenoKvEntryType<T>>;
   /** Replaces one key. */
-  set(key: readonly unknown[], value: unknown): Promise<unknown>;
+  set(key: Deno.KvKey, value: unknown): Promise<unknown>;
   /** Removes one key. */
-  delete(key: readonly unknown[]): Promise<void>;
-  /** Streams keys with one prefix. */
-  list<T = unknown>(selector: { readonly prefix: readonly unknown[] }): AsyncIterable<DenoKvEntryType<T>>;
+  delete(key: Deno.KvKey): Promise<void>;
+  /**
+   * Streams keys through Deno KV's native selector contract.
+   *
+   * The driver currently uses prefix-based listing, but the wider selector type
+   * keeps the structural contract compatible with the real Deno KV API.
+   */
+  list<T = unknown>(selector: Deno.KvListSelector, options?: Deno.KvListOptions): AsyncIterable<DenoKvEntryType<T>>;
   /** Closes the database when the caller transfers ownership. */
   close?(): void;
 }
@@ -153,17 +158,17 @@ type DenoKvManifestType = z.output<typeof DenoKvManifestSchema>;
 type DenoKvStoredType = RecordType | DenoKvManifestType;
 
 /** Maps one exact virtual path to a Deno KV entry key derived from its parent and name. */
-function key(prefix: string, path: string): readonly unknown[] {
+function key(prefix: string, path: string): Deno.KvKey {
   return [prefix, "entry", dirname(path), basename(path)];
 }
 
 /** Prefix whose entries are exactly the direct children of one canonical parent path. */
-function listKey(prefix: string, parent: string): readonly unknown[] {
+function listKey(prefix: string, parent: string): Deno.KvKey {
   return [prefix, "entry", parent];
 }
 
 /** Maps one logical file generation and part number to a separate raw binary key. */
-function partKey(prefix: string, path: string, generation: string, index: number): readonly unknown[] {
+function partKey(prefix: string, path: string, generation: string, index: number): Deno.KvKey {
   return [prefix, "part", path, generation, index];
 }
 
@@ -228,7 +233,7 @@ function parts(bytes: Uint8Array, partBytes: number): Uint8Array[] {
 const keyEncoder = new TextEncoder();
 
 /** Conservatively estimates serialized tuple bytes for the key component types used here. */
-function estimateKeyBytes(value: readonly unknown[]): number {
+function estimateKeyBytes(value: Deno.KvKey): number {
   let bytes = 0;
   for (const component of value) {
     bytes += 16;

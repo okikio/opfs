@@ -4,11 +4,18 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import type { SQLInputValue } from "node:sqlite";
 
 import { createFileSystem } from "../mod.ts";
 import { createDb0Adapter } from "../src/adapter/db0.ts";
 import { createNodeAdapter } from "../src/adapter/node.ts";
 import { createSqliteAdapter } from "../src/adapter/sqlite.ts";
+import type { Db0PrimitiveType } from "../src/driver/db0.ts";
+
+/** Normalizes db0-style parameters to Node SQLite's narrower accepted input set. */
+function toSqliteParams(params: readonly Db0PrimitiveType[]): SQLInputValue[] {
+  return params.map((value) => value === undefined ? null : typeof value === "boolean" ? Number(value) : value);
+}
 
 /** Real Node SQLite database wrapped in the db0 shape used by the record driver contract. */
 class SqliteDb0Database {
@@ -84,9 +91,9 @@ describe("Node adapter", () => {
       prepare(sql) {
         const statement = database.prepare(sql);
         return {
-          all: (...params) => statement.all(...params),
-          get: (...params) => statement.get(...params),
-          run: (...params) => statement.run(...params),
+          all: (...params) => statement.all(...toSqliteParams(params)),
+          get: (...params) => statement.get(...toSqliteParams(params)),
+          run: (...params) => statement.run(...toSqliteParams(params)),
         };
       },
       close() {

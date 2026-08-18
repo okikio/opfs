@@ -1,3 +1,4 @@
+/// <reference lib="webworker" />
 import { openFileSystem, probeOpfs } from "../../../mod.ts";
 
 /** DedicatedWorker global used to exercise worker-only OPFS capabilities. */

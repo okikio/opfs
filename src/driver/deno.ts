@@ -280,7 +280,7 @@ class DenoBackend implements FileBackendType {
     if (options.at === undefined && options.length === undefined) {
       return (await Deno.open(this.#hostPath(path), { read: true })).readable;
     }
-    return new Blob([await this.readFile(path, options)]).stream();
+    return new Blob([Uint8Array.from(await this.readFile(path, options))]).stream();
   }
 
   /** Writes materialized bytes with replace, append, or positioned update semantics. */

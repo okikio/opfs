@@ -3,6 +3,7 @@ import { DatabaseSync } from "node:sqlite";
 
 import { createFileSystem } from "../mod.ts";
 import { createSqliteAdapter } from "../src/adapter/sqlite.ts";
+import type { SqliteDatabaseType } from "../src/driver/sqlite.ts";
 
 /** Fixed 64 KiB payload shared by raw SQLite, adapter, and facade measurements. */
 const payload = new Uint8Array(64 * 1024);
@@ -18,10 +19,20 @@ const rawGet = raw.prepare("SELECT data FROM raw WHERE path = ?");
 const adapterDatabase = new DatabaseSync(":memory:");
 /** Dedicated in-memory SQLite database used by the filesystem facade measurement. */
 const facadeDatabase = new DatabaseSync(":memory:");
+/**
+ * The benchmark uses Node's built-in synchronous SQLite wrapper directly.
+ *
+ * The runtime contract is compatible with the project adapter, but its public
+ * Node type surface is wider than the small structural subset documented by the
+ * driver, so the benchmark narrows it locally.
+ */
+const adapterSqlite = adapterDatabase as unknown as SqliteDatabaseType;
+/** Narrowed SQLite contract used by the facade benchmark path. */
+const facadeSqlite = facadeDatabase as unknown as SqliteDatabaseType;
 /** Direct SQLite adapter measured without facade semantics. */
-const adapter = await createSqliteAdapter(adapterDatabase);
+const adapter = await createSqliteAdapter(adapterSqlite);
 /** Filesystem facade backed by SQLite with coordination disabled. */
-const fileSystem = createFileSystem(await createSqliteAdapter(facadeDatabase), {
+const fileSystem = createFileSystem(await createSqliteAdapter(facadeSqlite), {
   coordination: "none",
   metrics: "none",
 });
