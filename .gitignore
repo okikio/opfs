@@ -275,6 +275,7 @@ $RECYCLE.BIN/
 .coverage/
 .test-results/
 .agents/
+.release/
 
 # Playwright output
 test-results/
