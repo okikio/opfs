@@ -581,3 +581,7 @@ globalThis.opfsTest = {
   adapter: roundTripAdapter,
   indexedDbAppend,
 };
+
+declare global {
+  var opfsTest: BrowserTestApiType;
+}
