@@ -11,12 +11,17 @@ OUT="${RELEASE_DIR:-.release/npm}"
 rm -rf "$OUT"
 mkdir -p "$OUT/extract"
 
-DIRTY=()
 if [[ "${PACK_ALLOW_DIRTY:-0}" == "1" ]]; then
-	DIRTY+=(--allow-dirty)
+	deno pack \
+		--set-version "$VERSION" \
+		--allow-dirty \
+		--output "$OUT/deno.tgz"
+else
+	deno pack \
+		--set-version "$VERSION" \
+		--output "$OUT/deno.tgz"
 fi
 
-deno pack --no-deno-shim --set-version "$VERSION" "${DIRTY[@]}" --output "$OUT/deno.tgz"
 tar -xzf "$OUT/deno.tgz" -C "$OUT/extract"
 
 node --input-type=module - "$OUT/extract/package/package.json" <<'NODE'
