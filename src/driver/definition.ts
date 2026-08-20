@@ -30,7 +30,7 @@ import {
  * the right seam. For example, a driver limit may require a different backend,
  * while a filesystem problem may only require a facade policy change.
  */
-export const ProblemLayerSchema = z.enum(["client", "driver", "adapter", "filesystem"]);
+export const ProblemLayerSchema: z.ZodType<ProblemLayerType, ProblemLayerType> = z.enum(["client", "driver", "adapter", "filesystem"]);
 
 /** A validated storage problem layer. */
 export type ProblemLayerType = "client" | "driver" | "adapter" | "filesystem";
@@ -41,7 +41,7 @@ export type ProblemLayerType = "client" | "driver" | "adapter" | "filesystem";
  * These levels are presentation-friendly summaries. Callers should still use
  * the structured `code`, `layer`, and optional `limit` fields to drive policy.
  */
-export const ProblemSeveritySchema = z.enum(["info", "warning", "error"]);
+export const ProblemSeveritySchema: z.ZodType<ProblemSeverityType, ProblemSeverityType> = z.enum(["info", "warning", "error"]);
 
 /** A validated storage planning problem severity. */
 export type ProblemSeverityType = "info" | "warning" | "error";
@@ -53,7 +53,7 @@ export type ProblemSeverityType = "info" | "warning" | "error";
  * behalf. It only reports the next kind of move that could make the request
  * succeed honestly.
  */
-export const ActionKindSchema = z.enum([
+export const ActionKindSchema: z.ZodType<ActionKindType, ActionKindType> = z.enum([
   "partition",
   "change-policy",
   "select-driver",
@@ -82,7 +82,7 @@ export type ActionKindType =
  * `code`, `layer`, and `limit` let a caller sort provider ceilings, policy
  * choices, and unsupported routes without parsing prose.
  */
-export const ProblemSchema = z.object({
+export const ProblemSchema: z.ZodType<ProblemType, ProblemType> = z.object({
   /** Stable machine-readable problem code. */
   code: z.string().min(1),
   /** Layer that identified the problem. */
@@ -118,7 +118,7 @@ type _ProblemTypeMatchesSchema = AssertTrue<IsEquivalent<ProblemType, z.output<t
  * `reduce-input` or `select-driver` without assuming the caller's UI, retry, or
  * orchestration policy.
  */
-export const ActionSchema = z.object({
+export const ActionSchema: z.ZodType<ActionType, ActionType> = z.object({
   /** Coarse-grained next step the caller can take. */
   kind: ActionKindSchema,
   /** Optional machine-readable qualifier for UI or policy routing. */
@@ -146,7 +146,7 @@ type _ActionTypeMatchesSchema = AssertTrue<IsEquivalent<ActionType, z.output<typ
  * backend-native work it understands directly, while the adapter and facade add
  * higher-level emulation and policy above it.
  */
-export const DriverOperationSchema = z.enum(["stat", "read", "write", "list", "copy", "move", "remove"]);
+export const DriverOperationSchema: z.ZodType<DriverOperationType, DriverOperationType> = z.enum(["stat", "read", "write", "list", "copy", "move", "remove"]);
 
 /** A validated backend driver operation. */
 export type DriverOperationType = "stat" | "read" | "write" | "list" | "copy" | "move" | "remove";
@@ -157,7 +157,7 @@ export type DriverOperationType = "stat" | "read" | "write" | "list" | "copy" | 
  * Paths are canonical at the driver seam. The filesystem facade normalizes public
  * input before an adapter calls a driver, and direct driver callers must supply canonical paths. `size` can be omitted for an unknown-length stream.
  */
-export const DriverPlanInputSchema = z.object({
+export const DriverPlanInputSchema: z.ZodType<DriverPlanInputType, DriverPlanInputType> = z.object({
   /** Backend-native operation being preflighted. */
   operation: DriverOperationSchema,
   /** Canonical source path when the operation targets one path. */
@@ -208,7 +208,7 @@ type _DriverPlanInputTypeMatchesSchema = AssertTrue<
  * native, emulated later, partitioned, or unavailable once the result is folded
  * into the adapter and filesystem plan.
  */
-export const DriverPlanSchema = z.object({
+export const DriverPlanSchema: z.ZodType<DriverPlanType, DriverPlanType> = z.object({
   /** Backend-native operation that was planned. */
   operation: DriverOperationSchema,
   /** Whether the request can proceed under current facts and policy. */
@@ -253,7 +253,7 @@ type _DriverPlanTypeMatchesSchema = AssertTrue<
  * This is the durable description a caller can log, diff, snapshot in tests, or
  * surface in diagnostics before any storage work starts.
  */
-export const DriverInspectionSchema = z.object({
+export const DriverInspectionSchema: z.ZodType<DriverInspectionType, DriverInspectionType> = z.object({
   /** Stable configured driver name. */
   name: z.string().min(1),
   /** Backend family implemented by this driver. */

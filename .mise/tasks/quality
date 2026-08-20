@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-#MISE description="Run the complete Deno quality, stress, coverage, and package dry-run gate."
+#MISE description="Run the complete Deno quality, stress, coverage, JSR, and npm build gates."
 set -euo pipefail
 
 deno ci
+deno task schema:check
 deno task check
 deno task lint
 deno task doc
@@ -10,4 +11,4 @@ deno task fmt:check
 deno task test:stress
 deno task test:coverage
 deno publish --dry-run
-deno pack --dry-run --no-deno-shim
+RELEASE_VERSION=0.0.0-quality mise run npm

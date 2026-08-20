@@ -53,6 +53,14 @@ try {
   }
   if (!manifest.dependencies?.zod) throw new Error("zod runtime dependency is missing.");
 
+  for (const field of ["dependencies", "peerDependencies", "optionalDependencies"]) {
+    for (const name of Object.keys(manifest[field] ?? {})) {
+      if (name.startsWith("@jsr/")) {
+        throw new Error(`npm tarball leaked JSR compatibility dependency '${name}' through ${field}.`);
+      }
+    }
+  }
+
   for (const [subpath, target] of Object.entries(manifest.exports ?? {})) {
     const entry = typeof target === "string" ? { default: target } : target;
     for (const field of ["types", "import", "default"]) {

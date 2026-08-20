@@ -7,7 +7,7 @@ import { z } from "zod";
  * Values are optional so protocol clients can apply repository defaults without
  * copying a second default object into every public options type.
  */
-export const RequestPolicySchema = z.object({
+export const RequestPolicySchema: z.ZodType<RequestPolicyType, RequestPolicyType> = z.object({
   /** Additional attempts after the first request. Defaults to 3. */
   retries: z.number().int().nonnegative().optional(),
   /** Base retry delay in milliseconds. Defaults to 200. */
@@ -23,7 +23,7 @@ export const RequestPolicySchema = z.object({
 }).strict();
 
 /** A validated direct-client request policy. */
-export type RequestPolicyType = z.output<typeof RequestPolicySchema>;
+export type RequestPolicyType = import("./_schema_types.ts").RequestPolicyType;
 
 /**
  * Callable Web Fetch contract used by storage clients.

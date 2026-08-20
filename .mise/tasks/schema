@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#MISE description="Regenerate explicit TypeScript contracts from Zod schemas."
+set -euo pipefail
+
+deno ci
+deno task schema

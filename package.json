@@ -37,7 +37,10 @@
     "check": "mise run check",
     "test": "mise run test",
     "fmt": "mise run fmt",
-    "bench": "mise run bench"
+    "bench": "mise run bench",
+    "schema": "mise run schema",
+    "schema:check": "mise run schema-check",
+    "verify:npm": "mise run verify-npm"
   },
   "exports": {
     ".": "./mod.ts",

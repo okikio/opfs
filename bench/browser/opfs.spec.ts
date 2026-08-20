@@ -1,12 +1,19 @@
 import { expect, test } from "@playwright/test";
 
+import type { BrowserTestGlobalType } from "../../tests/browser/fixtures/api.ts";
+
+/** File-local browser global shape after the benchmark fixture installs its API. */
+type InstalledFixtureGlobalType = typeof globalThis & BrowserTestGlobalType;
+/** File-local Window shape while the benchmark fixture module may still be initializing. */
+type PendingFixtureWindowType = typeof window & Partial<BrowserTestGlobalType>;
+
 /** Fixture page that exposes raw, adapter, and facade browser benchmark operations. */
 const APP_URL = "http://127.0.0.1:4173/tests/browser/fixtures/index.html";
 
 /** Opens the benchmark fixture and waits for its callable API. */
 async function ready(page: import("@playwright/test").Page): Promise<void> {
   await page.goto(APP_URL);
-  await page.waitForFunction(() => Boolean((window as unknown as { opfsTest?: { ready?: boolean } }).opfsTest?.ready));
+  await page.waitForFunction(() => Boolean((window as PendingFixtureWindowType).opfsTest?.ready));
 }
 
 /** Normalizes one browser benchmark result into comparable overhead ratios. */
@@ -31,7 +38,9 @@ function report(
 
 test("reports raw native OPFS, direct adapter, and facade overhead", async ({ browserName, page }, testInfo) => {
   await ready(page);
-  const result = await page.evaluate(async () => await globalThis.opfsTest.benchmark(25, 64 * 1024));
+  const result = await page.evaluate(async () =>
+    await (globalThis as InstalledFixtureGlobalType).opfsTest.benchmark(25, 64 * 1024)
+  );
   test.skip(result === null, "OPFS is unavailable in this browser context.");
   expect(result!.rawMs).toBeGreaterThan(0);
   expect(result!.adapterMs).toBeGreaterThan(0);
@@ -48,7 +57,8 @@ for (const backend of ["localstorage", "indexeddb", "cache"] as const) {
   test(`reports raw ${backend}, direct adapter, and facade overhead`, async ({ browserName, page }, testInfo) => {
     await ready(page);
     const result = await page.evaluate(
-      async ({ backend }) => await globalThis.opfsTest.benchmarkAdapter(backend, 20, 16 * 1024),
+      async ({ backend }) =>
+        await (globalThis as InstalledFixtureGlobalType).opfsTest.benchmarkAdapter(backend, 20, 16 * 1024),
       { backend },
     );
     test.skip(result === null, `${backend} is unavailable in this browser context.`);

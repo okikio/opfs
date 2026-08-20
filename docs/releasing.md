@@ -183,3 +183,15 @@ solely to make the release workflow progress.
 The publish job installs `npm:npm@11.18.0` through mise. npm trusted publishing requires npm CLI 11.5.1 or later and
 Node 22.14.0 or later. The explicit npm pin prevents the release path from depending on the bundled npm version of the
 selected Node release.
+
+## Schema-derived public types
+
+Zod remains the runtime validation source of truth, but JSR fast-type extraction must not infer Zod's internal generic graph from exported schemas. `scripts/schema.ts` compiles the supported Zod v4 definitions into `src/_schema_types.ts`; public schemas expose explicit `z.ZodType<Output, Input>` contracts and public data aliases point at the generated structural types.
+
+Run `mise run schema` after changing a compiled schema. `mise run schema-check`, the canonical `check` task, JSR publication, and npm verification reject stale generated contracts. The project-local compiler intentionally throws for unknown Zod definition kinds instead of emitting `any`.
+
+## Registry artifacts
+
+JSR publishes the original TypeScript graph with `deno publish`. npm is a separate derived artifact built by `scripts/npm.ts` with dnt. The dnt build derives its entry points from `deno.json`, emits ESM plus declarations, maps `@okikio/undent` to its normal npm package, retains `drizzle-orm` as an optional peer, and rejects any generated `@jsr/*` npm dependency.
+
+The immutable `opfs@<version>` Git tag remains the release-version authority for both registry jobs. semantic-release still creates that tag and GitHub Release; the packaging migration does not introduce a second version owner.

@@ -25,13 +25,13 @@ import type {
 } from "./driver/object.ts";
 
 /** S3 URL addressing shape used when constructing signed request URLs. */
-export const S3AddressingSchema = z.enum(["path", "virtual"]);
+export const S3AddressingSchema: z.ZodType<S3AddressingType, S3AddressingType> = z.enum(["path", "virtual"]);
 
 /** Validated S3 URL addressing shape. */
-export type S3AddressingType = z.output<typeof S3AddressingSchema>;
+export type S3AddressingType = import("./_schema_types.ts").S3AddressingType;
 
 /** AWS Signature Version 4 credentials. */
-export const S3CredentialsSchema = z.object({
+export const S3CredentialsSchema: z.ZodType<S3CredentialsType, S3CredentialsType> = z.object({
   /** Public access-key identifier placed in the SigV4 credential scope. */
   accessKeyId: z.string().min(1),
   /** Secret key used only as input to the SigV4 HMAC key-derivation chain. */
@@ -41,10 +41,26 @@ export const S3CredentialsSchema = z.object({
 });
 
 /** Validated AWS Signature Version 4 credentials. */
-export type S3CredentialsType = z.output<typeof S3CredentialsSchema>;
+export type S3CredentialsType = import("./_schema_types.ts").S3CredentialsType;
 
 /** Credential value or refresh function used by long-lived S3 clients. */
 export type S3CredentialSourceType = S3CredentialsType | (() => S3CredentialsType | Promise<S3CredentialsType>);
+
+/** Public S3 size/count limits used by request planning and tests. */
+export interface S3LimitsType {
+  /** Exact multipart-derived S3 object ceiling. */
+  readonly maxObjectBytes: number;
+  /** Largest body sent through one `PutObject` request. */
+  readonly maxPutBytes: number;
+  /** Largest source copied through one `CopyObject` request. */
+  readonly maxCopyBytes: number;
+  /** Smallest legal non-final multipart part. */
+  readonly minPartBytes: number;
+  /** Largest legal multipart part. */
+  readonly maxPartBytes: number;
+  /** Maximum part count accepted by one multipart upload. */
+  readonly maxParts: number;
+}
 
 /**
  * S3 limits that affect the client's upload and copy planning.
@@ -56,7 +72,7 @@ export type S3CredentialSourceType = S3CredentialsType | (() => S3CredentialsTyp
  * approximately 53.7 TB), even though AWS often rounds that limit to 50 TB in
  * product documentation.
  */
-export const S3_LIMITS = Object.freeze({
+export const S3_LIMITS: S3LimitsType = Object.freeze({
   /** Exact multipart-derived S3 object ceiling: 10,000 parts x 5 GiB. */
   maxObjectBytes: 53_687_091_200_000,
   /** Largest body sent through one `PutObject` request. */

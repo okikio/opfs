@@ -1,4 +1,4 @@
-import { defineRecordDriver, type RecordBackendType, type RecordDriverType } from "./record.ts";
+import { defineRecordDriver, type RecordBackendType, type RecordDriverType, type RecordListType } from "./record.ts";
 import {
   Db0DialectSchema,
   type Db0DialectType,
@@ -245,7 +245,7 @@ export class Db0Backend implements RecordBackendType {
   }
 
   /** Selects one fixed-width path identity and converts the connector row. */
-  async get(path: Parameters<RecordBackendType["get"]>[0]) {
+  async get(path: Parameters<RecordBackendType["get"]>[0]): Promise<RecordType | null> {
     const row = await this.#selectById.get(await getPathId(path));
     return row == null ? null : parseRow(row);
   }
@@ -274,7 +274,7 @@ export class Db0Backend implements RecordBackendType {
   }
 
   /** Selects and validates direct children through `parent_path`. */
-  async *list(parent: Parameters<RecordBackendType["list"]>[0]) {
+  async *list(parent: Parameters<RecordBackendType["list"]>[0]): AsyncIterableIterator<RecordListType> {
     const rows = await this.#selectChildren.all(parent);
     for (const row of rows) yield parseRow(row);
   }

@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": [
+      "esnext",
+      "dom",
+      "dom.iterable",
+      "dom.asynciterable"
+    ],
+    "types": []
+  },
+  "include": [
+    "tests/browser/opfs-types.ts",
+    "tests/browser/fixtures/app.ts"
+  ],
+  "exclude": []
+}

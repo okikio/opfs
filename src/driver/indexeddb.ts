@@ -1,6 +1,6 @@
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
 
-import { defineRecordDriver, type RecordBackendType, type RecordDriverType } from "./record.ts";
+import { defineRecordDriver, type RecordBackendType, type RecordDriverType, type RecordListType } from "./record.ts";
 import type { FileDriverWriteOptionsType } from "./file.ts";
 import { FileSystemError, throwIfAborted } from "../error.ts";
 import { basename, dirname, type PathType } from "../path.ts";
@@ -122,7 +122,7 @@ export class IndexedDbBackend implements RecordBackendType {
   }
 
   /** Reads and validates one record in a readonly transaction. */
-  async get(path: Parameters<RecordBackendType["get"]>[0]) {
+  async get(path: Parameters<RecordBackendType["get"]>[0]): Promise<RecordType | null> {
     const transaction = this.#database.transaction(this.#storeName, "readonly");
     const value = await result(transaction.objectStore(this.#storeName).get(path));
     return value === undefined ? null : RecordSchema.parse(value);
@@ -201,7 +201,7 @@ export class IndexedDbBackend implements RecordBackendType {
   }
 
   /** Reads direct children through the parent-path index. */
-  async *list(parent: Parameters<RecordBackendType["list"]>[0]) {
+  async *list(parent: Parameters<RecordBackendType["list"]>[0]): AsyncIterableIterator<RecordListType> {
     const transaction = this.#database.transaction(this.#storeName, "readonly");
     const values = await result(transaction.objectStore(this.#storeName).index(this.#parentIndex).getAll(parent));
     for (const value of values) yield RecordSchema.parse(value);

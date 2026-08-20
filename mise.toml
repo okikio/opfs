@@ -3,7 +3,7 @@ min_version = "2026.8.0"
 [tools]
 node = "26"
 deno = "2"
-bun = "latest"
+bun = "1"
 pnpm = "11"
 "npm:npm" = "11"
 

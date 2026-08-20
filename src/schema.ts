@@ -7,7 +7,7 @@ import { z } from "zod";
  * `normalizePath()` resolves it first. `PathSchema` is for already-normalized
  * values at persistence and adapter seams.
  */
-export const PathSchema = z.string().refine(
+export const PathSchema: z.ZodType<PathType, PathType> = z.string().refine(
   (value: string) =>
     value === "/" || (
       value.startsWith("/") &&
@@ -21,13 +21,13 @@ export const PathSchema = z.string().refine(
 );
 
 /** A validated canonical virtual filesystem path. */
-export type PathType = z.output<typeof PathSchema>;
+export type PathType = import("./_schema_types.ts").PathType;
 
 /** Stable non-empty diagnostic name assigned to one adapter implementation. */
-export const AdapterNameSchema = z.string().min(1);
+export const AdapterNameSchema: z.ZodType<AdapterNameType, AdapterNameType> = z.string().min(1);
 
 /** A validated adapter diagnostic name. */
-export type AdapterNameType = z.output<typeof AdapterNameSchema>;
+export type AdapterNameType = import("./_schema_types.ts").AdapterNameType;
 
 /**
  * Valid entry kinds exposed by the filesystem facade and every adapter.
@@ -35,10 +35,10 @@ export type AdapterNameType = z.output<typeof AdapterNameSchema>;
  * The package uses the same two kinds as the File System API. Adapters must not
  * invent a third kind for links, database rows, or provider-specific objects.
  */
-export const EntryKindSchema = z.enum(["file", "directory"]);
+export const EntryKindSchema: z.ZodType<EntryKindType, EntryKindType> = z.enum(["file", "directory"]);
 
 /** A validated filesystem entry kind. */
-export type EntryKindType = z.output<typeof EntryKindSchema>;
+export type EntryKindType = import("./_schema_types.ts").EntryKindType;
 
 /**
  * Execution contexts that can host browser storage access.
@@ -48,7 +48,7 @@ export type EntryKindType = z.output<typeof EntryKindSchema>;
  * execution. `unknown` means that no supported browser execution context was
  * detected.
  */
-export const OpfsContextSchema = z.enum([
+export const OpfsContextSchema: z.ZodType<OpfsContextType, OpfsContextType> = z.enum([
   "window",
   "dedicated-worker",
   "shared-worker",
@@ -58,7 +58,7 @@ export const OpfsContextSchema = z.enum([
 ]);
 
 /** A validated browser execution context classification. */
-export type OpfsContextType = z.output<typeof OpfsContextSchema>;
+export type OpfsContextType = import("./_schema_types.ts").OpfsContextType;
 
 /**
  * Mutation coordination policies supported by {@link createFileSystem}.
@@ -67,10 +67,10 @@ export type OpfsContextType = z.output<typeof OpfsContextSchema>;
  * an in-realm FIFO lock. `none` disables library coordination and transfers all
  * concurrency responsibility to the caller or adapter.
  */
-export const CoordinationModeSchema = z.enum(["auto", "web-locks", "local", "none"]);
+export const CoordinationModeSchema: z.ZodType<CoordinationModeType, CoordinationModeType> = z.enum(["auto", "web-locks", "local", "none"]);
 
 /** A validated mutation coordination policy. */
-export type CoordinationModeType = z.output<typeof CoordinationModeSchema>;
+export type CoordinationModeType = import("./_schema_types.ts").CoordinationModeType;
 
 /**
  * Write modes shared by the facade and adapters.
@@ -78,10 +78,10 @@ export type CoordinationModeType = z.output<typeof CoordinationModeSchema>;
  * `replace` starts from an empty file. `append` starts at the current end.
  * `update` preserves existing bytes and starts at the requested byte offset.
  */
-export const WriteModeSchema = z.enum(["replace", "append", "update"]);
+export const WriteModeSchema: z.ZodType<WriteModeType, WriteModeType> = z.enum(["replace", "append", "update"]);
 
 /** A validated file write mode. */
-export type WriteModeType = z.output<typeof WriteModeSchema>;
+export type WriteModeType = import("./_schema_types.ts").WriteModeType;
 
 /**
  * How one operation is provided by the selected storage stack.
@@ -92,10 +92,10 @@ export type WriteModeType = z.output<typeof WriteModeSchema>;
  * provider records or blocks. `unsupported` means no safe implementation is
  * available for the selected stack.
  */
-export const SupportModeSchema = z.enum(["native", "emulated", "partitioned", "unsupported"]);
+export const SupportModeSchema: z.ZodType<SupportModeType, SupportModeType> = z.enum(["native", "emulated", "partitioned", "unsupported"]);
 
 /** A validated storage support mode. */
-export type SupportModeType = z.output<typeof SupportModeSchema>;
+export type SupportModeType = import("./_schema_types.ts").SupportModeType;
 
 /**
  * Metrics collection cost selected for one filesystem or protocol client.
@@ -104,19 +104,19 @@ export type SupportModeType = z.output<typeof SupportModeSchema>;
  * `timing` also reads the monotonic clock around operations. `none` removes
  * metrics bookkeeping from hot paths when the caller is measuring raw overhead.
  */
-export const MetricsModeSchema = z.enum(["none", "basic", "timing"]);
+export const MetricsModeSchema: z.ZodType<MetricsModeType, MetricsModeType> = z.enum(["none", "basic", "timing"]);
 
 /** A validated metrics collection mode. */
-export type MetricsModeType = z.output<typeof MetricsModeSchema>;
+export type MetricsModeType = import("./_schema_types.ts").MetricsModeType;
 
 /**
  * Physical partition policy for backends with a smaller value limit than the
  * logical file size the application wants to expose.
  */
-export const PartitionModeSchema = z.enum(["never", "auto", "always"]);
+export const PartitionModeSchema: z.ZodType<PartitionModeType, PartitionModeType> = z.enum(["never", "auto", "always"]);
 
 /** A validated physical partition policy. */
-export type PartitionModeType = z.output<typeof PartitionModeSchema>;
+export type PartitionModeType = import("./_schema_types.ts").PartitionModeType;
 
 /**
  * Inspectable physical layout used when one logical file spans provider values.
@@ -126,7 +126,7 @@ export type PartitionModeType = z.output<typeof PartitionModeSchema>;
  * means native stream writes use this layout so input size does not determine
  * facade memory growth.
  */
-export const AdapterPartitionSchema = z.object({
+export const AdapterPartitionSchema: z.ZodType<AdapterPartitionType, AdapterPartitionType> = z.object({
   /** Partitioning policy selected for this adapter. */
   mode: PartitionModeSchema,
   /** Physical part or block size used by the layout. */
@@ -142,7 +142,7 @@ export const AdapterPartitionSchema = z.object({
 }).strict();
 
 /** A validated physical partition layout. */
-export type AdapterPartitionType = z.output<typeof AdapterPartitionSchema>;
+export type AdapterPartitionType = import("./_schema_types.ts").AdapterPartitionType;
 
 /**
  * Optional backend limits that can be inspected before work begins.
@@ -151,7 +151,7 @@ export type AdapterPartitionType = z.output<typeof AdapterPartitionSchema>;
  * not mean unlimited. Provider-specific clients can expose additional limits
  * through their own public constants and request planners.
  */
-export const AdapterLimitsSchema = z.object({
+export const AdapterLimitsSchema: z.ZodType<AdapterLimitsType, AdapterLimitsType> = z.object({
   /** Maximum logical file size accepted by this configured adapter. */
   maxFileBytes: z.number().int().positive().optional(),
   /** Maximum materialized value accepted by one physical backend record. */
@@ -171,7 +171,7 @@ export const AdapterLimitsSchema = z.object({
 }).strict();
 
 /** Portable hard limits known by one configured adapter. */
-export type AdapterLimitsType = z.output<typeof AdapterLimitsSchema>;
+export type AdapterLimitsType = import("./_schema_types.ts").AdapterLimitsType;
 
 /**
  * Performance routes that the filesystem facade can deliberately bypass.
@@ -180,7 +180,7 @@ export type AdapterLimitsType = z.output<typeof AdapterLimitsSchema>;
  * fallback where one exists. This is useful for differential testing and for
  * applications that prefer a slower but more observable or more portable path.
  */
-export const OptimizationSchema = z.object({
+export const OptimizationSchema: z.ZodType<OptimizationType, OptimizationType> = z.object({
   /** Use adapter-native streaming reads instead of materialized `readFile()`. */
   streamRead: z.boolean(),
   /** Use adapter-native streaming writes when the requested mode supports them. */
@@ -194,7 +194,7 @@ export const OptimizationSchema = z.object({
 }).strict();
 
 /** Resolved performance-route policy for one filesystem facade. */
-export type OptimizationType = z.output<typeof OptimizationSchema>;
+export type OptimizationType = import("./_schema_types.ts").OptimizationType;
 
 /**
  * Stable adapter capability description.
@@ -206,7 +206,7 @@ export type OptimizationType = z.output<typeof OptimizationSchema>;
  * host-native copy so the facade does not move bytes through JavaScript when
  * the backend can copy them directly.
  */
-export const AdapterCapabilitiesSchema = z.object({
+export const AdapterCapabilitiesSchema: z.ZodType<AdapterCapabilitiesType, AdapterCapabilitiesType> = z.object({
   /** Adapter can materialize file bytes through `readFile()`. */
   read: z.boolean(),
   /** Adapter can commit materialized file bytes through `writeFile()`. */
@@ -228,7 +228,7 @@ export const AdapterCapabilitiesSchema = z.object({
 });
 
 /** Native operations implemented by one adapter. */
-export type AdapterCapabilitiesType = z.output<typeof AdapterCapabilitiesSchema>;
+export type AdapterCapabilitiesType = import("./_schema_types.ts").AdapterCapabilitiesType;
 
 /**
  * Stable error categories exposed by the package.
@@ -237,7 +237,7 @@ export type AdapterCapabilitiesType = z.output<typeof AdapterCapabilitiesSchema>
  * not need separate branches for DOMException, Deno, Bun, Node, SQL, and
  * document-database error classes.
  */
-export const ErrorCodeSchema = z.enum([
+export const ErrorCodeSchema: z.ZodType<ErrorCodeType, ErrorCodeType> = z.enum([
   "unavailable",
   "not-found",
   "already-exists",
@@ -254,13 +254,13 @@ export const ErrorCodeSchema = z.enum([
 ]);
 
 /** A validated package error category. */
-export type ErrorCodeType = z.output<typeof ErrorCodeSchema>;
+export type ErrorCodeType = import("./_schema_types.ts").ErrorCodeType;
 
 /** Version stored with record-backed filesystem entries. */
-export const RecordVersionSchema = z.literal(1);
+export const RecordVersionSchema: z.ZodType<RecordVersionType, RecordVersionType> = z.literal(1);
 
 /** Persisted record format version. */
-export type RecordVersionType = z.output<typeof RecordVersionSchema>;
+export type RecordVersionType = import("./_schema_types.ts").RecordVersionType;
 
 /**
  * Fields shared by every persisted record-store entry.
@@ -283,16 +283,19 @@ const RecordBaseSchema = z.object({
 });
 
 /** Persisted directory record used by record-store adapters. */
-export const DirectoryRecordSchema = RecordBaseSchema.extend({
+const DirectoryRecordSchemaDefinition = RecordBaseSchema.extend({
   /** Discriminator that prevents a directory row from carrying file bytes. */
   kind: z.literal("directory"),
 });
 
+/** Persisted directory validator with an explicit public type boundary. */
+export const DirectoryRecordSchema: z.ZodType<DirectoryRecordType, DirectoryRecordType> = DirectoryRecordSchemaDefinition;
+
 /** A validated persisted directory record. */
-export type DirectoryRecordType = z.output<typeof DirectoryRecordSchema>;
+export type DirectoryRecordType = import("./_schema_types.ts").DirectoryRecordType;
 
 /** Persisted file record used by record-store adapters. */
-export const FileRecordSchema = RecordBaseSchema.extend({
+const FileRecordSchemaDefinition = RecordBaseSchema.extend({
   /** Discriminator that selects the file-record branch. */
   kind: z.literal("file"),
   /** Base64 file body used by JSON/document/SQL-compatible record stores. */
@@ -303,8 +306,11 @@ export const FileRecordSchema = RecordBaseSchema.extend({
   mediaType: z.string(),
 });
 
+/** Persisted file validator with an explicit public type boundary. */
+export const FileRecordSchema: z.ZodType<FileRecordType, FileRecordType> = FileRecordSchemaDefinition;
+
 /** A validated persisted file record. */
-export type FileRecordType = z.output<typeof FileRecordSchema>;
+export type FileRecordType = import("./_schema_types.ts").FileRecordType;
 
 /**
  * Persisted record format shared by RxDB, unstorage, db0, and Drizzle record drivers.
@@ -313,46 +319,49 @@ export type FileRecordType = z.output<typeof FileRecordSchema>;
  * strings. This costs about one third more storage than raw bytes. Native file
  * adapters do not use this format.
  */
-export const RecordSchema = z.discriminatedUnion("kind", [DirectoryRecordSchema, FileRecordSchema]);
+const RecordSchemaDefinition = z.discriminatedUnion("kind", [DirectoryRecordSchemaDefinition, FileRecordSchemaDefinition]);
+
+/** Persisted record validator with an explicit public type boundary. */
+export const RecordSchema: z.ZodType<RecordType, RecordType> = RecordSchemaDefinition;
 
 /** A validated record-store filesystem entry. */
-export type RecordType = z.output<typeof RecordSchema>;
+export type RecordType = import("./_schema_types.ts").RecordType;
 
 /** SQL dialects currently exposed by db0's public Database contract. */
-export const Db0DialectSchema = z.enum(["mysql", "postgresql", "sqlite", "libsql"]);
+export const Db0DialectSchema: z.ZodType<Db0DialectType, Db0DialectType> = z.enum(["mysql", "postgresql", "sqlite", "libsql"]);
 
 /** A validated db0 SQL dialect. */
-export type Db0DialectType = z.output<typeof Db0DialectSchema>;
+export type Db0DialectType = import("./_schema_types.ts").Db0DialectType;
 
 /** Safe unqualified SQL identifier used for adapter-owned table names. */
-export const SqlIdentifierSchema = z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/);
+export const SqlIdentifierSchema: z.ZodType<SqlIdentifierType, SqlIdentifierType> = z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/);
 
 /** A validated unqualified SQL identifier. */
-export type SqlIdentifierType = z.output<typeof SqlIdentifierSchema>;
+export type SqlIdentifierType = import("./_schema_types.ts").SqlIdentifierType;
 
 /** Storage family owned by one backend driver. */
-export const DriverKindSchema = z.enum(["file", "record", "object"]);
+export const DriverKindSchema: z.ZodType<DriverKindType, DriverKindType> = z.enum(["file", "record", "object"]);
 
 /** A validated backend driver family. */
-export type DriverKindType = z.output<typeof DriverKindSchema>;
+export type DriverKindType = import("./_schema_types.ts").DriverKindType;
 
 /** Why one driver limit exists. */
-export const LimitKindSchema = z.enum(["hard", "policy", "dynamic"]);
+export const LimitKindSchema: z.ZodType<LimitKindType, LimitKindType> = z.enum(["hard", "policy", "dynamic"]);
 
 /** A validated limit kind. */
-export type LimitKindType = z.output<typeof LimitKindSchema>;
+export type LimitKindType = import("./_schema_types.ts").LimitKindType;
 
 /** Layer that supplied one limit value. */
-export const LimitSourceSchema = z.enum(["provider", "implementation", "user", "probe"]);
+export const LimitSourceSchema: z.ZodType<LimitSourceType, LimitSourceType> = z.enum(["provider", "implementation", "user", "probe"]);
 
 /** A validated limit source. */
-export type LimitSourceType = z.output<typeof LimitSourceSchema>;
+export type LimitSourceType = import("./_schema_types.ts").LimitSourceType;
 
 /** Unit used by one numeric limit. */
-export const LimitUnitSchema = z.enum(["bytes", "count", "milliseconds", "operations"]);
+export const LimitUnitSchema: z.ZodType<LimitUnitType, LimitUnitType> = z.enum(["bytes", "count", "milliseconds", "operations"]);
 
 /** A validated limit unit. */
-export type LimitUnitType = z.output<typeof LimitUnitSchema>;
+export type LimitUnitType = import("./_schema_types.ts").LimitUnitType;
 
 /**
  * One inspectable storage limit with explicit provenance.
@@ -361,7 +370,7 @@ export type LimitUnitType = z.output<typeof LimitUnitSchema>;
  * a user-selected ceiling. `value` can be absent only for a dynamic limit whose
  * current value has not been probed.
  */
-export const LimitSchema = z.object({
+export const LimitSchema: z.ZodType<LimitType, LimitType> = z.object({
   /** Stable machine-readable limit code. */
   code: z.string().min(1),
   /** Whether the limit is hard, policy-driven, or dynamic. */
@@ -381,13 +390,13 @@ export const LimitSchema = z.object({
 });
 
 /** A validated storage limit. */
-export type LimitType = z.output<typeof LimitSchema>;
+export type LimitType = import("./_schema_types.ts").LimitType;
 
 /** Current state of one driver requirement. */
-export const RequirementStateSchema = z.enum(["available", "missing", "unknown"]);
+export const RequirementStateSchema: z.ZodType<RequirementStateType, RequirementStateType> = z.enum(["available", "missing", "unknown"]);
 
 /** A validated requirement state. */
-export type RequirementStateType = z.output<typeof RequirementStateSchema>;
+export type RequirementStateType = import("./_schema_types.ts").RequirementStateType;
 
 /**
  * One runtime, provider, permission, or configuration requirement.
@@ -395,7 +404,7 @@ export type RequirementStateType = z.output<typeof RequirementStateSchema>;
  * Definitions can report `unknown` before probing. Configured drivers should
  * prefer `available` or `missing` when the state is already known.
  */
-export const RequirementSchema = z.object({
+export const RequirementSchema: z.ZodType<RequirementType, RequirementType> = z.object({
   /** Stable machine-readable requirement code. */
   code: z.string().min(1),
   /** Current known availability state. */
@@ -409,13 +418,13 @@ export const RequirementSchema = z.object({
 });
 
 /** A validated driver requirement. */
-export type RequirementType = z.output<typeof RequirementSchema>;
+export type RequirementType = import("./_schema_types.ts").RequirementType;
 
 /** Ownership state for one configured driver backend resource. */
-export const DriverOwnershipSchema = z.enum(["none", "borrowed", "owned"]);
+export const DriverOwnershipSchema: z.ZodType<DriverOwnershipType, DriverOwnershipType> = z.enum(["none", "borrowed", "owned"]);
 
 /** A validated configured-driver backend ownership state. */
-export type DriverOwnershipType = z.output<typeof DriverOwnershipSchema>;
+export type DriverOwnershipType = import("./_schema_types.ts").DriverOwnershipType;
 
 /**
  * One independently controllable driver optimization.
@@ -424,7 +433,7 @@ export type DriverOwnershipType = z.output<typeof DriverOwnershipSchema>;
  * consistency, atomicity, or another observable property can differ when the
  * optimization is enabled. Such optimizations must be disableable.
  */
-export const DriverOptimizationSchema = z.object({
+export const DriverOptimizationSchema: z.ZodType<DriverOptimizationType, DriverOptimizationType> = z.object({
   /** Stable machine-readable optimization code. */
   code: z.string().min(1),
   /** Current enabled state. */
@@ -442,4 +451,4 @@ export const DriverOptimizationSchema = z.object({
 });
 
 /** A validated driver optimization declaration. */
-export type DriverOptimizationType = z.output<typeof DriverOptimizationSchema>;
+export type DriverOptimizationType = import("./_schema_types.ts").DriverOptimizationType;

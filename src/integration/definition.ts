@@ -11,7 +11,7 @@ import { AdapterNameSchema } from "../schema.ts";
  * allow a silent `false` because callers need to know whether the missing route
  * is temporary, impossible, or out of scope for the current ecosystem.
  */
-export const IntegrationDirectionSchema = z.object({
+export const IntegrationDirectionSchema: z.ZodType<IntegrationDirectionType, IntegrationDirectionType> = z.object({
   /** Whether the direction has a real constructor. */
   supported: z.boolean(),
   /** Concrete reason when the direction is intentionally unsupported. */
@@ -23,7 +23,7 @@ export const IntegrationDirectionSchema = z.object({
 });
 
 /** A validated bridge-direction support declaration. */
-export type IntegrationDirectionType = z.output<typeof IntegrationDirectionSchema>;
+export type IntegrationDirectionType = import("../_schema_types.ts").IntegrationDirectionType;
 
 /**
  * Directions one ecosystem integration can expose.
@@ -31,7 +31,7 @@ export type IntegrationDirectionType = z.output<typeof IntegrationDirectionSchem
  * `toOpfs` describes projection into an OPFS adapter path. `fromOpfs` describes
  * projection back out of `FileSystemType` into a real ecosystem contract.
  */
-export const IntegrationDirectionsSchema = z.object({
+export const IntegrationDirectionsSchema: z.ZodType<IntegrationDirectionsType, IntegrationDirectionsType> = z.object({
   /** Ecosystem/native resource projected into the OPFS filesystem model. */
   toOpfs: IntegrationDirectionSchema,
   /** OPFS filesystem projected back into the ecosystem's expected contract. */
@@ -39,7 +39,7 @@ export const IntegrationDirectionsSchema = z.object({
 }).strict();
 
 /** Validated bridge direction declaration. */
-export type IntegrationDirectionsType = z.output<typeof IntegrationDirectionsSchema>;
+export type IntegrationDirectionsType = import("../_schema_types.ts").IntegrationDirectionsType;
 
 /**
  * Import-safe integration definition for ecosystems that support one or both directions.

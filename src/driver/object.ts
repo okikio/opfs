@@ -18,7 +18,7 @@ import {
  * provider-side copy, or retain metadata without ever pretending it can update a
  * file in place like a host filesystem.
  */
-export const ObjectDriverCapabilitiesSchema = z.object({
+export const ObjectDriverCapabilitiesSchema: z.ZodType<ObjectDriverCapabilitiesType, ObjectDriverCapabilitiesType> = z.object({
   rangeRead: z.boolean(),
   streamRead: z.boolean(),
   streamWrite: z.boolean(),
@@ -30,7 +30,7 @@ export const ObjectDriverCapabilitiesSchema = z.object({
 }).strict();
 
 /** A validated native object-driver capability description. */
-export type ObjectDriverCapabilitiesType = z.output<typeof ObjectDriverCapabilitiesSchema>;
+export type ObjectDriverCapabilitiesType = import("../_schema_types.ts").ObjectDriverCapabilitiesType;
 
 /** Portable object metadata returned by {@link ObjectBackendType.head}. */
 export interface ObjectStatType {

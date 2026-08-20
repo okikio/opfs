@@ -1,64 +1,21 @@
 #!/usr/bin/env bash
-#MISE description="Build the npm tarball from deno.json and preserve Drizzle as an optional peer."
+#MISE description="Build the npm tarball with dnt and preserve Drizzle as an optional peer."
 set -euo pipefail
 
 VERSION="${RELEASE_VERSION:-}"
 if [[ -z "$VERSION" ]]; then
-	VERSION="$(node -p "JSON.parse(require('node:fs').readFileSync('deno.json', 'utf8')).version")"
+  VERSION="$(node -p "JSON.parse(require('node:fs').readFileSync('deno.json', 'utf8')).version")"
 fi
 
 OUT="${RELEASE_DIR:-.release/npm}"
 rm -rf "$OUT"
-mkdir -p "$OUT/extract"
+mkdir -p "$OUT"
 
-if [[ "${PACK_ALLOW_DIRTY:-0}" == "1" ]]; then
-	deno pack \
-		--set-version "$VERSION" \
-		--allow-dirty \
-		--output "$OUT/deno.tgz"
-else
-	deno pack \
-		--set-version "$VERSION" \
-		--output "$OUT/deno.tgz"
-fi
-
-tar -xzf "$OUT/deno.tgz" -C "$OUT/extract"
-
-node --input-type=module - "$OUT/extract/package/package.json" <<'NODE'
-import { readFile, writeFile } from 'node:fs/promises';
-
-const path = process.argv[2];
-const generated = JSON.parse(await readFile(path, 'utf8'));
-const source = JSON.parse(await readFile('package.json', 'utf8'));
-const drizzle = generated.dependencies?.['drizzle-orm'] ?? source.peerDependencies['drizzle-orm'];
-
-if (generated.dependencies) {
-	delete generated.dependencies['drizzle-orm'];
-	if (Object.keys(generated.dependencies).length === 0) delete generated.dependencies;
-}
-
-generated.description = source.description;
-generated.license = source.license;
-generated.repository = source.repository;
-generated.homepage = source.homepage;
-generated.bugs = source.bugs;
-generated.keywords = source.keywords;
-generated.sideEffects = false;
-generated.engines = source.engines;
-generated.peerDependencies = { ...generated.peerDependencies, 'drizzle-orm': drizzle };
-generated.peerDependenciesMeta = {
-	...generated.peerDependenciesMeta,
-	'drizzle-orm': { optional: true },
-};
-
-await writeFile(path, `${JSON.stringify(generated, null, 2)}\n`);
-NODE
-
-rm "$OUT/deno.tgz"
-npm pack "$OUT/extract/package" --pack-destination "$OUT" --json > "$OUT/pack.json"
+deno run --config scripts/deno.json --no-lock -A scripts/npm.ts "$VERSION" "$OUT/package"
+npm pack "$OUT/package" --pack-destination "$OUT" --json > "$OUT/pack.json"
 node --input-type=module - "$OUT/pack.json" <<'NODE'
 import { readFile } from 'node:fs/promises';
 const [result] = JSON.parse(await readFile(process.argv[2], 'utf8'));
 if (!result?.filename) throw new Error('npm pack did not report a tarball filename.');
-console.log(`${process.cwd()}/${process.argv[2].replace(/pack\.json$/, result.filename)}`);
+console.log(new URL(result.filename, `file://${process.cwd()}/${process.argv[2].replace(/pack\.json$/, '')}`).pathname);
 NODE

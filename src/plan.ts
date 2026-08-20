@@ -67,7 +67,7 @@ type ResolvedPlanInputType =
  * The planner distinguishes already-materialized bytes from an open stream
  * because stream buffering and partitioning decisions depend on that difference.
  */
-export const WriteSourceSchema = z.enum(["bytes", "stream"]);
+export const WriteSourceSchema: z.ZodType<WriteSourceType, WriteSourceType> = z.enum(["bytes", "stream"]);
 /** Validated physical write-source form. */
 export type WriteSourceType = "bytes" | "stream";
 /**
@@ -76,7 +76,7 @@ export type WriteSourceType = "bytes" | "stream";
  * Planning intentionally covers the routes where size, buffering, partitioning,
  * or fallback behavior most often changes the caller's decision.
  */
-export const PlanOperationSchema = z.enum(["read", "write", "copy", "move"]);
+export const PlanOperationSchema: z.ZodType<PlanOperationType, PlanOperationType> = z.enum(["read", "write", "copy", "move"]);
 /** Validated preflight operation name. */
 export type PlanOperationType = "read" | "write" | "copy" | "move";
 
@@ -139,7 +139,7 @@ export interface MovePlanInputType {
  * `createPlan()` normalizes those values before it asks the driver for a native
  * planning result.
  */
-export const PlanInputSchema = z.discriminatedUnion("operation", [
+const PlanInputSchemaDefinition = z.discriminatedUnion("operation", [
   z.object({
     /** Selects a read preflight request. */
     operation: z.literal("read"),
@@ -185,20 +185,24 @@ export const PlanInputSchema = z.discriminatedUnion("operation", [
     size: z.number().int().nonnegative().optional(),
   }).strict(),
 ]);
+
 /** Input accepted by filesystem preflight before defaults and path normalization. */
 export type PlanInputType = ReadPlanInputType | WritePlanInputType | CopyPlanInputType | MovePlanInputType;
 
+/** Public preflight validator with explicit input and resolved-output contracts. */
+export const PlanInputSchema: z.ZodType<ResolvedPlanInputType, PlanInputType> = PlanInputSchemaDefinition;
+
 type _ReadPlanInputTypeMatchesSchema = AssertTrue<
-  IsEquivalent<ReadPlanInputType, z.input<(typeof PlanInputSchema.options)[0]>>
+  IsEquivalent<ReadPlanInputType, z.input<(typeof PlanInputSchemaDefinition.options)[0]>>
 >;
 type _WritePlanInputTypeMatchesSchema = AssertTrue<
-  IsEquivalent<WritePlanInputType, z.input<(typeof PlanInputSchema.options)[1]>>
+  IsEquivalent<WritePlanInputType, z.input<(typeof PlanInputSchemaDefinition.options)[1]>>
 >;
 type _CopyPlanInputTypeMatchesSchema = AssertTrue<
-  IsEquivalent<CopyPlanInputType, z.input<(typeof PlanInputSchema.options)[2]>>
+  IsEquivalent<CopyPlanInputType, z.input<(typeof PlanInputSchemaDefinition.options)[2]>>
 >;
 type _MovePlanInputTypeMatchesSchema = AssertTrue<
-  IsEquivalent<MovePlanInputType, z.input<(typeof PlanInputSchema.options)[3]>>
+  IsEquivalent<MovePlanInputType, z.input<(typeof PlanInputSchemaDefinition.options)[3]>>
 >;
 type _PlanInputTypeMatchesSchema = AssertTrue<IsEquivalent<PlanInputType, z.input<typeof PlanInputSchema>>>;
 
@@ -209,7 +213,7 @@ type _PlanInputTypeMatchesSchema = AssertTrue<IsEquivalent<PlanInputType, z.inpu
  * which problems came from the backend itself and which were added by adapter or
  * filesystem policy.
  */
-export const PlanSchema = z.object({
+export const PlanSchema: z.ZodType<PlanType, PlanType> = z.object({
   /** Filesystem operation that was planned. */
   operation: PlanOperationSchema,
   /** Whether the complete storage stack can perform the request safely. */

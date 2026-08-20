@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-#MISE description="Build the npm tarball and verify it from Node, Deno, and Bun consumers."
+#MISE description="Build the dnt npm tarball and verify it from Node, Deno, and Bun consumers."
 set -euo pipefail
 
 deno ci
-PACK_ALLOW_DIRTY="${PACK_ALLOW_DIRTY:-0}" RELEASE_VERSION="${RELEASE_VERSION:-0.0.0-test}" mise run npm
+deno task schema:check
+RELEASE_VERSION="${RELEASE_VERSION:-0.0.0-test}" mise run npm
 node tests/package/verify.mjs .release/npm/*.tgz

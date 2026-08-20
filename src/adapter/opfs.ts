@@ -2,21 +2,24 @@ import type { AdapterType, FileSystemOptionsType } from "./definition.ts";
 import { createFileAdapter } from "./file.ts";
 import { createFileSystem, type FileSystemType } from "../filesystem.ts";
 import { FileSystemError, toFileSystemError } from "../error.ts";
-import { createOpfsDriver, type OpfsDriverType } from "../driver/opfs.ts";
+import { createOpfsDriver, type OpfsDirectoryHandleType, type OpfsDriverType } from "../driver/opfs.ts";
 
 /** OPFS adapter with the native root retained for advanced browser interop. */
-export interface OpfsAdapterType extends AdapterType {
-  readonly driver: OpfsDriverType;
-  readonly nativeRoot: FileSystemDirectoryHandle;
+export interface OpfsAdapterType<RootType extends OpfsDirectoryHandleType = OpfsDirectoryHandleType>
+  extends AdapterType {
+  readonly driver: OpfsDriverType<RootType>;
+  readonly nativeRoot: RootType;
 }
 
 /** Options for opening the current origin-private filesystem. */
 export type OpenFileSystemOptionsType = FileSystemOptionsType;
 
 /** Creates the thin OPFS adapter over an already acquired native root. */
-export function createOpfsAdapter(root: FileSystemDirectoryHandle): OpfsAdapterType {
+export function createOpfsAdapter<RootType extends OpfsDirectoryHandleType>(
+  root: RootType,
+): OpfsAdapterType<RootType> {
   const driver = createOpfsDriver(root);
-  const adapter = createFileAdapter(driver) as OpfsAdapterType;
+  const adapter = createFileAdapter(driver) as OpfsAdapterType<RootType>;
   Object.defineProperty(adapter, "nativeRoot", { value: root, enumerable: true });
   return adapter;
 }
@@ -29,7 +32,7 @@ export function createOpfsAdapter(root: FileSystemDirectoryHandle): OpfsAdapterT
  */
 export async function openFileSystem(options: OpenFileSystemOptionsType = {}): Promise<FileSystemType> {
   const navigatorValue = Reflect.get(globalThis, "navigator") as
-    | { storage?: { getDirectory?: () => Promise<FileSystemDirectoryHandle> } }
+    | { storage?: { getDirectory?: () => Promise<OpfsDirectoryHandleType> } }
     | undefined;
   if (typeof navigatorValue?.storage?.getDirectory !== "function") {
     throw new FileSystemError(

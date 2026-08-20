@@ -6,78 +6,13 @@ import { createMemoryAdapter } from "../../../src/adapter/memory.ts";
 import { createOpfsAdapter } from "../../../src/adapter/opfs.ts";
 import { createFileSystem } from "../../../src/filesystem.ts";
 
-/** Result returned by one real browser realm after probing and exercising OPFS. */
-interface RealmResultType {
-  /** Whether the browser exposes the realm or capability needed by the scenario. */
-  readonly supported: boolean;
-  /** Capability report captured in the same realm as the operation. */
-  readonly probe?: Awaited<ReturnType<typeof probeOpfs>>;
-  /** Text read back after the fixture writes through OPFS. */
-  readonly value?: string;
-  /** Whether a synchronous access handle opened in the tested worker realm. */
-  readonly syncOpened?: boolean;
-  /** Native error name reported when synchronous access was exposed but could not open. */
-  readonly syncError?: string;
-}
-
-/** Browser record adapters exercised against their actual platform storage APIs. */
-type BrowserAdapterType = "localstorage" | "indexeddb" | "cache";
-
-/** Stable result returned by browser cancellation scenarios. */
-interface AbortResultType {
-  /** Whether this browser exposes the capability required by the scenario. */
-  readonly supported: boolean;
-  /** JavaScript error name observed by the caller. */
-  readonly name?: string;
-  /** Stable package error code observed by the caller. */
-  readonly code?: string;
-}
-
-interface BenchmarkResultType {
-  /** Elapsed milliseconds for direct platform storage operations. */
-  readonly rawMs: number;
-  /** Elapsed milliseconds for the direct `AdapterType` path. */
-  readonly adapterMs: number;
-  /** Elapsed milliseconds for the complete `FileSystemType` path. */
-  readonly facadeMs: number;
-}
-
-/** Browser fixture API consumed by Playwright from the containing page. */
-interface BrowserTestApiType {
-  /** Signals that module initialization completed and Playwright can call the fixture. */
-  ready: true;
-  /** Probes OPFS in the Window realm without throwing for unsupported storage. */
-  probe(): ReturnType<typeof probeOpfs>;
-  /** Writes and reads one value through native Window OPFS. */
-  roundTrip(path: string, value: string): Promise<RealmResultType>;
-  /** Reads an existing Window OPFS file without creating it. */
-  read(path: string): Promise<string | null>;
-  /** Runs the OPFS scenario in a real DedicatedWorker. */
-  dedicated(path: string, value: string): Promise<RealmResultType>;
-  /** Runs the OPFS scenario in a real SharedWorker. */
-  shared(path: string, value: string): Promise<RealmResultType>;
-  /** Runs the OPFS scenario in a registered ServiceWorker. */
-  service(path: string, value: string): Promise<RealmResultType>;
-  /** Attempts an already-cancelled write and reports its normalized terminal error. */
-  abort(path: string): Promise<AbortResultType>;
-  /** Queues a write behind a real Web Lock and reports the normalized cancellation error. */
-  queuedAbort(): Promise<AbortResultType>;
-  /** Measures native OPFS against the direct OPFS adapter and facade. */
-  benchmark(iterations: number, bytes: number): Promise<BenchmarkResultType | null>;
-  /** Measures one browser record backend against its adapter and facade paths. */
-  benchmarkAdapter(kind: BrowserAdapterType, iterations: number, bytes: number): Promise<BenchmarkResultType | null>;
-  /** Proves one browser record adapter through a write/read facade round trip. */
-  adapter(kind: BrowserAdapterType): Promise<string>;
-  /** Races two independent IndexedDB filesystem owners through atomic append transactions. */
-  indexedDbAppend(): Promise<string>;
-}
-
-declare global {
-  interface Window {
-    /** Playwright-facing test API installed only by this fixture page. */
-    opfsTest: BrowserTestApiType;
-  }
-}
+import type {
+  AbortResultType,
+  BenchmarkResultType,
+  BrowserAdapterType,
+  BrowserTestApiType,
+  RealmResultType,
+} from "./api.ts";
 
 /** Writes and reads one value through the Window realm OPFS facade. */
 async function roundTripOpfs(path: string, value: string): Promise<RealmResultType> {
@@ -566,7 +501,8 @@ async function roundTripAdapter(kind: BrowserAdapterType): Promise<string> {
   }
 }
 
-globalThis.opfsTest = {
+/** Fixture API installed on this page without augmenting browser globals for other source files. */
+const opfsTest = {
   ready: true,
   probe: probeOpfs,
   roundTrip: roundTripOpfs,
@@ -580,8 +516,6 @@ globalThis.opfsTest = {
   benchmarkAdapter,
   adapter: roundTripAdapter,
   indexedDbAppend,
-};
+} satisfies BrowserTestApiType;
 
-declare global {
-  var opfsTest: BrowserTestApiType;
-}
+Object.assign(window, { opfsTest });

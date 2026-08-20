@@ -64,7 +64,7 @@ export class BunBackend implements FileBackendType {
   /** Stable driver identity used in diagnostics. */
   readonly name = "bun";
   /** Native capabilities inherited from Bun's Node-compatible filesystem. */
-  readonly capabilities;
+  readonly capabilities: FileDriverType["capabilities"];
   /** Bun runtime used by lazy reads and replacement writes. */
   readonly #bun: BunRuntimeType;
   /** Maps canonical virtual paths below the configured host root. */

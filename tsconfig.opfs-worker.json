@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": [
+      "esnext",
+      "webworker",
+      "webworker.importscripts",
+      "webworker.iterable",
+      "webworker.asynciterable"
+    ],
+    "types": []
+  },
+  "include": [
+    "tests/browser/fixtures/opfs-worker-types.ts"
+  ],
+  "exclude": []
+}

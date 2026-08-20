@@ -1,12 +1,13 @@
 import { createOpfsAdapter } from "./adapter/opfs.ts";
 import type { FileSystemOptionsType } from "./adapter/definition.ts";
 import { FileSystemError, toFileSystemError } from "./error.ts";
+import type { OpfsDirectoryHandleType } from "./driver/opfs.ts";
 import { createFileSystem, type FileSystemType } from "./filesystem.ts";
 
 /** Storage Access API result shape used without depending on experimental DOM declarations. */
 interface StorageAccessHandleType {
   /** Returns the unpartitioned OPFS root when the browser granted that capability. */
-  getDirectory?: () => Promise<FileSystemDirectoryHandle>;
+  getDirectory?: () => Promise<OpfsDirectoryHandleType>;
 }
 
 /** Document shape for browsers that implement unpartitioned OPFS Storage Access. */

@@ -64,7 +64,7 @@
     "drizzle-orm": "npm:drizzle-orm@^0.45.2",
     "mitata": "npm:mitata@^1.0.34",
     "zod": "npm:zod@^4.4.3",
-    "deno": "npm:@types/deno",
+    "deno": "npm:@types/deno@latest",
     "bun-types": "npm:@types/bun",
     "@playwright/test": "npm:@playwright/test@^1.62.1",
     "vite": "npm:vite@^8.2.1",
@@ -110,7 +110,8 @@
       "README.md",
       "AGENTS.md",
       "deno.json",
-      "package.json"
+      "package.json",
+      "scripts/"
     ]
   },
   "lint": {
@@ -119,7 +120,6 @@
         "recommended"
       ],
       "exclude": [
-        "no-slow-types",
         "require-await"
       ]
     },
@@ -127,15 +127,17 @@
       "mod.ts",
       "src/",
       "tests/",
-      "bench/"
+      "bench/",
+      "scripts/"
     ]
   },
   "tasks": {
     "deps:ci": "deno ci",
-    "check": "deno task check:core && deno task check:browser && deno task check:workers && deno task check:server && deno task check:tests && deno task check:deno-kv && deno task check:providers",
+    "check": "deno task schema:check && deno task check:release && deno task check:core && deno task check:browser && deno task check:workers && deno task check:typescript:opfs && deno task check:server && deno task check:tests && deno task check:deno-kv && deno task check:providers",
     "check:core": "deno check mod.ts src/chunk.ts src/xml.ts src/request.ts src/metrics.ts src/capability.ts src/plan.ts src/bridge.ts src/bridge/kv.ts src/bridge/unstorage.ts src/integration.ts src/integration/definition.ts src/integration/mod.ts src/driver/definition.ts src/driver/file.ts src/driver/record.ts src/driver/object.ts src/driver/memory.ts src/driver/unstorage.ts src/driver/rxdb.ts src/driver/db0.ts src/driver/drizzle.ts src/driver/s3.ts src/driver/azure.ts src/adapter/definition.ts src/adapter/file.ts src/adapter/opfs.ts src/adapter/memory.ts src/adapter/record.ts src/adapter/object.ts src/adapter/unstorage.ts src/adapter/rxdb.ts src/adapter/db0.ts src/adapter/drizzle.ts src/adapter/s3.ts src/adapter/azure.ts src/iframe.ts src/path.ts src/schema.ts src/s3.ts src/azure.ts",
-    "check:browser": "deno check src/driver/opfs.ts src/driver/localstorage.ts src/driver/indexeddb.ts src/driver/cache.ts src/adapter/opfs.ts src/adapter/localstorage.ts src/adapter/indexeddb.ts src/adapter/cache.ts tests/browser/playwright.config.ts tests/browser/opfs.spec.ts tests/browser/worker.spec.ts tests/browser/iframe.spec.ts tests/browser/service-worker.spec.ts tests/browser/adapters.spec.ts tests/browser/fixtures/app.ts bench/browser/playwright.config.ts bench/browser/opfs.spec.ts",
-    "check:workers": "deno check tests/browser/fixtures/dedicated.ts tests/browser/fixtures/shared.ts tests/browser/fixtures/service.ts",
+    "check:browser": "deno check src/driver/opfs.ts src/driver/localstorage.ts src/driver/indexeddb.ts src/driver/cache.ts src/adapter/opfs.ts src/adapter/localstorage.ts src/adapter/indexeddb.ts src/adapter/cache.ts tests/browser/opfs-types.ts tests/browser/playwright.config.ts tests/browser/opfs.spec.ts tests/browser/worker.spec.ts tests/browser/iframe.spec.ts tests/browser/service-worker.spec.ts tests/browser/adapters.spec.ts tests/browser/fixtures/app.ts bench/browser/playwright.config.ts bench/browser/opfs.spec.ts",
+    "check:workers": "deno check tests/browser/fixtures/opfs-worker-types.ts tests/browser/fixtures/dedicated.ts tests/browser/fixtures/shared.ts tests/browser/fixtures/service.ts",
+    "check:typescript:opfs": "tsc -p tsconfig.opfs-dom.json && tsc -p tsconfig.opfs-worker.json",
     "check:server": "deno check src/driver/deno.ts src/driver/node.ts src/driver/bun.ts src/driver/sqlite.ts src/adapter/deno.ts src/adapter/node.ts src/adapter/bun.ts src/adapter/sqlite.ts bench/deno.bench.ts bench/node.bench.ts bench/sqlite.bench.ts",
     "check:tests": "deno check tests/path.test.ts tests/memory.test.ts tests/filesystem.test.ts tests/request.test.ts tests/driver.test.ts tests/ecosystems.test.ts tests/chunk.test.ts tests/object.test.ts tests/s3.test.ts tests/azure.test.ts tests/sqlite.test.ts tests/deno-kv-partition.test.ts tests/host.ts tests/node.test.ts tests/deno.test.ts tests/bun.test.ts",
     "check:deno-kv": "deno check --unstable-kv src/driver/deno-kv.ts src/adapter/deno-kv.ts tests/deno-kv.test.ts bench/deno-kv.bench.ts",
@@ -167,7 +169,10 @@
     "check:providers": "deno check tests/provider/fixture.ts tests/provider.test.ts bench/provider.bench.ts bench/providers.ts",
     "bench:providers": "node bench/providers.ts",
     "bench:bun-providers": "bun run bench/bun-provider.bench.ts",
-    "bench:filesystem-clients": "node bench/filesystem-provider.bench.ts"
+    "bench:filesystem-clients": "node bench/filesystem-provider.bench.ts",
+    "schema": "deno run --allow-read --allow-write scripts/schema.ts",
+    "schema:check": "deno run --allow-read scripts/schema.ts --check",
+    "check:release": "deno check scripts/schema.ts scripts/schema/compiler.ts && deno check --config scripts/deno.json --no-lock scripts/npm.ts"
   },
   "publish": {
     "include": [

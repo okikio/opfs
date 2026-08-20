@@ -5,7 +5,7 @@ import { WriteModeSchema, type WriteModeType } from "../schema.ts";
 import type { DriverType } from "./definition.ts";
 
 /** Native operations implemented by a file-shaped backend driver. */
-export const FileDriverCapabilitiesSchema = z.object({
+export const FileDriverCapabilitiesSchema: z.ZodType<FileDriverCapabilitiesType, FileDriverCapabilitiesType> = z.object({
   /** Backend can materialize file bytes through `readFile()`. */
   read: z.boolean(),
   /** Backend can commit materialized file bytes through `writeFile()`. */
@@ -27,7 +27,7 @@ export const FileDriverCapabilitiesSchema = z.object({
 }).strict();
 
 /** A validated native file-driver capability description. */
-export type FileDriverCapabilitiesType = z.output<typeof FileDriverCapabilitiesSchema>;
+export type FileDriverCapabilitiesType = import("../_schema_types.ts").FileDriverCapabilitiesType;
 
 /** Options shared by file-driver operations that can stop early. */
 export interface FileDriverSignalOptionsType {

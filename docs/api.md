@@ -455,6 +455,16 @@ const adapter = createOpfsAdapter(root); // convenience path creates its own dri
 `createOpfsDriver(root)` returns `OpfsDriverType`. `createOpfsAdapter(root)` returns `OpfsAdapterType` and retains
 `nativeRoot`.
 
+The OPFS source uses runtime-neutral structural handle types instead of requiring the browser-global
+`FileSystemDirectoryHandle`, `FileSystemFileHandle`, and `FileSystemWritableFileStream` declarations in every runtime.
+Those structural types contain only operations the driver calls. The generic root type preserves the caller's concrete
+browser handle on `nativeRoot`.
+
+Browser-only compile checks keep that portability claim tied to TypeScript's platform declarations. Window checks prove
+that the native directory, file, writable-stream, and `StorageManager.getDirectory()` types satisfy the structural
+contracts. Worker checks separately prove the worker file handle, including `createSyncAccessHandle()`, remains
+compatible. A mismatch is therefore a type-check failure rather than a cast hidden in the implementation.
+
 ### Node
 
 ```ts

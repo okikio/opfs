@@ -28,10 +28,10 @@ import { createXmlElement, createXmlText, getXmlElements, getXmlValue, parseXmlR
 export const AZURE_STORAGE_VERSION = "2026-04-06";
 
 /** Date-shaped Azure Storage REST service version sent through `x-ms-version`. */
-export const AzureStorageVersionSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+export const AzureStorageVersionSchema: z.ZodType<AzureStorageVersionType, AzureStorageVersionType> = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 /** Validated Azure Storage REST service version. */
-export type AzureStorageVersionType = z.output<typeof AzureStorageVersionSchema>;
+export type AzureStorageVersionType = import("./_schema_types.ts").AzureStorageVersionType;
 
 /**
  * Azure Blob authorization strategy.
@@ -164,8 +164,21 @@ export class AzureError extends Error {
   }
 }
 
+/** Public Azure Blob size/count limit contract. */
+export interface AzureLimitsType {
+  readonly maxCommittedBlocks: number;
+  readonly maxUncommittedBlocks: number;
+  readonly copyBlobBytes: number;
+  readonly legacyBlockBytes: number;
+  readonly midBlockBytes: number;
+  readonly currentBlockBytes: number;
+  readonly legacyPutBlobBytes: number;
+  readonly midPutBlobBytes: number;
+  readonly currentPutBlobBytes: number;
+}
+
 /** Public Azure Blob size/count limits used by request planning and tests. */
-export const AZURE_LIMITS = Object.freeze({
+export const AZURE_LIMITS: AzureLimitsType = Object.freeze({
   /** Maximum block count a `Put Block List` can publish in one block blob. */
   maxCommittedBlocks: 50_000,
   /** Maximum uncommitted blocks Azure retains for one blob before commit. */

@@ -1,5 +1,6 @@
 import { getOpfsContext } from "./context.ts";
 import { getErrorMessage, getErrorName } from "./error.ts";
+import type { OpfsDirectoryHandleType } from "./driver/opfs.ts";
 import type { OpfsContextType } from "./schema.ts";
 
 /** A platform error captured while probing OPFS without throwing. */
@@ -57,7 +58,7 @@ export interface OpfsCapabilitiesType {
 /** StorageManager methods used by diagnostics without requiring a specific lib.dom revision. */
 interface StorageManagerType {
   /** Browser OPFS root acquisition entrypoint. */
-  getDirectory?: () => Promise<FileSystemDirectoryHandle>;
+  getDirectory?: () => Promise<OpfsDirectoryHandleType>;
   /** Optional storage quota diagnostic. */
   estimate?: () => Promise<{ readonly quota?: number; readonly usage?: number }>;
   /** Optional diagnostic that reports whether browser storage is already persisted. */

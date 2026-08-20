@@ -90,6 +90,13 @@ export type { WritableFileType } from "./src/writable.ts";
 export type { WriteDataType } from "./src/stream.ts";
 export type { BrowserGlobalType } from "./src/context.ts";
 export type {
+  OpfsDirectoryChildHandleType,
+  OpfsDirectoryHandleType,
+  OpfsDriverType,
+  OpfsFileHandleType,
+  OpfsWritableFileStreamType,
+} from "./src/driver/opfs.ts";
+export type {
   FileDriverCopyOptionsType,
   FileDriverDirectoryEntryType,
   FileDriverMoveOptionsType,

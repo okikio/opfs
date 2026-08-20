@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#MISE description="Verify checked-in schema-derived TypeScript contracts are current."
+set -euo pipefail
+
+deno ci
+deno task schema:check

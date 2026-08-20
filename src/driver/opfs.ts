@@ -14,13 +14,45 @@ import { basename, dirname, type PathType, ROOT_PATH, splitPath } from "../path.
 import { toByteStream } from "../stream.ts";
 
 /**
- * Minimal file handle contract required from browser OPFS.
+ * Staged writable operations used by the OPFS driver.
  *
- * The driver deliberately avoids depending on the full DOM lib surface. It only
- * models the native operations that the backend actually needs to implement the
- * portable file-driver contract.
+ * This structural contract intentionally models only the methods the driver
+ * calls. It avoids requiring consumers, Deno, Node, or Bun to install ambient
+ * File System Access API declarations merely to import or type-check the
+ * package.
+ *
+ * A browser-native `FileSystemWritableFileStream` satisfies this shape.
  */
-interface NativeFileHandleType {
+export interface OpfsWritableFileStreamType {
+  /** Writes ArrayBuffer-backed bytes or one explicit-position byte write into the staged file. */
+  write(
+    data:
+      | Uint8Array<ArrayBuffer>
+      | {
+        readonly type: "write";
+        readonly position: number;
+        readonly data: Uint8Array<ArrayBuffer>;
+      },
+  ): Promise<void>;
+  /** Moves the staged stream cursor to an absolute byte position. */
+  seek(position: number): Promise<void>;
+  /** Changes the staged file length. */
+  truncate(size: number): Promise<void>;
+  /** Commits the staged file and releases the browser file lock. */
+  close(): Promise<void>;
+  /** Discards the staged file when possible and releases the browser file lock. */
+  abort(reason?: unknown): Promise<void>;
+}
+
+/**
+ * File handle operations required by the OPFS driver.
+ *
+ * The contract is structural rather than an alias to the browser-global
+ * `FileSystemFileHandle`. This keeps the package importable in runtimes whose
+ * TypeScript libraries do not declare the File System Access API while still
+ * accepting the real browser handle without wrapping it.
+ */
+export interface OpfsFileHandleType {
   /** Native File System API discriminator. */
   readonly kind: "file";
   /** Native direct-entry name. */
@@ -28,52 +60,70 @@ interface NativeFileHandleType {
   /** Returns the browser's immutable file snapshot. */
   getFile(): Promise<File>;
   /** Opens the browser's staged writable stream. */
-  createWritable(options?: { keepExistingData?: boolean }): Promise<FileSystemWritableFileStream>;
+  createWritable(options?: { readonly keepExistingData?: boolean }): Promise<OpfsWritableFileStreamType>;
   /** Opens worker-only synchronous access when this realm exposes it. */
   createSyncAccessHandle?: () => Promise<FileDriverSyncFileType>;
 }
 
 /**
- * Minimal directory handle contract required from browser OPFS.
+ * Common child-handle fields consumed while enumerating one OPFS directory.
  *
- * This shape is intentionally narrower than the browser interface so the driver
- * can stay focused on traversal and mutation semantics rather than browser-only
- * convenience methods.
+ * This intentionally excludes file- and directory-specific methods because
+ * `readDir()` only needs each child's name and discriminator.
  */
-interface NativeDirectoryHandleType {
+export interface OpfsDirectoryChildHandleType {
+  /** Native File System API discriminator used while enumerating children. */
+  readonly kind: "file" | "directory";
+  /** Native direct-entry name. */
+  readonly name: string;
+}
+
+/**
+ * Directory handle operations required by the OPFS driver.
+ *
+ * The real browser `FileSystemDirectoryHandle` is structurally compatible with
+ * this type. Enumeration intentionally requires only the child fields consumed
+ * by `readDir()`, because TypeScript versions have represented `entries()` with
+ * both `FileSystemHandle` and the narrower file/directory union. Generic factory
+ * return types retain the caller's more specific root type on `nativeRoot`.
+ */
+export interface OpfsDirectoryHandleType {
   /** Native File System API discriminator. */
   readonly kind: "directory";
   /** Native direct-entry name. */
   readonly name: string;
   /** Opens or creates one direct child file. */
-  getFileHandle(name: string, options?: { create?: boolean }): Promise<NativeFileHandleType>;
+  getFileHandle(name: string, options?: { readonly create?: boolean }): Promise<OpfsFileHandleType>;
   /** Opens or creates one direct child directory. */
-  getDirectoryHandle(name: string, options?: { create?: boolean }): Promise<NativeDirectoryHandleType>;
+  getDirectoryHandle(name: string, options?: { readonly create?: boolean }): Promise<OpfsDirectoryHandleType>;
   /** Removes one direct child using browser-native filesystem semantics. */
-  removeEntry(name: string, options?: { recursive?: boolean }): Promise<void>;
-  /** Lazily iterates native direct-child handles. */
-  entries(): AsyncIterableIterator<[string, NativeFileHandleType | NativeDirectoryHandleType]>;
+  removeEntry(name: string, options?: { readonly recursive?: boolean }): Promise<void>;
+  /** Lazily iterates the direct-child fields used by directory reads. */
+  entries(): AsyncIterable<readonly [string, OpfsDirectoryChildHandleType]>;
 }
 
 /**
- * Native OPFS file driver with the root retained for advanced browser interop.
+ * Native OPFS file driver with the root retained for browser interop.
  *
- * The retained root is useful when advanced browser code needs the original
- * handle after the portable facade has already been composed.
+ * `RootType` preserves the exact root shape supplied by the caller. A browser
+ * consumer that passes its concrete `FileSystemDirectoryHandle` therefore
+ * keeps any additional native methods on `nativeRoot`, while server-side
+ * checkers only need the structural OPFS contract above.
  */
-export interface OpfsDriverType extends FileDriverType {
-  readonly nativeRoot: FileSystemDirectoryHandle;
+export interface OpfsDriverType<RootType extends OpfsDirectoryHandleType = OpfsDirectoryHandleType>
+  extends FileDriverType {
+  readonly nativeRoot: RootType;
 }
 
 /** Resolves a canonical virtual directory path one native handle at a time. */
-async function getDirectory(root: NativeDirectoryHandleType, path: string): Promise<NativeDirectoryHandleType> {
+async function getDirectory(root: OpfsDirectoryHandleType, path: string): Promise<OpfsDirectoryHandleType> {
   let current = root;
   for (const part of splitPath(path)) current = await current.getDirectoryHandle(part);
   return current;
 }
 
 /** Resolves a file through its parent directory and optionally creates the final entry. */
-async function getFile(root: NativeDirectoryHandleType, path: string, create = false): Promise<NativeFileHandleType> {
+async function getFile(root: OpfsDirectoryHandleType, path: string, create = false): Promise<OpfsFileHandleType> {
   const parent = await getDirectory(root, dirname(path));
   return await parent.getFileHandle(basename(path), { create });
 }
@@ -86,13 +136,28 @@ function getStream(file: File, options: FileDriverReadOptionsType): ReadableStre
 }
 
 /**
+ * Returns bytes backed by an `ArrayBuffer`, as required by asynchronous OPFS writes.
+ *
+ * Portable streams can carry views backed by `SharedArrayBuffer`, while the File
+ * System API's `BufferSource` deliberately accepts only `ArrayBuffer`-backed
+ * views. Reusing an ArrayBuffer-backed chunk avoids a copy. Shared backing is
+ * copied once before the value reaches the native writable stream.
+ */
+function toOpfsWriteBytes(value: Uint8Array<ArrayBufferLike>): Uint8Array<ArrayBuffer> {
+  if (value.buffer instanceof ArrayBuffer) {
+    return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+  }
+  return Uint8Array.from(value);
+}
+
+/**
  * Determines entry kind without creating anything.
  *
  * Browser OPFS has separate file and directory lookup methods. A type mismatch
  * from the first lookup is therefore a normal branch. The second lookup must
  * run before the driver can classify the path as absent.
  */
-async function getStat(root: NativeDirectoryHandleType, path: string): Promise<FileDriverStatType | null> {
+async function getStat(root: OpfsDirectoryHandleType, path: string): Promise<FileDriverStatType | null> {
   if (path === ROOT_PATH) return { kind: "directory" };
   try {
     const handle = await getFile(root, path);
@@ -121,7 +186,7 @@ async function getStat(root: NativeDirectoryHandleType, path: string): Promise<F
  * aborted so the partially staged image does not become the visible file.
  */
 async function writeToNative(
-  handle: NativeFileHandleType,
+  handle: OpfsFileHandleType,
   source: ReadableStream<Uint8Array>,
   options: FileDriverWriteOptionsType,
   path: string,
@@ -143,7 +208,7 @@ async function writeToNative(
         throwIfAborted(options.signal, "write", path);
         const next = await reader.read();
         if (next.done) break;
-        await writable.write(next.value as BufferSource);
+        await writable.write(toOpfsWriteBytes(next.value));
         cursor += next.value.byteLength;
       }
     } catch (error) {
@@ -184,18 +249,18 @@ class OpfsWritableFile implements FileDriverWritableFileType {
   /** Canonical path used in post-close diagnostics. */
   readonly #path: PathType;
   /** Native staged writable owned until close or abort. */
-  readonly #writable: FileSystemWritableFileStream;
+  readonly #writable: OpfsWritableFileStreamType;
   /** Prevents writes after terminal resource settlement. */
   #closed = false;
 
   /** Takes ownership of one native staged writable for a canonical path. */
-  constructor(path: PathType, writable: FileSystemWritableFileStream) {
+  constructor(path: PathType, writable: OpfsWritableFileStreamType) {
     this.#path = path;
     this.#writable = writable;
   }
 
   /** Returns the live writable or rejects operations after settlement. */
-  #getWritable(): FileSystemWritableFileStream {
+  #getWritable(): OpfsWritableFileStreamType {
     if (this.#closed) throw new Error(`Writable file '${this.#path}' is closed.`);
     return this.#writable;
   }
@@ -203,8 +268,7 @@ class OpfsWritableFile implements FileDriverWritableFileType {
   /** Writes one byte view at its explicit file position. */
   async write(buffer: ArrayBufferView, options: { readonly at: number }): Promise<void> {
     const view = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
-    const data = buffer.buffer instanceof ArrayBuffer ? view : Uint8Array.from(view);
-    await this.#getWritable().write({ type: "write", position: options.at, data: data as Uint8Array<ArrayBuffer> });
+    await this.#getWritable().write({ type: "write", position: options.at, data: toOpfsWriteBytes(view) });
   }
 
   /** Changes the staged file size. */
@@ -233,20 +297,20 @@ class OpfsWritableFile implements FileDriverWritableFileType {
 }
 
 /** Native browser OPFS implementation of the portable file-driver contract. */
-class OpfsBackend implements FileBackendType {
+class OpfsBackend<RootType extends OpfsDirectoryHandleType> implements FileBackendType {
   /** Stable driver identity used in diagnostics. */
   readonly name = "opfs";
   /** Native origin-private root retained for advanced browser interop. */
-  readonly nativeRoot: FileSystemDirectoryHandle;
+  readonly nativeRoot: RootType;
   /** Native operations exposed without facade emulation. */
   readonly capabilities;
   /** Narrow native root shape used by internal traversal helpers. */
-  readonly #root: NativeDirectoryHandleType;
+  readonly #root: OpfsDirectoryHandleType;
 
   /** Borrows the native root and probes only actual API exposure in this realm. */
-  constructor(root: FileSystemDirectoryHandle) {
+  constructor(root: RootType) {
     this.nativeRoot = root;
-    this.#root = root as unknown as NativeDirectoryHandleType;
+    this.#root = root;
     this.capabilities = {
       read: true,
       write: true,
@@ -348,7 +412,9 @@ class OpfsBackend implements FileBackendType {
  * The driver borrows the browser root. Browser storage has no root-close
  * operation, so driver disposal never closes the origin-private filesystem.
  */
-export function createOpfsDriver(root: FileSystemDirectoryHandle): OpfsDriverType {
+export function createOpfsDriver<RootType extends OpfsDirectoryHandleType>(
+  root: RootType,
+): OpfsDriverType<RootType> {
   const backend = new OpfsBackend(root);
   return {
     ...defineFileDriver(backend, {

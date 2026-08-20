@@ -29,10 +29,10 @@ export type RecordListType = DirectoryRecordType | Omit<FileRecordType, "data">;
  * writes when the backend stores logical values rather than byte-addressable
  * files.
  */
-export const RecordReplacementSchema = z.enum(["atomic", "best-effort", "unknown"]);
+export const RecordReplacementSchema: z.ZodType<RecordReplacementType, RecordReplacementType> = z.enum(["atomic", "best-effort", "unknown"]);
 
 /** A validated record replacement guarantee. */
-export type RecordReplacementType = z.output<typeof RecordReplacementSchema>;
+export type RecordReplacementType = import("../_schema_types.ts").RecordReplacementType;
 
 /**
  * Native byte/data behavior exposed by a record driver.
@@ -40,7 +40,7 @@ export type RecordReplacementType = z.output<typeof RecordReplacementSchema>;
  * These flags describe how far the backend can go beyond whole-record reads and
  * writes. The record adapter uses them to choose honest fallbacks.
  */
-export const RecordDriverCapabilitiesSchema = z.object({
+export const RecordDriverCapabilitiesSchema: z.ZodType<RecordDriverCapabilitiesType, RecordDriverCapabilitiesType> = z.object({
   /** Backend can satisfy byte ranges without reconstructing the complete logical file. */
   rangeRead: z.boolean(),
   /** Backend can expose file bytes as a native stream. */
@@ -67,7 +67,7 @@ export const RecordDriverCapabilitiesSchema = z.object({
 }).strict();
 
 /** A validated record-driver capability description. */
-export type RecordDriverCapabilitiesType = z.output<typeof RecordDriverCapabilitiesSchema>;
+export type RecordDriverCapabilitiesType = import("../_schema_types.ts").RecordDriverCapabilitiesType;
 
 /**
  * Required persistence mechanics for value, document, and SQL record drivers.

@@ -411,6 +411,27 @@ npm/deno package dry-run
 
 `mise run test`, browser tests, provider tests, and runtime matrix jobs add the environment-specific evidence.
 
+### Browser platform type conformance
+
+OPFS uses structural source types so Node, Deno, and Bun do not need browser File System Access globals merely to import
+the package. That makes browser type conformance an explicit validation responsibility rather than an ambient compiler
+assumption.
+
+`tests/browser/opfs-types.ts` is checked with the Window browser graph. It proves TypeScript's native
+`FileSystemDirectoryHandle`, `FileSystemFileHandle`, `FileSystemWritableFileStream`, and the return type of
+`StorageManager.getDirectory()` satisfy the package contracts. It also proves `nativeRoot` preserves the caller's exact
+native handle type.
+
+`tests/browser/fixtures/opfs-worker-types.ts` performs the worker-side proof. It covers the worker-only
+`createSyncAccessHandle()` route and the synchronous access-handle contract.
+
+`deno task check:typescript:opfs` runs both files through the project's installed `typescript` package with separate DOM
+and WebWorker `tsconfig` files. The normal `deno check` browser graphs still run as well. This intentionally gives the
+project two independent declaration checks: Deno's runtime checker and the TypeScript version pinned in `deno.lock`.
+
+These files are compile-only checks. Playwright remains responsible for proving the corresponding APIs behave correctly
+in real Chromium, Firefox, and WebKit environments.
+
 ## Agent validation
 
 A ChatGPT/agent host can lack Deno, Bun, Docker, mise, package registry access, or Playwright browsers. Temporary
@@ -449,3 +470,22 @@ The extracted artifact is the final thing that must pass the claimed checks. A g
 A release-ready claim requires all applicable canonical gates, including Deno, Node, Bun, Playwright, provider
 containers, package dry-runs, and lockfile validation. If the current host cannot run one of those environments, the
 result is recorded as unverified rather than passed.
+
+## Publication type and package gates
+
+Schema-derived public contracts are checked before the ordinary type graph:
+
+```sh
+deno task schema:check
+deno task check
+```
+
+Release validation keeps JSR and npm independent:
+
+```sh
+deno publish --dry-run
+RELEASE_VERSION=0.0.0-test mise run npm
+node tests/package/verify.mjs .release/npm/*.tgz
+```
+
+The npm consumer test installs the produced tarball with ordinary npm and rejects `@jsr/*` dependencies, raw `.ts` implementation files, missing declarations, or a non-optional Drizzle peer.

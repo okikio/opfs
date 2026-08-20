@@ -40,6 +40,19 @@ export interface RxDbCollectionType {
   incrementalUpsert(record: RecordType): Promise<unknown>;
 }
 
+/** Public structural contract for the RxDB collection schema emitted by this package. */
+export interface RxDbRecordJsonSchemaType {
+  readonly title: string;
+  readonly description: string;
+  readonly version: number;
+  readonly primaryKey: string;
+  readonly type: "object";
+  readonly properties: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
+  readonly required: readonly string[];
+  readonly oneOf: readonly Readonly<Record<string, unknown>>[];
+  readonly indexes: readonly string[];
+}
+
 /**
  * RxJSONSchema to use for the collection supplied to {@link createRxDbAdapter}.
  *
@@ -47,7 +60,7 @@ export interface RxDbCollectionType {
  * direct-parent queries. File bytes remain base64 strings to keep documents
  * structured-cloneable across every RxStorage transport.
  */
-export const RxDbRecordJsonSchema = Object.freeze(
+export const RxDbRecordJsonSchema: RxDbRecordJsonSchemaType = Object.freeze(
   {
     title: "OPFS filesystem record",
     description: "One canonical file or directory record used by the @okikio/opfs RxDB driver.",

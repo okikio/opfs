@@ -4,5 +4,6 @@ set -euo pipefail
 
 : "${RELEASE_VERSION:?RELEASE_VERSION is required}"
 deno ci
+deno task schema:check
 deno publish --dry-run --set-version "$RELEASE_VERSION"
 deno publish --set-version "$RELEASE_VERSION"

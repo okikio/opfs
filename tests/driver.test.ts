@@ -2,6 +2,12 @@ import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 
 import { defineDriver } from "../src/driver/definition.ts";
+import {
+  createOpfsDriver,
+  type OpfsDirectoryHandleType,
+  type OpfsFileHandleType,
+  type OpfsWritableFileStreamType,
+} from "../src/driver/opfs.ts";
 import { defineRecordDriver, type RecordBackendType } from "../src/driver/record.ts";
 import type { PathType } from "../src/schema.ts";
 import type { RecordType } from "../src/schema.ts";
@@ -131,6 +137,59 @@ describe("driver contract", () => {
         problems: [{ code: "read-only", layer: "driver", severity: "error" }],
       });
     expect(() => driver.set(record)).toThrow();
+  });
+
+  it("copies SharedArrayBuffer-backed stream chunks before asynchronous OPFS writes", async () => {
+    if (typeof SharedArrayBuffer !== "function") return;
+
+    let nativeBytes: Uint8Array<ArrayBuffer> | undefined;
+    const writable: OpfsWritableFileStreamType = {
+      async write(data): Promise<void> {
+        nativeBytes = data instanceof Uint8Array ? data : data.data;
+      },
+      async seek(): Promise<void> {},
+      async truncate(): Promise<void> {},
+      async close(): Promise<void> {},
+      async abort(): Promise<void> {},
+    };
+    const file: OpfsFileHandleType = {
+      kind: "file",
+      name: "shared.bin",
+      async getFile(): Promise<File> {
+        throw new Error("The replace-mode regression test must not read the existing file.");
+      },
+      async createWritable(): Promise<OpfsWritableFileStreamType> {
+        return writable;
+      },
+    };
+    const root: OpfsDirectoryHandleType = {
+      kind: "directory",
+      name: "",
+      async getFileHandle(): Promise<OpfsFileHandleType> {
+        return file;
+      },
+      async getDirectoryHandle(): Promise<OpfsDirectoryHandleType> {
+        return root;
+      },
+      async removeEntry(): Promise<void> {},
+      async *entries(): AsyncIterableIterator<readonly [string, never]> {},
+    };
+
+    const shared = new SharedArrayBuffer(4);
+    const sourceBytes = new Uint8Array(shared);
+    sourceBytes.set([11, 22, 33, 44]);
+    const source = new ReadableStream<Uint8Array>({
+      start(controller): void {
+        controller.enqueue(sourceBytes);
+        controller.close();
+      },
+    });
+
+    await createOpfsDriver(root).writeStream("/shared.bin" as PathType, source, { mode: "replace" });
+
+    expect(nativeBytes).toBeDefined();
+    expect(nativeBytes!.buffer instanceof ArrayBuffer).toBe(true);
+    expect([...nativeBytes!]).toEqual([11, 22, 33, 44]);
   });
 
   it("disposes a borrowed backend only when ownership is transferred", async () => {
