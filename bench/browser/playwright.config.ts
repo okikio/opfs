@@ -9,7 +9,7 @@ export default defineConfig({
   testDir: ".",
   testMatch: "*.spec.ts",
   workers: 1,
-  reporter: "line",
+  reporter: [["line"], ["json", { outputFile: ".tmp/reports/browser-bench/results.json" }]],
   use: { baseURL },
   webServer: {
     command: "deno run -A npm:vite@8.2.1 ../.. --host 127.0.0.1 --port 4173 --strictPort",

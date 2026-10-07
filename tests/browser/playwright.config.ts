@@ -18,7 +18,7 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: ci,
   retries: ci ? 2 : 0,
-  reporter: ci ? "github" : "line",
+  reporter: ci ? [["github"], ["json", { outputFile: ".tmp/reports/browser/results.json" }]] : "line",
   use: {
     baseURL: first,
     trace: "retain-on-failure",
