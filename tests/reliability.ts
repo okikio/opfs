@@ -37,10 +37,20 @@ export function expectBytes(actual: Uint8Array, expected: Uint8Array): void {
   expect(actual.findIndex((value, index) => value !== expected[index])).toBe(-1);
 }
 
-/** Runs exact byte semantics on native storage and portable fallback routes. */
-export async function verifyBytes(fileSystem: FileSystemType, prefix = "/bytes"): Promise<void> {
+/**
+ * Runs exact byte semantics on native storage and portable fallback routes.
+ *
+ * The default name protects URL-sensitive punctuation on object/record/browser
+ * storage. Native host fixtures supply a name valid on their actual filesystem;
+ * that choice changes no byte, range, streaming, append, or copy/move oracle.
+ */
+export async function verifyBytes(
+  fileSystem: FileSystemType,
+  prefix = "/bytes",
+  filename = "世界 %?#.bin",
+): Promise<void> {
   for (const size of [0, 1, 63, 4096, 32767, 32768, 32769, 49151, 49152, 49153, 65535, 65536, 65537, 131089]) {
-    const path = `${prefix}/${size}/世界 %?#.bin`;
+    const path = `${prefix}/${size}/${filename}`;
     let expected = fixtureBytes(size);
     await fileSystem.writeFile(path, expected, { parents: true });
     expectBytes(await fileSystem.readFile(path), expected);
