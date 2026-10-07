@@ -2,6 +2,9 @@
 
 ## Purpose
 
+The [review inventory](./review.md) records the purpose and disposition of every test, fixture, benchmark, and
+supporting validation area. Keep that inventory aligned when adding or retiring a suite.
+
 Validation follows the storage layers. A memory test is not evidence for browser OPFS interoperability. A fake HTTP test
 is not evidence that an S3-compatible server accepts the request. A facade benchmark is not enough to identify whether
 overhead came from the protocol client, driver, adapter, metrics, or provider.
@@ -57,6 +60,22 @@ deno task quality
 
 GitHub Actions owns only GitHub-specific orchestration: triggers, permissions, matrices, secrets, outputs, immutable
 release refs, and calls those same Deno tasks. Mise can provision runtimes and delegates to the Deno graph.
+
+## Local memory budget
+
+All Deno runtime test tasks use `deno test --no-check`, including stress, coverage, and release-tool tests. The separate
+`check:*` tasks still own static type validation. For a focused local run, use:
+
+```sh
+deno test --no-check --sanitize-ops --sanitize-resources tests/path.test.ts
+```
+
+On a workstation where type checking has caused memory spikes, run runtime tests, formatting, and lint locally. Run
+`check`, `check:ci`, `quality`, `release:check`, `release:prepare`, and installed-consumer type checks on CI or an
+isolated runner with a memory budget. These aggregate commands still invoke checking; adding `--no-check` to a test
+command does not disable separate compiler subprocesses. Keep type checking serial and separate from benchmark
+measurement. Runtime tests retain their permissions and leak sanitizers, but a runtime pass does not establish type
+correctness or bound the tested code's memory use. Release and JSR publication gates still require static validation.
 
 ## Portable tests
 
@@ -317,6 +336,16 @@ from the memory model, such as empty-directory removal and ranged-stream resourc
 ## Benchmarks measure each layer
 
 Every benchmark should identify the cost added by one layer.
+
+The Deno KV benchmark compares a 24 KiB inline record with a 64 KiB partitioned record. Each size and layer has an
+independent key prefix. Partition cases include immediate retirement collection in the measured operation, so old
+generations cannot accumulate and change the cost of later samples. This is a single-reader workload with no reader
+using a retired generation. The raw KV value baseline has a simpler physical layout; its difference from partitioned
+records includes publication and reclamation, rather than measuring wrapper cost alone.
+
+Mitata JSON uses the pinned harness's native serializer and retains its complete samples. The report writer awaits
+stdout completion because Bun can exit before a large console print reaches a pipe. A successful process exit with
+truncated JSON does not establish valid benchmark evidence.
 
 For an object protocol:
 
