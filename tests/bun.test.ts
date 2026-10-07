@@ -10,30 +10,31 @@ import { verifyHost, verifyWindowsNames } from "./host.ts";
 import { verifySync } from "./reliability.ts";
 
 describe("Bun adapter", () => {
-  it("preserves Windows native filename rejection and remains usable", { skip: platform() !== "win32" }, async () => {
+  it("preserves Windows native filename rejection and remains usable", { skip: platform() !== "win32" }, async (t) => {
     const root = await mkdtemp(join(tmpdir(), "okikio-opfs-windows-"));
+    t.after(() => rm(root, { recursive: true, force: true }));
     const fileSystem = createFileSystem(createBunAdapter({ root }), { coordination: "local" });
     try {
       await verifyWindowsNames(fileSystem);
     } finally {
       await fileSystem.close();
-      await rm(root, { recursive: true, force: true });
     }
   });
 
-  it("preserves host range, directory removal, and overwrite semantics", async () => {
+  it("preserves host range, directory removal, and overwrite semantics", async (t) => {
     const root = await mkdtemp(join(tmpdir(), "okikio-opfs-bun-"));
+    t.after(() => rm(root, { recursive: true, force: true }));
     const fileSystem = createFileSystem(createBunAdapter({ root }), { coordination: "local" });
     try {
       await verifyHost(fileSystem);
     } finally {
       await fileSystem.close();
-      await rm(root, { recursive: true, force: true });
     }
   });
 
-  it("uses real Bun file and synchronous filesystem APIs", async () => {
+  it("uses real Bun file and synchronous filesystem APIs", async (t) => {
     const root = await mkdtemp(join(tmpdir(), "okikio-opfs-bun-"));
+    t.after(() => rm(root, { recursive: true, force: true }));
     const fileSystem = createFileSystem(createBunAdapter({ root }), { coordination: "local" });
     try {
       await fileSystem.writeFile("/nested/file.txt", "bun", { parents: true });
@@ -41,7 +42,6 @@ describe("Bun adapter", () => {
       await verifySync(fileSystem, "/nested/file.txt", "BUN");
     } finally {
       await fileSystem.close();
-      await rm(root, { recursive: true, force: true });
     }
   });
 });

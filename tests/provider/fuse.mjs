@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { promisify } from "node:util";
 import { arch, cpus, platform } from "node:os";
 import { validateMitata } from "../../bench/validate.ts";
+import { within } from "../gate.ts";
 import { GenericContainer, Network, Wait } from "testcontainers";
 import { BlobServiceClient, StorageSharedKeyCredential } from "@azure/storage-blob";
 import {
@@ -118,10 +119,17 @@ try {
   if (setup.exitCode === 0 && Object.keys(environment).length === 2) {
     metadata.phase = "correctness";
     await save();
-    const command = await client.exec(["node", "tests/provider/fuse-client.mjs"], {
-      workingDir: "/workspace",
-      env: environment,
-    });
+    // A failed cancellation oracle can leave its process waiting in close().
+    // The deadline enters the owned-container finally path instead of waiting
+    // for the fixture's hour-long idle command to exit.
+    const command = await within(
+      client.exec(["node", "tests/provider/fuse-client.mjs"], {
+        workingDir: "/workspace",
+        env: environment,
+      }),
+      "FUSE correctness command",
+      120_000,
+    );
     console.log(JSON.stringify({ phase: "correctness", exitCode: command.exitCode, output: command.output }));
     metadata.correctness = JSON.parse(command.output);
     if (
@@ -134,14 +142,18 @@ try {
     if (process.env.OPFS_FUSE_BENCH === "1" && command.exitCode === 0) {
       metadata.phase = "benchmark";
       await save();
-      const bench = await client.exec([
-        "sh",
-        "-c",
-        "node --expose-gc bench/filesystem-provider.bench.ts >/tmp/fuse-bench.json 2>/tmp/fuse-bench.stderr",
-      ], {
-        workingDir: "/workspace",
-        env: { ...environment, BENCH_JSON: "1" },
-      });
+      const bench = await within(
+        client.exec([
+          "sh",
+          "-c",
+          "node --expose-gc bench/filesystem-provider.bench.ts >/tmp/fuse-bench.json 2>/tmp/fuse-bench.stderr",
+        ], {
+          workingDir: "/workspace",
+          env: { ...environment, BENCH_JSON: "1" },
+        }),
+        "FUSE benchmark command",
+        180_000,
+      );
       const stdout = await client.exec(["cat", "/tmp/fuse-bench.json"]),
         stderr = await client.exec(["cat", "/tmp/fuse-bench.stderr"]);
 
@@ -258,6 +270,7 @@ async function identity() {
     "deno.json",
     "deno.lock",
     "package.json",
+    "tests/gate.ts",
     ".mise/tasks/test-filesystem-clients",
     ".mise/tasks/bench-filesystem-clients",
   ];

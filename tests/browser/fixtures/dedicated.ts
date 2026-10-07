@@ -1,5 +1,6 @@
 /// <reference lib="webworker" />
 import { openFileSystem, probeOpfs } from "../../../mod.ts";
+import type { RealmResultType } from "./api.ts";
 
 /** DedicatedWorker global used to exercise worker-only OPFS capabilities. */
 declare const self: DedicatedWorkerGlobalScope;
@@ -19,6 +20,7 @@ async function runDedicatedRequest(input: { readonly path: string; readonly valu
   }
 
   const fileSystem = await openFileSystem();
+  let result: RealmResultType;
   try {
     await fileSystem.writeFile(input.path, input.value, { parents: true });
     let syncOpened = false;
@@ -62,7 +64,7 @@ async function runDedicatedRequest(input: { readonly path: string; readonly valu
       }
     }
 
-    self.postMessage({
+    result = {
       supported: true,
       probe,
       value: await fileSystem.readText(input.path),
@@ -71,10 +73,12 @@ async function runDedicatedRequest(input: { readonly path: string; readonly valu
       ...(syncBytes === undefined ? {} : { syncBytes }),
       ...(syncClosedCode === undefined ? {} : { syncClosedCode }),
       ...(syncError === undefined ? {} : { syncError }),
-    });
+    };
   } finally {
     await fileSystem.close();
   }
+  // The page terminates this worker on receipt, so completion must include close.
+  self.postMessage(result);
 }
 
 self.onmessage = (event: MessageEvent<{ path: string; value: string }>) => {

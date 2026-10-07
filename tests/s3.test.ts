@@ -140,7 +140,7 @@ describe("S3 client", () => {
     );
   });
 
-  it("parses ListObjectsV2 without a protocol-specific XML regex", async () => {
+  it("parses namespaced ListObjectsV2 objects, prefixes, and continuation tokens", async () => {
     const client = createS3Client({
       endpoint: "https://storage.example",
       bucket: "bucket",
@@ -867,7 +867,11 @@ describe("S3 request policy", () => {
       },
     });
 
-    await expect(client.createUpload("ambiguous.bin")).rejects.toBeDefined();
+    await expect(client.createUpload("ambiguous.bin")).rejects.toMatchObject({
+      name: "S3Error",
+      status: 503,
+      code: "SlowDown",
+    });
     expect(attempts).toBe(1);
   });
 

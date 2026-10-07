@@ -30,7 +30,7 @@ class BearerTokenSource {
 
 describe("Azure Blob client", () => {
   for (const failure of ["producer", "caller"] as const) {
-    it(`preserves the ${failure} reason after admitted AZURE chunks drain`, async () => {
+    it(`preserves the ${failure} reason after admitted Azure chunks drain`, async () => {
       const reason = new Error(`${failure} terminal reason`);
       const controller = new AbortController();
       const entered = Promise.withResolvers<void>();
@@ -220,16 +220,21 @@ describe("Azure Blob client", () => {
     expect(requests.some((request) => new URL(request.url).searchParams.get("comp") === "blocklist")).toBe(true);
   });
 
-  it("rejects direct server-side copy when the selected service version predates the API", async () => {
+  it("rejects direct server-side copy before provider I/O when the service version predates the API", async () => {
+    let fetches = 0;
     const client = createAzureClient({
       endpoint: "https://account.blob.core.windows.net",
       container: "data",
       credential: { kind: "sas", token: "?sig=secret" },
       version: "2017-11-09",
-      fetch: async () => new Response(null, { status: 500 }),
+      fetch: async () => {
+        fetches += 1;
+        return new Response(null, { status: 500 });
+      },
     });
 
-    await expect(client.copy!("source.bin", "copy.bin")).rejects.toBeInstanceOf(AzureError);
+    await expect(client.copy!("source.bin", "copy.bin")).rejects.toMatchObject({ name: "AzureError", status: 400 });
+    expect(fetches).toBe(0);
   });
 
   it("parses Azure list responses with prefixes and continuation markers", async () => {

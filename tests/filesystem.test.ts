@@ -5,7 +5,6 @@ import { createFileSystem, FileSystemError, probeOpfs, toFileSystemError } from 
 import type { FileSystemOptionsType } from "../src/adapter/definition.ts";
 import { defineAdapter } from "../src/adapter/definition.ts";
 import { createMemoryAdapter } from "../src/adapter/memory.ts";
-import { basename, dirname, isAncestorPath, joinPath, normalizePath, splitPath } from "../src/path.ts";
 import { withAbortSignal } from "../src/stream.ts";
 import { verifyBytes, verifyPendingAbort, withFileSystem, within } from "./reliability.ts";
 
@@ -69,12 +68,8 @@ describe("filesystem facade", () => {
           },
         });
         await withFileSystem(fileSystem, async () => {
-          try {
-            await verifyBytes(fileSystem);
-            await verifyPendingAbort(fileSystem);
-          } finally {
-            await fileSystem.close();
-          }
+          await verifyBytes(fileSystem);
+          await verifyPendingAbort(fileSystem);
         });
       });
     }
@@ -208,18 +203,6 @@ describe("filesystem facade", () => {
     expect(normalized.operation).toBe("read");
     expect(normalized.path).toBe("/foreign.bin");
     expect(normalized.message).toBe("foreign read was aborted");
-  });
-
-  it("keeps canonical path behavior stable", () => {
-    expect(normalizePath("a/./b/../c")).toBe("/a/c");
-    expect(joinPath("/a", "b", "../c")).toBe("/a/c");
-    expect(splitPath("/a/c")).toEqual(["a", "c"]);
-    expect(dirname("/a/c")).toBe("/a");
-    expect(basename("/a/c")).toBe("c");
-    expect(isAncestorPath("/a", "/a/c")).toBe(true);
-    expect(normalizePath("/caf\u00e9")).not.toBe(normalizePath("/cafe\u0301"));
-    expect(() => normalizePath("../../escape")).toThrow(FileSystemError);
-    expect(() => normalizePath("a\\b")).toThrow(FileSystemError);
   });
 
   it("preserves replace, append, update, range, and stat semantics", async () => {

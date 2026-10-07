@@ -1,10 +1,10 @@
-import { spawn } from "node:child_process";
 import { mkdir, open } from "node:fs/promises";
 import { join } from "node:path";
 import { env, execPath } from "node:process";
 
 import { openProviders } from "../tests/provider/fixture.ts";
 import { finish } from "./result.ts";
+import { runProgram } from "./process.ts";
 
 /** Environment names consumed by the provider benchmark programs. */
 interface ProviderEnvType extends NodeJS.ProcessEnv {
@@ -25,19 +25,9 @@ async function run(
   let failed = false;
   let primary: unknown;
   try {
-    await new Promise<void>((resolve, reject) => {
-      const child = spawn(command, args, {
-        env: providerEnv,
-        stdio: file === undefined ? "inherit" : ["inherit", file.fd, "inherit"],
-      });
-      child.once("error", reject);
-      child.once("exit", (code, signal) => {
-        if (code === 0) {
-          resolve();
-          return;
-        }
-        reject(new Error(`${command} ${args.join(" ")} exited with ${code ?? signal ?? "unknown status"}.`));
-      });
+    await runProgram(command, args, {
+      env: providerEnv,
+      stdio: file === undefined ? "inherit" : ["inherit", file.fd, "inherit"],
     });
   } catch (error) {
     failed = true;

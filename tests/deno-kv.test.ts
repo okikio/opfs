@@ -8,9 +8,10 @@ import { createDenoKvDriver } from "../src/driver/deno-kv.ts";
 import { expectBytes, fixtureBytes, verifyBytes, verifyPendingAbort, withFileSystem } from "./reliability.ts";
 
 describe("Deno KV adapter", () => {
-  it("preserves boundary byte semantics and pending cancellation through real KV partitions", async () => {
+  it("preserves boundary byte semantics and pending cancellation through real KV partitions", async (t) => {
     const database = await Deno.openKv(":memory:");
-    const fileSystem = createFileSystem(createDenoKvAdapter(database, { disposeDatabase: true }), {
+    t.after(() => database.close());
+    const fileSystem = createFileSystem(createDenoKvAdapter(database), {
       coordination: "local",
       lockPrefix: crypto.randomUUID(),
       disposeAdapter: true,
@@ -21,9 +22,10 @@ describe("Deno KV adapter", () => {
     });
   });
 
-  it("retains an opened immutable generation and bounds physical retirement collection", async () => {
+  it("retains an opened immutable generation and bounds physical retirement collection", async (t) => {
     const database = await Deno.openKv(":memory:");
-    const fileSystem = createFileSystem(createDenoKvAdapter(database, { disposeDatabase: true }), {
+    t.after(() => database.close());
+    const fileSystem = createFileSystem(createDenoKvAdapter(database), {
       coordination: "none",
       disposeAdapter: true,
     });
@@ -62,10 +64,18 @@ describe("Deno KV adapter", () => {
     });
   });
 
-  it("executes against a real local Deno KV database", async () => {
-    const path = await Deno.makeTempFile({ prefix: "okikio-opfs-kv-" });
-    await Deno.remove(path);
-    const database = await Deno.openKv(path);
+  it("executes against a real local Deno KV database", async (t) => {
+    const root = await Deno.makeTempDir({ prefix: "okikio-opfs-kv-" });
+    let database: Deno.Kv | undefined = undefined;
+    t.after(async () => {
+      try {
+        database?.close();
+      } finally {
+        await Deno.remove(root, { recursive: true });
+      }
+    });
+    const path = `${root}/test.sqlite`;
+    database = await Deno.openKv(path);
     const fileSystem = createFileSystem(createDenoKvAdapter(database), { coordination: "none" });
     try {
       await fileSystem.writeFile("/kv/value.txt", "deno-kv", { parents: true });
@@ -80,8 +90,6 @@ describe("Deno KV adapter", () => {
       expect(await fileSystem.readFile("/kv/large.bin")).toEqual(large);
     } finally {
       await fileSystem.close();
-      database.close();
-      await Deno.remove(path);
     }
   });
 });

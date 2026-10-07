@@ -4,14 +4,44 @@ import { createCacheAdapter } from "../../src/adapter/cache.ts";
 import { openIndexedDbAdapter } from "../../src/adapter/indexeddb.ts";
 import { createLocalStorageAdapter } from "../../src/adapter/localstorage.ts";
 import { createOpfsAdapter } from "../../src/adapter/opfs.ts";
+import { createCacheDriver } from "../../src/driver/cache.ts";
+import { openIndexedDbDriver } from "../../src/driver/indexeddb.ts";
+import { createLocalStorageDriver } from "../../src/driver/localstorage.ts";
+import { createOpfsDriver } from "../../src/driver/opfs.ts";
 import { createFileSystem } from "../../src/filesystem.ts";
 import type { AdapterType } from "../../src/adapter/definition.ts";
+import type { RecordDriverType } from "../../src/driver/record.ts";
 import type { BenchmarkResultType, BrowserAdapterType } from "../../tests/browser/fixtures/api.ts";
+import { close as closeFixture } from "../../tests/close.ts";
+import { within } from "../../tests/gate.ts";
 
 /** Every measured layer performs the same byte replacement and fully consumed read. */
 type LaneType = () => Promise<Uint8Array>;
 /** Owned fixture resources are released even when setup, an oracle, or timing fails. */
 type CleanupType = () => Promise<void>;
+
+/**
+ * Record drivers store metadata plus base64, so both conversions belong in the
+ * direct-driver timing. Raw storage lanes retain their native byte representation.
+ */
+function recordLane(driver: RecordDriverType, bytes: Uint8Array): LaneType {
+  return async () => {
+    await driver.set({
+      version: 1,
+      path: "/value.bin",
+      parent: "/",
+      name: "value.bin",
+      kind: "file",
+      lastModified: Date.now(),
+      size: bytes.byteLength,
+      mediaType: "",
+      data: encodeBase64(bytes),
+    });
+    const value = await driver.get("/value.bin");
+    if (value?.kind !== "file") throw new Error("Browser record driver lost its file.");
+    return decodeBase64(value.data);
+  };
+}
 
 /** Native requests retain their actual browser errors. */
 function request<T>(value: IDBRequest<T>): Promise<T> {
@@ -32,15 +62,7 @@ function commit(value: IDBTransaction): Promise<void> {
 
 /** Early rejection cannot prevent other owned resources from closing. */
 async function close(cleanups: CleanupType[], primary: readonly unknown[] = []): Promise<void> {
-  const failures: unknown[] = [];
-  for (const cleanup of cleanups.toReversed()) {
-    try {
-      await cleanup();
-    } catch (error) {
-      failures.push(error);
-    }
-  }
-  if (failures.length) throw new AggregateError([...primary, ...failures], "Browser benchmark fixture cleanup failed.");
+  await closeFixture(cleanups.toReversed(), primary);
 }
 
 /** Each layer has an independent namespace, checked bytes, warmup, and rotated sample order. */
@@ -48,13 +70,21 @@ async function run(kind: BrowserAdapterType | "opfs", iterations: number, size: 
   const bytes = Uint8Array.from({ length: size }, (_, index) => (index * 31 + 17) % 251);
   const id = `bench-${crypto.randomUUID()}`;
   const cleanups: CleanupType[] = [];
-  const samples = { rawMs: [] as number[], adapterMs: [] as number[], facadeMs: [] as number[] };
+  const samples = {
+    rawMs: [] as number[],
+    driverMs: [] as number[],
+    adapterMs: [] as number[],
+    facadeMs: [] as number[],
+    measuredMs: [] as number[],
+  };
   let primary: unknown;
   let failed = false;
   try {
     let raw: LaneType;
+    let driver: LaneType;
     let direct: AdapterType;
     let facade: AdapterType;
+    let measured: AdapterType;
     if (kind === "opfs") {
       const root = await navigator.storage.getDirectory();
       const file = await root.getFileHandle(`${id}-raw`, { create: true });
@@ -71,12 +101,22 @@ async function run(kind: BrowserAdapterType | "opfs", iterations: number, size: 
         return new Uint8Array(await (await file.getFile()).arrayBuffer());
       };
       // Separate native directories preserve each layer's ownership and simplify complete cleanup.
+      const driverRoot = await root.getDirectoryHandle(`${id}-driver`, { create: true });
+      cleanups.push(() => root.removeEntry(`${id}-driver`, { recursive: true }));
+      const native = createOpfsDriver(driverRoot);
+      driver = async () => {
+        await native.writeFile("/value.bin", bytes, { mode: "replace" });
+        return await native.readFile("/value.bin");
+      };
       const directRoot = await root.getDirectoryHandle(`${id}-adapter`, { create: true });
       cleanups.push(() => root.removeEntry(`${id}-adapter`, { recursive: true }));
       direct = createOpfsAdapter(directRoot);
       const facadeRoot = await root.getDirectoryHandle(`${id}-facade`, { create: true });
       cleanups.push(() => root.removeEntry(`${id}-facade`, { recursive: true }));
       facade = createOpfsAdapter(facadeRoot);
+      const measuredRoot = await root.getDirectoryHandle(`${id}-measured`, { create: true });
+      cleanups.push(() => root.removeEntry(`${id}-measured`, { recursive: true }));
+      measured = createOpfsAdapter(measuredRoot);
     } else if (kind === "localstorage") {
       const rawKey = `${id}:raw`;
       cleanups.push(async () => {
@@ -88,21 +128,23 @@ async function run(kind: BrowserAdapterType | "opfs", iterations: number, size: 
         if (value === null) throw new Error("localStorage benchmark lost its value.");
         return decodeBase64(value);
       };
-      const prefixes = [`${id}-adapter`, `${id}-facade`];
+      const prefixes = [`${id}-driver`, `${id}-adapter`, `${id}-facade`, `${id}-measured`];
       for (const prefix of prefixes) {
         cleanups.push(async () => {
           for (const key of Object.keys(localStorage)) if (key.startsWith(`${prefix}:`)) localStorage.removeItem(key);
         });
       }
-      direct = createLocalStorageAdapter(localStorage, { prefix: prefixes[0]! });
-      facade = createLocalStorageAdapter(localStorage, { prefix: prefixes[1]! });
+      driver = recordLane(createLocalStorageDriver(localStorage, { prefix: prefixes[0]! }), bytes);
+      direct = createLocalStorageAdapter(localStorage, { prefix: prefixes[1]! });
+      facade = createLocalStorageAdapter(localStorage, { prefix: prefixes[2]! });
+      measured = createLocalStorageAdapter(localStorage, { prefix: prefixes[3]! });
     } else if (kind === "indexeddb") {
       const open = indexedDB.open(`${id}-raw`, 1);
       open.onupgradeneeded = () => open.result.createObjectStore("entries");
       const database = await request(open);
       cleanups.push(async () => {
         database.close();
-        await request(indexedDB.deleteDatabase(`${id}-raw`));
+        await within(request(indexedDB.deleteDatabase(`${id}-raw`)), "benchmark raw database deletion");
       });
       raw = async () => {
         const write = database.transaction("entries", "readwrite");
@@ -116,20 +158,48 @@ async function run(kind: BrowserAdapterType | "opfs", iterations: number, size: 
         if (!(value instanceof Uint8Array)) throw new Error("IndexedDB benchmark lost its bytes.");
         return value;
       };
+      const record = await openIndexedDbDriver({ name: `${id}-driver` });
+      cleanups.push(async () => {
+        await closeFixture([
+          async () => {
+            await record.dispose?.();
+          },
+          () => within(request(indexedDB.deleteDatabase(`${id}-driver`)), "benchmark driver database deletion"),
+        ]);
+      });
+      driver = recordLane(record, bytes);
       direct = await openIndexedDbAdapter({ name: `${id}-adapter` });
       const directAdapter = direct;
       cleanups.push(async () => {
-        await directAdapter.dispose?.();
-        await request(indexedDB.deleteDatabase(`${id}-adapter`));
+        await closeFixture([
+          async () => {
+            await directAdapter.dispose?.();
+          },
+          () => within(request(indexedDB.deleteDatabase(`${id}-adapter`)), "benchmark adapter database deletion"),
+        ]);
       });
       facade = await openIndexedDbAdapter({ name: `${id}-facade` });
       const facadeAdapter = facade;
       cleanups.push(async () => {
-        await facadeAdapter.dispose?.();
-        await request(indexedDB.deleteDatabase(`${id}-facade`));
+        await closeFixture([
+          async () => {
+            await facadeAdapter.dispose?.();
+          },
+          () => within(request(indexedDB.deleteDatabase(`${id}-facade`)), "benchmark facade database deletion"),
+        ]);
+      });
+      measured = await openIndexedDbAdapter({ name: `${id}-measured` });
+      const measuredAdapter = measured;
+      cleanups.push(async () => {
+        await closeFixture([
+          async () => {
+            await measuredAdapter.dispose?.();
+          },
+          () => within(request(indexedDB.deleteDatabase(`${id}-measured`)), "benchmark measured database deletion"),
+        ]);
       });
     } else {
-      const names = [`${id}-raw`, `${id}-adapter`, `${id}-facade`];
+      const names = [`${id}-raw`, `${id}-driver`, `${id}-adapter`, `${id}-facade`, `${id}-measured`];
       for (const name of names) {
         cleanups.push(async () => {
           await caches.delete(name);
@@ -143,15 +213,21 @@ async function run(kind: BrowserAdapterType | "opfs", iterations: number, size: 
         if (!response) throw new Error("Cache benchmark lost its response.");
         return new Uint8Array(await response.arrayBuffer());
       };
-      direct = createCacheAdapter(await caches.open(names[1]!), { prefix: id });
-      facade = createCacheAdapter(await caches.open(names[2]!), { prefix: id });
+      driver = recordLane(createCacheDriver(await caches.open(names[1]!), { prefix: id }), bytes);
+      direct = createCacheAdapter(await caches.open(names[2]!), { prefix: id });
+      facade = createCacheAdapter(await caches.open(names[3]!), { prefix: id });
+      measured = createCacheAdapter(await caches.open(names[4]!), { prefix: id });
     }
     const fs = createFileSystem(facade, { coordination: "none", metrics: "none" });
     cleanups.push(() => fs.close());
+    const instrumented = createFileSystem(measured, { coordination: "none", metrics: "basic" });
+    cleanups.push(() => instrumented.close());
     if (await direct.stat("/") === null) await direct.createDir("/");
     await fs.ensureDir("/");
+    await instrumented.ensureDir("/");
     const lanes: Record<keyof typeof samples, LaneType> = {
       rawMs: raw,
+      driverMs: driver,
       adapterMs: async () => {
         await direct.writeFile("/value.bin", bytes, { mode: "replace" });
         return await direct.readFile("/value.bin");
@@ -159,6 +235,10 @@ async function run(kind: BrowserAdapterType | "opfs", iterations: number, size: 
       facadeMs: async () => {
         await fs.writeFile("/value.bin", bytes);
         return await fs.readFile("/value.bin");
+      },
+      measuredMs: async () => {
+        await instrumented.writeFile("/value.bin", bytes);
+        return await instrumented.readFile("/value.bin");
       },
     };
     for (const [name, lane] of Object.entries(lanes)) {
@@ -191,8 +271,10 @@ async function run(kind: BrowserAdapterType | "opfs", iterations: number, size: 
     const median = (values: number[]) => values.toSorted((a, b) => a - b)[Math.floor(values.length / 2)]!;
     return {
       rawMs: median(samples.rawMs),
+      driverMs: median(samples.driverMs),
       adapterMs: median(samples.adapterMs),
       facadeMs: median(samples.facadeMs),
+      measuredMs: median(samples.measuredMs),
       samples,
     };
   } catch (error) {

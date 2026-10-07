@@ -1,8 +1,8 @@
 import { mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { spawn } from "node:child_process";
 import { undent } from "@okikio/undent";
+import { runProgram } from "../../bench/process.ts";
 
 const argument = process.argv[2];
 if (argument === undefined || argument.length === 0) {
@@ -12,14 +12,7 @@ const tarball = resolve(argument);
 
 /** Runs one child command and rejects when it exits unsuccessfully. */
 function command(file, args, options = {}) {
-  return new Promise((resolvePromise, reject) => {
-    const child = spawn(file, args, { stdio: "inherit", ...options });
-    child.on("error", reject);
-    child.on(
-      "exit",
-      (code) => code === 0 ? resolvePromise() : reject(new Error(`${file} exited with ${code}.`)),
-    );
-  });
+  return runProgram(file, args, { stdio: "inherit", ...options });
 }
 
 /** Returns true when the executable can be started in this environment. */
