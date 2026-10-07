@@ -59,13 +59,16 @@ test("cross-origin iframe reports partition/policy behavior instead of guessing 
 
 test("opaque sandbox reports the platform result without browser-name assumptions", async ({ page }) => {
   await page.goto(APP_URL);
+  const framePromise = page.waitForEvent("framenavigated", {
+    predicate: (frame) => frame !== page.mainFrame() && frame.url() === "about:srcdoc",
+  });
   await page.evaluate(() => {
     const frame = document.createElement("iframe");
     frame.sandbox.add("allow-scripts");
     frame.srcdoc = "<!doctype html><script>window.ready=true</script>";
     document.body.append(frame);
   });
-  const frame = page.frames().find((candidate) => candidate !== page.mainFrame())!;
+  const frame = await framePromise;
   await frame.waitForFunction(() => (window as unknown as { ready?: boolean }).ready === true);
   const result = await frame.evaluate(async () => {
     const storage = navigator.storage as StorageManager & { getDirectory?: () => Promise<OpfsDirectoryHandleType> };

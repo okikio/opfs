@@ -10,7 +10,13 @@ import {
   OptimizationSchema,
   WriteModeSchema,
 } from "./schema.ts";
-import type { EntryKindType, MetricsModeType, OptimizationType, SupportModeType, WriteModeType } from "./schema.ts";
+import type {
+  EntryKindType,
+  MetricsModeType,
+  OptimizationType,
+  SupportModeType,
+  WriteModeType,
+} from "./_schema_types.ts";
 import { getSupport, type InspectionType } from "./capability.ts";
 import { Metrics, type MetricsType } from "./metrics.ts";
 import { createPlan, type PlanInputType, type PlanType } from "./plan.ts";
@@ -942,7 +948,10 @@ class FileSystemFacade implements FileSystemType {
         this.adapter.capabilities.streamWriteModes.includes(mode) && this.adapter.writeStream !== undefined;
       if (nativeStream) {
         metricSupport = getSupport(this.adapter, this.optimizations).streamWrite[mode];
-        let source = toByteStream(data);
+        // Bind cancellation before metrics starts pulling or driver acquisition
+        // awaits. Those steps can otherwise leave the original producer active
+        // when the driver rejects before it acquires its own reader.
+        let source = withAbortSignal(toByteStream(data), options.signal, normalized, "write");
         if (this.metricsMode !== "none") {
           source = source.pipeThrough(
             new TransformStream<Uint8Array, Uint8Array>({
@@ -953,7 +962,14 @@ class FileSystemFacade implements FileSystemType {
             }),
           );
         }
-        await this.adapter.writeStream!(normalized, source, adapterOptions);
+        try {
+          await this.adapter.writeStream!(normalized, source, adapterOptions);
+        } catch (error) {
+          // Acquisition can fail before the driver reads the source. Release
+          // that unconsumed pipeline without replacing the storage failure.
+          if (!source.locked) await source.cancel(error).catch(() => undefined);
+          throw error;
+        }
       } else if (stream) {
         metricSupport = "emulated";
         const bytes = await collectBytes(
@@ -992,6 +1008,9 @@ class FileSystemFacade implements FileSystemType {
         started,
         failed: true,
       });
+      // Bounded provider pools can wrap an AbortSignal failure in an aggregate
+      // error. Preserve the caller's terminal cancellation at the facade seam.
+      throwIfAborted(options.signal, "write", normalized);
       throw toFileSystemError(error, "write", normalized);
     } finally {
       if (buffered > 0) this.#metrics.buffer(-buffered);

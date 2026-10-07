@@ -117,7 +117,13 @@ export async function openProviders(): Promise<ProviderFixture> {
     const azure = await openAzure();
     return new ProviderFixture(s3, azure.container, azure.endpoint);
   } catch (error) {
-    await s3.stop().catch(() => undefined);
+    try {
+      await s3.stop();
+    } catch (cleanup) {
+      throw new AggregateError([error, cleanup], "Azure fixture startup failed and S3 cleanup also failed.", {
+        cause: error,
+      });
+    }
     throw error;
   }
 }

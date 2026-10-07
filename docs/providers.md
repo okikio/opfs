@@ -140,7 +140,7 @@ FUSE/system client. After the mount exists, set:
 
 ```sh
 OPFS_MOUNTPOINT_S3_ROOT=/path/to/mount
-mise run bench-filesystem-clients
+deno task bench:filesystem-clients
 ```
 
 The benchmark then measures:
@@ -164,7 +164,7 @@ Provision/mount BlobFuse externally, then run:
 
 ```sh
 OPFS_BLOBFUSE_ROOT=/path/to/mount
-mise run bench-filesystem-clients
+deno task bench:filesystem-clients
 ```
 
 The same raw -> driver -> adapter -> facade staircase is measured.
@@ -177,7 +177,7 @@ equivalent to a direct uncached REST read simply because both return the same by
 Mountpoint and BlobFuse need operating-system packages, FUSE support, mount permissions, and cleanup. Those requirements
 are materially different from a disposable HTTP test container.
 
-The repository therefore provides a canonical benchmark program and mise task, while the runner owns system-level mount
+The repository therefore provides a canonical benchmark program and Deno task, while the runner owns system-level mount
 setup. A dedicated privileged benchmark runner can automate installation/mounting without making ordinary pull-request
 CI depend on FUSE privileges.
 

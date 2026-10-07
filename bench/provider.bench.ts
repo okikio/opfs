@@ -4,7 +4,8 @@ import { GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client as AwsS
 import { Upload } from "@aws-sdk/lib-storage";
 import { BlobServiceClient, StorageSharedKeyCredential } from "@azure/storage-blob";
 import { toBytes } from "@std/streams/to-bytes";
-import { bench, run } from "mitata";
+import { bench, do_not_optimize } from "mitata";
+import { expectBytes, finish, payload as makePayload, report } from "./result.ts";
 
 import { createFileSystem } from "../mod.ts";
 import { createObjectAdapter } from "../src/adapter/object.ts";
@@ -29,11 +30,9 @@ const S3_ENDPOINT = getEndpoint("OPFS_S3_ENDPOINT");
 /** Azurite Blob endpoint started outside the timed benchmark region. */
 const AZURE_ENDPOINT = getEndpoint("OPFS_AZURE_ENDPOINT");
 /** Small transfer keeps request/setup overhead visible instead of saturating loopback bandwidth. */
-const payload = new Uint8Array(256 * 1024);
-payload.fill(7);
+const payload = makePayload(256 * 1024);
 /** Multipart payload exercises each client's large-write scheduler separately. */
-const multipart = new Uint8Array(6 * 1024 * 1024);
-multipart.fill(11);
+const multipart = makePayload(6 * 1024 * 1024);
 /** Unique namespace prevents one benchmark process from colliding with another. */
 const prefix = `bench/${crypto.randomUUID()}`;
 
@@ -54,6 +53,7 @@ const s3 = createS3Client({
   request: { retries: 0 },
   metrics: "none",
   partSize: 5 * 1024 * 1024,
+  concurrency: 4,
 });
 /** Driver layer used to isolate backend metadata/planning overhead from protocol-client overhead. */
 const s3Driver = createS3DriverFromClient(s3);
@@ -73,10 +73,9 @@ const s3Measured = createFileSystem(createObjectAdapter(s3Driver, { prefix: `${p
 /** Official Azure SDK baseline against the same Azurite endpoint. */
 const azureCredential = new StorageSharedKeyCredential(AZURE_ACCOUNT, AZURE_KEY);
 /** Official Azure service client used only as the provider SDK baseline. */
-const azureService = new BlobServiceClient(AZURE_ENDPOINT, azureCredential);
+const azureService = new BlobServiceClient(AZURE_ENDPOINT, azureCredential, { retryOptions: { maxTries: 1 } });
 /** Official Azure container client scoped to the same logical container as project tests. */
 const azureContainer = azureService.getContainerClient(STORAGE_NAME);
-await azureContainer.createIfNotExists();
 /** Direct project Azure client with retries/metrics disabled for pure path overhead. */
 const azure = createAzureClient({
   endpoint: AZURE_ENDPOINT,
@@ -85,6 +84,7 @@ const azure = createAzureClient({
   request: { retries: 0 },
   metrics: "none",
   blockSize: 1024 * 1024,
+  concurrency: 4,
 });
 /** Driver layer used to isolate Azure backend metadata/planning overhead. */
 const azureDriver = createAzureDriverFromClient(azure);
@@ -102,9 +102,10 @@ const azureMeasured = createFileSystem(createObjectAdapter(azureDriver, { prefix
 });
 
 /** Materializes an AWS SDK GetObject body so all read cases include body consumption. */
-async function readAws(key: string): Promise<void> {
+async function readAws(key: string): Promise<Uint8Array> {
   const result = await aws.send(new GetObjectCommand({ Bucket: STORAGE_NAME, Key: key }));
-  await result.Body?.transformToByteArray();
+  if (!result.Body) throw new Error("AWS benchmark body is missing.");
+  return await result.Body.transformToByteArray();
 }
 
 /** Opens a fresh Web stream for each multipart attempt. */
@@ -129,110 +130,158 @@ const azureKey = `${prefix}/azure-client.bin`;
 const azureDriverKey = `${prefix}/azure-driver.bin`;
 /** Official SDK blob client reused by replacement/read samples. */
 const azureOfficial = azureContainer.getBlockBlobClient(`${prefix}/azure-sdk.bin`);
-await aws.send(new PutObjectCommand({ Bucket: STORAGE_NAME, Key: awsKey, Body: payload }));
-await s3.put(s3Key, payload);
-await s3Driver.put(s3DriverKey, payload);
-await azureOfficial.uploadData(payload);
-await azure.put(azureKey, payload);
-await azureDriver.put(azureDriverKey, payload);
-await s3Adapter.writeFile("/bench.bin", payload, { mode: "replace" });
-await s3Facade.writeFile("/bench.bin", payload);
-await s3Measured.writeFile("/bench.bin", payload);
-await azureAdapter.writeFile("/bench.bin", payload, { mode: "replace" });
-await azureFacade.writeFile("/bench.bin", payload);
-await azureMeasured.writeFile("/bench.bin", payload);
-
-bench("provider/s3 AWS SDK: 256 KiB replace + stat", async () => {
+let failed = false;
+let primary: unknown;
+try {
+  await azureContainer.createIfNotExists();
   await aws.send(new PutObjectCommand({ Bucket: STORAGE_NAME, Key: awsKey, Body: payload }));
-  await aws.send(new HeadObjectCommand({ Bucket: STORAGE_NAME, Key: awsKey }));
-});
-bench("provider/s3 direct client: 256 KiB replace + stat", async () => {
   await s3.put(s3Key, payload);
-});
-bench("provider/s3 driver: 256 KiB replace + stat", async () => {
   await s3Driver.put(s3DriverKey, payload);
-});
-bench("provider/s3 direct adapter: 256 KiB replace + stat", async () => {
+  await azureOfficial.uploadData(payload);
+  await azure.put(azureKey, payload);
+  await azureDriver.put(azureDriverKey, payload);
   await s3Adapter.writeFile("/bench.bin", payload, { mode: "replace" });
-});
-bench("provider/s3 facade metrics none: 256 KiB replace + stat", async () => {
   await s3Facade.writeFile("/bench.bin", payload);
-});
-bench("provider/s3 facade metrics basic: 256 KiB replace + stat", async () => {
   await s3Measured.writeFile("/bench.bin", payload);
-});
+  await azureAdapter.writeFile("/bench.bin", payload, { mode: "replace" });
+  await azureFacade.writeFile("/bench.bin", payload);
+  await azureMeasured.writeFile("/bench.bin", payload);
 
-bench("provider/s3 AWS SDK: 256 KiB read", async () => {
-  await readAws(awsKey);
-});
-bench("provider/s3 direct client: 256 KiB read", async () => {
-  await toBytes(await s3.get(s3Key));
-});
-bench("provider/s3 driver: 256 KiB read", async () => {
-  await toBytes(await s3Driver.get(s3DriverKey));
-});
-bench("provider/s3 direct adapter: 256 KiB read", async () => {
-  await s3Adapter.readFile("/bench.bin");
-});
-bench("provider/s3 facade metrics none: 256 KiB read", async () => {
-  await s3Facade.readFile("/bench.bin");
-});
-
-bench("provider/s3 AWS Upload: 6 MiB multipart + stat", async () => {
+  /** Provider timings start only after all layers return exact bytes, including large uploads. */
+  expectBytes(await readAws(awsKey), payload, "AWS SDK");
+  expectBytes(await toBytes(await s3.get(s3Key)), payload, "S3 client");
+  expectBytes(await toBytes(await s3Driver.get(s3DriverKey)), payload, "S3 driver");
+  expectBytes(new Uint8Array(await azureOfficial.downloadToBuffer()), payload, "Azure SDK");
+  expectBytes(await toBytes(await azure.get(azureKey)), payload, "Azure client");
+  expectBytes(await toBytes(await azureDriver.get(azureDriverKey)), payload, "Azure driver");
+  expectBytes(await s3Adapter.readFile("/bench.bin"), payload, "s3Adapter");
+  expectBytes(await s3Facade.readFile("/bench.bin"), payload, "s3Facade");
+  expectBytes(await s3Measured.readFile("/bench.bin"), payload, "s3Measured");
+  expectBytes(await azureAdapter.readFile("/bench.bin"), payload, "azureAdapter");
+  expectBytes(await azureFacade.readFile("/bench.bin"), payload, "azureFacade");
+  expectBytes(await azureMeasured.readFile("/bench.bin"), payload, "azureMeasured");
   await new Upload({
     client: aws,
     params: { Bucket: STORAGE_NAME, Key: `${prefix}/aws-multipart.bin`, Body: multipart },
     queueSize: 4,
     partSize: 5 * 1024 * 1024,
   }).done();
-  await aws.send(new HeadObjectCommand({ Bucket: STORAGE_NAME, Key: `${prefix}/aws-multipart.bin` }));
-});
-bench("provider/s3 direct client: 6 MiB multipart + stat", async () => {
+  expectBytes(await readAws(`${prefix}/aws-multipart.bin`), multipart, "AWS multipart");
   await s3.put(`${prefix}/s3-multipart.bin`, stream(multipart), { size: multipart.byteLength });
-});
+  expectBytes(await toBytes(await s3.get(`${prefix}/s3-multipart.bin`)), multipart, "S3 multipart");
+  await azure.put(`${prefix}/azure-blocks.bin`, stream(multipart), { size: multipart.byteLength });
+  expectBytes(await toBytes(await azure.get(`${prefix}/azure-blocks.bin`)), multipart, "Azure blocks");
+  /** Force the same six 1 MiB blocks and four concurrent transfers as the project path. */
+  const azureBlocks = azureContainer.getBlockBlobClient(`${prefix}/azure-sdk-blocks.bin`);
+  const blockOptions = { blockSize: 1024 * 1024, maxSingleShotSize: 0, concurrency: 4 };
+  await azureBlocks.uploadData(multipart, blockOptions);
+  expectBytes(new Uint8Array(await azureBlocks.downloadToBuffer()), multipart, "Azure SDK blocks");
 
-bench("provider/azure official SDK: 256 KiB replace + stat", async () => {
-  await azureOfficial.uploadData(payload);
-  await azureOfficial.getProperties();
-});
-bench("provider/azure direct client: 256 KiB replace + stat", async () => {
-  await azure.put(azureKey, payload);
-});
-bench("provider/azure driver: 256 KiB replace + stat", async () => {
-  await azureDriver.put(azureDriverKey, payload);
-});
-bench("provider/azure direct adapter: 256 KiB replace + stat", async () => {
-  await azureAdapter.writeFile("/bench.bin", payload, { mode: "replace" });
-});
-bench("provider/azure facade metrics none: 256 KiB replace + stat", async () => {
-  await azureFacade.writeFile("/bench.bin", payload);
-});
-bench("provider/azure facade metrics basic: 256 KiB replace + stat", async () => {
-  await azureMeasured.writeFile("/bench.bin", payload);
-});
+  bench("provider/s3 AWS SDK: 256 KiB replace + stat", async () => {
+    await aws.send(new PutObjectCommand({ Bucket: STORAGE_NAME, Key: awsKey, Body: payload }));
+    await aws.send(new HeadObjectCommand({ Bucket: STORAGE_NAME, Key: awsKey }));
+  });
+  bench("provider/s3 direct client: 256 KiB replace + stat", async () => {
+    await s3.put(s3Key, payload);
+  });
+  bench("provider/s3 driver: 256 KiB replace + stat", async () => {
+    await s3Driver.put(s3DriverKey, payload);
+  });
+  bench("provider/s3 direct adapter: 256 KiB replace + stat", async () => {
+    await s3Adapter.writeFile("/bench.bin", payload, { mode: "replace" });
+  });
+  bench("provider/s3 facade metrics none: 256 KiB replace + stat", async () => {
+    await s3Facade.writeFile("/bench.bin", payload);
+  });
+  bench("provider/s3 facade metrics basic: 256 KiB replace + stat", async () => {
+    await s3Measured.writeFile("/bench.bin", payload);
+  });
 
-bench("provider/azure official SDK: 256 KiB read", async () => {
-  await azureOfficial.downloadToBuffer();
-});
-bench("provider/azure direct client: 256 KiB read", async () => {
-  await toBytes(await azure.get(azureKey));
-});
-bench("provider/azure driver: 256 KiB read", async () => {
-  await toBytes(await azureDriver.get(azureDriverKey));
-});
-bench("provider/azure direct adapter: 256 KiB read", async () => {
-  await azureAdapter.readFile("/bench.bin");
-});
-bench("provider/azure facade metrics none: 256 KiB read", async () => {
-  await azureFacade.readFile("/bench.bin");
-});
+  bench("provider/s3 AWS SDK: 256 KiB read", async () => {
+    do_not_optimize(await readAws(awsKey));
+  });
+  bench("provider/s3 direct client: 256 KiB read", async () => {
+    do_not_optimize(await toBytes(await s3.get(s3Key)));
+  });
+  bench("provider/s3 driver: 256 KiB read", async () => {
+    do_not_optimize(await toBytes(await s3Driver.get(s3DriverKey)));
+  });
+  bench("provider/s3 direct adapter: 256 KiB read", async () => {
+    do_not_optimize(await s3Adapter.readFile("/bench.bin"));
+  });
+  bench("provider/s3 facade metrics none: 256 KiB read", async () => {
+    do_not_optimize(await s3Facade.readFile("/bench.bin"));
+  });
 
-try {
-  await run();
+  bench("provider/s3 AWS Upload: 6 MiB multipart + stat", async () => {
+    await new Upload({
+      client: aws,
+      params: { Bucket: STORAGE_NAME, Key: `${prefix}/aws-multipart.bin`, Body: multipart },
+      queueSize: 4,
+      partSize: 5 * 1024 * 1024,
+    }).done();
+    await aws.send(new HeadObjectCommand({ Bucket: STORAGE_NAME, Key: `${prefix}/aws-multipart.bin` }));
+  });
+  bench("provider/s3 direct client: 6 MiB multipart + stat", async () => {
+    await s3.put(`${prefix}/s3-multipart.bin`, stream(multipart), { size: multipart.byteLength });
+  });
+
+  bench("provider/azure official SDK: 256 KiB replace + stat", async () => {
+    await azureOfficial.uploadData(payload);
+    await azureOfficial.getProperties();
+  });
+  bench("provider/azure direct client: 256 KiB replace + stat", async () => {
+    await azure.put(azureKey, payload);
+  });
+  bench("provider/azure driver: 256 KiB replace + stat", async () => {
+    await azureDriver.put(azureDriverKey, payload);
+  });
+  bench("provider/azure direct adapter: 256 KiB replace + stat", async () => {
+    await azureAdapter.writeFile("/bench.bin", payload, { mode: "replace" });
+  });
+  bench("provider/azure facade metrics none: 256 KiB replace + stat", async () => {
+    await azureFacade.writeFile("/bench.bin", payload);
+  });
+  bench("provider/azure facade metrics basic: 256 KiB replace + stat", async () => {
+    await azureMeasured.writeFile("/bench.bin", payload);
+  });
+
+  bench("provider/azure official SDK: 256 KiB read", async () => {
+    do_not_optimize(await azureOfficial.downloadToBuffer());
+  });
+  bench("provider/azure direct client: 256 KiB read", async () => {
+    do_not_optimize(await toBytes(await azure.get(azureKey)));
+  });
+  bench("provider/azure driver: 256 KiB read", async () => {
+    do_not_optimize(await toBytes(await azureDriver.get(azureDriverKey)));
+  });
+  bench("provider/azure direct adapter: 256 KiB read", async () => {
+    do_not_optimize(await azureAdapter.readFile("/bench.bin"));
+  });
+  bench("provider/azure facade metrics none: 256 KiB read", async () => {
+    do_not_optimize(await azureFacade.readFile("/bench.bin"));
+  });
+
+  bench("provider/azure official SDK: 6 MiB blocks + stat", async () => {
+    await azureBlocks.uploadData(multipart, blockOptions);
+    do_not_optimize(await azureBlocks.getProperties());
+  });
+
+  bench("provider/azure direct client: 6 MiB blocks + stat", async () => {
+    await azure.put(`${prefix}/azure-blocks.bin`, stream(multipart), { size: multipart.byteLength });
+  });
+
+  await report();
+} catch (error) {
+  failed = true;
+  primary = error;
+  throw error;
 } finally {
-  await s3Facade.close();
-  await s3Measured.close();
-  await azureFacade.close();
-  await azureMeasured.close();
-  aws.destroy();
+  await finish([
+    () => aws.destroy(),
+    () => s3Facade.close(),
+    () => s3Measured.close(),
+    () => azureFacade.close(),
+    () => azureMeasured.close(),
+  ], failed ? [primary] : []);
 }

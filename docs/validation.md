@@ -37,26 +37,26 @@ Mitata + Playwright benchmarks
 
 ## Repository command authority
 
-Mise owns tool versions and repository commands.
+Deno tasks own repository commands. Install the required runtimes directly, or use Mise for optional provisioning.
 
 ```sh
-mise install
-mise run check
-mise run test
-mise run test-node
-mise run test-deno
-mise run test-bun
-mise run test-browser
-mise run test-providers
-mise run bench
-mise run bench-providers
-mise run bench-browser
-mise run bench-filesystem-clients
-mise run quality
+deno task deps:ci
+deno task check:ci
+deno task test:all
+deno task test:node
+deno task test
+deno task test:bun
+deno task test:browser:install && deno task test:browser
+deno task test:providers
+deno task bench:all
+deno task bench:providers
+deno task test:browser:install && deno task bench:browser
+deno task bench:filesystem-clients
+deno task quality
 ```
 
 GitHub Actions owns only GitHub-specific orchestration: triggers, permissions, matrices, secrets, outputs, immutable
-release refs, and calls into those mise tasks.
+release refs, and calls those same Deno tasks. Mise can provision runtimes and delegates to the Deno graph.
 
 ## Portable tests
 
@@ -86,6 +86,14 @@ tests/filesystem.test.ts
 tests/request.test.ts
     shared HTTP retry / zero-delay policy / single-attempt bypass
     deterministic preparation failures / transport retry / attempt timeout
+
+tests/chunk.test.ts
+    exact byte chunking / early consumer return / stalled-source cancellation
+    admitted provider work drains before source failure; independent rejection values remain intact
+
+tests/benchmark.test.ts
+    native sample/statistic validity / complete declared lifecycle observations
+    all owned releases run; cleanup preserves primary and independent failures
 
 tests/ecosystems.test.ts
     unstorage / RxDB / db0 / Drizzle
@@ -117,6 +125,45 @@ tests/sqlite.test.ts
 ```
 
 A test should identify the contract it protects. Avoid tests that merely restate private implementation steps.
+
+Use exact assertions for public bytes, canonical paths, protocol signing, complete result sets, and stable machine error
+fields. Prefer those fields over human-readable error prose. Generated annotations, private counters, and incidental
+completion order should not decide whether a consumer behavior works.
+
+Register cleanup as soon as the fixture acquires a resource. `try/finally`, asynchronous disposal, and `node:test`
+lifecycle hooks keep assertion failures from leaking a filesystem, stream, mock, or database. Test-scoped mocks restore
+their patched methods automatically; shared global trackers require explicit reset. Use explicit source pull/open
+signals to coordinate active cancellation, rather than guessing that one microtask or a short sleep reached the desired
+state.
+
+Portable filesystem fixtures use `withFileSystem()` from `tests/reliability.ts` to await public `close()` after the test
+body. It preserves an original rejection, including `undefined`, beside any independent close failure. This keeps the
+same ownership contract on Node 22, whose direct TypeScript runner cannot parse `await using`; newer-runtime syntax must
+not prevent a supported runtime from reaching its behavior assertions.
+
+The [Node test documentation](https://nodejs.org/api/test.html) and
+[standard-library expectations](https://jsr.io/@std/expect/doc) describe the available lifecycle and structural
+assertion tools. Use them where they clarify the contract; a protocol double remains appropriate when its counters and
+bytes are the independent oracle across runtimes.
+
+## Permanent fixtures and local evidence
+
+| Input                                     | Owner and repeatable lane                                                                                                           |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `tests/reliability.ts`, `tests/host.ts`   | Shared behavioral scenarios imported by the memory and native filesystem suites.                                                    |
+| `tests/browser/fixtures/`                 | Actual realms and storage operations driven by Playwright specs through `deno task test:browser:install && deno task test:browser`. |
+| `tests/ecosystem/live.mjs`                | Pinned upstream database/unstorage consumers through `deno task test:ecosystems`.                                                   |
+| `tests/provider/fixture.ts`               | Testcontainers resources borrowed by provider tests and benchmarks.                                                                 |
+| `tests/provider/fuse*`, `Dockerfile.fuse` | Mountpoint/BlobFuse correctness and measurement through `deno task test:filesystem-clients`, in isolated Linux containers.          |
+| `tests/package/verify.mjs`                | Clean installed archive consumers through `deno task verify:npm`.                                                                   |
+| `.mise/tasks/linux.mjs`                   | Named, bounded containers for `deno task test:linux`; failed lanes retain diagnostics and clean up independently.                   |
+| `bench/`                                  | Durable workload definitions; each result needs its semantic oracle and measurement conditions.                                     |
+
+Slower provider, browser, ecosystem, FUSE, package, and Linux lanes remain reusable tests even though they are not run
+by every portable-suite invocation. Keep their definitions visible. Generated configurations, reports, timings, and
+dated investigations belong under ignored `.tmp/`, package output under `.release/`, and assistant-only support under
+`.agents/`. The npm task uses `--no-lock` for its separate build-tool configuration; `scripts/deno.lock` is local
+resolver output rather than a second dependency authority. The repository's `deno.lock` remains visible.
 
 ## Driver tests
 
@@ -264,8 +311,8 @@ Coverage is useful evidence, not architectural proof. The coverage task exists t
 code. A high line percentage does not prove that provider limits, cancellation, or resource ownership are correct.
 
 The portable coverage report does not execute every runtime-only Node, Deno, or Bun driver branch. Read its percentages
-together with the separate host runtime suites. This distinction is important for operations whose native APIs differ from
-the memory model, such as empty-directory removal and ranged-stream resource ownership.
+together with the separate host runtime suites. This distinction is important for operations whose native APIs differ
+from the memory model, such as empty-directory removal and ranged-stream resource ownership.
 
 ## Benchmarks measure each layer
 
@@ -314,6 +361,57 @@ FileSystemType
 The benchmark result should include throughput/latency plus semantic context. A faster route is not a valid substitute
 if it has different supported operations, consistency, atomicity, or caching semantics.
 
+Each workload needs a consumer question, an independent output oracle, and a declared baseline. Native byte storage and
+encoded record storage expose different physical work; their layer comparison measures that extra contract rather than
+claiming identical representations. Keep setup outside timing and consume the complete result inside it. Microbenchmarks
+can locate primitive costs, while composed replace/read, query, and cancellation scenarios show their practical impact.
+
+The Node and Deno benchmark tasks expose the collector so Mitata's requested GC policy is effective on each runtime.
+Retain raw distributions, sample counts, runtime and dependency identities, fixture sizes, concurrency, GC policy and
+cache conditions. Shared-host measurements are observations, not hard performance gates. `bench/report.ts` saves running
+and failed results under ignored `.tmp/reports/bench/`, rejects empty or invalid samples, and hashes its source and
+fixture inputs before and after collection. Changed inputs invalidate the report.
+
+Mitata 1.0.34 records nonnegative heap deltas observed across batches and normalizes them by batch size. These are not
+total allocations, retained memory or RSS. A zero observation count with null aggregates means that heap data is
+unavailable; it does not mean zero bytes were allocated. Optional heap and GC fields must have the pinned shape, finite
+nonnegative values and consistent bounds when present. Missing optional fields remain valid.
+
+The default GC policy collects once after warmup. Inner GC collects before and after each batch; its reported GC time
+measures the explicit collection after the batch in nanoseconds per collection, without per-operation normalization.
+That observation is separate from operation latency. Natural collection inside timed operations remains part of their
+measured cost.
+
+The lifecycle workload samples RSS during source pulls. Its timings include that instrumentation, and its
+active-resource observations are not an open-file census. These finite runs can expose growth or failed reuse; they
+cannot establish unbounded leak freedom or crash durability.
+
+### Operational costs and budgets
+
+Choose budgets for the application workload, then compare the same payload, operation, layer and environment. The
+measurements below have different ownership and observation scopes:
+
+| Observation                                                    | What it measures                                                                               | What it does not measure                                                                                      |
+| -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Facade `operations.*.bytes`                                    | Payload bytes attributed to logical operations at the facade.                                  | HTTP headers, retries, TLS traffic or provider-internal copy traffic.                                         |
+| Facade `bufferedBytes` / `peakBufferedBytes`                   | Temporary stream materialization owned by facade fallbacks.                                    | Client multipart buffers, source buffers, runtime heap or RSS.                                                |
+| S3/Azure driver `requests`, `retries`, `responses`, `failures` | Concrete Fetch attempts, additional attempts, responses and terminal logical request failures. | Network byte volume or cloud billing totals.                                                                  |
+| S3/Azure timing `durationMs`                                   | Time inside Fetch until a response or rejection is received.                                   | Later response-body consumption, the full logical operation, CPU utilization or service-only processing time. |
+| Lifecycle RSS / active-resource samples                        | Process memory at declared sampling points and runtime-reported active resource kinds.         | A continuous memory maximum, exact open descriptors or every provider resource.                               |
+| Mitata timing / optional heap and GC samples                   | Operation latency and the pinned collector observations described above.                       | Full allocation accounting, CPU time or network traffic.                                                      |
+
+The optional driver fields `logicalBytes`, `physicalBytes`, `parts` and `peakActive` are not currently populated by the
+first-party S3/Azure drivers. Missing observations remain absent; they must not be reported as zero or inferred from
+logical payload size. Current OPFS benchmark reports record CPU model and runtime identity, rather than process CPU
+time. Provider and mounted-client throughput comparisons therefore answer elapsed-time questions for their measured
+operations; they do not establish CPU, traffic or billing budgets.
+
+`maxBufferedWriteBytes` bounds the facade fallback that materializes a stream. Provider part/block sizes and upload
+concurrency control a different layer's work admission and buffering. Record all three with a workload before choosing a
+deployment memory budget. Exact-byte checks, caller cancellation, drained cleanup and successful reuse remain
+correctness requirements even when an application accepts a slower or larger operation. Latency, RSS and request-count
+targets belong to that workload and deployment; this package does not invent a universal provider-health threshold.
+
 ## Provider benchmarks
 
 `bench/provider.bench.ts` uses the Testcontainers provider fixture and compares:
@@ -344,6 +442,9 @@ facade metrics:basic
 available.
 
 Provider container startup/readiness happens before measured samples. Container pull/start time is not benchmark data.
+Large-upload comparisons align part size, concurrency, retries and body consumption with the official SDK. Varied bytes
+must survive the complete round trip before timing starts. Loopback SeaweedFS/Azurite measurements isolate protocol and
+layer costs; cloud network latency and service policy require their own workload.
 
 ## Filesystem-client baselines
 
@@ -362,20 +463,32 @@ Environment variables select mounted roots:
 ```sh
 OPFS_MOUNTPOINT_S3_ROOT=/mnt/s3 \
 OPFS_BLOBFUSE_ROOT=/mnt/azure \
-mise run bench-filesystem-clients
+deno task bench:filesystem-clients
 ```
 
 The external mounts are intentionally not started inside the normal Testcontainers fixture. AWS Mountpoint and Azure
 BlobFuse are FUSE/system clients with host privileges, installation, mount, and unmount lifecycle beyond a normal
-application container. A dedicated benchmark runner can provision them and then call the same mise task.
+application container. A dedicated benchmark runner can provision them and then call the same Deno task.
+`deno task test:filesystem-clients` builds the checked-in client image and acquires both disposable mounts;
+`deno task bench:filesystem-clients:container` uses that same acquisition for measurement.
 
 Only comparable operations should be measured. Unsupported filesystem operations are capability differences, not
 benchmark failures.
+
+The isolated filesystem-client lane requires both mounts. Correctness uses local coordination and explicit admission
+signals; performance disables that coordination to expose the mounted-path layer costs. Timed creates use bounded
+namespaces, and cleanup suppresses only declared unsupported operations. Filesystem caches and write acknowledgement
+remain distinct from remote durability.
 
 ## Browser benchmarks
 
 The Playwright benchmark compares raw native OPFS calls against the package's OPFS driver, adapter, and facade where
 practical. Each browser result is separate. A result from one browser is not generalized to another engine.
+
+The reports retain nine rotated batches per layer, both batch totals and averages per operation, and the iteration count
+used to convert them. These batch averages are not individual-request tail latency. Native OPFS retains a file handle
+while the higher layers resolve a path, so that comparison includes path lookup. Unsupported storage is reported as a
+capability skip.
 
 ## Metrics cost is measurable
 
@@ -395,7 +508,7 @@ from one logical filesystem write.
 
 ## Quality gate
 
-`mise run quality` owns the Deno-centric release quality gate:
+`deno task quality` owns the Deno-centric release quality gate:
 
 ```text
 frozen dependency install
@@ -406,10 +519,10 @@ format check
 stress tests
 coverage tests
 JSR dry-run
-npm/deno package dry-run
+npm package build and local tarball
 ```
 
-`mise run test`, browser tests, provider tests, and runtime matrix jobs add the environment-specific evidence.
+`deno task test:all`, browser tests, provider tests, and runtime matrix jobs add the environment-specific evidence.
 
 ### Browser platform type conformance
 
@@ -484,8 +597,9 @@ Release validation keeps JSR and npm independent:
 
 ```sh
 deno publish --dry-run
-RELEASE_VERSION=0.0.0-test mise run npm
+RELEASE_VERSION=0.0.0-test deno task pack:npm
 node tests/package/verify.mjs .release/npm/*.tgz
 ```
 
-The npm consumer test installs the produced tarball with ordinary npm and rejects `@jsr/*` dependencies, raw `.ts` implementation files, missing declarations, or a non-optional Drizzle peer.
+The npm consumer test installs the produced tarball with ordinary npm and rejects `@jsr/*` dependencies, raw `.ts`
+implementation files, missing declarations, or a non-optional Drizzle peer.

@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [main]
+  workflow_dispatch:
   pull_request:
 
 permissions:
@@ -23,13 +24,13 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
         with:
-          version: '2026.8.6'
-          install_args: node
+          version: "2026.8.6"
+          install_args: deno node
       - name: Lint commit messages
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: mise run commits
+        run: deno task commits
 
   quality:
     name: Deno quality and package dry-runs
@@ -41,9 +42,9 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
         with:
-          version: '2026.8.6'
-          install_args: deno
-      - run: mise run quality
+          version: "2026.8.6"
+          install_args: deno node npm:npm
+      - run: deno task quality
 
   deno:
     name: Deno ${{ matrix.os }}
@@ -59,9 +60,9 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
         with:
-          version: '2026.8.6'
+          version: "2026.8.6"
           install_args: deno
-      - run: mise run test-deno
+      - run: deno task deps:ci && deno task test
 
   node:
     name: Node ${{ matrix.node }} / ${{ matrix.os }}
@@ -70,15 +71,15 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            node: '22'
+            node: "22"
           - os: ubuntu-latest
-            node: '24'
+            node: "24"
           - os: ubuntu-latest
-            node: '26'
+            node: "26"
           - os: macos-latest
-            node: '26'
+            node: "26"
           - os: windows-latest
-            node: '26'
+            node: "26"
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     env:
@@ -89,10 +90,10 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
         with:
-          version: '2026.8.6'
+          version: "2026.8.6"
           install_args: deno node
           cache_key_prefix: mise-node-${{ matrix.node }}
-      - run: mise run test-node
+      - run: deno task deps:ci && deno task test:node
 
   bun:
     name: Bun / ${{ matrix.os }}
@@ -108,9 +109,9 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
         with:
-          version: '2026.8.6'
+          version: "2026.8.6"
           install_args: deno bun
-      - run: mise run test-bun
+      - run: deno task deps:ci && deno task test:bun
 
   browser:
     name: Playwright browser matrix
@@ -122,9 +123,9 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
         with:
-          version: '2026.8.6'
+          version: "2026.8.6"
           install_args: deno
-      - run: mise run test-browser
+      - run: deno task deps:ci && deno task test:browser:install && deno task test:browser
 
   providers:
     name: S3 and Azure provider containers
@@ -136,9 +137,9 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
         with:
-          version: '2026.8.6'
+          version: "2026.8.6"
           install_args: deno node
-      - run: mise run test-providers
+      - run: deno task deps:ci && deno task test:providers
 
   npm-package:
     name: npm tarball consumers
@@ -151,9 +152,9 @@ jobs:
           fetch-depth: 0
       - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
         with:
-          version: '2026.8.6'
+          version: "2026.8.6"
           install_args: deno node bun
-      - run: mise run verify-npm
+      - run: deno task verify:npm
 
   bench:
     name: Server benchmark smoke
@@ -165,9 +166,9 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
         with:
-          version: '2026.8.6'
+          version: "2026.8.6"
           install_args: deno node bun
-      - run: mise run bench
+      - run: deno task bench:all
 
   provider-bench:
     name: Provider baseline benchmark smoke
@@ -179,9 +180,9 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
         with:
-          version: '2026.8.6'
+          version: "2026.8.6"
           install_args: deno node bun
-      - run: mise run bench-providers
+      - run: deno task deps:ci && deno task bench:providers
 
   browser-bench:
     name: Browser OPFS benchmark smoke
@@ -193,6 +194,6 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
         with:
-          version: '2026.8.6'
+          version: "2026.8.6"
           install_args: deno
-      - run: mise run bench-browser
+      - run: deno task deps:ci && deno task test:browser:install && deno task bench:browser

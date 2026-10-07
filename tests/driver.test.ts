@@ -47,6 +47,58 @@ class TestRecordBackend implements RecordBackendType {
 }
 
 describe("driver contract", () => {
+  it("does not publish a staged OPFS write when the producer aborts at EOF", async () => {
+    const controller = new AbortController();
+    let commits = 0;
+    let aborts = 0;
+    const writable: OpfsWritableFileStreamType = {
+      async write() {},
+      async seek() {},
+      async truncate() {},
+      async close() {
+        commits += 1;
+      },
+      async abort() {
+        aborts += 1;
+      },
+    };
+    const file: OpfsFileHandleType = {
+      kind: "file",
+      name: "abort.bin",
+      async getFile() {
+        return new File([], "abort.bin");
+      },
+      async createWritable() {
+        return writable;
+      },
+    };
+    const root: OpfsDirectoryHandleType = {
+      kind: "directory",
+      name: "",
+      async getFileHandle() {
+        return file;
+      },
+      async getDirectoryHandle() {
+        return root;
+      },
+      async removeEntry() {},
+      async *entries() {},
+    };
+    const source = new ReadableStream<Uint8Array>({
+      pull(stream) {
+        stream.close();
+        controller.abort("producer finished after cancellation");
+      },
+    }, { highWaterMark: 0 });
+    const driver = createOpfsDriver(root);
+    await expect(driver.writeStream!("/abort.bin" as PathType, source, {
+      mode: "replace",
+      signal: controller.signal,
+    })).rejects.toMatchObject({ code: "aborted" });
+    expect(commits).toBe(0);
+    expect(aborts).toBe(1);
+  });
+
   it("keeps requirements, limits, and optimizations as structured inspectable data", () => {
     const driver = defineDriver({
       name: "fixture",
@@ -185,7 +237,9 @@ describe("driver contract", () => {
       },
     });
 
-    await createOpfsDriver(root).writeStream("/shared.bin" as PathType, source, { mode: "replace" });
+    const driver = createOpfsDriver(root);
+    if (driver.writeStream === undefined) throw new Error("The OPFS driver must provide native streaming writes.");
+    await driver.writeStream("/shared.bin" as PathType, source, { mode: "replace" });
 
     expect(nativeBytes).toBeDefined();
     expect(nativeBytes!.buffer instanceof ArrayBuffer).toBe(true);

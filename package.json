@@ -1,6 +1,6 @@
 {
   "name": "@okikio/opfs",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "sideEffects": false,
@@ -34,13 +34,14 @@
     "node": ">=22.18.0"
   },
   "scripts": {
-    "check": "mise run check",
-    "test": "mise run test",
-    "fmt": "mise run fmt",
-    "bench": "mise run bench",
-    "schema": "mise run schema",
-    "schema:check": "mise run schema-check",
-    "verify:npm": "mise run verify-npm"
+    "check": "deno task check:ci",
+    "test": "deno task test:all",
+    "fmt": "deno task fmt",
+    "bench": "deno task bench:all",
+    "schema": "deno task schema",
+    "schema:check": "deno task schema:check",
+    "verify:npm": "deno task verify:npm",
+    "quality": "deno task quality"
   },
   "exports": {
     ".": "./mod.ts",
@@ -89,6 +90,7 @@
     "./iframe": "./src/iframe.ts",
     "./path": "./src/path.ts",
     "./schema": "./src/schema.ts",
+    "./schema/types": "./src/_schema_types.ts",
     "./bridge": "./src/bridge.ts",
     "./bridge/kv": "./src/bridge/kv.ts",
     "./bridge/unstorage": "./src/bridge/unstorage.ts",
@@ -132,34 +134,7 @@
     "mitata": "^1.0.34",
     "testcontainers": "^12.0.4",
     "typescript": "^7.0.2",
-    "vite": "^8.2.1"
-  },
-  "release": {
-    "branches": [
-      "main"
-    ],
-    "tagFormat": "opfs@${version}",
-    "plugins": [
-      [
-        "@semantic-release/commit-analyzer",
-        {
-          "preset": "conventionalcommits"
-        }
-      ],
-      [
-        "@semantic-release/release-notes-generator",
-        {
-          "preset": "conventionalcommits"
-        }
-      ],
-      [
-        "@semantic-release/github",
-        {
-          "successComment": false,
-          "failComment": false,
-          "releasedLabels": false
-        }
-      ]
-    ]
+    "vite": "^8.2.1",
+    "@varlock/bumpy": "1.18.1"
   }
 }

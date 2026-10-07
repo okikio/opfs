@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#MISE description="Observe exact native streaming, cancellation, resources, and retained memory across repeated lifetimes."
+set -euo pipefail
+
+deno task deps:ci
+deno task bench:lifecycle "$@"

@@ -15,7 +15,6 @@ import { createLocalPath } from "./local.ts";
 import { createNodeDriver, type NodeDriverOptionsType } from "./node.ts";
 import { FileSystemError, throwIfAborted } from "../error.ts";
 import type { PathType } from "../path.ts";
-import { withAbortSignal } from "../stream.ts";
 
 /** Minimal Bun file object used without requiring global Bun types in core declarations. */
 export interface BunFileType extends Blob {}
@@ -91,7 +90,9 @@ export class BunBackend implements FileBackendType {
     if (options.length === 0) {
       const stat = await this.#node.stat(path, options);
       if (stat === null) throw new FileSystemError("not-found", "read", path, `File '${path}' does not exist.`);
-      if (stat.kind === "directory") throw new FileSystemError("type-mismatch", "read", path, `'${path}' is a directory.`);
+      if (stat.kind === "directory") {
+        throw new FileSystemError("type-mismatch", "read", path, `'${path}' is a directory.`);
+      }
       return new Uint8Array();
     }
     const file = this.#bun.file(this.#hostPath(path));
@@ -106,8 +107,14 @@ export class BunBackend implements FileBackendType {
     if (options.length === 0) {
       const stat = await this.#node.stat(path, options);
       if (stat === null) throw new FileSystemError("not-found", "read", path, `File '${path}' does not exist.`);
-      if (stat.kind === "directory") throw new FileSystemError("type-mismatch", "read", path, `'${path}' is a directory.`);
-      return new ReadableStream<Uint8Array>({ start(controller) { controller.close(); } });
+      if (stat.kind === "directory") {
+        throw new FileSystemError("type-mismatch", "read", path, `'${path}' is a directory.`);
+      }
+      return new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.close();
+        },
+      });
     }
     const file = this.#bun.file(this.#hostPath(path));
     const start = options.at ?? 0;
@@ -126,23 +133,19 @@ export class BunBackend implements FileBackendType {
     await this.#bun.write(this.#hostPath(path), data);
   }
 
-  /** Streams replacement writes through `Bun.write()` without facade buffering. */
+  /** Streams through one bounded descriptor and settles empty or cancelled producers. */
   async writeStream(
     path: PathType,
     source: ReadableStream<Uint8Array>,
     options: FileDriverWriteOptionsType,
   ): Promise<void> {
-    if (options.mode !== "replace") {
-      if (this.#node.writeStream === undefined) {
-        throw new TypeError("Bun Node compatibility layer does not expose streaming writes.");
-      }
-      await this.#node.writeStream(path, source, options);
-      return;
+    if (this.#node.writeStream === undefined) {
+      throw new TypeError("Bun Node compatibility layer does not expose streaming writes.");
     }
-
-    throwIfAborted(options.signal, "write", path);
-    const body = withAbortSignal(source, options.signal, path, "write");
-    await this.#bun.write(this.#hostPath(path), new Response(body));
+    // Bun.write(Response) can remain pending when its stream contains only
+    // empty chunks. The descriptor lane preserves bounded streaming, handles
+    // partial writes, and releases the file on producer failure or cancellation.
+    await this.#node.writeStream(path, source, options);
   }
 
   /** Delegates direct-child iteration to Bun's Node-compatible filesystem surface. */

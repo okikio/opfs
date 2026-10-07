@@ -29,7 +29,11 @@ export type RecordListType = DirectoryRecordType | Omit<FileRecordType, "data">;
  * writes when the backend stores logical values rather than byte-addressable
  * files.
  */
-export const RecordReplacementSchema: z.ZodType<RecordReplacementType, RecordReplacementType> = z.enum(["atomic", "best-effort", "unknown"]);
+export const RecordReplacementSchema: z.ZodType<RecordReplacementType, RecordReplacementType> = z.enum([
+  "atomic",
+  "best-effort",
+  "unknown",
+]);
 
 /** A validated record replacement guarantee. */
 export type RecordReplacementType = import("../_schema_types.ts").RecordReplacementType;
@@ -40,31 +44,32 @@ export type RecordReplacementType = import("../_schema_types.ts").RecordReplacem
  * These flags describe how far the backend can go beyond whole-record reads and
  * writes. The record adapter uses them to choose honest fallbacks.
  */
-export const RecordDriverCapabilitiesSchema: z.ZodType<RecordDriverCapabilitiesType, RecordDriverCapabilitiesType> = z.object({
-  /** Backend can satisfy byte ranges without reconstructing the complete logical file. */
-  rangeRead: z.boolean(),
-  /** Backend can expose file bytes as a native stream. */
-  streamRead: z.boolean(),
-  /** Configured driver permits mutation. */
-  write: z.boolean(),
-  /** Write modes implemented as one backend-native operation instead of adapter read-modify-write. */
-  writeModes: z.array(WriteModeSchema).readonly(),
-  /** Stream write modes implemented by the backend without facade materialization. */
-  streamWriteModes: z.array(WriteModeSchema).readonly(),
-  /** Atomicity of one complete logical-record replacement performed by `set()`. */
-  replacement: RecordReplacementSchema,
-  /** Backend can preserve native binary data without the portable base64 representation. */
-  binary: z.boolean(),
-  /**
-   * Backend exposes transaction mechanics used by its own driver operations.
-   *
-   * This flag does not upgrade the generic record adapter's `get()` then `set()`
-   * append/update fallback into one transaction. Cross-owner atomic append or
-   * update requires a native `writeFile()`/`writeStream()` mode or a stronger
-   * backend-specific operation that the driver explicitly advertises.
-   */
-  transactions: z.boolean(),
-}).strict();
+export const RecordDriverCapabilitiesSchema: z.ZodType<RecordDriverCapabilitiesType, RecordDriverCapabilitiesType> = z
+  .object({
+    /** Backend can satisfy byte ranges without reconstructing the complete logical file. */
+    rangeRead: z.boolean(),
+    /** Backend can expose file bytes as a native stream. */
+    streamRead: z.boolean(),
+    /** Configured driver permits mutation. */
+    write: z.boolean(),
+    /** Write modes implemented as one backend-native operation instead of adapter read-modify-write. */
+    writeModes: z.array(WriteModeSchema).readonly(),
+    /** Stream write modes implemented by the backend without facade materialization. */
+    streamWriteModes: z.array(WriteModeSchema).readonly(),
+    /** Atomicity of one complete logical-record replacement performed by `set()`. */
+    replacement: RecordReplacementSchema,
+    /** Backend can preserve native binary data without the portable base64 representation. */
+    binary: z.boolean(),
+    /**
+     * Backend exposes transaction mechanics used by its own driver operations.
+     *
+     * This flag does not upgrade the generic record adapter's `get()` then `set()`
+     * append/update fallback into one transaction. Cross-owner atomic append or
+     * update requires a native `writeFile()`/`writeStream()` mode or a stronger
+     * backend-specific operation that the driver explicitly advertises.
+     */
+    transactions: z.boolean(),
+  }).strict();
 
 /** A validated record-driver capability description. */
 export type RecordDriverCapabilitiesType = import("../_schema_types.ts").RecordDriverCapabilitiesType;

@@ -27,7 +27,7 @@ async function runSharedRequest(
 self.onconnect = (event: MessageEvent) => {
   const port = event.ports[0]!;
   port.onmessage = (message: MessageEvent<{ path: string; value: string }>) => {
-    void runSharedRequest(port, message.data);
+    void runSharedRequest(port, message.data).catch((error) => port.postMessage({ error: String(error) }));
   };
   port.start();
 };

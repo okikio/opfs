@@ -67,7 +67,12 @@ export type OpfsContextType = import("./_schema_types.ts").OpfsContextType;
  * an in-realm FIFO lock. `none` disables library coordination and transfers all
  * concurrency responsibility to the caller or adapter.
  */
-export const CoordinationModeSchema: z.ZodType<CoordinationModeType, CoordinationModeType> = z.enum(["auto", "web-locks", "local", "none"]);
+export const CoordinationModeSchema: z.ZodType<CoordinationModeType, CoordinationModeType> = z.enum([
+  "auto",
+  "web-locks",
+  "local",
+  "none",
+]);
 
 /** A validated mutation coordination policy. */
 export type CoordinationModeType = import("./_schema_types.ts").CoordinationModeType;
@@ -92,7 +97,12 @@ export type WriteModeType = import("./_schema_types.ts").WriteModeType;
  * provider records or blocks. `unsupported` means no safe implementation is
  * available for the selected stack.
  */
-export const SupportModeSchema: z.ZodType<SupportModeType, SupportModeType> = z.enum(["native", "emulated", "partitioned", "unsupported"]);
+export const SupportModeSchema: z.ZodType<SupportModeType, SupportModeType> = z.enum([
+  "native",
+  "emulated",
+  "partitioned",
+  "unsupported",
+]);
 
 /** A validated storage support mode. */
 export type SupportModeType = import("./_schema_types.ts").SupportModeType;
@@ -289,7 +299,8 @@ const DirectoryRecordSchemaDefinition = RecordBaseSchema.extend({
 });
 
 /** Persisted directory validator with an explicit public type boundary. */
-export const DirectoryRecordSchema: z.ZodType<DirectoryRecordType, DirectoryRecordType> = DirectoryRecordSchemaDefinition;
+export const DirectoryRecordSchema: z.ZodType<DirectoryRecordType, DirectoryRecordType> =
+  DirectoryRecordSchemaDefinition;
 
 /** A validated persisted directory record. */
 export type DirectoryRecordType = import("./_schema_types.ts").DirectoryRecordType;
@@ -319,7 +330,10 @@ export type FileRecordType = import("./_schema_types.ts").FileRecordType;
  * strings. This costs about one third more storage than raw bytes. Native file
  * adapters do not use this format.
  */
-const RecordSchemaDefinition = z.discriminatedUnion("kind", [DirectoryRecordSchemaDefinition, FileRecordSchemaDefinition]);
+const RecordSchemaDefinition = z.discriminatedUnion("kind", [
+  DirectoryRecordSchemaDefinition,
+  FileRecordSchemaDefinition,
+]);
 
 /** Persisted record validator with an explicit public type boundary. */
 export const RecordSchema: z.ZodType<RecordType, RecordType> = RecordSchemaDefinition;
@@ -328,13 +342,20 @@ export const RecordSchema: z.ZodType<RecordType, RecordType> = RecordSchemaDefin
 export type RecordType = import("./_schema_types.ts").RecordType;
 
 /** SQL dialects currently exposed by db0's public Database contract. */
-export const Db0DialectSchema: z.ZodType<Db0DialectType, Db0DialectType> = z.enum(["mysql", "postgresql", "sqlite", "libsql"]);
+export const Db0DialectSchema: z.ZodType<Db0DialectType, Db0DialectType> = z.enum([
+  "mysql",
+  "postgresql",
+  "sqlite",
+  "libsql",
+]);
 
 /** A validated db0 SQL dialect. */
 export type Db0DialectType = import("./_schema_types.ts").Db0DialectType;
 
 /** Safe unqualified SQL identifier used for adapter-owned table names. */
-export const SqlIdentifierSchema: z.ZodType<SqlIdentifierType, SqlIdentifierType> = z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/);
+export const SqlIdentifierSchema: z.ZodType<SqlIdentifierType, SqlIdentifierType> = z.string().regex(
+  /^[A-Za-z_][A-Za-z0-9_]*$/,
+);
 
 /** A validated unqualified SQL identifier. */
 export type SqlIdentifierType = import("./_schema_types.ts").SqlIdentifierType;
@@ -352,13 +373,23 @@ export const LimitKindSchema: z.ZodType<LimitKindType, LimitKindType> = z.enum([
 export type LimitKindType = import("./_schema_types.ts").LimitKindType;
 
 /** Layer that supplied one limit value. */
-export const LimitSourceSchema: z.ZodType<LimitSourceType, LimitSourceType> = z.enum(["provider", "implementation", "user", "probe"]);
+export const LimitSourceSchema: z.ZodType<LimitSourceType, LimitSourceType> = z.enum([
+  "provider",
+  "implementation",
+  "user",
+  "probe",
+]);
 
 /** A validated limit source. */
 export type LimitSourceType = import("./_schema_types.ts").LimitSourceType;
 
 /** Unit used by one numeric limit. */
-export const LimitUnitSchema: z.ZodType<LimitUnitType, LimitUnitType> = z.enum(["bytes", "count", "milliseconds", "operations"]);
+export const LimitUnitSchema: z.ZodType<LimitUnitType, LimitUnitType> = z.enum([
+  "bytes",
+  "count",
+  "milliseconds",
+  "operations",
+]);
 
 /** A validated limit unit. */
 export type LimitUnitType = import("./_schema_types.ts").LimitUnitType;
@@ -393,7 +424,11 @@ export const LimitSchema: z.ZodType<LimitType, LimitType> = z.object({
 export type LimitType = import("./_schema_types.ts").LimitType;
 
 /** Current state of one driver requirement. */
-export const RequirementStateSchema: z.ZodType<RequirementStateType, RequirementStateType> = z.enum(["available", "missing", "unknown"]);
+export const RequirementStateSchema: z.ZodType<RequirementStateType, RequirementStateType> = z.enum([
+  "available",
+  "missing",
+  "unknown",
+]);
 
 /** A validated requirement state. */
 export type RequirementStateType = import("./_schema_types.ts").RequirementStateType;
@@ -421,7 +456,11 @@ export const RequirementSchema: z.ZodType<RequirementType, RequirementType> = z.
 export type RequirementType = import("./_schema_types.ts").RequirementType;
 
 /** Ownership state for one configured driver backend resource. */
-export const DriverOwnershipSchema: z.ZodType<DriverOwnershipType, DriverOwnershipType> = z.enum(["none", "borrowed", "owned"]);
+export const DriverOwnershipSchema: z.ZodType<DriverOwnershipType, DriverOwnershipType> = z.enum([
+  "none",
+  "borrowed",
+  "owned",
+]);
 
 /** A validated configured-driver backend ownership state. */
 export type DriverOwnershipType = import("./_schema_types.ts").DriverOwnershipType;

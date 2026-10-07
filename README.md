@@ -76,9 +76,9 @@ The root entrypoint remains import-safe in Window, Worker, Deno, Bun, and Node c
 explicit subpaths. Importing the root package does not connect to a provider, read credentials, start workers, or
 configure application logging.
 
-For host filesystem drivers, `root` is a lexical virtual-path mapping rather than a security sandbox. Node, Deno, and Bun
-native file operations can follow symbolic links already present below that directory. Use a trusted host root when an
-independent process or untrusted user can mutate the host filesystem.
+For host filesystem drivers, `root` is a lexical virtual-path mapping rather than a security sandbox. Node, Deno, and
+Bun native file operations can follow symbolic links already present below that directory. Use a trusted host root when
+an independent process or untrusted user can mutate the host filesystem.
 
 ## Layer inventory
 
@@ -225,6 +225,10 @@ choose an honest fallback when one can preserve the requested semantics.
 
 See [docs/s3.md](./docs/s3.md) and [docs/azure.md](./docs/azure.md) for the protocol contracts.
 
+Streamed uploads preserve the producer's failure or cancellation reason after admitted requests settle. When a provider
+request also fails independently, the client reports both reasons in an `AggregateError`, with the producer's reason as
+the cause. This lets callers distinguish a failed source from a failed provider without losing either error.
+
 ## Deno KV is the reference partitioned record driver
 
 Deno KV demonstrates why one flat `maxFileBytes` number is insufficient. The driver separates:
@@ -257,14 +261,14 @@ old readers keep using immutable old parts
 collect after retirement grace
 ```
 
-The metadata visibility commit uses Deno KV optimistic version checks, so an independent stale writer cannot publish over a
-newer logical entry. A failed write does not publish a partial logical file. A reader that already resolved the previous manifest can finish against its immutable generation after an overwrite commits
-while that generation remains inside the configured retirement grace. `collect()` measures a published generation's grace
-period
-from retirement, not from its potentially much older creation time. Unpublished crash leftovers have no retirement marker,
-so collection uses their generation creation time. Unknown-length streamed replacement uses the partitioned lane when
-partitioning is enabled. `partition: "never"` disables that behavior and makes oversized/streaming requests fail or use a
-bounded facade fallback instead of changing durable layout silently.
+The metadata visibility commit uses Deno KV optimistic version checks, so an independent stale writer cannot publish
+over a newer logical entry. A failed write does not publish a partial logical file. A reader that already resolved the
+previous manifest can finish against its immutable generation after an overwrite commits while that generation remains
+inside the configured retirement grace. `collect()` measures a published generation's grace period from retirement, not
+from its potentially much older creation time. Unpublished crash leftovers have no retirement marker, so collection uses
+their generation creation time. Unknown-length streamed replacement uses the partitioned lane when partitioning is
+enabled. `partition: "never"` disables that behavior and makes oversized/streaming requests fail or use a bounded facade
+fallback instead of changing durable layout silently.
 
 The preflight planner also evaluates the concrete virtual path. Deno KV limits serialized keys, so file size alone is
 not enough to decide whether an operation is admissible.
@@ -345,6 +349,9 @@ Third-party packages can use `defineIntegration()` and the driver/adapter primit
 
 ## Testing and benchmarks follow the layers
 
+The [validation guide](./docs/validation.md) explains the permanent suites, runtime lanes, correctness oracles, and
+benchmark comparisons. Local execution logs and investigation reports stay in ignored `.tmp/reports/` directories.
+
 Deno is the primary runtime and release authority. Portable behavior uses `node:test` with `@std/expect` because Deno
 can run those contracts directly. Node and Bun run the same portable tests as compatibility lanes, plus their
 runtime-specific filesystem tests. Their ambient type extensions must not redefine the Deno-checked public core.
@@ -368,26 +375,27 @@ facade metrics:basic
 ```
 
 `bench/filesystem-provider.bench.ts` adds the same staircase above already-mounted AWS Mountpoint and Azure BlobFuse
-filesystems. Set `OPFS_MOUNTPOINT_S3_ROOT` and/or `OPFS_BLOBFUSE_ROOT` before `mise run bench-filesystem-clients`. The
+filesystems. Set `OPFS_MOUNTPOINT_S3_ROOT` and/or `OPFS_BLOBFUSE_ROOT` before `deno task bench:filesystem-clients`. The
 benchmark uses only file operations that can be compared through the mounted filesystem contract. It does not count an
 unsupported filesystem operation as a performance failure.
 
-Mise is the repository command authority:
+Deno tasks are the repository command authority:
 
 ```sh
-mise install
-mise run check
-mise run test
-mise run test-browser
-mise run test-providers
-mise run bench
-mise run bench-providers
-mise run bench-browser
-mise run bench-filesystem-clients   # requires external mounts
+deno task deps:ci
+deno task check:ci
+deno task test:all
+deno task test:browser:install && deno task test:browser
+deno task test:providers
+deno task bench:all
+deno task bench:providers
+deno task test:browser:install && deno task bench:browser
+deno task bench:filesystem-clients   # requires external mounts
 ```
 
-GitHub Actions owns triggers, permissions, matrices, outputs, and secrets. It then invokes the same mise tasks. Release
-and publish commands also live under `.mise/tasks/` rather than becoming a second command layer in workflow YAML.
+Deno tasks in `deno.json` own checks, runtime suites, package builds and benchmarks. GitHub Actions owns triggers,
+permissions, matrices, outputs and secrets, then calls those same tasks. Mise remains an optional runtime installer; its
+core task files delegate to Deno. Task implementation files under `.mise/tasks/` can be run without installing Mise.
 
 ## Read next
 
@@ -401,4 +409,9 @@ and publish commands also live under `.mise/tasks/` rather than becoming a secon
 - [Providers](./docs/providers.md) explains Testcontainers and provider/filesystem baseline benchmarks.
 - [Validation](./docs/validation.md) defines the release gates and this repository's test matrix.
 - [Sources](./docs/sources.md) records the standards and upstream contracts used by the implementation.
-- [Releasing](./docs/releasing.md) explains mise-owned release and registry publication.
+- [Releasing](./docs/releasing.md) explains release and registry publication.
+
+## Releases
+
+Use the [Deno and Bumpy release workflow](docs/releasing.md) to author explanatory release notes, synchronize package
+versions, inspect exact artifacts, and publish with independent JSR/npm receipts and fresh public-consumer checks.

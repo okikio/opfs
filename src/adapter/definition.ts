@@ -11,7 +11,7 @@ import type {
   CoordinationModeType,
   MetricsModeType,
   OptimizationType,
-} from "../schema.ts";
+} from "../_schema_types.ts";
 import type { PathType } from "../path.ts";
 import type { DriverType } from "../driver/definition.ts";
 import type {

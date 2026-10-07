@@ -1,6 +1,9 @@
 import { expect, test } from "@playwright/test";
 
-import type { BrowserTestGlobalType } from "../../tests/browser/fixtures/api.ts";
+import type { BenchmarkResultType, BrowserTestGlobalType } from "../../tests/browser/fixtures/api.ts";
+
+// Repeated real storage samples can exceed the ordinary correctness-test limit.
+test.setTimeout(120_000);
 
 /** File-local browser global shape after the benchmark fixture installs its API. */
 type InstalledFixtureGlobalType = typeof globalThis & BrowserTestGlobalType;
@@ -22,14 +25,28 @@ function report(
   backend: string,
   iterations: number,
   bytes: number,
-  result: { rawMs: number; adapterMs: number; facadeMs: number },
-): Record<string, number | string> {
+  result: BenchmarkResultType,
+): Record<string, number | string | BenchmarkResultType["samples"]> {
+  const samples = result.samples;
   return {
     browser,
     backend,
     iterations,
     bytes,
-    ...result,
+    units: "milliseconds",
+    statistic: "median of nine rotated batch averages; per-operation values divide each batch by iterations",
+    rawBatchMs: result.rawMs,
+    adapterBatchMs: result.adapterMs,
+    facadeBatchMs: result.facadeMs,
+    rawPerOperationMs: result.rawMs / iterations,
+    adapterPerOperationMs: result.adapterMs / iterations,
+    facadePerOperationMs: result.facadeMs / iterations,
+    batchSamplesMs: samples,
+    perOperationSamplesMs: {
+      rawMs: samples.rawMs.map((value) => value / iterations),
+      adapterMs: samples.adapterMs.map((value) => value / iterations),
+      facadeMs: samples.facadeMs.map((value) => value / iterations),
+    },
     adapterOverhead: result.adapterMs / result.rawMs,
     facadeOverhead: result.facadeMs / result.rawMs,
     facadeOverAdapter: result.facadeMs / result.adapterMs,

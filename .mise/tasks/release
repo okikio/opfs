@@ -1,8 +1,4 @@
 #!/usr/bin/env bash
-#MISE description="Create the semantic GitHub release for the already-validated main commit."
+#MISE description="Optional alias for deno task release:version."
 set -euo pipefail
-
-npx --yes \
-  --package=semantic-release@25.0.8 \
-  --package=conventional-changelog-conventionalcommits@9.3.1 \
-  semantic-release
+deno task release:version "$@"

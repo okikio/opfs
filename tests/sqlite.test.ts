@@ -1,3 +1,4 @@
+import { withFileSystem } from "./reliability.ts";
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 
@@ -70,24 +71,30 @@ class MemorySqlite {
 
 describe("direct SQLite adapter", () => {
   it("reports an injected SQLite database as borrowed unless disposal is transferred", async () => {
-    const borrowed = await createSqliteAdapter(new MemorySqlite());
-    const owned = await createSqliteAdapter(new MemorySqlite(), { disposeDatabase: true });
-
+    const borrowedDatabase = new MemorySqlite();
+    const ownedDatabase = new MemorySqlite();
+    const borrowed = await createSqliteAdapter(borrowedDatabase);
+    const owned = await createSqliteAdapter(ownedDatabase, { disposeDatabase: true });
     expect(borrowed.driver.inspect().ownership).toBe("borrowed");
     expect(owned.driver.inspect().ownership).toBe("owned");
+    await borrowed.dispose?.();
+    await owned.dispose?.();
+    expect(borrowedDatabase.closed).toBe(false);
+    expect(ownedDatabase.closed).toBe(true);
   });
 
   it("reuses the SQLite db0 record contract and explicit ownership", async () => {
     const database = new MemorySqlite();
     const adapter = await createSqliteAdapter(database, { disposeDatabase: true });
     const fileSystem = createFileSystem(adapter, { coordination: "none", disposeAdapter: true });
+    await withFileSystem(fileSystem, async () => {
+      await fileSystem.writeFile("/db/value.txt", "value", { parents: true });
+      expect(await fileSystem.readText("/db/value.txt")).toBe("value");
+      expect(database.sql.some((sql) => sql.startsWith("CREATE TABLE"))).toBe(true);
+      expect(database.sql.some((sql) => sql.includes("ON CONFLICT"))).toBe(true);
 
-    await fileSystem.writeFile("/db/value.txt", "value", { parents: true });
-    expect(await fileSystem.readText("/db/value.txt")).toBe("value");
-    expect(database.sql.some((sql) => sql.startsWith("CREATE TABLE"))).toBe(true);
-    expect(database.sql.some((sql) => sql.includes("ON CONFLICT"))).toBe(true);
-
-    await fileSystem.close();
-    expect(database.closed).toBe(true);
+      await fileSystem.close();
+      expect(database.closed).toBe(true);
+    });
   });
 });

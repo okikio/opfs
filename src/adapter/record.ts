@@ -11,11 +11,7 @@ import type {
 } from "../driver/file.ts";
 import { FileSystemError, throwIfAborted } from "../error.ts";
 import { basename, dirname, type PathType, ROOT_PATH } from "../path.ts";
-import {
-  type AdapterLimitsType,
-  type AdapterPartitionType,
-  RecordSchema,
-} from "../schema.ts";
+import { type AdapterLimitsType, type AdapterPartitionType, RecordSchema } from "../schema.ts";
 
 import type { RecordDriverType } from "../driver/record.ts";
 

@@ -1,10 +1,12 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
+import { parse } from "@std/xml/parse";
 
 import { createS3Client, S3_LIMITS, S3Error } from "../src/s3.ts";
 import { createS3Driver, createS3DriverFromClient } from "../src/driver/s3.ts";
 import { RequestCapture } from "./http.ts";
 import { streamBytes } from "./stream.ts";
+import { within } from "./gate.ts";
 
 /** AWS documentation credentials used only for deterministic Signature Version 4 tests. */
 const credentials = {
@@ -34,6 +36,71 @@ class S3CredentialSource {
 }
 
 describe("S3 client", () => {
+  for (const failure of ["producer", "caller"] as const) {
+    it(`preserves the ${failure} reason after admitted S3 chunks drain`, async () => {
+      const reason = new Error(`${failure} terminal reason`);
+      const controller = new AbortController();
+      const entered = Promise.withResolvers<void>();
+      const release = Promise.withResolvers<void>();
+      let requests = 0;
+      let completed = 0;
+      let aborted = 0;
+      let cancelled = 0;
+      let pulls = 0;
+      const source = new ReadableStream<Uint8Array>({
+        pull(stream) {
+          if (pulls++ === 0) stream.enqueue(new Uint8Array(5 * 1024 * 1024));
+          else if (failure === "producer") stream.error(reason);
+        },
+        cancel() {
+          cancelled += 1;
+        },
+      }, { highWaterMark: 0 });
+      const client = createS3Client({
+        endpoint: "https://storage.example",
+        bucket: "bucket",
+        region: "auto",
+        credentials,
+        delayedMultipart: false,
+        partSize: 5 * 1024 * 1024,
+        concurrency: 2,
+        request: { retries: 0 },
+        fetch: async (input, init) => {
+          const request = new Request(input, init);
+          const url = new URL(request.url);
+          if (request.method === "POST" && url.searchParams.has("uploads")) {
+            return xml("<InitiateMultipartUploadResult><UploadId>u1</UploadId></InitiateMultipartUploadResult>");
+          }
+          if (request.method === "PUT" && url.searchParams.has("partNumber")) {
+            requests += 1;
+            entered.resolve();
+            if (failure === "caller") controller.abort(reason);
+            await release.promise;
+            return new Response(null, { status: 200, headers: { etag: '"part"' } });
+          }
+          if (request.method === "POST" && url.searchParams.has("uploadId")) completed += 1;
+          if (request.method === "DELETE" && url.searchParams.has("uploadId")) aborted += 1;
+          return new Response(null, { status: 204 });
+        },
+      });
+      const pending = client.put("failure.bin", source, { signal: controller.signal });
+      void pending.catch(() => {});
+      try {
+        await within(entered.promise, "provider chunk admission");
+        release.resolve();
+        await expect(within(pending, "provider source failure")).rejects.toBe(reason);
+        expect(requests).toBe(1);
+        expect(completed).toBe(0);
+        expect(source.locked).toBe(false);
+        if (failure === "caller") expect(cancelled).toBe(1);
+        expect(aborted).toBe(1);
+      } finally {
+        controller.abort(reason);
+        release.resolve();
+        await within(Promise.allSettled([pending]), "provider fixture drain");
+      }
+    });
+  }
   it("reports direct clients as owned and injected clients as borrowed", () => {
     const options = {
       endpoint: "https://storage.example",
@@ -327,10 +394,23 @@ describe("S3 client", () => {
 
     await client.copy!("source.bin", "copy.bin", { sourceIfMatch: '"source"' });
 
-    const parts = requests.filter((request) => new URL(request.url).searchParams.has("partNumber"));
+    // Concurrent signing can send the second request first. Part numbers define the copy order.
+    const parts = requests.filter((request) => new URL(request.url).searchParams.has("partNumber")).sort((
+      left,
+      right,
+    ) =>
+      Number(new URL(left.url).searchParams.get("partNumber")) -
+      Number(new URL(right.url).searchParams.get("partNumber"))
+    );
     expect(parts).toHaveLength(5);
-    expect(parts[0]?.headers.get("x-amz-copy-source-range")).toBe(`bytes=0-${1024 * 1024 * 1024 - 1}`);
-    expect(parts[0]?.headers.get("x-amz-copy-source-if-match")).toBe('"source"');
+    const partBytes = 1024 * 1024 * 1024;
+    for (const [index, part] of parts.entries()) {
+      expect(new URL(part.url).searchParams.get("partNumber")).toBe(String(index + 1));
+      expect(part.headers.get("x-amz-copy-source-range")).toBe(
+        `bytes=${index * partBytes}-${Math.min(size, (index + 1) * partBytes) - 1}`,
+      );
+      expect(part.headers.get("x-amz-copy-source-if-match")).toBe('"source"');
+    }
     expect(requests.some((request) => request.method === "PUT" && !new URL(request.url).searchParams.has("partNumber")))
       .toBe(false);
   });
@@ -462,13 +542,24 @@ describe("S3 client", () => {
       { expectedSize: 10 },
     );
     const body = await requests[0]!.text();
-    expect(body.indexOf("<PartNumber>1</PartNumber>")).toBeLessThan(body.indexOf("<PartNumber>2</PartNumber>"));
+    // Parse the transmitted XML independently of the production request builder.
+    // Entity spelling and whitespace do not change the provider's part contract.
+    const transmitted = parse(body).root.children.filter((node) => node.type === "element").map((part) =>
+      Object.fromEntries(
+        part.children.filter((node) => node.type === "element").map((field) => [
+          field.name.local,
+          field.children.filter((node) => node.type === "text").map((node) => node.text).join(""),
+        ]),
+      )
+    );
+    expect(transmitted).toEqual([{ PartNumber: "1", ETag: '"a"' }, { PartNumber: "2", ETag: '"b"' }]);
     expect(requests[0]!.headers.get("x-amz-mp-object-size")).toBe("10");
 
     await expect(client.completeUpload(
       { key: "duplicate.bin", id: "upload" },
       [{ number: 1, etag: '"a"' }, { number: 1, etag: '"b"' }],
     )).rejects.toThrow(RangeError);
+    expect(requests).toHaveLength(1);
   });
 
   it("applies source conditions to multipart copy and destination conditions only at commit", async () => {
@@ -650,6 +741,7 @@ describe("S3 client", () => {
 
   it("uses a separate bounded signal to abort multipart state after caller cancellation", async () => {
     const controller = new AbortController();
+    const reason = new DOMException("caller cancelled", "AbortError");
     let cleanupSignal: AbortSignal | undefined;
     const client = createS3Client({
       endpoint: "https://storage.example",
@@ -662,7 +754,7 @@ describe("S3 client", () => {
         const request = new Request(input, init);
         const url = new URL(request.url);
         if (request.method === "POST" && url.searchParams.has("uploads")) {
-          controller.abort(new DOMException("caller cancelled", "AbortError"));
+          controller.abort(reason);
           return xml("<InitiateMultipartUploadResult><UploadId>cancelled</UploadId></InitiateMultipartUploadResult>");
         }
         if (request.method === "PUT" && url.searchParams.has("partNumber")) {
@@ -682,7 +774,7 @@ describe("S3 client", () => {
       "cancelled.bin",
       streamBytes([new Uint8Array([1])]),
       { signal: controller.signal },
-    )).rejects.toBeDefined();
+    )).rejects.toBe(reason);
 
     expect(cleanupSignal).toBeDefined();
     expect(cleanupSignal).not.toBe(controller.signal);
@@ -826,23 +918,25 @@ describe("S3 request policy", () => {
   });
 
   it("surfaces redirects without following a signed request", async () => {
-    let targetHits = 0;
+    const urls: string[] = [];
+    const redirect = new Response(null, { status: 307, headers: { location: "https://other.example/bucket/key" } });
     const client = createS3Client({
       endpoint: "https://storage.example",
       bucket: "bucket",
       region: "auto",
       credentials,
-      fetch: async (_input, init) => {
+      fetch: async (input, init) => {
+        urls.push(String(input));
         expect(init?.redirect).toBe("manual");
-        return new Response(null, { status: 307, headers: { location: "https://other.example/bucket/key" } });
+        return redirect;
       },
     });
 
     const response = await client.request({ method: "GET", key: "key" });
-    if (response.url === "https://other.example/bucket/key") targetHits += 1;
 
     expect(response.status).toBe(307);
-    expect(targetHits).toBe(0);
+    expect(response).toBe(redirect);
+    expect(urls).toEqual(["https://storage.example/bucket/key"]);
   });
 
   it("applies a per-attempt timeout without requiring the caller to race the promise", async () => {

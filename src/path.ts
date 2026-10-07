@@ -1,7 +1,7 @@
 import { FileSystemError } from "./error.ts";
-import type { PathType } from "./schema.ts";
+import type { PathType } from "./_schema_types.ts";
 
-export type { PathType } from "./schema.ts";
+export type { PathType } from "./_schema_types.ts";
 
 /** Canonical virtual filesystem root. */
 export const ROOT_PATH = "/";

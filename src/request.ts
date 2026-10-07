@@ -1,4 +1,4 @@
-import { RetryError, retry } from "@std/async/retry";
+import { retry, RetryError } from "@std/async/retry";
 import { z } from "zod";
 
 /**
