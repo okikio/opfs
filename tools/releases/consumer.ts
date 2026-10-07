@@ -471,7 +471,7 @@ function typed(registry: RegistryType): string {
     const pkg = packages.find((pkg) => name === pkg.name || name.startsWith(pkg.name + "/"));
     if (!pkg) throw new Error(`Undeclared typed fixture package ${name}`);
     return JSON.stringify(
-      spec(pkg, name === pkg.name ? "." : "./" + name.slice(pkg.name.length + 1)),
+      spec(pkg, name === pkg.name ? "." : "../../.mise/tasks/" + name.slice(pkg.name.length + 1)),
     );
   };
   if (packages.some((pkg) => pkg.name === "@okikio/opfs")) {

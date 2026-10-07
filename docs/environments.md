@@ -147,6 +147,20 @@ trusted-root/symbolic-link constraint as Node.
 Bun runtime tests are required before claiming Bun behavior complete. Structural TypeScript compatibility alone is not
 runtime evidence.
 
+## Native host filenames
+
+Virtual path normalization does not give every backend the same filename namespace. Native Node, Deno, and Bun drivers
+pass mapped paths to the host filesystem. On Windows, ordinary filenames cannot contain `<`, `>`, `:`, `"`, `|`, `?`, or
+`*`; reserved device names and trailing periods/spaces have additional restrictions. Applications should choose names
+valid for their selected filesystem. The driver preserves native failures through `FileSystemError.cause` rather than
+silently removing punctuation or renaming files. The normalized error code depends on the failure the runtime exposes.
+See [Microsoft's file naming conventions](https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file).
+
+For example, `世界 %#.bin` retains Unicode, a space, percent and hash characters while avoiding the Windows-reserved
+question mark. Browser, memory and provider tests continue to use `世界 %?#.bin` where the actual backend supports that
+name. This host restriction does not become a universal OPFS or object-store filename rule. Native tests run the same
+byte/range/streaming oracle with a valid host name and add a Windows-specific rejected-name/recovery scenario.
+
 ## Electron
 
 A trusted Electron main process can use the Node file driver. Do not expose an arbitrary host root directly to untrusted
