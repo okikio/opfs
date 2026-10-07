@@ -1,7 +1,10 @@
-import { spawn } from "node:child_process";
+import { mkdir, open } from "node:fs/promises";
+import { join } from "node:path";
 import { env, execPath } from "node:process";
 
 import { openProviders } from "../tests/provider/fixture.ts";
+import { finish } from "./result.ts";
+import { runProgram } from "./process.ts";
 
 /** Environment names consumed by the provider benchmark programs. */
 interface ProviderEnvType extends NodeJS.ProcessEnv {
@@ -12,21 +15,29 @@ interface ProviderEnvType extends NodeJS.ProcessEnv {
 }
 
 /** Runs one benchmark program with inherited stdio and fails on a non-zero exit. */
-async function run(command: string, args: readonly string[], providerEnv: ProviderEnvType): Promise<void> {
-  await new Promise<void>((resolve, reject) => {
-    const child = spawn(command, args, {
+async function run(
+  command: string,
+  args: readonly string[],
+  providerEnv: ProviderEnvType,
+  report?: string,
+): Promise<void> {
+  const file = report === undefined ? undefined : await open(report, "wx");
+  let failed = false;
+  let primary: unknown;
+  try {
+    await runProgram(command, args, {
       env: providerEnv,
-      stdio: "inherit",
+      stdio: file === undefined ? "inherit" : ["inherit", file.fd, "inherit"],
     });
-    child.once("error", reject);
-    child.once("exit", (code, signal) => {
-      if (code === 0) {
-        resolve();
-        return;
-      }
-      reject(new Error(`${command} ${args.join(" ")} exited with ${code ?? signal ?? "unknown status"}.`));
-    });
-  });
+  } catch (error) {
+    failed = true;
+    primary = error;
+    throw error;
+  } finally {
+    await finish([async () => {
+      await file?.close();
+    }], failed ? [primary] : []);
+  }
 }
 
 /** Creates the child-process environment after provider endpoints are known. */
@@ -42,6 +53,19 @@ function getProviderEnv(s3Endpoint: string, azureEndpoint: string): ProviderEnvT
 await using providers = await openProviders();
 /** Child-process environment carrying the Testcontainers-selected endpoints. */
 const providerEnv = getProviderEnv(providers.s3Endpoint, providers.azureEndpoint);
+/** Optional report ownership keeps each runtime's native JSON in a separate immutable file. */
+const reportRoot = env.OPFS_BENCH_REPORT_DIR;
+if (reportRoot !== undefined) await mkdir(reportRoot, { recursive: true });
 
-await run(execPath, ["bench/provider.bench.ts"], providerEnv);
-await run("bun", ["run", "bench/bun-provider.bench.ts"], providerEnv);
+await run(
+  execPath,
+  ["--expose-gc", "bench/provider.bench.ts"],
+  providerEnv,
+  reportRoot === undefined ? undefined : join(reportRoot, "provider-node.json"),
+);
+await run(
+  "bun",
+  ["run", "bench/bun-provider.bench.ts"],
+  providerEnv,
+  reportRoot === undefined ? undefined : join(reportRoot, "provider-bun.json"),
+);

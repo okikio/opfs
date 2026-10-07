@@ -228,10 +228,12 @@ export class KeyValueBridgeImpl implements KeyValueBridgeType {
     const baseDirectory = directory(this.#root, base);
     const output: string[] = [];
     try {
-      for await (const entry of this.#fileSystem.walk(baseDirectory, {
-        includeFiles: true,
-        includeDirectories: false,
-      })) {
+      for await (
+        const entry of this.#fileSystem.walk(baseDirectory, {
+          includeFiles: true,
+          includeDirectories: false,
+        })
+      ) {
         const value = key(this.#root, entry.path);
         if (value === null) continue;
         if (options.maxDepth !== undefined && depth(value) > options.maxDepth) continue;

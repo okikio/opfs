@@ -9,7 +9,11 @@ interface PackageSourceType {
   readonly name: string;
   readonly description?: string;
   readonly license?: string;
-  readonly repository?: string | { readonly type: string; readonly url: string; readonly directory?: string };
+  readonly repository?: string | {
+    readonly type: string;
+    readonly url: string;
+    readonly directory?: string;
+  };
   readonly homepage?: string;
   readonly bugs?: string | { readonly url?: string; readonly email?: string };
   readonly keywords?: readonly string[];
@@ -30,19 +34,29 @@ function exportName(key: string): string {
 /** Fails when dnt emitted an npm dependency that still requires the JSR compatibility registry. */
 async function assertNoJsrDependencies(path: string): Promise<void> {
   const manifest = await readJson<Record<string, unknown>>(path);
-  for (const field of ["dependencies", "peerDependencies", "optionalDependencies"] as const) {
+  for (
+    const field of [
+      "dependencies",
+      "peerDependencies",
+      "optionalDependencies",
+    ] as const
+  ) {
     const dependencies = manifest[field];
     if (typeof dependencies !== "object" || dependencies === null) continue;
     for (const name of Object.keys(dependencies)) {
       if (name.startsWith("@jsr/")) {
-        throw new Error(`npm package leaked JSR compatibility dependency '${name}' through ${field}.`);
+        throw new Error(
+          `npm package leaked JSR compatibility dependency '${name}' through ${field}.`,
+        );
       }
     }
   }
 }
 
 const version = Deno.args[0];
-if (version === undefined || version.length === 0) throw new TypeError("Pass the npm package version as the first argument.");
+if (version === undefined || version.length === 0) {
+  throw new TypeError("Pass the npm package version as the first argument.");
+}
 const output = resolve(Deno.args[1] ?? ".release/npm/package");
 const root = resolve(fromFileUrl(new URL("..", import.meta.url)));
 const denoConfig = await readJson<DenoConfigType>(join(root, "deno.json"));
@@ -62,16 +76,18 @@ await build({
   declaration: "inline",
   declarationMap: false,
   typeCheck: "single",
+  // Published declarations include browser storage and modern Web streams as
+  // well as server APIs. dnt's older default libs cannot describe that contract.
+  compilerOptions: {
+    target: "ES2022",
+    lib: ["ESNext", "DOM", "DOM.Iterable"],
+  },
   test: false,
   skipSourceOutput: true,
   shims: {
     deno: "dev",
   },
   mappings: {
-    "@okikio/undent": {
-      name: "@okikio/undent",
-      version: "^0.3.3",
-    },
     "drizzle-orm": {
       name: "drizzle-orm",
       version: drizzle,
@@ -99,6 +115,20 @@ await build({
   async postBuild() {
     await Deno.copyFile(join(root, "README.md"), join(output, "README.md"));
     await Deno.copyFile(join(root, "LICENSE"), join(output, "LICENSE"));
+    await Deno.copyFile(
+      join(root, "CHANGELOG.md"),
+      join(output, "CHANGELOG.md"),
+    );
+    // Ship the documents referenced by the installed README alongside the release story.
+    await Deno.mkdir(join(output, "docs"), { recursive: true });
+    for await (const entry of Deno.readDir(join(root, "docs"))) {
+      if (entry.isFile && entry.name.endsWith(".md")) {
+        await Deno.copyFile(
+          join(root, "docs", entry.name),
+          join(output, "docs", entry.name),
+        );
+      }
+    }
     await assertNoJsrDependencies(join(output, "package.json"));
   },
 });

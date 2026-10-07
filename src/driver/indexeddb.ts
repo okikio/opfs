@@ -167,9 +167,7 @@ export class IndexedDbBackend implements RecordBackendType {
         throw new FileSystemError("type-mismatch", "write", path, `'${path}' is a directory.`);
       }
 
-      const existing = options.mode === "replace" || previous === null
-        ? new Uint8Array()
-        : decodeBase64(previous.data);
+      const existing = options.mode === "replace" || previous === null ? new Uint8Array() : decodeBase64(previous.data);
       const bytes = writeBytes(existing, data, options.mode, options.at, options.truncate ?? false);
       const record: RecordType = RecordSchema.parse({
         version: 1,

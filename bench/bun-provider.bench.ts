@@ -1,6 +1,7 @@
 /// <reference types="bun-types" />
 import { toBytes } from "@std/streams/to-bytes";
-import { bench, run } from "mitata";
+import { bench, do_not_optimize } from "mitata";
+import { expectBytes, finish, payload as makePayload, report } from "./result.ts";
 
 import { createFileSystem } from "../mod.ts";
 import { createObjectAdapter } from "../src/adapter/object.ts";
@@ -85,11 +86,9 @@ const BUCKET = STORAGE_NAME;
 /** Unique namespace prevents concurrent Bun benchmark runs from colliding. */
 const PREFIX = `bench/bun/${crypto.randomUUID()}`;
 /** Small payload keeps client and abstraction overhead visible on loopback. */
-const payload = new Uint8Array(256 * 1024);
-payload.fill(17);
+const payload = makePayload(256 * 1024);
 /** Multipart payload exercises each streaming scheduler above the five-MiB S3 minimum. */
-const multipart = new Uint8Array(6 * 1024 * 1024);
-multipart.fill(19);
+const multipart = makePayload(6 * 1024 * 1024);
 
 /** Bun's current native Rust-backed S3 client baseline. */
 const bun = new bunRuntime.S3Client({
@@ -135,70 +134,98 @@ const bunKey = `${PREFIX}/bun.bin`;
 const directKey = `${PREFIX}/direct.bin`;
 /** Stable object key reused by project driver samples. */
 const driverKey = `${PREFIX}/driver.bin`;
-await bun.write(bunKey, payload);
-await bun.file(bunKey).stat();
-await s3.put(directKey, payload);
-await driver.put(driverKey, payload);
-await adapter.writeFile("/bench.bin", payload, { mode: "replace" });
-await facade.writeFile("/bench.bin", payload);
-await measured.writeFile("/bench.bin", payload);
-
-bench("provider/s3 Bun S3Client: 256 KiB replace + stat", async () => {
+let failed = false;
+let primary: unknown;
+try {
   await bun.write(bunKey, payload);
   await bun.file(bunKey).stat();
-});
-bench("provider/s3 project direct client: 256 KiB replace + stat", async () => {
   await s3.put(directKey, payload);
-});
-bench("provider/s3 project driver: 256 KiB replace + stat", async () => {
   await driver.put(driverKey, payload);
-});
-bench("provider/s3 project direct adapter: 256 KiB replace + stat", async () => {
   await adapter.writeFile("/bench.bin", payload, { mode: "replace" });
-});
-bench("provider/s3 project facade metrics none: 256 KiB replace + stat", async () => {
   await facade.writeFile("/bench.bin", payload);
-});
-bench("provider/s3 project facade metrics basic: 256 KiB replace + stat", async () => {
   await measured.writeFile("/bench.bin", payload);
-});
 
-bench("provider/s3 Bun S3File: 256 KiB read", async () => {
-  await bun.file(bunKey).bytes();
-});
-bench("provider/s3 project direct client: 256 KiB read", async () => {
-  await toBytes(await s3.get(directKey));
-});
-bench("provider/s3 project driver: 256 KiB read", async () => {
-  await toBytes(await driver.get(driverKey));
-});
-bench("provider/s3 project direct adapter: 256 KiB read", async () => {
-  await adapter.readFile("/bench.bin");
-});
-bench("provider/s3 project facade metrics none: 256 KiB read", async () => {
-  await facade.readFile("/bench.bin");
-});
-
-bench("provider/s3 Bun NetworkSink: 6 MiB multipart + stat", async () => {
-  const key = `${PREFIX}/bun-multipart.bin`;
-  const writer = bun.file(key).writer({ partSize: 5 * 1024 * 1024, queueSize: 4, retry: 0 });
+  /** Real network results are checked before timed callbacks are admitted. */
+  expectBytes(await bun.file(bunKey).bytes(), payload, "Bun S3");
+  expectBytes(await toBytes(await s3.get(directKey)), payload, "S3 client");
+  expectBytes(await toBytes(await driver.get(driverKey)), payload, "S3 driver");
+  expectBytes(await adapter.readFile("/bench.bin"), payload, "adapter");
+  expectBytes(await facade.readFile("/bench.bin"), payload, "facade");
+  expectBytes(await measured.readFile("/bench.bin"), payload, "measured");
+  const writer = bun.file(`${PREFIX}/bun-multipart.bin`).writer({ partSize: 5 * 1024 * 1024, queueSize: 4, retry: 0 });
   await writer.write(multipart);
   await writer.end();
-  await bun.file(key).stat();
-});
-bench("provider/s3 project direct client: 6 MiB multipart + stat", async () => {
-  const source = new ReadableStream<Uint8Array>({
-    start(controller) {
-      controller.enqueue(multipart);
-      controller.close();
-    },
-  });
-  await s3.put(`${PREFIX}/direct-multipart.bin`, source, { size: multipart.byteLength });
-});
+  expectBytes(await bun.file(`${PREFIX}/bun-multipart.bin`).bytes(), multipart, "Bun multipart");
+  await s3.put(
+    `${PREFIX}/direct-multipart.bin`,
+    new ReadableStream({
+      start(controller) {
+        controller.enqueue(multipart);
+        controller.close();
+      },
+    }),
+    { size: multipart.byteLength },
+  );
+  expectBytes(await toBytes(await s3.get(`${PREFIX}/direct-multipart.bin`)), multipart, "S3 multipart");
 
-try {
-  await run();
+  bench("provider/s3 Bun S3Client: 256 KiB replace + stat", async () => {
+    await bun.write(bunKey, payload);
+    await bun.file(bunKey).stat();
+  });
+  bench("provider/s3 project direct client: 256 KiB replace + stat", async () => {
+    await s3.put(directKey, payload);
+  });
+  bench("provider/s3 project driver: 256 KiB replace + stat", async () => {
+    await driver.put(driverKey, payload);
+  });
+  bench("provider/s3 project direct adapter: 256 KiB replace + stat", async () => {
+    await adapter.writeFile("/bench.bin", payload, { mode: "replace" });
+  });
+  bench("provider/s3 project facade metrics none: 256 KiB replace + stat", async () => {
+    await facade.writeFile("/bench.bin", payload);
+  });
+  bench("provider/s3 project facade metrics basic: 256 KiB replace + stat", async () => {
+    await measured.writeFile("/bench.bin", payload);
+  });
+
+  bench("provider/s3 Bun S3File: 256 KiB read", async () => {
+    do_not_optimize(await bun.file(bunKey).bytes());
+  });
+  bench("provider/s3 project direct client: 256 KiB read", async () => {
+    do_not_optimize(await toBytes(await s3.get(directKey)));
+  });
+  bench("provider/s3 project driver: 256 KiB read", async () => {
+    do_not_optimize(await toBytes(await driver.get(driverKey)));
+  });
+  bench("provider/s3 project direct adapter: 256 KiB read", async () => {
+    do_not_optimize(await adapter.readFile("/bench.bin"));
+  });
+  bench("provider/s3 project facade metrics none: 256 KiB read", async () => {
+    do_not_optimize(await facade.readFile("/bench.bin"));
+  });
+
+  bench("provider/s3 Bun NetworkSink: 6 MiB multipart + stat", async () => {
+    const key = `${PREFIX}/bun-multipart.bin`;
+    const writer = bun.file(key).writer({ partSize: 5 * 1024 * 1024, queueSize: 4, retry: 0 });
+    await writer.write(multipart);
+    await writer.end();
+    await bun.file(key).stat();
+  });
+  bench("provider/s3 project direct client: 6 MiB multipart + stat", async () => {
+    const source = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(multipart);
+        controller.close();
+      },
+    });
+    await s3.put(`${PREFIX}/direct-multipart.bin`, source, { size: multipart.byteLength });
+  });
+
+  await report();
+} catch (error) {
+  failed = true;
+  primary = error;
+  throw error;
 } finally {
-  await facade.close();
-  await measured.close();
+  await finish([() => facade.close(), () => measured.close()], failed ? [primary] : []);
 }

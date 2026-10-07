@@ -2,6 +2,21 @@
 
 Research date: 2026-08-15.
 
+Release review of the contracts below: 2026-10-06. This review checks the implemented surface against primary sources;
+it does not certify every provider, cloud deployment, browser policy, or operating system.
+
+| Surface              | Implemented contract and release evidence                                                                                                                                  | Scope limit                                                                                                                                                                                                                                                                                                                                           |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| S3                   | Signature V4, object ranges and conditions, listing, multipart upload and copy; deterministic wire tests plus SeaweedFS interoperability with AWS SDK comparison.          | The [AWS multipart limits](https://docs.aws.amazon.com/AmazonS3/latest/userguide/qfacts.html) allow 10,000 parts of 5 MiB–5 GiB, with no minimum for the final part. Their 48.8 TiB ceiling is a client limit, not proof that every compatible endpoint permits it. No live cloud Amazon S3 certification is claimed.                                 |
+| Azure Blob           | Shared Key, SAS, bearer and caller headers; version-dependent Blob and block operations; deterministic wire tests plus Azurite interoperability with Azure SDK comparison. | [REST version selection](https://learn.microsoft.com/en-us/rest/api/storageservices/versioning-for-the-azure-storage-services) governs operation limits. SAS requests explicitly select the configured `api-version` while preserving signing `sv`. Emulator results do not establish all cloud versions, authorization policies or account features. |
+| Native filesystem    | Exact bytes, ranges, truncation, copying and ownership on the exercised Node, Deno and Bun environments; cancellation unlocks the producer and permits reuse.              | Writes can leave partial bytes. [Node `copyFile`](https://nodejs.org/api/fs.html#fscopyfilesrc-dest-mode-callback) does not guarantee atomicity. Flush, rename and locking depend on the selected driver, OS and filesystem; no cross-process transaction or universal crash-durability guarantee is implied.                                         |
+| Browser OPFS         | Structural types checked against browser declarations and operations exercised in actual browser realms.                                                                   | The [File System Standard](https://fs.spec.whatwg.org/) does not make quota, permissions, persistence or sync access uniform across realms. The facade is a filesystem abstraction rather than a complete replacement for every browser API.                                                                                                          |
+| Google Cloud Storage | Primary XML interoperability documentation informs capability questions.                                                                                                   | There is no dedicated GCS client/driver/export or live GCS test lane. Using a generic S3 endpoint is not GCS conformance evidence.                                                                                                                                                                                                                    |
+
+Mountpoint and BlobFuse tests cover their exercised mounted operation set. Their object-store translation does not add
+general POSIX rename, append, directory deletion, transaction or locking guarantees. See
+[provider tests](./providers.md) and [adapter limits](./adapters.md) for the tested clients and observed errors.
+
 This register records the external contracts used to design and test the implementation. Source code and provider
 behavior can change, so a release review should recheck current primary sources rather than assuming this date remains
 current.
@@ -99,8 +114,8 @@ Current Deno documentation treats `node:test` as a first-class test API and curr
 Deno KV suite therefore uses `--unstable-kv` without making that flag part of unrelated source imports. Current Deno KV
 documentation states a 2 KiB serialized key limit, a 64 KiB serialized value limit, 1,000 mutations per atomic
 operation, and an 800 KiB total atomic-operation limit. The Deno KV driver uses a versionstamp check plus a small atomic
-metadata commit for logical visibility, while file bodies remain in the configurable manifest/part layout instead of being
-forced into one 64 KiB value.
+metadata commit for logical visibility, while file bodies remain in the configurable manifest/part layout instead of
+being forced into one 64 KiB value.
 
 Current Bun compatibility documentation says its in-process `node:test` API works when files run under `bun test`, while
 some advanced Node test-runner/reporting features remain incomplete. The repository uses the common
@@ -143,10 +158,10 @@ and lets already-started requests settle after one item fails. S3 cleanup waits 
 `@std/async/retry` owns the direct clients' exponential backoff, jitter, AbortSignal, and retriable-error loop. The
 protocol layer still classifies whether a request may enter that loop. One-shot streams are not replayed, and S3
 multipart initiation and completion disable automatic retry because a lost response can make the remote lifecycle
-outcome ambiguous. The low-level request APIs also expose `retry: false` for provider-specific operations. Single-attempt
-requests bypass `retry()` completely. The project also permits a deterministic zero-delay retry policy; because the
-standard helper requires a positive `maxTimeout`, the adapter supplies a positive validation ceiling while keeping
-`minTimeout` at zero so the requested delay remains zero.
+outcome ambiguous. The low-level request APIs also expose `retry: false` for provider-specific operations.
+Single-attempt requests bypass `retry()` completely. The project also permits a deterministic zero-delay retry policy;
+because the standard helper requires a positive `maxTimeout`, the adapter supplies a positive validation ceiling while
+keeping `minTimeout` at zero so the requested delay remains zero.
 
 `@std/bytes/concat` owns byte-array concatenation used by bounded chunk assembly. The package does not maintain another
 concatenation implementation.

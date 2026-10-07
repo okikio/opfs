@@ -2,6 +2,5 @@
 #MISE description="Run raw native OPFS versus facade benchmarks in Chromium, Firefox, and WebKit."
 set -euo pipefail
 
-deno ci
-deno task test:browser:install
-deno task bench:browser
+deno task deps:ci
+deno task test:browser:install && deno task bench:browser "$@"

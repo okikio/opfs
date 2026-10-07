@@ -10,6 +10,7 @@
     "jsr:@std/expect@^1.0.20": "1.0.20",
     "jsr:@std/internal@^1.0.12": "1.0.14",
     "jsr:@std/internal@^1.0.14": "1.0.14",
+    "jsr:@std/path@1.1.6": "1.1.6",
     "jsr:@std/path@^1.1.6": "1.1.6",
     "jsr:@std/streams@^1.1.2": "1.1.2",
     "jsr:@std/xml@0.2": "0.2.0",
@@ -33,8 +34,10 @@
     "npm:@types/deno@^2.7.0": "2.7.0",
     "npm:@types/deno@latest": "2.7.0",
     "npm:@types/node@^26.2.0": "26.2.0",
+    "npm:@varlock/bumpy@1.18.1": "1.18.1",
     "npm:drizzle-orm@~0.45.2": "0.45.2",
     "npm:mitata@^1.0.34": "1.0.34",
+    "npm:playwright@1.62.1": "1.62.1",
     "npm:testcontainers@^12.0.4": "12.1.0",
     "npm:typescript@^7.0.2": "7.0.2",
     "npm:vite@8.2.1": "8.2.1_@types+node@26.2.0",
@@ -71,7 +74,7 @@
       "dependencies": [
         "jsr:@std/assert",
         "jsr:@std/internal@^1.0.14",
-        "jsr:@std/path"
+        "jsr:@std/path@^1.1.6"
       ]
     },
     "@std/internal@1.0.14": {
@@ -871,6 +874,10 @@
         "https-proxy-agent",
         "tslib"
       ]
+    },
+    "@varlock/bumpy@1.18.1": {
+      "integrity": "sha512-u6PHUr+laAgWWm/c3wdExHBCcvYkkTb+KsiRNR9GCFIbCDrCN9CyOZO/crtRZ5u4KWMKtUTeA7U/s+AA0k7Dcg==",
+      "bin": true
     },
     "abort-controller@3.0.0": {
       "integrity": "sha512-h8lQ8tacZYnR3vNQTgibj+tODHI5/+l06Au2Pcriv/Gmet0eaj4TwWH41sO9wnHDiQsEj19q0drzdWdeAHtweg==",
@@ -1931,6 +1938,7 @@
         "npm:@types/bun@^1.3.14",
         "npm:@types/deno@^2.7.0",
         "npm:@types/node@^26.2.0",
+        "npm:@varlock/bumpy@1.18.1",
         "npm:drizzle-orm@~0.45.2",
         "npm:mitata@^1.0.34",
         "npm:testcontainers@^12.0.4",

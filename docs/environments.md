@@ -130,8 +130,8 @@ Use `driver/node` and `adapter/node`. The driver uses `node:fs`/`node:fs/promise
 runtime subpath and maps virtual paths below one configured host root.
 
 Node supports native streaming, ranges, copy, rename/move, positional writes, and synchronous random access where
-implemented by the driver. The root check is lexical. Existing or concurrently created symbolic links can resolve outside
-the configured directory, so use a trusted root rather than relying on it for security isolation.
+implemented by the driver. The root check is lexical. Existing or concurrently created symbolic links can resolve
+outside the configured directory, so use a trusted root rather than relying on it for security isolation.
 
 The package engine range starts at Node 22.18. A validation host below that version can provide supplemental evidence
 but cannot stand in for the declared runtime matrix.
@@ -147,6 +147,20 @@ trusted-root/symbolic-link constraint as Node.
 Bun runtime tests are required before claiming Bun behavior complete. Structural TypeScript compatibility alone is not
 runtime evidence.
 
+## Native host filenames
+
+Virtual path normalization does not give every backend the same filename namespace. Native Node, Deno, and Bun drivers
+pass mapped paths to the host filesystem. On Windows, ordinary filenames cannot contain `<`, `>`, `:`, `"`, `|`, `?`, or
+`*`; reserved device names and trailing periods/spaces have additional restrictions. Applications should choose names
+valid for their selected filesystem. The driver preserves native failures through `FileSystemError.cause` rather than
+silently removing punctuation or renaming files. The normalized error code depends on the failure the runtime exposes.
+See [Microsoft's file naming conventions](https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file).
+
+For example, `世界 %#.bin` retains Unicode, a space, percent and hash characters while avoiding the Windows-reserved
+question mark. Browser, memory and provider tests continue to use `世界 %?#.bin` where the actual backend supports that
+name. This host restriction does not become a universal OPFS or object-store filename rule. Native tests run the same
+byte/range/streaming oracle with a valid host name and add a Windows-specific rejected-name/recovery scenario.
+
 ## Electron
 
 A trusted Electron main process can use the Node file driver. Do not expose an arbitrary host root directly to untrusted
@@ -161,8 +175,8 @@ upstream resource and the required Web primitives are available.
 The driver describes backend requirements. The adapter/facade describes effective filesystem routes. Database-backed
 record storage generally cannot claim native streaming unless the driver implements a dedicated byte lane. A backend's
 transaction support does not make the generic adapter's read-modify-write append/update sequence atomic across tabs,
-processes, or hosts. Cross-owner safety must come from a native driver write mode, provider condition, or application-level
-serialization.
+processes, or hosts. Cross-owner safety must come from a native driver write mode, provider condition, or
+application-level serialization.
 
 ## Server coordination
 

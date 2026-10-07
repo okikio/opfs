@@ -1,7 +1,8 @@
+import { withFileSystem } from "./reliability.ts";
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 
-import { createFileSystem } from "../mod.ts";
+import { createFileSystem, FileSystemError } from "../mod.ts";
 import { createObjectAdapter } from "../src/adapter/object.ts";
 import {
   defineObjectDriver,
@@ -49,6 +50,8 @@ class MemoryObjectBackend implements ObjectBackendType {
   readonly values = new Map<string, StoredObjectType>();
   /** Number of object GET operations, used to prove server-side copy avoids downloads. */
   gets = 0;
+  /** Requested byte windows, independent of the returned byte oracle. */
+  readonly ranges: ObjectGetOptionsType[] = [];
   /** Number of native provider copy operations. */
   copies = 0;
   /** Monotonic value used to produce deterministic synthetic ETags. */
@@ -62,8 +65,9 @@ class MemoryObjectBackend implements ObjectBackendType {
   /** Opens one full object or bounded byte range as a Web stream. */
   async get(key: string, options: ObjectGetOptionsType = {}): Promise<ReadableStream<Uint8Array>> {
     this.gets += 1;
+    this.ranges.push({ ...options });
     const value = this.values.get(key);
-    if (value === undefined) return new Response(null, { status: 404 }).body!;
+    if (value === undefined) throw new FileSystemError("not-found", "read", key, "Object does not exist.");
     const start = options.at ?? 0;
     const end = options.length === undefined
       ? value.bytes.byteLength
@@ -165,42 +169,61 @@ function createObjectFileSystem(store = new MemoryObjectBackend()) {
 
 describe("object driver adapter", () => {
   it("preserves empty directories and implicit prefix directories", async () => {
-    const { store, fileSystem } = createObjectFileSystem();
-    await fileSystem.mkdir("/empty", { recursive: true });
-    await fileSystem.writeFile("/external/nested.txt", "outside marker", { parents: true });
+    const fixture = createObjectFileSystem();
+    const { store } = fixture;
+    const fileSystem = fixture.fileSystem;
+    await withFileSystem(fileSystem, async () => {
+      await fileSystem.mkdir("/empty", { recursive: true });
+      await store.put("external/nested.txt", new TextEncoder().encode("outside marker"));
+      expect(store.values.has("external/")).toBe(false);
 
-    expect((await fileSystem.stat("/empty")).kind).toBe("directory");
-    expect((await fileSystem.stat("/external")).kind).toBe("directory");
-    expect(store.values.has("empty/")).toBe(true);
-    expect(store.values.get("empty/")?.stat.metadata).toEqual({ okikio_opfs_kind: "directory" });
+      expect((await fileSystem.stat("/empty")).kind).toBe("directory");
+      expect((await fileSystem.stat("/external")).kind).toBe("directory");
+      expect(store.values.has("empty/")).toBe(true);
+      expect(store.values.get("empty/")?.stat.metadata).toEqual({ okikio_opfs_kind: "directory" });
 
-    const names: string[] = [];
-    for await (const entry of fileSystem.readDir("/")) names.push(entry.name);
-    expect(names.sort()).toEqual(["empty", "external"]);
+      const names: string[] = [];
+      for await (const entry of fileSystem.readDir("/")) names.push(entry.name);
+      expect(names.sort()).toEqual(["empty", "external"]);
+    });
   });
 
   it("prefers an exact file when foreign objects also create the same prefix", async () => {
-    const { store, fileSystem } = createObjectFileSystem();
-    await store.put("mixed", new TextEncoder().encode("file"));
-    await store.put("mixed/child.txt", new TextEncoder().encode("child"));
+    const fixture = createObjectFileSystem();
+    const { store } = fixture;
+    const fileSystem = fixture.fileSystem;
+    await withFileSystem(fileSystem, async () => {
+      await store.put("mixed", new TextEncoder().encode("file"));
+      await store.put("mixed/child.txt", new TextEncoder().encode("child"));
 
-    expect((await fileSystem.stat("/mixed")).kind).toBe("file");
-    await fileSystem.writeFile("/mixed", "updated");
-    expect(await fileSystem.readText("/mixed")).toBe("updated");
+      expect((await fileSystem.stat("/mixed")).kind).toBe("file");
+      await fileSystem.writeFile("/mixed", "updated");
+      expect(await fileSystem.readText("/mixed")).toBe("updated");
+    });
   });
 
   it("uses ranged object reads without materializing the complete object", async () => {
-    const { fileSystem } = createObjectFileSystem();
-    await fileSystem.writeFile("/range.txt", "0123456789", { parents: true });
-    expect(new TextDecoder().decode(await fileSystem.readFile("/range.txt", { at: 3, length: 4 }))).toBe("3456");
+    const fixture = createObjectFileSystem();
+    const { store } = fixture;
+    const fileSystem = fixture.fileSystem;
+    await withFileSystem(fileSystem, async () => {
+      await fileSystem.writeFile("/range.txt", "0123456789", { parents: true });
+      store.ranges.length = 0;
+      expect(new TextDecoder().decode(await fileSystem.readFile("/range.txt", { at: 3, length: 4 }))).toBe("3456");
+      expect(store.ranges).toHaveLength(1);
+      expect(store.ranges[0]).toMatchObject({ at: 3, length: 4 });
+    });
   });
 
   it("applies append and update as optimistic read-modify-write operations", async () => {
-    const { fileSystem } = createObjectFileSystem();
-    await fileSystem.writeFile("/state.txt", "hello", { parents: true });
-    await fileSystem.writeFile("/state.txt", " world", { mode: "append" });
-    await fileSystem.writeFile("/state.txt", "OPFS", { mode: "update", at: 6 });
-    expect(await fileSystem.readText("/state.txt")).toBe("hello OPFSd");
+    const fixture = createObjectFileSystem();
+    const fileSystem = fixture.fileSystem;
+    await withFileSystem(fileSystem, async () => {
+      await fileSystem.writeFile("/state.txt", "hello", { parents: true });
+      await fileSystem.writeFile("/state.txt", " world", { mode: "append" });
+      await fileSystem.writeFile("/state.txt", "OPFS", { mode: "update", at: 6 });
+      expect(await fileSystem.readText("/state.txt")).toBe("hello OPFSd");
+    });
   });
 
   it("can disable native copy and exposes the emulated route through inspection and metrics", async () => {
@@ -210,24 +233,25 @@ describe("object driver adapter", () => {
       optimizations: { nativeCopy: false },
       metrics: "basic",
     });
-    await fileSystem.writeFile("/source.bin", new Uint8Array([1, 2, 3]), {
-      parents: true,
-      mediaType: "application/x-test",
+    await withFileSystem(fileSystem, async () => {
+      await fileSystem.writeFile("/source.bin", new Uint8Array([1, 2, 3]), {
+        parents: true,
+        mediaType: "application/x-test",
+      });
+      store.gets = 0;
+      store.copies = 0;
+
+      expect(fileSystem.inspect().support.copy).toBe("emulated");
+      expect(fileSystem.plan({ operation: "copy", size: 3 }).support).toBe("emulated");
+      await fileSystem.copy("/source.bin", "/copy.bin");
+
+      expect(store.copies).toBe(0);
+      expect(store.gets).toBeGreaterThan(0);
+      expect([...await fileSystem.readFile("/copy.bin")]).toEqual([1, 2, 3]);
+      const stat = await fileSystem.stat("/copy.bin");
+      expect(stat.kind).toBe("file");
+      if (stat.kind === "file") expect(stat.mediaType).toBe("application/x-test");
     });
-    store.gets = 0;
-    store.copies = 0;
-
-    expect(fileSystem.inspect().support.copy).toBe("emulated");
-    expect(fileSystem.plan({ operation: "copy", size: 3 }).support).toBe("emulated");
-    await fileSystem.copy("/source.bin", "/copy.bin");
-
-    expect(store.copies).toBe(0);
-    expect(store.gets).toBeGreaterThan(0);
-    expect([...await fileSystem.readFile("/copy.bin")]).toEqual([1, 2, 3]);
-    const stat = await fileSystem.stat("/copy.bin");
-    expect(stat.kind).toBe("file");
-    if (stat.kind === "file") expect(stat.mediaType).toBe("application/x-test");
-    await fileSystem.close();
   });
 
   it("rejects an oversized emulated copy when its streaming read route is disabled", async () => {
@@ -237,12 +261,13 @@ describe("object driver adapter", () => {
       optimizations: { nativeCopy: false, streamRead: false },
       maxBufferedWriteBytes: 2,
     });
-    await fileSystem.writeFile("/source.bin", new Uint8Array([1, 2, 3]), { parents: true });
+    await withFileSystem(fileSystem, async () => {
+      await fileSystem.writeFile("/source.bin", new Uint8Array([1, 2, 3]), { parents: true });
 
-    const plan = fileSystem.plan({ operation: "copy", size: 3 });
-    expect(plan.supported).toBe(false);
-    await expect(fileSystem.copy("/source.bin", "/copy.bin")).rejects.toMatchObject({ code: "too-large" });
-    await fileSystem.close();
+      const plan = fileSystem.plan({ operation: "copy", size: 3 });
+      expect(plan.supported).toBe(false);
+      await expect(fileSystem.copy("/source.bin", "/copy.bin")).rejects.toMatchObject({ code: "too-large" });
+    });
   });
 
   it("fails an oversized streamed copy before opening the source when direct stream writes are disabled", async () => {
@@ -252,40 +277,49 @@ describe("object driver adapter", () => {
       optimizations: { nativeCopy: false, streamWrite: false },
       maxBufferedWriteBytes: 2,
     });
-    await fileSystem.writeFile("/source.bin", new Uint8Array([1, 2, 3]), { parents: true });
-    store.gets = 0;
+    await withFileSystem(fileSystem, async () => {
+      await fileSystem.writeFile("/source.bin", new Uint8Array([1, 2, 3]), { parents: true });
+      store.gets = 0;
 
-    const plan = fileSystem.plan({ operation: "copy", size: 3 });
-    expect(plan.supported).toBe(false);
-    await expect(fileSystem.copy("/source.bin", "/copy.bin")).rejects.toMatchObject({ code: "too-large" });
-    expect(store.gets).toBe(0);
-    await fileSystem.close();
+      const plan = fileSystem.plan({ operation: "copy", size: 3 });
+      expect(plan.supported).toBe(false);
+      await expect(fileSystem.copy("/source.bin", "/copy.bin")).rejects.toMatchObject({ code: "too-large" });
+      expect(store.gets).toBe(0);
+    });
   });
 
   it("uses provider copy without opening the source stream", async () => {
-    const { store, fileSystem } = createObjectFileSystem();
-    await fileSystem.writeFile("/source.bin", new Uint8Array([1, 2, 3]), { parents: true });
-    store.gets = 0;
+    const fixture = createObjectFileSystem();
+    const { store } = fixture;
+    const fileSystem = fixture.fileSystem;
+    await withFileSystem(fileSystem, async () => {
+      await fileSystem.writeFile("/source.bin", new Uint8Array([1, 2, 3]), { parents: true });
+      store.gets = 0;
 
-    await fileSystem.copy("/source.bin", "/copy.bin");
+      await fileSystem.copy("/source.bin", "/copy.bin");
 
-    expect(store.copies).toBe(1);
-    expect(store.gets).toBe(0);
-    expect([...await fileSystem.readFile("/copy.bin")]).toEqual([1, 2, 3]);
+      expect(store.copies).toBe(1);
+      expect(store.gets).toBe(0);
+      expect([...await fileSystem.readFile("/copy.bin")]).toEqual([1, 2, 3]);
+    });
   });
 
   it("streams a replacement directly to a streaming object store", async () => {
-    const { store, fileSystem } = createObjectFileSystem();
-    let pulled = 0;
-    const source = new ReadableStream<Uint8Array>({
-      pull(controller) {
-        pulled += 1;
-        controller.enqueue(new Uint8Array([pulled]));
-        if (pulled === 3) controller.close();
-      },
-    });
+    const fixture = createObjectFileSystem();
+    const { store } = fixture;
+    const fileSystem = fixture.fileSystem;
+    await withFileSystem(fileSystem, async () => {
+      let pulled = 0;
+      const source = new ReadableStream<Uint8Array>({
+        pull(controller) {
+          pulled += 1;
+          controller.enqueue(new Uint8Array([pulled]));
+          if (pulled === 3) controller.close();
+        },
+      });
 
-    await fileSystem.writeFile("/stream.bin", source, { parents: true });
-    expect([...store.values.get("stream.bin")!.bytes]).toEqual([1, 2, 3]);
+      await fileSystem.writeFile("/stream.bin", source, { parents: true });
+      expect([...store.values.get("stream.bin")!.bytes]).toEqual([1, 2, 3]);
+    });
   });
 });

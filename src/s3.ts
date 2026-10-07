@@ -1,4 +1,4 @@
-import { pooledMap } from "@std/async/pool";
+import { map } from "./pool.ts";
 import { encodeHex } from "@std/encoding/hex";
 import { z } from "zod";
 
@@ -423,9 +423,13 @@ async function getCredentials(source: S3CredentialSourceType): Promise<S3Credent
 }
 
 /** Yields one-based part numbers beside fixed-size chunks from a streamed object body. */
-async function* getChunks(source: ReadableStream<Uint8Array>, size: number): AsyncGenerator<S3ChunkType> {
+async function* getChunks(
+  source: ReadableStream<Uint8Array>,
+  size: number,
+  signal?: AbortSignal,
+): AsyncGenerator<S3ChunkType> {
   let number = 0;
-  for await (const bytes of split(source, size)) {
+  for await (const bytes of split(source, size, signal)) {
     number += 1;
     if (number > S3_LIMITS.maxParts) {
       throw new RangeError(
@@ -947,7 +951,8 @@ class S3Client implements S3ClientType {
     if (body instanceof Uint8Array) return await this.#putBytes(key, body, options);
 
     const partSize = this.#getPartSize(options.size);
-    let chunks = getChunks(body, partSize);
+    const sourceChunks = getChunks(body, partSize, options.signal);
+    let chunks = sourceChunks;
 
     // Preserve the already-consumed chunks before replacing the iterator.
     // A single chunk larger than PutObject's hard limit still enters multipart
@@ -955,11 +960,15 @@ class S3Client implements S3ClientType {
     async function* retained(
       _first: IteratorResult<S3ChunkType>,
       _second: IteratorResult<S3ChunkType>,
-      _chunks: AsyncGenerator<S3ChunkType>
+      _chunks: AsyncGenerator<S3ChunkType>,
     ): AsyncGenerator<S3ChunkType> {
-      yield _first.value;
-      if (!_second.done) yield _second.value;
-      for await (const chunk of _chunks) yield chunk;
+      try {
+        yield _first.value;
+        if (!_second.done) yield _second.value;
+        for await (const chunk of _chunks) yield chunk;
+      } finally {
+        await _chunks.return(undefined);
+      }
     }
 
     if (this.optimizations.delayedMultipart) {
@@ -979,16 +988,26 @@ class S3Client implements S3ClientType {
       chunks = retained(first, second, chunks);
     }
 
-    const upload = await this.createUpload(key, options);
+    let upload: S3UploadType;
+    try {
+      upload = await this.createUpload(key, options);
+    } catch (error) {
+      // Delayed multipart can already hold a source reader and two parts.
+      // Failed initiation never transfers that reader to the request pool.
+      await sourceChunks.return(undefined).catch(() => undefined);
+      throw error;
+    }
     let size = 0;
     const parts: S3PartType[] = [];
 
     try {
-      const uploaded = pooledMap(
+      const uploaded = map(
         this.#concurrency,
         chunks,
         (chunk) => this.#uploadChunk(upload, chunk, options.signal),
       );
+      // The pool retains producer/caller failures after admitted uploads drain.
+      // Independent provider failures stay in the terminal aggregate.
       for await (const result of uploaded) {
         parts.push(result.part);
         size += result.size;
@@ -1015,6 +1034,8 @@ class S3Client implements S3ClientType {
       // own bounded signal so a failed provider cannot delay shutdown forever.
       await this.abortUpload(upload, AbortSignal.timeout(this.#abortTimeoutMs)).catch(() => undefined);
       throw error;
+    } finally {
+      await sourceChunks.return(undefined).catch(() => undefined);
     }
   }
 
@@ -1095,7 +1116,7 @@ class S3Client implements S3ClientType {
     });
 
     try {
-      const copied = pooledMap(
+      const copied = map(
         this.#concurrency,
         getCopyRanges(sourceStat.size, copyPartSize),
         (range) => this.#copyPart(source, upload, range, options),

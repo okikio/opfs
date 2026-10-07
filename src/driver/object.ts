@@ -18,16 +18,17 @@ import {
  * provider-side copy, or retain metadata without ever pretending it can update a
  * file in place like a host filesystem.
  */
-export const ObjectDriverCapabilitiesSchema: z.ZodType<ObjectDriverCapabilitiesType, ObjectDriverCapabilitiesType> = z.object({
-  rangeRead: z.boolean(),
-  streamRead: z.boolean(),
-  streamWrite: z.boolean(),
-  copy: z.boolean(),
-  conditionalWrite: z.boolean(),
-  multipart: z.boolean(),
-  metadata: z.boolean(),
-  versions: z.boolean(),
-}).strict();
+export const ObjectDriverCapabilitiesSchema: z.ZodType<ObjectDriverCapabilitiesType, ObjectDriverCapabilitiesType> = z
+  .object({
+    rangeRead: z.boolean(),
+    streamRead: z.boolean(),
+    streamWrite: z.boolean(),
+    copy: z.boolean(),
+    conditionalWrite: z.boolean(),
+    multipart: z.boolean(),
+    metadata: z.boolean(),
+    versions: z.boolean(),
+  }).strict();
 
 /** A validated native object-driver capability description. */
 export type ObjectDriverCapabilitiesType = import("../_schema_types.ts").ObjectDriverCapabilitiesType;

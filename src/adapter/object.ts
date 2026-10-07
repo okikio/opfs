@@ -13,10 +13,7 @@ import type {
   FileDriverWriteOptionsType,
 } from "../driver/file.ts";
 
-import type {
-  ObjectDriverType,
-  ObjectStatType,
-} from "../driver/object.ts";
+import type { ObjectDriverType, ObjectStatType } from "../driver/object.ts";
 
 /** Filesystem mapping options for an object store. */
 export interface ObjectAdapterOptionsType {
@@ -181,17 +178,29 @@ class ObjectAdapter implements AdapterType {
   /** Reads one materialized object or byte range. */
   async readFile(path: PathType, options: FileDriverReadOptionsType = {}): Promise<Uint8Array> {
     throwIfAborted(options.signal, "read", path);
-    if (await this.#getFile(path, options.signal) === null) {
+    const file = await this.#getFile(path, options.signal);
+    if (file === null) {
       throw new FileSystemError("not-found", "read", path, `File '${path}' does not exist.`);
     }
+    // Filesystem ranges use slice semantics. HTTP services reject a range on
+    // an empty object or beyond EOF, and cannot encode a zero-byte range.
+    if (options.length === 0 || (options.at ?? 0) >= file.size) return new Uint8Array();
     return await readStreamBytes(await this.driver.get(fileKey(this.#prefix, path), options));
   }
 
   /** Opens the provider's native response stream without eager materialization. */
   async openReadStream(path: PathType, options: FileDriverReadOptionsType = {}): Promise<ReadableStream<Uint8Array>> {
     throwIfAborted(options.signal, "read", path);
-    if (await this.#getFile(path, options.signal) === null) {
+    const file = await this.#getFile(path, options.signal);
+    if (file === null) {
       throw new FileSystemError("not-found", "read", path, `File '${path}' does not exist.`);
+    }
+    if (options.length === 0 || (options.at ?? 0) >= file.size) {
+      return new ReadableStream({
+        start(controller) {
+          controller.close();
+        },
+      });
     }
     return await this.driver.get(fileKey(this.#prefix, path), options);
   }

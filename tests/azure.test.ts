@@ -5,6 +5,7 @@ import { AZURE_LIMITS, AzureError, createAzureClient } from "../src/azure.ts";
 import { createAzureDriver, createAzureDriverFromClient } from "../src/driver/azure.ts";
 import { RequestCapture } from "./http.ts";
 import { streamBytes } from "./stream.ts";
+import { within } from "./gate.ts";
 
 /** Creates one Azure-style XML response without coupling tests to an HTTP server. */
 function xml(value: string, init: ResponseInit = {}): Response {
@@ -28,6 +29,67 @@ class BearerTokenSource {
 }
 
 describe("Azure Blob client", () => {
+  for (const failure of ["producer", "caller"] as const) {
+    it(`preserves the ${failure} reason after admitted Azure chunks drain`, async () => {
+      const reason = new Error(`${failure} terminal reason`);
+      const controller = new AbortController();
+      const entered = Promise.withResolvers<void>();
+      const release = Promise.withResolvers<void>();
+      let requests = 0;
+      let completed = 0;
+      let aborted = 0;
+      let cancelled = 0;
+      let pulls = 0;
+      const source = new ReadableStream<Uint8Array>({
+        pull(stream) {
+          if (pulls++ === 0) stream.enqueue(new Uint8Array(4));
+          else if (failure === "producer") stream.error(reason);
+        },
+        cancel() {
+          cancelled += 1;
+        },
+      }, { highWaterMark: 0 });
+      const client = createAzureClient({
+        endpoint: "https://account.blob.core.windows.net",
+        container: "data",
+        credential: { kind: "sas", token: "?sig=test" },
+        blockSize: 4,
+        concurrency: 2,
+        request: { retries: 0 },
+        fetch: async (input, init) => {
+          const request = new Request(input, init);
+          const url = new URL(request.url);
+
+          if (url.searchParams.get("comp") === "block") {
+            requests += 1;
+            entered.resolve();
+            if (failure === "caller") controller.abort(reason);
+            await release.promise;
+            return new Response(null, { status: 200, headers: { etag: '"part"' } });
+          }
+          if (url.searchParams.get("comp") === "blocklist") completed += 1;
+          if (request.method === "DELETE") aborted += 1;
+          return new Response(null, { status: 204 });
+        },
+      });
+      const pending = client.put("failure.bin", source, { signal: controller.signal });
+      void pending.catch(() => {});
+      try {
+        await within(entered.promise, "provider chunk admission");
+        release.resolve();
+        await expect(within(pending, "provider source failure")).rejects.toBe(reason);
+        expect(requests).toBe(1);
+        expect(completed).toBe(0);
+        expect(source.locked).toBe(false);
+        if (failure === "caller") expect(cancelled).toBe(1);
+        expect(aborted).toBe(0);
+      } finally {
+        controller.abort(reason);
+        release.resolve();
+        await within(Promise.allSettled([pending]), "provider fixture drain");
+      }
+    });
+  }
   it("reports direct clients as owned and injected clients as borrowed", () => {
     const options = {
       endpoint: "https://account.blob.core.windows.net",
@@ -53,11 +115,13 @@ describe("Azure Blob client", () => {
       },
     });
 
-    for (const metadata of [
-      { "bad-key": "value" },
-      { valid_key: "caf\u00e9" },
-      { Duplicate: "first", duplicate: "second" },
-    ]) {
+    for (
+      const metadata of [
+        { "bad-key": "value" },
+        { valid_key: "caf\u00e9" },
+        { Duplicate: "first", duplicate: "second" },
+      ]
+    ) {
       try {
         await client.put("metadata.bin", new Uint8Array([1]), { metadata });
         throw new Error("expected Azure metadata validation failure");
@@ -90,6 +154,7 @@ describe("Azure Blob client", () => {
     const copy = requests.find((request) => request.method === "PUT");
     expect(copy?.headers.get("x-ms-copy-source")).toContain("/data/source.txt?");
     expect(copy?.headers.get("x-ms-copy-source")).toContain("sig=secret");
+    expect(new URL(copy!.headers.get("x-ms-copy-source")!).searchParams.get("api-version")).toBe("2026-04-06");
     expect(copy?.headers.get("x-ms-requires-sync")).toBe("true");
   });
 
@@ -138,24 +203,38 @@ describe("Azure Blob client", () => {
 
     await client.copy!("source.bin", "copy.bin", { sourceIfMatch: '"source-etag"' });
 
-    const blocks = requests.filter((request) => new URL(request.url).searchParams.get("comp") === "block");
+    const blocks = requests.filter((request) => new URL(request.url).searchParams.get("comp") === "block").sort(
+      (left, right) =>
+        Number(left.headers.get("x-ms-source-range")?.match(/^bytes=(\d+)/)?.[1]) -
+        Number(right.headers.get("x-ms-source-range")?.match(/^bytes=(\d+)/)?.[1]),
+    );
     expect(blocks).toHaveLength(3);
-    expect(blocks[0]?.headers.get("x-ms-source-range")).toBe(`bytes=0-${100 * 1024 * 1024 - 1}`);
-    expect(blocks[0]?.headers.get("x-ms-copy-source-authorization")).toBe("Bearer token");
-    expect(blocks[0]?.headers.get("x-ms-source-if-match")).toBe('"source-etag"');
+    const blockBytes = 100 * 1024 * 1024;
+    for (const [index, block] of blocks.entries()) {
+      expect(block.headers.get("x-ms-source-range")).toBe(
+        `bytes=${index * blockBytes}-${Math.min(size, (index + 1) * blockBytes) - 1}`,
+      );
+      expect(block.headers.get("x-ms-copy-source-authorization")).toBe("Bearer token");
+      expect(block.headers.get("x-ms-source-if-match")).toBe('"source-etag"');
+    }
     expect(requests.some((request) => new URL(request.url).searchParams.get("comp") === "blocklist")).toBe(true);
   });
 
-  it("rejects direct server-side copy when the selected service version predates the API", async () => {
+  it("rejects direct server-side copy before provider I/O when the service version predates the API", async () => {
+    let fetches = 0;
     const client = createAzureClient({
       endpoint: "https://account.blob.core.windows.net",
       container: "data",
       credential: { kind: "sas", token: "?sig=secret" },
       version: "2017-11-09",
-      fetch: async () => new Response(null, { status: 500 }),
+      fetch: async () => {
+        fetches += 1;
+        return new Response(null, { status: 500 });
+      },
     });
 
-    await expect(client.copy!("source.bin", "copy.bin")).rejects.toBeInstanceOf(AzureError);
+    await expect(client.copy!("source.bin", "copy.bin")).rejects.toMatchObject({ name: "AzureError", status: 400 });
+    expect(fetches).toBe(0);
   });
 
   it("parses Azure list responses with prefixes and continuation markers", async () => {
@@ -364,8 +443,16 @@ describe("Azure Blob client", () => {
 
     const blocks = requests.filter((request) => new URL(request.url).searchParams.get("comp") === "block");
     const commit = requests.find((request) => new URL(request.url).searchParams.get("comp") === "blocklist");
+    expect(blocks).toHaveLength(2);
     expect(blocks.every((request) => !request.headers.has("if-none-match"))).toBe(true);
+    const payloads = await Promise.all(
+      blocks.map(async (request) => Array.from(new Uint8Array(await request.arrayBuffer()))),
+    );
+    expect(payloads.sort((left, right) => left[0]! - right[0]!)).toEqual([[1, 2, 3, 4], [5, 6]]);
     expect(commit?.headers.get("if-none-match")).toBe("*");
+    const committed = await commit!.text();
+    const blockIds = blocks.map((request) => new URL(request.url).searchParams.get("blockid")!);
+    expect([...committed.matchAll(/<Latest>(.*?)<\/Latest>/g)].map((match) => match[1])).toEqual(blockIds.sort());
   });
 
   it("rejects source bearer copy authorization before service version 2020-10-02", async () => {
@@ -492,6 +579,38 @@ describe("Azure Blob client", () => {
     expect(capture.latest?.headers.has("authorization")).toBe(false);
     expect(new URL(capture.latest!.url).searchParams.get("sig")).toBe("secret");
   });
+
+  for (const version of [undefined, "2018-03-28"] as const) {
+    it(`uses the ${version ?? "default"} client operation version independently from SAS signing fields`, async () => {
+      const capture = new RequestCapture();
+      const client = createAzureClient({
+        endpoint: "https://account.blob.core.windows.net",
+        container: "data",
+        ...(version === undefined ? {} : { version }),
+        credential: {
+          kind: "sas",
+          token: "?sv=2015-04-05&sig=a%2Bb%2Fc%3D&sp=r&api-version=2016-05-31&api-version=2017-07-29",
+        },
+        fetch: capture.fetch.bind(capture),
+      });
+
+      await client.request({
+        method: "HEAD",
+        key: "state.bin",
+        query: { "api-version": "2020-10-02" },
+        headers: { "x-ms-version": "2020-10-02" },
+      });
+
+      const request = capture.latest!;
+      const query = new URL(request.url).searchParams;
+      expect(query.getAll("api-version")).toEqual([version ?? "2026-04-06"]);
+      expect(request.headers.get("x-ms-version")).toBe(version ?? "2026-04-06");
+      expect(query.get("sv")).toBe("2015-04-05");
+      expect(query.get("sig")).toBe("a+b/c=");
+      expect(query.get("sp")).toBe("r");
+      expect(request.headers.has("authorization")).toBe(false);
+    });
+  }
 
   it("resolves a bearer token immediately before every request", async () => {
     const token = new BearerTokenSource();

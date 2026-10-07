@@ -1,4 +1,5 @@
-import { MetricsModeSchema, type MetricsModeType, type SupportModeType } from "./schema.ts";
+import type { MetricsModeType, SupportModeType } from "./_schema_types.ts";
+import { MetricsModeSchema } from "./schema.ts";
 
 /** Storage operations tracked by the low-cost metrics book. */
 export type MetricOperationType =

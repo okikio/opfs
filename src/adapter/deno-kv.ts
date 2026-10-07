@@ -16,11 +16,14 @@ import {
   type DenoKvAtomicType,
   type DenoKvCheckType,
   type DenoKvCollectOptionsType,
-  type DenoKvCommitType,
   type DenoKvCollectResultType,
+  type DenoKvCommitType,
   type DenoKvDriverOptionsType,
   type DenoKvDriverType,
   type DenoKvEntryType,
+  type DenoKvKeyType,
+  type DenoKvListOptionsType,
+  type DenoKvListSelectorType,
   type DenoKvType,
 } from "../driver/deno-kv.ts";
 import { PartitionModeSchema } from "../schema.ts";
@@ -52,6 +55,9 @@ export type {
   DenoKvCommitType,
   DenoKvDriverType,
   DenoKvEntryType,
+  DenoKvKeyType,
+  DenoKvListOptionsType,
+  DenoKvListSelectorType,
   DenoKvType,
 };
 

@@ -1,4 +1,4 @@
-import { pooledMap } from "@std/async/pool";
+import { map } from "./pool.ts";
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
 import { z } from "zod";
 
@@ -27,8 +27,10 @@ import { createXmlElement, createXmlText, getXmlElements, getXmlValue, parseXmlR
 /** Current fully deployed Azure Storage REST service version used by default. */
 export const AZURE_STORAGE_VERSION = "2026-04-06";
 
-/** Date-shaped Azure Storage REST service version sent through `x-ms-version`. */
-export const AzureStorageVersionSchema: z.ZodType<AzureStorageVersionType, AzureStorageVersionType> = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+/** Date-shaped Azure Storage REST service version sent through `x-ms-version` and SAS `api-version`. */
+export const AzureStorageVersionSchema: z.ZodType<AzureStorageVersionType, AzureStorageVersionType> = z.string().regex(
+  /^\d{4}-\d{2}-\d{2}$/,
+);
 
 /** Validated Azure Storage REST service version. */
 export type AzureStorageVersionType = import("./_schema_types.ts").AzureStorageVersionType;
@@ -520,9 +522,13 @@ interface AzureCopyBlockType {
 }
 
 /** Assigns stable IDs to streamed blocks and rejects the Azure block-count limit. */
-async function* getBlocks(source: ReadableStream<Uint8Array>, size: number): AsyncIterableIterator<AzureBlockType> {
+async function* getBlocks(
+  source: ReadableStream<Uint8Array>,
+  size: number,
+  signal?: AbortSignal,
+): AsyncIterableIterator<AzureBlockType> {
   let number = 0;
-  for await (const bytes of split(source, size)) {
+  for await (const bytes of split(source, size, signal)) {
     number += 1;
     if (number > AZURE_LIMITS.maxCommittedBlocks) {
       throw new RangeError(`Azure block upload exceeds the ${AZURE_LIMITS.maxCommittedBlocks}-block service limit.`);
@@ -647,7 +653,7 @@ class AzureClient implements AzureClientType {
     };
   }
 
-  /** Builds the container/blob URL and applies configured SAS query fields. */
+  /** Preserves SAS signing fields and selects this client's operation version independently from `sv`. */
   #getAddress(key?: string): URL {
     const url = new URL(this.#endpoint);
     const root = this.#endpoint.pathname.replace(/\/$/, "");
@@ -657,6 +663,7 @@ class AzureClient implements AzureClientType {
     if (this.#credential.kind === "sas") {
       const params = new URLSearchParams(this.#credential.token.replace(/^\?/, ""));
       for (const [name, value] of params) url.searchParams.append(name, value);
+      url.searchParams.set("api-version", this.#version);
     }
     return url;
   }
@@ -712,6 +719,9 @@ class AzureClient implements AzureClientType {
       for (const [name, value] of Object.entries(options.query ?? {})) {
         if (value !== undefined) url.searchParams.set(name, value);
       }
+      // A SAS sv governs signature verification; api-version governs operation semantics.
+      // Keep the version used for limits authoritative even when a low-level query supplies one.
+      if (this.#credential.kind === "sas") url.searchParams.set("api-version", this.#version);
 
       const headers = new Headers(this.#headers);
       new Headers(options.headers).forEach((value, name) => headers.set(name, value));
@@ -856,16 +866,20 @@ class AzureClient implements AzureClientType {
     return (await this.head(key, options)) ?? { size };
   }
 
-  /** Uploads a stream as uncommitted blocks and publishes it only after all blocks succeed. */
+  /**
+   * Uploads uncommitted blocks and publishes only after every block succeeds.
+   * Producer/caller failures survive after admitted requests drain; independent
+   * provider failures remain secondary evidence in the terminal aggregate.
+   */
   async #putBlocks(
     key: string,
     body: ReadableStream<Uint8Array>,
     options: ObjectPutOptionsType,
   ): Promise<ObjectStatType> {
     const blockSize = this.#getBlockSize(options.size);
-    const blocks = pooledMap(
+    const blocks = map(
       this.#concurrency,
-      getBlocks(body, blockSize),
+      getBlocks(body, blockSize, options.signal),
       (block) => this.#putBlock(key, block, options.signal),
     );
     const ids: string[] = [];
@@ -1129,7 +1143,7 @@ class AzureClient implements AzureClientType {
       );
     }
 
-    const copied = pooledMap(
+    const copied = map(
       this.#concurrency,
       getCopyBlocks(sourceStat.size, copyBlockSize),
       (block) => this.#copyBlock(source, destination, block, options),

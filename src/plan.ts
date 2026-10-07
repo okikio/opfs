@@ -17,7 +17,7 @@ import {
   type ProblemType,
 } from "./driver/definition.ts";
 import { normalizePath } from "./path.ts";
-import type { OptimizationType, SupportModeType } from "./schema.ts";
+import type { OptimizationType, SupportModeType } from "./_schema_types.ts";
 import { SupportModeSchema, WriteModeSchema } from "./schema.ts";
 
 /** Validated read preflight input after defaults are applied. */
@@ -76,7 +76,12 @@ export type WriteSourceType = "bytes" | "stream";
  * Planning intentionally covers the routes where size, buffering, partitioning,
  * or fallback behavior most often changes the caller's decision.
  */
-export const PlanOperationSchema: z.ZodType<PlanOperationType, PlanOperationType> = z.enum(["read", "write", "copy", "move"]);
+export const PlanOperationSchema: z.ZodType<PlanOperationType, PlanOperationType> = z.enum([
+  "read",
+  "write",
+  "copy",
+  "move",
+]);
 /** Validated preflight operation name. */
 export type PlanOperationType = "read" | "write" | "copy" | "move";
 

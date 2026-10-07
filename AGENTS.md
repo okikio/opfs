@@ -40,8 +40,12 @@ Read `README.md` and `docs/design.md` before changing architecture or public API
   cleanup, and whether the layout changes observable behavior.
 - Use `node:test` with `describe` and `it`; use `@std/expect` for expectations. Playwright owns real browser environment
   tests.
-- Use mise as the repository command authority. GitHub Actions owns triggers, permissions, matrices, outputs, and
-  secrets, then calls `mise run ...`.
+- Use `deno task` as the repository command authority. Mise may provision runtimes and delegate to Deno tasks. GitHub
+  Actions owns triggers, permissions, matrices, outputs, and secrets, then calls the same Deno tasks.
+- Run Deno runtime tests with `--no-check`; the `test:*` tasks already supply it. Type checking is a separate gate.
+- Do not run `deno check`, aggregate quality/release gates, or compiler-cost benchmarks on a workstation where checking
+  has caused memory spikes. Run those gates serially in CI or an isolated runner with a memory budget. Do not run type
+  checking beside local tests or benchmarks, and do not count runtime-only passes as type validation.
 - Testcontainers owns disposable provider fixtures. Do not restore fixed host ports, hand-written readiness polling, or
   Compose lifecycle scripts for S3/Azure tests.
 - Benchmarks compare the native/provider baseline, project client when present, driver, adapter, facade with metrics
@@ -53,3 +57,16 @@ Read `README.md` and `docs/design.md` before changing architecture or public API
   rule.
 - Comments explain why a rule exists or what must remain true. Do not restate obvious syntax.
 - Keep agent-only validation under `.agents/`. It must never become a production import or published artifact.
+
+## Release notes
+
+Use Bumpy bump files in `.bumpy/` to record release intent. Each entry teaches the consumer what changed, why it
+matters, the affected scenario, and any migration. Show complete runnable examples for new or changed APIs. Use
+before/after output, tables, or diagrams when they explain semantics, resource ownership, or a workflow. Follow the
+explanatory quality of esbuild changelogs; do not reduce release notes to commit subjects. Group by consumer behavior.
+State supported standards and limitations precisely, and attach workload, runtime, units, and evidence to any
+performance claim. Verify examples against the exact release artifacts.
+
+Deno owns package tasks and the source implementation. Bumpy owns release intent, version propagation, and changelog
+rendering. Synchronize `package.json` and `deno.json` versions through `deno task release:version`; reject mismatched
+metadata before packing or publishing. Keep local release receipts under ignored `.tmp/`.

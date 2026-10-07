@@ -2,5 +2,5 @@
 #MISE description="Run S3 and Azure Blob integration tests through Testcontainers."
 set -euo pipefail
 
-deno ci
-deno task test:providers
+deno task deps:ci
+deno task test:providers "$@"

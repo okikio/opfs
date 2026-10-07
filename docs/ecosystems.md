@@ -196,7 +196,12 @@ lastModified
 mediaType
 ```
 
-`path` must be unique or a primary key. `size` and `lastModified` must round-trip JavaScript safe integers.
+`path` must be unique or a primary key. `size` and `lastModified` must round-trip JavaScript safe integers. The exported
+`DrizzleColumnType<Value>` retains each schema builder's inferred data type through its compile-time `_.data` field and
+SQL-expression method. String columns remain required for paths and metadata; numeric columns remain required for sizes
+and timestamps. Construction checks that all eight fields are actual Drizzle columns before querying the database.
+Importing the adapter's declarations does not pull unrelated SQL dialect types into the consumer's type checker. The
+caller still owns the real Drizzle table, database, and schema builder.
 
 The generic driver uses Drizzle's common CRUD surface. Replacement is delete then insert, so the driver reports
 best-effort replacement. This route is serialized inside one cooperating `FileSystemType`, but it is not an atomic

@@ -11,7 +11,7 @@ import type {
 } from "./file.ts";
 import { FileSystemError, throwIfAborted, toFileSystemError } from "../error.ts";
 import { basename, dirname, type PathType, ROOT_PATH, splitPath } from "../path.ts";
-import { toByteStream } from "../stream.ts";
+import { toByteStream, withAbortSignal } from "../stream.ts";
 
 /**
  * Staged writable operations used by the OPFS driver.
@@ -112,6 +112,7 @@ export interface OpfsDirectoryHandleType {
  */
 export interface OpfsDriverType<RootType extends OpfsDirectoryHandleType = OpfsDirectoryHandleType>
   extends FileDriverType {
+  /** Native directory handle supplied when this driver was created. */
   readonly nativeRoot: RootType;
 }
 
@@ -191,6 +192,7 @@ async function writeToNative(
   options: FileDriverWriteOptionsType,
   path: string,
 ): Promise<void> {
+  throwIfAborted(options.signal, "write", path);
   const writable = await handle.createWritable({ keepExistingData: options.mode !== "replace" });
   let cursor = 0;
   try {
@@ -202,11 +204,12 @@ async function writeToNative(
       await writable.seek(cursor);
     }
 
-    const reader = source.getReader();
+    const reader = withAbortSignal(source, options.signal, path, "write").getReader();
     try {
       while (true) {
         throwIfAborted(options.signal, "write", path);
         const next = await reader.read();
+        throwIfAborted(options.signal, "write", path);
         if (next.done) break;
         await writable.write(toOpfsWriteBytes(next.value));
         cursor += next.value.byteLength;
@@ -223,6 +226,9 @@ async function writeToNative(
     }
 
     if (options.truncate) await writable.truncate(cursor);
+    // EOF and truncate both await caller-controlled work. Cancellation that
+    // arrives there must discard staging before the browser publishes it.
+    throwIfAborted(options.signal, "write", path);
     await writable.close();
   } catch (error) {
     try {
@@ -345,6 +351,7 @@ class OpfsBackend<RootType extends OpfsDirectoryHandleType> implements FileBacke
 
   /** Writes one materialized buffer through OPFS commit-on-close staging. */
   async writeFile(path: PathType, data: Uint8Array, options: FileDriverWriteOptionsType): Promise<void> {
+    throwIfAborted(options.signal, "write", path);
     await writeToNative(await getFile(this.#root, path, true), toByteStream(data), options, path);
   }
 
@@ -354,6 +361,7 @@ class OpfsBackend<RootType extends OpfsDirectoryHandleType> implements FileBacke
     source: ReadableStream<Uint8Array>,
     options: FileDriverWriteOptionsType,
   ): Promise<void> {
+    throwIfAborted(options.signal, "write", path);
     await writeToNative(await getFile(this.#root, path, true), source, options, path);
   }
 
