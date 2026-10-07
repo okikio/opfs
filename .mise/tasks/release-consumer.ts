@@ -185,6 +185,9 @@ for (
           Deno.execPath(),
           [
             "check",
+            // These exact release identities were reviewed before this immediate
+            // post-publication check; preserve the default policy outside this child.
+            "--minimum-dependency-age=0",
             "--config",
             "type-config.json",
             "--lock=deno.lock",
@@ -205,6 +208,7 @@ for (
       const args = runtime === "deno"
         ? [
           "run",
+          ...(registry === "jsr" ? ["--minimum-dependency-age=0"] : []),
           "--no-config",
           "--lock=deno.lock",
           "--node-modules-dir=" + (registry !== "jsr" ? "manual" : "auto"),
