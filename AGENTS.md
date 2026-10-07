@@ -44,6 +44,10 @@ Read `README.md` and `docs/design.md` before changing architecture or public API
   programs in `tools/`. GitHub Actions owns triggers, permissions, matrices, outputs, and secrets, then calls the same
   mise tasks. Tests and benchmarks are discovered from file names; do not list files in manifests or workflows. See
   `docs/tooling.md`.
+- Run Deno runtime tests with `--no-check`; `mise run test:deno` already supplies it. Type checking is a separate gate.
+- Do not run `deno check`, aggregate quality/release gates, or compiler-cost benchmarks on a workstation where checking
+  has caused memory spikes. Run those gates serially in CI or an isolated runner with a memory budget. Do not run type
+  checking beside local tests or benchmarks, and do not count runtime-only passes as type validation.
 - Testcontainers owns disposable provider fixtures. Do not restore fixed host ports, hand-written readiness polling, or
   Compose lifecycle scripts for S3/Azure tests.
 - Benchmarks compare the native/provider baseline, project client when present, driver, adapter, facade with metrics
