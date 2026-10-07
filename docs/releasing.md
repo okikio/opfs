@@ -131,8 +131,8 @@ read/write, parse/query, or persistence behavior. For npm, compare the downloade
 JSR, verify the published source/dependency graph and package version. Run the changelog examples from the installed
 packages. Record actual registry and consumer results before calling a release complete.
 
-Immediate native JSR consumer checks set `--minimum-dependency-age=0` only in their owned child processes and select
-the exact reviewed package versions. Deno's dependency-age policy can otherwise reject a just-published release before
+Immediate native JSR consumer checks set `--minimum-dependency-age=0` only in their owned child processes and select the
+exact reviewed package versions. Deno's dependency-age policy can otherwise reject a just-published release before
 checking its code. This release check does not change an application's dependency-age policy.
 
 The upload workflow checks the actual checkout revision before npm publication and supplies that revision to npm's
