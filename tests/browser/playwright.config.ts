@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
 import { env } from "node:process";
 
@@ -18,7 +19,11 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: ci,
   retries: ci ? 2 : 0,
-  reporter: ci ? [["github"], ["json", { outputFile: ".tmp/reports/browser/results.json" }]] : "line",
+  reporter: ci
+    ? [["github"], ["json", {
+      outputFile: fileURLToPath(new URL("../../.tmp/reports/browser/results.json", import.meta.url)),
+    }]]
+    : "line",
   use: {
     baseURL: first,
     trace: "retain-on-failure",

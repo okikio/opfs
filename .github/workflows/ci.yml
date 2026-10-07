@@ -130,6 +130,7 @@ jobs:
         if: always()
         with:
           name: browser-evidence
+          if-no-files-found: error
           path: .tmp/reports/browser
           include-hidden-files: true
 
@@ -207,6 +208,7 @@ jobs:
         if: always()
         with:
           name: browser-benchmark-evidence
+          if-no-files-found: error
           path: .tmp/reports/browser-bench
           include-hidden-files: true
 
