@@ -31,21 +31,31 @@ export interface AbortResultType {
   readonly name?: string;
   /** Stable package error code observed by the caller. */
   readonly code?: string;
+  /** Committed bytes read after an already-cancelled replacement. */
+  readonly preserved?: string;
+  /** Whether an already-cancelled creation published a new path. */
+  readonly published?: boolean;
 }
 
 /** Timing result shared by browser fixture benchmarks and their Playwright callers. */
 export interface BenchmarkResultType {
   /** Elapsed milliseconds for direct platform storage operations. */
   readonly rawMs: number;
+  /** Elapsed milliseconds for the direct file or record driver path. */
+  readonly driverMs: number;
   /** Elapsed milliseconds for the direct `AdapterType` path. */
   readonly adapterMs: number;
   /** Elapsed milliseconds for the complete `FileSystemType` path. */
   readonly facadeMs: number;
+  /** Elapsed milliseconds for the facade with basic metrics enabled. */
+  readonly measuredMs: number;
   /** Normalized milliseconds per requested batch, preserving repeated samples for each layer. */
   readonly samples: {
     readonly rawMs: readonly number[];
+    readonly driverMs: readonly number[];
     readonly adapterMs: readonly number[];
     readonly facadeMs: readonly number[];
+    readonly measuredMs: readonly number[];
   };
 }
 

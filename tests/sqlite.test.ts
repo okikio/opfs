@@ -13,14 +13,11 @@ import { createSqliteAdapter, type SqliteStatementType } from "../src/adapter/sq
 class MemorySqlite {
   /** Logical SQLite rows keyed by the adapter record identity. */
   readonly rows = new Map<string, Record<string, unknown>>();
-  /** Prepared SQL retained so tests can verify schema/upsert decisions. */
-  readonly sql: string[] = [];
   /** Records whether adapter-owned disposal closed the database. */
   closed = false;
 
   /** Implements the small prepared-statement surface consumed by `createSqliteAdapter()`. */
   prepare(sql: string): SqliteStatementType {
-    this.sql.push(sql);
     if (sql.startsWith("CREATE TABLE")) return { all: () => [], get: () => undefined, run: () => undefined };
     if (sql.startsWith("SELECT") && sql.includes("WHERE id")) {
       return { all: () => [], get: (id) => this.rows.get(String(id)), run: () => undefined };
@@ -90,8 +87,8 @@ describe("direct SQLite adapter", () => {
     await withFileSystem(fileSystem, async () => {
       await fileSystem.writeFile("/db/value.txt", "value", { parents: true });
       expect(await fileSystem.readText("/db/value.txt")).toBe("value");
-      expect(database.sql.some((sql) => sql.startsWith("CREATE TABLE"))).toBe(true);
-      expect(database.sql.some((sql) => sql.includes("ON CONFLICT"))).toBe(true);
+      await fileSystem.writeFile("/db/value.txt", "replacement");
+      expect(await fileSystem.readText("/db/value.txt")).toBe("replacement");
 
       await fileSystem.close();
       expect(database.closed).toBe(true);

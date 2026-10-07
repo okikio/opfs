@@ -212,7 +212,6 @@ describe("object driver adapter", () => {
       expect(new TextDecoder().decode(await fileSystem.readFile("/range.txt", { at: 3, length: 4 }))).toBe("3456");
       expect(store.ranges).toHaveLength(1);
       expect(store.ranges[0]).toMatchObject({ at: 3, length: 4 });
-      await fileSystem.close();
     });
   });
 
@@ -252,7 +251,6 @@ describe("object driver adapter", () => {
       const stat = await fileSystem.stat("/copy.bin");
       expect(stat.kind).toBe("file");
       if (stat.kind === "file") expect(stat.mediaType).toBe("application/x-test");
-      await fileSystem.close();
     });
   });
 
@@ -269,7 +267,6 @@ describe("object driver adapter", () => {
       const plan = fileSystem.plan({ operation: "copy", size: 3 });
       expect(plan.supported).toBe(false);
       await expect(fileSystem.copy("/source.bin", "/copy.bin")).rejects.toMatchObject({ code: "too-large" });
-      await fileSystem.close();
     });
   });
 
@@ -288,7 +285,6 @@ describe("object driver adapter", () => {
       expect(plan.supported).toBe(false);
       await expect(fileSystem.copy("/source.bin", "/copy.bin")).rejects.toMatchObject({ code: "too-large" });
       expect(store.gets).toBe(0);
-      await fileSystem.close();
     });
   });
 

@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 import { finish } from "../bench/result.ts";
 import { validateLifecycle, validateMitata } from "../bench/validate.ts";
+import { close, withReleases } from "./close.ts";
 
 /** Artificial nanoseconds exercise the native format contract without running a benchmark. */
 function native() {
@@ -44,6 +45,56 @@ function lifecycle() {
 }
 
 describe("benchmark evidence contracts", () => {
+  it("releases acquired fixture resources when later setup rejects with undefined", async () => {
+    const events: string[] = [];
+    const cleanup = new Error("database close failed");
+    const failure = await withReleases(async (releases) => {
+      releases.push(() => {
+        events.push("directory");
+      });
+      releases.push(() => {
+        events.push("database");
+        throw cleanup;
+      });
+      throw undefined;
+    }).then(() => undefined, (error: unknown) => error);
+    expect(events).toEqual(["database", "directory"]);
+    expect(failure).toBeInstanceOf(AggregateError);
+    expect((failure as AggregateError).errors).toEqual([undefined, cleanup]);
+  });
+  it("awaits every browser fixture release after a drain failure and retains its primary", async () => {
+    const drain = new Error("drain failed");
+    const connection = new Error("connection close failed");
+    const events: string[] = [];
+    const failure = await close([
+      () => {
+        events.push("drain");
+        throw drain;
+      },
+      async () => {
+        await Promise.resolve();
+        events.push("close");
+        throw connection;
+      },
+      () => {
+        events.push("delete");
+      },
+    ], [undefined]).then(() => undefined, (error: unknown) => error);
+    expect(events).toEqual(["drain", "close", "delete"]);
+    expect(failure).toBeInstanceOf(AggregateError);
+    expect((failure as AggregateError).errors).toEqual([undefined, drain, connection]);
+    expect((failure as AggregateError).cause).toBe(undefined);
+  });
+  it("retains a browser fixture primary by identity and awaits successful releases", async () => {
+    const primary = new Error("body failed");
+    let released = false;
+    const failure = await close([async () => {
+      await Promise.resolve();
+      released = true;
+    }], [primary]).then(() => undefined, (error: unknown) => error);
+    expect(released).toBe(true);
+    expect(failure).toBe(primary);
+  });
   it("accepts the native format with finite complete samples and statistics", () => {
     expect(() => validateMitata(native())).not.toThrow();
     const zero = native();

@@ -6,6 +6,7 @@ import { createMemoryAdapter } from "../../../src/adapter/memory.ts";
 import { createFileSystem } from "../../../src/filesystem.ts";
 import { reliability } from "./reliability.ts";
 import { within } from "../../gate.ts";
+import { close, withReleases } from "../../close.ts";
 import { benchmarkAdapter, benchmarkOpfs } from "../../../bench/browser/fixture.ts";
 
 import type { AbortResultType, BrowserAdapterType, BrowserTestApiType, RealmResultType } from "./api.ts";
@@ -115,6 +116,7 @@ async function abortOpfsWrite(path: string): Promise<AbortResultType> {
   const controller = new AbortController();
   controller.abort(new DOMException("test abort", "AbortError"));
   try {
+    await fileSystem.writeFile(path, "original", { parents: true });
     try {
       await fileSystem.writeFile(path, "never", { parents: true, signal: controller.signal });
       return { supported: true, name: "committed" };
@@ -122,14 +124,28 @@ async function abortOpfsWrite(path: string): Promise<AbortResultType> {
       const code = typeof error === "object" && error !== null && typeof Reflect.get(error, "code") === "string"
         ? Reflect.get(error, "code") as string
         : undefined;
+      // Exercise creation separately: a rejected replacement alone would not
+      // detect a file created before the initial signal check.
+      try {
+        await fileSystem.writeFile(`${path}.new`, "never", { signal: controller.signal });
+      } catch (creation) {
+        if (Reflect.get(Object(creation), "code") !== "aborted") throw creation;
+      }
       return {
         supported: true,
         name: error instanceof Error ? error.name : String(error),
         ...(code === undefined ? {} : { code }),
+        preserved: await fileSystem.readText(path),
+        published: await fileSystem.exists(`${path}.new`),
       };
     }
   } finally {
-    await fileSystem.close();
+    try {
+      await fileSystem.remove(path);
+      if (await fileSystem.exists(`${path}.new`)) await fileSystem.remove(`${path}.new`);
+    } finally {
+      await fileSystem.close();
+    }
   }
 }
 
@@ -178,6 +194,8 @@ async function abortQueuedWebLock(): Promise<AbortResultType> {
   });
   const controller = new AbortController();
   let write: Promise<void> | undefined;
+  let failed = false;
+  let primary: unknown;
   try {
     await within(entered.promise, "blocking Web Lock admission");
     write = fileSystem.writeFile(path, "never", { signal: controller.signal });
@@ -191,6 +209,11 @@ async function abortQueuedWebLock(): Promise<AbortResultType> {
     const code = typeof error === "object" && error !== null && typeof Reflect.get(error, "code") === "string"
       ? Reflect.get(error, "code") as string
       : undefined;
+    if (code !== "aborted") {
+      failed = true;
+      primary = error;
+      throw error;
+    }
     return {
       supported: true,
       name: error instanceof Error ? error.name : String(error),
@@ -199,8 +222,10 @@ async function abortQueuedWebLock(): Promise<AbortResultType> {
   } finally {
     controller.abort("test cleanup");
     release.resolve();
-    await within(Promise.allSettled(write === undefined ? [blocker] : [blocker, write]), "Web Lock fixture cleanup");
-    await fileSystem.close();
+    await close([
+      () => within(Promise.allSettled(write === undefined ? [blocker] : [blocker, write]), "Web Lock fixture cleanup"),
+      () => fileSystem.close(),
+    ], failed ? [primary] : []);
   }
 }
 
@@ -229,32 +254,27 @@ async function deleteIndexedDb(name: string): Promise<void> {
  */
 async function indexedDbAppend(): Promise<string> {
   const name = `opfs-indexeddb-append-${crypto.randomUUID()}`;
-  const first = createFileSystem(await openIndexedDbAdapter({ name }), {
-    coordination: "none",
-    disposeAdapter: true,
-  });
-  try {
-    const second = createFileSystem(await openIndexedDbAdapter({ name }), {
-      coordination: "none",
-      disposeAdapter: true,
+  return await withReleases(async (releases) => {
+    releases.push(() => deleteIndexedDb(name));
+    const firstAdapter = await openIndexedDbAdapter({ name });
+    releases.push(async () => {
+      await firstAdapter.dispose?.();
     });
-    try {
-      await first.writeFile("/shared.txt", "base");
-      await Promise.all([
-        first.writeFile("/shared.txt", "A", { mode: "append" }),
-        second.writeFile("/shared.txt", "B", { mode: "append" }),
-      ]);
-      return await first.readText("/shared.txt");
-    } finally {
-      await second.close();
-    }
-  } finally {
-    try {
-      await first.close();
-    } finally {
-      await deleteIndexedDb(name);
-    }
-  }
+    const first = createFileSystem(firstAdapter, { coordination: "none" });
+    releases.push(() => first.close());
+    const secondAdapter = await openIndexedDbAdapter({ name });
+    releases.push(async () => {
+      await secondAdapter.dispose?.();
+    });
+    const second = createFileSystem(secondAdapter, { coordination: "none" });
+    releases.push(() => second.close());
+    await first.writeFile("/shared.txt", "base");
+    await Promise.all([
+      first.writeFile("/shared.txt", "A", { mode: "append" }),
+      second.writeFile("/shared.txt", "B", { mode: "append" }),
+    ]);
+    return await first.readText("/shared.txt");
+  });
 }
 
 /** Runs one real browser record adapter through a filesystem write/read facade round trip. */
@@ -272,13 +292,26 @@ async function roundTripAdapter(kind: BrowserAdapterType): Promise<string> {
   }
 
   if (kind === "indexeddb") {
-    const fileSystem = createFileSystem(await openIndexedDbAdapter({ name: id }), { disposeAdapter: true });
+    const adapter = await openIndexedDbAdapter({ name: id });
+    let fileSystem: ReturnType<typeof createFileSystem> | undefined;
+    let failed = false;
+    let primary: unknown;
     try {
+      fileSystem = createFileSystem(adapter, { disposeAdapter: true });
       await fileSystem.writeFile(path, kind, { parents: true });
       return await fileSystem.readText(path);
+    } catch (error) {
+      failed = true;
+      primary = error;
+      throw error;
     } finally {
-      await fileSystem.close();
-      await deleteIndexedDb(id);
+      await close([
+        async () => {
+          if (fileSystem === undefined) await adapter.dispose?.();
+          else await fileSystem.close();
+        },
+        () => deleteIndexedDb(id),
+      ], failed ? [primary] : []);
     }
   }
 

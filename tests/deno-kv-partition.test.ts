@@ -251,7 +251,6 @@ describe("Deno KV partitioned records", () => {
       expect(database.values.has(id(["okikio-opfs", "part", "/value.bin", oldGeneration, 0]))).toBe(false);
       expect(visibleParts.every((value) => database.values.has(value))).toBe(true);
       expect(await fileSystem.readFile("/value.bin")).toEqual(bytes(96 * 1024));
-      await fileSystem.close();
     });
   });
 
@@ -293,7 +292,6 @@ describe("Deno KV partitioned records", () => {
         "partitioned",
       );
       expect([...database.values.values()].every((entry) => size(entry.value) <= DENO_KV_MAX_VALUE_BYTES)).toBe(true);
-      await fileSystem.close();
     });
   });
 
@@ -311,7 +309,6 @@ describe("Deno KV partitioned records", () => {
 
       expect(entries.sort()).toEqual(["directory:child", "file:root.bin"]);
       expect(database.listMatches).toBe(2);
-      await fileSystem.close();
     });
   });
 
@@ -327,7 +324,6 @@ describe("Deno KV partitioned records", () => {
 
       expect(names).toEqual(["large.bin"]);
       expect(database.partGets).toBe(0);
-      await fileSystem.close();
     });
   });
 
@@ -349,7 +345,6 @@ describe("Deno KV partitioned records", () => {
       const range = await fileSystem.readFile("/large.bin", { at: 50 * 1024, length: 2048 });
       expect(range).toEqual(input.slice(50 * 1024, 52 * 1024));
       expect(database.partGets).toBe(1);
-      await fileSystem.close();
     });
   });
 
@@ -375,7 +370,6 @@ describe("Deno KV partitioned records", () => {
       expect(await fileSystem.readFile("/stream.bin")).toEqual(input);
       expect(fileSystem.getMetrics().peakBufferedBytes).toBe(0);
       expect(fileSystem.getMetrics().operations.write?.partitioned).toBe(1);
-      await fileSystem.close();
     });
   });
 
@@ -410,7 +404,6 @@ describe("Deno KV partitioned records", () => {
       expect(await fileSystem.readFile("/fallback.bin")).toEqual(input);
       expect(fileSystem.getMetrics().peakBufferedBytes).toBeGreaterThanOrEqual(input.byteLength);
       expect(fileSystem.getMetrics().operations.write?.emulated).toBe(1);
-      await fileSystem.close();
     });
   });
 
@@ -430,7 +423,6 @@ describe("Deno KV partitioned records", () => {
       const stat = await fileSystem.stat("/value.bin");
       expect(stat.kind).toBe("file");
       if (stat.kind === "file") expect(stat.size).toBe(96 * 1024 + 3);
-      await fileSystem.close();
     });
   });
 
@@ -452,7 +444,6 @@ describe("Deno KV partitioned records", () => {
       expect(plan.supported).toBe(true);
       expect(plan.support).toBe("partitioned");
       expect(plan.bufferBytes).toBe(1024);
-      await fileSystem.close();
     });
   });
 
@@ -477,7 +468,6 @@ describe("Deno KV partitioned records", () => {
       const expected = afterAppend.slice();
       expected.set(patch, at);
       expect(await fileSystem.readFile("/patch.bin")).toEqual(expected);
-      await fileSystem.close();
     });
   });
 
@@ -504,7 +494,6 @@ describe("Deno KV partitioned records", () => {
       const truncated = await fileSystem.readFile("/gap.bin");
       expect(truncated.byteLength).toBe(32 * 1024 + 3);
       expect([...truncated.slice(-3)]).toEqual([6, 7, 8]);
-      await fileSystem.close();
     });
   });
 
@@ -548,7 +537,6 @@ describe("Deno KV partitioned records", () => {
         const reclaimed = await maintenance.collect({ minAgeMs: 0 });
         expect(reclaimed.deleted).toBe(oldParts.length);
         expect(oldParts.every((value) => !database.values.has(value))).toBe(true);
-        await fileSystem.close();
       } finally {
         release.resolve();
         delete database.partReadGate;
@@ -601,7 +589,6 @@ describe("Deno KV partitioned records", () => {
           .filter((entry) => entry.key[1] === "part")
           .map((entry) => id(entry.key));
         expect(new Set(remainingParts)).toEqual(originalParts);
-        await fileSystem.close();
       } finally {
         release.resolve();
         delete database.partReadGate;
@@ -632,7 +619,6 @@ describe("Deno KV partitioned records", () => {
       expect(second.deleted).toBeGreaterThan(0);
       expect(database.values.has(retired[0]!)).toBe(false);
       expect([...await fileSystem.readFile("/bounded.bin")]).toEqual([9]);
-      await fileSystem.close();
     });
   });
 
@@ -642,15 +628,8 @@ describe("Deno KV partitioned records", () => {
       coordination: "none",
     });
     await withFileSystem(fileSystem, async () => {
-      try {
-        await fileSystem.writeFile("/too-large.bin", bytes(80 * 1024));
-        throw new Error("expected too-large failure");
-      } catch (error) {
-        expect(error).toBeInstanceOf(FileSystemError);
-        if (error instanceof FileSystemError) expect(error.code).toBe("too-large");
-      } finally {
-        await fileSystem.close();
-      }
+      await expect(fileSystem.writeFile("/too-large.bin", bytes(80 * 1024)))
+        .rejects.toMatchObject({ code: "too-large" });
     });
   });
 });

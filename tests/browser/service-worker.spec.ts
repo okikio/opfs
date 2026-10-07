@@ -33,6 +33,10 @@ test("ServiceWorker behavior is verified through page messaging in every browser
 test("Chromium exposes the registered service worker to Playwright instrumentation", async ({ browserName, context, page }) => {
   test.skip(browserName !== "chromium", "Playwright serviceWorkers() inspection is Chromium-only.");
   await ready(page);
+  const observed = context.waitForEvent("serviceworker");
+  // Observe creation while the registration exists. The fixture unregisters
+  // before returning, so a later serviceWorkers() snapshot is not a lifecycle guarantee.
+  void observed.catch(() => {});
   const result = await page.evaluate(async () =>
     await (globalThis as InstalledFixtureGlobalType).opfsTest.service(
       `/service/${crypto.randomUUID()}.txt`,
@@ -41,7 +45,5 @@ test("Chromium exposes the registered service worker to Playwright instrumentati
   );
   test.skip(!result.supported, "ServiceWorker is not exposed in this Chromium context.");
   expect(result.probe?.context).toBe("service-worker");
-  // Playwright retains the instrumented worker for this context after the
-  // message fixture unregisters its task-owned registration.
-  expect(context.serviceWorkers().length).toBeGreaterThan(0);
+  expect(new URL((await observed).url()).pathname).toBe("/tests/browser/fixtures/service.ts");
 });

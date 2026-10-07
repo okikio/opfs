@@ -33,7 +33,13 @@ test("an aborted write cannot commit", async ({ page }) => {
     await (globalThis as InstalledFixtureGlobalType).opfsTest.abort(`/abort/${crypto.randomUUID()}.txt`)
   );
   test.skip(!result.supported, "OPFS is unavailable in this browser context.");
-  expect(result).toEqual({ supported: true, name: "FileSystemError", code: "aborted" });
+  expect(result).toEqual({
+    supported: true,
+    name: "FileSystemError",
+    code: "aborted",
+    preserved: "original",
+    published: false,
+  });
 });
 
 test("queued Web Locks cancellation is normalized to the package error", async ({ page }) => {

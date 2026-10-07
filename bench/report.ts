@@ -1,4 +1,3 @@
-import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdir, open, readdir, readFile, writeFile } from "node:fs/promises";
 import { arch, cpus, platform, release, totalmem } from "node:os";
@@ -6,6 +5,7 @@ import { join } from "node:path";
 import { env, versions } from "node:process";
 import { validateLifecycle, validateMitata } from "./validate.ts";
 import { finish } from "./result.ts";
+import { runProgram } from "./process.ts";
 
 /** Each invocation retains progress and failures in its own report directory. */
 const root = join(".tmp", "reports", "bench", new Date().toISOString().replaceAll(":", "-"));
@@ -88,17 +88,11 @@ try {
         releases.push(() => stdout.close());
         const stderr = await open(stderrPath, "wx");
         releases.push(() => stderr.close());
-        await new Promise<void>((resolve, reject) => {
-          const child = spawn(command, args, {
-            env: { ...env, BENCH_JSON: "1", OPFS_BENCH_REPORT_DIR: root },
-            stdio: ["inherit", stdout.fd, stderr.fd],
-          });
-          child.once("error", reject);
-          child.once(
-            "exit",
-            (code, signal) =>
-              code === 0 ? resolve() : reject(new Error(`${name} exited with ${code ?? signal}. See ${root}.`)),
-          );
+        await runProgram(command, args, {
+          env: { ...env, BENCH_JSON: "1", OPFS_BENCH_REPORT_DIR: root },
+          stdio: ["inherit", stdout.fd, stderr.fd],
+          // Providers owns two twenty-minute children and bounded service setup.
+          timeoutMs: name === "providers" ? 60 * 60_000 : 20 * 60_000,
         });
       } catch (error) {
         failed = true;
