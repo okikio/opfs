@@ -12,6 +12,7 @@ import { createNodeAdapter } from "../src/adapter/node.ts";
 import { createSqliteAdapter } from "../src/adapter/sqlite.ts";
 import type { Db0PrimitiveType } from "../src/driver/db0.ts";
 import { verifyHost } from "./host.ts";
+import { verifySync } from "./reliability.ts";
 
 /** Normalizes db0-style parameters to Node SQLite's narrower accepted input set. */
 function toSqliteParams(params: readonly Db0PrimitiveType[]): SQLInputValue[] {
@@ -67,18 +68,7 @@ describe("Node adapter", () => {
       expect(await fileSystem.readText("/nested/file.txt")).toBe("stream");
       await fileSystem.move("/nested/file.txt", "/nested/moved.txt");
       expect(await fileSystem.exists("/nested/file.txt")).toBe(false);
-      const sync = await fileSystem.openSyncFile("/nested/moved.txt");
-      sync.writeAll(new TextEncoder().encode("NODE"), { at: 0 });
-      sync.flush();
-      let queued = false;
-      const write = fileSystem.writeFile("/nested/moved.txt", "after-sync").then(() => {
-        queued = true;
-      });
-      await new Promise((resolve) => setTimeout(resolve, 10));
-      expect(queued).toBe(false);
-      sync.close();
-      await write;
-      expect(await fileSystem.readText("/nested/moved.txt")).toBe("after-sync");
+      await verifySync(fileSystem, "/nested/moved.txt", "NODE");
     } finally {
       await fileSystem.close();
       await rm(root, { recursive: true, force: true });

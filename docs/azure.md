@@ -77,7 +77,11 @@ once in the URL path and is prefixed again by the signing account name. The impl
 canonical-resource form from the URL rather than hard-coding an Azurite branch.
 
 `AZURE_STORAGE_VERSION` defaults to `2026-04-06`. A caller can select another service version when it needs the size or
-authentication behavior of an older REST contract.
+authentication behavior of an older REST contract. Every request sets `x-ms-version`; SAS URLs also set `api-version` to
+the same configured version. This operation version takes precedence over an `api-version` supplied in the SAS token or
+low-level request query. The token’s signed `sv`, `sig`, and permission fields remain intact: `sv` selects SAS signature
+validation, while `api-version` selects Blob operation semantics. Source URLs used for server-side copy follow the same
+rule.
 
 The driver remains a separate public layer:
 
@@ -192,12 +196,12 @@ Authorization: SharedKey account-name:signature
 
 Azure Blob metadata names and values have a stricter contract than generic object-store metadata. A metadata key must
 start with an ASCII letter or underscore. Later characters can only be ASCII letters, digits, or underscores. Metadata
-values must be ASCII. Names are case-insensitive at the service, so the client also rejects two caller keys that differ only
-by case. The client validates these rules before it creates an upload or block-list request. This prevents a known-invalid
-metadata object from reaching Azure after upload work has already started.
+values must be ASCII. Names are case-insensitive at the service, so the client also rejects two caller keys that differ
+only by case. The client validates these rules before it creates an upload or block-list request. This prevents a
+known-invalid metadata object from reaching Azure after upload work has already started.
 
-The object adapter uses `okikio_opfs_kind` for its private directory marker. The underscore form is intentional: the older
-`okikio-opfs-kind` spelling contains hyphens and Azure rejects it as an invalid metadata key.
+The object adapter uses `okikio_opfs_kind` for its private directory marker. The underscore form is intentional: the
+older `okikio-opfs-kind` spelling contains hyphens and Azure rejects it as an invalid metadata key.
 
 The deterministic unit suite signs Azurite requests with the documented `devstoreaccount1` key and a fixed timestamp. It
 freezes exact signatures on both sides of the `2014-02-14` zero-length change, verifies the `2016-05-31` empty-header
@@ -292,6 +296,10 @@ rather than hand-escaped text.
 
 When `ObjectPutOptionsType.size` is supplied, the final streamed byte count must match. A mismatch rejects the operation
 before final commit.
+
+When the producer fails or is canceled, the client waits for admitted block requests to settle and rejects with the
+exact input reason. Independent block failures are retained alongside that reason in an `AggregateError`, whose cause is
+the input reason. A failed producer never reaches `Put Block List`.
 
 Unlike S3 multipart uploads, Azure uncommitted blocks do not have a separate abort REST operation. Failed uploads can
 leave uncommitted blocks until Azure cleans them up according to service policy. Documentation and tests therefore must
@@ -391,9 +399,9 @@ credentials and Shared Key dates. Redirects are manual so authorization is not s
 
 A one-shot `ReadableStream` receives one attempt. The low-level `request()` API also accepts `retry: false` because
 replayability does not prove that a provider-specific operation is safe to repeat. `request: { retries: 0 }` disables
-automatic retry for the client. A request admitted for only one attempt bypasses the retry engine entirely. A zero-delay policy
-remains valid even though the underlying standard helper requires a positive maximum timeout. Provider-specific `Retry-After`
-interpretation is not yet modeled.
+automatic retry for the client. A request admitted for only one attempt bypasses the retry engine entirely. A zero-delay
+policy remains valid even though the underlying standard helper requires a positive maximum timeout. Provider-specific
+`Retry-After` interpretation is not yet modeled.
 
 `getMetrics()` returns request, retry, terminal-failure, response, and optional Fetch-duration counters.
 `metrics: "none"` is the baseline benchmark setting; `basic` counts; `timing` adds monotonic duration.

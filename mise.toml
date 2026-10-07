@@ -1,11 +1,47 @@
-min_version = "2026.8.0"
+min_version = "2026.11.12"
+
+# Mise is the command authority: `mise run <family>:<kind>` runs the same command locally and in CI.
+# Task files live under .mise/tasks/; their programs live under tools/. GitHub Actions owns triggers,
+# permissions and matrices, and calls these tasks.
+[settings]
+task.output = "keep-order"
+jobs = 4
 
 [tools]
-node = "26"
-deno = "2"
-bun = "1"
-pnpm = "11"
-"npm:npm" = "11"
+bun = "1.4.5"
+deno = "2.9.8"
+node = "26.13.1"
 
-[settings]
-experimental = true
+# Check tools. Mise installs each lazy tool the first time a task runs its command,
+# so a contributor who never runs that check never downloads it.
+act = { version = "0.2.98", lazy = true }
+yq = { version = "4.54.3", lazy = true }
+gitleaks = { version = "8.30.1", lazy = true }
+jactionlint = { version = "2.6.0", lazy = true }
+osv-scanner = { version = "2.7.1", lazy = true }
+pinact = { version = "5.0.2", lazy = true }
+shellcheck = { version = "0.11.0", lazy = true }
+zizmor = { version = "1.32.0", lazy = true }
+
+[tasks."check"]
+description = "Run every repository check, or name one: mise run check:<kind>"
+run = "mise run 'check:**'"
+
+[tasks."test"]
+description = "Run the discovered suite on Deno, Node.js and Bun"
+run = ["mise run test:deno", "mise run test:node", "mise run test:bun"]
+
+[tasks."ci:plan"]
+description = "Select affected CI lanes from exact Git revisions"
+raw_args = true
+run = "node tools/workspace/ci.ts plan"
+
+[tasks."ci:run"]
+description = "Run one selected CI lane with the same tasks as a local run"
+raw_args = true
+run = "node tools/workspace/ci.ts run"
+
+[tasks."release"]
+description = "Plan Sampo versions, write them, or publish one registry target"
+raw_args = true
+run = "node tools/releases/release.ts"

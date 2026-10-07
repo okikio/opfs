@@ -373,10 +373,10 @@ file adapter
 FileSystemType
 ```
 
-The host-path mapper lives with drivers. It rejects lexical virtual-path escape from one configured host directory. Native
-Node, Deno, and Bun filesystem calls can still follow symbolic links that already exist below that directory. The host root
-is therefore a trusted namespace mapping, not a security isolation mechanism against another process that can create or
-replace links.
+The host-path mapper lives with drivers. It rejects lexical virtual-path escape from one configured host directory.
+Native Node, Deno, and Bun filesystem calls can still follow symbolic links that already exist below that directory. The
+host root is therefore a trusted namespace mapping, not a security isolation mechanism against another process that can
+create or replace links.
 
 ## Record drivers
 
@@ -469,8 +469,8 @@ Deno KV demonstrates the full model.
 The provider documents serialized key/value limits. The driver also chooses smaller decoded-body budgets because a raw
 byte count is not equal to serialized value size.
 
-The large-file layout uses an immutable generation, manifest-last publication, and a retirement marker for the generation
-that is about to lose visibility:
+The large-file layout uses an immutable generation, manifest-last publication, and a retirement marker for the
+generation that is about to lose visibility:
 
 ```text
 old manifest -> old generation
@@ -496,14 +496,14 @@ explicit collection after retirement grace
 
 If part writing fails, the new manifest is not published. If the logical entry changes while parts are prepared, the
 optimistic version check also rejects the stale publication. The previous or independently committed generation remains
-visible. The driver
-best-effort removes parts from the failed unpublished generation.
+visible. The driver best-effort removes parts from the failed unpublished generation.
 
 A process crash before publication can still leave unreachable physical parts. That is storage leakage, not a partially
-visible logical file. `DenoKvDriverType.collect()` exposes explicit, age-gated reclamation. For a published generation, the
-default one-hour grace starts when that generation is retired, so a generation that was visible for days is not immediately
-reclaimed after a new write commits. An unpublished crash leftover has no retirement marker and uses its generation creation
-time instead. `maxDeletes` bounds one maintenance pass. Background deletion is not hidden inside ordinary reads or writes.
+visible logical file. `DenoKvDriverType.collect()` exposes explicit, age-gated reclamation. For a published generation,
+the default one-hour grace starts when that generation is retired, so a generation that was visible for days is not
+immediately reclaimed after a new write commits. An unpublished crash leftover has no retirement marker and uses its
+generation creation time instead. `maxDeletes` bounds one maintenance pass. Background deletion is not hidden inside
+ordinary reads or writes.
 
 The Deno KV planner also estimates physical tuple size from the concrete logical path. A file can be small enough to fit
 by byte count while its physical key is too large. The planner reports that condition before provider I/O.
@@ -689,6 +689,12 @@ terminal.
 
 Provider cleanup can need a separate bounded signal. For example, canceling an S3 multipart write must not use the
 already aborted caller signal for the `AbortMultipartUpload` cleanup request.
+
+The S3 and Azure upload pools wait for admitted requests to settle before reporting a failed producer. They retain the
+exact producer or cancellation reason. When admitted requests also fail independently, an `AggregateError` contains the
+producer reason first and the provider failures afterward, with the producer reason as its cause. A failed request
+without a producer failure keeps the pool's existing aggregate error contract. Checking only whether a signal is aborted
+would hide unrelated provider failures, so the pool records the actual input failure instead.
 
 ## Error invariant
 

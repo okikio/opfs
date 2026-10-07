@@ -1,33 +1,35 @@
 import { z } from "zod";
 
 import type { PathType } from "../path.ts";
-import { WriteModeSchema, type WriteModeType } from "../schema.ts";
+import type { FileDriverCapabilitiesType, WriteModeType } from "../_schema_types.ts";
+import { WriteModeSchema } from "../schema.ts";
 import type { DriverType } from "./definition.ts";
 
 /** Native operations implemented by a file-shaped backend driver. */
-export const FileDriverCapabilitiesSchema: z.ZodType<FileDriverCapabilitiesType, FileDriverCapabilitiesType> = z.object({
-  /** Backend can materialize file bytes through `readFile()`. */
-  read: z.boolean(),
-  /** Backend can commit materialized file bytes through `writeFile()`. */
-  write: z.boolean(),
-  /** Backend can open a native read stream. */
-  streamRead: z.boolean(),
-  /** Write modes that `writeStream()` can perform natively. */
-  streamWriteModes: z.array(WriteModeSchema).readonly(),
-  /** Backend can satisfy byte ranges without whole-file materialization. */
-  rangeRead: z.boolean(),
-  /** Backend can copy one entry through a native route. */
-  copy: z.boolean(),
-  /** Backend can move or rename one entry through a native route. */
-  move: z.boolean(),
-  /** Backend exposes a long-lived asynchronous positional writer. */
-  positionalWrite: z.boolean(),
-  /** Backend exposes a synchronous random-access file resource. */
-  syncAccess: z.boolean(),
-}).strict();
+export const FileDriverCapabilitiesSchema: z.ZodType<FileDriverCapabilitiesType, FileDriverCapabilitiesType> = z.object(
+  {
+    /** Backend can materialize file bytes through `readFile()`. */
+    read: z.boolean(),
+    /** Backend can commit materialized file bytes through `writeFile()`. */
+    write: z.boolean(),
+    /** Backend can open a native read stream. */
+    streamRead: z.boolean(),
+    /** Write modes that `writeStream()` can perform natively. */
+    streamWriteModes: z.array(WriteModeSchema).readonly(),
+    /** Backend can satisfy byte ranges without whole-file materialization. */
+    rangeRead: z.boolean(),
+    /** Backend can copy one entry through a native route. */
+    copy: z.boolean(),
+    /** Backend can move or rename one entry through a native route. */
+    move: z.boolean(),
+    /** Backend exposes a long-lived asynchronous positional writer. */
+    positionalWrite: z.boolean(),
+    /** Backend exposes a synchronous random-access file resource. */
+    syncAccess: z.boolean(),
+  },
+).strict();
 
-/** A validated native file-driver capability description. */
-export type FileDriverCapabilitiesType = import("../_schema_types.ts").FileDriverCapabilitiesType;
+export type { FileDriverCapabilitiesType } from "../_schema_types.ts";
 
 /** Options shared by file-driver operations that can stop early. */
 export interface FileDriverSignalOptionsType {
@@ -167,6 +169,7 @@ export interface FileDriverSyncFileType {
  * recursive traversal, facade locks, or higher-level filesystem fallback logic.
  */
 export interface FileDriverType extends DriverType {
+  /** File-shaped driver family discriminator. */
   readonly kind: "file";
   /** Native file behaviors the backend can expose directly. */
   readonly capabilities: FileDriverCapabilitiesType;

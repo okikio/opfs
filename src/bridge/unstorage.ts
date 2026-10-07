@@ -53,9 +53,9 @@ export interface UnstorageBridgeType {
   /** Returns filesystem-backed metadata for one exact value. */
   getMeta(key: string, options: UnstorageBridgeTransactionOptionsType): Promise<UnstorageBridgeMetaType | null>;
   /** Lists colon-delimited descendant keys below one base prefix. */
-  getKeys(base: string, options: UnstorageBridgeTransactionOptionsType): Promise<string[]>;
+  getKeys(base?: string, options?: UnstorageBridgeTransactionOptionsType): Promise<string[]>;
   /** Removes descendants below one base prefix according to unstorage clear semantics. */
-  clear(base: string, options: UnstorageBridgeTransactionOptionsType): Promise<void>;
+  clear(base?: string, options?: UnstorageBridgeTransactionOptionsType): Promise<void>;
   /** Releases filesystem ownership only when creation explicitly transferred it. */
   dispose(): Promise<void>;
 }
@@ -150,7 +150,7 @@ class UnstorageBridgeImpl implements UnstorageBridgeType {
    * descendants. The generic KV layer deliberately does not own that
    * unstorage-specific rule.
    */
-  async getKeys(base: string, options: UnstorageBridgeTransactionOptionsType): Promise<string[]> {
+  async getKeys(base = "", options: UnstorageBridgeTransactionOptionsType = {}): Promise<string[]> {
     const exactBase = base.replace(/:+$/g, "");
     const excludesExactBase = base.endsWith(":") && exactBase.length > 0;
     const values = await this.#driver.keys(
@@ -161,7 +161,7 @@ class UnstorageBridgeImpl implements UnstorageBridgeType {
   }
 
   /** Removes a key subtree while preserving the exact base for trailing-colon calls. */
-  async clear(base: string, _options: UnstorageBridgeTransactionOptionsType): Promise<void> {
+  async clear(base = "", _options: UnstorageBridgeTransactionOptionsType = {}): Promise<void> {
     await this.#driver.clear(base, { preserveExact: base.endsWith(":") && base.replace(/:+$/g, "").length > 0 });
   }
 
@@ -182,5 +182,24 @@ export function createUnstorageBridge(
   fileSystem: FileSystemType,
   options: UnstorageBridgeOptionsType = {},
 ): UnstorageBridgeType {
-  return new UnstorageBridgeImpl(fileSystem, options);
+  const bridge = new UnstorageBridgeImpl(fileSystem, options);
+  // Upstream unstorage invokes driver callbacks as standalone functions.
+  // Binding keeps private state available through that public calling contract.
+  return {
+    name: bridge.name,
+    flags: bridge.flags,
+    inspect: bridge.inspect.bind(bridge),
+    plan: bridge.plan.bind(bridge),
+    getMetrics: bridge.getMetrics.bind(bridge),
+    hasItem: bridge.hasItem.bind(bridge),
+    getItem: bridge.getItem.bind(bridge),
+    setItem: bridge.setItem.bind(bridge),
+    getItemRaw: bridge.getItemRaw.bind(bridge),
+    setItemRaw: bridge.setItemRaw.bind(bridge),
+    removeItem: bridge.removeItem.bind(bridge),
+    getMeta: bridge.getMeta.bind(bridge),
+    getKeys: bridge.getKeys.bind(bridge),
+    clear: bridge.clear.bind(bridge),
+    dispose: bridge.dispose.bind(bridge),
+  };
 }

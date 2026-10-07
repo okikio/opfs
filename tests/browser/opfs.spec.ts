@@ -48,28 +48,35 @@ test("queued Web Locks cancellation is normalized to the package error", async (
 test("fresh browser contexts do not inherit another context's OPFS file", async ({ browser }) => {
   const path = `/isolation/${crypto.randomUUID()}.txt`;
   const first = await browser.newContext();
-  const firstPage = await first.newPage();
-  await ready(firstPage);
-  const written = await firstPage.evaluate(
-    async ({ path }) => await (globalThis as InstalledFixtureGlobalType).opfsTest.roundTrip(path, "private"),
-    { path },
-  );
-  await first.close();
+  let written: Awaited<ReturnType<BrowserTestGlobalType["opfsTest"]["roundTrip"]>>;
+  try {
+    const firstPage = await first.newPage();
+    await ready(firstPage);
+    written = await firstPage.evaluate(
+      async ({ path }) => await (globalThis as InstalledFixtureGlobalType).opfsTest.roundTrip(path, "private"),
+      { path },
+    );
+  } finally {
+    await first.close();
+  }
   if (!written.probe?.rootAvailable) {
     expect(written.probe?.rootError).toBeDefined();
     return;
   }
 
   const second = await browser.newContext();
-  const secondPage = await second.newPage();
-  await ready(secondPage);
-  expect(
-    await secondPage.evaluate(
-      async ({ path }) => await (globalThis as InstalledFixtureGlobalType).opfsTest.read(path),
-      { path },
-    ),
-  ).toBeNull();
-  await second.close();
+  try {
+    const secondPage = await second.newPage();
+    await ready(secondPage);
+    expect(
+      await secondPage.evaluate(
+        async ({ path }) => await (globalThis as InstalledFixtureGlobalType).opfsTest.read(path),
+        { path },
+      ),
+    ).toBeNull();
+  } finally {
+    await second.close();
+  }
 });
 
 test("a persistent profile reopens the same OPFS data", async ({ browserName }, testInfo) => {
@@ -78,26 +85,33 @@ test("a persistent profile reopens the same OPFS data", async ({ browserName }, 
   const path = `/persistence/${crypto.randomUUID()}.txt`;
 
   const first = await browserType.launchPersistentContext(profile);
-  const firstPage = await first.newPage();
-  await ready(firstPage);
-  const written = await firstPage.evaluate(
-    async ({ path }) => await (globalThis as InstalledFixtureGlobalType).opfsTest.roundTrip(path, "persisted"),
-    { path },
-  );
-  await first.close();
+  let written: Awaited<ReturnType<BrowserTestGlobalType["opfsTest"]["roundTrip"]>>;
+  try {
+    const firstPage = await first.newPage();
+    await ready(firstPage);
+    written = await firstPage.evaluate(
+      async ({ path }) => await (globalThis as InstalledFixtureGlobalType).opfsTest.roundTrip(path, "persisted"),
+      { path },
+    );
+  } finally {
+    await first.close();
+  }
   if (!written.probe?.rootAvailable) {
     expect(written.probe?.rootError).toBeDefined();
     return;
   }
 
   const second = await browserType.launchPersistentContext(profile);
-  const secondPage = await second.newPage();
-  await ready(secondPage);
-  expect(
-    await secondPage.evaluate(
-      async ({ path }) => await (globalThis as InstalledFixtureGlobalType).opfsTest.read(path),
-      { path },
-    ),
-  ).toBe("persisted");
-  await second.close();
+  try {
+    const secondPage = await second.newPage();
+    await ready(secondPage);
+    expect(
+      await secondPage.evaluate(
+        async ({ path }) => await (globalThis as InstalledFixtureGlobalType).opfsTest.read(path),
+        { path },
+      ),
+    ).toBe("persisted");
+  } finally {
+    await second.close();
+  }
 });

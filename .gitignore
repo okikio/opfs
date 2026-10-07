@@ -277,6 +277,9 @@ $RECYCLE.BIN/
 .agents/
 .release/
 
+# The npm task resolves scripts/deno.json with --no-lock; this is local resolver output.
+/scripts/deno.lock
+
 # Playwright output
 test-results/
 playwright-report/

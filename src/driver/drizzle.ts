@@ -1,6 +1,23 @@
 import { defineRecordDriver, type RecordBackendType, type RecordDriverType } from "./record.ts";
-import { type AnyColumn, eq } from "drizzle-orm";
+import type { AnyColumn } from "drizzle-orm";
+import { Column, eq, is } from "drizzle-orm";
 import { RecordSchema, type RecordType } from "../schema.ts";
+
+/**
+ * Column data contract retained from a caller's dialect-specific Drizzle table.
+ *
+ * Drizzle stores its inferred value type in the compile-time `_` field. This
+ * small projection preserves string/number constraints without exposing every
+ * SQL dialect's declarations to applications importing this driver. The driver
+ * accepts actual Drizzle columns at runtime; a matching plain SQL wrapper does
+ * not become a column merely by satisfying this structural type.
+ */
+export interface DrizzleColumnType<Value> {
+  /** Compile-time value type supplied by the caller's schema builder. */
+  readonly _: { readonly data: Value };
+  /** SQL expression produced by the actual Drizzle column. */
+  getSQL(): object;
+}
 
 /**
  * Required Drizzle table columns.
@@ -12,21 +29,21 @@ import { RecordSchema, type RecordType } from "../schema.ts";
  */
 export interface DrizzleTableType {
   /** Unique canonical path column. */
-  readonly path: AnyColumn<{ data: string }>;
+  readonly path: DrizzleColumnType<string>;
   /** Canonical direct-parent path column. */
-  readonly parent: AnyColumn<{ data: string }>;
+  readonly parent: DrizzleColumnType<string>;
   /** Final entry name column. */
-  readonly name: AnyColumn<{ data: string }>;
+  readonly name: DrizzleColumnType<string>;
   /** File/directory discriminator column. */
-  readonly kind: AnyColumn<{ data: string }>;
+  readonly kind: DrizzleColumnType<string>;
   /** Base64 file payload column. Directory rows store null. */
-  readonly data: AnyColumn<{ data: string }>;
+  readonly data: DrizzleColumnType<string>;
   /** Decoded file size column using a JavaScript-number mode. */
-  readonly size: AnyColumn<{ data: number }>;
+  readonly size: DrizzleColumnType<number>;
   /** Unix epoch millisecond column using a JavaScript-number mode. */
-  readonly lastModified: AnyColumn<{ data: number }>;
+  readonly lastModified: DrizzleColumnType<number>;
   /** File media-type column. Directory rows store null. */
-  readonly mediaType: AnyColumn<{ data: string }>;
+  readonly mediaType: DrizzleColumnType<string>;
 }
 
 /** Row shape expected from the supplied Drizzle table. */
@@ -118,6 +135,28 @@ function getRuntime(database: object): DrizzleRuntimeType {
   return candidate as DrizzleRuntimeType;
 }
 
+/** Rejects missing or imitation columns before the caller's database is queried. */
+function checkTable(table: DrizzleTableType): void {
+  for (const name of ["path", "parent", "name", "kind", "data", "size", "lastModified", "mediaType"] as const) {
+    const column = table[name];
+    if (!is(column, Column) || typeof column.getSQL !== "function") {
+      throw new TypeError(`Drizzle table ${name} must be an actual Drizzle column.`);
+    }
+  }
+}
+
+/**
+ * Narrows the owned public projection only at Drizzle's expression boundary.
+ *
+ * Construction validates actual columns with Drizzle's cross-copy `is()`
+ * contract. The cast restores upstream metadata needed by the `eq()` overload;
+ * it does not turn caller-supplied plain objects into trusted columns. Upstream
+ * dialect types stay private and therefore disappear from emitted declarations.
+ */
+function condition(column: DrizzleColumnType<string>, value: string): object {
+  return eq(column as AnyColumn<{ data: string }>, value);
+}
+
 /** Converts a Drizzle row to the validated record format and restores version 1. */
 function toRecord(row: DrizzleRowType): RecordType {
   if (row.kind === "directory") {
@@ -184,31 +223,32 @@ class DrizzleBackend implements RecordBackendType {
 
   /** Validates the database surface once and retains the caller table. */
   constructor(database: object, table: DrizzleTableType) {
+    checkTable(table);
     this.#database = getRuntime(database);
     this.#table = table;
   }
 
   /** Selects one path row and restores the versioned filesystem record. */
   async get(path: Parameters<RecordBackendType["get"]>[0]) {
-    const rows = await this.#database.select().from(this.#table).where(eq(this.#table.path, path)).limit(1);
+    const rows = await this.#database.select().from(this.#table).where(condition(this.#table.path, path)).limit(1);
     const row = rows[0];
     return row === undefined ? null : toRecord(row);
   }
 
   /** Replaces one path through the portable delete-then-insert sequence. */
   async set(record: RecordType): Promise<void> {
-    await this.#database.delete(this.#table).where(eq(this.#table.path, record.path));
+    await this.#database.delete(this.#table).where(condition(this.#table.path, record.path));
     await this.#database.insert(this.#table).values(toRow(record));
   }
 
   /** Deletes one exact path row. */
   async delete(path: Parameters<RecordBackendType["delete"]>[0]): Promise<void> {
-    await this.#database.delete(this.#table).where(eq(this.#table.path, path));
+    await this.#database.delete(this.#table).where(condition(this.#table.path, path));
   }
 
   /** Selects all rows whose indexed/logical parent equals the requested path. */
   async *list(parent: Parameters<RecordBackendType["list"]>[0]) {
-    const rows = await this.#database.select().from(this.#table).where(eq(this.#table.parent, parent));
+    const rows = await this.#database.select().from(this.#table).where(condition(this.#table.parent, parent));
     for (const row of rows) yield toRecord(row);
   }
 }

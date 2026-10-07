@@ -40,8 +40,10 @@ Read `README.md` and `docs/design.md` before changing architecture or public API
   cleanup, and whether the layout changes observable behavior.
 - Use `node:test` with `describe` and `it`; use `@std/expect` for expectations. Playwright owns real browser environment
   tests.
-- Use mise as the repository command authority. GitHub Actions owns triggers, permissions, matrices, outputs, and
-  secrets, then calls `mise run ...`.
+- Use mise as the repository command authority: `mise run <family>:<kind>`. Task files live in `.mise/tasks/` and their
+  programs in `tools/`. GitHub Actions owns triggers, permissions, matrices, outputs, and secrets, then calls the same
+  mise tasks. Tests and benchmarks are discovered from file names; do not list files in manifests or workflows. See
+  `docs/tooling.md`.
 - Testcontainers owns disposable provider fixtures. Do not restore fixed host ports, hand-written readiness polling, or
   Compose lifecycle scripts for S3/Azure tests.
 - Benchmarks compare the native/provider baseline, project client when present, driver, adapter, facade with metrics
@@ -53,3 +55,16 @@ Read `README.md` and `docs/design.md` before changing architecture or public API
   rule.
 - Comments explain why a rule exists or what must remain true. Do not restate obvious syntax.
 - Keep agent-only validation under `.agents/`. It must never become a production import or published artifact.
+
+## Release notes
+
+Use Sampo changesets in `.sampo/changesets/` to record release intent (`node_modules/.bin/sampo add`). Each entry
+teaches the consumer what changed, why it matters, the affected scenario, and any migration. Show complete runnable
+examples for new or changed APIs. Use before/after output, tables, or diagrams when they explain semantics, resource
+ownership, or a workflow. Follow the explanatory quality of esbuild changelogs; do not reduce release notes to commit
+subjects. Group by consumer behavior. State supported standards and limitations precisely, and attach workload, runtime,
+units, and evidence to any performance claim. Verify examples against the exact release artifacts.
+
+Deno owns the source implementation. Sampo owns release intent, versions and changelog rendering.
+`mise run release -- --operation version` writes the version and copies it into `deno.json`; `mise run check:versions`
+rejects mismatched metadata before packing or publishing. Keep local release receipts under ignored `.tmp/`.

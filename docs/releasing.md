@@ -1,197 +1,77 @@
-# Release process
+# Publish a tested package release
 
-## Purpose
-
-The repository has one command authority: mise. GitHub Actions decides when a release/publish operation should run and
-supplies GitHub-specific permissions, refs, secrets, and outputs. The actual project commands live under `.mise/tasks/`.
-
-```text
-GitHub Actions
-      |
- jdx/mise-action
-      |
-   mise task
-      |
-Deno / Node / Bun / npm / semantic-release
-```
-
-## Conventional commits
-
-Commits merged to `main` use Conventional Commits.
+`@okikio/opfs` publishes the same revision to two registries: JSR receives the TypeScript source, and npm receives the
+ESM tarball that `tools/npm/pack.ts` builds with dnt. Sampo owns release intent, the version and `CHANGELOG.md`.
+Publication is a separate, manual step that only runs for a commit whose main-push CI already passed.
 
 ```text
-fix: ...       patch
-feat: ...      minor
-feat!: ...     major
-
-BREAKING CHANGE: ...
+changeset in a PR ─► merge to main ─► Release: prepare ─► release/versions PR ─► merge
+                                                                                   │
+                   verify on registries ◄─ npm + JSR publish ◄─ Release: publish ◄─┘
+                                                 (needs passing main CI on this exact commit)
 ```
 
-Commit validation runs through:
+## Write release notes that teach
 
-```sh
-BASE_SHA=... HEAD_SHA=... mise run commits
+Every consumer-visible change adds a changeset in `.sampo/changesets/` (`node_modules/.bin/sampo add`, or write it by
+hand). It tells a consumer what changed, why it matters, and how to use or migrate it. Use a complete example for a
+changed API. Explain a failure scenario, resource owner, or compatibility constraint when it affects adoption. Use
+diagrams, tables, and before/after output when they make the change clearer. The explanatory quality of esbuild's
+changelogs is the standard; a list of commit subjects is insufficient.
+
+```markdown
+---
+npm/@okikio/opfs: patch
+---
+
+Stop pending source reads when shape inspection is cancelled. ...
 ```
 
-The mise task pins the commitlint CLI package used by CI. Workflow YAML does not own a second commitlint command.
+Keep one story per consumer behavior. Breaking changes need explicit migration instructions. Performance claims need the
+workload, runtime, input size, units, baseline, variability, and correctness evidence. Do not promise every
+specification in a standards family because one profile passed.
 
-## Quality before release
+For this pre-1.0 package, compatible repairs are patch releases; new capabilities and intentional programming-model
+replacements use a minor increment with an explicit migration note. `mise run release -- --operation plan` previews the
+next version and changelog; pull requests run it too.
 
-The normal release evidence includes:
+## Prepare the version
 
-```sh
-mise run quality
-mise run test-deno
-mise run test-node
-mise run test-bun
-mise run test-browser
-mise run test-providers
-mise run verify-npm
-```
+A push to `main` that adds changesets starts the **Release** workflow's `prepare` job. It runs
+`mise run release -- --operation version`: Sampo consumes the changesets into `package.json` and `CHANGELOG.md`, and
+`tools/releases/versions.ts` copies the version into `deno.json`. The job pushes the result to `release/versions` and
+opens a pull request. A pull request opened by the workflow token does not start CI by itself; dispatch **CI** on
+`release/versions`, review the changelog, then merge.
 
-CI also runs benchmark smoke jobs so gross performance/runtime regressions are visible before a semantic release can
-run.
+## Publish
 
-The quality task includes strict checks, lint, documentation lint, formatting, stress, coverage, and package dry-runs.
+Dispatch **Release** on `main` with `operation: publish`. Three conditions gate both registry jobs:
 
-## Lockfiles
+- **Recorded evidence.** The latest CI run for a push to `main` on this exact commit must have succeeded
+  (`tools/workspace/evidence.ts release`). An older pass does not count when a newer run on the same commit failed.
+- **This run's checks.** The full Quality workflow runs on the same commit; lanes whose exact inputs already passed skip
+  their steps through the result cache.
+- **No pending changesets.** The version must already be prepared and merged.
 
-Dependency changes are incomplete until both package-manager views are reproducible.
+The npm job builds the tarball at the release version, checks that exact tarball from a clean consumer
+(`tests/package/verify.ts`), and publishes it with provenance through npm trusted publishing. The JSR job runs
+`deno publish`. Both authenticate with the workflow's OIDC token; no registry token is stored. Each job then installs
+the published version in a fresh consumer (`tools/releases/consumer.ts`). A registry that already has the version is
+skipped, so a partial failure can be retried with `target: npm` or `target: jsr` at the same commit. After both succeed,
+the workflow tags the commit `v<version>` and creates a GitHub release from the changelog section.
 
-After dependency/import changes, regenerate with the canonical managers:
+`operation: validate` runs the evidence and Quality checks without publishing.
 
-```sh
-deno install --frozen=false
-pnpm install
-```
+## JSR constraints
 
-Review and commit `deno.lock` and `pnpm-lock.yaml`. Do not hand-edit integrity/resolution data merely because one
-validation host cannot access the registry.
+JSR publishes ESM TypeScript source and generates npm compatibility artifacts. Direct npm packages built here are a
+separate distribution path; `@jsr/okikio__...` compatibility names are not the direct npm package names.
 
-## Semantic release
+Before upload, `deno publish --dry-run` (`mise run check:jsr`) must pass without `--allow-slow-types` or `--no-check`.
+Public exports need explicit, portable types. Exclude tests, benchmarks, downloaded suites, reports, caches, temporary
+fixtures, and release credentials from the publish set.
 
-The release workflow starts only after the successful `CI` workflow for `main`.
-
-It checks out the tested commit, verifies that the checked-out `main` commit still equals the CI commit, then runs:
-
-```sh
-mise run release
-```
-
-The mise task invokes pinned semantic-release tooling. semantic-release determines the version from Git history, creates
-the Git tag, and creates the GitHub release according to repository configuration.
-
-The repository uses tags shaped as:
-
-```text
-opfs@1.2.3
-```
-
-## Registry publication uses the immutable tag
-
-The publish workflow receives an existing release tag. It never publishes arbitrary `main` state.
-
-```text
-release workflow
-   |
-created opfs@X.Y.Z
-   |
-dispatch publish.yml(tag=opfs@X.Y.Z)
-   |
-checkout exact tag
-   |
-JSR and/or npm
-```
-
-A partial registry failure can be retried against the same immutable tag by selecting one target.
-
-## JSR
-
-JSR publication runs:
-
-```sh
-RELEASE_VERSION=X.Y.Z mise run publish-jsr
-```
-
-The task performs a frozen Deno install, a JSR dry-run, then the actual publish with the release version supplied
-explicitly.
-
-## npm
-
-npm publication runs:
-
-```sh
-RELEASE_VERSION=X.Y.Z mise run publish-npm
-```
-
-The task:
-
-1. resolves bootstrap token versus trusted-publishing mode;
-2. runs `mise run verify-npm`;
-3. builds the npm package from the Deno package graph;
-4. verifies the tarball from Node/Deno/Bun consumers;
-5. publishes the exact generated tarball with provenance.
-
-`drizzle-orm` remains an optional peer in the generated npm package rather than being converted into a mandatory runtime
-dependency.
-
-## Bootstrap versus trusted npm publishing
-
-The publish workflow can choose:
-
-```text
-auto
-trusted
-token
-```
-
-`auto` checks whether `@okikio/opfs` already exists on npm through `mise run npm-exists`.
-
-- first publication: token mode;
-- later publications: trusted mode when configured.
-
-The workflow owns secret selection. The npm publish command still lives in the mise task.
-
-## Package verification
-
-`mise run verify-npm` builds a test-version tarball and executes the package consumer verifier. The verifier must
-exercise the published package, not source-tree relative imports.
-
-A release is not accepted because `npm pack` returned success. The generated manifest, exports, optional peers, and
-runtime consumer entrypoints must also be checked.
-
-## Version metadata
-
-The checked-in development version is not the release decision. The immutable Git tag and semantic-release result define
-the published version. Packaging receives that version explicitly instead of committing generated version edits back to
-`main`.
-
-## Recovery rules
-
-If GitHub release creation succeeds but one registry publish fails:
-
-1. do not create a replacement tag;
-2. do not rebuild from a newer `main` commit;
-3. re-run `Publish Registries` with the same immutable tag;
-4. select only the failed registry when appropriate.
-
-If validation fails before release creation, fix the source and produce a new commit. Do not weaken a quality task
-solely to make the release workflow progress.
-
-## Trusted npm publishing
-
-The publish job installs `npm:npm@11.18.0` through mise. npm trusted publishing requires npm CLI 11.5.1 or later and
-Node 22.14.0 or later. The explicit npm pin prevents the release path from depending on the bundled npm version of the
-selected Node release.
-
-## Schema-derived public types
-
-Zod remains the runtime validation source of truth, but JSR fast-type extraction must not infer Zod's internal generic graph from exported schemas. `scripts/schema.ts` compiles the supported Zod v4 definitions into `src/_schema_types.ts`; public schemas expose explicit `z.ZodType<Output, Input>` contracts and public data aliases point at the generated structural types.
-
-Run `mise run schema` after changing a compiled schema. `mise run schema-check`, the canonical `check` task, JSR publication, and npm verification reject stale generated contracts. The project-local compiler intentionally throws for unknown Zod definition kinds instead of emitting `any`.
-
-## Registry artifacts
-
-JSR publishes the original TypeScript graph with `deno publish`. npm is a separate derived artifact built by `scripts/npm.ts` with dnt. The dnt build derives its entry points from `deno.json`, emits ESM plus declarations, maps `@okikio/undent` to its normal npm package, retains `drizzle-orm` as an optional peer, and rejects any generated `@jsr/*` npm dependency.
-
-The immutable `opfs@<version>` Git tag remains the release-version authority for both registry jobs. semantic-release still creates that tag and GitHub Release; the packaging migration does not introduce a second version owner.
+[JSR limits](https://jsr.io/docs/quotas-and-limits) require each source file, total uncompressed package, and uploaded
+gzip archive to be under 20 MB. [JSR publishing](https://jsr.io/docs/publishing-packages) supports GitHub OIDC for a
+package linked to the correct repository. Registry versions are immutable: repair by publishing a new version, never by
+overwriting an old one or force-moving a public tag.

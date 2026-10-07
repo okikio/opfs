@@ -10,6 +10,7 @@
     "jsr:@std/expect@^1.0.20": "1.0.20",
     "jsr:@std/internal@^1.0.12": "1.0.14",
     "jsr:@std/internal@^1.0.14": "1.0.14",
+    "jsr:@std/path@1.1.6": "1.1.6",
     "jsr:@std/path@^1.1.6": "1.1.6",
     "jsr:@std/streams@^1.1.2": "1.1.2",
     "jsr:@std/xml@0.2": "0.2.0",
@@ -35,6 +36,8 @@
     "npm:@types/node@^26.2.0": "26.2.0",
     "npm:drizzle-orm@~0.45.2": "0.45.2",
     "npm:mitata@^1.0.34": "1.0.34",
+    "npm:playwright@1.62.1": "1.62.1",
+    "npm:sampo@0.24.1": "0.24.1",
     "npm:testcontainers@^12.0.4": "12.1.0",
     "npm:typescript@^7.0.2": "7.0.2",
     "npm:vite@8.2.1": "8.2.1_@types+node@26.2.0",
@@ -71,7 +74,7 @@
       "dependencies": [
         "jsr:@std/assert",
         "jsr:@std/internal@^1.0.14",
-        "jsr:@std/path"
+        "jsr:@std/path@^1.1.6"
       ]
     },
     "@std/internal@1.0.14": {
@@ -431,6 +434,36 @@
     "@balena/dockerignore@1.0.2": {
       "integrity": "sha512-wMue2Sy4GAVTk6Ic4tJVcnfdau+gx2EnG7S+uAEe+TWJFqE4YoWN4/H8MSLj4eYJKxGg26lZwboEniNiNwZQ6Q=="
     },
+    "@bruits/sampo-darwin-arm64@0.24.1": {
+      "integrity": "sha512-wEaaAuUsQVDNIPqL8rZ5Xza74mAfj/N2fmKzpoT8bunzu2qs8luByZMQFA9dfNfx7Kv1dBUyHwv9lWE6WcRhZQ==",
+      "os": ["darwin"],
+      "cpu": ["arm64"],
+      "bin": true
+    },
+    "@bruits/sampo-darwin-x64@0.24.1": {
+      "integrity": "sha512-CvVTEU4AuNP4JY/IUyDQlr5R/6ntlY2G0dFpvsdBfMyNf1x1VDi4aH2YO/VhqjfdxelXMT0eFBslFiadTQyBYw==",
+      "os": ["darwin"],
+      "cpu": ["x64"],
+      "bin": true
+    },
+    "@bruits/sampo-linux-arm64@0.24.1": {
+      "integrity": "sha512-LJp36oXs3zQML8C/V8mBjgiSfDL/zrGiQybymDYd5Qa+7FBZAUEFKJEcxfyjHDSN6YJ/ncPejevlLHwEaEMy5A==",
+      "os": ["linux"],
+      "cpu": ["arm64"],
+      "bin": true
+    },
+    "@bruits/sampo-linux-x64@0.24.1": {
+      "integrity": "sha512-UqXW4IAsahl/SjJYLafe0tGGYoL1ET9mnleeAd+xtSl6eFbozPDFZyTEig4F5C0voPuf6UKnCd++1rpRtU/vEg==",
+      "os": ["linux"],
+      "cpu": ["x64"],
+      "bin": true
+    },
+    "@bruits/sampo-win32-x64@0.24.1": {
+      "integrity": "sha512-j/9nKc0I1F12vihDuOIhxTs31+LhyyDjVF+YP4bmASPUS8u/mmHzbsyv/uRuoS3jLDXea/gdZQUrdKqix8NV3A==",
+      "os": ["win32"],
+      "cpu": ["x64"],
+      "bin": true
+    },
     "@deno/shim-deno-test@0.5.0": {
       "integrity": "sha512-4nMhecpGlPi0cSzT67L+Tm+GOJqvuk8gqHBziqcUQOarnuIax1z96/gJHCSIz2Z0zhxE6Rzwb3IZXPtFh51j+w=="
     },
@@ -675,7 +708,8 @@
       "dependencies": [
         "@smithy/types",
         "tslib"
-      ]
+      ],
+      "deprecated": true
     },
     "@smithy/credential-provider-imds@4.5.2": {
       "integrity": "sha512-A9uSdn72ozbRUSit0eib0TW7nXuNPlaeM0zcGkJ+nE6tFcSDbnmtwoxbTCFBukVQcszDAyvsd7+rTduPTXpygg==",
@@ -1578,6 +1612,17 @@
     "safer-buffer@2.1.2": {
       "integrity": "sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg=="
     },
+    "sampo@0.24.1": {
+      "integrity": "sha512-wsYROEvh7g/I4fHjbCfw1GQ/wdgaOKyhJMFUTDxXFCGDLfyPHPk5m1iX7k/rNp5BioN1RMUEyeBR6AOiaSpNjg==",
+      "optionalDependencies": [
+        "@bruits/sampo-darwin-arm64",
+        "@bruits/sampo-darwin-x64",
+        "@bruits/sampo-linux-arm64",
+        "@bruits/sampo-linux-x64",
+        "@bruits/sampo-win32-x64"
+      ],
+      "bin": true
+    },
     "shebang-command@2.0.0": {
       "integrity": "sha512-kHxr2zZpYtdmrN1qDjrrX/Z1rR1kG8Dx+gkpK1G4eXmvXswmcE1hTWBWYUzlraYw1/yZp6YuDY77YtvbN0dmDA==",
       "dependencies": [
@@ -1933,6 +1978,7 @@
         "npm:@types/node@^26.2.0",
         "npm:drizzle-orm@~0.45.2",
         "npm:mitata@^1.0.34",
+        "npm:sampo@0.24.1",
         "npm:testcontainers@^12.0.4",
         "npm:typescript@^7.0.2",
         "npm:vite@^8.2.1",

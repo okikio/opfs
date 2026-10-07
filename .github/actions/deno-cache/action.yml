@@ -1,0 +1,85 @@
+name: Deno compiler state
+description: >-
+  Restore or save Deno's compiler state for one group of jobs (a cohort). The state is
+  Deno's module analysis, type-check and code caches and its emitted code, kept apart
+  from dependency downloads (../dependency-cache). Deno still type-checks the current
+  source and runs every selected command, so a restored state can make a check faster but
+  can never make it pass. Call it with mode restore before the checks and mode save
+  after them. Set bypass to true (the fresh input of CI and Release) to skip both.
+
+inputs:
+  mode:
+    description: restore (before the checks) or save (after successful checks)
+    required: true
+  cohort:
+    description: Name of the job group whose source and commands share this state, for example opfs-source
+    required: true
+  bypass:
+    description: When 'true', neither restore nor save, so the job rebuilds compiler state from nothing
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    # dependency-cache sets DENO_DIR for the job. This step reads no input and keeps that value, or
+    # sets the same default when dependency-cache did not run.
+    - name: Use the job's Deno cache directory
+      if: inputs.bypass != 'true'
+      shell: bash
+      # The value is the runner's own temp path; no input or event text reaches it.
+      run: echo "DENO_DIR=${DENO_DIR:-$RUNNER_TEMP/deno-cache}" >> "$GITHUB_ENV" # zizmor: ignore[github-env]
+
+    - name: Locate compiler state
+      if: inputs.bypass != 'true'
+      id: locate
+      shell: bash
+      env:
+        COHORT: ${{ inputs.cohort }}
+      run: |
+        set -euo pipefail
+        # The cohort becomes part of a cache key, so accept only a plain name.
+        [[ "$COHORT" =~ ^[a-z0-9][a-z0-9-]*$ ]] || {
+          echo "::error::Cohort must be lowercase letters, digits and hyphens." >&2
+          exit 1
+        }
+        version=$(mise exec -- deno --version | head -n 1 | cut -d ' ' -f 2)
+        delimiter="paths-$(openssl rand -hex 16)"
+        {
+          echo "paths<<$delimiter"
+          echo "$DENO_DIR/gen"
+          # Deno's SQLite caches: check, fast check, module, Node and V8 code analysis.
+          echo "$DENO_DIR/*_cache_v2*"
+          echo "$delimiter"
+          # Compiler output depends on the Deno release and the lockfile, not on unrelated tools.
+          echo "prefix=deno-state-v1-${RUNNER_OS}-${RUNNER_ARCH}-${version}-${COHORT}-"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Restore compiler state
+      id: restore
+      if: inputs.bypass != 'true' && inputs.mode == 'restore'
+      continue-on-error: true
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.locate.outputs.paths }}
+        # Each revision saves its own entry; restore takes the newest entry for this lockfile first.
+        key: ${{ steps.locate.outputs.prefix }}${{ hashFiles('deno.lock') }}-${{ github.sha }}
+        restore-keys: |
+          ${{ steps.locate.outputs.prefix }}${{ hashFiles('deno.lock') }}-
+          ${{ steps.locate.outputs.prefix }}
+
+    # Same trusted-ref rule as dependency-cache: forks never write, and a PR write stays in its merge-ref scope.
+    - name: Save compiler state
+      if: >-
+        inputs.bypass != 'true' && inputs.mode == 'save' &&
+        github.event.repository.fork == false &&
+        (
+          (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref_protected == true)) ||
+          (github.event_name == 'pull_request' && startsWith(github.ref, 'refs/pull/') && endsWith(github.ref, '/merge') &&
+           github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.repo.fork == false) ||
+          (github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/heads/'))
+        )
+      continue-on-error: true
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.locate.outputs.paths }}
+        key: ${{ steps.locate.outputs.prefix }}${{ hashFiles('deno.lock') }}-${{ github.sha }}

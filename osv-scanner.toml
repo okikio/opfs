@@ -1,0 +1,9 @@
+# Reviewed dependency-advisory exceptions. `mise run check:security` fails on an advisory that is not listed
+# here, and on an entry whose `ignoreUntil` date has passed. Each entry needs a reason a reviewer can check.
+#
+# [[IgnoredVulns]]
+# id = "GHSA-xxxx-xxxx-xxxx"
+# ignoreUntil = 2027-01-01
+# reason = """
+# Why the advisory does not apply, or why it is accepted until that date.
+# """

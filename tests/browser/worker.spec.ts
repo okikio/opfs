@@ -28,7 +28,13 @@ test("DedicatedWorker uses real OPFS and probes synchronous access", async ({ pa
   expect(result.probe?.context).toBe("dedicated-worker");
   if (result.probe?.rootAvailable) {
     expect(result.value).toBe("dedicated");
-    if (result.probe.syncAccessHandleExposed && !result.syncOpened) expect(result.syncError).toBeDefined();
+    if (result.probe.syncAccessHandleExposed) {
+      expect(result.syncError).toBeUndefined();
+      expect(result.syncOpened).toBe(true);
+      expect(result.syncBytes).toEqual([0, 9, 127, 255, 0, 0]);
+      expect(result.syncClosedCode).toBe("invalid-operation");
+      expect(result.syncReopened).toBe(true);
+    }
   } else {
     expect(result.probe?.rootError).toBeDefined();
   }
