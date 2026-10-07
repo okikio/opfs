@@ -236,6 +236,10 @@ describe("Deno release command", { skip: Deno.build.os === "windows" }, () => {
         expect.objectContaining({ name: "@release/app", newVersion: "0.1.1" }),
       ]));
       success(await value.release("version"));
+      const storyPath = join(value.root, ".tmp/story.md");
+      await Deno.mkdir(join(value.root, ".tmp"), { recursive: true });
+      await Deno.writeTextFile(storyPath, story);
+      success(await run(value.root, Deno.execPath(), ["fmt", storyPath]));
       for (const [name, version] of [["core", "0.2.0"], ["app", "0.1.1"]]) {
         expect((await read<{ version: string }>(join(value.root, "packages", name!, "package.json"))).version).toBe(
           version,
@@ -244,7 +248,17 @@ describe("Deno release command", { skip: Deno.build.os === "windows" }, () => {
           version,
         );
       }
-      expect(await Deno.readTextFile(join(value.root, "packages/core/CHANGELOG.md"))).toContain(story);
+      expect(await Deno.readTextFile(join(value.root, "packages/core/CHANGELOG.md"))).toContain(
+        (await Deno.readTextFile(storyPath)).trim(),
+      );
+      success(
+        await run(value.root, Deno.execPath(), [
+          "fmt",
+          "--check",
+          "packages/core/CHANGELOG.md",
+          "packages/app/CHANGELOG.md",
+        ]),
+      );
       expect(
         (await read<{ dependencies: Record<string, string> }>(join(value.root, "packages/app/package.json")))
           .dependencies["@release/core"],
