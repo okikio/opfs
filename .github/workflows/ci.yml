@@ -126,6 +126,12 @@ jobs:
           version: "2026.8.6"
           install_args: deno
       - run: deno task deps:ci && deno task test:browser:install && deno task test:browser
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: browser-evidence
+          path: .tmp/reports/browser
+          include-hidden-files: true
 
   providers:
     name: S3 and Azure provider containers
@@ -197,6 +203,12 @@ jobs:
           version: "2026.8.6"
           install_args: deno
       - run: deno task deps:ci && deno task test:browser:install && deno task bench:browser
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: browser-benchmark-evidence
+          path: .tmp/reports/browser-bench
+          include-hidden-files: true
 
   ecosystems:
     name: Installed ecosystem contracts
