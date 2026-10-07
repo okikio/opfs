@@ -122,6 +122,14 @@ Container startup and image pull are completed before measured Mitata cases begi
 The provider client/driver can report physical counters such as requests, retries, responses, failures, and
 multipart/block work. The facade reports logical filesystem operations and facade buffering.
 
+For S3 and Azure, the shared Fetch collector counts thrown terminal preparation, transport, retry and cancellation
+failures. An HTTP error response still counts as a response; the provider can reject it afterward, outside that
+collector. Fetch activity and duration end when response headers arrive; later body consumption and socket lifetimes
+need separate observations. Use observed HTTP statuses alongside those counters when investigating authorization or
+conditional-write errors. Missing optional driver metrics are unavailable, not zero. Logical payload bytes and observed
+HTTP body bytes also exclude headers, protocol framing and encryption overhead; they do not measure total network
+traffic or provider CPU and memory.
+
 A benchmark should not infer provider requests from logical operations. One logical large write can become many physical
 parts.
 
