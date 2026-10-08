@@ -34,12 +34,16 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: "deno run -A npm:vite@8.2.1 ../.. --host 127.0.0.1 --port 4173 --strictPort",
+      command:
+        "deno run -A npm:vite@8.2.1 --config tests/browser/vite.config.ts --host 127.0.0.1 --port 4173 --strictPort",
+      cwd: fileURLToPath(new URL("../..", import.meta.url)),
       url: firstReady,
       reuseExistingServer: false,
     },
     {
-      command: "deno run -A npm:vite@8.2.1 ../.. --host 127.0.0.1 --port 4174 --strictPort",
+      command:
+        "deno run -A npm:vite@8.2.1 --config tests/browser/vite.config.ts --host 127.0.0.1 --port 4174 --strictPort",
+      cwd: fileURLToPath(new URL("../..", import.meta.url)),
       url: secondReady,
       reuseExistingServer: false,
     },
