@@ -43,14 +43,15 @@ Linux adds only CHOWN to the otherwise dropped container capability set. Root ex
 copied private archive and establishes its private `0600` mode before hashing and extracting it; Docker copy ownership
 is not inferred from the caller UID. This never changes borrowed or maintained host inputs. The same native JavaScript
 worker first checks exact bytes, kinds, links and root ownership with `--admit`, then establishes and verifies the
-declared Linux permissions. All real tests run as UID/GID 1000 with zero effective, permitted and ambient capabilities
-verified before execution and privilege escalation disabled. Node, Bun and Deno use their native built-in modules; the
-Deno image does not require Node. Its root admission alone gets write permission for the private copied tree. The
-entrypoint is explicit, so the Deno command includes its `deno` executable rather than relying on the image's default
-entrypoint. All five existing runtime/storage lanes retain their test selection, network exclusion and resource caps.
-POSIX-only host mode/link tests have an explicit Windows capability boundary; binary independent copying, portable tar
-headers, dependency retention and cancellation controls run on every host. Actual Linux byte, owner, mode and
-single-link guards remain mandatory.
+declared Linux permissions. Linux worker identity is independently observed after runtime startup and before work. All
+real tests run as UID/GID 1000 with zero inheritable, effective, permitted and ambient capability sets and NoNewPrivs=1.
+The bounding set retains CHOWN, so the evidence does not claim every capability set is zero. Node, Bun and Deno use
+their native built-in modules; the Deno image does not require Node. Its root admission alone gets write permission for
+the private copied tree. The entrypoint is explicit, so the Deno command includes its `deno` executable rather than
+relying on the image's default entrypoint. All five existing runtime/storage lanes retain their test selection, network
+exclusion and resource caps. POSIX-only host mode/link tests have an explicit Windows capability boundary; binary
+independent copying, portable tar headers, dependency retention and cancellation controls run on every host. Actual
+Linux byte, owner, mode and single-link guards remain mandatory.
 
 FUSE needs root and privilege to start Mountpoint and BlobFuse. That authority is restricted to the disposable client
 container. It extracts and admits the private copy there and creates a read-only bind mount of that copied tree wholly
@@ -124,3 +125,113 @@ the root ancestor or weakening metadata checks. A mismatch retains observed meta
 separately in its cause. The unconditional volume-root control joins the existing binary, archive and cancellation
 controls; host POSIX exclusions remain unchanged. These controls require actual Windows CI proof and do not establish
 Windows-to-Docker workflow admission by themselves.
+
+## Runtime identity before work
+
+Runtime identity is observed by a copied native shell supervisor after the actual Node, Bun or Deno process starts and
+before its worker imports library behavior. The worker publishes its PID and nonce in a private physical gate; the
+supervisor binds that readiness to its launched child, live parent and process starttime. It records raw proc status and
+NUL-preserving launch/runtime argument bytes. Root admission requires UID/GID zero with only CHOWN effective/permitted;
+ordinary execution requires all four UID/GID values of 1000, zero inheritable/permitted/effective/ambient sets and
+NoNewPrivs=1. The bounding set remains CHOWN for both roles; it is not claimed to be zero. The supervisor verifies the
+live process again before approval and before each retirement signal. Gate and journal identities are rechecked before
+use or removal. Readiness and approval bytes are finite and exact.
+
+Deno never reads protected proc files or gains allow-all for this evidence. Its only extra read/write authority is the
+acquired temporary handshake directory. The supervisor and handshake module are independently transport-hashed before
+loading, alongside the worker and receipt; they are also retained as preparation input hashes. The images provide native
+sh, stat, chown, sha256sum, cat, head, wc, od, cmp, chmod, mv, rm and sleep. Native startup admission is limited to 30
+seconds; post-approval completion and uncooperative wait are bounded by the caller command and exact-container cleanup
+deadlines, not by a claimed shell guarantee. Child exit, supervisor rejection and independent cleanup faults remain
+separate observations. The gate is a trusted-worker provenance boundary, not a hostile concurrent filesystem sandbox.
+
+The supervisor's exact Git attribute pins its working-tree bytes to LF, including Windows checkouts. The container
+receives those admitted bytes without rewriting them; this avoids a CRLF checkout becoming an invalid Linux shell
+program. Inert upstream snapshots keep their separate byte-preserving attributes.
+
+Retirement first records `preCleanupExit`, then reports `cleanupExit`, `cleanupState` and `finalExit` after the gate
+cleanup attempt. `cleanupExit` is the actual `rm` result; it is `null` when changed ownership refuses to start removal.
+Cleanup refusal or failure makes the final supervisor code 74 while retaining the earlier result and child exit. For
+example, an illustrative pre-cleanup exit 9 and cleanup exit 1 produce final exit 74 with both failures visible. The
+native CLI's observed code and signal remain the authority for whether the command itself completed.
+
+OPFS workers spawn their explicit test commands after approval. Descendant authority follows the observed zero named
+capability sets and NoNewPrivs through Linux exec; it is not a separate proc snapshot of every descendant. Privileged
+FUSE uses the explicit Node-only `--privileged-source` pure admit/verify path. It performs no ordinary library task in
+that branch and retains its distinct mount authority.
+
+Transport archives keep directory headers at owner-only `0700` while the unchanged admission manifest declares final
+`0555` directories. This allows extraction to populate every descendant without DAC override, even when root/descendant
+headers are noncontiguous and tar restores a directory early. Root admission checks complete bytes, kinds, contained
+links and owner before applying and verifying final manifest modes. These temporary transport permissions confer no
+access to maintained host paths and do not weaken ordinary-user read-only inputs. Independent tar-header controls
+preserve exact child/receipt bytes and final manifest values; actual CHOWN-only extraction remains a separate Linux
+proof.
+
+## Failed commands retain their evidence
+
+`test:linux` and the FUSE collector acquire their physical report directories before starting the first native CLI.
+Linux source admission, rejected bootstrap, diagnostic lookup and named-container cleanup each write a separate
+`call-NNNN/` directory under the run report. FUSE uses the same collector for outer source admission and native Docker
+image inspection. `stdout.bin` and `stderr.bin` contain independent native bytes; `metadata.json` records their lengths
+and SHA-256 digests alongside actual child exit and capture observations. A nonzero child cannot bypass these writes.
+The run's journal retains call paths and recursive original causes rather than reducing a lane failure to its outer
+stack. Report acquisition failure starts no CLI and cannot claim durable command evidence.
+
+For example, this **illustrative** fragment describes a child that exits 9 after both pipes reach EOF:
+
+```json
+{
+  "exitObserved": true,
+  "code": 9,
+  "signal": null,
+  "closeObserved": true,
+  "stdout": { "eof": true, "complete": true },
+  "stderr": { "eof": true, "complete": true },
+  "success": false
+}
+```
+
+Complete capture does not turn exit 9 into success. Conversely, a child can exit 0 while capture fails. Each pipe
+retains at most 16MiB; overflow keeps the admitted prefix, records a quota fault, and refuses success. Raw bytes never
+enter an error message or JSON byte array. Existing text callers decode each retained stream once after capture. This is
+a maintainer diagnostic quota, not a benchmark sample limit or a library throughput requirement.
+
+The command deadline keeps its existing per-call duration. Cancellation, quota overflow and deadline expiry request
+SIGKILL for the exact acquired CLI. A further one-second drain grace bounds waiting for its pipes. If that grace
+expires, forced closure remains a capture fault: it does not fabricate EOF, child exit or daemon-container removal.
+Actual exit uses the native `exit` event; `close`, kill acknowledgement and each pipe's `end` event remain separate
+observations, as described by the [Node child-process contract](https://nodejs.org/api/child_process.html#event-close).
+Descendants and daemon resources still need their caller-owned cleanup. Cleanup commands ignore workload cancellation so
+each exact owned container name gets its independent retirement attempt.
+
+Both raw-file writes and their metadata write are attempted independently. A write, physical-owner or journal fault does
+not replace actual child status or a workload failure; the caller retains every failure and refuses success. A complete
+pipe observation describes capture, while `retentionFailures` describes disk evidence. Missing raw files cannot be
+inferred to be empty. Exclusive writes and acquired canonical roots reject substituted report owners without writing
+borrowed paths. These are quiescent identity controls, not a hostile concurrent-filesystem guarantee. Native acquisition
+and filesystem calls remain within the outer isolated runner's watchdog.
+
+Serialized diagnostics retain data properties, original causes and shared-reference paths without invoking accessors.
+Their traversal has explicit limits: 32 levels, 4096 properties/objects and 1MiB of retained key/value string
+characters; shared identities have numbered references with at most 1024 path characters, and omitted data is labeled.
+These limits do not truncate the independent raw stream files. Failed metadata writes remain in the thrown structured
+outcome even when the disk journal itself cannot be completed. Native child controls exercise binary exit 0/9, missing
+executable, quota, deadline and physical report faults; actual Docker lanes provide separate workflow proof.
+
+FUSE keeps Testcontainers exec evidence separate from native CLI capture. That API supplies decoded output and an actual
+exit code; extraction, copied-tree checks and correctness rejection retain those observations as structured causes. They
+never claim raw native pipe bytes or EOF. Native source-admission and image-inspection calls use the same 16MiB per-pipe
+collector, retain raw files before their verdict and record their call paths in the run journal. Capture, retention and
+progress-journal failures remain independent. Mounting, provider setup, benchmark callbacks and Testcontainers resource
+retirement keep their existing authority and deadlines. Benchmark output reads retain their actual API exit codes; any
+failed benchmark or output read refuses validation even when its text looks like valid JSON. Both output writes and the
+progress journal are attempted before that verdict. Mount readiness requires both setup and the decoded mount/version
+command to exit successfully, as well as both existing mount labels. Debug-log status remains an independent diagnostic
+observation and cannot substitute for mount readiness.
+
+FUSE progress saves recheck the report root and the initially created physical regular metadata file before overwriting
+that file. A substituted alias, hard link or changed observable native identity refuses the save. Other report leaves
+use exclusive creation. Windows file IDs remain unknown where the native API cannot observe them; these are quiescent
+ownership guards, not a concurrent hostile-filesystem guarantee. A failed final save stays in the thrown recursive
+outcome while owned container and network cleanup still runs.
