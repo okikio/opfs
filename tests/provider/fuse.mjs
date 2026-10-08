@@ -1,5 +1,5 @@
 /** Owns actual FUSE clients and isolated provider services; never mounts on the host. */
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { arch, cpus, platform } from "node:os";
@@ -19,8 +19,9 @@ import {
 } from "./fixture.ts";
 
 /** A failed acquisition retains evidence rather than disappearing before the first report write. */
-const directory = `.tmp/reports/fuse/${new Date().toISOString().replaceAll(":", "-")}`;
-await mkdir(directory, { recursive: true });
+const parent = ".tmp/reports/fuse";
+await mkdir(parent, { recursive: true });
+const directory = await mkdtemp(`${parent}/${new Date().toISOString().replaceAll(":", "-")}-`);
 const metadata = {
   version: 2,
   status: "running",

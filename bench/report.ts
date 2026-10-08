@@ -1,4 +1,4 @@
-import { mkdir, open, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, open, readFile, writeFile } from "node:fs/promises";
 import { arch, cpus, platform, release, totalmem } from "node:os";
 import { join } from "node:path";
 import { env, versions } from "node:process";
@@ -8,8 +8,9 @@ import { runProgram } from "./process.ts";
 import { inputs as identity, verifyInputs } from "./input.ts";
 
 /** Each invocation retains progress and failures in its own report directory. */
-const root = join(".tmp", "reports", "bench", new Date().toISOString().replaceAll(":", "-"));
-await mkdir(root, { recursive: true });
+const parent = join(".tmp", "reports", "bench");
+await mkdir(parent, { recursive: true });
+const root = await mkdtemp(join(parent, `${new Date().toISOString().replaceAll(":", "-")}-`));
 /** Node/Deno expose manual GC consistently; each workload deliberately selects once or inner collection. */
 const programs = [
   ["memory", "node", ["--expose-gc", "bench/memory.bench.ts"]],

@@ -1,4 +1,4 @@
-import { mkdir, open, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, open, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { env, execPath } from "node:process";
 
@@ -52,14 +52,9 @@ function getProviderEnv(s3Endpoint: string, azureEndpoint: string): ProviderEnvT
 
 /** Standalone and parent-collected provider runs admit the same maintained inputs. */
 const reportRoot = env.OPFS_PROVIDER_VERIFY === "1" ? undefined : env.OPFS_BENCH_REPORT_DIR;
-const evidence = reportRoot ??
-  join(
-    ".tmp",
-    "reports",
-    env.OPFS_PROVIDER_VERIFY === "1" ? "provider-verify" : "provider-bench",
-    new Date().toISOString().replaceAll(":", "-"),
-  );
-await mkdir(evidence, { recursive: true });
+const parent = join(".tmp", "reports", env.OPFS_PROVIDER_VERIFY === "1" ? "provider-verify" : "provider-bench");
+await mkdir(reportRoot ?? parent, { recursive: true });
+const evidence = reportRoot ?? await mkdtemp(join(parent, `${new Date().toISOString().replaceAll(":", "-")}-`));
 const completeInputs = await openInputGuard(async (receipt) => {
   await writeFile(join(evidence, "provider-inputs.json"), JSON.stringify(receipt, null, 2) + "\n");
 });
