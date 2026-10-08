@@ -6,11 +6,11 @@ import { directoryCases, syncCases } from "../upstream/wpt.ts";
 /** Access remains explicit and local to this fixture page. */
 type FixtureGlobalType = typeof globalThis & { upstreamTest: typeof upstream };
 
+test.use({ entry: "upstream" });
+
 for (const route of ["native", "facade"] as const) {
   for (const source of directoryCases) {
-    test(`Copied WPT / ${route} / ${source.name}`, async ({ page }) => {
-      await page.goto("http://127.0.0.1:4173/tests/browser/fixtures/upstream.html");
-      await page.waitForFunction(() => Boolean((globalThis as FixtureGlobalType).upstreamTest));
+    test(`Copied WPT / ${route} / ${source.name}`, async ({ ready: page }) => {
       const result = await page.evaluate(
         async ({ name, route }) => await (globalThis as FixtureGlobalType).upstreamTest.directory(name, route),
         { name: source.name, route },
@@ -19,9 +19,7 @@ for (const route of ["native", "facade"] as const) {
       expect(result).toEqual({ supported: true, name: source.name, route });
     });
   }
-  test(`Copied WPT / ${route} / DedicatedWorker sync byte and cursor cases`, async ({ page }) => {
-    await page.goto("http://127.0.0.1:4173/tests/browser/fixtures/upstream.html");
-    await page.waitForFunction(() => Boolean((globalThis as FixtureGlobalType).upstreamTest));
+  test(`Copied WPT / ${route} / DedicatedWorker sync byte and cursor cases`, async ({ ready: page }) => {
     const result = await page.evaluate(
       async (route) => await (globalThis as FixtureGlobalType).upstreamTest.sync(route),
       route,

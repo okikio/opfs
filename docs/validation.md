@@ -305,12 +305,13 @@ page-owned registration/message path when direct runner instrumentation is unava
 
 Persistent OPFS correctness contexts use one acquired temporary profile per test. Native launch has a 30-second cap,
 shortened again when less owner time remains, instead of inheriting Playwright's longer native acquisition default. The
-profile and persistent-context fixtures each have a separate 90-second setup/teardown budget, retaining room for native
-retirement. Ordinary body/assertion timeouts stay unchanged. A context is registered for idempotent close as soon as
-acquisition completes; its profile is removed only after dependent context releases. The reopen case now uses this same
-disposable owner instead of retaining a browser cache profile under its report output; traces and configured report
-artifacts retain their existing evidence policy. Native deadline cancellation settles acquisition rather than abandoning
-a losing promise from `Promise.race()`.
+profile and persistent-context fixtures each have a 90-second fixture budget separate from the body. In pinned
+Playwright 1.62.1, setup and teardown share that fixture slot; suspension during the test body is not charged to it.
+Ordinary body/assertion timeouts stay unchanged. A context is registered for idempotent close as soon as acquisition
+completes; its profile is removed only after dependent context releases. The reopen case now uses this same disposable
+owner instead of retaining a browser cache profile under its report output; traces and configured report artifacts
+retain their existing evidence policy. Native deadline cancellation settles acquisition rather than abandoning a losing
+promise from `Promise.race()`.
 
 The same-profile reopen scenario has an explicit 180-second test lifetime for two launches, their native closes and both
 authored write/read sequences. It reserves its last 30 seconds before passing its deadline to the acquisition owner,
@@ -320,7 +321,56 @@ inner retirement reserve; the outer reserve remains separate. Every launch still
 an operational fixture lifetime, not a throughput or latency requirement, and neither retries nor global suite timeout
 are increased. A native OS close or file operation can still require the outer runner watchdog. See the
 [Playwright timeout contract](https://playwright.dev/docs/test-timeouts): default test time includes fixture setup,
-while fixture setup/teardown can have their own finite budget.
+while an explicit fixture has its own finite setup/teardown slot.
+
+Initial fixture-document and iframe API acquisition is also separate from functional assertions. The reusable
+`tests/browser/ready.ts` fixture acquires its own page in the provided context, registers close before navigation, and
+hands it to the test only after the declared callable API is installed. It never closes the borrowed context. Server
+HTTP200 readiness only admits HTML serving; it does not admit module execution. Numeric 50ms API polling observes module
+installation without depending on animation frames. Required same-origin script load failures, HTTP error responses,
+malformed APIs and native navigation/readiness errors fail acquisition with structured stage/category and bounded
+observations. While native navigation or reload is pending, listeners record faults without aborting that navigation
+transaction. After it settles under the same finite native deadline, any recorded fault or failed main-response status
+refuses admission before API polling. Later load faults can cancel the stable API wait. A separate native rejection and
+a recorded load fault both remain causes; failed HTTP responses cannot become ready documents. Native controls supply
+proper script/document MIME and distinguish the actual fulfilled status from engine-specific response/request
+observations.
+
+```ts
+// A test file under tests/browser/ selects its fixture API before the body starts.
+import { expect } from "@playwright/test";
+import { test } from "./ready.ts";
+
+test("the fixture exposes its Window API", async ({ ready: page }) => {
+  expect(await page.evaluate(() => typeof Reflect.get(globalThis, "opfsTest")?.probe)).toBe("function");
+});
+```
+
+The fixture's 90-second slot admits at most 60 seconds of completed page acquisition/navigation/API setup, leaving 30
+seconds of the slot for page retirement. This is operational runner policy, not a package latency requirement. Each
+native wait uses the remaining admission time and rejects expired ownership before dispatch. `context.newPage()` and
+`page.close()` do not expose a cancellable native timeout: pending acquisition/close remains framework-owned and may
+need the outer runner watchdog. The 30 seconds is a reserved budget, not a promise that a stuck OS call is interrupted.
+Cleanup errors remain independent failures; absence of an error alone is not an independent process-retirement census.
+
+Same/cross-origin and opaque frame fixtures own their containing pages, then their ordinary bodies preserve the real
+embedding/storage-policy probes. Initial Window, record-adapter and copied-WPT API installation follows the same owner.
+Reopen, fresh-context isolation and cooperating-page/reload stories retain writes, native closes, actual reloads and
+read-back assertions inside finite 180-second scenario owners. Each subsequent document admission rechecks remaining
+lifetime. This change does not introduce a global timeout increase, a retry or a new capability skip.
+
+Benchmark methods load their module before its existing internal timers. The benchmark-specific document explicitly
+admits that module before the 120-second sampling body, without performing a storage probe, warmup or sample during
+admission. Namespace setup, byte oracles, rotated sample loops and input guards keep their existing authority. The
+conservative support catalog automatically includes ready.ts and the benchmark fixture bodies. Worker module import and
+result watchdog separation remains a distinct review boundary; document admission does not claim to repair an unobserved
+worker-startup failure.
+
+Run the native admission controls and real frame stories without retries:
+
+```sh
+deno task test:browser tests/browser/readiness.spec.ts tests/browser/iframe.spec.ts --retries=0
+```
 
 ## Provider tests use Testcontainers
 
