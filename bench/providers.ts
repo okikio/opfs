@@ -1,7 +1,11 @@
-import { spawn } from "node:child_process";
+import { mkdir, open, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { env, execPath } from "node:process";
 
 import { openProviders } from "../tests/provider/fixture.ts";
+import { finish } from "./result.ts";
+import { runProgram } from "./process.ts";
+import { openInputGuard } from "./input.ts";
 
 /** Environment names consumed by the provider benchmark programs. */
 interface ProviderEnvType extends NodeJS.ProcessEnv {
@@ -12,21 +16,29 @@ interface ProviderEnvType extends NodeJS.ProcessEnv {
 }
 
 /** Runs one benchmark program with inherited stdio and fails on a non-zero exit. */
-async function run(command: string, args: readonly string[], providerEnv: ProviderEnvType): Promise<void> {
-  await new Promise<void>((resolve, reject) => {
-    const child = spawn(command, args, {
+async function run(
+  command: string,
+  args: readonly string[],
+  providerEnv: ProviderEnvType,
+  report?: string,
+): Promise<void> {
+  const file = report === undefined ? undefined : await open(report, "wx");
+  let failed = false;
+  let primary: unknown;
+  try {
+    await runProgram(command, args, {
       env: providerEnv,
-      stdio: "inherit",
+      stdio: file === undefined ? "inherit" : ["inherit", file.fd, "inherit"],
     });
-    child.once("error", reject);
-    child.once("exit", (code, signal) => {
-      if (code === 0) {
-        resolve();
-        return;
-      }
-      reject(new Error(`${command} ${args.join(" ")} exited with ${code ?? signal ?? "unknown status"}.`));
-    });
-  });
+  } catch (error) {
+    failed = true;
+    primary = error;
+    throw error;
+  } finally {
+    await finish([async () => {
+      await file?.close();
+    }], failed ? [primary] : []);
+  }
 }
 
 /** Creates the child-process environment after provider endpoints are known. */
@@ -38,10 +50,43 @@ function getProviderEnv(s3Endpoint: string, azureEndpoint: string): ProviderEnvT
   } as ProviderEnvType;
 }
 
-/** Provider services live outside timed benchmark programs and close after both programs finish. */
-await using providers = await openProviders();
-/** Child-process environment carrying the Testcontainers-selected endpoints. */
-const providerEnv = getProviderEnv(providers.s3Endpoint, providers.azureEndpoint);
+/** Standalone and parent-collected provider runs admit the same maintained inputs. */
+const reportRoot = env.OPFS_PROVIDER_VERIFY === "1" ? undefined : env.OPFS_BENCH_REPORT_DIR;
+const evidence = reportRoot ??
+  join(
+    ".tmp",
+    "reports",
+    env.OPFS_PROVIDER_VERIFY === "1" ? "provider-verify" : "provider-bench",
+    new Date().toISOString().replaceAll(":", "-"),
+  );
+await mkdir(evidence, { recursive: true });
+const completeInputs = await openInputGuard(async (receipt) => {
+  await writeFile(join(evidence, "provider-inputs.json"), JSON.stringify(receipt, null, 2) + "\n");
+});
+let failed = false;
+let primary: unknown;
+try {
+  /** Provider services live outside timed benchmark programs and close after both programs finish. */
+  await using providers = await openProviders();
+  /** Child-process environment carrying the Testcontainers-selected endpoints. */
+  const providerEnv = getProviderEnv(providers.s3Endpoint, providers.azureEndpoint);
 
-await run(execPath, ["bench/provider.bench.ts"], providerEnv);
-await run("bun", ["run", "bench/bun-provider.bench.ts"], providerEnv);
+  await run(
+    execPath,
+    ["--expose-gc", "bench/provider.bench.ts"],
+    providerEnv,
+    reportRoot === undefined ? undefined : join(reportRoot, "provider-node.json"),
+  );
+  await run(
+    "bun",
+    ["run", "bench/bun-provider.bench.ts"],
+    providerEnv,
+    reportRoot === undefined ? undefined : join(reportRoot, "provider-bun.json"),
+  );
+} catch (error) {
+  failed = true;
+  primary = error;
+  throw error;
+} finally {
+  await finish([completeInputs], failed ? [primary] : []);
+}
