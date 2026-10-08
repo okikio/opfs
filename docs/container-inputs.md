@@ -53,6 +53,38 @@ exclusion and resource caps. POSIX-only host mode/link tests have an explicit Wi
 independent copying, portable tar headers, dependency retention and cancellation controls run on every host. Actual
 Linux byte, owner, mode and single-link guards remain mandatory.
 
+The two offline Deno lanes set `DENO_DISABLE_NODE_SHIM=1` for the entire owned container, including root admission,
+ordinary worker startup and the selected Deno tests. This is Deno's supported opt-out for its optional native `node`
+launcher. Without the opt-out, Deno 2.9.7 can create `DENO_DIR/node_compat_bin/node` pointing to the image's Deno
+executable before the worker runs. That target lies outside the admitted cache, so the exact alias guard correctly
+rejects it. The opt-out preserves the native Deno executable; it does not admit an external alias or give dependencies
+write permission. See Deno's
+[Node compatibility documentation](https://docs.deno.com/runtime/fundamentals/node/#tools-that-spawn-node) and the
+[pinned 2.9.7 launcher implementation](https://github.com/denoland/deno/blob/v2.9.7/cli/node_compat_shim.rs).
+
+These Deno lanes select `test:portable`, `test:upstream`, `test:deno` and `test:deno-kv`. Their maintained test closure
+does not require a native child named `node`. The process controls that explicitly launch `node` belong to separate
+Node/Bun commands. The Node 22 and Node 24 Linux lanes continue to use real Node. A future Deno test that needs a child
+runtime must invoke the explicit native Deno executable, for example `Deno.execPath()`, or declare a separate Node
+emulation scenario with its own admitted launcher. Importing `node:` built-ins in Deno still uses Deno's native
+compatibility implementation.
+
+Root admission uses a separate UUID-named `DENO_DIR` under `/tmp/opfs-bootstrap-*`. This worker imports only copied
+local modules and native built-ins, so it needs no downloaded dependencies. Deno can create analysis databases, their
+SQLite WAL/SHM files and runtime directories before the worker begins. Those are private startup outputs, not downloaded
+input bytes. The named container owns that output cache until its independently observed removal; the lane receipt
+declares its path. The complete copied input cache remains guarded while root admission establishes read-only
+permissions. Ordinary Deno worker startup and test execution then use that same complete read-only input cache. No input
+entry is ignored, pruned or allowed to change. Deno's pinned analysis cache uses an in-memory fallback on read-only
+failure, and its V8 code cache can discard persistent writes; see the
+[2.9.7 cache failure policy](https://github.com/denoland/deno/blob/v2.9.7/cli/cache/cache_db.rs).
+
+The supervisor observes the root and ordinary Deno worker processes after startup. Workload subprocess credentials
+follow Linux exec inheritance and NoNewPrivs; they are not separately observed by that worker receipt. The unchanged
+complete cache guard rejects any added or modified input entry. This does not certify that every Deno version can run
+against every sealed cache; actual startup, offline test execution and before/after receipts remain the acceptance gate.
+Root bootstrap output-cache creation and disposal are fixture work, not library operation timings.
+
 FUSE needs root and privilege to start Mountpoint and BlobFuse. That authority is restricted to the disposable client
 container. It extracts and admits the private copy there and creates a read-only bind mount of that copied tree wholly
 inside the container. Neither source admission nor the client mounts the host checkout. Mountpoint and BlobFuse
