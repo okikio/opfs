@@ -83,6 +83,21 @@ leak freedom for the portable `describe`/`it` suites. Awaited fixture scopes and
 provide separate lifecycle evidence. A runtime pass does not establish type correctness or bound memory use. Release and
 JSR publication gates still require static validation.
 
+Native command controls use a finite 180-second acquisition and completion budget. That budget allows cold runtime
+startup in a constrained runner; expected exits, raw bytes, EOF and quota outcomes decide correctness. Running
+cancellation waits for an actual file marker for at most 170 seconds, leaving retirement time within the child's owner
+budget. A child that settles without its marker fails readiness immediately. Each native control supplies a test-runner
+timeout longer than its possible child lifetimes and retirement, including the three-child failure control. Bun1.3.14
+forwards `it()` options to its runner; suite options are not used for this budget. See its
+[pinned node:test bridge](https://github.com/oven-sh/bun/blob/bun-v1.3.14/src/js/node/test.ts). The separate one-second
+deadline control still exercises the actual automatic expiry path; it does not claim a one-second startup guarantee.
+
+The command controls snapshot settled process facts before assertions and keep them beside the exact assertion or
+cleanup failure. A capture that rejects before producing a result has no invented observation. Successful,
+missing-command and quota controls write their temporary binary records before the verdict. Fixture retirement still
+removes those owned records; failure diagnostics contain status, EOF, byte extent and hashes, not a promise of durable
+raw fault bytes.
+
 ## Portable tests
 
 Portable tests use `node:test` with `describe`/`it` and `@std/expect`. Deno and Node consume the same TypeScript source.
