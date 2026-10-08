@@ -19,6 +19,8 @@ export default defineConfig({
   testDir: ".",
   testMatch: "*.spec.ts",
   fullyParallel: true,
+  // Bound browser processes independently from host CPU count and container CPU quotas.
+  workers: 1,
   forbidOnly: ci,
   // Retries collect diagnostics; a flaky capability must still fail the gate.
   failOnFlakyTests: true,
