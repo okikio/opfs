@@ -7,6 +7,7 @@ import { toBytes } from "@std/streams/to-bytes";
 import { bench, do_not_optimize } from "mitata";
 import { expectBytes, finish, payload as makePayload, report } from "./result.ts";
 import { expectEtag, expectReceipt, observeProvider } from "./provider-contract.ts";
+import { phase } from "./provider-phase.ts";
 
 import { createFileSystem } from "../mod.ts";
 import { createObjectAdapter } from "../src/adapter/object.ts";
@@ -317,53 +318,127 @@ let failed = false;
 let primary: unknown;
 try {
   await verifyPublicationContracts();
-  await azureContainer.createIfNotExists();
-  await aws.send(new PutObjectCommand({ Bucket: STORAGE_NAME, Key: awsKey, Body: payload }));
-  await s3.put(s3Key, payload);
-  await s3Driver.put(s3DriverKey, payload);
-  await azureOfficial.uploadData(payload);
-  await azure.put(azureKey, payload);
-  await azureDriver.put(azureDriverKey, payload);
-  await s3Adapter.writeFile("/bench.bin", payload, { mode: "replace" });
-  await s3Facade.writeFile("/bench.bin", payload);
-  await s3Measured.writeFile("/bench.bin", payload);
-  await s3Delegated.writeFile("/bench.bin", payload);
-  await azureAdapter.writeFile("/bench.bin", payload, { mode: "replace" });
-  await azureFacade.writeFile("/bench.bin", payload);
-  await azureMeasured.writeFile("/bench.bin", payload);
-  await azureDelegated.writeFile("/bench.bin", payload);
+  await phase("Node Azure SDK container admission", AZURE_ENDPOINT, async () => {
+    await azureContainer.createIfNotExists();
+  });
+  await phase("Node AWS SDK replacement", S3_ENDPOINT, async () => {
+    await aws.send(new PutObjectCommand({ Bucket: STORAGE_NAME, Key: awsKey, Body: payload }));
+  });
+  await phase("Node S3 client replacement", S3_ENDPOINT, async () => {
+    await s3.put(s3Key, payload);
+  });
+  await phase("Node S3 driver replacement", S3_ENDPOINT, async () => {
+    await s3Driver.put(s3DriverKey, payload);
+  });
+  await phase("Node Azure SDK replacement", AZURE_ENDPOINT, async () => {
+    await azureOfficial.uploadData(payload);
+  });
+  await phase("Node Azure client replacement", AZURE_ENDPOINT, async () => {
+    await azure.put(azureKey, payload);
+  });
+  await phase("Node Azure driver replacement", AZURE_ENDPOINT, async () => {
+    await azureDriver.put(azureDriverKey, payload);
+  });
+  await phase("Node S3 adapter replacement", S3_ENDPOINT, async () => {
+    await s3Adapter.writeFile("/bench.bin", payload, { mode: "replace" });
+  });
+  await phase("Node S3 facade replacement", S3_ENDPOINT, async () => {
+    await s3Facade.writeFile("/bench.bin", payload);
+  });
+  await phase("Node S3 facade metrics replacement", S3_ENDPOINT, async () => {
+    await s3Measured.writeFile("/bench.bin", payload);
+  });
+  await phase("Node S3 facade delegated replacement", S3_ENDPOINT, async () => {
+    await s3Delegated.writeFile("/bench.bin", payload);
+  });
+  await phase("Node Azure adapter replacement", AZURE_ENDPOINT, async () => {
+    await azureAdapter.writeFile("/bench.bin", payload, { mode: "replace" });
+  });
+  await phase("Node Azure facade replacement", AZURE_ENDPOINT, async () => {
+    await azureFacade.writeFile("/bench.bin", payload);
+  });
+  await phase("Node Azure facade metrics replacement", AZURE_ENDPOINT, async () => {
+    await azureMeasured.writeFile("/bench.bin", payload);
+  });
+  await phase("Node Azure facade delegated replacement", AZURE_ENDPOINT, async () => {
+    await azureDelegated.writeFile("/bench.bin", payload);
+  });
 
   /** Provider timings start only after all layers return exact bytes, including large uploads. */
-  expectBytes(await readAws(awsKey), payload, "AWS SDK");
-  expectBytes(await toBytes(await s3.get(s3Key)), payload, "S3 client");
-  expectBytes(await toBytes(await s3Driver.get(s3DriverKey)), payload, "S3 driver");
-  expectBytes(new Uint8Array(await azureOfficial.downloadToBuffer()), payload, "Azure SDK");
-  expectBytes(await toBytes(await azure.get(azureKey)), payload, "Azure client");
-  expectBytes(await toBytes(await azureDriver.get(azureDriverKey)), payload, "Azure driver");
-  expectBytes(await s3Adapter.readFile("/bench.bin"), payload, "s3Adapter");
-  expectBytes(await s3Facade.readFile("/bench.bin"), payload, "s3Facade");
-  expectBytes(await s3Measured.readFile("/bench.bin"), payload, "s3Measured");
-  expectBytes(await s3Delegated.readFile("/bench.bin"), payload, "s3Delegated");
-  expectBytes(await azureAdapter.readFile("/bench.bin"), payload, "azureAdapter");
-  expectBytes(await azureFacade.readFile("/bench.bin"), payload, "azureFacade");
-  expectBytes(await azureMeasured.readFile("/bench.bin"), payload, "azureMeasured");
-  expectBytes(await azureDelegated.readFile("/bench.bin"), payload, "azureDelegated");
-  await new Upload({
-    client: aws,
-    params: { Bucket: STORAGE_NAME, Key: `${prefix}/aws-multipart.bin`, Body: multipart },
-    queueSize: 4,
-    partSize: 5 * 1024 * 1024,
-  }).done();
-  expectBytes(await readAws(`${prefix}/aws-multipart.bin`), multipart, "AWS multipart");
-  await s3.put(`${prefix}/s3-multipart.bin`, stream(multipart), { size: multipart.byteLength });
-  expectBytes(await toBytes(await s3.get(`${prefix}/s3-multipart.bin`)), multipart, "S3 multipart");
-  await azure.put(`${prefix}/azure-blocks.bin`, stream(multipart), { size: multipart.byteLength });
-  expectBytes(await toBytes(await azure.get(`${prefix}/azure-blocks.bin`)), multipart, "Azure blocks");
+  await phase("Node AWS SDK read bytes", S3_ENDPOINT, async () => {
+    expectBytes(await readAws(awsKey), payload, "AWS SDK");
+  });
+  await phase("Node s3 read bytes", S3_ENDPOINT, async () => {
+    expectBytes(await toBytes(await s3.get(s3Key)), payload, "S3 client");
+  });
+  await phase("Node s3Driver read bytes", S3_ENDPOINT, async () => {
+    expectBytes(await toBytes(await s3Driver.get(s3DriverKey)), payload, "S3 driver");
+  });
+  await phase("Node Azure SDK read bytes", AZURE_ENDPOINT, async () => {
+    expectBytes(new Uint8Array(await azureOfficial.downloadToBuffer()), payload, "Azure SDK");
+  });
+  await phase("Node azure read bytes", AZURE_ENDPOINT, async () => {
+    expectBytes(await toBytes(await azure.get(azureKey)), payload, "Azure client");
+  });
+  await phase("Node azureDriver read bytes", AZURE_ENDPOINT, async () => {
+    expectBytes(await toBytes(await azureDriver.get(azureDriverKey)), payload, "Azure driver");
+  });
+  await phase("Node s3Adapter read bytes", S3_ENDPOINT, async () => {
+    expectBytes(await s3Adapter.readFile("/bench.bin"), payload, "s3Adapter");
+  });
+  await phase("Node s3Facade read bytes", S3_ENDPOINT, async () => {
+    expectBytes(await s3Facade.readFile("/bench.bin"), payload, "s3Facade");
+  });
+  await phase("Node s3Measured read bytes", S3_ENDPOINT, async () => {
+    expectBytes(await s3Measured.readFile("/bench.bin"), payload, "s3Measured");
+  });
+  await phase("Node s3Delegated read bytes", S3_ENDPOINT, async () => {
+    expectBytes(await s3Delegated.readFile("/bench.bin"), payload, "s3Delegated");
+  });
+  await phase("Node azureAdapter read bytes", AZURE_ENDPOINT, async () => {
+    expectBytes(await azureAdapter.readFile("/bench.bin"), payload, "azureAdapter");
+  });
+  await phase("Node azureFacade read bytes", AZURE_ENDPOINT, async () => {
+    expectBytes(await azureFacade.readFile("/bench.bin"), payload, "azureFacade");
+  });
+  await phase("Node azureMeasured read bytes", AZURE_ENDPOINT, async () => {
+    expectBytes(await azureMeasured.readFile("/bench.bin"), payload, "azureMeasured");
+  });
+  await phase("Node azureDelegated read bytes", AZURE_ENDPOINT, async () => {
+    expectBytes(await azureDelegated.readFile("/bench.bin"), payload, "azureDelegated");
+  });
+  await phase("Node AWS SDK multipart publication", S3_ENDPOINT, async () => {
+    await new Upload({
+      client: aws,
+      params: { Bucket: STORAGE_NAME, Key: `${prefix}/aws-multipart.bin`, Body: multipart },
+      queueSize: 4,
+      partSize: 5 * 1024 * 1024,
+    }).done();
+  });
+  await phase("Node AWS SDK read bytes 6 MiB", S3_ENDPOINT, async () => {
+    expectBytes(await readAws(`${prefix}/aws-multipart.bin`), multipart, "AWS multipart");
+  });
+  await phase("Node S3 client multipart publication", S3_ENDPOINT, async () => {
+    await s3.put(`${prefix}/s3-multipart.bin`, stream(multipart), { size: multipart.byteLength });
+  });
+  await phase("Node s3 read bytes 6 MiB", S3_ENDPOINT, async () => {
+    expectBytes(await toBytes(await s3.get(`${prefix}/s3-multipart.bin`)), multipart, "S3 multipart");
+  });
+  await phase("Node Azure client block publication", AZURE_ENDPOINT, async () => {
+    await azure.put(`${prefix}/azure-blocks.bin`, stream(multipart), { size: multipart.byteLength });
+  });
+  await phase("Node azure read bytes 6 MiB", AZURE_ENDPOINT, async () => {
+    expectBytes(await toBytes(await azure.get(`${prefix}/azure-blocks.bin`)), multipart, "Azure blocks");
+  });
   /** Force the same six 1 MiB blocks and four concurrent transfers as the project path. */
   const azureBlocks = azureContainer.getBlockBlobClient(`${prefix}/azure-sdk-blocks.bin`);
   const blockOptions = { blockSize: 1024 * 1024, maxSingleShotSize: 0, concurrency: 4 };
-  await azureBlocks.uploadData(multipart, blockOptions);
-  expectBytes(new Uint8Array(await azureBlocks.downloadToBuffer()), multipart, "Azure SDK blocks");
+  await phase("Node Azure SDK block publication", AZURE_ENDPOINT, async () => {
+    await azureBlocks.uploadData(multipart, blockOptions);
+  });
+  await phase("Node Azure SDK block bytes 6 MiB", AZURE_ENDPOINT, async () => {
+    expectBytes(new Uint8Array(await azureBlocks.downloadToBuffer()), multipart, "Azure SDK blocks");
+  });
 
   bench("provider/s3 AWS SDK: 256 KiB acknowledged replace", async () => {
     do_not_optimize(await aws.send(new PutObjectCommand({ Bucket: STORAGE_NAME, Key: awsKey, Body: payload })));

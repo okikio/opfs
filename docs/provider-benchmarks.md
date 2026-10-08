@@ -121,3 +121,28 @@ dialing it, reject ignored endpoint components, and verify that a signed Host na
 redirect forwarding. Gateway admission alone is not actual emulator reachability proof. The separate
 `deno task test:provider-transport` permits only the owned loopback network; the portable suite gains no network
 permission.
+
+## Locate an untimed setup failure
+
+After observed protocol checks, both runtime programs log each existing direct setup, publication and consumed-byte
+check as a structured stderr phase. A `start` record precedes the operation; `pass` records successful return; `fail`
+retains bounded original diagnostics. Phase context contains only the fixture origin (scheme, host and port), with
+account/lane roles in short authored labels. It does not emit signed request URLs or headers. For example, this
+illustrative record identifies the direct S3 setup boundary rather than an inferred network cause:
+
+```json
+{ "providerPhase": "Node S3 client replacement", "state": "start", "origin": "http://fixture:32123" }
+```
+
+An operation rejection keeps its exact thrown reason, including `null` or `undefined`. A separate evidence-sink failure
+remains independent: failed start evidence refuses operation admission, and failed terminal evidence prevents result
+certification. The helper adds no network calls, timers, retries, socket policies or process-global hooks. Existing
+observed protocol records remain separate; phase pass alone does not prove publication bytes. Every direct byte oracle
+and large-publication check still runs before timing, and the timed callbacks remain unchanged.
+
+A previous selected-provider attempt completed all eighteen Node observed preflights and then failed in direct setup
+with a Fetch connection timeout. Fresh native HTTP/Fetch probes and an instrumented untimed attempt subsequently
+succeeded against an owned fixture. Those separate attempts do not establish a general DNS, address-family or transport
+policy defect and do not turn the failed attempt into a completed measurement. Keep each attempt's raw logs and source
+identity. Phase context makes any future failure attributable to the actual operation without extending timeouts or
+automatically replaying a possibly published request.
