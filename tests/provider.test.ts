@@ -1,5 +1,6 @@
 import { after, before, describe, it } from "node:test";
-import { withReleases } from "./close.ts";
+import { close, withReleases } from "./close.ts";
+import { isPart, settle } from "./provider-operation.ts";
 import { expect } from "@std/expect";
 import { toBytes } from "@std/streams/to-bytes";
 
@@ -70,8 +71,10 @@ function getAzureClient(options: Partial<AzureClientOptionsType> = {}) {
 async function ensureAzureContainer(): Promise<void> {
   const client = getAzureClient();
   const response = await client.request({ method: "PUT", query: { restype: "container" } });
+  // This setup owns the response, including a nonempty already-exists acknowledgement.
+  const text = await response.text();
   if (response.ok || response.status === 409) return;
-  throw new Error(`Azurite container setup failed with HTTP ${response.status}: ${await response.text()}`);
+  throw new Error(`Azurite container setup failed with HTTP ${response.status}: ${text}`);
 }
 
 before(async () => {
@@ -145,14 +148,16 @@ describe("Testcontainers-backed object providers", () => {
     it(`cancels an admitted ${provider} upload without publishing partial bytes`, async () =>
       await withReleases(async (releases) => {
         if (provider === "azure") await ensureAzureContainer();
+        const prefix = getPrefix(`${provider}-abort`);
+        const key = `${prefix}/old.bin`;
         const controller = new AbortController();
         let parts = 0;
         let cancelled = 0;
-        let stalled: ReadableStreamDefaultController<Uint8Array> | undefined;
         const transport: typeof fetch = async (input, init) => {
           const url = new URL(input instanceof Request ? input.url : input.toString());
           const response = await fetch(input, init);
-          if (url.searchParams.has("partNumber") || url.searchParams.get("comp") === "block") {
+          const method = init?.method ?? (input instanceof Request ? input.method : "GET");
+          if (isPart(provider, key, url, method, response.status)) {
             parts += 1;
             controller.abort("cancel after a real provider part");
           }
@@ -161,16 +166,13 @@ describe("Testcontainers-backed object providers", () => {
         const client = provider === "s3"
           ? getS3Client({ fetch: transport, concurrency: 1, delayedMultipart: false, request: { retries: 0 } })
           : getAzureClient({ fetch: transport, concurrency: 1, request: { retries: 0 } });
-        const prefix = getPrefix(`${provider}-abort`);
-        const key = `${prefix}/old.bin`;
         releases.push(() => client.delete(key));
         const old = fixtureBytes(63);
+        // Setup latency cannot consume the streaming operation's watchdog.
+        await client.put(key, old);
         const part = fixtureBytes(provider === "s3" ? S3_PART_SIZE : 1024 * 1024);
         let yielded = false;
         const source = new ReadableStream<Uint8Array>({
-          start(stream) {
-            stalled = stream;
-          },
           pull(stream) {
             if (!yielded) {
               yielded = true;
@@ -181,26 +183,26 @@ describe("Testcontainers-backed object providers", () => {
             cancelled += 1;
           },
         }, { highWaterMark: 0 });
-        let rescued = false;
-        const rescue = setTimeout(() => {
-          rescued = true;
-          try {
-            stalled?.close();
-          } catch { /* Cancellation already closed the source. */ }
-        }, 5000);
-        releases.push(() => {
-          clearTimeout(rescue);
-          try {
-            stalled?.close();
-          } catch { /* Cancellation already closed the source. */ }
+        const pending = settle(controller, () => client.put(key, source, { signal: controller.signal }));
+        // Retire the upload before deleting its key, including assertion failures.
+        releases.push(async () => {
+          controller.abort(new Error("Provider scenario cleanup."));
+          await close([
+            () =>
+              pending.catch((error: unknown) => {
+                if (error !== "cancel after a real provider part") throw error;
+              }),
+            async () => {
+              if (!source.locked) await source.cancel();
+            },
+          ]);
         });
-        await client.put(key, old);
-        await expect(client.put(key, source, { signal: controller.signal })).rejects.toBe(
+        await expect(pending).rejects.toBe(
           "cancel after a real provider part",
         );
-        expect(rescued).toBe(false);
         expect(parts).toBe(1);
         expect(cancelled).toBe(1);
+        expect(source.locked).toBe(false);
         expectBytes(await toBytes(await client.get(key)), old);
         if (provider === "s3") {
           const uploads = await client.request({ method: "GET", query: { uploads: "", prefix: key } });
