@@ -1,0 +1,60 @@
+name: Fixtures
+
+# Upload large test fixtures to the `fixtures` release, named by their SHA-256.
+#
+# A fixture over 256 KiB is a download, listed in tests/fixtures/store.json (see docs/fixtures.md). To add
+# one: commit it normally on a branch and push; run `mise run build:fixtures`, which untracks it and writes
+# its manifest entry; commit and push that. Then dispatch this workflow with `ref` set to the branch and
+# `source` set to the earlier commit that still tracks the file. Each manifest entry missing from the
+# release is read from `source`, checked against its SHA-256 and uploaded. Assets are never replaced or
+# deleted, because older commits keep referencing them.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch or commit whose tests/fixtures/store.json lists the fixtures
+        required: true
+        type: string
+      source:
+        description: Commit that still tracks the fixture files in Git
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      # Creates the `fixtures` release on first use and uploads assets to it.
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Upload missing fixtures from the source commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          SOURCE: ${{ inputs.source }}
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE" =~ ^[0-9a-f]{7,40}$ ]] || { echo '::error::source must be a commit SHA.'; exit 1; }
+          if ! gh release view fixtures --repo "$REPOSITORY" >/dev/null 2>&1; then
+            gh release create fixtures --repo "$REPOSITORY" --prerelease --latest=false --title 'Test fixtures' \
+              --notes 'Content-addressed test fixtures, listed in tests/fixtures/store.json. Do not delete assets: older commits still reference them.'
+          fi
+          existing=$(gh release view fixtures --repo "$REPOSITORY" --json assets --jq '.assets[].name')
+          mkdir -p "$RUNNER_TEMP/fixtures"
+          node -e 'const s=require("./tests/fixtures/store.json");for(const[p,e]of Object.entries(s.files))console.log(e.sha256,p)' |
+          while read -r sha path; do
+            if grep -qx "$sha" <<<"$existing"; then continue; fi
+            git show "$SOURCE:$path" > "$RUNNER_TEMP/fixtures/$sha"
+            [[ "$(sha256sum "$RUNNER_TEMP/fixtures/$sha" | cut -d' ' -f1)" == "$sha" ]] || { echo "::error::$path differs from its manifest entry."; exit 1; }
+            gh release upload fixtures "$RUNNER_TEMP/fixtures/$sha" --repo "$REPOSITORY"
+            echo "uploaded $path ($sha)"
+          done

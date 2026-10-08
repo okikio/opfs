@@ -264,8 +264,8 @@ Coverage is useful evidence, not architectural proof. The coverage task exists t
 code. A high line percentage does not prove that provider limits, cancellation, or resource ownership are correct.
 
 The portable coverage report does not execute every runtime-only Node, Deno, or Bun driver branch. Read its percentages
-together with the separate host runtime suites. This distinction is important for operations whose native APIs differ from
-the memory model, such as empty-directory removal and ranged-stream resource ownership.
+together with the separate host runtime suites. This distinction is important for operations whose native APIs differ
+from the memory model, such as empty-directory removal and ranged-stream resource ownership.
 
 ## Benchmarks measure each layer
 
@@ -425,8 +425,8 @@ native handle type.
 `tests/browser/fixtures/opfs-worker-types.ts` performs the worker-side proof. It covers the worker-only
 `createSyncAccessHandle()` route and the synchronous access-handle contract.
 
-`deno task check:typescript:opfs` runs both files through the project's installed `typescript` package with separate DOM
-and WebWorker `tsconfig` files. The normal `deno check` browser graphs still run as well. This intentionally gives the
+`mise run check:types` runs both files through the project's installed `typescript` package with separate DOM and
+WebWorker `tsconfig` files. The normal `deno check` browser graphs still run as well. This intentionally gives the
 project two independent declaration checks: Deno's runtime checker and the TypeScript version pinned in `deno.lock`.
 
 These files are compile-only checks. Playwright remains responsible for proving the corresponding APIs behave correctly
@@ -476,8 +476,8 @@ result is recorded as unverified rather than passed.
 Schema-derived public contracts are checked before the ordinary type graph:
 
 ```sh
-deno task schema:check
-deno task check
+mise run check:schema
+mise run check
 ```
 
 Release validation keeps JSR and npm independent:
@@ -488,4 +488,5 @@ RELEASE_VERSION=0.0.0-test mise run npm
 node tests/package/verify.mjs .release/npm/*.tgz
 ```
 
-The npm consumer test installs the produced tarball with ordinary npm and rejects `@jsr/*` dependencies, raw `.ts` implementation files, missing declarations, or a non-optional Drizzle peer.
+The npm consumer test installs the produced tarball with ordinary npm and rejects `@jsr/*` dependencies, raw `.ts`
+implementation files, missing declarations, or a non-optional Drizzle peer.

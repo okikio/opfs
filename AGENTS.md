@@ -40,8 +40,10 @@ Read `README.md` and `docs/design.md` before changing architecture or public API
   cleanup, and whether the layout changes observable behavior.
 - Use `node:test` with `describe` and `it`; use `@std/expect` for expectations. Playwright owns real browser environment
   tests.
-- Use mise as the repository command authority. GitHub Actions owns triggers, permissions, matrices, outputs, and
-  secrets, then calls `mise run ...`.
+- Use mise as the repository command authority: `mise run <family>:<kind>`. Task files live in `.mise/tasks/` and their
+  programs in `tools/`. GitHub Actions owns triggers, permissions, matrices, outputs, and secrets, then calls the same
+  mise tasks. Tests and benchmarks are discovered from file names; do not list files in manifests or workflows. See
+  `docs/tooling.md`.
 - Testcontainers owns disposable provider fixtures. Do not restore fixed host ports, hand-written readiness polling, or
   Compose lifecycle scripts for S3/Azure tests.
 - Benchmarks compare the native/provider baseline, project client when present, driver, adapter, facade with metrics

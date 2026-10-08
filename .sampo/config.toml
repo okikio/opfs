@@ -1,0 +1,9 @@
+version = 1
+
+[git]
+default_branch = "main"
+tag_unpublished = false
+tag_format = "v{version}"
+
+[changelog]
+show_acknowledgments = false

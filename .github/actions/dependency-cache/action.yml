@@ -1,0 +1,99 @@
+name: Dependency downloads
+description: >-
+  Restore or save Deno's download cache (npm and JSR packages). A job calls this twice: once with
+  mode restore before `mise run prepare:deps`, and once with mode save as its last step, so only
+  a job whose checks passed can write the cache. Restoring downloads never skips a check: the
+  frozen `deno ci` still verifies every package against the lockfile.
+
+inputs:
+  mode:
+    description: restore (before installation) or save (after successful checks)
+    default: restore
+  stores:
+    description: Space-separated stores to cache. The only supported value is deno.
+    default: deno
+
+runs:
+  using: composite
+  steps:
+    # Deno keeps downloads and compiler state under DENO_DIR. This step reads no input, so the
+    # job environment receives only a path built from the runner's own temp directory.
+    - name: Use the job's Deno cache directory
+      if: inputs.mode == 'restore'
+      shell: bash
+      # The value is the runner's own temp path; no input or event text reaches it.
+      run: echo "DENO_DIR=$RUNNER_TEMP/deno-cache" >> "$GITHUB_ENV" # zizmor: ignore[github-env]
+
+    # Restore finds the stores and their key, then records them in the job environment for save.
+    - name: Locate dependency stores
+      id: locate
+      if: inputs.mode == 'restore'
+      shell: bash
+      env:
+        STORES: ${{ inputs.stores }}
+      run: |
+        set -euo pipefail
+        deno_dir="$RUNNER_TEMP/deno-cache"
+        # Only the fixed names below reach the key; any other word in the input stops the job.
+        names=()
+        paths=()
+        for store in $STORES; do
+          case "$store" in
+            # Downloads only. Compiler state has its own cache (../deno-cache).
+            deno) names+=(deno); paths+=("$deno_dir/remote" "$deno_dir/npm") ;;
+            *) echo "::error::Unknown dependency store. Use deno." >&2; exit 1 ;;
+          esac
+        done
+        delimiter="paths-$(openssl rand -hex 16)"
+        {
+          echo "paths<<$delimiter"
+          printf '%s\n' "${paths[@]}"
+          echo "$delimiter"
+          # Tool pins live in mise.toml, so its hash changes the key when a runtime changes.
+          ( IFS=-; echo "prefix=deps-v1-${RUNNER_OS}-${RUNNER_ARCH}-${names[*]}-" )
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Restore dependency downloads
+      id: restore
+      if: inputs.mode == 'restore'
+      continue-on-error: true
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.locate.outputs.paths }}
+        key: ${{ steps.locate.outputs.prefix }}${{ hashFiles('mise.toml', 'deno.lock') }}
+        restore-keys: ${{ steps.locate.outputs.prefix }}
+
+    - name: Record the restored key
+      if: inputs.mode == 'restore'
+      shell: bash
+      env:
+        PATHS: ${{ steps.locate.outputs.paths }}
+        PRIMARY: ${{ steps.restore.outputs.cache-primary-key }}
+        HIT: ${{ steps.restore.outputs.cache-hit }}
+      run: |
+        set -euo pipefail
+        delimiter="paths-$(openssl rand -hex 16)"
+        {
+          echo "DEPENDENCY_CACHE_PATHS<<$delimiter"
+          printf '%s\n' "$PATHS"
+          echo "$delimiter"
+          echo "DEPENDENCY_CACHE_KEY=$PRIMARY"
+          echo "DEPENDENCY_CACHE_HIT=${HIT:-false}"
+        } >> "$GITHUB_ENV"
+
+    # Only trusted refs write. A PR write stays in its merge-ref scope and cannot reach main.
+    - name: Save dependency downloads
+      if: >-
+        inputs.mode == 'save' && env.DEPENDENCY_CACHE_HIT != 'true' && env.DEPENDENCY_CACHE_KEY != '' &&
+        github.event.repository.fork == false &&
+        (
+          (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref_protected == true)) ||
+          (github.event_name == 'pull_request' && startsWith(github.ref, 'refs/pull/') && endsWith(github.ref, '/merge') &&
+           github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.repo.fork == false) ||
+          (github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/heads/'))
+        )
+      continue-on-error: true
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ env.DEPENDENCY_CACHE_PATHS }}
+        key: ${{ env.DEPENDENCY_CACHE_KEY }}

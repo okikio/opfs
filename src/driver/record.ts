@@ -1,3 +1,4 @@
+import { FileSystemError } from "../error.ts";
 import { z } from "zod";
 
 import type { PathType } from "../path.ts";
@@ -29,7 +30,11 @@ export type RecordListType = DirectoryRecordType | Omit<FileRecordType, "data">;
  * writes when the backend stores logical values rather than byte-addressable
  * files.
  */
-export const RecordReplacementSchema: z.ZodType<RecordReplacementType, RecordReplacementType> = z.enum(["atomic", "best-effort", "unknown"]);
+export const RecordReplacementSchema: z.ZodType<RecordReplacementType, RecordReplacementType> = z.enum([
+  "atomic",
+  "best-effort",
+  "unknown",
+]);
 
 /** A validated record replacement guarantee. */
 export type RecordReplacementType = import("../_schema_types.ts").RecordReplacementType;
@@ -40,31 +45,32 @@ export type RecordReplacementType = import("../_schema_types.ts").RecordReplacem
  * These flags describe how far the backend can go beyond whole-record reads and
  * writes. The record adapter uses them to choose honest fallbacks.
  */
-export const RecordDriverCapabilitiesSchema: z.ZodType<RecordDriverCapabilitiesType, RecordDriverCapabilitiesType> = z.object({
-  /** Backend can satisfy byte ranges without reconstructing the complete logical file. */
-  rangeRead: z.boolean(),
-  /** Backend can expose file bytes as a native stream. */
-  streamRead: z.boolean(),
-  /** Configured driver permits mutation. */
-  write: z.boolean(),
-  /** Write modes implemented as one backend-native operation instead of adapter read-modify-write. */
-  writeModes: z.array(WriteModeSchema).readonly(),
-  /** Stream write modes implemented by the backend without facade materialization. */
-  streamWriteModes: z.array(WriteModeSchema).readonly(),
-  /** Atomicity of one complete logical-record replacement performed by `set()`. */
-  replacement: RecordReplacementSchema,
-  /** Backend can preserve native binary data without the portable base64 representation. */
-  binary: z.boolean(),
-  /**
-   * Backend exposes transaction mechanics used by its own driver operations.
-   *
-   * This flag does not upgrade the generic record adapter's `get()` then `set()`
-   * append/update fallback into one transaction. Cross-owner atomic append or
-   * update requires a native `writeFile()`/`writeStream()` mode or a stronger
-   * backend-specific operation that the driver explicitly advertises.
-   */
-  transactions: z.boolean(),
-}).strict();
+export const RecordDriverCapabilitiesSchema: z.ZodType<RecordDriverCapabilitiesType, RecordDriverCapabilitiesType> = z
+  .object({
+    /** Backend can satisfy byte ranges without reconstructing the complete logical file. */
+    rangeRead: z.boolean(),
+    /** Backend can expose file bytes as a native stream. */
+    streamRead: z.boolean(),
+    /** Configured driver permits mutation. */
+    write: z.boolean(),
+    /** Write modes implemented as one backend-native operation instead of adapter read-modify-write. */
+    writeModes: z.array(WriteModeSchema).readonly(),
+    /** Stream write modes implemented by the backend without facade materialization. */
+    streamWriteModes: z.array(WriteModeSchema).readonly(),
+    /** Atomicity of one complete logical-record replacement performed by `set()`. */
+    replacement: RecordReplacementSchema,
+    /** Backend can preserve native binary data without the portable base64 representation. */
+    binary: z.boolean(),
+    /**
+     * Backend exposes transaction mechanics used by its own driver operations.
+     *
+     * This flag does not upgrade the generic record adapter's `get()` then `set()`
+     * append/update fallback into one transaction. Cross-owner atomic append or
+     * update requires a native `writeFile()`/`writeStream()` mode or a stronger
+     * backend-specific operation that the driver explicitly advertises.
+     */
+    transactions: z.boolean(),
+  }).strict();
 
 /** A validated record-driver capability description. */
 export type RecordDriverCapabilitiesType = import("../_schema_types.ts").RecordDriverCapabilitiesType;
@@ -143,6 +149,25 @@ export function readOnlyPlan(input: DriverPlanInputType): DriverPlanType {
 /** Creates the default record-driver plan from known file size and configured limits. */
 export function createRecordPlan(base: DriverType, input: DriverPlanInputType): DriverPlanType {
   const request = DriverPlanInputSchema.parse(input);
+  const maxPath = base.limits.find((limit) => limit.code === "path-length" && limit.value !== undefined);
+  const invalid = [request.path, request.destination].find((path) =>
+    path !== undefined && maxPath?.value !== undefined && path.length > maxPath.value
+  );
+  if (invalid !== undefined) {
+    return DriverPlanSchema.parse({
+      operation: request.operation,
+      supported: false,
+      support: "unsupported",
+      problems: [{
+        code: "invalid-path",
+        layer: "driver",
+        severity: "error",
+        message: `Stored path exceeds ${maxPath!.value} UTF-16 code units.`,
+        limit: maxPath,
+      }],
+      actions: [{ kind: "reduce-input" }],
+    });
+  }
   const maxFile = base.limits.find((limit) => limit.code === "file-bytes" && limit.value !== undefined);
   if (request.size !== undefined && maxFile?.value !== undefined && request.size > maxFile.value) {
     return DriverPlanSchema.parse({
@@ -192,6 +217,9 @@ export function defineRecordDriver(
   backend: RecordBackendType,
   options: DefineRecordDriverOptionsType,
 ): RecordDriverType {
+  options = { ...options }; // Callbacks and policy flags belong to this configured instance.
+  const readOnly = options.readOnly === true || options.capabilities?.write === false ||
+    backend.capabilities?.write === false;
   const capabilities = RecordDriverCapabilitiesSchema.parse({
     rangeRead: backend.capabilities?.rangeRead ?? false,
     streamRead: backend.capabilities?.streamRead ?? false,
@@ -201,7 +229,7 @@ export function defineRecordDriver(
     binary: backend.capabilities?.binary ?? false,
     transactions: backend.capabilities?.transactions ?? false,
     ...options.capabilities,
-    write: !(options.readOnly ?? false),
+    write: !readOnly,
   });
 
   const base = defineDriver({
@@ -210,57 +238,107 @@ export function defineRecordDriver(
     provides: options.provides ?? [
       "get",
       "list",
-      ...(options.readOnly ? [] : ["set", "delete"]),
+      ...(readOnly ? [] : ["set", "delete"]),
       ...(backend.stat === undefined ? [] : ["stat"]),
       ...(backend.readFile === undefined ? [] : ["read"]),
       ...(backend.openReadStream === undefined ? [] : ["stream-read"]),
-      ...(backend.writeFile === undefined || options.readOnly ? [] : ["write"]),
-      ...(backend.writeStream === undefined || options.readOnly ? [] : ["stream-write"]),
+      ...(backend.writeFile === undefined || readOnly ? [] : ["write"]),
+      ...(backend.writeStream === undefined || readOnly ? [] : ["stream-write"]),
     ],
     ownership: options.ownership ??
       (backend.dispose === undefined ? "none" : options.disposeBackend ? "owned" : "borrowed"),
     plan: (input) => {
       const request = DriverPlanInputSchema.parse(input);
-      if ((options.readOnly ?? false) && mutates(request.operation)) return readOnlyPlan(request);
+      if (readOnly && mutates(request.operation)) return readOnlyPlan(request);
       return options.plan === undefined ? createRecordPlan(base, request) : options.plan(request);
     },
     ...(options.disposeBackend && backend.dispose !== undefined ? { dispose: () => backend.dispose!() } : {}),
   });
 
+  /** Shares deterministic admission with direct calls, before any injected backend access. */
+  function admit(input: DriverPlanInputType): void {
+    const planned = base.plan(input);
+    if (!planned.supported) {
+      throw new FileSystemError(
+        "too-large",
+        input.operation,
+        input.path,
+        planned.problems.map((problem) => problem.message).join(" "),
+      );
+    }
+  }
+
   return {
     ...base,
     kind: "record",
     capabilities,
-    get: (path) => backend.get(path),
-    ...(backend.stat === undefined ? {} : { stat: (path: PathType) => backend.stat!(path) }),
+    get: (path) => {
+      admit({ operation: "read", path });
+      return backend.get(path);
+    },
+    ...(backend.stat === undefined ? {} : {
+      stat: (path: PathType) => {
+        admit({ operation: "read", path });
+        return backend.stat!(path);
+      },
+    }),
     ...(backend.readFile === undefined ? {} : {
-      readFile: (path: PathType, readOptions?: FileDriverReadOptionsType) => backend.readFile!(path, readOptions),
+      readFile: (path: PathType, readOptions?: FileDriverReadOptionsType) => {
+        admit({ operation: "read", path });
+        return backend.readFile!(path, readOptions);
+      },
     }),
     ...(backend.openReadStream === undefined ? {} : {
-      openReadStream: (path: PathType, readOptions?: FileDriverReadOptionsType) =>
-        backend.openReadStream!(path, readOptions),
+      openReadStream: (path: PathType, readOptions?: FileDriverReadOptionsType) => {
+        admit({ operation: "read", path });
+        return backend.openReadStream!(path, readOptions);
+      },
     }),
-    ...(backend.writeFile === undefined || options.readOnly ? {} : {
-      writeFile: (path: PathType, data: Uint8Array, writeOptions: FileDriverWriteOptionsType) =>
-        backend.writeFile!(path, data, writeOptions),
+    ...(backend.writeFile === undefined || readOnly ? {} : {
+      writeFile: (path: PathType, data: Uint8Array, writeOptions: FileDriverWriteOptionsType) => {
+        admit({ operation: "write", path, size: data.byteLength, source: "bytes", mode: writeOptions.mode });
+        return backend.writeFile!(path, data, writeOptions);
+      },
     }),
-    ...(backend.writeStream === undefined || options.readOnly ? {} : {
-      writeStream: (path: PathType, source: ReadableStream<Uint8Array>, writeOptions: FileDriverWriteOptionsType) =>
-        backend.writeStream!(path, source, writeOptions),
+    ...(backend.writeStream === undefined || readOnly ? {} : {
+      writeStream: async (
+        path: PathType,
+        source: ReadableStream<Uint8Array>,
+        writeOptions: FileDriverWriteOptionsType,
+      ) => {
+        try {
+          admit({ operation: "write", path, source: "stream", mode: writeOptions.mode });
+        } catch (error) {
+          await source.cancel(error).catch(() => undefined);
+          throw error;
+        }
+        return backend.writeStream!(path, source, writeOptions);
+      },
     }),
     set: (record) => {
-      if (options.readOnly) {
+      if (readOnly) {
         throw new Error(`Record driver '${base.name}' is read-only; '${record.path}' cannot be changed.`);
       }
+      admit({
+        operation: "write",
+        path: record.path,
+        ...(record.kind === "file" ? { size: record.size } : {}),
+        source: "bytes",
+        mode: "replace",
+      });
       return backend.set(record);
     },
     delete: (path) => {
-      if (options.readOnly) {
+      if (readOnly) {
         throw new Error(`Record driver '${base.name}' is read-only; '${path}' cannot be removed.`);
       }
+      admit({ operation: "remove", path });
       return backend.delete(path);
     },
-    list: (parent) => backend.list(parent),
+    list: (parent) => {
+      admit({ operation: "list", path: parent });
+      return backend.list(parent);
+    },
     ...(options.disposeBackend && backend.dispose !== undefined ? { dispose: () => backend.dispose!() } : {}),
   };
 }

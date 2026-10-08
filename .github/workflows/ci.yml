@@ -1,198 +1,61 @@
 name: CI
 
 on:
+  pull_request:
+    # Only documented activity types. A PR that joins a native stack later is reselected on its next push.
+    types: [opened, synchronize, reopened]
   push:
     branches: [main]
-  pull_request:
+  workflow_dispatch:
+    inputs:
+      fresh:
+        description: Run every selected lane even if the same inputs passed, and rebuild Deno compiler state
+        type: boolean
+        default: false
 
 permissions:
+  # The Quality plan job reads earlier main-push runs to find its baseline.
+  actions: read
   contents: read
+  # The Quality plan job reads native stack membership.
+  pull-requests: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Ordinary manual checks share their exact source; fresh attempts stay
+  # independent. PR revisions cannot interrupt either manual request.
+  group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.event_name == 'workflow_dispatch' && format('{0}-{1}', github.sha, inputs.fresh && format('{0}-{1}', github.run_id, github.run_attempt) || 'reuse') || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+  queue: single
 
 jobs:
-  commits:
-    name: Conventional commits
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
-        with:
-          version: '2026.8.6'
-          install_args: node
-      - name: Lint commit messages
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: mise run commits
-
   quality:
-    name: Deno quality and package dry-runs
+    name: Quality
+    uses: $/.github/workflows/quality.yml
+    with:
+      fresh: ${{ inputs.fresh || false }}
+
+  pull:
+    name: Commits and release intent
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          persist-credentials: false
-      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
-        with:
-          version: '2026.8.6'
-          install_args: deno
-      - run: mise run quality
-
-  deno:
-    name: Deno ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          persist-credentials: false
-      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
-        with:
-          version: '2026.8.6'
-          install_args: deno
-      - run: mise run test-deno
-
-  node:
-    name: Node ${{ matrix.node }} / ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            node: '22'
-          - os: ubuntu-latest
-            node: '24'
-          - os: ubuntu-latest
-            node: '26'
-          - os: macos-latest
-            node: '26'
-          - os: windows-latest
-            node: '26'
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
-    env:
-      MISE_NODE_VERSION: ${{ matrix.node }}
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          persist-credentials: false
-      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
-        with:
-          version: '2026.8.6'
-          install_args: deno node
-          cache_key_prefix: mise-node-${{ matrix.node }}
-      - run: mise run test-node
-
-  bun:
-    name: Bun / ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          persist-credentials: false
-      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
-        with:
-          version: '2026.8.6'
-          install_args: deno bun
-      - run: mise run test-bun
-
-  browser:
-    name: Playwright browser matrix
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          persist-credentials: false
-      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
-        with:
-          version: '2026.8.6'
-          install_args: deno
-      - run: mise run test-browser
-
-  providers:
-    name: S3 and Azure provider containers
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          persist-credentials: false
-      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
-        with:
-          version: '2026.8.6'
-          install_args: deno node
-      - run: mise run test-providers
-
-  npm-package:
-    name: npm tarball consumers
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          persist-credentials: false
           fetch-depth: 0
-      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
-        with:
-          version: '2026.8.6'
-          install_args: deno node bun
-      - run: mise run verify-npm
-
-  bench:
-    name: Server benchmark smoke
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
           persist-credentials: false
-      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
-          version: '2026.8.6'
-          install_args: deno node bun
-      - run: mise run bench
-
-  provider-bench:
-    name: Provider baseline benchmark smoke
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          persist-credentials: false
-      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
-        with:
-          version: '2026.8.6'
-          install_args: deno node bun
-      - run: mise run bench-providers
-
-  browser-bench:
-    name: Browser OPFS benchmark smoke
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          persist-credentials: false
-      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
-        with:
-          version: '2026.8.6'
-          install_args: deno
-      - run: mise run bench-browser
+          version: 2026.11.12
+          cache: true
+      - uses: $/.github/actions/dependency-cache
+      - run: mise run prepare:deps
+      - name: Check Conventional Commit subjects in this pull request
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: mise run check:commits
+      - name: Preview the Sampo release plan
+        run: mise run release -- --operation plan

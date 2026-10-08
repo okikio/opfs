@@ -91,3 +91,26 @@ export function getXmlValue(node: XmlNode, name: string): string | undefined {
   const text = getText(value).trim();
   return text.length === 0 ? undefined : text;
 }
+
+/** Returns decoded identity text without trimming or collapsing an empty element. */
+export function getXmlText(node: XmlNode, name: string): string | undefined {
+  const value = getXmlElements(node, name)[0];
+  return value === undefined ? undefined : getText(value);
+}
+
+/** Reads one protocol-required direct scalar child. Descendant lookup cannot
+ * authorize a publication: repeated, nested or empty fields are ambiguous.
+ */
+export function getXmlScalar(node: XmlElement, name: string): string {
+  const values = getXmlElements(node, name);
+  const value = values[0];
+  if (
+    values.length !== 1 || value === undefined || !node.children.includes(value) ||
+    value.children.some((child) => child.type === "element")
+  ) {
+    throw new SyntaxError(`Acknowledgement requires exactly one direct scalar ${name}.`);
+  }
+  const text = getText(value).trim();
+  if (text.length === 0) throw new SyntaxError(`Acknowledgement requires a nonempty ${name}.`);
+  return text;
+}

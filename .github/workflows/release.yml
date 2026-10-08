@@ -1,68 +1,187 @@
 name: Release
 
 on:
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
+  push:
     branches: [main]
+    paths: ['.sampo/changesets/**']
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Validate without writes, prepare a version PR, or publish the current main revision
+        type: choice
+        options: [validate, prepare, publish]
+        default: validate
+      target:
+        description: Registry to publish, or to retry after a partial failure
+        type: choice
+        options: [both, npm, jsr]
+        default: both
+      fresh:
+        description: Run every selected lane even if the same inputs passed, and rebuild Deno compiler state
+        type: boolean
+        default: false
 
 permissions:
-  actions: write
-  contents: write
+  contents: read
 
 concurrency:
-  group: release-main
+  group: release-${{ github.ref }}
   cancel-in-progress: false
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
-  release:
-    name: Create semantic release
-    if: github.event.workflow_run.conclusion == 'success'
+  # Sampo consumes pending changesets into versions and CHANGELOG.md, and the result is proposed as a PR.
+  # A PR opened with the job token does not start CI by itself; dispatch CI on release/versions to check it.
+  prepare:
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.operation == 'prepare')
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: main
+          ref: ${{ github.sha }}
           fetch-depth: 0
-      - name: Verify the CI commit is still main
-        env:
-          TESTED_SHA: ${{ github.event.workflow_run.head_sha }}
-        run: test "$(git rev-parse HEAD)" = "$TESTED_SHA"
-      - name: Record any existing release tag on this commit
-        id: before
-        run: echo "tag=$(git tag --points-at HEAD --list 'opfs@*' | sort -V | tail -n 1)" >> "$GITHUB_OUTPUT"
-      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+          persist-credentials: false
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
-          version: '2026.8.6'
-          install_args: node
-      - name: Create Git tag and GitHub Release
+          version: 2026.11.12
+          cache: true
+      - uses: $/.github/actions/dependency-cache
+      - run: mise run prepare:deps
+      - name: Write versions and changelog from the pending changesets
+        run: mise run release -- --operation version
+      - name: Propose the generated release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: mise run release
-      - name: Resolve newly created release tag
-        id: release
-        env:
-          BEFORE: ${{ steps.before.outputs.tag }}
-        run: |
-          AFTER="$(git tag --points-at HEAD --list 'opfs@*' | sort -V | tail -n 1)"
-          if [ -z "$BEFORE" ] && [ -n "$AFTER" ]; then
-            echo 'created=true' >> "$GITHUB_OUTPUT"
-            echo "tag=$AFTER" >> "$GITHUB_OUTPUT"
-          else
-            echo 'created=false' >> "$GITHUB_OUTPUT"
-            echo 'tag=' >> "$GITHUB_OUTPUT"
-          fi
-      - name: Dispatch immutable registry publication
-        if: steps.release.outputs.created == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
-        run: >-
-          gh workflow run publish.yml
-          --repo "$REPOSITORY"
-          --ref main
-          -f "tag=$RELEASE_TAG"
-          -f target=both
-          -f npm_auth=auto
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -C release/versions
+          git add .sampo package.json deno.json CHANGELOG.md
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'chore(release): prepare the next version'
+          git push --force "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git" release/versions
+          if ! gh pr view release/versions --repo "$REPOSITORY" --json url >/dev/null 2>&1; then
+            gh pr create --repo "$REPOSITORY" --base main --head release/versions --title 'chore(release): prepare the next version' \
+              --body 'Sampo consumed the pending changesets and wrote the version and CHANGELOG.md. deno.json carries the same version. Review the changelog, dispatch CI on this branch, then merge. Publication is a separate manual Release operation.'
+          fi
+
+  # Publishing needs a recorded pass, not only this run's checks: the latest CI run for a push to
+  # main on this exact commit must have succeeded.
+  evidence:
+    name: Require passing main CI for this commit
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && (inputs.operation == 'validate' || inputs.operation == 'publish')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
+        with:
+          version: 2026.11.12
+          install_args: node
+          cache: true
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+        run: node tools/workspace/evidence.ts release --sha "$SHA"
+
+  tested:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && (inputs.operation == 'validate' || inputs.operation == 'publish')
+    uses: $/.github/workflows/quality.yml
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+    with:
+      full: true
+      fresh: ${{ inputs.fresh || false }}
+
+  npm:
+    if: inputs.operation == 'publish' && inputs.target != 'jsr'
+    needs: [evidence, tested]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # npm trusted publishing exchanges this OIDC token; no registry token is stored.
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
+        with:
+          version: 2026.11.12
+          cache: true
+      - uses: $/.github/actions/dependency-cache
+      - run: mise run prepare:deps
+      - name: Build, check and publish the npm tarball for this revision
+        run: mise run release -- --operation publish --target npm
+      - name: Install the published version in a clean consumer
+        run: mise run release -- --operation verify --target npm
+
+  jsr:
+    if: inputs.operation == 'publish' && inputs.target != 'npm'
+    needs: [evidence, tested]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # JSR accepts this repository's GitHub Actions OIDC token for the linked package.
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
+        with:
+          version: 2026.11.12
+          cache: true
+      - uses: $/.github/actions/dependency-cache
+      - run: mise run prepare:deps
+      - name: Publish the source package for this revision
+        run: mise run release -- --operation publish --target jsr
+      - name: Import the published version in a clean consumer
+        run: mise run release -- --operation verify --target jsr
+
+  tags:
+    name: Tag the published revision
+    needs: [npm, jsr]
+    if: always() && inputs.operation == 'publish' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Create the version tag and GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          version=$(node -p 'require("./package.json").version')
+          tag="v$version"
+          if gh release view "$tag" --repo "$REPOSITORY" >/dev/null 2>&1; then exit 0; fi
+          notes=$(node -e 'const t=require("fs").readFileSync("CHANGELOG.md","utf8");const v=process.argv[1];const m=t.split(/^## /m).find(s=>s.startsWith(v));process.stdout.write(m?m.slice(v.length).trim():"")' "$version")
+          gh release create "$tag" --repo "$REPOSITORY" --target "$SHA" --title "$tag" --notes "${notes:-Release $tag}"

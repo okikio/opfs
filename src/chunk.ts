@@ -1,4 +1,5 @@
 import { concat } from "@std/bytes/concat";
+import { abortable } from "@std/async/abortable";
 
 /**
  * Splits a byte stream into owned chunks with a fixed maximum size.
@@ -21,8 +22,13 @@ import { concat } from "@std/bytes/concat";
  * }
  * ```
  */
-export async function* split(source: ReadableStream<Uint8Array>, size: number): AsyncGenerator<Uint8Array> {
+export async function* split(
+  source: ReadableStream<Uint8Array>,
+  size: number,
+  signal?: AbortSignal,
+): AsyncGenerator<Uint8Array> {
   if (!Number.isSafeInteger(size) || size < 1) throw new RangeError("Chunk size must be a positive integer.");
+  signal?.throwIfAborted();
 
   const reader = source.getReader();
   let pieces: Uint8Array[] = [];
@@ -31,7 +37,11 @@ export async function* split(source: ReadableStream<Uint8Array>, size: number): 
 
   try {
     while (true) {
-      const result = await reader.read();
+      const pending = reader.read();
+      const result = signal === undefined ? await pending : await abortable(pending, signal);
+      // A producer can close and abort in one turn. Cancellation still owns
+      // the terminal result before buffered bytes or EOF are published.
+      signal?.throwIfAborted();
       if (result.done) {
         completed = true;
         break;

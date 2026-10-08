@@ -33,11 +33,13 @@ function request(prefix: string, path: PathType): Request {
  */
 function getPath(prefix: string, value: Request): PathType | null {
   const url = new URL(value.url);
+  if (url.origin !== "https://opfs.invalid" || url.search !== "" || value.method !== "GET") return null;
   const parts = url.pathname.slice(1).split("/");
   if (parts.length !== 2) return null;
   try {
     if (decodeURIComponent(parts[0] ?? "") !== prefix) return null;
-    return PathSchema.parse(decodeURIComponent(parts[1] ?? ""));
+    const path = PathSchema.parse(decodeURIComponent(parts[1] ?? ""));
+    return request(prefix, path).url === value.url ? path : null;
   } catch {
     return null;
   }

@@ -1,10 +1,12 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
+import { parse } from "@std/xml/parse";
 
 import { createS3Client, S3_LIMITS, S3Error } from "../src/s3.ts";
 import { createS3Driver, createS3DriverFromClient } from "../src/driver/s3.ts";
 import { RequestCapture } from "./http.ts";
 import { streamBytes } from "./stream.ts";
+import { within } from "./gate.ts";
 
 /** AWS documentation credentials used only for deterministic Signature Version 4 tests. */
 const credentials = {
@@ -34,6 +36,71 @@ class S3CredentialSource {
 }
 
 describe("S3 client", () => {
+  for (const failure of ["producer", "caller"] as const) {
+    it(`preserves the ${failure} reason after admitted S3 chunks drain`, async () => {
+      const reason = new Error(`${failure} terminal reason`);
+      const controller = new AbortController();
+      const entered = Promise.withResolvers<void>();
+      const release = Promise.withResolvers<void>();
+      let requests = 0;
+      let completed = 0;
+      let aborted = 0;
+      let cancelled = 0;
+      let pulls = 0;
+      const source = new ReadableStream<Uint8Array>({
+        pull(stream) {
+          if (pulls++ === 0) stream.enqueue(new Uint8Array(5 * 1024 * 1024));
+          else if (failure === "producer") stream.error(reason);
+        },
+        cancel() {
+          cancelled += 1;
+        },
+      }, { highWaterMark: 0 });
+      const client = createS3Client({
+        endpoint: "https://storage.example",
+        bucket: "bucket",
+        region: "auto",
+        credentials,
+        delayedMultipart: false,
+        partSize: 5 * 1024 * 1024,
+        concurrency: 2,
+        request: { retries: 0 },
+        fetch: async (input, init) => {
+          const request = new Request(input, init);
+          const url = new URL(request.url);
+          if (request.method === "POST" && url.searchParams.has("uploads")) {
+            return xml("<InitiateMultipartUploadResult><UploadId>u1</UploadId></InitiateMultipartUploadResult>");
+          }
+          if (request.method === "PUT" && url.searchParams.has("partNumber")) {
+            requests += 1;
+            entered.resolve();
+            if (failure === "caller") controller.abort(reason);
+            await release.promise;
+            return new Response(null, { status: 200, headers: { etag: '"part"' } });
+          }
+          if (request.method === "POST" && url.searchParams.has("uploadId")) completed += 1;
+          if (request.method === "DELETE" && url.searchParams.has("uploadId")) aborted += 1;
+          return new Response(null, { status: 204 });
+        },
+      });
+      const pending = client.put("failure.bin", source, { signal: controller.signal });
+      void pending.catch(() => {});
+      try {
+        await within(entered.promise, "provider chunk admission");
+        release.resolve();
+        await expect(within(pending, "provider source failure")).rejects.toBe(reason);
+        expect(requests).toBe(1);
+        expect(completed).toBe(0);
+        expect(source.locked).toBe(false);
+        if (failure === "caller") expect(cancelled).toBe(1);
+        expect(aborted).toBe(1);
+      } finally {
+        controller.abort(reason);
+        release.resolve();
+        await within(Promise.allSettled([pending]), "provider fixture drain");
+      }
+    });
+  }
   it("reports direct clients as owned and injected clients as borrowed", () => {
     const options = {
       endpoint: "https://storage.example",
@@ -73,7 +140,7 @@ describe("S3 client", () => {
     );
   });
 
-  it("parses ListObjectsV2 without a protocol-specific XML regex", async () => {
+  it("parses namespaced ListObjectsV2 objects, prefixes, and continuation tokens", async () => {
     const client = createS3Client({
       endpoint: "https://storage.example",
       bucket: "bucket",
@@ -327,10 +394,23 @@ describe("S3 client", () => {
 
     await client.copy!("source.bin", "copy.bin", { sourceIfMatch: '"source"' });
 
-    const parts = requests.filter((request) => new URL(request.url).searchParams.has("partNumber"));
+    // Concurrent signing can send the second request first. Part numbers define the copy order.
+    const parts = requests.filter((request) => new URL(request.url).searchParams.has("partNumber")).sort((
+      left,
+      right,
+    ) =>
+      Number(new URL(left.url).searchParams.get("partNumber")) -
+      Number(new URL(right.url).searchParams.get("partNumber"))
+    );
     expect(parts).toHaveLength(5);
-    expect(parts[0]?.headers.get("x-amz-copy-source-range")).toBe(`bytes=0-${1024 * 1024 * 1024 - 1}`);
-    expect(parts[0]?.headers.get("x-amz-copy-source-if-match")).toBe('"source"');
+    const partBytes = 1024 * 1024 * 1024;
+    for (const [index, part] of parts.entries()) {
+      expect(new URL(part.url).searchParams.get("partNumber")).toBe(String(index + 1));
+      expect(part.headers.get("x-amz-copy-source-range")).toBe(
+        `bytes=${index * partBytes}-${Math.min(size, (index + 1) * partBytes) - 1}`,
+      );
+      expect(part.headers.get("x-amz-copy-source-if-match")).toBe('"source"');
+    }
     expect(requests.some((request) => request.method === "PUT" && !new URL(request.url).searchParams.has("partNumber")))
       .toBe(false);
   });
@@ -462,13 +542,24 @@ describe("S3 client", () => {
       { expectedSize: 10 },
     );
     const body = await requests[0]!.text();
-    expect(body.indexOf("<PartNumber>1</PartNumber>")).toBeLessThan(body.indexOf("<PartNumber>2</PartNumber>"));
+    // Parse the transmitted XML independently of the production request builder.
+    // Entity spelling and whitespace do not change the provider's part contract.
+    const transmitted = parse(body).root.children.filter((node) => node.type === "element").map((part) =>
+      Object.fromEntries(
+        part.children.filter((node) => node.type === "element").map((field) => [
+          field.name.local,
+          field.children.filter((node) => node.type === "text").map((node) => node.text).join(""),
+        ]),
+      )
+    );
+    expect(transmitted).toEqual([{ PartNumber: "1", ETag: '"a"' }, { PartNumber: "2", ETag: '"b"' }]);
     expect(requests[0]!.headers.get("x-amz-mp-object-size")).toBe("10");
 
     await expect(client.completeUpload(
       { key: "duplicate.bin", id: "upload" },
       [{ number: 1, etag: '"a"' }, { number: 1, etag: '"b"' }],
     )).rejects.toThrow(RangeError);
+    expect(requests).toHaveLength(1);
   });
 
   it("applies source conditions to multipart copy and destination conditions only at commit", async () => {
@@ -650,6 +741,7 @@ describe("S3 client", () => {
 
   it("uses a separate bounded signal to abort multipart state after caller cancellation", async () => {
     const controller = new AbortController();
+    const reason = new DOMException("caller cancelled", "AbortError");
     let cleanupSignal: AbortSignal | undefined;
     const client = createS3Client({
       endpoint: "https://storage.example",
@@ -662,7 +754,7 @@ describe("S3 client", () => {
         const request = new Request(input, init);
         const url = new URL(request.url);
         if (request.method === "POST" && url.searchParams.has("uploads")) {
-          controller.abort(new DOMException("caller cancelled", "AbortError"));
+          controller.abort(reason);
           return xml("<InitiateMultipartUploadResult><UploadId>cancelled</UploadId></InitiateMultipartUploadResult>");
         }
         if (request.method === "PUT" && url.searchParams.has("partNumber")) {
@@ -682,7 +774,7 @@ describe("S3 client", () => {
       "cancelled.bin",
       streamBytes([new Uint8Array([1])]),
       { signal: controller.signal },
-    )).rejects.toBeDefined();
+    )).rejects.toBe(reason);
 
     expect(cleanupSignal).toBeDefined();
     expect(cleanupSignal).not.toBe(controller.signal);
@@ -775,7 +867,11 @@ describe("S3 request policy", () => {
       },
     });
 
-    await expect(client.createUpload("ambiguous.bin")).rejects.toBeDefined();
+    await expect(client.createUpload("ambiguous.bin")).rejects.toMatchObject({
+      name: "S3Error",
+      status: 503,
+      code: "SlowDown",
+    });
     expect(attempts).toBe(1);
   });
 
@@ -826,23 +922,25 @@ describe("S3 request policy", () => {
   });
 
   it("surfaces redirects without following a signed request", async () => {
-    let targetHits = 0;
+    const urls: string[] = [];
+    const redirect = new Response(null, { status: 307, headers: { location: "https://other.example/bucket/key" } });
     const client = createS3Client({
       endpoint: "https://storage.example",
       bucket: "bucket",
       region: "auto",
       credentials,
-      fetch: async (_input, init) => {
+      fetch: async (input, init) => {
+        urls.push(String(input));
         expect(init?.redirect).toBe("manual");
-        return new Response(null, { status: 307, headers: { location: "https://other.example/bucket/key" } });
+        return redirect;
       },
     });
 
     const response = await client.request({ method: "GET", key: "key" });
-    if (response.url === "https://other.example/bucket/key") targetHits += 1;
 
     expect(response.status).toBe(307);
-    expect(targetHits).toBe(0);
+    expect(response).toBe(redirect);
+    expect(urls).toEqual(["https://storage.example/bucket/key"]);
   });
 
   it("applies a per-attempt timeout without requiring the caller to race the promise", async () => {
@@ -859,5 +957,334 @@ describe("S3 request policy", () => {
     });
 
     await expect(client.request({ method: "GET", key: "slow" })).rejects.toMatchObject({ name: "TimeoutError" });
+  });
+});
+
+describe("S3 publication contracts", () => {
+  const options = { endpoint: "https://storage.example", bucket: "bucket", region: "auto", credentials };
+
+  it("returns its own acknowledgement without a subsequent HEAD", async () => {
+    const methods: string[] = [];
+    const client = createS3Client({
+      ...options,
+      fetch: async (_input, init) => {
+        methods.push(init!.method!);
+        return new Response(null, {
+          status: 200,
+          headers: { etag: '"own"', "x-amz-version-id": "version-1", "x-amz-request-id": "request-1" },
+        });
+      },
+    });
+    expect(await client.put("value", new Uint8Array([1]), { mediaType: "text/plain" })).toMatchObject({
+      size: 1,
+      etag: '"own"',
+      version: "version-1",
+      requestId: "request-1",
+      mediaType: "text/plain",
+    });
+    expect(methods).toEqual(["PUT"]);
+  });
+
+  it("reports a lost dispatched acknowledgement without replaying publication", async () => {
+    const cause = new Error("response lost after server commit");
+    let calls = 0;
+    const client = createS3Client({
+      ...options,
+      fetch: async () => {
+        calls++;
+        throw cause;
+      },
+    });
+    await expect(client.put("value", new Uint8Array([1]))).rejects.toMatchObject({
+      effect: "unknown",
+      key: "value",
+      cause,
+    });
+    expect(calls).toBe(1);
+  });
+
+  it("requires a complete multipart XML acknowledgement and returns its revision", async () => {
+    for (
+      const body of [
+        "",
+        "<CompleteMultipartUploadResult>",
+        "<CompleteMultipartUploadResult/>",
+        "<Wrong><ETag>peer</ETag></Wrong>",
+        "<CompleteMultipartUploadResult><Unexpected><ETag>nested</ETag></Unexpected></CompleteMultipartUploadResult>",
+        "<CompleteMultipartUploadResult><ETag>one</ETag><ETag>two</ETag></CompleteMultipartUploadResult>",
+        "<CompleteMultipartUploadResult><ETag><Value>nested</Value></ETag></CompleteMultipartUploadResult>",
+        "<CompleteMultipartUploadResult><ETag>own</ETag><Unexpected><Error><Code>Failure</Code></Error></Unexpected></CompleteMultipartUploadResult>",
+      ]
+    ) {
+      const client = createS3Client({ ...options, fetch: async () => xml(body) });
+      await expect(client.completeUpload({ key: "value", id: "upload" }, [{ number: 1, etag: "part" }])).rejects
+        .toMatchObject({ effect: "unknown", key: "value" });
+    }
+    const client = createS3Client({
+      ...options,
+      fetch: async () =>
+        xml("<CompleteMultipartUploadResult><ETag>&quot;own&quot;</ETag></CompleteMultipartUploadResult>", {
+          headers: { "x-amz-version-id": "own-version" },
+        }),
+    });
+    expect(await client.completeUpload({ key: "value", id: "upload" }, [{ number: 1, etag: "part" }])).toMatchObject({
+      etag: '"own"',
+      version: "own-version",
+    });
+  });
+
+  it("rejects nonzero declarations on empty streams on both multipart routes", async () => {
+    for (const delayedMultipart of [true, false]) {
+      let publications = 0;
+      const client = createS3Client({
+        ...options,
+        delayedMultipart,
+        fetch: async (input, init) => {
+          const url = new URL(String(input));
+          if (url.searchParams.has("uploads")) {
+            return xml("<InitiateMultipartUploadResult><UploadId>upload</UploadId></InitiateMultipartUploadResult>");
+          }
+          if (init?.method !== "DELETE") publications++;
+          return new Response(null, { status: 200 });
+        },
+      });
+      await expect(client.put("value", streamBytes([]), { size: 1 })).rejects.toBeInstanceOf(RangeError);
+      expect(publications).toBe(0);
+    }
+  });
+
+  it("preserves encoded keys and prefixes without decoding the opaque continuation token", async () => {
+    const client = createS3Client({
+      ...options,
+      fetch: async () =>
+        xml(
+          "<ListBucketResult><EncodingType>url</EncodingType><Contents><Key>%20a%2F%25%20</Key><Size>1</Size></Contents><CommonPrefixes><Prefix>%20prefix%2F%20</Prefix></CommonPrefixes><NextContinuationToken> token%20 </NextContinuationToken></ListBucketResult>",
+        ),
+    });
+    const page = await client.list({ prefix: "" });
+    expect(page.objects[0]!.key).toBe(" a/% ");
+    expect(page.prefixes).toEqual([" prefix/ "]);
+    expect(page.cursor).toBe(" token%20 ");
+  });
+
+  for (const listEncoding of ["percent", "form"] as const) {
+    it(`decodes encoded listing identities with the explicit ${listEncoding} policy and leaves cursors opaque`, async () => {
+      const client = createS3Client({
+        ...options,
+        listEncoding,
+        fetch: async () =>
+          xml(
+            "<ListBucketResult><EncodingType>url</EncodingType><Contents><Key>a+b</Key><Size>1</Size></Contents><Contents><Key>a%2Bb</Key><Size>1</Size></Contents><Contents><Key>a%20b</Key><Size>1</Size></Contents><Contents><Key>a%2520b</Key><Size>1</Size></Contents><CommonPrefixes><Prefix>+%2B%20/</Prefix></CommonPrefixes><NextContinuationToken> +%2B%20 </NextContinuationToken></ListBucketResult>",
+          ),
+      });
+      expect(client.listEncoding).toBe(listEncoding);
+      const page = await client.list({ prefix: "" });
+      expect(page.objects.map((entry) => entry.key)).toEqual([
+        listEncoding === "form" ? "a b" : "a+b",
+        "a+b",
+        "a b",
+        "a%20b",
+      ]);
+      expect(page.prefixes).toEqual([listEncoding === "form" ? " + /" : "++ /"]);
+      expect(page.cursor).toBe(" +%2B%20 ");
+      const unencoded = createS3Client({
+        ...options,
+        listEncoding,
+        fetch: async () =>
+          xml(
+            "<ListBucketResult><Contents><Key> +%2B </Key><Size>1</Size></Contents><CommonPrefixes><Prefix> +%20 /</Prefix></CommonPrefixes></ListBucketResult>",
+          ),
+      });
+      const raw = await unencoded.list({ prefix: "" });
+      expect(raw.objects[0]!.key).toBe(" +%2B ");
+      expect(raw.prefixes).toEqual([" +%20 /"]);
+    });
+  }
+
+  it("rejects Fetch-normalized key paths before dispatch or source consumption", async () => {
+    let calls = 0;
+    let pulls = 0;
+    const client = createS3Client({
+      ...options,
+      fetch: async () => {
+        calls++;
+        return new Response();
+      },
+    });
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulls++;
+        controller.close();
+      },
+    }, { highWaterMark: 0 });
+    await expect(client.put("a/../b", body)).rejects.toBeInstanceOf(TypeError);
+    await expect(client.copy("source", "a/./b")).rejects.toBeInstanceOf(TypeError);
+    expect({ calls, pulls }).toEqual({ calls: 0, pulls: 0 });
+    await body.cancel();
+  });
+  it("pins every copied range to the source revision admitted by HEAD", async () => {
+    const reads: Headers[] = [];
+    let headHeaders: Headers | undefined;
+    const client = createS3Client({
+      ...options,
+      fetch: async (input, init) => {
+        const request = new Request(input, init);
+        const url = new URL(request.url);
+        if (request.method === "HEAD") {
+          headHeaders = request.headers;
+          return new Response(null, {
+            status: 200,
+            headers: { "content-length": "6442450944", etag: '"source-version"' },
+          });
+        }
+        if (request.headers.has("x-amz-copy-source-if-match")) reads.push(request.headers);
+        if (url.searchParams.has("uploads")) {
+          return xml("<InitiateMultipartUploadResult><UploadId>upload</UploadId></InitiateMultipartUploadResult>");
+        }
+        if (url.searchParams.has("partNumber")) return xml("<CopyPartResult><ETag>part</ETag></CopyPartResult>");
+        return xml("<CompleteMultipartUploadResult><ETag>own</ETag></CompleteMultipartUploadResult>");
+      },
+    });
+    const receipt = await client.copy("source", "destination", { sourceIfMatch: "*" });
+    expect(headHeaders!.get("if-match")).toBe("*");
+    expect(reads.length).toBeGreaterThan(1);
+    expect(reads.every((headers) => headers.get("x-amz-copy-source-if-match") === '"source-version"')).toBe(true);
+    expect(receipt).toMatchObject({ size: 6442450944, etag: "own" });
+  });
+
+  it("rejects known impossible physical routes without provider I/O", () => {
+    const client = createS3Client({
+      ...options,
+      fetch: async () => {
+        throw new Error("preflight must not dispatch");
+      },
+    });
+    expect(client.admit!({ operation: "write", source: "bytes", path: "/value", size: 6442450944 }).supported).toBe(
+      false,
+    );
+    expect(
+      client.admit!({ operation: "write", source: "stream", path: "/value", size: 6 * 1024 * 1024 * 1024 }).supported,
+    ).toBe(true);
+  });
+  it("copies the immutable source version when the provider identifies it", async () => {
+    let address: string | null = null;
+    const client = createS3Client({
+      ...options,
+      fetch: async (_input, init) => {
+        if (init!.method === "HEAD") {
+          return new Response(null, {
+            status: 200,
+            headers: { "content-length": "1", etag: "source", "x-amz-version-id": "source+version" },
+          });
+        }
+        address = new Headers(init!.headers).get("x-amz-copy-source");
+        return xml("<CopyObjectResult><ETag>own</ETag></CopyObjectResult>");
+      },
+    });
+    expect(await client.copy("source", "destination")).toMatchObject({ size: 1, etag: "own" });
+    expect(address!.endsWith("?versionId=source%2Bversion")).toBe(true);
+  });
+
+  for (const route of ["bytes", "stream"] as const) {
+    it(`${route} publication owns its metadata and conditions before asynchronous work`, async () => {
+      const policy = { metadata: { owner: "original" }, mediaType: "text/plain", ifNoneMatch: "*", size: 1 };
+      const headers: Headers[] = [];
+      const client = createS3Client({
+        ...options,
+        delayedMultipart: false,
+        fetch: async (input, init) => {
+          const url = new URL(String(input));
+          headers.push(new Headers(init!.headers));
+          policy.metadata.owner = "mutated";
+          policy.mediaType = "application/json";
+          policy.ifNoneMatch = "peer";
+          if (url.searchParams.has("uploads")) {
+            return xml("<InitiateMultipartUploadResult><UploadId>upload</UploadId></InitiateMultipartUploadResult>");
+          }
+          if (init!.method === "POST") {
+            return xml("<CompleteMultipartUploadResult><ETag>own</ETag></CompleteMultipartUploadResult>");
+          }
+          return new Response(null, { headers: { etag: "part-or-own" } });
+        },
+      });
+      const bytes = new Uint8Array([1]);
+      const receipt = await client.put("value", route === "bytes" ? bytes : streamBytes([bytes]), policy);
+      expect(receipt).toMatchObject({ size: 1, mediaType: "text/plain", metadata: { owner: "original" } });
+      const published = headers.filter((header) => header.has("x-amz-meta-owner"));
+      expect(published.length).toBe(1);
+      expect(published[0]!.get("x-amz-meta-owner")).toBe("original");
+      expect(headers.at(-1)!.get("if-none-match")).toBe("*");
+      policy.metadata.owner = "later";
+      expect(receipt.metadata).toEqual({ owner: "original" });
+    });
+  }
+  it("owns mutable source dates through property lookup and copy", async () => {
+    const date = new Date("2024-01-01T00:00:00Z");
+    const expected = date.toUTCString();
+    let copied: string | null = null;
+    const client = createS3Client({
+      ...options,
+      fetch: async (_input, init) => {
+        if (init!.method === "HEAD") {
+          expect(new Headers(init!.headers).get("if-unmodified-since")).toBe(expected);
+          date.setFullYear(2030);
+          return new Response(null, { headers: { "content-length": "1", etag: "source" } });
+        }
+        copied = new Headers(init!.headers).get("x-amz-copy-source-if-unmodified-since");
+        return xml("<CopyObjectResult><ETag>own</ETag></CopyObjectResult>");
+      },
+    });
+    await client.copy("source", "destination", { sourceIfUnmodifiedSince: date });
+    expect(copied).toBe(expected);
+  });
+
+  it("attributes normalized wire metadata and configured defaults to the publication", async () => {
+    const client = createS3Client({
+      ...options,
+      headers: { "x-amz-meta-owner": " default ", "content-type": " text/plain " },
+      fetch: async (_input, init) => {
+        const headers = new Headers(init!.headers);
+        expect(headers.get("x-amz-meta-owner")).toBe("before");
+        expect(headers.get("content-type")).toBe("text/plain");
+        return new Response(null, { status: 201, headers: { etag: "own" } });
+      },
+    });
+    const receipt = await client.put("value", new Uint8Array([1]), { metadata: { OWNER: " before " } });
+    expect(receipt).toMatchObject({ size: 1, mediaType: "text/plain", metadata: { owner: "before" } });
+  });
+
+  it("rejects disabled native copy in admission and before reading its source", async () => {
+    let requests = 0;
+    const client = createS3Client({
+      ...options,
+      copy: false,
+      fetch: async () => {
+        requests++;
+        throw new Error("unexpected I/O");
+      },
+    });
+    expect(client.admit!({ operation: "copy", path: "/source", destination: "/destination" }).supported).toBe(false);
+    await expect(client.copy("source", "destination")).rejects.toBeInstanceOf(TypeError);
+    expect(requests).toBe(0);
+  });
+
+  it("treats a server/proxy publication failure as uncertain without replay", async () => {
+    let requests = 0;
+    const client = createS3Client({
+      ...options,
+      fetch: async () => {
+        requests++;
+        return new Response("gateway lost the upstream response", { status: 504 });
+      },
+    });
+    let failure: unknown;
+    try {
+      await client.put("value", new Uint8Array([1]));
+    } catch (error) {
+      failure = error;
+    }
+    expect(failure).toMatchObject({ effect: "unknown", key: "value", cause: { status: 504 } });
+    expect((failure as Error).cause).toBeInstanceOf(S3Error);
+    expect(requests).toBe(1);
   });
 });

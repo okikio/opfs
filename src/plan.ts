@@ -11,13 +11,14 @@ import { getSupport } from "./capability.ts";
 import {
   ActionSchema,
   type ActionType,
+  type DriverPlanInputType,
   DriverPlanSchema,
   type DriverPlanType,
   ProblemSchema,
   type ProblemType,
 } from "./driver/definition.ts";
 import { normalizePath } from "./path.ts";
-import type { OptimizationType, SupportModeType } from "./schema.ts";
+import type { OptimizationType, SupportModeType } from "./_schema_types.ts";
 import { SupportModeSchema, WriteModeSchema } from "./schema.ts";
 
 /** Validated read preflight input after defaults are applied. */
@@ -39,20 +40,10 @@ interface WritePlanInputResolvedType {
 }
 
 /** Validated copy preflight input. */
-interface CopyPlanInputResolvedType {
-  readonly operation: "copy";
-  readonly path?: string | undefined;
-  readonly destination?: string | undefined;
-  readonly size?: number | undefined;
-}
+type CopyPlanInputResolvedType = CopyPlanInputType;
 
 /** Validated move preflight input. */
-interface MovePlanInputResolvedType {
-  readonly operation: "move";
-  readonly path?: string | undefined;
-  readonly destination?: string | undefined;
-  readonly size?: number | undefined;
-}
+type MovePlanInputResolvedType = MovePlanInputType;
 
 /** Validated preflight input shape after schema defaults are applied. */
 type ResolvedPlanInputType =
@@ -76,7 +67,12 @@ export type WriteSourceType = "bytes" | "stream";
  * Planning intentionally covers the routes where size, buffering, partitioning,
  * or fallback behavior most often changes the caller's decision.
  */
-export const PlanOperationSchema: z.ZodType<PlanOperationType, PlanOperationType> = z.enum(["read", "write", "copy", "move"]);
+export const PlanOperationSchema: z.ZodType<PlanOperationType, PlanOperationType> = z.enum([
+  "read",
+  "write",
+  "copy",
+  "move",
+]);
 /** Validated preflight operation name. */
 export type PlanOperationType = "read" | "write" | "copy" | "move";
 
@@ -118,6 +114,12 @@ export interface CopyPlanInputType {
   readonly destination?: string | undefined;
   /** Caller-known logical size when available. */
   readonly size?: number | undefined;
+  /** Whether the route may replace an existing destination. */
+  readonly overwrite?: boolean | undefined;
+  /** Requires preservation of existing destination bytes before publication; defaults to true. */
+  readonly preserve?: boolean | undefined;
+  /** Requires atomic no-replace on the selected physical route. */
+  readonly exclusive?: boolean | undefined;
 }
 
 /** Preflight input for a move request. */
@@ -130,6 +132,12 @@ export interface MovePlanInputType {
   readonly destination?: string | undefined;
   /** Caller-known logical size when available. */
   readonly size?: number | undefined;
+  /** Whether the route may replace an existing destination. */
+  readonly overwrite?: boolean | undefined;
+  /** Requires preservation of existing destination bytes before publication; defaults to true. */
+  readonly preserve?: boolean | undefined;
+  /** Requires atomic no-replace on the selected physical route. */
+  readonly exclusive?: boolean | undefined;
 }
 
 /**
@@ -173,6 +181,9 @@ const PlanInputSchemaDefinition = z.discriminatedUnion("operation", [
     destination: z.string().optional(),
     /** Caller-known logical size when available. */
     size: z.number().int().nonnegative().optional(),
+    overwrite: z.boolean().optional(),
+    preserve: z.boolean().optional(),
+    exclusive: z.boolean().optional(),
   }).strict(),
   z.object({
     /** Selects a move preflight request. */
@@ -183,6 +194,9 @@ const PlanInputSchemaDefinition = z.discriminatedUnion("operation", [
     destination: z.string().optional(),
     /** Caller-known logical size when available. */
     size: z.number().int().nonnegative().optional(),
+    overwrite: z.boolean().optional(),
+    preserve: z.boolean().optional(),
+    exclusive: z.boolean().optional(),
   }).strict(),
 ]);
 
@@ -296,23 +310,67 @@ function action(kind: ActionType["kind"], detail?: string): ActionType {
  * paths are normalized, defaults are resolved, and only driver-relevant fields
  * cross the boundary.
  */
-function getDriverPlan(input: ResolvedPlanInputType, adapter: AdapterType): DriverPlanType {
-  return adapter.driver.plan({
-    operation: input.operation,
-    ...(input.path === undefined ? {} : { path: normalizePath(input.path) }),
+export function getDriverInput(
+  value: PlanInputType,
+  adapter: AdapterType,
+  optimizations: OptimizationType,
+): DriverPlanInputType {
+  const input = PlanInputSchema.parse(value);
+  const nativeStream = optimizations.streamWrite &&
+    adapter.capabilities.streamWriteModes.includes(input.operation === "write" ? input.mode : "replace") &&
+    adapter.writeStream !== undefined;
+  const fallbackCopy = (input.operation === "copy" &&
+    (!(optimizations.nativeCopy && adapter.capabilities.nativeCopy && adapter.copy !== undefined) ||
+      (adapter.hostProfile !== undefined && input.preserve === false))) ||
+    (input.operation === "move" &&
+      !(optimizations.nativeMove && adapter.capabilities.nativeMove && adapter.move !== undefined));
+  return {
+    operation: fallbackCopy ? "write" : input.operation,
+    ...(input.path === undefined
+      ? {}
+      : { path: normalizePath(fallbackCopy ? input.destination ?? input.path : input.path) }),
     ...((input.operation === "copy" || input.operation === "move") && input.destination !== undefined
       ? { destination: normalizePath(input.destination) }
       : {}),
     ...(input.size === undefined ? {} : { size: input.size }),
+    ...(fallbackCopy
+      ? {
+        source: optimizations.streamRead && adapter.capabilities.streamRead && adapter.openReadStream !== undefined &&
+            nativeStream
+          ? "stream" as const
+          : "bytes" as const,
+        mode: "replace" as const,
+      }
+      : {}),
     ...(input.operation === "write"
       ? {
-        source: input.source,
+        source: input.source === "stream" && !nativeStream ? "bytes" : input.source,
         mode: input.mode,
         ...(input.inputBytes === undefined ? {} : { inputBytes: input.inputBytes }),
       }
       : {}),
     ...(input.operation === "read" ? { range: input.range } : {}),
-  });
+    ...((input.operation === "copy" || input.operation === "move")
+      ? {
+        intent: input.operation,
+        overwrite: input.overwrite,
+        preserve: input.preserve,
+        exclusive: input.exclusive,
+      }
+      : {}),
+  };
+}
+
+/** Uses the same selected physical request as executable hard admission. */
+function getDriverPlan(
+  input: ResolvedPlanInputType,
+  adapter: AdapterType,
+  optimizations: OptimizationType,
+): DriverPlanType {
+  const result = (adapter.plan?.bind(adapter) ?? adapter.driver.plan.bind(adapter.driver))(
+    getDriverInput(input, adapter, optimizations),
+  );
+  return { ...result, operation: input.operation };
 }
 
 /**
@@ -357,7 +415,7 @@ function getDriverPlan(input: ResolvedPlanInputType, adapter: AdapterType): Driv
  */
 export function createPlan(input: PlanInputType, context: PlanContextType): PlanType {
   const request = PlanInputSchema.parse(input);
-  const driver = getDriverPlan(request, context.adapter);
+  const driver = getDriverPlan(request, context.adapter, context.optimizations);
   const support = getSupport(context.adapter, context.optimizations);
   const problems: ProblemType[] = [...driver.problems];
   const actions: ActionType[] = [...driver.actions];
@@ -404,6 +462,44 @@ export function createPlan(input: PlanInputType, context: PlanContextType): Plan
     if (driver.support === "partitioned" && route !== "unsupported") route = "partitioned";
   } else {
     route = request.operation === "copy" ? support.copy : support.move;
+    if (
+      request.operation === "copy" && context.adapter.hostProfile !== undefined && request.preserve === false &&
+      route !== "unsupported"
+    ) route = "emulated";
+    const publication = context.adapter.publication;
+    const guarantee = request.operation === "copy" || route === "emulated" ? publication?.copy : publication?.move;
+    const stage = context.adapter.reserve !== undefined && context.adapter.move !== undefined &&
+      publication?.move === "preserve";
+    if (
+      request.overwrite && request.preserve !== false && guarantee !== "preserve" &&
+      !(request.operation === "copy" && stage)
+    ) {
+      problems.push(
+        problem(
+          "replacement-not-preserved",
+          "filesystem",
+          "error",
+          "This selected file route cannot preserve an existing destination before publication.",
+        ),
+      );
+      actions.push(
+        action("change-policy", "Choose preserve:false explicitly, or select a preserving publication route."),
+      );
+    }
+    const noReplace = request.operation === "copy"
+      ? publication?.copyNoReplace ?? publication?.noReplace
+      : publication?.moveNoReplace ?? publication?.noReplace;
+    if (request.exclusive && !request.overwrite && (route === "emulated" || noReplace !== "atomic")) {
+      problems.push(
+        problem(
+          "no-replace-not-atomic",
+          "filesystem",
+          "error",
+          "This route has no admitted atomic destination no-replace primitive.",
+        ),
+      );
+      actions.push(action("select-driver"));
+    }
     if (request.operation === "move" && route === "emulated") {
       problems.push(problem(
         "move-not-atomic",

@@ -18,16 +18,17 @@ import {
  * provider-side copy, or retain metadata without ever pretending it can update a
  * file in place like a host filesystem.
  */
-export const ObjectDriverCapabilitiesSchema: z.ZodType<ObjectDriverCapabilitiesType, ObjectDriverCapabilitiesType> = z.object({
-  rangeRead: z.boolean(),
-  streamRead: z.boolean(),
-  streamWrite: z.boolean(),
-  copy: z.boolean(),
-  conditionalWrite: z.boolean(),
-  multipart: z.boolean(),
-  metadata: z.boolean(),
-  versions: z.boolean(),
-}).strict();
+export const ObjectDriverCapabilitiesSchema: z.ZodType<ObjectDriverCapabilitiesType, ObjectDriverCapabilitiesType> = z
+  .object({
+    rangeRead: z.boolean(),
+    streamRead: z.boolean(),
+    streamWrite: z.boolean(),
+    copy: z.boolean(),
+    conditionalWrite: z.boolean(),
+    multipart: z.boolean(),
+    metadata: z.boolean(),
+    versions: z.boolean(),
+  }).strict();
 
 /** A validated native object-driver capability description. */
 export type ObjectDriverCapabilitiesType = import("../_schema_types.ts").ObjectDriverCapabilitiesType;
@@ -46,6 +47,19 @@ export interface ObjectStatType {
   readonly version?: string;
   /** Provider metadata retained with the object when available. */
   readonly metadata?: Readonly<Record<string, string>>;
+}
+
+/**
+ * Acknowledgement of this write or copy, distinct from a later current stat.
+ *
+ * Revision fields come from this operation's completely validated success
+ * response. Another writer may replace that revision immediately afterwards.
+ * A lost/truncated acknowledgement rejects as an unknown publication outcome;
+ * a subsequent HEAD cannot attribute the operation's commit.
+ */
+export interface ObjectReceiptType extends ObjectStatType {
+  /** Request identity returned with this operation's acknowledgement. */
+  readonly requestId?: string;
 }
 
 /** One object returned from a prefix listing. */
@@ -130,6 +144,8 @@ export interface ObjectListOptionsType {
  * applied.
  */
 export interface ObjectBackendType {
+  /** Pure concrete input-route admission; called after adapter key translation. */
+  admit?(input: DriverPlanInputType): DriverPlanType;
   readonly name: string;
   readonly capabilities: {
     readonly rangeRead: boolean;
@@ -148,10 +164,10 @@ export interface ObjectBackendType {
     key: string,
     body: Uint8Array | ReadableStream<Uint8Array>,
     options?: ObjectPutOptionsType,
-  ): Promise<ObjectStatType>;
+  ): Promise<ObjectReceiptType>;
   delete(key: string, options?: { readonly signal?: AbortSignal }): Promise<void>;
   list(options: ObjectListOptionsType): Promise<ObjectListType>;
-  copy?(source: string, destination: string, options?: ObjectCopyOptionsType): Promise<ObjectStatType>;
+  copy?(source: string, destination: string, options?: ObjectCopyOptionsType): Promise<ObjectReceiptType>;
   dispose?(): void | Promise<void>;
 }
 
@@ -223,6 +239,7 @@ export function defineObjectDriver(
   backend: ObjectBackendType,
   options: DefineObjectDriverOptionsType,
 ): ObjectDriverType {
+  options = { ...options }; // Callbacks and policy flags belong to this configured instance.
   const capabilities = ObjectDriverCapabilitiesSchema.parse({
     rangeRead: backend.capabilities.rangeRead,
     streamRead: backend.capabilities.streamRead,
@@ -251,7 +268,18 @@ export function defineObjectDriver(
     ],
     ownership: options.ownership ??
       (backend.dispose === undefined ? "none" : options.disposeBackend ? "owned" : "borrowed"),
-    plan: options.plan ?? ((input) => createObjectPlan(base, input)),
+    plan: (input) => {
+      const logical = options.plan === undefined ? createObjectPlan(base, input) : options.plan(input);
+      const physical = backend.admit?.(input);
+      if (physical === undefined) return logical;
+      return DriverPlanSchema.parse({
+        operation: logical.operation,
+        supported: logical.supported && physical.supported,
+        support: logical.supported && physical.supported ? logical.support : "unsupported",
+        problems: [...logical.problems, ...physical.problems],
+        actions: [...logical.actions, ...physical.actions],
+      });
+    },
     ...(options.disposeBackend && backend.dispose !== undefined ? { dispose: () => backend.dispose!() } : {}),
   });
 
@@ -259,7 +287,7 @@ export function defineObjectDriver(
     ...base,
     kind: "object",
     capabilities,
-    ...(backend.limits === undefined ? {} : { portableLimits: backend.limits }),
+    ...(backend.limits === undefined ? {} : { portableLimits: structuredClone(backend.limits) }),
     head: (key, requestOptions) => backend.head(key, requestOptions),
     get: (key, requestOptions) => backend.get(key, requestOptions),
     put: (key, body, requestOptions) => backend.put(key, body, requestOptions),
