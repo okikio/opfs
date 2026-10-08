@@ -1,11 +1,69 @@
 import { describe, it } from "node:test";
+import { Buffer } from "node:buffer";
 import { expect } from "@std/expect";
-import { finish } from "../bench/result.ts";
+import { expectBytes, finish } from "../bench/result.ts";
 import { validateLifecycle, validateMitata } from "../bench/validate.ts";
 import { close, withReleases } from "./close.ts";
 import { inputs, openInputGuard, verifyInputs } from "../bench/input.ts";
 import type { InputFilesType, InputKindType, InputReceiptType } from "../bench/input.ts";
 import { relative, resolve } from "node:path";
+
+describe("Exact benchmark byte oracles", () => {
+  it("accepts byte-equivalent buffers, subclasses and offset views without comparing prototypes", () => {
+    const expected = Uint8Array.of(0, 255, 17, 42, 128);
+    class Bytes extends Uint8Array {}
+    const backing = Uint8Array.of(99, ...expected, 77);
+    for (const actual of [Buffer.from(expected), new Bytes(expected), backing.subarray(1, 6)]) {
+      expect(() => expectBytes(actual, expected, "independent view")).not.toThrow();
+    }
+    expect(() => expectBytes(new Uint8Array(), new Uint8Array(), "empty")).not.toThrow();
+  });
+
+  it("rejects corruption at every offset and a large tail", () => {
+    const expected = Uint8Array.from({ length: 256 }, (_, offset) => offset);
+    for (let offset = 0; offset < expected.length; offset++) {
+      const actual = expected.slice();
+      actual[offset] = actual[offset]! ^ 1;
+      expect(() => expectBytes(actual, expected, "corrupt byte")).toThrow();
+    }
+    const tail = new Uint8Array(64 * 1024);
+    tail[tail.length - 1] = 1;
+    expect(() => expectBytes(tail, new Uint8Array(tail.length), "last byte")).toThrow();
+  });
+
+  for (const direction of ["shorter", "longer"] as const) {
+    it(`rejects a ${direction} visible view with otherwise exact prefix bytes`, () => {
+      const expected = Uint8Array.from({ length: 256 }, (_, offset) => offset);
+      const actual = direction === "shorter" ? expected.subarray(0, 255) : Uint8Array.of(...expected, 99);
+      let failure: unknown;
+      try {
+        expectBytes(actual, expected, "different length");
+      } catch (error) {
+        failure = error;
+      }
+      expect(failure).toBeInstanceOf(Error);
+      if (!(failure instanceof Error)) throw new Error("Missing length failure.");
+      expect(failure.cause).toEqual({ actualBytes: actual.byteLength, expectedBytes: expected.byteLength });
+    });
+  }
+
+  it("retains bounded scalar diagnostics when a multi-megabyte result is wrong", () => {
+    const expected = new Uint8Array(2 * 1024 * 1024);
+    const actual = expected.slice();
+    actual[actual.length - 1] = 255;
+    let failure: unknown;
+    try {
+      expectBytes(actual, expected, "large result");
+    } catch (error) {
+      failure = error;
+    }
+    expect(failure).toBeInstanceOf(Error);
+    if (!(failure instanceof Error)) throw new Error("Missing byte failure.");
+    expect(failure.message.length).toBeLessThan(1024);
+    expect(failure.cause).toEqual({ offset: actual.length - 1, actual: 255, expected: 0 });
+    expect(JSON.stringify(failure.cause).length).toBeLessThan(1024);
+  });
+});
 
 /** An owned in-memory tree exposes exact reads; controls require no native filesystem permissions. */
 function catalog() {
