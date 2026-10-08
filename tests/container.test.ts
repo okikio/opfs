@@ -13,13 +13,13 @@ import {
   unlink,
   writeFile,
 } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, isAbsolute, join, parse } from "node:path";
 import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
 import { platform } from "node:process";
 import { expect } from "@std/expect";
 import { changes, copy, open, own, pack } from "../.mise/tasks/container.mjs";
-import { verify } from "../.mise/tasks/container-worker.mjs";
+import { locate, verify } from "../.mise/tasks/container-worker.mjs";
 import { withReleases } from "./close.ts";
 
 /** Windows host modes/link privileges do not prove the mandatory private Linux guard. */
@@ -37,6 +37,24 @@ async function fixture(action: (root: string) => Promise<void>): Promise<void> {
 }
 
 describe("container copy admission", () => {
+  it("retains an absolute volume-root identity throughout private acquisition and cleanup", async () => {
+    await fixture(async (root) => {
+      // C: is drive-relative on Windows; it cannot stand in for the observed C:\ root.
+      const volume = parse(root).root;
+      const canonical = await locate(volume);
+      expect(isAbsolute(canonical)).toBe(true);
+      expect(dirname(canonical)).toBe(canonical);
+      expect(parse(canonical).root).toBe(canonical);
+      expect((await lstat(canonical)).isDirectory()).toBe(true);
+      const acquired = await own(await mkdtemp(join(root, "volume-control-")));
+      await withReleases(async (releases) => {
+        releases.push(() => acquired.close());
+        expect(acquired.identity.observations.at(-1)?.[0]).toBe(canonical);
+        await acquired.verify();
+        expect(await locate(volume)).toBe(canonical);
+      });
+    });
+  });
   it("classifies real catalog differences with full digests and finite retained entries", () => {
     const value = { kind: "file", mode: 0o600, links: 1, bytes: 1, sha256: "a" };
     const before = {
