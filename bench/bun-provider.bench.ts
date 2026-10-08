@@ -1,6 +1,7 @@
 /// <reference types="bun-types" />
 import { equal } from "node:assert/strict";
 import { expectReceipt, observeProvider } from "./provider-contract.ts";
+import { phase } from "./provider-phase.ts";
 import { toBytes } from "@std/streams/to-bytes";
 import { bench, do_not_optimize } from "mitata";
 import { expectBytes, finish, payload as makePayload, report } from "./result.ts";
@@ -270,37 +271,75 @@ let failed = false;
 let primary: unknown;
 try {
   await verifyPublicationContracts();
-  await bun.write(bunKey, payload);
-  await s3.put(directKey, payload);
-  await driver.put(driverKey, payload);
-  await adapter.writeFile("/bench.bin", payload, { mode: "replace" });
-  await facade.writeFile("/bench.bin", payload);
-  await measured.writeFile("/bench.bin", payload);
-  await delegated.writeFile("/bench.bin", payload);
+  await phase("Bun native S3 replacement", S3_ENDPOINT, async () => {
+    await bun.write(bunKey, payload);
+  });
+  await phase("Bun S3 client replacement", S3_ENDPOINT, async () => {
+    await s3.put(directKey, payload);
+  });
+  await phase("Bun S3 driver replacement", S3_ENDPOINT, async () => {
+    await driver.put(driverKey, payload);
+  });
+  await phase("Bun S3 adapter replacement", S3_ENDPOINT, async () => {
+    await adapter.writeFile("/bench.bin", payload, { mode: "replace" });
+  });
+  await phase("Bun S3 facade replacement", S3_ENDPOINT, async () => {
+    await facade.writeFile("/bench.bin", payload);
+  });
+  await phase("Bun S3 facade metrics replacement", S3_ENDPOINT, async () => {
+    await measured.writeFile("/bench.bin", payload);
+  });
+  await phase("Bun S3 facade delegated replacement", S3_ENDPOINT, async () => {
+    await delegated.writeFile("/bench.bin", payload);
+  });
 
   /** Real network results are checked before timed callbacks are admitted. */
-  expectBytes(await bun.file(bunKey).bytes(), payload, "Bun S3");
-  expectBytes(await toBytes(await s3.get(directKey)), payload, "S3 client");
-  expectBytes(await toBytes(await driver.get(driverKey)), payload, "S3 driver");
-  expectBytes(await adapter.readFile("/bench.bin"), payload, "adapter");
-  expectBytes(await facade.readFile("/bench.bin"), payload, "facade");
-  expectBytes(await measured.readFile("/bench.bin"), payload, "measured");
-  expectBytes(await delegated.readFile("/bench.bin"), payload, "delegated");
+  await phase("Bun native S3 read bytes", S3_ENDPOINT, async () => {
+    expectBytes(await bun.file(bunKey).bytes(), payload, "Bun S3");
+  });
+  await phase("Bun s3 read bytes", S3_ENDPOINT, async () => {
+    expectBytes(await toBytes(await s3.get(directKey)), payload, "S3 client");
+  });
+  await phase("Bun driver read bytes", S3_ENDPOINT, async () => {
+    expectBytes(await toBytes(await driver.get(driverKey)), payload, "S3 driver");
+  });
+  await phase("Bun adapter read bytes", S3_ENDPOINT, async () => {
+    expectBytes(await adapter.readFile("/bench.bin"), payload, "adapter");
+  });
+  await phase("Bun facade read bytes", S3_ENDPOINT, async () => {
+    expectBytes(await facade.readFile("/bench.bin"), payload, "facade");
+  });
+  await phase("Bun measured read bytes", S3_ENDPOINT, async () => {
+    expectBytes(await measured.readFile("/bench.bin"), payload, "measured");
+  });
+  await phase("Bun delegated read bytes", S3_ENDPOINT, async () => {
+    expectBytes(await delegated.readFile("/bench.bin"), payload, "delegated");
+  });
   const writer = bun.file(`${PREFIX}/bun-multipart.bin`).writer({ partSize: 5 * 1024 * 1024, queueSize: 4, retry: 0 });
-  await writer.write(multipart);
-  await writer.end();
-  expectBytes(await bun.file(`${PREFIX}/bun-multipart.bin`).bytes(), multipart, "Bun multipart");
-  await s3.put(
-    `${PREFIX}/direct-multipart.bin`,
-    new ReadableStream({
-      start(controller) {
-        controller.enqueue(multipart);
-        controller.close();
-      },
-    }),
-    { size: multipart.byteLength },
-  );
-  expectBytes(await toBytes(await s3.get(`${PREFIX}/direct-multipart.bin`)), multipart, "S3 multipart");
+  await phase("Bun native S3 multipart enqueue", S3_ENDPOINT, async () => {
+    await writer.write(multipart);
+  });
+  await phase("Bun native S3 multipart acknowledgement", S3_ENDPOINT, async () => {
+    await writer.end();
+  });
+  await phase("Bun native S3 read bytes 6 MiB", S3_ENDPOINT, async () => {
+    expectBytes(await bun.file(`${PREFIX}/bun-multipart.bin`).bytes(), multipart, "Bun multipart");
+  });
+  await phase("Bun S3 client multipart publication", S3_ENDPOINT, async () => {
+    await s3.put(
+      `${PREFIX}/direct-multipart.bin`,
+      new ReadableStream({
+        start(controller) {
+          controller.enqueue(multipart);
+          controller.close();
+        },
+      }),
+      { size: multipart.byteLength },
+    );
+  });
+  await phase("Bun s3 read bytes 6 MiB", S3_ENDPOINT, async () => {
+    expectBytes(await toBytes(await s3.get(`${PREFIX}/direct-multipart.bin`)), multipart, "S3 multipart");
+  });
 
   bench("provider/s3 Bun S3Client: 256 KiB acknowledged replace", async () => {
     do_not_optimize(await bun.write(bunKey, payload));

@@ -40,3 +40,11 @@ Testcontainers values now load only when the parent starts an actual provider ac
 using the controlled ownership seam does not run SDK host/Docker configuration discovery. The Deno ownership controls
 keep their existing permissions; no system-inspection grant or skipped control is added. Actual provider factories use
 the same SDKs, images, readiness checks and fixed development credentials before timed workloads begin.
+
+Direct untimed setup and byte checks now emit short structured phase records on stderr, with fixture origins only. A
+start record identifies the pending operation; pass records successful return; fail retains bounded original causes. The
+actual operation result or rejection remains authoritative, and an independent recording fault cannot replace it. Native
+Mitata JSON stays on stdout. No requests, retries, timers or transport options are added, and timed callbacks are
+unchanged. An observed preflight can pass before a later direct request fails; keep those boundaries separate instead of
+calling a partial attempt a completed measurement. Fresh successful probes did not establish a general network cause for
+the earlier direct Fetch connection timeout.
