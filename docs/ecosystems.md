@@ -78,7 +78,12 @@ foo:bar
 A normal filesystem cannot make `/foo` both a file and a directory, so the bridge stores each exact value in a private
 `value` leaf below its encoded hierarchy directory.
 
-Literal percent/tilde and separator-like characters are encoded reversibly so logical keys cannot collide.
+The generic KV bridge preserves exact JavaScript string identity, including empty colon segments and lone UTF-16 code
+units; canonical decoding rejects aliases. The unstorage bridge first applies the ecosystem's intentional slash/colon
+normalization. Both use a marked dedicated `/.opfs-kv` area by default, reject `/`, and clear only owned value leaves.
+Unmarked nonempty areas require explicit migration. Clear retains foreign files and the marker. Generic `keys()` lists
+all keys; `keys("")` selects the empty-key hierarchy. See [storage ownership](storage.md) for complete examples and
+limits.
 
 ## RxDB
 
@@ -196,7 +201,12 @@ lastModified
 mediaType
 ```
 
-`path` must be unique or a primary key. `size` and `lastModified` must round-trip JavaScript safe integers.
+`path` must be unique or a primary key. `size` and `lastModified` must round-trip JavaScript safe integers. The exported
+`DrizzleColumnType<Value>` retains each schema builder's inferred data type through its compile-time `_.data` field and
+SQL-expression method. String columns remain required for paths and metadata; numeric columns remain required for sizes
+and timestamps. Construction checks that all eight fields are actual Drizzle columns before querying the database.
+Importing the adapter's declarations does not pull unrelated SQL dialect types into the consumer's type checker. The
+caller still owns the real Drizzle table, database, and schema builder.
 
 The generic driver uses Drizzle's common CRUD surface. Replacement is delete then insert, so the driver reports
 best-effort replacement. This route is serialized inside one cooperating `FileSystemType`, but it is not an atomic
