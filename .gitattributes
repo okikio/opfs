@@ -1,0 +1,2 @@
+# Pinned upstream snapshots must keep their original bytes on every platform.
+tests/upstream/original/** -text -whitespace

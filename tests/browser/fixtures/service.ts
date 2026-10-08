@@ -16,12 +16,15 @@ async function runServiceRequest(
   }
 
   const fileSystem = await openFileSystem();
+  let value: string;
   try {
     await fileSystem.writeFile(input.path, input.value, { parents: true });
-    port.postMessage({ supported: true, probe, value: await fileSystem.readText(input.path) });
+    value = await fileSystem.readText(input.path);
   } finally {
     await fileSystem.close();
   }
+  // Unregistration follows the reply, so it must report completed owned cleanup.
+  port.postMessage({ supported: true, probe, value });
 }
 
 self.addEventListener("install", (event: ExtendableEvent) => event.waitUntil(self.skipWaiting()));
@@ -29,5 +32,5 @@ self.addEventListener("activate", (event: ExtendableEvent) => event.waitUntil(se
 self.addEventListener("message", (event: ExtendableMessageEvent) => {
   const port = event.ports[0];
   if (port === undefined) return;
-  event.waitUntil(runServiceRequest(port, event.data));
+  event.waitUntil(runServiceRequest(port, event.data).catch((error) => port.postMessage({ error: String(error) })));
 });

@@ -3,6 +3,8 @@ import { GenericContainer, type StartedTestContainer, Wait } from "testcontainer
 
 /** SeaweedFS image used for the S3-compatible provider fixture. */
 export const S3_IMAGE = "chrislusf/seaweedfs:4.41";
+/** SeaweedFS4.41 form-escapes EncodingType=url listing keys; every project client uses this explicit wire dialect. */
+export const S3_LIST_ENCODING = "form" as const;
 /** Azurite image used for the Azure Blob provider fixture. */
 export const AZURE_IMAGE = "mcr.microsoft.com/azure-storage/azurite:3.36.0";
 /** Bucket and container name shared by provider integration tests and benchmarks. */
@@ -117,7 +119,13 @@ export async function openProviders(): Promise<ProviderFixture> {
     const azure = await openAzure();
     return new ProviderFixture(s3, azure.container, azure.endpoint);
   } catch (error) {
-    await s3.stop().catch(() => undefined);
+    try {
+      await s3.stop();
+    } catch (cleanup) {
+      throw new AggregateError([error, cleanup], "Azure fixture startup failed and S3 cleanup also failed.", {
+        cause: error,
+      });
+    }
     throw error;
   }
 }
