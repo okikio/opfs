@@ -246,14 +246,23 @@ describe("native command evidence", () => {
       await withReleases(async (releases) => {
         const controller = new AbortController();
         const marker = join(owner.directory, "ready.bin");
+        const stage = join(owner.directory, "ready.pending");
+        const approval = join(owner.directory, "publish");
         let finished = false;
         const pending = run(
           execPath,
           args(`
-          import { writeSync, writeFileSync } from 'node:fs';
-          writeSync(1, new Uint8Array([0,255,128]));
-          writeFileSync(${JSON.stringify(marker)}, new Uint8Array([1]));
-          setInterval(() => {}, 1000);
+          import { closeSync, existsSync, openSync, renameSync, writeSync } from 'node:fs';
+          const descriptor = openSync(${JSON.stringify(stage)}, 'wx');
+          const approval = setInterval(() => {
+            if (!existsSync(${JSON.stringify(approval)})) return;
+            clearInterval(approval);
+            writeSync(descriptor, new Uint8Array([1]));
+            closeSync(descriptor);
+            writeSync(1, new Uint8Array([0,255,128]));
+            renameSync(${JSON.stringify(stage)}, ${JSON.stringify(marker)});
+            setInterval(() => {}, 1000);
+          }, 10);
         `),
           { timeoutMs: COMMAND_TIMEOUT, signal: controller.signal },
         ).then((output) => {
@@ -265,19 +274,30 @@ describe("native command evidence", () => {
           await pending;
         });
         const expires = Date.now() + READY_TIMEOUT;
-        for (;;) {
-          try {
-            expect(await readFile(marker)).toEqual(Buffer.from([1]));
-            break;
-          } catch (error) {
-            if (!(error instanceof Error) || !("code" in error) || error.code !== "ENOENT") throw error;
-            if (finished) {
-              throw new Error("Native child settled before readiness.", { cause: observation(await pending) });
+        /** Only absence is pending. Incorrect published bytes fail immediately. */
+        async function ready(path: string, bytes: Buffer): Promise<void> {
+          for (;;) {
+            try {
+              expect(await readFile(path)).toEqual(bytes);
+              return;
+            } catch (error) {
+              if (!(error instanceof Error) || !("code" in error) || error.code !== "ENOENT") throw error;
+              if (finished) {
+                throw new Error("Native child settled before readiness.", { cause: observation(await pending) });
+              }
+              if (Date.now() >= expires) throw new Error("Native child readiness watchdog expired.", { cause: error });
+              await new Promise((resolve) => setTimeout(resolve, 10));
             }
-            if (Date.now() >= expires) throw new Error("Native child readiness watchdog expired.", { cause: error });
-            await new Promise((resolve) => setTimeout(resolve, 10));
           }
         }
+        // A created but unwritten stage is deliberately held until the parent
+        // proves that it has not become the final readiness record. Directory
+        // creation is an empty approval signal; it publishes no payload bytes.
+        await ready(stage, Buffer.alloc(0));
+        await expect(readFile(marker)).rejects.toMatchObject({ code: "ENOENT" });
+        await mkdir(approval);
+        await ready(marker, Buffer.from([1]));
+        await expect(lstat(stage)).rejects.toMatchObject({ code: "ENOENT" });
         const reason = new Error("owned running cancellation");
         controller.abort(reason);
         const output = await pending;
