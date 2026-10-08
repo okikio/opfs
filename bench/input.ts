@@ -105,7 +105,10 @@ export async function inputs(root = cwd(), files: InputFilesType = native): Prom
     for (const entry of await files.entries(join(root, directory))) {
       if (excluded.has(entry.name) || entry.name === ".DS_Store") continue;
       const name = `${directory}/${entry.name}`;
-      if (directory === ".mise/tasks" && !entry.name.startsWith("bench") && entry.name !== "test-filesystem-clients") {
+      if (
+        directory === ".mise/tasks" && !entry.name.startsWith("bench") &&
+        !["test-filesystem-clients", "container.mjs", "container-worker.mjs", "linux.mjs"].includes(entry.name)
+      ) {
         continue;
       }
       if (entry.kind === "directory") {
