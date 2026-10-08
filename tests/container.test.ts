@@ -27,6 +27,22 @@ const POSIX = {
   skip: platform === "win32" ? "Host POSIX modes and link privileges are not portable observations." : false,
 };
 
+/** Native observations, rather than requested creation modes, prove borrowed entries stay intact. */
+async function inspect(path: string) {
+  const info = await lstat(path, { bigint: true });
+  return {
+    directory: info.isDirectory(),
+    alias: info.isSymbolicLink(),
+    dev: info.dev,
+    ino: info.ino,
+    uid: info.uid,
+    gid: info.gid,
+    mode: info.mode,
+    links: info.nlink,
+    bytes: info.size,
+  };
+}
+
 /** Acquires cleanup immediately; owner-writable fixtures never need a chmod traversal. */
 async function fixture(action: (root: string) => Promise<void>): Promise<void> {
   await withReleases(async (releases) => {
@@ -107,7 +123,11 @@ describe("container copy admission", () => {
       const repository = join(root, "repository");
       await mkdir(join(repository, "node_modules"), { recursive: true });
       const primary = new Error("controlled admission failure");
+      const bytes = new Uint8Array([0, 255, 128, 13, 10, 42]);
       let replaced = "";
+      let owned: Awaited<ReturnType<typeof inspect>> | undefined;
+      let replacement: Awaited<ReturnType<typeof inspect>> | undefined;
+      let sentinel: Awaited<ReturnType<typeof inspect>> | undefined;
       let failure: unknown;
       try {
         await open(repository, {
@@ -116,9 +136,13 @@ describe("container copy admission", () => {
             const name = (await readdir(root)).find((value) => value.startsWith("opfs-container-"));
             if (!name) throw new Error("Actual acquired staging directory was not observed.");
             replaced = join(root, name);
+            owned = await inspect(replaced);
             await rename(replaced, join(root, "moved-private"));
             await mkdir(replaced, { mode: 0o755 });
-            await writeFile(join(replaced, "sentinel"), "borrowed remains");
+            await writeFile(join(replaced, "sentinel"), bytes);
+            // The supervisor's private umask may reduce mkdir's requested mode.
+            replacement = await inspect(replaced);
+            sentinel = await inspect(join(replaced, "sentinel"));
             throw primary;
           },
         });
@@ -127,11 +151,36 @@ describe("container copy admission", () => {
       }
       expect(failure).toBeInstanceOf(AggregateError);
       if (!(failure instanceof AggregateError)) throw new Error("Admission and cleanup did not retain both outcomes.");
+      if (!owned || !replacement || !sentinel) throw new Error("Replacement fixture was not completely acquired.");
+      expect(failure.cause).toBe(primary);
       expect(failure.errors.length).toBe(2);
       expect(failure.errors[0]).toBe(primary);
-      expect(failure.errors[1]).toBeInstanceOf(Error);
-      expect(await readFile(join(replaced, "sentinel"), "utf8")).toBe("borrowed remains");
-      expect((await lstat(replaced)).mode & 0o777).toBe(0o755);
+      const cleanup: unknown = failure.errors[1];
+      expect(cleanup).toBeInstanceOf(Error);
+      if (!(cleanup instanceof Error)) throw new Error("Refused cleanup did not retain its own failure.");
+      expect(cleanup).not.toBe(primary);
+      expect(cleanup.cause).toEqual({
+        path: replaced,
+        expected: {
+          directory: true,
+          alias: false,
+          dev: String(owned.dev),
+          ino: String(owned.ino),
+          uid: String(owned.uid),
+          gid: String(owned.gid),
+        },
+        actual: {
+          directory: true,
+          alias: false,
+          dev: String(replacement.dev),
+          ino: String(replacement.ino),
+          uid: String(replacement.uid),
+          gid: String(replacement.gid),
+        },
+      });
+      expect(new Uint8Array(await readFile(join(replaced, "sentinel")))).toEqual(bytes);
+      expect(await inspect(replaced)).toEqual(replacement);
+      expect(await inspect(join(replaced, "sentinel"))).toEqual(sentinel);
     });
   });
   it("refuses a substituted physical root and preserves outside bytes and modes", POSIX, async () => {
@@ -140,13 +189,15 @@ describe("container copy admission", () => {
       const acquired = await own(directory);
       await rename(directory, moved);
       await mkdir(directory, { mode: 0o755 });
-      await writeFile(join(directory, "sentinel"), "borrowed bytes");
-      const before = (await lstat(directory)).mode & 0o777;
+      const bytes = new Uint8Array([0, 255, 128, 13, 10, 42]);
+      await writeFile(join(directory, "sentinel"), bytes);
+      const before = await inspect(directory), sentinel = await inspect(join(directory, "sentinel"));
       const failure = acquired.close();
       await expect(failure).rejects.toThrow();
       expect(acquired.close()).toBe(failure);
-      expect(await readFile(join(directory, "sentinel"), "utf8")).toBe("borrowed bytes");
-      expect((await lstat(directory)).mode & 0o777).toBe(before);
+      expect(new Uint8Array(await readFile(join(directory, "sentinel")))).toEqual(bytes);
+      expect(await inspect(directory)).toEqual(before);
+      expect(await inspect(join(directory, "sentinel"))).toEqual(sentinel);
     });
   });
   it("refuses a replaced parent alias without traversing its outside descendant", POSIX, async () => {
@@ -158,26 +209,30 @@ describe("container copy admission", () => {
       await mkdir(join(outside, directory.slice(parent.length + 1)), { recursive: true, mode: 0o755 });
       const borrowed = join(outside, directory.slice(parent.length + 1));
       const sentinel = join(borrowed, "sentinel");
-      await writeFile(sentinel, "outside remains");
-      const before = (await lstat(borrowed)).mode & 0o777;
+      const bytes = new Uint8Array([0, 255, 128, 13, 10, 42]);
+      await writeFile(sentinel, bytes);
+      const before = await inspect(borrowed), sentinelBefore = await inspect(sentinel);
       await rename(parent, moved);
       await symlink(outside, parent);
       await expect(acquired.close()).rejects.toThrow();
-      expect(await readFile(sentinel, "utf8")).toBe("outside remains");
-      expect((await lstat(borrowed)).mode & 0o777).toBe(before);
+      expect(new Uint8Array(await readFile(sentinel))).toEqual(bytes);
+      expect(await inspect(borrowed)).toEqual(before);
+      expect(await inspect(sentinel)).toEqual(sentinelBefore);
     });
   });
   it("removes an owned descendant alias without acquiring its outside target", POSIX, async () => {
     await fixture(async (root) => {
       const outside = join(root, "outside");
       await mkdir(outside, { mode: 0o755 });
-      await writeFile(join(outside, "sentinel"), "outside remains");
-      const before = (await lstat(outside)).mode & 0o777;
+      const bytes = new Uint8Array([0, 255, 128, 13, 10, 42]);
+      await writeFile(join(outside, "sentinel"), bytes);
+      const before = await inspect(outside), sentinel = await inspect(join(outside, "sentinel"));
       const acquired = await own(await mkdtemp(join(root, "owned-")));
       await symlink(outside, join(acquired.directory, "borrowed"));
       await acquired.close();
-      expect(await readFile(join(outside, "sentinel"), "utf8")).toBe("outside remains");
-      expect((await lstat(outside)).mode & 0o777).toBe(before);
+      expect(new Uint8Array(await readFile(join(outside, "sentinel")))).toEqual(bytes);
+      expect(await inspect(outside)).toEqual(before);
+      expect(await inspect(join(outside, "sentinel"))).toEqual(sentinel);
     });
   });
   it("copies binary files independently without needing host links or POSIX permissions", async () => {

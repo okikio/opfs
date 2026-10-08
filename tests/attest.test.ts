@@ -26,6 +26,7 @@ async function fixture(action: (root: string) => Promise<void>): Promise<void> {
 async function gate(root: string) {
   const directory = join(root, "gate");
   await mkdir(directory, { mode: 0o700 });
+  if (platform !== "win32") await chmod(directory, 0o700);
   const identity = await lstat(directory);
   const expected = {
     pid: 123,
@@ -100,10 +101,20 @@ describe("independent native runtime attestation gate", () => {
         const bytes = new Uint8Array([0, 255, 128, 13, 10]);
         await writeFile(outside, bytes, { mode: 0o640 });
         await chmod(outside, 0o640);
+        const before = await lstat(outside, { bigint: true });
         await symlink(outside, join(value.directory, "approval"));
         await expect(approval(value.directory, value.identity, value.expected)).rejects.toThrow();
         expect(new Uint8Array(await readFile(outside))).toEqual(bytes);
         expect((await lstat(outside)).mode & 0o777).toBe(0o640);
+        expect(await lstat(outside, { bigint: true })).toMatchObject({
+          dev: before.dev,
+          ino: before.ino,
+          uid: before.uid,
+          gid: before.gid,
+          mode: before.mode,
+          nlink: before.nlink,
+          size: before.size,
+        });
       }),
   );
 
@@ -115,10 +126,35 @@ describe("independent native runtime attestation gate", () => {
         const value = await gate(root);
         await rename(value.directory, join(root, "acquired"));
         await mkdir(value.directory, { mode: 0o700 });
+        await chmod(value.directory, 0o700);
         await writeFile(join(value.directory, "approval"), value.bytes, { mode: 0o400 });
+        const before = await lstat(value.directory, { bigint: true });
+        const approvalBefore = await lstat(join(value.directory, "approval"), { bigint: true });
+        expect(before.uid).toBe(BigInt(value.identity.uid));
+        expect(before.gid).toBe(BigInt(value.identity.gid));
+        expect(before.mode & 0o777n).toBe(BigInt(value.identity.mode & 0o777));
+        expect(before.ino).not.toBe(BigInt(value.identity.ino));
         await expect(approval(value.directory, value.identity, value.expected)).rejects.toThrow();
         expect(await readFile(join(value.directory, "approval"), "utf8")).toBe(value.bytes);
         expect((await lstat(value.directory)).mode & 0o777).toBe(0o700);
+        expect(await lstat(value.directory, { bigint: true })).toMatchObject({
+          dev: before.dev,
+          ino: before.ino,
+          uid: before.uid,
+          gid: before.gid,
+          mode: before.mode,
+          nlink: before.nlink,
+          size: before.size,
+        });
+        expect(await lstat(join(value.directory, "approval"), { bigint: true })).toMatchObject({
+          dev: approvalBefore.dev,
+          ino: approvalBefore.ino,
+          uid: approvalBefore.uid,
+          gid: approvalBefore.gid,
+          mode: approvalBefore.mode,
+          nlink: approvalBefore.nlink,
+          size: approvalBefore.size,
+        });
       }),
   );
 });
