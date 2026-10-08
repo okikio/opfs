@@ -122,6 +122,14 @@ Container startup and image pull are completed before measured Mitata cases begi
 The provider client/driver can report physical counters such as requests, retries, responses, failures, and
 multipart/block work. The facade reports logical filesystem operations and facade buffering.
 
+For S3 and Azure, the shared Fetch collector counts thrown terminal preparation, transport, retry and cancellation
+failures. An HTTP error response still counts as a response; the provider can reject it afterward, outside that
+collector. Fetch activity and duration end when response headers arrive; later body consumption and socket lifetimes
+need separate observations. Use observed HTTP statuses alongside those counters when investigating authorization or
+conditional-write errors. Missing optional driver metrics are unavailable, not zero. Logical payload bytes and observed
+HTTP body bytes also exclude headers, protocol framing and encryption overhead; they do not measure total network
+traffic or provider CPU and memory.
+
 A benchmark should not infer provider requests from logical operations. One logical large write can become many physical
 parts.
 
@@ -140,7 +148,7 @@ FUSE/system client. After the mount exists, set:
 
 ```sh
 OPFS_MOUNTPOINT_S3_ROOT=/path/to/mount
-mise run bench-filesystem-clients
+deno task bench:filesystem-clients
 ```
 
 The benchmark then measures:
@@ -164,7 +172,7 @@ Provision/mount BlobFuse externally, then run:
 
 ```sh
 OPFS_BLOBFUSE_ROOT=/path/to/mount
-mise run bench-filesystem-clients
+deno task bench:filesystem-clients
 ```
 
 The same raw -> driver -> adapter -> facade staircase is measured.
@@ -177,7 +185,7 @@ equivalent to a direct uncached REST read simply because both return the same by
 Mountpoint and BlobFuse need operating-system packages, FUSE support, mount permissions, and cleanup. Those requirements
 are materially different from a disposable HTTP test container.
 
-The repository therefore provides a canonical benchmark program and mise task, while the runner owns system-level mount
+The repository therefore provides a canonical benchmark program and Deno task, while the runner owns system-level mount
 setup. A dedicated privileged benchmark runner can automate installation/mounting without making ordinary pull-request
 CI depend on FUSE privileges.
 

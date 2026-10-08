@@ -122,6 +122,10 @@ delegates operations that need stronger host-filesystem semantics to the Node-co
 
 The Bun global is resolved lazily during driver creation. Importing the module in Node or Deno does not require Bun.
 
+Materialized replacements use `Bun.write()`. Streamed writes use one Node-compatible file descriptor with bounded reads
+and partial-write handling. This lane also settles empty streams and cancels stalled producers; `Bun.write(Response)`
+can remain pending for an all-empty source in Bun 1.3.14.
+
 ## Record drivers
 
 `RecordDriverType` is the native contract for value/document/database persistence.
@@ -160,11 +164,11 @@ A custom record driver uses `defineRecordDriver()` and then `createRecordAdapter
 The generic record adapter does not claim native streaming. If the driver does not provide `writeStream()`, the facade
 can materialize an input only under `maxBufferedWriteBytes`.
 
-`transactions: true` is deliberately narrower than "every filesystem write mode is transactional." Generic `append`
-and `update` first read the current record and later replace it. Those two steps are not one backend transaction unless
-the driver exposes that mode through a native `writeFile()` or `writeStream()` lane. A second process, tab, or client can
-therefore race the generic fallback even when the underlying database supports transactions. Deno KV's native partitioned
-write modes and object-store ETag conditions are examples of stronger routes that close this gap explicitly.
+`transactions: true` is deliberately narrower than "every filesystem write mode is transactional." Generic `append` and
+`update` first read the current record and later replace it. Those two steps are not one backend transaction unless the
+driver exposes that mode through a native `writeFile()` or `writeStream()` lane. A second process, tab, or client can
+therefore race the generic fallback even when the underlying database supports transactions. Deno KV's native
+partitioned write modes and object-store ETag conditions are examples of stronger routes that close this gap explicitly.
 
 ### Memory
 
@@ -188,40 +192,52 @@ applies after serialization, so accepting the full provider number as decoded ap
 
 The driver planner also evaluates the concrete path against a conservative serialized-key estimate before provider I/O.
 
-`DenoKvDriverType.collect()` performs explicit maintenance for superseded and crash-left physical generations. It scans
-only the private part namespace and always retains the currently published generation. A superseded published generation
-uses a retirement marker committed atomically with the new logical entry after an optimistic version check. The default
-one-hour grace therefore starts when visibility changes rather than when the generation was originally created. An
-unpublished crash leftover has no retirement marker and uses its generation creation time. The pass
-stops after the caller's deletion budget. Ordinary reads and writes never start this scan implicitly.
+`createDenoKvAdapter()` retains `adapter.driver: DenoKvDriverType`, including explicit `collect()`, `probe()` and
+`maintenance`. V3 generation state owns part writes, manifest publication, reader pins and reclamation. A collector
+checks an eligible state with zero admitted pins and claims its version before deletion. Zero retirement grace retains
+live writers/readers. A paused reader can expire and must reopen; immutable bytes do not imply indefinite read
+retention.
+
+The default namespace is `okikio-opfs:v3`. Legacy logical entries require a quiescent export/import to a fresh prefix.
+Configured writer/reader leases, reader and retry bounds, per-pass scan/deletion budgets, returned continuations and
+optional aggregate partition retention admission are described in [storage ownership](storage.md). Ordinary operations
+never start a background collection scan. `readOnly` blocks logical changes and collection while private reader leases
+still require mutations. `inspect()` remains pure; `probe()` performs live I/O.
 
 ### localStorage
 
 The localStorage driver maps canonical records into a private key prefix. It inherits Web Storage's synchronous
 underlying API, but the package presents the normal asynchronous driver contract to keep the storage stack composable.
-Directory listing scans the private key namespace, so recursive traversal cost grows with the number of stored entries.
+Directory listing snapshots matching key strings before yielding because deletions shift live Web Storage indices.
+Bodies remain lazy. Recursive traversal still scans the storage area and inherits external writer/eviction races.
 
 Applications should treat browser quota as dynamic. The driver does not invent a stable quota number.
 
 ### IndexedDB
 
 The IndexedDB driver borrows or owns an injected database according to options. It uses an object store and a parent
-index for direct-child listing. Replace, append, and update run through one readwrite transaction, so independent browser
-owners using the same object store do not lose an append/update through the generic record adapter's split read/replace
-sequence. The application remains responsible for database versioning/upgrades outside the driver unless ownership is
-explicitly transferred.
+index for direct-child listing. Replace, append, and update run through one readwrite transaction, so independent
+browser owners using the same object store do not lose an append/update through the generic record adapter's split
+read/replace sequence. The application remains responsible for database versioning/upgrades outside the driver unless
+ownership is explicitly transferred.
 
 ### Cache Storage
 
 The Cache driver stores records under private request URLs. Cache Storage is a record/value persistence mechanism here,
 not an HTTP cache policy abstraction. The driver only interprets entries in its private namespace. Direct-child listing
-starts from `cache.keys()` and inspects matching records, so repeated recursive traversal is substantially more expensive
-than an indexed parent lookup. Do not treat Cache Storage as equivalent to IndexedDB for directory-heavy workloads.
+starts from `cache.keys()` and inspects matching records, so repeated recursive traversal is substantially more
+expensive than an indexed parent lookup. Do not treat Cache Storage as equivalent to IndexedDB for directory-heavy
+workloads.
 
 ### unstorage
 
 `createUnstorageDriver(storage)` consumes the high-level unstorage `Storage` object. This deliberately sits above
 whichever unstorage provider driver the application selected.
+
+Records use flat escaped canonical-path keys so a parent record does not block its children on an upstream filesystem
+driver. Existing hierarchical record keys remain readable and appear in directory listings. New replacements take
+precedence over old records, and removal clears both layouts. Directory listing scans the reserved namespace because
+upstream filesystem depth limits count physical key directories differently from virtual filesystem parents.
 
 Use `bridge/unstorage` for the opposite direction, where an existing `FileSystemType` must satisfy unstorage's Driver
 contract.
@@ -288,10 +304,11 @@ native copy when available
 An object driver can also report object-specific capability details, provider limits, continuation behavior,
 partition/upload policy, and physical metrics.
 
-Filesystem semantics can amplify provider requests. A single logical write can require file and directory classification,
-parent validation, and the final PUT, so object-backed facade operations can issue several HEAD/LIST requests before the
-data request. This is a known translation cost, not hidden native filesystem behavior. Use the provider benchmark staircase
-to measure client, driver, adapter, and facade cost separately before changing validation or consistency rules.
+Filesystem semantics can amplify provider requests. A single logical write can require file and directory
+classification, parent validation, and the final PUT, so object-backed facade operations can issue several HEAD/LIST
+requests before the data request. This is a known translation cost, not hidden native filesystem behavior. Use the
+provider benchmark staircase to measure client, driver, adapter, and facade cost separately before changing validation
+or consistency rules.
 
 ### S3
 
@@ -308,8 +325,8 @@ See `s3.md`.
 The Azure client owns Blob REST, authentication, block upload, server-side copy, listing, and provider errors.
 
 `createAzureDriver(client)` adds backend inspection. `createAzureAdapter(driver)` supplies filesystem translation. Block
-upload and server copy are independently disableable. Azure metadata is validated before provider I/O, and the shared object
-adapter uses the Azure-compatible `okikio_opfs_kind` key for private directory markers. See `azure.md`.
+upload and server copy are independently disableable. Azure metadata is validated before provider I/O, and the shared
+object adapter uses the Azure-compatible `okikio_opfs_kind` key for private directory markers. See `azure.md`.
 
 ## Adapter contract
 
@@ -404,3 +421,68 @@ Before adding a driver/adapter, verify:
 9. The adapter contains translation, not duplicated provider behavior.
 10. Tests exercise the driver directly and through the adapter/facade.
 11. Benchmarks include the backend/client baseline and each added layer.
+
+AWS Mountpoint and Azure BlobFuse can expose object storage through the native Node file driver. Run
+`deno task test:filesystem-clients` to build the pinned ARM64 Linux fixture and mount both clients inside an isolated
+Docker container. The task uses SeaweedFS and Azurite with development credentials, creates no host mounts, and releases
+its containers and network. It requires a Docker engine that permits FUSE in a privileged container. The fixture uses
+Mountpoint 1.24.0, BlobFuse 2.5.5, and Node 24.21.0; the vendor download URLs are pinned in
+`tests/provider/Dockerfile.fuse`.
+
+The fixture and mounted-client benchmark select the same explicit [host profile](host.md) for the configured mount mode.
+Strong copy/move is a documented negative contract on these modes, checked before parents or staging effects. Explicit
+best-effort copying retains an independent exact-byte positive oracle. Historical unprofiled native failures remain
+diagnostic evidence; they are not accepted as successful publication.
+
+The mounted-client corpus compares exact bytes through raw Node operations, the file driver, the adapter, and the
+facade. It also covers ranges, Unicode names, empty files, streamed creation, concurrent writers, missing paths, and a
+stalled producer abort followed by path reuse. These tests describe the mounted filesystem's behavior. They do not give
+an object filesystem POSIX capabilities: Mountpoint rejects append with `EPERM`, and removing its temporary directory
+can also return `EPERM`. BlobFuse's cache and upload configuration controls when other clients observe writes. Native
+file writes can expose partial changes before close; use an object adapter's staged writes when that distinction
+matters.
+
+To benchmark the same real mounts after correctness passes, run `OPFS_FUSE_BENCH=1 deno task test:filesystem-clients`
+after building the image. The fixture runs the existing 256 KiB raw-client, driver, adapter, and facade lanes inside the
+client container and emits Mitata JSON in its benchmark phase.
+
+`deno task test:linux` also runs the canonical Bun 1.3.14 portable and native filesystem corpus in the official
+`oven/bun:1.3.14` Linux image. Each runtime container reads the repository through a read-only bind and runs without
+network access after its image and dependencies are available.
+
+## Object directory scans and admission
+
+`createObjectAdapter`, `createS3Adapter`, and `createAzureAdapter` accept `maxListPages` in their mapping options. The
+positive safe-integer default is 10,000 pages per directory scan. This is an application safety policy, not a provider
+maximum. Increase it explicitly for a namespace that legitimately needs more pages. An exhausted scan fails with
+`too-large`; a repeated continuation cursor or an out-of-prefix result fails with `invalid-operation`. Neither becomes
+an absent path or an empty directory. Existence checks stop on positive evidence; empty-directory removal and negative
+lookups require exhaustion. Empty pages and marker-only pages can still have a continuation. Listing remains lazy and
+returning from its iterator stops additional page requests. Provider errors retain their identity at the adapter
+boundary and their `cause` through facade normalization. Cancellation is checked around page acquisition and before
+mutation.
+
+Conditional object backends apply fresh destination ETags to both materialized and streamed replacements. A fresh absent
+object uses `ifNoneMatch: "*"`. Missing ETag evidence on an existing conditional object rejects before producer work.
+This catches an exact-object writer racing admission; it does not atomically exclude a different writer creating a child
+prefix, a directory marker, or a parent. Use cooperating namespace owners or application generations for that stronger
+publication problem. Backends declaring conditional writes false retain their weaker provider contract.
+
+Read-only record policy also rejects facade and KV/unstorage bridge mutation before parent reads, namespace claims, or
+source acquisition. Backend `write: false` cannot be upgraded by a capabilities override. Construction snapshots policy
+callbacks and flags; inspection returns detached data and cannot change execution routes or limits.
+
+## Host cancellation admission
+
+A signal supplied directly to a Node, Deno, or Bun file driver remains attached to its returned read stream. Aborting
+cancels its native producer and errors further reads with `aborted`. Range reads and append/update writes recheck the
+signal between acquired-file, metadata, positioning, partial I/O, and truncation steps. Acquired files close even when
+cancellation wins during setup. Native copy checks again after private staging acquisition and before publication; move
+checks again after namespace probes.
+
+These checks prevent dispatch of subsequent work. A host operation already dispatched before the abort may still
+complete, including creation, truncation, a partial write, or rename. Cancellation supplies no rollback or atomic
+publication guarantee. Node and Deno complete reads/replacements use their native signal APIs; Bun signal-aware complete
+reads/replacements delegate to the Node-compatible lane. Calls without a signal retain the ordinary Bun and native
+append fast paths. [Node filesystem cancellation](https://nodejs.org/api/fs.html#fspromiseswritefilefile-data-options)
+and [Deno filesystem APIs](https://docs.deno.com/api/deno/file-system/) describe their native boundaries.
