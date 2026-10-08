@@ -1,7 +1,9 @@
 import { MOUNT_PROFILES } from "./mounts.ts";
+import { drain, stalled } from "./stalled.ts";
 /** Exact byte workflows against real, container-owned FUSE mounts. */
 import { appendFile, mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { diagnostic } from "../../.mise/tasks/command.mjs";
 import { createFileSystem } from "../../mod.ts";
 import { createFileAdapter } from "../../src/adapter/file.ts";
 import { createNodeDriver } from "../../src/driver/node.ts";
@@ -20,7 +22,8 @@ async function check(client, name, action) {
     await action();
     results.push({ client, name, status: "pass" });
   } catch (error) {
-    results.push({ client, name, status: "fail", code: error.code, reason: error.message });
+    const failure = diagnostic(error);
+    results.push({ client, name, status: "fail", code: failure?.code, reason: failure?.message, failure });
   }
 }
 for (
@@ -128,7 +131,7 @@ for (
       }
     });
     await check(name, "five concurrent creates retain exact bytes", async () => {
-      await Promise.all(Array.from({ length: 5 }, async (_, index) => {
+      await drain(Array.from({ length: 5 }, async (_, index) => {
         const data = payload.slice();
         data[0] = index;
         const path = `/concurrent-${index}.bin`;
@@ -137,52 +140,7 @@ for (
       }));
     });
     await check(name, "stalled producer abort releases source and path lock", async () => {
-      let canceled = 0;
-      const started = Promise.withResolvers();
-      const controller = new AbortController(),
-        source = new ReadableStream({
-          pull() {
-            started.resolve();
-            return new Promise(() => {});
-          },
-          cancel() {
-            canceled++;
-          },
-        }, { highWaterMark: 0 });
-      const promise = filesystem.writeFile("/aborted.bin", source, { signal: controller.signal });
-      let admissionDeadline;
-      try {
-        await Promise.race([
-          started.promise,
-          promise,
-          new Promise((_, reject) => {
-            admissionDeadline = setTimeout(() => reject(new Error("Producer admission exceeded 5000ms")), 5000);
-          }),
-        ]);
-      } catch (error) {
-        controller.abort(error);
-        throw error;
-      } finally {
-        clearTimeout(admissionDeadline);
-      }
-      controller.abort(new Error("Caller canceled"));
-      let deadline;
-      try {
-        await Promise.race([
-          promise,
-          new Promise((_, reject) => {
-            deadline = setTimeout(() => reject(new Error("Abort exceeded 1500ms")), 1500);
-          }),
-        ]);
-        throw new Error("Aborted write resolved");
-      } catch (error) {
-        if (error.code !== "aborted") throw error;
-      } finally {
-        clearTimeout(deadline);
-      }
-      if (source.locked || canceled !== 1) {
-        throw new Error(`Source ownership: locked=${source.locked}, cancel=${canceled}`);
-      }
+      await stalled((source, signal) => filesystem.writeFile("/aborted.bin", source, { signal }));
       await filesystem.writeFile("/aborted.bin", new Uint8Array([1, 2, 3]));
       bytes(await filesystem.readFile("/aborted.bin"), new Uint8Array([1, 2, 3]));
     });
