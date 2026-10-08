@@ -709,3 +709,7 @@ source.
 The correctness runner uses one worker so a host CPU count does not create an unbounded browser pool inside a
 memory-limited container. Multi-page, multi-worker and concurrent writer scenarios still create their required
 participants within each test; scheduler parallelism is not their oracle.
+
+Vite loads fixture configuration through `--configLoader native`. Deno already understands the TypeScript source, so the
+loader must not emit a temporary module beside maintained configuration files. This keeps startup compatible with the
+readonly source used by release preparation.
