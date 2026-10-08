@@ -32,6 +32,99 @@ async function fixture<Value>(
 const bytes = Uint8Array.from({ length: 6 * 1024 * 1024 }, (_, index) => (index * 17 + 31) % 251);
 
 describe("Untimed provider observation transport", () => {
+  it("separates the loopback listener from a fixed gateway-shaped upstream", async () => {
+    await withReleases(async (releases) => {
+      // No request dials this address. The actual nested fixture proves gateway reachability separately.
+      const observer = await observeProvider("http://172.17.0.1:32123/devstoreaccount1");
+      releases.push(() => observer.close());
+      const endpoint = new URL(observer.endpoint);
+      strictEqual(endpoint.hostname, "127.0.0.1");
+      strictEqual(endpoint.pathname, "/devstoreaccount1");
+      const first = observer.close();
+      strictEqual(observer.close(), first);
+      await first;
+    });
+  });
+
+  it("rejects unsupported endpoint components instead of discarding them", async () => {
+    for (
+      const endpoint of [
+        "https://127.0.0.1:32123",
+        "http://user@127.0.0.1:32123",
+        "http://user:password@127.0.0.1:32123",
+        "http://@127.0.0.1:32123",
+        "http://127.0.0.1:32123/devstoreaccount1?account=other",
+        "http://127.0.0.1:32123/devstoreaccount1?",
+        "http://127.0.0.1:32123/devstoreaccount1#other",
+        "http://127.0.0.1:32123/devstoreaccount1#",
+        "not an endpoint",
+      ]
+    ) {
+      await withReleases(async (releases) => {
+        await rejects(async () => {
+          // If admission regresses, an acquired observer is still immediately retired.
+          const observer = await observeProvider(endpoint);
+          releases.push(() => observer.close());
+        }, TypeError);
+      });
+    }
+  });
+
+  it("signed Host cannot redirect the fixed upstream or duplicate its account path", async () => {
+    const path = "/devstoreaccount1/bucket/a%2Fb%20%252F?owned=1";
+    const payload = bytes.subarray(0, 31 * 1024);
+    let upstreamPath: string | undefined;
+    let upstreamHost: string | undefined;
+    let upstreamBytes: Uint8Array | undefined;
+    let borrowedCalls = 0;
+    const upstream = createServer((incoming, response) => {
+      upstreamPath = incoming.url;
+      upstreamHost = incoming.headers.host;
+      const chunks: Uint8Array[] = [];
+      incoming.on("data", (chunk: Uint8Array) => chunks.push(chunk));
+      incoming.on("end", () => {
+        upstreamBytes = new Uint8Array(Buffer.concat(chunks));
+        response.end(payload);
+      });
+    });
+    const other = createServer((_incoming, response) => {
+      borrowedCalls++;
+      response.end("wrong upstream");
+    });
+    await fixture(upstream, async (endpoint, releases) => {
+      await fixture(other, async (otherEndpoint) => {
+        const signedHost = new URL(otherEndpoint).host;
+        const observer = await observeProvider(`${endpoint}/devstoreaccount1`);
+        releases.push(() => observer.close());
+        strictEqual(new URL(observer.endpoint).pathname, "/devstoreaccount1");
+        const actual = await observer.check("fixed upstream authority", () => {
+          const client = request(new URL(path, observer.endpoint), {
+            method: "PUT",
+            headers: { host: signedHost },
+          });
+          releases.push(() => {
+            client.destroy();
+          });
+          return new Promise<Uint8Array>((resolve, reject) => {
+            client.once("error", reject);
+            client.once("response", (response) => {
+              const chunks: Uint8Array[] = [];
+              response.on("data", (chunk: Uint8Array) => chunks.push(chunk));
+              response.once("error", reject);
+              response.once("end", () => resolve(new Uint8Array(Buffer.concat(chunks))));
+            });
+            client.end(payload);
+          });
+        }, { "PUT object": 1 });
+        strictEqual(borrowedCalls, 0);
+        strictEqual(upstreamPath, path);
+        strictEqual(upstreamHost, signedHost);
+        deepStrictEqual(upstreamBytes, payload);
+        deepStrictEqual(actual, payload);
+      });
+    });
+  });
+
   it("retains exact bytes beyond stream high-water marks in both directions", async () => {
     const path = "/bucket/a%2Fb%20%252F?owned=1";
     const server = createServer((incoming, response) => {

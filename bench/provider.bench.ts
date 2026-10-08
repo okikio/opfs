@@ -37,7 +37,7 @@ function getEndpoint(name: "OPFS_S3_ENDPOINT" | "OPFS_AZURE_ENDPOINT"): string {
 const S3_ENDPOINT = getEndpoint("OPFS_S3_ENDPOINT");
 /** Azurite Blob endpoint started outside the timed benchmark region. */
 const AZURE_ENDPOINT = getEndpoint("OPFS_AZURE_ENDPOINT");
-/** Small transfer keeps request/setup overhead visible instead of saturating loopback bandwidth. */
+/** Small transfer keeps request/setup overhead visible instead of saturating fixture bandwidth. */
 const payload = makePayload(256 * 1024);
 /** Multipart payload exercises each client's large-write scheduler separately. */
 const multipart = makePayload(6 * 1024 * 1024);
