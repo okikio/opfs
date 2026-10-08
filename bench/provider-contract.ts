@@ -83,7 +83,7 @@ function role(method: string, path: string): string {
   return `${method} object`;
 }
 
-/** One untimed HTTP observation server; timed clients use the original endpoint. */
+/** One loopback untimed HTTP listener for a fixed caller-owned upstream; timing uses the original endpoint. */
 export interface ProviderObserverType {
   readonly endpoint: string;
   /** Checks exact physical calls and acknowledgement ordering before independent body verification. */
@@ -92,8 +92,15 @@ export interface ProviderObserverType {
 }
 
 /**
- * Streams requests to the owned fixture without buffering bodies or altering signed Host headers.
- * Only method/role records are retained, with 64 calls per observation and a 30-second request deadline.
+ * Streams requests to one caller-owned HTTP fixture without changing signed Host headers.
+ *
+ * The listener is loopback-only; the upstream can be a Testcontainers gateway or
+ * network name. The caller owns that fixture through observation and cleanup.
+ * URL credentials, query and fragment are unsupported rather than silently ignored.
+ * Incoming Host/path data never changes the acquired hostname/port. This private
+ * benchmark transport is not a production proxy or a network security sandbox.
+ * Bodies retain explicit backpressure; only 64 method/role records are retained
+ * per observation, with a 30-second request deadline. Timings bypass this listener.
  */
 export async function observeProvider(
   endpoint: string,
@@ -110,9 +117,16 @@ export async function observeProvider(
     return () => clearTimeout(timer);
   });
   const target = new URL(endpoint);
-  if (target.protocol !== "http:" || !["127.0.0.1", "localhost", "[::1]"].includes(target.hostname)) {
-    throw new TypeError("Provider observations require a loopback HTTP fixture.");
+  if (
+    target.protocol !== "http:" || target.username !== "" || target.password !== "" ||
+    /^http:\/\/[^/?#]*@/iu.test(endpoint.trim()) ||
+    target.href.includes("?") || target.href.includes("#")
+  ) {
+    throw new TypeError("Provider observations require an owned HTTP fixture without URL userinfo, query or fragment.");
   }
+  // URL brackets identify IPv6 syntax; native request hostname takes the address itself.
+  const hostname = target.hostname.startsWith("[") ? target.hostname.slice(1, -1) : target.hostname;
+  const port = target.port || "80";
   const sockets = new Set<Socket>();
   const exchanges = new Map<Promise<void>, (reason: Error) => void>();
   let poisoned = false;
@@ -140,8 +154,8 @@ export async function observeProvider(
     const controller = new AbortController();
     let received: IncomingMessage | undefined;
     const outgoing = request({
-      hostname: target.hostname === "[::1]" ? "::1" : target.hostname,
-      port: target.port || "80",
+      hostname,
+      port,
       path,
       method: incoming.method,
       headers: incoming.headers,

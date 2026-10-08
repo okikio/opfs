@@ -87,7 +87,7 @@ if (S3_ENDPOINT === undefined || S3_ENDPOINT.length === 0) {
 const BUCKET = STORAGE_NAME;
 /** Unique namespace prevents concurrent Bun benchmark runs from colliding. */
 const PREFIX = `bench/bun/${crypto.randomUUID()}`;
-/** Small payload exposes request costs on the owned loopback provider. */
+/** Small payload exposes request costs on the owned provider fixture. */
 const payload = makePayload(256 * 1024);
 /** Multipart payload exercises each streaming scheduler above the five-MiB S3 minimum. */
 const multipart = makePayload(6 * 1024 * 1024);
