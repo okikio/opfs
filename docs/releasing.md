@@ -407,3 +407,11 @@ owned-container deadlines remain the final boundary for a stalled native filesys
 operations or a performance regression budget. The native
 [readlink API](https://nodejs.org/api/fs.html#fspromisesreadlinkpath-options) provides raw target bytes without
 resolving the aliased object.
+
+### Own release fixture configuration
+
+Release subprocess fixtures clear their inherited environment and select only platform lookup, locale settings and
+explicit scenario inputs. Deleting an optional scenario variable therefore means absence, even inside a composed
+OPFS/RDF preparation run. Nested fixture gates retain the selected registry doubles and owned cache/temporary paths. An
+owned outer child supplies foreign parent configuration to its inner fixture command without mutating the parent
+environment. These controls exercise release admission; they do not change production environment handling.
