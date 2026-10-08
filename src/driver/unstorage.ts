@@ -48,19 +48,37 @@ function normalizePrefix(prefix: string): string {
   return prefix.replace(/:+$/g, "") || "opfs";
 }
 
-/** Maps one canonical virtual path to the private unstorage record namespace. */
+/**
+ * Escapes the entire canonical path into one leaf key. A hierarchical record
+ * key cannot also contain children on filesystem-backed unstorage drivers.
+ */
 function getKey(prefix: string, path: string): string {
+  return `${prefix}:record:${encodeSegment(path)}`;
+}
+
+/** Retains readability of records written before the flat-key layout. */
+function getLegacyKey(prefix: string, path: string): string {
   const parts = splitPath(path);
   return parts.length === 0 ? `${prefix}:entry` : `${prefix}:entry:${parts.map(encodeSegment).join(":")}`;
 }
 
 /** Maps a driver-owned unstorage key back to a canonical path, or null for foreign keys. */
 function getPath(prefix: string, key: string): PathType | null {
-  const base = `${prefix}:entry`;
-  if (key === base) return "/";
-  if (!key.startsWith(`${base}:`)) return null;
-  const encoded = key.slice(base.length + 1).split(":");
-  return normalizePath(encoded.map(decodeSegment).join("/"));
+  try {
+    const flatBase = `${prefix}:record:`;
+    if (key.startsWith(flatBase)) {
+      const path = normalizePath(decodeSegment(key.slice(flatBase.length)));
+      return getKey(prefix, path) === key ? path : null;
+    }
+    const base = `${prefix}:entry`;
+    if (key === base) return "/";
+    if (!key.startsWith(`${base}:`)) return null;
+    const encoded = key.slice(base.length + 1).split(":");
+    const path = normalizePath(encoded.map(decodeSegment).join("/"));
+    return getLegacyKey(prefix, path) === key ? path : null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -87,7 +105,8 @@ class UnstorageBackend implements RecordBackendType {
 
   /** Reads and validates one exact unstorage record. */
   async get(path: PathType) {
-    const value = await this.#storage.getItem(getKey(this.#prefix, path));
+    const value = await this.#storage.getItem(getKey(this.#prefix, path)) ??
+      await this.#storage.getItem(getLegacyKey(this.#prefix, path));
     return value === null ? null : RecordSchema.parse(value);
   }
 
@@ -99,22 +118,28 @@ class UnstorageBackend implements RecordBackendType {
   /** Removes one exact unstorage record. */
   async delete(path: PathType): Promise<void> {
     await this.#storage.removeItem(getKey(this.#prefix, path));
+    await this.#storage.removeItem(getLegacyKey(this.#prefix, path));
   }
 
   /**
-   * Lists direct children below one encoded directory key.
-   *
-   * `maxDepth: 1` is an optional upstream optimization. Correctness still comes
-   * from the explicit path-depth filter because not every unstorage driver
-   * advertises or honors the same listing acceleration.
+   * Lists flat and legacy records, preferring the current layout when both
+   * exist. Flat leaf keys need a namespace scan; explicit parent comparison
+   * supplies correctness independently of upstream depth optimizations.
    */
   async *list(parent: PathType) {
-    const parentDepth = splitPath(parent).length;
-    const keys = await this.#storage.getKeys(getKey(this.#prefix, parent), { maxDepth: 1 });
+    const keys = [
+      ...await this.#storage.getKeys(`${this.#prefix}:record`),
+      ...await this.#storage.getKeys(getLegacyKey(this.#prefix, parent)),
+    ];
+    const seen = new Set<PathType>();
     for (const storageKey of keys) {
       const path = getPath(this.#prefix, storageKey);
-      if (path === null || path === parent || splitPath(path).length !== parentDepth + 1) continue;
-      const value = await this.#storage.getItem(storageKey);
+      if (path === null || path === "/" || seen.has(path)) continue;
+      const parts = splitPath(path);
+      const actualParent = normalizePath(parts.slice(0, -1).join("/"));
+      if (actualParent !== parent) continue;
+      seen.add(path);
+      const value = await this.get(path);
       if (value !== null) yield RecordSchema.parse(value);
     }
   }

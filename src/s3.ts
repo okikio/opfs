@@ -1,8 +1,10 @@
-import { pooledMap } from "@std/async/pool";
+import type { DriverPlanInputType, DriverPlanType } from "./driver/definition.ts";
+import { map } from "./pool.ts";
 import { encodeHex } from "@std/encoding/hex";
 import { z } from "zod";
 
 import { split } from "./chunk.ts";
+import { copyOptions, putOptions, putProperties } from "./publication.ts";
 import {
   type FetchType,
   RequestMetrics,
@@ -11,7 +13,16 @@ import {
   sendRequest,
 } from "./request.ts";
 import { type AdapterLimitsType, MetricsModeSchema, type MetricsModeType } from "./schema.ts";
-import { createXmlElement, createXmlText, getXmlElements, getXmlValue, parseXmlRoot, stringifyXml } from "./xml.ts";
+import {
+  createXmlElement,
+  createXmlText,
+  getXmlElements,
+  getXmlScalar,
+  getXmlText,
+  getXmlValue,
+  parseXmlRoot,
+  stringifyXml,
+} from "./xml.ts";
 
 import type {
   ObjectBackendType,
@@ -21,6 +32,7 @@ import type {
   ObjectListOptionsType,
   ObjectListType,
   ObjectPutOptionsType,
+  ObjectReceiptType,
   ObjectStatType,
 } from "./driver/object.ts";
 
@@ -29,6 +41,11 @@ export const S3AddressingSchema: z.ZodType<S3AddressingType, S3AddressingType> =
 
 /** Validated S3 URL addressing shape. */
 export type S3AddressingType = import("./_schema_types.ts").S3AddressingType;
+
+/** Decoding policy for URL-encoded listing identities; percent is the Amazon S3 default. */
+export type S3ListEncodingType = "percent" | "form";
+/** Validates an explicit compatible-provider identity policy rather than guessing from key contents. */
+const S3ListEncodingSchema: z.ZodType<S3ListEncodingType, S3ListEncodingType> = z.enum(["percent", "form"]);
 
 /** AWS Signature Version 4 credentials. */
 export const S3CredentialsSchema: z.ZodType<S3CredentialsType, S3CredentialsType> = z.object({
@@ -99,6 +116,12 @@ export interface S3ClientOptionsType {
   readonly credentials: S3CredentialSourceType;
   /** URL addressing style. Path style is the compatibility-oriented default. */
   readonly addressing?: S3AddressingType;
+  /**
+   * Decodes EncodingType=url listing keys/prefixes. Defaults to percent; literal + remains +.
+   * Select form only for providers such as SeaweedFS4.41 that encode spaces as + and literal + as %2B.
+   * Unencoded fields and opaque continuation tokens are never reinterpreted by this policy.
+   */
+  readonly listEncoding?: S3ListEncodingType;
   /** Fetch implementation. The global Web Fetch API is used by default. */
   readonly fetch?: FetchType;
   /** Clock used for Signature Version 4 timestamps. */
@@ -204,6 +227,19 @@ export class S3Error extends Error {
   }
 }
 
+/** A dispatched publication lost its acknowledgement; inspect before retrying. */
+export class S3CommitError extends Error {
+  /** The provider may have published the requested object. */
+  readonly effect = "unknown";
+  /** Exact object whose publication needs reconciliation. */
+  readonly key: string;
+  constructor(key: string, cause: unknown) {
+    super(`Publication of '${key}' has an unknown outcome.`, { cause });
+    this.name = "S3CommitError";
+    this.key = key;
+  }
+}
+
 /**
  * S3 client used directly or through the object-store filesystem adapter.
  *
@@ -213,18 +249,26 @@ export class S3Error extends Error {
  * object-lock, or provider-specific requests without importing the AWS SDK.
  */
 export interface S3ClientType extends ObjectBackendType {
+  /** Resolved listing identity policy, inspectable without provider I/O. */
+  readonly listEncoding: S3ListEncodingType;
   /** Resolved client optimization switches used by driver inspection. */
   readonly optimizations: Readonly<{ delayedMultipart: boolean; signingKeyCache: boolean }>;
   /** Returns detached direct HTTP request metrics. */
   getMetrics(): RequestMetricsType;
   /** Sends an arbitrary bucket/object request after Signature Version 4 signing. */
   request(options: S3RequestOptionsType): Promise<Response>;
+  /** Copies through the provider; a disabled copy policy rejects before provider I/O. */
+  copy(source: string, destination: string, options?: ObjectCopyOptionsType): Promise<ObjectReceiptType>;
   /** Starts one multipart upload. */
   createUpload(key: string, options?: ObjectPutOptionsType): Promise<S3UploadType>;
   /** Uploads one multipart part. */
   uploadPart(upload: S3UploadType, number: number, bytes: Uint8Array, signal?: AbortSignal): Promise<S3PartType>;
   /** Atomically assembles already uploaded parts into the object. */
-  completeUpload(upload: S3UploadType, parts: readonly S3PartType[], options?: S3CompleteOptionsType): Promise<void>;
+  completeUpload(
+    upload: S3UploadType,
+    parts: readonly S3PartType[],
+    options?: S3CompleteOptionsType,
+  ): Promise<S3CommitType>;
   /** Cancels one unfinished multipart upload. */
   abortUpload(upload: S3UploadType, signal?: AbortSignal): Promise<void>;
 }
@@ -371,6 +415,34 @@ function getStat(headers: Headers): ObjectStatType {
   };
 }
 
+/** Identity retained from a validated multipart commit, whose byte count may be unknown. */
+export interface S3CommitType {
+  readonly etag: string;
+  readonly version?: string;
+  readonly requestId?: string;
+}
+
+/** Returns properties of this operation; response-body length is not object length. */
+function getReceipt(
+  response: Response,
+  size: number,
+  properties: Pick<ObjectStatType, "mediaType" | "metadata">,
+  etag?: string,
+): ObjectReceiptType {
+  return {
+    size,
+    ...(properties.mediaType === undefined ? {} : { mediaType: properties.mediaType }),
+    ...(properties.metadata === undefined ? {} : { metadata: { ...properties.metadata } }),
+    ...((etag ?? response.headers.get("etag")) == null ? {} : { etag: etag ?? response.headers.get("etag")! }),
+    ...(response.headers.get("x-amz-version-id") === null
+      ? {}
+      : { version: response.headers.get("x-amz-version-id")! }),
+    ...(response.headers.get("x-amz-request-id") === null
+      ? {}
+      : { requestId: response.headers.get("x-amz-request-id")! }),
+  };
+}
+
 /** Reads and throws a structured S3 error without losing provider request IDs. */
 async function assertResponse(response: Response, operation: string): Promise<Response> {
   if (response.ok) return response;
@@ -405,10 +477,14 @@ async function assertResponse(response: Response, operation: string): Promise<Re
 async function getSuccessXml(response: Response, operation: string) {
   await assertResponse(response, operation);
   const body = await response.text();
-  if (!body.trim().startsWith("<")) return undefined;
+  if (!body.trim().startsWith("<")) throw new SyntaxError("S3 success acknowledgement requires XML.");
   const root = parseXmlRoot(body);
-  const error = getXmlElements(root, "Error")[0];
-  if (error === undefined) return root;
+  const errors = getXmlElements(root, "Error");
+  if (errors.length === 0) return root;
+  if (root.name.local !== "Error" || errors.length !== 1) {
+    throw new SyntaxError("S3 acknowledgement mixes success and error authority.");
+  }
+  const error = root;
 
   throw new S3Error(getXmlValue(error, "Message") ?? `${operation} failed after HTTP 200.`, response, {
     ...(getXmlValue(error, "Code") === undefined ? {} : { code: getXmlValue(error, "Code")! }),
@@ -423,9 +499,13 @@ async function getCredentials(source: S3CredentialSourceType): Promise<S3Credent
 }
 
 /** Yields one-based part numbers beside fixed-size chunks from a streamed object body. */
-async function* getChunks(source: ReadableStream<Uint8Array>, size: number): AsyncGenerator<S3ChunkType> {
+async function* getChunks(
+  source: ReadableStream<Uint8Array>,
+  size: number,
+  signal?: AbortSignal,
+): AsyncGenerator<S3ChunkType> {
   let number = 0;
-  for await (const bytes of split(source, size)) {
+  for await (const bytes of split(source, size, signal)) {
     number += 1;
     if (number > S3_LIMITS.maxParts) {
       throw new RangeError(
@@ -459,8 +539,13 @@ function getCompleteBody(parts: readonly S3PartType[]): string {
 }
 
 /** Converts one `ListObjectsV2` `<Contents>` element into portable metadata. */
-function getListObject(content: Parameters<typeof getXmlValue>[0]): ObjectEntryType {
-  const key = getXmlValue(content, "Key") ?? "";
+function getListObject(
+  content: Parameters<typeof getXmlValue>[0],
+  encoded: boolean,
+  policy: S3ListEncodingType,
+): ObjectEntryType {
+  const text = getXmlText(content, "Key") ?? "";
+  const key = encoded ? decodeListIdentity(text, policy) : text;
   const size = Number.parseInt(getXmlValue(content, "Size") ?? "0", 10);
   const modified = getXmlValue(content, "LastModified");
   const etag = getXmlValue(content, "ETag");
@@ -470,6 +555,11 @@ function getListObject(content: Parameters<typeof getXmlValue>[0]): ObjectEntryT
     ...(modified === undefined ? {} : { lastModified: new Date(modified).getTime() }),
     ...(etag === undefined ? {} : { etag }),
   };
+}
+
+/** Only the configured wire dialect can give + space semantics; guessing would alias real keys. */
+function decodeListIdentity(text: string, policy: S3ListEncodingType): string {
+  return decodeURIComponent(policy === "form" ? text.replace(/\+/g, "%20") : text);
 }
 
 /** Validates and orders part references before S3 commits a multipart upload. */
@@ -501,6 +591,12 @@ function normalizeParts(parts: readonly S3PartType[]): S3PartType[] {
  * structural `S3ClientType` contract through `createS3Client()`.
  */
 class S3Client implements S3ClientType {
+  /** Resolved provider listing dialect, kept distinct from optimization switches. */
+  readonly #listEncoding: S3ListEncodingType;
+  /** Reads the immutable identity policy without probing the provider. */
+  get listEncoding(): S3ListEncodingType {
+    return this.#listEncoding;
+  }
   /** Stable object-store name exposed to the adapter and diagnostics. */
   readonly name = "s3";
   /** Native behavior guaranteed by this configured client. */
@@ -550,6 +646,7 @@ class S3Client implements S3ClientType {
     this.#region = options.region;
     this.#credentials = options.credentials;
     this.#addressing = S3AddressingSchema.parse(options.addressing ?? "path");
+    this.#listEncoding = S3ListEncodingSchema.parse(options.listEncoding ?? "percent");
     this.#fetch = options.fetch ?? fetch;
     this.#now = options.now ?? (() => new Date());
     this.#partSize = options.partSize ?? DEFAULT_PART_SIZE;
@@ -624,12 +721,14 @@ class S3Client implements S3ClientType {
 
   /** Builds the request URL and canonical URI for one bucket/object address. */
   #address(key: string | undefined): { url: URL; canonicalUri: string } {
+    if (key === "") throw new TypeError("Object requests require a nonempty key; omit key for container operations.");
     const endpointPath = this.#endpoint.pathname.replace(/\/$/, "");
     const objectPath = key === undefined || key.length === 0 ? "" : `/${encodePath(key)}`;
     const bucketPath = this.#addressing === "path" ? `/${encode(this.#bucket)}` : "";
     const canonicalUri = `${endpointPath}${bucketPath}${objectPath}` || "/";
     const url = new URL(this.#endpoint);
     url.pathname = canonicalUri;
+    if (url.pathname !== canonicalUri) throw new TypeError("Object key cannot be represented by a Fetch URL.");
     if (this.#addressing === "virtual") url.hostname = `${this.#bucket}.${this.#endpoint.hostname}`;
     return { url, canonicalUri };
   }
@@ -649,8 +748,11 @@ class S3Client implements S3ClientType {
   }
 
   /** Adds S3 source and destination copy preconditions to one request. */
-  #getCopyHeaders(source: string, options: ObjectCopyOptionsType): Headers {
-    const headers = new Headers({ "x-amz-copy-source": `/${encode(this.#bucket)}/${encodePath(source)}` });
+  #getCopyHeaders(source: string, options: ObjectCopyOptionsType, version?: string): Headers {
+    const address = `/${encode(this.#bucket)}/${encodePath(source)}${
+      version === undefined ? "" : `?versionId=${encode(version)}`
+    }`;
+    const headers = new Headers({ "x-amz-copy-source": address });
     if (options.sourceIfMatch !== undefined) headers.set("x-amz-copy-source-if-match", options.sourceIfMatch);
     if (options.sourceIfNoneMatch !== undefined) {
       headers.set("x-amz-copy-source-if-none-match", options.sourceIfNoneMatch);
@@ -666,30 +768,36 @@ class S3Client implements S3ClientType {
     return headers;
   }
 
+  /** Snapshots applied properties through the same Fetch header normalization as dispatch. */
+  #getPropertyHeaders(options: ObjectPutOptionsType): Headers {
+    const headers = new Headers(this.#headers);
+    if (options.mediaType !== undefined) headers.set("content-type", options.mediaType);
+    for (const [name, value] of Object.entries(options.metadata ?? {})) headers.set(`x-amz-meta-${name}`, value);
+    return headers;
+  }
+
   /** Writes one materialized object with PutObject and optional write preconditions. */
-  async #putBytes(key: string, body: Uint8Array, options: ObjectPutOptionsType): Promise<ObjectStatType> {
+  async #putBytes(key: string, body: Uint8Array, options: ObjectPutOptionsType): Promise<ObjectReceiptType> {
+    if (options.size !== undefined && options.size !== body.byteLength) {
+      throw new RangeError("S3 body length does not match options.size.");
+    }
     if (body.byteLength > S3_LIMITS.maxPutBytes) {
       throw new RangeError(
         `S3 PutObject accepts at most ${S3_LIMITS.maxPutBytes} bytes. Use a stream for multipart upload.`,
       );
     }
-    const headers = new Headers();
-    if (options.mediaType !== undefined) headers.set("content-type", options.mediaType);
+    const headers = this.#getPropertyHeaders(options);
     if (options.ifMatch !== undefined) headers.set("if-match", options.ifMatch);
     if (options.ifNoneMatch !== undefined) headers.set("if-none-match", options.ifNoneMatch);
-    for (const [name, value] of Object.entries(options.metadata ?? {})) headers.set(`x-amz-meta-${name}`, value);
 
-    await assertResponse(
-      await this.request({
-        method: "PUT",
-        key,
-        headers,
-        body: body as Uint8Array<ArrayBuffer>,
-        ...(options.signal === undefined ? {} : { signal: options.signal }),
-      }),
-      `PutObject ${key}`,
-    );
-    return (await this.head(key, options)) ?? { size: body.byteLength };
+    const response = await this.#publish({
+      method: "PUT",
+      key,
+      headers,
+      body: body as Uint8Array<ArrayBuffer>,
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
+    }, (response) => assertResponse(response, `PutObject ${key}`));
+    return getReceipt(response, body.byteLength, options);
   }
 
   /** Copies one source range into one destination multipart part. */
@@ -698,8 +806,9 @@ class S3Client implements S3ClientType {
     upload: S3UploadType,
     range: S3CopyRangeType,
     options: ObjectCopyOptionsType,
+    version?: string,
   ): Promise<S3PartType> {
-    const headers = this.#getCopyHeaders(source, options);
+    const headers = this.#getCopyHeaders(source, options, version);
     headers.delete("if-match");
     headers.delete("if-none-match");
     headers.set("x-amz-copy-source-range", `bytes=${range.start}-${range.end}`);
@@ -715,10 +824,8 @@ class S3Client implements S3ClientType {
       response,
       `UploadPartCopy ${source}[${range.start}-${range.end}] -> ${upload.key}#${range.number}`,
     );
-    const etag = root === undefined ? undefined : getXmlValue(root, "ETag");
-    if (etag === undefined) {
-      throw new S3Error(`UploadPartCopy ${range.number} response did not contain ETag.`, response);
-    }
+    if (root.name.local !== "CopyPartResult") throw new S3Error("Unexpected UploadPartCopy acknowledgement.", response);
+    const etag = getXmlScalar(root, "ETag");
     return { number: range.number, etag };
   }
 
@@ -747,6 +854,11 @@ class S3Client implements S3ClientType {
    * therefore receive exactly one attempt.
    */
   async request(options: S3RequestOptionsType): Promise<Response> {
+    return await this.#send(options);
+  }
+
+  /** Tracks actual dispatch separately from signing and local validation. */
+  async #send(options: S3RequestOptionsType, onDispatch?: () => void): Promise<Response> {
     const payloadHash = options.payloadHash ?? await getPayloadHash(options.body);
     // Body replayability and protocol idempotency are separate. A byte body can
     // be replayed mechanically while an operation such as CreateMultipartUpload
@@ -806,12 +918,79 @@ class S3Client implements S3ClientType {
       if (options.body instanceof ReadableStream) init.duplex = "half";
       return { input: url, init };
     }, {
-      fetch: this.#fetch,
+      fetch: (input, init) => {
+        onDispatch?.();
+        return this.#fetch(input, init);
+      },
       ...(this.#requestPolicy === undefined ? {} : { policy: this.#requestPolicy }),
       ...(options.signal === undefined ? {} : { signal: options.signal }),
       replayable,
       ...(this.#metrics === undefined ? {} : { metrics: this.#metrics }),
     });
+  }
+
+  /** Pure admission for the concrete wire route; no credentials, stream reads, or I/O. */
+  admit(input: DriverPlanInputType): DriverPlanType {
+    const plan: DriverPlanType = {
+      operation: input.operation,
+      supported: true,
+      support: "native",
+      problems: [],
+      actions: [],
+    };
+    try {
+      if ((input.operation === "copy" || input.operation === "move") && !this.capabilities.copy) {
+        throw new TypeError("S3 server-side copy is disabled for this client.");
+      }
+      if (input.path !== undefined) this.#address(input.path.slice(1));
+      if (input.destination !== undefined) this.#address(input.destination.slice(1));
+      if (input.size !== undefined && input.size > S3_LIMITS.maxObjectBytes) {
+        throw new RangeError("Object exceeds the S3 object size limit.");
+      }
+      if (
+        input.operation === "write" && input.source === "bytes" && input.size !== undefined &&
+        input.size > S3_LIMITS.maxPutBytes
+      ) {
+        throw new RangeError("Materialized S3 writes exceed PutObject; supply a stream for multipart upload.");
+      }
+      if (input.operation === "write" && input.source === "stream") {
+        const partBytes = this.#getPartSize(input.size);
+        return {
+          ...plan,
+          support: "partitioned",
+          partBytes,
+          ...(input.size === undefined || input.size === 0 ? {} : { parts: Math.ceil(input.size / partBytes) }),
+        };
+      }
+      return plan;
+    } catch (error) {
+      return {
+        ...plan,
+        supported: false,
+        support: "unsupported",
+        problems: [{
+          code: "provider-route",
+          layer: "driver",
+          severity: "error",
+          message: error instanceof Error ? error.message : String(error),
+        }],
+        actions: [{ kind: "select-driver" }],
+      };
+    }
+  }
+
+  /** Publication is never automatically replayed after a lost response. */
+  async #publish<T>(options: S3RequestOptionsType, read: (response: Response) => Promise<T>): Promise<T> {
+    let dispatched = false;
+    try {
+      const response = await this.#send({ ...options, retry: false }, () => {
+        dispatched = true;
+      });
+      return await read(response);
+    } catch (error) {
+      if (!dispatched || (error instanceof S3Error && error.status < 500)) throw error;
+      throw new S3CommitError(options.key ?? "", error);
+    }
   }
 
   /** Returns exact-object metadata, or `null` when the object does not exist. */
@@ -848,9 +1027,7 @@ class S3Client implements S3ClientType {
 
   /** Starts a multipart upload and returns its provider identity. */
   async createUpload(key: string, options: ObjectPutOptionsType = {}): Promise<S3UploadType> {
-    const headers = new Headers();
-    if (options.mediaType !== undefined) headers.set("content-type", options.mediaType);
-    for (const [name, value] of Object.entries(options.metadata ?? {})) headers.set(`x-amz-meta-${name}`, value);
+    const headers = this.#getPropertyHeaders(options);
     const response = await assertResponse(
       await this.request({
         method: "POST",
@@ -862,8 +1039,10 @@ class S3Client implements S3ClientType {
       }),
       `CreateMultipartUpload ${key}`,
     );
-    const id = getXmlValue(parseXmlRoot(await response.text()), "UploadId");
-    if (id === undefined) throw new S3Error("CreateMultipartUpload response did not contain UploadId.", response);
+    const id = getXmlText(parseXmlRoot(await response.text()), "UploadId");
+    if (id === undefined || id.length === 0) {
+      throw new S3Error("CreateMultipartUpload response did not contain UploadId.", response);
+    }
     return { key, id };
   }
 
@@ -895,14 +1074,21 @@ class S3Client implements S3ClientType {
     upload: S3UploadType,
     parts: readonly S3PartType[],
     options: S3CompleteOptionsType = {},
-  ): Promise<void> {
+  ): Promise<S3CommitType> {
+    if (
+      options.expectedSize !== undefined &&
+      (!Number.isSafeInteger(options.expectedSize) || options.expectedSize < 0 ||
+        options.expectedSize > S3_LIMITS.maxObjectBytes)
+    ) {
+      throw new RangeError("Invalid expected multipart object size.");
+    }
     const normalized = normalizeParts(parts);
     const headers = new Headers({ "content-type": "application/xml" });
     if (options.ifMatch !== undefined) headers.set("if-match", options.ifMatch);
     if (options.ifNoneMatch !== undefined) headers.set("if-none-match", options.ifNoneMatch);
     if (options.expectedSize !== undefined) headers.set("x-amz-mp-object-size", String(options.expectedSize));
 
-    const response = await this.request({
+    return await this.#publish({
       method: "POST",
       key: upload.key,
       query: { uploadId: upload.id },
@@ -910,12 +1096,23 @@ class S3Client implements S3ClientType {
       body: getCompleteBody(normalized),
       retry: false,
       ...(options.signal === undefined ? {} : { signal: options.signal }),
+    }, async (response) => {
+      // The whole XML body is commit authority; HTTP 200 can still contain Error.
+      const root = await getSuccessXml(response, `CompleteMultipartUpload ${upload.key}`);
+      if (root.name.local !== "CompleteMultipartUploadResult") {
+        throw new SyntaxError("Unexpected multipart acknowledgement.");
+      }
+      const etag = getXmlScalar(root, "ETag");
+      return {
+        etag,
+        ...(response.headers.get("x-amz-version-id") === null
+          ? {}
+          : { version: response.headers.get("x-amz-version-id")! }),
+        ...(response.headers.get("x-amz-request-id") === null
+          ? {}
+          : { requestId: response.headers.get("x-amz-request-id")! }),
+      };
     });
-
-    // S3 can send HTTP 200 before assembly completes and later encode a failure
-    // as an <Error> body in the same response. HTTP status alone is not commit
-    // authority for this operation.
-    await getSuccessXml(response, `CompleteMultipartUpload ${upload.key}`);
   }
 
   /** Aborts one unfinished multipart upload. Missing upload IDs are already terminal. */
@@ -943,11 +1140,16 @@ class S3Client implements S3ClientType {
     key: string,
     body: Uint8Array | ReadableStream<Uint8Array>,
     options: ObjectPutOptionsType = {},
-  ): Promise<ObjectStatType> {
+  ): Promise<ObjectReceiptType> {
+    options = putOptions(options);
+    const properties = getStat(this.#getPropertyHeaders(options));
+    options = putProperties(options, properties);
+    this.#address(key);
     if (body instanceof Uint8Array) return await this.#putBytes(key, body, options);
 
     const partSize = this.#getPartSize(options.size);
-    let chunks = getChunks(body, partSize);
+    const sourceChunks = getChunks(body, partSize, options.signal);
+    let chunks = sourceChunks;
 
     // Preserve the already-consumed chunks before replacing the iterator.
     // A single chunk larger than PutObject's hard limit still enters multipart
@@ -955,11 +1157,15 @@ class S3Client implements S3ClientType {
     async function* retained(
       _first: IteratorResult<S3ChunkType>,
       _second: IteratorResult<S3ChunkType>,
-      _chunks: AsyncGenerator<S3ChunkType>
+      _chunks: AsyncGenerator<S3ChunkType>,
     ): AsyncGenerator<S3ChunkType> {
-      yield _first.value;
-      if (!_second.done) yield _second.value;
-      for await (const chunk of _chunks) yield chunk;
+      try {
+        yield _first.value;
+        if (!_second.done) yield _second.value;
+        for await (const chunk of _chunks) yield chunk;
+      } finally {
+        await _chunks.return(undefined);
+      }
     }
 
     if (this.optimizations.delayedMultipart) {
@@ -979,21 +1185,34 @@ class S3Client implements S3ClientType {
       chunks = retained(first, second, chunks);
     }
 
-    const upload = await this.createUpload(key, options);
+    let upload: S3UploadType;
+    try {
+      upload = await this.createUpload(key, options);
+    } catch (error) {
+      // Delayed multipart can already hold a source reader and two parts.
+      // Failed initiation never transfers that reader to the request pool.
+      await sourceChunks.return(undefined).catch(() => undefined);
+      throw error;
+    }
     let size = 0;
     const parts: S3PartType[] = [];
 
     try {
-      const uploaded = pooledMap(
+      const uploaded = map(
         this.#concurrency,
         chunks,
         (chunk) => this.#uploadChunk(upload, chunk, options.signal),
       );
+      // The pool retains producer/caller failures after admitted uploads drain.
+      // Independent provider failures stay in the terminal aggregate.
       for await (const result of uploaded) {
         parts.push(result.part);
         size += result.size;
       }
 
+      if (options.size !== undefined && size !== options.size) {
+        throw new RangeError(`S3 streamed body produced ${size} bytes but options.size declared ${options.size}.`);
+      }
       if (parts.length === 0) {
         await this.abortUpload(upload, options.signal);
         return await this.#putBytes(key, new Uint8Array(), options);
@@ -1002,19 +1221,28 @@ class S3Client implements S3ClientType {
         throw new RangeError(`S3 streamed body produced ${size} bytes but options.size declared ${options.size}.`);
       }
 
-      await this.completeUpload(upload, parts, {
+      const receipt = await this.completeUpload(upload, parts, {
         ...(options.ifMatch === undefined ? {} : { ifMatch: options.ifMatch }),
         ...(options.ifNoneMatch === undefined ? {} : { ifNoneMatch: options.ifNoneMatch }),
         expectedSize: size,
         ...(options.signal === undefined ? {} : { signal: options.signal }),
       });
-      return (await this.head(key, options)) ?? { size };
+      return {
+        size,
+        ...receipt,
+        ...(options.mediaType === undefined ? {} : { mediaType: options.mediaType }),
+        ...(options.metadata === undefined ? {} : { metadata: { ...options.metadata } }),
+      };
     } catch (error) {
       // Caller cancellation ends the write, but it must not also cancel the
       // request that releases provider-side multipart state. Cleanup gets its
       // own bounded signal so a failed provider cannot delay shutdown forever.
-      await this.abortUpload(upload, AbortSignal.timeout(this.#abortTimeoutMs)).catch(() => undefined);
+      if (!(error instanceof S3CommitError)) {
+        await this.abortUpload(upload, AbortSignal.timeout(this.#abortTimeoutMs)).catch(() => undefined);
+      }
       throw error;
+    } finally {
+      await sourceChunks.return(undefined).catch(() => undefined);
     }
   }
 
@@ -1036,6 +1264,7 @@ class S3Client implements S3ClientType {
         method: "GET",
         query: {
           "list-type": "2",
+          "encoding-type": "url",
           prefix: options.prefix,
           delimiter: options.delimiter,
           "max-keys": options.limit === undefined ? undefined : String(options.limit),
@@ -1046,11 +1275,15 @@ class S3Client implements S3ClientType {
       "ListObjectsV2",
     );
     const root = parseXmlRoot(await response.text());
-    const objects: ObjectEntryType[] = getXmlElements(root, "Contents").map(getListObject);
+    const encoded = getXmlValue(root, "EncodingType") === "url";
+    const objects: ObjectEntryType[] = getXmlElements(root, "Contents").map((entry) =>
+      getListObject(entry, encoded, this.listEncoding)
+    );
     const prefixes = getXmlElements(root, "CommonPrefixes")
-      .map((entry) => getXmlValue(entry, "Prefix"))
-      .filter((value): value is string => value !== undefined);
-    const cursor = getXmlValue(root, "NextContinuationToken");
+      .map((entry) => getXmlText(entry, "Prefix"))
+      .filter((value): value is string => value !== undefined)
+      .map((value) => encoded ? decodeListIdentity(value, this.listEncoding) : value);
+    const cursor = getXmlText(root, "NextContinuationToken");
     return { objects, prefixes, ...(cursor === undefined ? {} : { cursor }) };
   }
 
@@ -1062,24 +1295,54 @@ class S3Client implements S3ClientType {
    * applied to `CopyObject` directly or to `CompleteMultipartUpload` so the
    * copy cannot silently replace a destination that changed during the copy.
    */
-  async copy(source: string, destination: string, options: ObjectCopyOptionsType = {}): Promise<ObjectStatType> {
-    const sourceStat = await this.head(source, options);
+  async copy(source: string, destination: string, options: ObjectCopyOptionsType = {}): Promise<ObjectReceiptType> {
+    options = copyOptions(options);
+    if (!this.capabilities.copy) throw new TypeError("S3 server-side copy is disabled for this client.");
+    this.#address(destination);
+    const sourceHeaders = new Headers();
+    if (options.sourceIfMatch !== undefined) sourceHeaders.set("if-match", options.sourceIfMatch);
+    if (options.sourceIfNoneMatch !== undefined) sourceHeaders.set("if-none-match", options.sourceIfNoneMatch);
+    if (options.sourceIfModifiedSince !== undefined) {
+      sourceHeaders.set("if-modified-since", options.sourceIfModifiedSince.toUTCString());
+    }
+    if (options.sourceIfUnmodifiedSince !== undefined) {
+      sourceHeaders.set("if-unmodified-since", options.sourceIfUnmodifiedSince.toUTCString());
+    }
+    const sourceResponse = await this.request({
+      method: "HEAD",
+      key: source,
+      headers: sourceHeaders,
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
+    });
+    const sourceStat = sourceResponse.status === 404
+      ? null
+      : getStat((await assertResponse(sourceResponse, "Read copy source properties")).headers);
     if (sourceStat === null) {
       throw new S3Error(`Copy source '${source}' does not exist.`, new Response(null, { status: 404 }));
     }
+    if (sourceStat.etag === undefined) throw new TypeError("S3 copy requires a source ETag to pin its bytes.");
+    options = { ...options, sourceIfMatch: sourceStat.etag };
     if (sourceStat.size > S3_LIMITS.maxObjectBytes) {
       throw new RangeError(`S3 copy source exceeds ${S3_LIMITS.maxObjectBytes} bytes.`);
     }
 
     if (sourceStat.size <= S3_LIMITS.maxCopyBytes) {
-      const response = await this.request({
+      return await this.#publish({
         method: "PUT",
         key: destination,
-        headers: this.#getCopyHeaders(source, options),
+        headers: this.#getCopyHeaders(source, options, sourceStat.version),
         ...(options.signal === undefined ? {} : { signal: options.signal }),
+      }, async (response) => {
+        const root = await getSuccessXml(response, `CopyObject ${source} -> ${destination}`);
+        if (root.name.local !== "CopyObjectResult") throw new SyntaxError("Unexpected copy acknowledgement.");
+        const etag = getXmlScalar(root, "ETag");
+        return getReceipt(
+          response,
+          sourceStat.size,
+          sourceStat.version === undefined || sourceStat.version === "null" ? {} : sourceStat,
+          etag,
+        );
       });
-      await getSuccessXml(response, `CopyObject ${source} -> ${destination}`);
-      return (await this.head(destination, options)) ?? { size: sourceStat.size };
     }
 
     const requiredPartSize = Math.ceil(sourceStat.size / S3_LIMITS.maxParts);
@@ -1095,24 +1358,31 @@ class S3Client implements S3ClientType {
     });
 
     try {
-      const copied = pooledMap(
+      const copied = map(
         this.#concurrency,
         getCopyRanges(sourceStat.size, copyPartSize),
-        (range) => this.#copyPart(source, upload, range, options),
+        (range) => this.#copyPart(source, upload, range, options, sourceStat.version),
       );
       const parts = await Array.fromAsync(copied);
-      await this.completeUpload(upload, parts, {
+      const receipt = await this.completeUpload(upload, parts, {
         ...(options.ifMatch === undefined ? {} : { ifMatch: options.ifMatch }),
         ...(options.ifNoneMatch === undefined ? {} : { ifNoneMatch: options.ifNoneMatch }),
         expectedSize: sourceStat.size,
         ...(options.signal === undefined ? {} : { signal: options.signal }),
       });
-      return (await this.head(destination, options)) ?? { size: sourceStat.size };
+      return {
+        size: sourceStat.size,
+        ...receipt,
+        ...(sourceStat.mediaType === undefined ? {} : { mediaType: sourceStat.mediaType }),
+        ...(sourceStat.metadata === undefined ? {} : { metadata: { ...sourceStat.metadata } }),
+      };
     } catch (error) {
       // Caller cancellation ends the write, but it must not also cancel the
       // request that releases provider-side multipart state. Cleanup gets its
       // own bounded signal so a failed provider cannot delay shutdown forever.
-      await this.abortUpload(upload, AbortSignal.timeout(this.#abortTimeoutMs)).catch(() => undefined);
+      if (!(error instanceof S3CommitError)) {
+        await this.abortUpload(upload, AbortSignal.timeout(this.#abortTimeoutMs)).catch(() => undefined);
+      }
       throw error;
     }
   }

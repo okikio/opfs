@@ -11,13 +11,10 @@ import type {
 } from "../driver/file.ts";
 import { FileSystemError, throwIfAborted } from "../error.ts";
 import { basename, dirname, type PathType, ROOT_PATH } from "../path.ts";
-import {
-  type AdapterLimitsType,
-  type AdapterPartitionType,
-  RecordSchema,
-} from "../schema.ts";
+import { type AdapterLimitsType, type AdapterPartitionType, RecordSchema } from "../schema.ts";
 
-import type { RecordDriverType } from "../driver/record.ts";
+import { mutates, readOnlyPlan, type RecordDriverType } from "../driver/record.ts";
+import type { DriverPlanInputType, DriverPlanType } from "../driver/definition.ts";
 
 /** Options for a filesystem adapter created from a record driver. */
 export interface RecordAdapterOptionsType {
@@ -85,6 +82,7 @@ function assertWritable(readOnly: boolean, operation: string, path: string): voi
 class RecordAdapter implements AdapterType {
   /** Diagnostic adapter identity exposed through the public facade. */
   readonly name: string;
+  readonly publication: NonNullable<AdapterType["publication"]>;
   /** Native capabilities of a value-oriented record driver. */
   readonly capabilities;
   /** Portable hard limits inherited from the underlying value store. */
@@ -101,11 +99,17 @@ class RecordAdapter implements AdapterType {
   /** Resolves immutable adapter policy once instead of closing over factory locals. */
   constructor(driver: RecordDriverType, options: RecordAdapterOptionsType) {
     this.driver = driver;
-    this.#readOnly = options.readOnly ?? false;
+    this.publication = {
+      copy: driver.capabilities.replacement === "atomic" ? "preserve" : "best-effort",
+      move: "best-effort",
+      noReplace: "cooperative",
+      durability: "acknowledged",
+    };
+    this.#readOnly = options.readOnly === true || !driver.capabilities.write;
     this.#disposeDriver = options.disposeDriver ?? false;
     this.name = options.name ?? "record";
-    if (options.limits !== undefined) this.limits = options.limits;
-    if (options.partition !== undefined) this.partition = options.partition;
+    if (options.limits !== undefined) this.limits = structuredClone(options.limits);
+    if (options.partition !== undefined) this.partition = structuredClone(options.partition);
     const streamWriteModes = this.#readOnly || !driver.capabilities.write || driver.writeStream === undefined
       ? []
       : [...(driver.capabilities?.streamWriteModes ?? [])];
@@ -120,6 +124,12 @@ class RecordAdapter implements AdapterType {
       positionalWrite: false,
       syncAccess: false,
     } as const;
+  }
+
+  /** Rejects configured mutation policy before facade metadata, parents, or source acquisition. */
+  admit(input: DriverPlanInputType): DriverPlanType {
+    if (mutates(input.operation) && !this.capabilities.write) return readOnlyPlan(input);
+    return { operation: input.operation, supported: true, support: "native", problems: [], actions: [] };
   }
 
   /** Returns portable metadata without materializing file bytes. */

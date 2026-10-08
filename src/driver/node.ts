@@ -1,3 +1,15 @@
+import {
+  admitHost,
+  assertHostAdmission,
+  assertHostPrimitive,
+  getHostCapabilities,
+  getHostPublication,
+  type HostProfileInputType,
+  type HostProfileType,
+  resolveHostProfile,
+} from "./host.ts";
+import type { DriverPlanInputType, DriverPlanType } from "./definition.ts";
+import { QueuedWritableFile, validateWritableOptions, type WritableOptionsType } from "./writable.ts";
 import type { FileHandle as NodeFileHandle } from "node:fs/promises";
 import type { FileBackendType, FileDriverType } from "./file.ts";
 import { defineFileDriver } from "./file.ts";
@@ -11,10 +23,13 @@ import type {
   FileDriverSyncFileType,
   FileDriverWritableFileType,
   FileDriverWriteOptionsType,
+  FileEntryKindType,
+  FileEntryType,
 } from "./file.ts";
 import { createLocalPath } from "./local.ts";
 import { FileSystemError, throwIfAborted, toFileSystemError } from "../error.ts";
-import type { PathType } from "../path.ts";
+import { dirname, joinPath, type PathType } from "../path.ts";
+import { withAbortSignal } from "../stream.ts";
 
 /** Node built-in filesystem module shape used through `process.getBuiltinModule()`. */
 export type NodeFsType = typeof import("node:fs");
@@ -36,6 +51,8 @@ export interface NodeDriverOptionsType {
   readonly root: string;
   /** Creates the host root during driver creation. Defaults to true. */
   readonly createRoot?: boolean;
+  /** Explicit root deployment facts. Defaults to the ordinary native-host assumption. */
+  readonly profile?: HostProfileInputType;
 }
 
 /** Opens one update-mode file, creating it only when the path was absent. */
@@ -43,10 +60,12 @@ export async function openUpdateFile(
   fs: NodeFsPromisesType,
   path: string,
   virtualPath: string,
+  signal?: AbortSignal,
 ): Promise<NodeFileHandle> {
   try {
     return await fs.open(path, "r+");
   } catch (error) {
+    throwIfAborted(signal, "write", virtualPath);
     if (toFileSystemError(error, "write", virtualPath).code !== "not-found") throw error;
     return await fs.open(path, "w+");
   }
@@ -67,28 +86,34 @@ export async function writeStreamToFile(
   source: ReadableStream<Uint8Array>,
   options: FileDriverWriteOptionsType,
 ): Promise<void> {
+  throwIfAborted(options.signal, "write", virtualPath);
   let file: NodeFileHandle | undefined;
   try {
     file = options.mode === "update"
-      ? await openUpdateFile(fs, hostPath, virtualPath)
+      ? await openUpdateFile(fs, hostPath, virtualPath, options.signal)
       : await fs.open(hostPath, options.mode === "replace" ? "w+" : "a+");
 
-    let position = options.mode === "replace"
-      ? 0
-      : options.mode === "append"
-      ? (await file.stat()).size
-      : options.at ?? 0;
-
-    const reader = source.getReader();
+    const reader = withAbortSignal(source, options.signal, virtualPath, "write").getReader();
+    let position = 0;
     try {
+      throwIfAborted(options.signal, "write", virtualPath);
+      position = options.mode === "replace"
+        ? 0
+        : options.mode === "append"
+        ? (await file.stat()).size
+        : options.at ?? 0;
+      throwIfAborted(options.signal, "write", virtualPath);
       while (true) {
         throwIfAborted(options.signal, "write", virtualPath);
         const next = await reader.read();
+        throwIfAborted(options.signal, "write", virtualPath);
         if (next.done) break;
 
         let offset = 0;
         while (offset < next.value.byteLength) {
+          throwIfAborted(options.signal, "write", virtualPath);
           const result = await file.write(next.value, offset, next.value.byteLength - offset, position);
+          throwIfAborted(options.signal, "write", virtualPath);
           if (result.bytesWritten <= 0) throw new Error(`Node write made no progress for '${virtualPath}'.`);
           offset += result.bytesWritten;
           position += result.bytesWritten;
@@ -105,6 +130,7 @@ export async function writeStreamToFile(
       reader.releaseLock();
     }
 
+    throwIfAborted(options.signal, "write", virtualPath);
     if (options.truncate) await file.truncate(position);
   } finally {
     await file?.close();
@@ -118,7 +144,7 @@ export async function writeStreamToFile(
  * undefined` as the only closed-state marker. `abort()` cannot roll back bytes
  * already written to a normal host file; it only releases the descriptor.
  */
-export class NodeWritableFile implements FileDriverWritableFileType {
+class NodeFile implements FileDriverWritableFileType {
   /** Canonical virtual path used in lifecycle diagnostics. */
   readonly #path: PathType;
   /** Native file descriptor, cleared before terminal close/abort. */
@@ -171,6 +197,13 @@ export class NodeWritableFile implements FileDriverWritableFileType {
   }
 }
 
+/** Ordered native resource; direct construction obeys the same admission contract as drivers. */
+export class NodeWritableFile extends QueuedWritableFile {
+  constructor(path: PathType, file: NodeFileHandle, options: WritableOptionsType = {}) {
+    super(new NodeFile(path, file), options);
+  }
+}
+
 /**
  * Synchronous random-access wrapper over one Node file descriptor.
  *
@@ -206,7 +239,7 @@ export class NodeSyncFile implements FileDriverSyncFileType {
     const target = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
     const position = options.at ?? this.#cursor;
     const count = this.#fs.readSync(this.#getDescriptor(), target, 0, target.byteLength, position);
-    this.#cursor = position + count;
+    this.#cursor = Math.min(position + count, this.getSize());
     return count;
   }
 
@@ -252,20 +285,26 @@ export class NodeSyncFile implements FileDriverSyncFileType {
  * load Node built-ins merely because this source exists in the package.
  */
 export class NodeBackend implements FileBackendType {
+  /** Validated immutable root facts, separate from live mount/permission observations. */
+  readonly hostProfile: HostProfileType;
+  /** Native operation-specific guarantees derived from the selected profile. */
+  readonly publication: ReturnType<typeof getHostPublication>;
+  /** Admitted native feature surface for this root deployment. */
+  readonly capabilities: ReturnType<typeof getHostCapabilities>;
+
+  /** One hard policy shared by native entrypoints and pure planning. */
+  admit(input: DriverPlanInputType): DriverPlanType {
+    return admitHost(this.hostProfile, input);
+  }
+
+  /** Enforces declared policy before parent probes or descriptor acquisition. */
+  #admit(input: DriverPlanInputType): void {
+    assertHostAdmission(this.admit(input), input.path);
+  }
+
   /** Stable driver identity used in diagnostics. */
   readonly name = "node";
-  /** Native Node filesystem operations exposed without facade emulation. */
-  readonly capabilities = {
-    read: true,
-    write: true,
-    streamRead: true,
-    streamWriteModes: ["replace", "append", "update"],
-    rangeRead: true,
-    copy: true,
-    move: true,
-    positionalWrite: true,
-    syncAccess: true,
-  } as const;
+
   /** Node synchronous filesystem module. */
   readonly #fs: NodeFsType;
   /** Node promise-based filesystem module. */
@@ -277,22 +316,79 @@ export class NodeBackend implements FileBackendType {
 
   /** Resolves Node built-ins and optionally creates the configured host root. */
   constructor(options: NodeDriverOptionsType) {
+    this.hostProfile = resolveHostProfile(options.profile);
+    this.publication = getHostPublication(this.hostProfile);
+    this.capabilities = getHostCapabilities(this.hostProfile);
+    if (this.hostProfile.readOnly && options.createRoot === true) {
+      throw new TypeError("Read-only host profile cannot createRoot.");
+    }
     this.#fs = globalThis.process.getBuiltinModule("node:fs") as NodeFsType;
     this.#fsp = globalThis.process.getBuiltinModule("node:fs/promises") as NodeFsPromisesType;
     this.#stream = globalThis.process.getBuiltinModule("node:stream") as NodeStreamType;
     this.#hostPath = createLocalPath(options.root);
-    if (options.createRoot ?? true) this.#fs.mkdirSync(this.#hostPath("/"), { recursive: true });
+    if (options.createRoot ?? !this.hostProfile.readOnly) this.#fs.mkdirSync(this.#hostPath("/"), { recursive: true });
   }
 
-  /** Returns host metadata or `null` when the virtual path is absent. */
+  /** Rejects stable alias ancestors before structural work; hostile path swaps remain a host boundary. */
+  async #parents(path: PathType, options: FileDriverSignalOptionsType): Promise<void> {
+    for (let parent = dirname(path); parent !== "/"; parent = dirname(parent)) {
+      const kind = await this.entry(parent, options);
+      if (kind === "link" || kind === "foreign") {
+        throw new FileSystemError(
+          "not-supported",
+          "structure",
+          path,
+          "Structural paths cannot traverse a link or foreign ancestor.",
+        );
+      }
+    }
+  }
+
+  /** Returns physical identity; destructive traversal must never use followed target metadata. */
+  async entry(path: PathType, options: FileDriverSignalOptionsType = {}): Promise<FileEntryKindType | null> {
+    throwIfAborted(options.signal, "stat", path);
+    try {
+      const info = await this.#fsp.lstat(this.#hostPath(path));
+      throwIfAborted(options.signal, "stat", path);
+      return info.isSymbolicLink() ? "link" : info.isDirectory() ? "directory" : info.isFile() ? "file" : "foreign";
+    } catch (error) {
+      throwIfAborted(options.signal, "stat", path);
+      if (toFileSystemError(error, "stat", path).code === "not-found") return null;
+      throw error;
+    }
+  }
+
+  /** Lists every physical child, including links, for no-follow removal. */
+  async *entries(path: PathType, options: FileDriverSignalOptionsType = {}): AsyncIterableIterator<FileEntryType> {
+    await this.#parents(path, options);
+    if (await this.entry(path, options) !== "directory") {
+      throw new FileSystemError(
+        "type-mismatch",
+        "read-dir",
+        path,
+        "Physical traversal requires an ordinary directory.",
+      );
+    }
+    throwIfAborted(options.signal, "read-dir", path);
+    for (const entry of await this.#fsp.readdir(this.#hostPath(path), { withFileTypes: true })) {
+      throwIfAborted(options.signal, "read-dir", path);
+      yield {
+        name: entry.name,
+        kind: entry.isSymbolicLink() ? "link" : entry.isDirectory() ? "directory" : entry.isFile() ? "file" : "foreign",
+      };
+    }
+  }
+
   async stat(path: PathType, options: FileDriverSignalOptionsType = {}): Promise<FileDriverStatType | null> {
     throwIfAborted(options.signal, "stat", path);
     try {
       const info = await this.#fsp.stat(this.#hostPath(path));
+      throwIfAborted(options.signal, "stat", path);
       return info.isDirectory()
         ? { kind: "directory", lastModified: info.mtimeMs }
         : { kind: "file", size: info.size, lastModified: info.mtimeMs, mediaType: "" };
     } catch (error) {
+      throwIfAborted(options.signal, "stat", path);
       const mapped = toFileSystemError(error, "stat", path);
       if (mapped.code === "not-found") return null;
       throw mapped;
@@ -303,19 +399,30 @@ export class NodeBackend implements FileBackendType {
   async readFile(path: PathType, options: FileDriverReadOptionsType = {}): Promise<Uint8Array> {
     throwIfAborted(options.signal, "read", path);
     if (options.at === undefined && options.length === undefined) {
-      return new Uint8Array(await this.#fsp.readFile(this.#hostPath(path)));
+      try {
+        const bytes = await this.#fsp.readFile(this.#hostPath(path), { signal: options.signal });
+        throwIfAborted(options.signal, "read", path);
+        return new Uint8Array(bytes);
+      } catch (error) {
+        throwIfAborted(options.signal, "read", path);
+        throw error;
+      }
     }
 
     const file = await this.#fsp.open(this.#hostPath(path), "r");
     try {
+      throwIfAborted(options.signal, "read", path);
       const info = await file.stat();
+      throwIfAborted(options.signal, "read", path);
       if (info.isDirectory()) throw new FileSystemError("type-mismatch", "read", path, `'${path}' is a directory.`);
       const start = options.at ?? 0;
       const length = Math.max(0, Math.min(options.length ?? info.size - start, info.size - start));
       const output = new Uint8Array(length);
       let offset = 0;
       while (offset < length) {
+        throwIfAborted(options.signal, "read", path);
         const result = await file.read(output, offset, length - offset, start + offset);
+        throwIfAborted(options.signal, "read", path);
         if (result.bytesRead === 0) break;
         offset += result.bytesRead;
       }
@@ -334,37 +441,66 @@ export class NodeBackend implements FileBackendType {
       // `end` is inclusive. Stat once to preserve not-found/type failures, then
       // return the exact empty range requested by the portable contract.
       const info = await this.#fsp.stat(target);
+      throwIfAborted(options.signal, "read", path);
       if (info.isDirectory()) throw new FileSystemError("type-mismatch", "read", path, `'${path}' is a directory.`);
-      return new ReadableStream<Uint8Array>({ start(controller) { controller.close(); } });
+      return new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.close();
+        },
+      });
     }
     const start = options.at ?? 0;
     const end = options.length === undefined ? undefined : start + options.length - 1;
     const stream = this.#fs.createReadStream(target, { start, ...(end === undefined ? {} : { end }) });
-    return this.#stream.Readable.toWeb(stream) as unknown as ReadableStream<Uint8Array>;
+    return withAbortSignal(
+      this.#stream.Readable.toWeb(stream) as unknown as ReadableStream<Uint8Array>,
+      options.signal,
+      path,
+    );
   }
 
   /** Preserves replace, append, and positioned update semantics with native Node APIs. */
   async writeFile(path: PathType, data: Uint8Array, options: FileDriverWriteOptionsType): Promise<void> {
+    this.#admit({ operation: "write", path, mode: options.mode, source: "bytes" });
     throwIfAborted(options.signal, "write", path);
     const target = this.#hostPath(path);
     if (options.mode === "replace") {
-      await this.#fsp.writeFile(target, data);
-      return;
+      try {
+        await this.#fsp.writeFile(target, data, { signal: options.signal });
+        throwIfAborted(options.signal, "write", path);
+        return;
+      } catch (error) {
+        throwIfAborted(options.signal, "write", path);
+        throw error;
+      }
     }
     if (options.mode === "append") {
-      await this.#fsp.appendFile(target, data);
+      if (options.signal === undefined) await this.#fsp.appendFile(target, data);
+      else {
+        const source = new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(data);
+            controller.close();
+          },
+        });
+        await writeStreamToFile(this.#fsp, target, path, source, options);
+      }
       return;
     }
 
-    const file = await openUpdateFile(this.#fsp, target, path);
+    const file = await openUpdateFile(this.#fsp, target, path, options.signal);
     try {
+      throwIfAborted(options.signal, "write", path);
       const position = options.at ?? 0;
       let offset = 0;
       while (offset < data.byteLength) {
+        throwIfAborted(options.signal, "write", path);
         const result = await file.write(data, offset, data.byteLength - offset, position + offset);
+        throwIfAborted(options.signal, "write", path);
         if (result.bytesWritten <= 0) throw new Error(`Node write made no progress for '${path}'.`);
         offset += result.bytesWritten;
       }
+      throwIfAborted(options.signal, "write", path);
       if (options.truncate) await file.truncate(position + data.byteLength);
     } finally {
       await file.close();
@@ -377,6 +513,7 @@ export class NodeBackend implements FileBackendType {
     source: ReadableStream<Uint8Array>,
     options: FileDriverWriteOptionsType,
   ): Promise<void> {
+    this.#admit({ operation: "write", path, mode: options.mode, source: "stream" });
     await writeStreamToFile(this.#fsp, this.#hostPath(path), path, source, options);
   }
 
@@ -386,15 +523,23 @@ export class NodeBackend implements FileBackendType {
     options: FileDriverSignalOptionsType = {},
   ): AsyncIterableIterator<FileDriverDirectoryEntryType> {
     throwIfAborted(options.signal, "read-dir", path);
-    for (const entry of await this.#fsp.readdir(this.#hostPath(path), { withFileTypes: true })) {
-      throwIfAborted(options.signal, "read-dir", path);
-      if (entry.isDirectory()) yield { name: entry.name, kind: "directory" };
-      else if (entry.isFile()) yield { name: entry.name, kind: "file" };
+    for await (const entry of this.entries(path, options)) {
+      if (entry.kind !== "file" && entry.kind !== "directory") {
+        throw new FileSystemError(
+          "not-supported",
+          "read-dir",
+          path,
+          `Entry '${entry.name}' is ${entry.kind}; use explicit remove to unlink it without following its target.`,
+        );
+      }
+      yield { name: entry.name, kind: entry.kind };
     }
   }
 
   /** Creates exactly one host directory. Parent creation belongs to the facade. */
   async createDir(path: PathType, options: FileDriverSignalOptionsType = {}): Promise<void> {
+    this.#admit({ operation: "write", path });
+    await this.#parents(path, options);
     throwIfAborted(options.signal, "mkdir", path);
     await this.#fsp.mkdir(this.#hostPath(path));
   }
@@ -410,6 +555,8 @@ export class NodeBackend implements FileBackendType {
    * itself instead of following it.
    */
   async remove(path: PathType, options: FileDriverSignalOptionsType = {}): Promise<void> {
+    this.#admit({ operation: "remove", path });
+    await this.#parents(path, options);
     throwIfAborted(options.signal, "remove", path);
     const target = this.#hostPath(path);
     const info = await this.#fsp.lstat(target);
@@ -420,23 +567,87 @@ export class NodeBackend implements FileBackendType {
 
   /** Uses `copyFile()` so source bytes do not route through JavaScript buffers. */
   async copy(source: PathType, destination: PathType, options: FileDriverCopyOptionsType): Promise<void> {
+    this.#admit({
+      operation: "copy",
+      path: source,
+      destination,
+      overwrite: options.overwrite,
+      preserve: options.preserve,
+      exclusive: options.exclusive,
+    });
+    await this.#parents(source, options);
+    await this.#parents(destination, options);
+    if (await this.entry(source, options) !== "file") {
+      throw new FileSystemError("type-mismatch", "copy", source, "Native file copy requires an ordinary source file.");
+    }
     throwIfAborted(options.signal, "copy", source);
-    await this.#fsp.copyFile(this.#hostPath(source), this.#hostPath(destination));
+    const from = this.#hostPath(source);
+    const to = this.#hostPath(destination);
+    const stage = this.#hostPath(joinPath(dirname(destination), `.opfs-${crypto.randomUUID()}.part`));
+    // Reserve before copying; cleanup must never remove an unowned collision.
+    const reservation = await this.#fsp.open(stage, "wx");
+    try {
+      await reservation.close();
+      throwIfAborted(options.signal, "copy", source);
+      await this.#fsp.copyFile(from, stage);
+      throwIfAborted(options.signal, "copy", source);
+      if (options.overwrite) await this.#fsp.rename(stage, to);
+      else await this.#fsp.link(stage, to);
+    } finally {
+      await this.#fsp.unlink(stage).catch(() => undefined);
+    }
   }
 
   /** Uses native rename for the driver's move capability. */
   async move(source: PathType, destination: PathType, options: FileDriverMoveOptionsType): Promise<void> {
+    this.#admit({
+      operation: "move",
+      path: source,
+      destination,
+      overwrite: options.overwrite,
+      preserve: options.preserve,
+      exclusive: options.exclusive,
+    });
+    await this.#parents(source, options);
+    await this.#parents(destination, options);
+    throwIfAborted(options.signal, "move", source);
+    if (options.exclusive && !options.overwrite) {
+      throw new FileSystemError(
+        "not-supported",
+        "move",
+        destination,
+        "Portable host rename has no atomic no-replace primitive; omit exclusive for a cooperating-owner precheck.",
+      );
+    }
+    if (await this.entry(source, options) === null) {
+      throw new FileSystemError("not-found", "move", source, `Source '${source}' does not exist.`);
+    }
+    if (!options.overwrite && await this.entry(destination, options) !== null) {
+      throw new FileSystemError("already-exists", "move", destination, `Destination '${destination}' already exists.`);
+    }
     throwIfAborted(options.signal, "move", source);
     await this.#fsp.rename(this.#hostPath(source), this.#hostPath(destination));
   }
 
+  /** Reserves a private sibling before any fallback can write or clean it up. */
+  async reserve(path: PathType, options: FileDriverSignalOptionsType = {}): Promise<void> {
+    assertHostPrimitive(this.hostProfile, "reserve", path);
+    await this.#parents(path, options);
+    throwIfAborted(options.signal, "reserve", path);
+    const file = await this.#fsp.open(this.#hostPath(path), "wx");
+    await file.close();
+  }
+
   /** Opens one long-lived asynchronous positional file descriptor. */
-  async openWritableFile(path: PathType): Promise<FileDriverWritableFileType> {
-    return new NodeWritableFile(path, await this.#fsp.open(this.#hostPath(path), "r+"));
+  async openWritableFile(path: PathType, options?: WritableOptionsType): Promise<FileDriverWritableFileType> {
+    assertHostPrimitive(this.hostProfile, "positionalWrite", path);
+    validateWritableOptions(options);
+    return new NodeWritableFile(path, await this.#fsp.open(this.#hostPath(path), "r+"), options);
   }
 
   /** Opens one synchronous random-access descriptor and transfers ownership to the wrapper. */
   async openSyncFile(path: PathType): Promise<FileDriverSyncFileType> {
+    assertHostPrimitive(this.hostProfile, "syncAccess", path);
     return new NodeSyncFile(this.#fs, path, this.#fs.openSync(this.#hostPath(path), "r+"));
   }
 }
@@ -461,8 +672,7 @@ export function createNodeDriver(options: NodeDriverOptionsType): FileDriverType
     name: "node",
     requirements: [{ code: "node-filesystem", state: "available" }],
     limits: [],
-    // Node already exposes the required file semantics directly, so the driver
-    // does not need additional behavior-changing optimization toggles here.
+    // The immutable profile owns deployment semantics; no native mount probing occurs.
     optimizations: [],
   });
 }

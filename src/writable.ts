@@ -1,3 +1,4 @@
+import type { WritableInspectionType } from "./driver/file.ts";
 import type { FileDriverWritableFileType } from "./driver/file.ts";
 import { FileSystemError, throwIfAborted, toFileSystemError } from "./error.ts";
 import type { HeldLockType } from "./lock.ts";
@@ -17,8 +18,10 @@ import type { HeldLockType } from "./lock.ts";
 export interface WritableFileType {
   /** Canonical virtual path whose mutation lock is owned by this resource. */
   readonly path: string;
-  /** True after `close()` or `abort()` releases the backend file. */
+  /** True once terminal admission stops ordinary operations; inspection reports pending native settlement. */
   readonly closed: boolean;
+  /** Detached resource admission budgets and pending work. */
+  inspect?(): WritableInspectionType | undefined;
   /** Writes all bytes at one explicit zero-based position. */
   write(buffer: ArrayBufferView, options: { readonly at: number }): Promise<void>;
   /** Changes current byte length. */
@@ -37,6 +40,9 @@ export class ManagedWritableFile implements WritableFileType {
   readonly path: string;
   /** Adapter positional file. `undefined` is the sole terminal-state marker. */
   #file: FileDriverWritableFileType | undefined;
+  /** Retains only the resource object for detached inspection after terminal admission. */
+  readonly #resource: FileDriverWritableFileType;
+  #terminal: Promise<void> | undefined;
   /** Facade mutation lock released exactly when the adapter file settles. */
   readonly #lock: HeldLockType;
   /** Optional operation signal checked before and after mutable backend work. */
@@ -51,8 +57,13 @@ export class ManagedWritableFile implements WritableFileType {
   ) {
     this.path = path;
     this.#file = file;
+    this.#resource = file;
     this.#lock = lock;
     this.#signal = signal;
+  }
+
+  inspect(): WritableInspectionType | undefined {
+    return this.#resource.inspect?.();
   }
 
   /** Reports terminal state from the adapter-resource marker without duplicating lifecycle state. */
@@ -110,42 +121,26 @@ export class ManagedWritableFile implements WritableFileType {
     }
   }
 
-  /**
-   * Closes once and always releases the facade lock.
-   *
-   * The backend file is detached before close starts so a failed close cannot
-   * leave an apparently reusable resource that no longer has lock ownership.
-   */
-  async close(): Promise<void> {
-    const file = this.#file;
-    if (file === undefined) return;
+  /** Reserves the winning terminal result and releases ownership after native settlement. */
+  #finish(operation: "close" | "abort", reason?: unknown): Promise<void> {
+    if (this.#terminal !== undefined) return this.#terminal;
+    const file = this.#file!;
     this.#file = undefined;
-    try {
-      await file.close();
-    } catch (error) {
-      throw toFileSystemError(error, "positional-close", this.path);
-    } finally {
-      this.#lock.release();
-    }
+    this.#terminal = Promise.resolve().then(() => operation === "close" ? file.close() : file.abort(reason))
+      .catch((error) => {
+        throw toFileSystemError(error, `positional-${operation}`, this.path);
+      })
+      .finally(() => this.#lock.release());
+    return this.#terminal;
   }
 
-  /**
-   * Aborts once and always releases the facade lock.
-   *
-   * Cleanup deliberately ignores the operation signal. Cancellation is the
-   * reason this method is often needed, so an already-aborted signal must not
-   * prevent native resources from being released.
-   */
-  async abort(reason?: unknown): Promise<void> {
-    const file = this.#file;
-    if (file === undefined) return;
-    this.#file = undefined;
-    try {
-      await file.abort(reason);
-    } catch (error) {
-      throw toFileSystemError(error, "positional-abort", this.path);
-    } finally {
-      this.#lock.release();
-    }
+  /** Waits for accepted operations, commits staging where applicable, then releases the lock. */
+  close(): Promise<void> {
+    return this.#finish("close");
+  }
+
+  /** Waits for accepted operations and discards supported staging; ignores an already-aborted signal. */
+  abort(reason?: unknown): Promise<void> {
+    return this.#finish("abort", reason);
   }
 }

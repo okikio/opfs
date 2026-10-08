@@ -1,3 +1,4 @@
+import type { DriverPlanInputType } from "../driver/definition.ts";
 import type { AdapterType } from "./definition.ts";
 import { defineAdapter } from "./definition.ts";
 import type {
@@ -7,6 +8,7 @@ import type {
   FileDriverSignalOptionsType,
   FileDriverType,
   FileDriverWriteOptionsType,
+  WritableOptionsType,
 } from "../driver/file.ts";
 import type { PathType } from "../path.ts";
 
@@ -29,10 +31,22 @@ class FileAdapter implements AdapterType {
   readonly driver: FileDriverType;
   readonly name: string;
   readonly capabilities: AdapterType["capabilities"];
+  readonly publication?: NonNullable<AdapterType["publication"]>;
+  readonly hostProfile?: NonNullable<AdapterType["hostProfile"]>;
+  readonly admit?: NonNullable<AdapterType["admit"]>;
+  readonly reserve?: NonNullable<AdapterType["reserve"]>;
+  readonly entry?: NonNullable<AdapterType["entry"]>;
+  readonly entries?: NonNullable<AdapterType["entries"]>;
   readonly #disposeDriver: boolean;
 
   constructor(driver: FileDriverType, options: FileAdapterOptionsType) {
     this.driver = driver;
+    if (driver.hostProfile !== undefined) this.hostProfile = driver.hostProfile;
+    if (driver.admit !== undefined) this.admit = driver.admit.bind(driver);
+    if (driver.reserve !== undefined) this.reserve = driver.reserve.bind(driver);
+    if (driver.publication !== undefined) this.publication = driver.publication;
+    if (driver.entry !== undefined) this.entry = driver.entry.bind(driver);
+    if (driver.entries !== undefined) this.entries = driver.entries.bind(driver);
     this.name = options.name ?? driver.name;
     this.#disposeDriver = options.disposeDriver ?? false;
     this.capabilities = {
@@ -46,6 +60,15 @@ class FileAdapter implements AdapterType {
       positionalWrite: driver.capabilities.positionalWrite && driver.openWritableFile !== undefined,
       syncAccess: driver.capabilities.syncAccess && driver.openSyncFile !== undefined,
     };
+    if (this.hostProfile !== undefined) {
+      Object.freeze(this.capabilities.streamWriteModes);
+      Object.freeze(this.capabilities);
+    }
+  }
+
+  /** File paths are already canonical; retain request-specific publication requirements. */
+  plan(input: DriverPlanInputType) {
+    return this.driver.plan(input);
   }
 
   stat(path: PathType, options?: FileDriverSignalOptionsType) {
@@ -94,11 +117,11 @@ class FileAdapter implements AdapterType {
     return this.driver.move(source, destination, options);
   }
 
-  openWritableFile(path: PathType) {
+  openWritableFile(path: PathType, options?: WritableOptionsType) {
     if (this.driver.openWritableFile === undefined) {
       throw new TypeError(`Driver '${this.driver.name}' has no positional file.`);
     }
-    return this.driver.openWritableFile(path);
+    return this.driver.openWritableFile(path, options);
   }
 
   openSyncFile(path: PathType) {

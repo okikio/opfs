@@ -1,5 +1,6 @@
-/// <reference types="deno" />
-import { pooledMap } from "@std/async/pool";
+import { withAbortSignal } from "../stream.ts";
+import { type GenerationOptionsType, KvGeneration, type KvPinType, type KvUsageType } from "./generation.ts";
+import { map as pooledMap } from "../pool.ts";
 import { concat } from "@std/bytes";
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
 import { z } from "zod";
@@ -49,10 +50,37 @@ export const DENO_KV_DEFAULT_COLLECT_AGE_MS = 60 * 60 * 1000;
 /** Default deletion budget for one explicit collection pass. */
 export const DENO_KV_DEFAULT_COLLECT_DELETES = 10_000;
 
+/**
+ * Native Deno KV key tuple. The package exposes this structural contract so
+ * importing its types does not require an unstable ambient Deno namespace.
+ */
+export type DenoKvKeyType = readonly (Uint8Array | string | number | bigint | boolean | symbol)[];
+
+/** Native prefix or ordered-range selector accepted by the borrowed database. */
+export type DenoKvListSelectorType =
+  | { readonly prefix: DenoKvKeyType }
+  | { readonly prefix: DenoKvKeyType; readonly start: DenoKvKeyType }
+  | { readonly prefix: DenoKvKeyType; readonly end: DenoKvKeyType }
+  | { readonly start: DenoKvKeyType; readonly end: DenoKvKeyType };
+
+/** Native list options. Consistency applies to each provider batch separately. */
+export interface DenoKvListOptionsType {
+  /** Maximum number of matching entries returned. */
+  readonly limit?: number;
+  /** Provider cursor used to resume iteration. */
+  readonly cursor?: string;
+  /** Iterates keys in descending order when enabled. */
+  readonly reverse?: boolean;
+  /** Selects strong or eventual consistency for each returned batch. */
+  readonly consistency?: "strong" | "eventual";
+  /** Requested batch size, bounded by the provider's native limit. */
+  readonly batchSize?: number;
+}
+
 /** Structural Deno KV entry used by the driver. */
 export interface DenoKvEntryType<T> {
   /** Stored tuple returned by exact reads and prefix iteration. */
-  readonly key: Deno.KvKey;
+  readonly key: DenoKvKeyType;
   /** Stored value, or null for a missing exact get. */
   readonly value: T | null;
   /** Provider version used for optimistic visibility commits. Missing entries use null. */
@@ -62,7 +90,7 @@ export interface DenoKvEntryType<T> {
 /** Version check accepted by the Deno KV atomic operation. */
 export interface DenoKvCheckType {
   /** Exact logical entry key observed before the operation started. */
-  readonly key: Deno.KvKey;
+  readonly key: DenoKvKeyType;
   /** Version observed by `get()`, or null when the logical entry did not exist. */
   readonly versionstamp: string | null;
 }
@@ -78,9 +106,9 @@ export interface DenoKvAtomicType {
   /** Requires the logical entry to retain the version observed before physical preparation. */
   check(...checks: DenoKvCheckType[]): DenoKvAtomicType;
   /** Adds one small metadata or logical-entry replacement to the transaction. */
-  set(key: Deno.KvKey, value: unknown): DenoKvAtomicType;
+  set(key: DenoKvKeyType, value: unknown): DenoKvAtomicType;
   /** Adds one logical-entry deletion to the transaction. */
-  delete(key: Deno.KvKey): DenoKvAtomicType;
+  delete(key: DenoKvKeyType): DenoKvAtomicType;
   /** Commits checks and metadata mutations atomically. */
   commit(): Promise<DenoKvCommitType>;
 }
@@ -88,11 +116,11 @@ export interface DenoKvAtomicType {
 /** Structural Deno KV subset required by this driver. */
 export interface DenoKvType {
   /** Reads one exact key. */
-  get<T = unknown>(key: Deno.KvKey): Promise<DenoKvEntryType<T>>;
+  get<T = unknown>(key: DenoKvKeyType): Promise<DenoKvEntryType<T>>;
   /** Replaces one key. */
-  set(key: Deno.KvKey, value: unknown): Promise<unknown>;
+  set(key: DenoKvKeyType, value: unknown): Promise<unknown>;
   /** Removes one key. */
-  delete(key: Deno.KvKey): Promise<void>;
+  delete(key: DenoKvKeyType): Promise<void>;
   /** Starts one optimistic transaction for the logical visibility mutation. */
   atomic(): DenoKvAtomicType;
   /**
@@ -101,24 +129,35 @@ export interface DenoKvType {
    * The driver currently uses prefix-based listing, but the wider selector type
    * keeps the structural contract compatible with the real Deno KV API.
    */
-  list<T = unknown>(selector: Deno.KvListSelector, options?: Deno.KvListOptions): AsyncIterable<DenoKvEntryType<T>>;
+  list<T = unknown>(
+    selector: DenoKvListSelectorType,
+    options?: DenoKvListOptionsType,
+  ): AsyncIterable<DenoKvEntryType<T>>;
   /** Closes the database when the caller transfers ownership. */
   close?(): void;
 }
 
 /** Options for explicit reclamation of superseded or unpublished Deno KV body parts. */
 export interface DenoKvCollectOptionsType {
+  /** Opaque continuation returned by a bounded previous pass. */
+  readonly cursor?: string;
   /**
-   * Minimum retirement or unpublished-generation age before physical parts can be removed.
+   * Minimum retirement age before physical parts can be removed.
    *
    * Defaults to one hour. Published generations measure this delay from the
    * moment they are retired, so a long-lived generation is not reclaimed
-   * immediately after an overwrite. Unpublished crash leftovers use generation
-   * creation time because no reader could have resolved them through a manifest.
+   * immediately after an overwrite. Unpublished work becomes eligible only after
+   * its writer lease expires. Every deletion also requires a versioned claim.
    */
   readonly minAgeMs?: number;
   /** Maximum part deletions in one call. Defaults to 10,000. */
   readonly maxDeletes?: number;
+  /** Maximum state/part records scanned. Defaults to 20,000. */
+  readonly maxScans?: number;
+  /** Maximum pin records examined. Defaults to 1,000. */
+  readonly maxPinScans?: number;
+  /** Reclaimed state retention before removing its fence record. Defaults to one hour. */
+  readonly tombstoneAgeMs?: number;
   /** Cancels scanning and deletion between provider operations. */
   readonly signal?: AbortSignal;
 }
@@ -135,16 +174,52 @@ export interface DenoKvCollectResultType {
   readonly retained: number;
   /** True when `maxDeletes` stopped the pass before the prefix scan ended. */
   readonly truncated: boolean;
+  readonly active: number;
+  readonly pinned: number;
+  readonly conflicts: number;
+  readonly scanned: number;
+  readonly prunedPins: number;
+  /** Continue this pass with collect({ cursor }); absent means the scan completed. */
+  readonly cursor?: string;
+}
+
+/** Live partition retention and operation-owned unknown-reader cleanup count. */
+export type DenoKvUsageType = KvUsageType & { readonly pendingReaders: number };
+
+/** A dispatched visibility commit whose outcome could not be reconciled from its own generation state. */
+export class DenoKvCommitError extends FileSystemError {
+  /** A lost response can follow an applied commit; retry requires application reconciliation. */
+  readonly effect = "unknown" as const;
+  constructor(operation: string, path: string, cause: unknown) {
+    super(
+      "unknown",
+      operation,
+      path,
+      "Deno KV visibility commit outcome is unknown; inspect logical state before replaying publication.",
+      cause,
+    );
+  }
 }
 
 /** Deno KV record driver with explicit physical maintenance. */
 export interface DenoKvDriverType extends RecordDriverType {
   /** Reclaims old part generations that are not referenced by a published manifest. */
   collect(options?: DenoKvCollectOptionsType): Promise<DenoKvCollectResultType>;
+  /** Explicit live retention probe; inspect remains I/O-free. */
+  probe(): Promise<DenoKvUsageType>;
+  /** Configured maintenance policy, excluding live state. */
+  readonly maintenance: {
+    readonly layout: "deno-kv-parts-v3";
+    readonly writerLeaseMs: number;
+    readonly readerLeaseMs: number;
+    readonly maxReaders: number;
+    readonly maxRetainedBytes?: number;
+    readonly maxGenerations?: number;
+  };
 }
 
 /** Configuration for the Deno KV record driver and its physical partition layout. */
-export interface DenoKvDriverOptionsType {
+export interface DenoKvDriverOptionsType extends GenerationOptionsType {
   /** Key namespace. Defaults to `okikio-opfs`. */
   readonly prefix?: string;
   /** Closes the injected KV database with the driver. */
@@ -177,7 +252,7 @@ const DenoKvFileSchema = z.object({
 
 /** Durable pointer to one generation of raw Deno KV body parts. */
 const DenoKvManifestSchema = z.object({
-  storage: z.literal("deno-kv-parts-v2"),
+  storage: z.literal("deno-kv-parts-v3"),
   generation: z.string().min(1),
   parts: z.number().int().positive(),
   partBytes: z.number().int().positive(),
@@ -187,15 +262,6 @@ const DenoKvManifestSchema = z.object({
 /** Validated private manifest that publishes one complete partition generation. */
 type DenoKvManifestType = z.output<typeof DenoKvManifestSchema>;
 
-/** Retirement metadata written before a visible generation is superseded or removed. */
-const DenoKvRetiredSchema = z.object({
-  storage: z.literal("deno-kv-retired-v1"),
-  retiredAt: z.number().int().nonnegative(),
-}).strict();
-
-/** Validated retirement marker used to delay reclamation after visibility changes. */
-type DenoKvRetiredType = z.output<typeof DenoKvRetiredSchema>;
-
 /** Physical value stored at one logical entry key: inline record or partition manifest. */
 type DenoKvStoredType = RecordType | DenoKvManifestType;
 
@@ -203,23 +269,18 @@ type DenoKvStoredType = RecordType | DenoKvManifestType;
 type DenoKvStoredEntryType = DenoKvEntryType<DenoKvStoredType>;
 
 /** Maps one exact virtual path to a Deno KV entry key derived from its parent and name. */
-function key(prefix: string, path: string): Deno.KvKey {
+function key(prefix: string, path: string): DenoKvKeyType {
   return [prefix, "entry", dirname(path), basename(path)];
 }
 
 /** Prefix whose entries are exactly the direct children of one canonical parent path. */
-function listKey(prefix: string, parent: string): Deno.KvKey {
+function listKey(prefix: string, parent: string): DenoKvKeyType {
   return [prefix, "entry", parent];
 }
 
 /** Maps one logical file generation and part number to a separate raw binary key. */
-function partKey(prefix: string, path: string, generation: string, index: number): Deno.KvKey {
+function partKey(prefix: string, path: string, generation: string, index: number): DenoKvKeyType {
   return [prefix, "part", path, generation, index];
-}
-
-/** Maps one superseded generation to the time at which it stopped being visible. */
-function retiredKey(prefix: string, path: string, generation: string): Deno.KvKey {
-  return [prefix, "retired", path, generation];
 }
 
 /** Validates a positive safe integer configuration value. */
@@ -250,7 +311,7 @@ function validateSizePolicy(partBytes: number, inlineBytes: number, maxParts: nu
 
 /** Returns true when a stored value is the private partition manifest rather than a public record. */
 function isManifest(value: unknown): value is DenoKvManifestType {
-  return typeof value === "object" && value !== null && (value as { storage?: unknown }).storage === "deno-kv-parts-v2";
+  return typeof value === "object" && value !== null && (value as { storage?: unknown }).storage === "deno-kv-parts-v3";
 }
 
 /** Projects a manifest to listing metadata without reading any body part. */
@@ -263,27 +324,11 @@ function generation(): string {
   return `${Date.now().toString(36)}-${crypto.randomUUID()}`;
 }
 
-/** Reads the timestamp prefix embedded in a project-generated physical generation ID. */
-function generationTime(value: string): number | undefined {
-  const [encoded] = value.split("-", 1);
-  if (encoded === undefined || encoded.length === 0) return undefined;
-  const time = Number.parseInt(encoded, 36);
-  return Number.isSafeInteger(time) && time >= 0 ? time : undefined;
-}
-
-/** Splits bytes into independent copies so each stored value owns a stable ArrayBuffer. */
-function parts(bytes: Uint8Array, partBytes: number): Uint8Array[] {
-  if (bytes.byteLength === 0) return [new Uint8Array()];
-  const output: Uint8Array[] = [];
-  for (let at = 0; at < bytes.byteLength; at += partBytes) output.push(bytes.slice(at, at + partBytes));
-  return output;
-}
-
 /** UTF-8 encoder used for conservative Deno KV tuple-size planning. */
 const keyEncoder = new TextEncoder();
 
 /** Conservatively estimates serialized tuple bytes for the key component types used here. */
-function estimateKeyBytes(value: Deno.KvKey): number {
+function estimateKeyBytes(value: DenoKvKeyType): number {
   let bytes = 0;
   for (const component of value) {
     bytes += 16;
@@ -298,7 +343,7 @@ function estimateKeyBytes(value: Deno.KvKey): number {
 function createDenoKvPlan(options: DenoKvDriverOptionsType, input: DriverPlanInputType): DriverPlanType {
   const request = DriverPlanInputSchema.parse(input);
   const partition = PartitionModeSchema.parse(options.partition ?? "auto");
-  const prefix = options.prefix ?? "okikio-opfs";
+  const prefix = `${options.prefix ?? "okikio-opfs"}:v3`;
   const partBytes = positive(options.partBytes, DENO_KV_DEFAULT_PART_BYTES, "partBytes");
   const inlineBytes = positive(options.inlineBytes, DENO_KV_DEFAULT_INLINE_BYTES, "inlineBytes");
   const maxParts = positive(options.maxParts, DENO_KV_DEFAULT_MAX_PARTS, "maxParts");
@@ -308,7 +353,13 @@ function createDenoKvPlan(options: DenoKvDriverOptionsType, input: DriverPlanInp
   if (request.path !== undefined) {
     const entryBytes = estimateKeyBytes(key(prefix, request.path));
     const partBytesEstimate = estimateKeyBytes(
-      partKey(prefix, request.path, "00000000-0000-4000-8000-000000000000", maxParts - 1),
+      [
+        prefix,
+        "pin",
+        request.path,
+        "00000000000-00000000-0000-4000-8000-000000000000",
+        "00000000-0000-4000-8000-000000000000",
+      ],
     );
     const estimated = Math.max(entryBytes, partBytesEstimate);
     if (estimated > DENO_KV_MAX_KEY_BYTES) {
@@ -397,14 +448,14 @@ function createDenoKvPlan(options: DenoKvDriverOptionsType, input: DriverPlanInp
  * check old versionstamp
  *         |
  *         v
- * atomic retirement marker + manifest commit
+ * atomic state publication/retirement + manifest commit
  *                  <- visibility point
  *         |
  *         v
- * explicit collect() after retirement grace
+ * explicit claimed collect() after grace and pin release
  * ```
  *
- * Readers that already resolved the previous manifest can continue reading its
+ * Readers that pin the previous manifest can continue reading its
  * immutable parts during the configured retirement grace. Superseded parts are therefore
  * not deleted inline. `collect()` reclaims them only after their retirement
  * grace period. A process crash before manifest publication can still leave an
@@ -418,9 +469,12 @@ class DenoKvBackend implements RecordBackendType {
   readonly #database: DenoKvType;
   /** First key tuple component reserved for this filesystem. */
   readonly #prefix: string;
+  readonly #legacyPrefix: string;
+  readonly #generation: KvGeneration;
+  #ready: Promise<void> | undefined;
   /** Whether store disposal also closes the injected database. */
   readonly #disposeDatabase: boolean;
-  /** Prevents all physical mutation, including maintenance collection. */
+  /** Prevents logical mutations and collection. Read leases still mutate private accounting. */
   readonly #readOnly: boolean;
   /** Large logical-file policy. */
   readonly #partition: PartitionModeType;
@@ -436,7 +490,9 @@ class DenoKvBackend implements RecordBackendType {
   /** Resolves namespace, ownership, and physical layout once. */
   constructor(database: DenoKvType, options: DenoKvDriverOptionsType) {
     this.#database = database;
-    this.#prefix = options.prefix ?? "okikio-opfs";
+    this.#legacyPrefix = options.prefix ?? "okikio-opfs";
+    this.#prefix = `${this.#legacyPrefix}:v3`;
+    this.#generation = new KvGeneration(database, this.#prefix, options);
     this.#disposeDatabase = options.disposeDatabase ?? false;
     this.#readOnly = options.readOnly ?? false;
     this.#partition = PartitionModeSchema.parse(options.partition ?? "auto");
@@ -454,8 +510,45 @@ class DenoKvBackend implements RecordBackendType {
     } as const;
   }
 
+  /** Refuses implicit cutover of a legacy namespace; mixed live writers cannot share fences. */
+  #open(): Promise<void> {
+    if (this.#ready !== undefined) return this.#ready;
+    this.#ready = (async () => {
+      for await (const _ of this.#database.list({ prefix: [this.#legacyPrefix, "entry"] }, { limit: 1 })) {
+        throw new TypeError(
+          `Legacy Deno KV namespace '${this.#legacyPrefix}' needs a quiescent export/import into a fresh prefix before v3 maintenance is enabled.`,
+        );
+      }
+      await this.#generation.open();
+    })().catch((error) => {
+      this.#ready = undefined;
+      throw error;
+    });
+    return this.#ready;
+  }
+
+  async probe(): Promise<DenoKvUsageType> {
+    await this.#open();
+    return await this.#generation.probe();
+  }
+
+  /** Pins the observed logical generation; replacement during acquisition causes an explicit retryable conflict. */
+  async #pin(path: string, generation: string): Promise<KvPinType> {
+    const entry = await this.#entry(path);
+    if (entry.value === null || !isManifest(entry.value) || entry.value.generation !== generation) {
+      throw new FileSystemError(
+        "locked",
+        "read",
+        path,
+        "File changed before generation pin admission; retry the read.",
+      );
+    }
+    return await this.#generation.pin(path, generation, entry);
+  }
+
   /** Reads one exact logical entry and retains its provider version for a later optimistic commit. */
   async #entry(path: string): Promise<DenoKvStoredEntryType> {
+    await this.#open();
     const entry = await this.#database.get<unknown>(key(this.#prefix, path));
     const value = entry.value === null
       ? null
@@ -484,33 +577,40 @@ class DenoKvBackend implements RecordBackendType {
     if (!isManifest(stored)) return stored;
 
     const manifest = stored;
-    const chunks = new Array<Uint8Array>(manifest.parts);
-    const indexes = Array.from({ length: manifest.parts }, (_, index) => index);
-    for await (
-      const result of pooledMap(this.#concurrency, indexes, async (index) => {
-        const part = await this.#database.get<Uint8Array>(partKey(this.#prefix, path, manifest.generation, index));
-        if (!(part.value instanceof Uint8Array)) {
-          throw new FileSystemError(
-            "unknown",
-            "read",
-            path,
-            `Deno KV file '${path}' is missing physical part ${index} of ${manifest.parts}.`,
-          );
-        }
-        return { index, bytes: part.value };
-      })
-    ) chunks[result.index] = result.bytes;
+    const pin = await this.#pin(path, manifest.generation);
+    try {
+      const chunks = new Array<Uint8Array>(manifest.parts);
+      const indexes = Array.from({ length: manifest.parts }, (_, index) => index);
+      for await (
+        const result of pooledMap(this.#concurrency, indexes, async (index) => {
+          await pin.check();
+          const part = await this.#database.get<Uint8Array>(partKey(this.#prefix, path, manifest.generation, index));
+          if (!(part.value instanceof Uint8Array)) {
+            throw new FileSystemError(
+              "unknown",
+              "read",
+              path,
+              `Deno KV file '${path}' is missing physical part ${index} of ${manifest.parts}.`,
+            );
+          }
+          await pin.check();
+          return { index, bytes: part.value };
+        })
+      ) chunks[result.index] = result.bytes;
 
-    const bytes = concat(chunks);
-    if (bytes.byteLength !== manifest.file.size) {
-      throw new FileSystemError(
-        "unknown",
-        "read",
-        path,
-        `Deno KV file '${path}' reconstructed ${bytes.byteLength} bytes; manifest expects ${manifest.file.size}.`,
-      );
+      const bytes = concat(chunks);
+      if (bytes.byteLength !== manifest.file.size) {
+        throw new FileSystemError(
+          "unknown",
+          "read",
+          path,
+          `Deno KV file '${path}' reconstructed ${bytes.byteLength} bytes; manifest expects ${manifest.file.size}.`,
+        );
+      }
+      return RecordSchema.parse({ ...manifest.file, data: encodeBase64(bytes) });
+    } finally {
+      await pin.release();
     }
-    return RecordSchema.parse({ ...manifest.file, data: encodeBase64(bytes) });
   }
 
   /**
@@ -536,44 +636,51 @@ class DenoKvBackend implements RecordBackendType {
     }
 
     const manifest = stored;
-    const start = Math.min(options.at ?? 0, manifest.file.size);
-    const end = options.length === undefined
-      ? manifest.file.size
-      : Math.min(manifest.file.size, start + options.length);
-    if (start === end) return new Uint8Array();
+    const pin = await this.#pin(path, manifest.generation);
+    try {
+      const start = Math.min(options.at ?? 0, manifest.file.size);
+      const end = options.length === undefined
+        ? manifest.file.size
+        : Math.min(manifest.file.size, start + options.length);
+      if (start === end) return new Uint8Array();
 
-    const first = Math.floor(start / manifest.partBytes);
-    const last = Math.ceil(end / manifest.partBytes);
-    const indexes = Array.from({ length: last - first }, (_, offset) => first + offset);
-    const chunks = new Array<Uint8Array>(indexes.length);
-    for await (
-      const result of pooledMap(this.#concurrency, indexes, async (index) => {
-        throwIfAborted(options.signal, "read", path);
-        const part = await this.#database.get<Uint8Array>(partKey(this.#prefix, path, manifest.generation, index));
-        if (!(part.value instanceof Uint8Array)) {
-          throw new FileSystemError(
-            "unknown",
-            "read",
-            path,
-            `Deno KV file '${path}' is missing physical part ${index} of ${manifest.parts}.`,
-          );
-        }
-        return { index, bytes: part.value };
-      })
-    ) chunks[result.index - first] = result.bytes;
+      const first = Math.floor(start / manifest.partBytes);
+      const last = Math.ceil(end / manifest.partBytes);
+      const indexes = Array.from({ length: last - first }, (_, offset) => first + offset);
+      const chunks = new Array<Uint8Array>(indexes.length);
+      for await (
+        const result of pooledMap(this.#concurrency, indexes, async (index) => {
+          throwIfAborted(options.signal, "read", path);
+          await pin.check();
+          const part = await this.#database.get<Uint8Array>(partKey(this.#prefix, path, manifest.generation, index));
+          if (!(part.value instanceof Uint8Array)) {
+            throw new FileSystemError(
+              "unknown",
+              "read",
+              path,
+              `Deno KV file '${path}' is missing physical part ${index} of ${manifest.parts}.`,
+            );
+          }
+          await pin.check();
+          return { index, bytes: part.value };
+        })
+      ) chunks[result.index - first] = result.bytes;
 
-    const joined = concat(chunks);
-    const localStart = start - first * manifest.partBytes;
-    const result = joined.slice(localStart, localStart + (end - start));
-    if (result.byteLength !== end - start) {
-      throw new FileSystemError(
-        "unknown",
-        "read",
-        path,
-        `Deno KV range for '${path}' reconstructed ${result.byteLength} bytes; expected ${end - start}.`,
-      );
+      const joined = concat(chunks);
+      const localStart = start - first * manifest.partBytes;
+      const result = joined.slice(localStart, localStart + (end - start));
+      if (result.byteLength !== end - start) {
+        throw new FileSystemError(
+          "unknown",
+          "read",
+          path,
+          `Deno KV range for '${path}' reconstructed ${result.byteLength} bytes; expected ${end - start}.`,
+        );
+      }
+      return result;
+    } finally {
+      await pin.release();
     }
-    return result;
   }
 
   /**
@@ -612,33 +719,51 @@ class DenoKvBackend implements RecordBackendType {
     const database = this.#database;
     const prefix = this.#prefix;
     const signal = options.signal;
+    const pin = await this.#pin(path, manifest.generation);
 
     return new ReadableStream<Uint8Array>({
       async pull(controller) {
-        throwIfAborted(signal, "read", path);
-        if (start === end || index >= last) {
-          controller.close();
-          return;
+        try {
+          await pin.check();
+          throwIfAborted(signal, "read", path);
+          if (start === end || index >= last) {
+            await pin.release();
+            controller.close();
+            return;
+          }
+          const entry = await database.get<Uint8Array>(partKey(prefix, path, manifest.generation, index));
+          throwIfAborted(signal, "read", path);
+          await pin.check();
+          if (!(entry.value instanceof Uint8Array)) {
+            await pin.release();
+            controller.error(
+              new FileSystemError(
+                "unknown",
+                "read",
+                path,
+                `Deno KV file '${path}' is missing physical part ${index} of ${manifest.parts}.`,
+              ),
+            );
+            return;
+          }
+          const physicalStart = index * manifest.partBytes;
+          const from = index === first ? start - physicalStart : 0;
+          const to = index === last - 1
+            ? Math.min(entry.value.byteLength, end - physicalStart)
+            : entry.value.byteLength;
+          index += 1;
+          if (to > from) controller.enqueue(entry.value.slice(from, to));
+          if (index >= last) {
+            await pin.release();
+            controller.close();
+          }
+        } catch (error) {
+          await pin.release().catch(() => undefined);
+          controller.error(error);
         }
-        const entry = await database.get<Uint8Array>(partKey(prefix, path, manifest.generation, index));
-        throwIfAborted(signal, "read", path);
-        if (!(entry.value instanceof Uint8Array)) {
-          controller.error(
-            new FileSystemError(
-              "unknown",
-              "read",
-              path,
-              `Deno KV file '${path}' is missing physical part ${index} of ${manifest.parts}.`,
-            ),
-          );
-          return;
-        }
-        const physicalStart = index * manifest.partBytes;
-        const from = index === first ? start - physicalStart : 0;
-        const to = index === last - 1 ? Math.min(entry.value.byteLength, end - physicalStart) : entry.value.byteLength;
-        index += 1;
-        if (to > from) controller.enqueue(entry.value.slice(from, to));
-        if (index >= last) controller.close();
+      },
+      async cancel() {
+        await pin.release();
       },
     });
   }
@@ -666,29 +791,36 @@ class DenoKvBackend implements RecordBackendType {
       return decodeBase64(stored.data).slice(at, at + length);
     }
 
-    const start = Math.min(at, stored.file.size);
-    const end = Math.min(stored.file.size, start + length);
-    if (start === end) return new Uint8Array();
-    const first = Math.floor(start / stored.partBytes);
-    const last = Math.ceil(end / stored.partBytes);
-    const chunks: Uint8Array[] = [];
-    for (let index = first; index < last; index += 1) {
-      throwIfAborted(signal, "read", path);
-      const part = await this.#database.get<Uint8Array>(partKey(this.#prefix, path, stored.generation, index));
-      if (!(part.value instanceof Uint8Array)) {
-        throw new FileSystemError(
-          "unknown",
-          "read",
-          path,
-          `Deno KV file '${path}' is missing physical part ${index} of ${stored.parts}.`,
-        );
+    const pin = await this.#pin(path, stored.generation);
+    try {
+      const start = Math.min(at, stored.file.size);
+      const end = Math.min(stored.file.size, start + length);
+      if (start === end) return new Uint8Array();
+      const first = Math.floor(start / stored.partBytes);
+      const last = Math.ceil(end / stored.partBytes);
+      const chunks: Uint8Array[] = [];
+      for (let index = first; index < last; index += 1) {
+        throwIfAborted(signal, "read", path);
+        await pin.check();
+        const part = await this.#database.get<Uint8Array>(partKey(this.#prefix, path, stored.generation, index));
+        if (!(part.value instanceof Uint8Array)) {
+          throw new FileSystemError(
+            "unknown",
+            "read",
+            path,
+            `Deno KV file '${path}' is missing physical part ${index} of ${stored.parts}.`,
+          );
+        }
+        await pin.check();
+        chunks.push(part.value);
       }
-      chunks.push(part.value);
-    }
 
-    const joined = concat(chunks);
-    const localStart = start - first * stored.partBytes;
-    return joined.slice(localStart, localStart + (end - start));
+      const joined = concat(chunks);
+      const localStart = start - first * stored.partBytes;
+      return joined.slice(localStart, localStart + (end - start));
+    } finally {
+      await pin.release();
+    }
   }
 
   /**
@@ -705,29 +837,51 @@ class DenoKvBackend implements RecordBackendType {
     previous: DenoKvStoredEntryType,
     next: DenoKvStoredType | undefined,
     operation: "write" | "remove",
+    signal?: AbortSignal,
   ): Promise<void> {
-    const transaction = this.#database.atomic().check({
-      key: previous.key,
-      versionstamp: previous.versionstamp,
-    });
-    if (previous.value !== null && isManifest(previous.value)) {
-      transaction.set(
-        retiredKey(this.#prefix, path, previous.value.generation),
-        DenoKvRetiredSchema.parse({ storage: "deno-kv-retired-v1", retiredAt: Date.now() }),
-      );
+    for (let retry = 0; retry < this.#generation.maxRetries; retry++) {
+      const current = await this.#entry(path);
+      if (current.versionstamp !== previous.versionstamp) {
+        throw new FileSystemError(
+          "locked",
+          operation,
+          path,
+          "Logical entry changed during preparation; retry the operation.",
+        );
+      }
+      const transaction = this.#database.atomic().check(previous);
+      const nextGeneration = next !== undefined && isManifest(next) ? next.generation : undefined;
+      const previousGeneration = previous.value !== null && isManifest(previous.value)
+        ? previous.value.generation
+        : undefined;
+      await this.#generation.publish(transaction, path, nextGeneration, previousGeneration);
+      if (next === undefined) transaction.delete(previous.key);
+      else transaction.set(previous.key, next);
+      throwIfAborted(signal, operation, path);
+      try {
+        const result = await transaction.commit();
+        if (!result.ok) continue; // Reader pin metadata may have changed; refresh its fence.
+        if (nextGeneration !== undefined) this.#generation.finish(nextGeneration);
+        return;
+      } catch (error) {
+        try {
+          if (nextGeneration !== undefined && await this.#generation.published(path, nextGeneration)) {
+            this.#generation.finish(nextGeneration);
+            return; // Own durable state reconciles an applied-but-unacknowledged publication.
+          }
+        } catch (reconcile) {
+          throw new DenoKvCommitError(
+            operation,
+            path,
+            new AggregateError([error, reconcile], "Commit response and own-state reconciliation failed.", {
+              cause: error,
+            }),
+          );
+        }
+        throw new DenoKvCommitError(operation, path, error);
+      }
     }
-    if (next === undefined) transaction.delete(previous.key);
-    else transaction.set(previous.key, next);
-
-    const result = await transaction.commit();
-    if (!result.ok) {
-      throw new FileSystemError(
-        "locked",
-        operation,
-        path,
-        `Deno KV entry '${path}' changed while this operation prepared its commit. Retry the operation.`,
-      );
-    }
+    throw new FileSystemError("locked", operation, path, "Visibility commit exceeded its bounded contention budget.");
   }
 
   /**
@@ -770,7 +924,7 @@ class DenoKvBackend implements RecordBackendType {
     };
 
     if (options.mode === "replace") {
-      await this.#saveFile(file, data, previousEntry);
+      await this.#saveFile(file, data, previousEntry, options.signal);
       return;
     }
 
@@ -789,7 +943,7 @@ class DenoKvBackend implements RecordBackendType {
         output.set(await this.#readRange(path, previousStored, 0, Math.min(previousSize, outputSize), options.signal));
       }
       output.set(data, position);
-      await this.#saveFile(file, output, previousEntry);
+      await this.#saveFile(file, output, previousEntry, options.signal);
       return;
     }
 
@@ -824,7 +978,7 @@ class DenoKvBackend implements RecordBackendType {
           if (patchEnd > patchStart) {
             chunk.set(data.subarray(patchStart - position, patchEnd - position), patchStart - start);
           }
-          await this.#database.set(partKey(this.#prefix, path, nextGeneration, index), chunk);
+          await this.#generation.part(path, nextGeneration, index, chunk);
         })
       ) {
         // The iterator is consumed so all bounded reads/writes settle before the manifest becomes visible.
@@ -832,13 +986,13 @@ class DenoKvBackend implements RecordBackendType {
 
       throwIfAborted(options.signal, "write", path);
       const manifest = DenoKvManifestSchema.parse({
-        storage: "deno-kv-parts-v2",
+        storage: "deno-kv-parts-v3",
         generation: nextGeneration,
         parts: partCount,
         partBytes: this.#partBytes,
         file,
       });
-      await this.#commit(path, previousEntry, manifest, "write");
+      await this.#commit(path, previousEntry, manifest, "write", options.signal);
     } catch (error) {
       await this.#deleteGeneration(path, nextGeneration, partCount).catch(() => undefined);
       throw error;
@@ -883,29 +1037,33 @@ class DenoKvBackend implements RecordBackendType {
 
     try {
       for await (
-        const written of pooledMap(this.#concurrency, split(source, this.#partBytes), async (chunk) => {
-          const index = scheduled++;
-          if (index >= this.#maxParts) {
-            throw new FileSystemError(
-              "too-large",
-              "write",
-              path,
-              `Deno KV stream exceeded configured maxParts ${this.#maxParts}.`,
-            );
-          }
-          throwIfAborted(options.signal, "write", path);
-          await this.#database.set(partKey(this.#prefix, path, nextGeneration, index), chunk);
-          return { bytes: chunk.byteLength };
-        })
+        const written of pooledMap(
+          this.#concurrency,
+          split(withAbortSignal(source, options.signal, path, "write"), this.#partBytes),
+          async (chunk) => {
+            const index = scheduled++;
+            if (index >= this.#maxParts) {
+              throw new FileSystemError(
+                "too-large",
+                "write",
+                path,
+                `Deno KV stream exceeded configured maxParts ${this.#maxParts}.`,
+              );
+            }
+            throwIfAborted(options.signal, "write", path);
+            await this.#generation.part(path, nextGeneration, index, chunk);
+            return { bytes: chunk.byteLength };
+          },
+        )
       ) size += written.bytes;
 
       if (scheduled === 0) {
         scheduled = 1;
-        await this.#database.set(partKey(this.#prefix, path, nextGeneration, 0), new Uint8Array());
+        await this.#generation.part(path, nextGeneration, 0, new Uint8Array());
       }
       throwIfAborted(options.signal, "write", path);
       const manifest = DenoKvManifestSchema.parse({
-        storage: "deno-kv-parts-v2",
+        storage: "deno-kv-parts-v3",
         generation: nextGeneration,
         parts: scheduled,
         partBytes: this.#partBytes,
@@ -920,7 +1078,7 @@ class DenoKvBackend implements RecordBackendType {
           mediaType: options.mediaType ?? previousMediaType,
         },
       });
-      await this.#commit(path, previousEntry, manifest, "write");
+      await this.#commit(path, previousEntry, manifest, "write", options.signal);
     } catch (error) {
       await this.#deleteGeneration(path, nextGeneration, scheduled).catch(() => undefined);
       throw error;
@@ -953,39 +1111,45 @@ class DenoKvBackend implements RecordBackendType {
       return;
     }
 
-    const chunks = parts(bytes, this.#partBytes);
-    if (chunks.length > this.#maxParts) {
+    const count = Math.max(1, Math.ceil(bytes.byteLength / this.#partBytes));
+    if (count > this.#maxParts) {
       throw new FileSystemError(
         "too-large",
         "write",
         record.path,
-        `Deno KV file requires ${chunks.length} parts, above configured maxParts ${this.#maxParts}.`,
+        `Deno KV file requires ${count} parts, above configured maxParts ${this.#maxParts}.`,
       );
     }
 
     const nextGeneration = generation();
-    const indexes = chunks.map((_, index) => index);
+    const indexes = Array.from({ length: count }, (_, index) => index);
     try {
       for await (
         const _ of pooledMap(
           this.#concurrency,
           indexes,
-          (index) => this.#database.set(partKey(this.#prefix, record.path, nextGeneration, index), chunks[index]!),
+          (index) =>
+            this.#generation.part(
+              record.path,
+              nextGeneration,
+              index,
+              bytes.slice(index * this.#partBytes, (index + 1) * this.#partBytes),
+            ),
         )
       ) {
         // pooledMap owns bounded concurrency; values are intentionally ignored.
       }
       const { data: _data, ...file } = record;
       const manifest = DenoKvManifestSchema.parse({
-        storage: "deno-kv-parts-v2",
+        storage: "deno-kv-parts-v3",
         generation: nextGeneration,
-        parts: chunks.length,
+        parts: count,
         partBytes: this.#partBytes,
         file,
       });
       await this.#commit(record.path, previousEntry, manifest, "write");
     } catch (error) {
-      await this.#deleteGeneration(record.path, nextGeneration, chunks.length).catch(() => undefined);
+      await this.#deleteGeneration(record.path, nextGeneration, count).catch(() => undefined);
       throw error;
     }
   }
@@ -998,6 +1162,7 @@ class DenoKvBackend implements RecordBackendType {
 
   /** Lists direct children from the parent-indexed entry key and never scans descendant subtrees or partition bodies. */
   async *list(parent: Parameters<RecordBackendType["list"]>[0]): AsyncIterableIterator<RecordListType> {
+    await this.#open();
     for await (const entry of this.#database.list<unknown>({ prefix: listKey(this.#prefix, parent) })) {
       if (entry.value === null) continue;
       const record = isManifest(entry.value)
@@ -1012,6 +1177,7 @@ class DenoKvBackend implements RecordBackendType {
     file: z.output<typeof DenoKvFileSchema>,
     bytes: Uint8Array,
     previousEntry: DenoKvStoredEntryType,
+    signal?: AbortSignal,
   ): Promise<void> {
     const useParts = this.#partition === "always" ||
       (this.#partition === "auto" && bytes.byteLength > this.#inlineBytes);
@@ -1026,176 +1192,78 @@ class DenoKvBackend implements RecordBackendType {
         );
       }
       const record = RecordSchema.parse({ ...file, data: encodeBase64(bytes) });
-      await this.#commit(file.path, previousEntry, record, "write");
+      await this.#commit(file.path, previousEntry, record, "write", signal);
       return;
     }
 
-    const chunks = parts(bytes, this.#partBytes);
-    if (chunks.length > this.#maxParts) {
+    const count = Math.max(1, Math.ceil(bytes.byteLength / this.#partBytes));
+    if (count > this.#maxParts) {
       throw new FileSystemError(
         "too-large",
         "write",
         file.path,
-        `Deno KV file requires ${chunks.length} parts, above configured maxParts ${this.#maxParts}.`,
+        `Deno KV file requires ${count} parts, above configured maxParts ${this.#maxParts}.`,
       );
     }
     const nextGeneration = generation();
-    const indexes = chunks.map((_, index) => index);
+    const indexes = Array.from({ length: count }, (_, index) => index);
     try {
       for await (
         const _ of pooledMap(
           this.#concurrency,
           indexes,
-          (index) => this.#database.set(partKey(this.#prefix, file.path, nextGeneration, index), chunks[index]!),
+          (index) =>
+            this.#generation.part(
+              file.path,
+              nextGeneration,
+              index,
+              bytes.slice(index * this.#partBytes, (index + 1) * this.#partBytes),
+            ),
         )
       ) {
         // pooledMap owns bounded concurrency; values are intentionally ignored.
       }
       const manifest = DenoKvManifestSchema.parse({
-        storage: "deno-kv-parts-v2",
+        storage: "deno-kv-parts-v3",
         generation: nextGeneration,
-        parts: chunks.length,
+        parts: count,
         partBytes: this.#partBytes,
         file,
       });
-      await this.#commit(file.path, previousEntry, manifest, "write");
+      await this.#commit(file.path, previousEntry, manifest, "write", signal);
     } catch (error) {
-      await this.#deleteGeneration(file.path, nextGeneration, chunks.length).catch(() => undefined);
+      await this.#deleteGeneration(file.path, nextGeneration, count).catch(() => undefined);
       throw error;
     }
   }
 
-  /** Reclaims an unpublished generation after a failed manifest commit. */
-  async #deleteGeneration(path: string, value: string, count: number): Promise<void> {
-    const indexes = Array.from({ length: count }, (_, index) => index);
-    for await (
-      const _ of pooledMap(
-        this.#concurrency,
-        indexes,
-        (index) => this.#database.delete(partKey(this.#prefix, path, value, index)),
-      )
-    ) {
-      // Deletions are intentionally consumed so all already-started work settles.
-    }
+  /** Claims cleanup before deleting, and preserves an acknowledged or uncertain publication. */
+  async #deleteGeneration(path: string, value: string, _count: number): Promise<void> {
+    await this.#generation.abort(path, value);
   }
 
-  /** Removes a consumed retirement marker after every remaining part in its generation was reclaimed. */
-  async #clearRetired(
-    path: string | undefined,
-    generation: string | undefined,
-    retired: DenoKvRetiredType | undefined,
-    reclaim: boolean,
-    scanned: number,
-    deleted: number,
-  ): Promise<void> {
-    if (
-      path !== undefined &&
-      generation !== undefined &&
-      retired !== undefined &&
-      reclaim &&
-      scanned > 0 &&
-      scanned === deleted
-    ) {
-      await this.#database.delete(retiredKey(this.#prefix, path, generation));
-    }
-  }
-
-  /**
-   * Reclaims old physical part generations that are no longer visible.
-   *
-   * Collection is explicit because a background scan would add hidden provider
-   * I/O and could race independent writers. A published generation uses its
-   * retirement timestamp, which is written before the visibility change. An
-   * unpublished crash leftover has no retirement marker and uses generation
-   * creation time instead. Set a shorter grace period only when the application
-   * can account for every in-flight reader that may still hold an old manifest.
-   */
+  /** Reclaims only CAS-claimed generations; grace never disables writer or reader exclusion. */
   async collect(options: DenoKvCollectOptionsType = {}): Promise<DenoKvCollectResultType> {
-    if (this.#readOnly) {
-      throw new Error("Deno KV driver is read-only; physical collection would mutate storage.");
-    }
+    if (this.#readOnly) throw new Error("Deno KV driver is read-only; maintenance is forbidden.");
+    throwIfAborted(options.signal, "collect");
     const minAgeMs = options.minAgeMs ?? DENO_KV_DEFAULT_COLLECT_AGE_MS;
-    const maxDeletes = options.maxDeletes ?? DENO_KV_DEFAULT_COLLECT_DELETES;
-    if (!Number.isSafeInteger(minAgeMs) || minAgeMs < 0) {
-      throw new RangeError("minAgeMs must be a non-negative safe integer.");
-    }
-    if (!Number.isSafeInteger(maxDeletes) || maxDeletes < 1) {
-      throw new RangeError("maxDeletes must be a positive safe integer.");
-    }
-
-    const cutoff = Date.now() - minAgeMs;
-    let generations = 0;
-    let scannedParts = 0;
-    let deleted = 0;
-    let retained = 0;
-    let truncated = false;
-    let currentPath: string | undefined;
-    let currentGeneration: string | undefined;
-    let currentReclaim = false;
-    let currentRetired: DenoKvRetiredType | undefined;
-    let currentGroupParts = 0;
-    let currentGroupDeleted = 0;
-
-    for await (const entry of this.#database.list<Uint8Array>({ prefix: [this.#prefix, "part"] })) {
-      throwIfAborted(options.signal, "remove");
-      const [, kind, path, value] = entry.key;
-      if (kind !== "part" || typeof path !== "string" || typeof value !== "string") continue;
-      scannedParts += 1;
-
-      if (path !== currentPath || value !== currentGeneration) {
-        await this.#clearRetired(
-          currentPath,
-          currentGeneration,
-          currentRetired,
-          currentReclaim,
-          currentGroupParts,
-          currentGroupDeleted,
-        );
-        currentPath = path;
-        currentGeneration = value;
-        currentGroupParts = 0;
-        currentGroupDeleted = 0;
-        currentRetired = undefined;
-        generations += 1;
-
-        const visible = await this.#database.get<unknown>(key(this.#prefix, path));
-        if (visible.value !== null && isManifest(visible.value) && visible.value.generation === value) {
-          currentReclaim = false;
-        } else {
-          const retired = await this.#database.get<unknown>(retiredKey(this.#prefix, path, value));
-          if (retired.value !== null) {
-            currentRetired = DenoKvRetiredSchema.parse(retired.value);
-            currentReclaim = currentRetired.retiredAt <= cutoff;
-          } else {
-            const created = generationTime(value);
-            currentReclaim = created !== undefined && created <= cutoff;
-          }
-        }
+    const tombstoneAgeMs = options.tombstoneAgeMs ?? DENO_KV_DEFAULT_COLLECT_AGE_MS;
+    for (const value of [minAgeMs, tombstoneAgeMs]) {
+      if (!Number.isSafeInteger(value) || value < 0) {
+        throw new RangeError("Retention ages must be non-negative safe integers.");
       }
-
-      currentGroupParts += 1;
-      if (!currentReclaim) {
-        retained += 1;
-        continue;
-      }
-      if (deleted >= maxDeletes) {
-        truncated = true;
-        break;
-      }
-      await this.#database.delete(entry.key);
-      currentGroupDeleted += 1;
-      deleted += 1;
     }
-
-    await this.#clearRetired(
-      currentPath,
-      currentGeneration,
-      currentRetired,
-      currentReclaim,
-      currentGroupParts,
-      currentGroupDeleted,
-    );
-    return { generations, parts: scannedParts, deleted, retained, truncated };
+    const policy = {
+      minAgeMs,
+      tombstoneAgeMs,
+      ...(options.cursor === undefined ? {} : { cursor: options.cursor }),
+      maxDeletes: positive(options.maxDeletes, DENO_KV_DEFAULT_COLLECT_DELETES, "maxDeletes"),
+      maxScans: positive(options.maxScans, 20_000, "maxScans"),
+      maxPinScans: positive(options.maxPinScans, 1_000, "maxPinScans"),
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
+    };
+    await this.#open();
+    return await this.#generation.collect(policy);
   }
 
   /** Closes the database only when the driver was given ownership. */
@@ -1251,5 +1319,14 @@ export function createDenoKvDriver(database: DenoKvType, options: DenoKvDriverOp
   });
   return Object.assign(driver, {
     collect: (collectOptions?: DenoKvCollectOptionsType) => backend.collect(collectOptions),
+    probe: () => backend.probe(),
+    maintenance: {
+      layout: "deno-kv-parts-v3" as const,
+      writerLeaseMs: options.writerLeaseMs ?? 60_000,
+      readerLeaseMs: options.readerLeaseMs ?? 60_000,
+      maxReaders: options.maxReaders ?? 64,
+      ...(options.maxRetainedBytes === undefined ? {} : { maxRetainedBytes: options.maxRetainedBytes }),
+      ...(options.maxGenerations === undefined ? {} : { maxGenerations: options.maxGenerations }),
+    },
   });
 }

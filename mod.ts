@@ -72,6 +72,7 @@ export type {
   WalkOptionsType,
   WriteOptionsType,
 } from "./src/filesystem.ts";
+export type { HostProfileType } from "./src/driver/host.ts";
 export type { AdapterType, FileSystemOptionsType } from "./src/adapter/definition.ts";
 export type { OpenFileSystemOptionsType } from "./src/adapter/opfs.ts";
 export type {
@@ -104,8 +105,14 @@ export type {
   FileDriverSignalOptionsType,
   FileDriverStatType,
   FileDriverSyncFileType,
+  FileDriverType,
   FileDriverWritableFileType,
   FileDriverWriteOptionsType,
+  FileEntryKindType,
+  FileEntryType,
+  PublicationType,
+  WritableInspectionType,
+  WritableOptionsType,
 } from "./src/driver/file.ts";
 export type {
   AdapterCapabilitiesType,
@@ -117,6 +124,7 @@ export type {
   DriverOwnershipType,
   EntryKindType,
   ErrorCodeType,
+  FileDriverCapabilitiesType,
   LimitKindType,
   LimitSourceType,
   LimitType,
@@ -124,19 +132,19 @@ export type {
   MetricsModeType,
   OpfsContextType,
   OptimizationType,
-  PathType,
   PartitionModeType,
+  PathType,
   RequirementStateType,
   RequirementType,
   SupportModeType,
   WriteModeType,
-} from "./src/schema.ts";
+} from "./src/_schema_types.ts";
 export type {
   ActionKindType,
   ActionType,
-  DriverPlanInputType,
   DriverInspectionType,
   DriverOperationType,
+  DriverPlanInputType,
   DriverPlanType,
   DriverType,
   ProblemLayerType,

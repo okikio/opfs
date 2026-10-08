@@ -1,37 +1,52 @@
+import { FileSystemError } from "../error.ts";
+import type { HostProfileType } from "./host.ts";
+import {
+  QueuedWritableFile,
+  validateWritableOptions,
+  type WritableInspectionType,
+  type WritableOptionsType,
+} from "./writable.ts";
+export type { WritableInspectionType, WritableOptionsType } from "./writable.ts";
 import { z } from "zod";
 
 import type { PathType } from "../path.ts";
-import { WriteModeSchema, type WriteModeType } from "../schema.ts";
+import type { FileDriverCapabilitiesType, WriteModeType } from "../_schema_types.ts";
+import { WriteModeSchema } from "../schema.ts";
 import type { DriverType } from "./definition.ts";
 
 /** Native operations implemented by a file-shaped backend driver. */
-export const FileDriverCapabilitiesSchema: z.ZodType<FileDriverCapabilitiesType, FileDriverCapabilitiesType> = z.object({
-  /** Backend can materialize file bytes through `readFile()`. */
-  read: z.boolean(),
-  /** Backend can commit materialized file bytes through `writeFile()`. */
-  write: z.boolean(),
-  /** Backend can open a native read stream. */
-  streamRead: z.boolean(),
-  /** Write modes that `writeStream()` can perform natively. */
-  streamWriteModes: z.array(WriteModeSchema).readonly(),
-  /** Backend can satisfy byte ranges without whole-file materialization. */
-  rangeRead: z.boolean(),
-  /** Backend can copy one entry through a native route. */
-  copy: z.boolean(),
-  /** Backend can move or rename one entry through a native route. */
-  move: z.boolean(),
-  /** Backend exposes a long-lived asynchronous positional writer. */
-  positionalWrite: z.boolean(),
-  /** Backend exposes a synchronous random-access file resource. */
-  syncAccess: z.boolean(),
-}).strict();
+export const FileDriverCapabilitiesSchema: z.ZodType<FileDriverCapabilitiesType, FileDriverCapabilitiesType> = z.object(
+  {
+    /** Backend can materialize file bytes through `readFile()`. */
+    read: z.boolean(),
+    /** Backend can commit materialized file bytes through `writeFile()`. */
+    write: z.boolean(),
+    /** Backend can open a native read stream. */
+    streamRead: z.boolean(),
+    /** Write modes that `writeStream()` can perform natively. */
+    streamWriteModes: z.array(WriteModeSchema).readonly(),
+    /** Backend can satisfy byte ranges without whole-file materialization. */
+    rangeRead: z.boolean(),
+    /** Backend can copy one entry through a native route. */
+    copy: z.boolean(),
+    /** Backend can move or rename one entry through a native route. */
+    move: z.boolean(),
+    /** Backend exposes a long-lived asynchronous positional writer. */
+    positionalWrite: z.boolean(),
+    /** Backend exposes a synchronous random-access file resource. */
+    syncAccess: z.boolean(),
+  },
+).strict();
 
-/** A validated native file-driver capability description. */
-export type FileDriverCapabilitiesType = import("../_schema_types.ts").FileDriverCapabilitiesType;
+export type { FileDriverCapabilitiesType } from "../_schema_types.ts";
 
 /** Options shared by file-driver operations that can stop early. */
 export interface FileDriverSignalOptionsType {
-  /** Stops driver work before the backend commits more changes. */
+  /**
+   * Stops admission of further native work and cancels an open read stream.
+   * Already dispatched host operations can complete or leave partial writes;
+   * cancellation does not roll back bytes, namespace changes, or publication.
+   */
   readonly signal?: AbortSignal;
 }
 
@@ -59,12 +74,47 @@ export interface FileDriverWriteOptionsType extends FileDriverSignalOptionsType 
 export interface FileDriverCopyOptionsType extends FileDriverSignalOptionsType {
   /** Replaces an existing destination when true. */
   readonly overwrite: boolean;
+  /** Native host copy retains staging; use facade preserve:false for an admitted direct-write fallback. */
+  readonly preserve?: boolean;
+  /** Requires cross-process no-replace. Host rename can only enforce a cooperative precheck. */
+  readonly exclusive?: boolean;
 }
 
 /** Options for a file-driver native move. */
 export interface FileDriverMoveOptionsType extends FileDriverSignalOptionsType {
   /** Replaces an existing destination when true. */
   readonly overwrite: boolean;
+  /** Explicitly permits a declared best-effort move; native copy still uses its preserving stage route. */
+  readonly preserve?: boolean;
+  /** Requires cross-process no-replace. Host rename can only enforce a cooperative precheck. */
+  readonly exclusive?: boolean;
+}
+
+/** Physical entry identity used by structural operations without following aliases. */
+export type FileEntryKindType = "file" | "directory" | "link" | "foreign";
+
+/** One no-follow physical child; portable listing rejects unprojectable entries. */
+export interface FileEntryType {
+  /** Direct child name; traversal resolves it relative to the requested parent. */
+  readonly name: string;
+  /** Physical entry identity without following a link target. */
+  readonly kind: FileEntryKindType;
+}
+
+/** Publication guarantees are scoped to one file and exclude outside host path swaps. */
+export interface PublicationType {
+  /** Failure boundary of the admitted native file-copy route; unsupported is distinct from facade emulation. */
+  readonly copy: "preserve" | "best-effort" | "unsupported";
+  /** Failure boundary of the admitted native move route; remote copy/delete is only best-effort. */
+  readonly move: "preserve" | "best-effort" | "unsupported";
+  /** Weakest no-replace guarantee among admitted native operations; unsupported when none is admitted. */
+  readonly noReplace: "atomic" | "cooperative" | "unsupported";
+  /** Native copy publication guarantee for an absent target; staging and preparation must also be admitted. */
+  readonly copyNoReplace?: "atomic" | "cooperative" | "unsupported";
+  /** Native move no-replace guarantee; portable rename has only a cooperative precheck. */
+  readonly moveNoReplace?: "atomic" | "cooperative" | "unsupported";
+  /** Acknowledgement or resource flush boundary; neither promises durable directory replacement by itself. */
+  readonly durability: "flush" | "acknowledged";
 }
 
 /** One direct child returned by a file-driver directory iterator. */
@@ -127,6 +177,8 @@ export type FileDriverStatType =
  * writes without routing every chunk through `writeFile()`.
  */
 export interface FileDriverWritableFileType {
+  /** Detached admission/lifecycle accounting when resource queuing is configured. */
+  inspect?(): WritableInspectionType;
   /** Writes one chunk at a specific byte offset. */
   write(buffer: ArrayBufferView, options: { readonly at: number }): Promise<void>;
   /** Shrinks or expands the file to one exact size. */
@@ -167,9 +219,20 @@ export interface FileDriverSyncFileType {
  * recursive traversal, facade locks, or higher-level filesystem fallback logic.
  */
 export interface FileDriverType extends DriverType {
+  /** File-shaped driver family discriminator. */
   readonly kind: "file";
   /** Native file behaviors the backend can expose directly. */
   readonly capabilities: FileDriverCapabilitiesType;
+  /** Actual single-file publication and precondition boundary. */
+  readonly publication?: PublicationType;
+  /** Immutable deployment-specific host facts when this driver represents a host root. */
+  readonly hostProfile?: HostProfileType;
+  /** Pure hard admission, independent of an optional advisory planner. */
+  admit?(input: DriverPlanInputType): DriverPlanType;
+  /** Classifies the physical entry, including links, without following it. */
+  entry?(path: PathType, options?: FileDriverSignalOptionsType): Promise<FileEntryKindType | null>;
+  /** Lists physical entries for no-follow destructive traversal. */
+  entries?(path: PathType, options?: FileDriverSignalOptionsType): AsyncIterableIterator<FileEntryType>;
   /** Returns native metadata for one path, or `null` when it is missing. */
   stat(path: PathType, options?: FileDriverSignalOptionsType): Promise<FileDriverStatType | null>;
   /** Materializes a file body or byte range. */
@@ -190,8 +253,10 @@ export interface FileDriverType extends DriverType {
   copy?(source: PathType, destination: PathType, options: FileDriverCopyOptionsType): Promise<void>;
   /** Moves one backend-native entry when the backend supports it. */
   move?(source: PathType, destination: PathType, options: FileDriverMoveOptionsType): Promise<void>;
-  /** Opens long-lived asynchronous positional writes when the backend supports them. */
-  openWritableFile?(path: PathType): Promise<FileDriverWritableFileType>;
+  /** Exclusively reserves one empty staging file. The successful caller owns its removal. */
+  reserve?(path: PathType, options?: FileDriverSignalOptionsType): Promise<void>;
+  /** Opens an admitted long-lived positional writer; its resource owns accepted operation ordering and closure. */
+  openWritableFile?(path: PathType, options?: WritableOptionsType): Promise<FileDriverWritableFileType>;
   /** Opens synchronous random access when the backend supports it. */
   openSyncFile?(path: PathType): Promise<FileDriverSyncFileType>;
 }
@@ -215,6 +280,16 @@ import {
 export interface FileBackendType {
   readonly name: string;
   readonly capabilities: FileDriverCapabilitiesType;
+  /** Actual single-file publication and precondition boundary. */
+  readonly publication?: PublicationType;
+  /** Immutable deployment-specific host facts when this driver represents a host root. */
+  readonly hostProfile?: HostProfileType;
+  /** Pure hard admission, independent of an optional advisory planner. */
+  admit?(input: DriverPlanInputType): DriverPlanType;
+  /** Classifies the physical entry, including links, without following it. */
+  entry?(path: PathType, options?: FileDriverSignalOptionsType): Promise<FileEntryKindType | null>;
+  /** Lists physical entries for no-follow destructive traversal. */
+  entries?(path: PathType, options?: FileDriverSignalOptionsType): AsyncIterableIterator<FileEntryType>;
   stat(path: PathType, options?: FileDriverSignalOptionsType): Promise<FileDriverStatType | null>;
   readFile(path: PathType, options?: FileDriverReadOptionsType): Promise<Uint8Array>;
   writeFile(path: PathType, data: Uint8Array, options: FileDriverWriteOptionsType): Promise<void>;
@@ -225,7 +300,9 @@ export interface FileBackendType {
   writeStream?(path: PathType, source: ReadableStream<Uint8Array>, options: FileDriverWriteOptionsType): Promise<void>;
   copy?(source: PathType, destination: PathType, options: FileDriverCopyOptionsType): Promise<void>;
   move?(source: PathType, destination: PathType, options: FileDriverMoveOptionsType): Promise<void>;
-  openWritableFile?(path: PathType): Promise<FileDriverWritableFileType>;
+  /** Exclusively reserves one empty staging file. The successful caller owns its removal. */
+  reserve?(path: PathType, options?: FileDriverSignalOptionsType): Promise<void>;
+  openWritableFile?(path: PathType, options?: WritableOptionsType): Promise<FileDriverWritableFileType>;
   openSyncFile?(path: PathType): Promise<FileDriverSyncFileType>;
   dispose?(): void | Promise<void>;
 }
@@ -267,60 +344,166 @@ function createFilePlan(input: DriverPlanInputType): DriverPlanType {
  * ```
  */
 export function defineFileDriver(backend: FileBackendType, options: DefineFileDriverOptionsType): FileDriverType {
+  options = { ...options }; // Callbacks and policy flags belong to this configured instance.
   const capabilities = FileDriverCapabilitiesSchema.parse(backend.capabilities);
+  if (backend.hostProfile !== undefined) {
+    Object.freeze(capabilities.streamWriteModes);
+    Object.freeze(capabilities);
+  }
+  const admit = (input: DriverPlanInputType): void => {
+    const result = backend.admit?.(input);
+    if (result !== undefined && !result.supported) {
+      throw new FileSystemError(
+        "not-supported",
+        input.operation,
+        input.path,
+        result.problems.map((problem) => problem.message).join(" "),
+        result,
+      );
+    }
+  };
   const base = defineDriver({
     ...options,
     name: options.name || backend.name,
     kind: "file",
     provides: options.provides ?? [
       "stat",
-      "read",
-      "write",
+      ...(capabilities.read ? ["read"] : []),
+      ...(capabilities.write ? ["write"] : []),
       "list",
-      "mkdir",
-      "remove",
+      ...(backend.hostProfile?.readOnly ? [] : ["mkdir", "remove"]),
       ...(backend.openReadStream === undefined ? [] : ["stream-read"]),
-      ...(backend.writeStream === undefined ? [] : ["stream-write"]),
-      ...(backend.copy === undefined ? [] : ["copy"]),
-      ...(backend.move === undefined ? [] : ["move"]),
-      ...(backend.openWritableFile === undefined ? [] : ["positional-write"]),
-      ...(backend.openSyncFile === undefined ? [] : ["sync-access"]),
+      ...(backend.writeStream === undefined || capabilities.streamWriteModes.length === 0 ? [] : ["stream-write"]),
+      ...(backend.copy === undefined || !capabilities.copy ? [] : ["copy"]),
+      ...(backend.move === undefined || !capabilities.move ? [] : ["move"]),
+      ...(backend.openWritableFile === undefined || !capabilities.positionalWrite ? [] : ["positional-write"]),
+      ...(backend.openSyncFile === undefined || !capabilities.syncAccess ? [] : ["sync-access"]),
     ],
     ownership: options.ownership ??
       (backend.dispose === undefined ? "none" : options.disposeBackend ? "owned" : "borrowed"),
-    plan: options.plan ?? createFilePlan,
+    plan: (input) => {
+      const planned = (options.plan ?? createFilePlan)(input);
+      const admitted = backend.admit?.(input);
+      if (admitted === undefined) return planned;
+      return {
+        ...planned,
+        supported: planned.supported && admitted.supported,
+        support: planned.supported && admitted.supported ? planned.support : "unsupported",
+        problems: [...planned.problems, ...admitted.problems],
+        actions: [...planned.actions, ...admitted.actions],
+      };
+    },
     ...(options.disposeBackend && backend.dispose !== undefined ? { dispose: () => backend.dispose!() } : {}),
   });
   return {
     ...base,
     kind: "file",
     capabilities,
+    ...(backend.admit === undefined ? {} : { admit: backend.admit.bind(backend) }),
+    ...(backend.hostProfile === undefined ? {} : { hostProfile: backend.hostProfile }),
+    ...(backend.publication === undefined ? {} : { publication: backend.publication }),
+    ...(backend.reserve === undefined ? {} : {
+      reserve: async (path: PathType, options?: FileDriverSignalOptionsType) => {
+        admit({ operation: "write", path });
+        await backend.reserve!(path, options);
+      },
+    }),
+    ...(backend.entry === undefined
+      ? {}
+      : { entry: (path: PathType, options?: FileDriverSignalOptionsType) => backend.entry!(path, options) }),
+    ...(backend.entries === undefined
+      ? {}
+      : { entries: (path: PathType, options?: FileDriverSignalOptionsType) => backend.entries!(path, options) }),
     stat: (path, requestOptions) => backend.stat(path, requestOptions),
     readFile: (path, requestOptions) => backend.readFile(path, requestOptions),
-    writeFile: (path, data, requestOptions) => backend.writeFile(path, data, requestOptions),
+    writeFile: async (path, data, requestOptions) => {
+      admit({ operation: "write", path, mode: requestOptions.mode, source: "bytes" });
+      await backend.writeFile(path, data, requestOptions);
+    },
     readDir: (path, requestOptions) => backend.readDir(path, requestOptions),
-    createDir: (path, requestOptions) => backend.createDir(path, requestOptions),
-    remove: (path, requestOptions) => backend.remove(path, requestOptions),
+    createDir: async (path, requestOptions) => {
+      admit({ operation: "write", path });
+      await backend.createDir(path, requestOptions);
+    },
+    remove: async (path, requestOptions) => {
+      admit({ operation: "remove", path });
+      await backend.remove(path, requestOptions);
+    },
     ...(backend.openReadStream === undefined ? {} : {
       openReadStream: (path: PathType, requestOptions?: FileDriverReadOptionsType) =>
         backend.openReadStream!(path, requestOptions),
     }),
     ...(backend.writeStream === undefined ? {} : {
-      writeStream: (path: PathType, source: ReadableStream<Uint8Array>, requestOptions: FileDriverWriteOptionsType) =>
-        backend.writeStream!(path, source, requestOptions),
+      writeStream: async (
+        path: PathType,
+        source: ReadableStream<Uint8Array>,
+        requestOptions: FileDriverWriteOptionsType,
+      ) => {
+        admit({ operation: "write", path, source: "stream", mode: requestOptions.mode });
+        await backend.writeStream!(path, source, requestOptions);
+      },
     }),
     ...(backend.copy === undefined ? {} : {
-      copy: (source: PathType, destination: PathType, requestOptions: FileDriverCopyOptionsType) =>
-        backend.copy!(source, destination, requestOptions),
+      copy: async (source: PathType, destination: PathType, requestOptions: FileDriverCopyOptionsType) => {
+        admit({
+          operation: "copy",
+          path: source,
+          destination,
+          overwrite: requestOptions.overwrite,
+          preserve: requestOptions.preserve,
+          exclusive: requestOptions.exclusive,
+        });
+        await backend.copy!(source, destination, requestOptions);
+      },
     }),
     ...(backend.move === undefined ? {} : {
-      move: (source: PathType, destination: PathType, requestOptions: FileDriverMoveOptionsType) =>
-        backend.move!(source, destination, requestOptions),
+      move: async (source: PathType, destination: PathType, requestOptions: FileDriverMoveOptionsType) => {
+        admit({
+          operation: "move",
+          path: source,
+          destination,
+          overwrite: requestOptions.overwrite,
+          preserve: requestOptions.preserve,
+          exclusive: requestOptions.exclusive,
+        });
+        await backend.move!(source, destination, requestOptions);
+      },
     }),
-    ...(backend.openWritableFile === undefined
-      ? {}
-      : { openWritableFile: (path: PathType) => backend.openWritableFile!(path) }),
-    ...(backend.openSyncFile === undefined ? {} : { openSyncFile: (path: PathType) => backend.openSyncFile!(path) }),
+    ...(backend.openWritableFile === undefined ? {} : {
+      openWritableFile: async (path: PathType, options?: WritableOptionsType) => {
+        admit({ operation: "write", path, mode: "update" });
+        if (!capabilities.positionalWrite) {
+          throw new FileSystemError(
+            "not-supported",
+            "open-writable-file",
+            path,
+            "Driver does not admit positional writes.",
+          );
+        }
+        validateWritableOptions(options);
+        const file = await backend.openWritableFile!(path, options);
+        try {
+          return file instanceof QueuedWritableFile ? file : new QueuedWritableFile(file, options);
+        } catch (error) {
+          await file.abort(error);
+          throw error;
+        }
+      },
+    }),
+    ...(backend.openSyncFile === undefined ? {} : {
+      openSyncFile: async (path: PathType) => {
+        admit({ operation: "write", path, mode: "update" });
+        if (!capabilities.syncAccess) {
+          throw new FileSystemError(
+            "not-supported",
+            "open-sync-file",
+            path,
+            "Driver does not admit synchronous mutation.",
+          );
+        }
+        return await backend.openSyncFile!(path);
+      },
+    }),
     ...(options.disposeBackend && backend.dispose !== undefined ? { dispose: () => backend.dispose!() } : {}),
   };
 }
