@@ -1,2 +1,3 @@
 # Pinned upstream snapshots must keep their original bytes on every platform.
 tests/upstream/original/** -text -whitespace
+.mise/tasks/attest.sh text eol=lf

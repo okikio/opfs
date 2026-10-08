@@ -107,7 +107,16 @@ export async function inputs(root = cwd(), files: InputFilesType = native): Prom
       const name = `${directory}/${entry.name}`;
       if (
         directory === ".mise/tasks" && !entry.name.startsWith("bench") &&
-        !["test-filesystem-clients", "container.mjs", "container-worker.mjs", "linux.mjs"].includes(entry.name)
+        ![
+          "test-filesystem-clients",
+          "container.mjs",
+          "container-worker.mjs",
+          "attest.sh",
+          "attest.mjs",
+          "command.mjs",
+          "linux.mjs",
+        ]
+          .includes(entry.name)
       ) {
         continue;
       }

@@ -271,7 +271,16 @@ export async function pack(tree, manifest, target, { signal, timeout = 180_000 }
       archive.once("entry", onEntry);
       let sourceSettlement;
       try {
-        const header = { name, mode: value.mode, uid: 0, gid: 0, date: new Date(0) };
+        // Population authority is separate from final admitted protection. Tar may restore a parent
+        // when a later root begins, even if another descendant header follows. Owner-write transport
+        // directories make that ordering harmless; the unchanged manifest is enforced after extraction.
+        const header = {
+          name,
+          mode: value.kind === "directory" ? 0o700 : value.mode,
+          uid: 0,
+          gid: 0,
+          date: new Date(0),
+        };
         if (value.kind === "directory") archive.append(Buffer.alloc(0), { ...header, type: "directory" });
         else if (value.kind === "link") {
           archive.append(Buffer.alloc(0), { ...header, type: "symlink", linkname: value.target });
@@ -379,7 +388,17 @@ async function sourcePaths(root, run) {
       paths.add(path);
     }
   }
-  for (const name of ["mod.ts", "deno.json", "deno.lock", "package.json", ".mise/tasks/container-worker.mjs"]) {
+  for (
+    const name of [
+      "mod.ts",
+      "deno.json",
+      "deno.lock",
+      "package.json",
+      ".mise/tasks/container-worker.mjs",
+      ".mise/tasks/attest.sh",
+      ".mise/tasks/attest.mjs",
+    ]
+  ) {
     if (!paths.has(resolve(root, name))) throw new Error(`Required container source is absent: ${name}`);
     if (!(await lstat(resolve(root, name))).isFile()) {
       throw new Error(`Required container source is not a regular file: ${name}`);
@@ -550,6 +569,8 @@ export async function open(root = process.cwd(), { cache, run = command, signal,
         archiveSha256,
         hostCatalogSha256,
         workerSha256: entries["source/.mise/tasks/container-worker.mjs"].sha256,
+        supervisorSha256: entries["source/.mise/tasks/attest.sh"].sha256,
+        handshakeSha256: entries["source/.mise/tasks/attest.mjs"].sha256,
         paths: Object.keys(entries).length,
         fileBytes: bytes,
         diskHeadroom: { requiredBytes, availableBytes, scope: "setup estimate; concurrent disk use is uncontrolled" },

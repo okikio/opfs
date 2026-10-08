@@ -1,8 +1,8 @@
 /** Runs each Linux test lane with a named container and bounded CLI/cleanup lifetimes. */
-import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
-import { open } from "./container.mjs";
+import { open, own } from "./container.mjs";
+import { capture, diagnostic, observation, retain } from "./command.mjs";
 
 const root = process.cwd();
 // The task owns these signal listeners and every CLI it starts, never unrelated Docker resources.
@@ -13,15 +13,22 @@ process.once("SIGTERM", stop);
 const failures = [];
 let source;
 let report;
-const receipt = { status: "running", admission: undefined, admissionAfter: undefined, lanes: [] };
+let reportOwner;
+let call = 0;
+const receipt = { status: "running", admission: undefined, admissionAfter: undefined, lanes: [], calls: [] };
 try {
-  const config = JSON.parse(await readFile("deno.json", "utf8"));
-  const cache = JSON.parse(await invoke("deno", ["info", "--json"], 30_000)).denoDir;
   await mkdir(".tmp/reports/linux", { recursive: true });
   report = await mkdtemp(".tmp/reports/linux/run-");
+  // Acquire report authority before starting any CLI. Acquisition failure has no
+  // durable command-evidence claim and never starts a diagnostic child.
+  reportOwner = await own(report);
+  report = reportOwner.directory;
+  const config = JSON.parse(await readFile("deno.json", "utf8"));
+  const cache = JSON.parse(await invoke("deno", ["info", "--json"], 30_000)).denoDir;
   const setupStarted = Date.now();
   source = await open(root, { cache, run: invoke, signal: cancellation.signal });
-  await writeFile(`${report}/source-admission.json`, JSON.stringify(source.receipt, null, 2));
+  await reportOwner.verify();
+  await writeFile(`${report}/source-admission.json`, JSON.stringify(source.receipt, null, 2), { flag: "wx" });
   receipt.admission = {
     report: `${report}/source-admission.json`,
     archiveSha256: source.archiveSha256,
@@ -174,8 +181,17 @@ try {
         "-c",
         `set -e; mkdir -p ${directory}; tar --no-same-owner -xf /tmp/opfs-inputs.tar -C ${directory}; rm /tmp/opfs-inputs.tar`,
       ], 180_000);
-      // Byte/kind/link admission precedes mode establishment in the private
-      // Linux copy, including archives created on hosts without POSIX metadata.
+      const worker = `${directory}/source/.mise/tasks/container-worker.mjs`;
+      const supervisor = `${directory}/source/.mise/tasks/attest.sh`;
+      const handshake = `${directory}/source/.mise/tasks/attest.mjs`;
+      const transported =
+        (await invoke("docker", ["exec", "--user", "0:0", name, "sha256sum", worker, supervisor, handshake], 30_000))
+          .trimEnd();
+      const expected =
+        `${source.receipt.workerSha256}  ${worker}\n${source.receipt.supervisorSha256}  ${supervisor}\n${source.receipt.handshakeSha256}  ${handshake}`;
+      if (transported !== expected) throw new Error("Linux bootstrap bytes differ from independent host admission.");
+      lane.transportedBootstrap = transported;
+      const rootGate = `/tmp/library-attest-${randomUUID()}`;
       lane.modeAdmission = await invoke("docker", [
         "exec",
         "--user",
@@ -183,14 +199,19 @@ try {
         "--workdir",
         `${directory}/source`,
         name,
+        "/bin/sh",
+        supervisor,
+        "root",
+        rootGate,
+        randomUUID(),
         ...bootstrap,
-        ...(bootstrap[0] === "deno" ? [`--allow-write=${directory}`] : []),
-        `${directory}/source/.mise/tasks/container-worker.mjs`,
+        ...(bootstrap[0] === "deno" ? [`--allow-write=${directory},${rootGate}`] : []),
+        worker,
         directory,
         "--admit",
       ], 180_000);
-      // The extraction authority is root only in its private copy. Source stays
-      // root-owned/read-only; every real test runs as ordinary UID/GID 1000.
+      // Attestation reads the actual runtime child externally; Deno never receives protected proc or allow-all rights.
+      const gate = `/tmp/library-attest-${randomUUID()}`;
       const output = await invoke("docker", [
         "exec",
         "--user",
@@ -198,12 +219,19 @@ try {
         "--workdir",
         `${directory}/source`,
         name,
+        "/bin/sh",
+        supervisor,
+        "ordinary",
+        gate,
+        randomUUID(),
         ...bootstrap,
-        `${directory}/source/.mise/tasks/container-worker.mjs`,
+        ...(bootstrap[0] === "deno" ? [`--allow-write=${gate}`] : []),
+        worker,
         directory,
         ...command,
       ], 180_000);
-      await writeFile(`${report}/${name}.log`, output);
+      await reportOwner.verify();
+      await writeFile(`${report}/${name}.log`, output, { flag: "wx" });
       console.log(output);
       lane.status = "pass";
     } catch (cause) {
@@ -219,16 +247,14 @@ try {
       }
       // A timed-out create may still create a daemon-side container. Remove only its unique owned name.
       try {
-        await invoke("docker", ["rm", "--force", "--volumes", name], 30_000, true);
+        await invoke("docker", ["rm", "--force", "--volumes", name], 30_000, true, name);
       } catch (cause) {
-        if (!(cause instanceof Error) || !cause.message.includes(`No such container: ${name}`)) {
-          errors.push(new Error(`Could not confirm cleanup of ${name}.`, { cause }));
-        }
+        errors.push(new Error(`Could not confirm cleanup of ${name}.`, { cause }));
       }
     }
     if (errors.length) {
       lane.status = "fail";
-      lane.failures = errors.map((error) => error.stack ?? String(error));
+      lane.failures = diagnostic(errors);
       failures.push(new AggregateError(errors, `Linux lane ${image} failed.`, { cause: errors[0] }));
     }
   }
@@ -241,12 +267,7 @@ try {
     } catch (error) {
       receipt.admissionAfter = {
         status: "fail",
-        diagnostic: error instanceof Error
-          ? error.cause ?? {
-            name: error.name,
-            message: error.message,
-          }
-          : { reason: error },
+        diagnostic: diagnostic(error),
       };
       failures.push(error);
     }
@@ -257,10 +278,12 @@ try {
     }
   }
   receipt.status = failures.length ? "fail" : "pass";
-  receipt.failures = failures.map((error) => error instanceof Error ? error.stack ?? error.message : String(error));
-  if (report) {
+  receipt.failures = diagnostic(failures);
+  if (reportOwner) {
     try {
-      await writeFile(`${report}/metadata.json`, JSON.stringify(receipt, null, 2));
+      await reportOwner.verify();
+      await writeFile(`${report}/metadata.json`, JSON.stringify(receipt, null, 2), { flag: "wx" });
+      await reportOwner.verify();
     } catch (error) {
       failures.push(error);
     }
@@ -271,30 +294,44 @@ try {
 if (failures.length) throw new AggregateError(failures, "Linux test lanes failed.", { cause: failures[0] });
 
 /**
- * Uses the process API's timeout and buffer limit instead of an unbounded docker run.
- * Killing this CLI does not remove a container; each caller owns independent cleanup.
+ * Retains each native observation before deciding its result. Text callers decode
+ * once; binary output never enters a stack or JSON body. Killing this CLI does
+ * not remove a daemon-side container; each lane owns independent named cleanup.
  */
-function invoke(command, args, timeout, cleanup = false) {
-  return new Promise((resolve, reject) => {
-    execFile(
-      command,
-      args,
-      {
-        timeout,
-        killSignal: "SIGKILL",
-        maxBuffer: 16 * 1024 * 1024,
-        ...(cleanup ? {} : { signal: cancellation.signal }),
-      },
-      (error, stdout, stderr) => {
-        if (error) {
-          reject(
-            new Error(`${command} ${args.join(" ")} failed: ${error.message}\n${stdout}\n${stderr}`, { cause: error }),
-          );
-        } else {
-          if (stderr) console.error(stderr.trimEnd());
-          resolve(stdout);
-        }
-      },
-    );
+async function invoke(command, args, timeout, cleanup = false, absentContainer) {
+  const output = await capture(command, args, {
+    timeoutMs: timeout,
+    ...(cleanup ? {} : { signal: cancellation.signal }),
   });
+  let record;
+  try {
+    record = await retain(output, reportOwner, `call-${String(++call).padStart(4, "0")}`);
+  } catch (reason) {
+    record = { ...observation(output), retentionFailures: [{ stage: "retain", reason }] };
+  }
+  receipt.calls.push({ ...record, retentionFailures: diagnostic(record.retentionFailures) });
+  const stdout = output.stdout.bytes.toString("utf8");
+  const stderr = output.stderr.bytes.toString("utf8");
+  // An exact daemon absence is a cleanup observation, never a blanket successful
+  // CLI exit. Capture and evidence faults still refuse cleanup confirmation.
+  const absent = absentContainer && output.exitObserved && output.code === 1 && output.signal === null &&
+    output.closeObserved && output.stdout.complete && output.stderr.complete && output.failures.length === 0 &&
+    stderr.includes(`No such container: ${absentContainer}`);
+  const errors = [
+    ...output.failures.map((failure) => failure.reason),
+    ...record.retentionFailures.map((failure) => failure.reason),
+  ];
+  if (!output.success && !absent) {
+    errors.unshift(new Error("Native command did not complete successfully.", { cause: observation(output) }));
+  }
+  if (errors.length) {
+    throw new AggregateError(errors, `${command} failed; inspect retained command evidence.`, {
+      cause: {
+        observation: { ...record, retentionFailures: diagnostic(record.retentionFailures) },
+        primary: errors[0],
+      },
+    });
+  }
+  if (stderr && !absent) console.error(stderr.trimEnd());
+  return stdout;
 }

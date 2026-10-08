@@ -232,13 +232,59 @@ describe("container copy admission", () => {
         offset += 512 + Math.ceil(size / 512) * 512;
       }
       expect([...fields.keys()]).toEqual(["manifest.json", "source/", "source/a", "source/alias"]);
-      expect(fields.get("source/")?.mode).toBe(0o555);
+      expect(fields.get("source/")?.mode).toBe(0o700);
+      expect(manifest.entries.source.mode).toBe(0o555);
       expect(fields.get("source/a")?.mode).toBe(0o444);
       expect(new Uint8Array(fields.get("source/a")!.bytes)).toEqual(bytes);
       expect(fields.get("source/alias")?.kind).toBe("2");
       expect(fields.get("source/alias")?.target).toBe("a");
     });
   });
+  it("separates extraction directory authority from final protection even for noncontiguous roots", async () => {
+    await fixture(async (root) => {
+      await mkdir(join(root, "first"));
+      await mkdir(join(root, "second"));
+      const a = new Uint8Array([0, 255, 128]), b = new Uint8Array([19, 37]);
+      await writeFile(join(root, "first/a"), a);
+      await writeFile(join(root, "second/b"), b);
+      // This is an independently authored noncontiguous archive order, not a production catalog snapshot.
+      const manifest = {
+        version: 1,
+        roots: ["first", "second"],
+        entries: {
+          first: { kind: "directory", mode: 0o555 },
+          second: { kind: "directory", mode: 0o555 },
+          "second/b": { kind: "file", mode: 0o444 },
+          "first/a": { kind: "file", mode: 0o444 },
+        },
+      };
+      const declaration = JSON.stringify(manifest);
+      await writeFile(join(root, "manifest.json"), declaration);
+      const archive = join(root, "noncontiguous.tar");
+      await pack(root, manifest, archive);
+      const bytes = await readFile(archive), decoder = new TextDecoder();
+      const entries = new Map<string, { mode: number; bytes: Uint8Array }>();
+      for (let offset = 0; offset < bytes.length && bytes[offset] !== 0;) {
+        const field = (start: number, length: number): string =>
+          decoder.decode(bytes.subarray(offset + start, offset + start + length)).split("\0")[0] ?? "";
+        const size = Number.parseInt(field(124, 12), 8);
+        entries.set(field(0, 100), {
+          mode: Number.parseInt(field(100, 8), 8),
+          bytes: bytes.subarray(offset + 512, offset + 512 + size),
+        });
+        offset += 512 + Math.ceil(size / 512) * 512;
+      }
+      expect(entries.get("first/")?.mode).toBe(0o700);
+      expect(entries.get("second/")?.mode).toBe(0o700);
+      expect(new Uint8Array(entries.get("first/a")!.bytes)).toEqual(a);
+      expect(new Uint8Array(entries.get("second/b")!.bytes)).toEqual(b);
+      expect(decoder.decode(entries.get("manifest.json")!.bytes)).toBe(declaration);
+      expect(manifest.entries.first.mode).toBe(0o555);
+      expect(manifest.entries.second.mode).toBe(0o555);
+      expect(await readFile(join(root, "manifest.json"), "utf8")).toBe(declaration);
+    });
+  });
+
   it("keeps compiled dependency build/dist bytes while omitting repository administration", async () => {
     await fixture(async (root) => {
       const source = join(root, "installed"), target = join(root, "source");

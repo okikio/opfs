@@ -6,6 +6,7 @@ import { spawn } from "node:child_process";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import process from "node:process";
+import { attest } from "./attest.mjs";
 
 /**
  * Resolves one absolute native filesystem identity before containment comparisons.
@@ -111,13 +112,25 @@ export async function verify(root, manifest, { owner, permissions = true } = {})
 
 /** Runs only the explicit native command, then checks owned bytes even when that command fails. */
 async function main() {
+  const pure = process.argv.slice(2);
+  const privileged = pure.length === 3 && pure[2] === "--privileged-source" &&
+    ["--admit", "--verify"].includes(pure[1]);
+  let authority;
+  if (privileged) {
+    if (
+      typeof Deno !== "undefined" || typeof Bun !== "undefined" || process.getuid?.() !== 0 || process.getgid?.() !== 0
+    ) {
+      throw new Error("Privileged FUSE source admission requires its explicit Node root authority.");
+    }
+    process.argv.pop();
+  } else authority = await attest();
   const [directory, ...command] = process.argv.slice(2);
   if (!directory || !command.length) {
     throw new Error("Container worker requires its input root and explicit runtime command.");
   }
   const manifest = JSON.parse(await readFile(join(directory, "manifest.json"), "utf8"));
   if (command.length === 1 && command[0] === "--admit") {
-    if (process.getuid?.() !== 0 || process.getgid?.() !== 0) {
+    if (!privileged && authority?.role !== "root") {
       throw new Error("Private Linux mode admission requires root inside its owned copy.");
     }
     await verify(directory, manifest, { owner: 0, permissions: false });
@@ -135,20 +148,12 @@ async function main() {
     JSON.stringify({
       phase: "source-before",
       files: Object.keys(manifest.entries).length,
-      uid: process.getuid?.(),
+      authority: privileged ? "privileged-fuse-source" : authority,
       runtime: process.versions,
     }),
   );
   if (command.length === 1 && ["--verify", "--admit"].includes(command[0])) return;
-  if (process.getuid?.() !== 1000 || process.getgid?.() !== 1000) {
-    throw new Error("Linux test command must run as ordinary UID/GID 1000.");
-  }
-  const status = await readFile("/proc/self/status", "utf8");
-  for (const field of ["CapEff", "CapPrm", "CapAmb"]) {
-    if (!new RegExp(`^${field}:\\s*0+$`, "m").test(status)) {
-      throw new Error(`Ordinary Linux test command retains ${field} capabilities.`);
-    }
-  }
+  if (authority?.role !== "ordinary") throw new Error("Linux test command requires ordinary post-exec attestation.");
   const failures = [];
   try {
     const exit = await new Promise((accept, reject) => {
