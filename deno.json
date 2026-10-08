@@ -1,6 +1,6 @@
 {
   "name": "@okikio/opfs",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "exports": {
     ".": "./mod.ts",
     "./adapter": "./src/adapter/definition.ts",
@@ -25,6 +25,7 @@
     "./adapter/drizzle": "./src/adapter/drizzle.ts",
     "./driver": "./src/driver/definition.ts",
     "./driver/file": "./src/driver/file.ts",
+    "./driver/host": "./src/driver/host.ts",
     "./driver/record": "./src/driver/record.ts",
     "./driver/object": "./src/driver/object.ts",
     "./driver/opfs": "./src/driver/opfs.ts",
@@ -48,6 +49,7 @@
     "./iframe": "./src/iframe.ts",
     "./path": "./src/path.ts",
     "./schema": "./src/schema.ts",
+    "./schema/types": "./src/_schema_types.ts",
     "./bridge": "./src/bridge.ts",
     "./bridge/kv": "./src/bridge/kv.ts",
     "./bridge/unstorage": "./src/bridge/unstorage.ts",
@@ -113,7 +115,9 @@
       "package.json",
       "tools/"
     ],
-    "exclude": []
+    "exclude": [
+      "tests/upstream/original/"
+    ]
   },
   "lint": {
     "rules": {
@@ -130,6 +134,9 @@
       "tests/",
       "bench/",
       "tools/"
+    ],
+    "exclude": [
+      "tests/upstream/original/"
     ]
   },
   "publish": {
@@ -137,6 +144,7 @@
       "mod.ts",
       "src/",
       "README.md",
+      "CHANGELOG.md",
       "LICENSE",
       "docs/",
       "deno.json"

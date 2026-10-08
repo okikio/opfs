@@ -1,6 +1,6 @@
 {
   "name": "@okikio/opfs",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "sideEffects": false,
@@ -56,6 +56,7 @@
     "./adapter/drizzle": "./src/adapter/drizzle.ts",
     "./driver": "./src/driver/definition.ts",
     "./driver/file": "./src/driver/file.ts",
+    "./driver/host": "./src/driver/host.ts",
     "./driver/record": "./src/driver/record.ts",
     "./driver/object": "./src/driver/object.ts",
     "./driver/opfs": "./src/driver/opfs.ts",
@@ -79,6 +80,7 @@
     "./iframe": "./src/iframe.ts",
     "./path": "./src/path.ts",
     "./schema": "./src/schema.ts",
+    "./schema/types": "./src/_schema_types.ts",
     "./bridge": "./src/bridge.ts",
     "./bridge/kv": "./src/bridge/kv.ts",
     "./bridge/unstorage": "./src/bridge/unstorage.ts",
@@ -124,33 +126,5 @@
     "typescript": "^7.0.2",
     "vite": "^8.2.1",
     "sampo": "0.24.1"
-  },
-  "release": {
-    "branches": [
-      "main"
-    ],
-    "tagFormat": "opfs@${version}",
-    "plugins": [
-      [
-        "@semantic-release/commit-analyzer",
-        {
-          "preset": "conventionalcommits"
-        }
-      ],
-      [
-        "@semantic-release/release-notes-generator",
-        {
-          "preset": "conventionalcommits"
-        }
-      ],
-      [
-        "@semantic-release/github",
-        {
-          "successComment": false,
-          "failComment": false,
-          "releasedLabels": false
-        }
-      ]
-    ]
   }
 }
