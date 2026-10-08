@@ -737,3 +737,17 @@ Linux and FUSE runners admit owned source archives instead of binding a Git chec
 membership and outer source/dependency/cache identities are checked before and after work. Copy and hashing costs are
 setup overhead outside timed library callbacks. See [container source admission](container-inputs.md) for permissions,
 alias limits, exact receipts, ordinary Linux runtime users and cleanup boundaries.
+
+Permission fixtures distinguish an observed preservation contract from a deliberately established mode. A directory
+created with a requested `0755` mode can actually have `0700` permissions under the private Linux supervisor's `077`
+umask. `tests/container.test.ts` records the actual native device, inode, owner, full mode, link count and size before
+refused cleanup, then compares those observations and independently authored binary bytes afterward. The compound
+admission-failure scenario also retains the exact primary reason and the separate cleanup failure's original and
+replacement identities. It does not use the candidate cleanup implementation to calculate expected metadata.
+
+When a scenario requires an exact permission value, such as an attestation replacement with the same `0700` mode as its
+original gate, the fixture applies `chmod` to its own newly created directory before recording the baseline. Tests never
+change the process umask to make assertions pass, and cleanup never changes borrowed permissions. Archive admission's
+explicit readonly modes remain a separate Linux contract; Windows host modes still do not establish POSIX authority. See
+the native contracts for [creation masks](https://nodejs.org/api/process.html#processumaskmask) and
+[file modes](https://nodejs.org/api/fs.html#file-modes).
