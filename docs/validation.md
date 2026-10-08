@@ -705,3 +705,7 @@ Browser correctness and benchmark tasks use fresh Vite servers with file watchin
 remain fixed for each run; report output does not trigger watcher work. Restart the task after editing a fixture. Both
 origins use the same explicit configuration and repository root, so invocation directory does not change the served
 source.
+
+The correctness runner uses one worker so a host CPU count does not create an unbounded browser pool inside a
+memory-limited container. Multi-page, multi-worker and concurrent writer scenarios still create their required
+participants within each test; scheduler parallelism is not their oracle.
