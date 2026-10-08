@@ -64,20 +64,67 @@ export async function digest(path) {
   return hash.digest("hex");
 }
 
-/** Restores only owned copy directories so removal works after read-only admission. Never follows aliases. */
-async function remove(directory) {
-  async function visit(path) {
-    const info = await lstat(path);
-    if (info.isSymbolicLink()) return;
-    if (!info.isDirectory()) {
-      if (process.platform === "win32" && info.isFile()) await chmod(path, 0o600);
-      return;
-    }
-    if (process.platform !== "win32") await chmod(path, 0o700);
-    for (const entry of await readdir(path)) await visit(join(path, entry));
+/**
+ * Captures private-root authority before callers can use its paths.
+ *
+ * Cleanup never restores permissions or enumerates borrowed descendants. Host
+ * staging stays owner-writable; Linux permissions belong to archive admission.
+ * Canonical root and ancestor identity reject moved/replaced roots and parent
+ * aliases before native recursive removal. Native file IDs are compared where
+ * observable; Windows metadata never becomes a POSIX ownership claim. These
+ * observations do not provide an atomic hostile concurrent-filesystem boundary.
+ */
+export async function own(directory) {
+  const original = resolve(directory);
+  if (!(await lstat(original)).isDirectory() || (await lstat(original)).isSymbolicLink()) {
+    throw new Error("Private container staging must be a physical directory.");
   }
-  await visit(directory);
-  await rm(directory, { recursive: true });
+  const canonical = await realpath(original);
+  const observations = [];
+  const identity = (info) => ({
+    directory: info.isDirectory(),
+    alias: info.isSymbolicLink(),
+    dev: process.platform === "win32" && info.ino <= 0n ? null : String(info.dev),
+    ino: process.platform === "win32" && info.ino <= 0n ? null : String(info.ino),
+    uid: process.platform === "win32" ? null : String(info.uid),
+    gid: process.platform === "win32" ? null : String(info.gid),
+  });
+  for (let path = canonical;; path = dirname(path)) {
+    const info = await lstat(path, { bigint: true });
+    if (process.platform !== "win32" && (info.ino <= 0n || info.dev < 0n)) {
+      throw new Error(`Private staging native identity is unavailable: ${path}`);
+    }
+    const observed = identity(info);
+    if (!observed.directory || observed.alias) throw new Error("Private staging ancestor is not physical.");
+    observations.push([path, observed]);
+    if (dirname(path) === path) break;
+  }
+  const verify = async () => {
+    const root = await lstat(original);
+    if (!root.isDirectory() || root.isSymbolicLink() || await realpath(original) !== canonical) {
+      throw new Error("Private container root or parent alias changed.");
+    }
+    for (const [path, observed] of observations) {
+      const actual = identity(await lstat(path, { bigint: true }));
+      if (JSON.stringify(actual) !== JSON.stringify(observed) || await realpath(path) !== path) {
+        throw new Error(`Private container root or ancestor identity changed: ${path}`);
+      }
+    }
+  };
+  await verify();
+  let closing;
+  return {
+    directory: canonical,
+    identity: { original, canonical, observations },
+    verify,
+    close: () =>
+      closing ??= (async () => {
+        await verify();
+        // rm removes leaf aliases rather than recursively acquiring their targets.
+        // No chmod traversal is needed for the owner-writable private host copy.
+        await rm(canonical, { recursive: true });
+      })(),
+  };
 }
 
 /** True only for physical descendants; lexical prefix matches cannot admit a sibling directory. */
@@ -122,17 +169,17 @@ export async function copy(source, target, mappings, selected, signal, excluded 
       throw cause;
     }
   } else if (info.isDirectory()) {
-    await mkdir(target, { recursive: true });
+    await mkdir(target, { recursive: true, mode: 0o700 });
     for (const name of (await readdir(source)).sort()) {
       if (excluded.has(name)) continue;
       if (selected && !selected.has(resolve(source, name))) continue;
       await copy(join(source, name), join(target, name), mappings, selected, signal, excluded);
     }
-    if (process.platform !== "win32") await chmod(target, 0o555);
+    if (process.platform !== "win32") await chmod(target, 0o700);
   } else if (info.isFile()) {
     await mkdir(dirname(target), { recursive: true });
     await copyFile(source, target, constants.COPYFILE_EXCL);
-    await chmod(target, process.platform === "win32" ? 0o600 : info.mode & 0o111 ? 0o555 : 0o444);
+    await chmod(target, process.platform === "win32" ? 0o600 : info.mode & 0o111 ? 0o700 : 0o600);
   } else throw new Error(`Container input must be a file, directory or contained alias: ${source}`);
 }
 
@@ -252,6 +299,44 @@ export async function pack(tree, manifest, target, { signal, timeout = 180_000 }
   return authority;
 }
 
+/** Retains bounded actual differences while complete catalog digests bind every observed entry. */
+export function changes(before, after) {
+  const hash = (value) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
+  const scopes = { source: 0, dependencies: 0, cache: 0 };
+  const differences = [];
+  let count = 0;
+  for (const path of new Set([...Object.keys(before.entries), ...Object.keys(after.entries)])) {
+    const previous = before.entries[path], current = after.entries[path];
+    if (JSON.stringify(previous) === JSON.stringify(current)) continue;
+    const scope = (path === "deno-cache" || path.startsWith("deno-cache/"))
+      ? "cache"
+      : (path === "source/node_modules" || path.startsWith("source/node_modules/"))
+      ? "dependencies"
+      : "source";
+    scopes[scope]++;
+    count++;
+    if (differences.length < 32) differences.push({ path, scope, before: previous ?? null, after: current ?? null });
+  }
+  const previousPaths = new Set(before.paths), currentPaths = new Set(after.paths);
+  const added = [...currentPaths].filter((path) => !previousPaths.has(path));
+  const removed = [...previousPaths].filter((path) => !currentPaths.has(path));
+  return {
+    beforeSha256: hash(before),
+    afterSha256: hash(after),
+    root: { before: before.root, after: after.root },
+    sourceMembership: {
+      addedCount: added.length,
+      removedCount: removed.length,
+      added: added.slice(0, 32),
+      removed: removed.slice(0, 32),
+    },
+    changedEntries: count,
+    scopes,
+    differences,
+    omittedDifferences: Math.max(0, count - differences.length),
+  };
+}
+
 /** Builds all canonical source parents without enumerating ignored checkout trees. */
 async function sourcePaths(root, run) {
   const output = await run("git", [
@@ -288,7 +373,7 @@ async function sourcePaths(root, run) {
 }
 
 /**
- * Owns one complete immutable copy and archive for all lanes in an invocation.
+ * Owns one complete identity-guarded copy and archive for all lanes in an invocation.
  *
  * Git is consulted only in the ordinary outer checkout. Docker receives no Git
  * directory, host-source bind, hard link or escaped alias. Complete source,
@@ -304,12 +389,22 @@ export async function open(root = process.cwd(), { cache, run = command, signal,
   const dependency = await realpath(join(root, "node_modules"));
   if (dependency !== join(root, "node_modules")) throw new Error("Installed node_modules root cannot be an alias.");
   if (cache) cache = await realpath(cache);
-  const directory = await mkdtemp(join(temporary, "opfs-container-"));
-  const tree = join(directory, "tree");
-  let closed;
-  const close = () => closed ??= remove(directory);
+  const created = await mkdtemp(join(temporary, "opfs-container-"));
+  let ownership;
   try {
-    await mkdir(tree);
+    ownership = await own(created);
+  } catch (reason) {
+    // A created pathname is not sufficient cleanup authority after identity
+    // acquisition fails. Retain it for recovery, never guess a borrowed target.
+    throw new Error("Private staging cleanup authority could not be acquired.", {
+      cause: { created, reason, cleanup: "not attempted without acquired native path authority" },
+    });
+  }
+  const { directory, close } = ownership;
+  const tree = join(directory, "tree");
+  try {
+    await ownership.verify();
+    await mkdir(tree, { mode: 0o700 });
     const selected = await sourcePaths(root, run);
     const mappings = [[root, join(tree, "source")], [dependency, join(tree, "source/node_modules")]];
     if (cache) mappings.push([cache, join(tree, "deno-cache")]);
@@ -373,7 +468,7 @@ export async function open(root = process.cwd(), { cache, run = command, signal,
           : resolve(root, name.slice("source".length + 1))
       ),
     );
-    // Root becomes read-only after its children; reserve the dependency child first.
+    // Reserve the separately admitted dependency child before source copying.
     await mkdir(join(tree, "source/node_modules"), { recursive: true });
     await copy(root, join(tree, "source"), mappings, selected, signal);
     await copy(dependency, join(tree, "source/node_modules"), mappings, admitted, signal, administration);
@@ -405,10 +500,10 @@ export async function open(root = process.cwd(), { cache, run = command, signal,
     }
     const manifest = { version: 1, roots, entries };
     const manifestBytes = JSON.stringify(manifest);
-    await writeFile(join(tree, "manifest.json"), manifestBytes, process.platform === "win32" ? {} : { mode: 0o444 });
+    await writeFile(join(tree, "manifest.json"), manifestBytes, process.platform === "win32" ? {} : { mode: 0o600 });
     const after = await host();
     if (JSON.stringify(before) !== JSON.stringify(after)) {
-      throw new Error("Container inputs changed while being copied.");
+      throw new Error("Container inputs changed while being copied.", { cause: changes(before, after) });
     }
     // Files in the copy must match host digests; aliases deliberately have rebased spellings.
     for (const [name, value] of Object.entries(before.entries)) {
@@ -424,7 +519,7 @@ export async function open(root = process.cwd(), { cache, run = command, signal,
         if (await realpath(join(tree, name)) !== expected) throw new Error(`Copied alias target differs: ${name}`);
       }
     }
-    if (process.platform !== "win32") await chmod(tree, 0o555);
+    await ownership.verify();
     const archive = join(directory, "inputs.tar");
     const archiveAuthority = await pack(tree, manifest, archive, { signal });
     const archiveSha256 = await digest(archive);
@@ -444,17 +539,22 @@ export async function open(root = process.cwd(), { cache, run = command, signal,
         diskHeadroom: { requiredBytes, availableBytes, scope: "setup estimate; concurrent disk use is uncontrolled" },
         archiveAuthority,
         hostPlatform: process.platform,
+        stagingIdentity: ownership.identity,
         hostProtection: process.platform === "win32"
           ? "byte/alias identity; POSIX metadata unknown"
-          : "native readonly modes",
+          : "owner-writable private staging; native identity guarded",
         cacheIncluded: Boolean(cache),
         sourceOwner: before.root,
         transport: "owned archive; no checkout bind or hard links",
         entries,
       },
       async verify() {
-        if (JSON.stringify(before) !== JSON.stringify(await host())) {
-          throw new Error("Outer container source, dependencies or cache changed.");
+        await ownership.verify();
+        const current = await host();
+        if (JSON.stringify(before) !== JSON.stringify(current)) {
+          throw new Error("Outer container source, dependencies or cache changed.", {
+            cause: changes(before, current),
+          });
         }
         if (JSON.stringify(staged) !== JSON.stringify(await stage())) throw new Error("Owned host copy changed.");
         if (await readFile(join(tree, "manifest.json"), "utf8") !== manifestBytes) {
