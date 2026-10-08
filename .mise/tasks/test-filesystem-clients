@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#MISE description="Test actual AWS Mountpoint and Azure BlobFuse inside isolated ARM64 Linux containers."
+set -euo pipefail
+
+deno task deps:ci
+deno task test:filesystem-clients "$@"

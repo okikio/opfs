@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#MISE description="Run the current Node, Deno, and Bun reliability tests in disposable official Linux containers."
+set -euo pipefail
+
+deno task deps:ci
+deno task test:linux "$@"

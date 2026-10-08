@@ -2,6 +2,5 @@
 #MISE description="Install Playwright browsers and run the cross-browser OPFS suite."
 set -euo pipefail
 
-deno ci
-deno task test:browser:install
-deno task test:browser
+deno task deps:ci
+deno task test:browser:install && deno task test:browser "$@"
