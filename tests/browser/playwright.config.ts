@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
 import { env } from "node:process";
 
@@ -13,12 +14,20 @@ const secondReady = `${second}/tests/browser/fixtures/frame.html`;
 const ci = Boolean(env.CI);
 
 export default defineConfig({
+  // Cleanup and artifact recreation stay inside the writable task-owned namespace.
+  outputDir: fileURLToPath(new URL("../../.tmp/reports/browser/artifacts", import.meta.url)),
   testDir: ".",
   testMatch: "*.spec.ts",
   fullyParallel: true,
   forbidOnly: ci,
+  // Retries collect diagnostics; a flaky capability must still fail the gate.
+  failOnFlakyTests: true,
   retries: ci ? 2 : 0,
-  reporter: ci ? "github" : "line",
+  reporter: ci
+    ? [["github"], ["json", {
+      outputFile: fileURLToPath(new URL("../../.tmp/reports/browser/results.json", import.meta.url)),
+    }]]
+    : "line",
   use: {
     baseURL: first,
     trace: "retain-on-failure",
@@ -27,12 +36,12 @@ export default defineConfig({
     {
       command: "deno run -A npm:vite@8.2.1 ../.. --host 127.0.0.1 --port 4173 --strictPort",
       url: firstReady,
-      reuseExistingServer: !ci,
+      reuseExistingServer: false,
     },
     {
       command: "deno run -A npm:vite@8.2.1 ../.. --host 127.0.0.1 --port 4174 --strictPort",
       url: secondReady,
-      reuseExistingServer: !ci,
+      reuseExistingServer: false,
     },
   ],
   projects: [

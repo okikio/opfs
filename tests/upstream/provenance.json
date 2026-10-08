@@ -1,0 +1,610 @@
+{
+  "format": 1,
+  "retrieved": "2026-10-07",
+  "files": [
+    {
+      "project": "wpt",
+      "repository": "web-platform-tests/wpt",
+      "commit": "a143ac31cb4fb17f14b54a7103ebab5228bdf8d9",
+      "path": "fs/script-tests/FileSystemWritableFileStream-write.js",
+      "retained": "original/wpt/fs/script-tests/FileSystemWritableFileStream-write.js.txt",
+      "sha256": "03501e588bc3ff6d670035242ab04faf1d725991e75b87b7100cba7ef74bc739",
+      "bytes": 13693,
+      "url": "https://github.com/web-platform-tests/wpt/blob/a143ac31cb4fb17f14b54a7103ebab5228bdf8d9/fs/script-tests/FileSystemWritableFileStream-write.js"
+    },
+    {
+      "project": "wpt",
+      "repository": "web-platform-tests/wpt",
+      "commit": "a143ac31cb4fb17f14b54a7103ebab5228bdf8d9",
+      "path": "fs/script-tests/FileSystemDirectoryHandle-getFileHandle.js",
+      "retained": "original/wpt/fs/script-tests/FileSystemDirectoryHandle-getFileHandle.js.txt",
+      "sha256": "7c7ed9b0d0d7b09a76d11fb773f40dede42a9c337711138856030f1c7088e0d3",
+      "bytes": 5240,
+      "url": "https://github.com/web-platform-tests/wpt/blob/a143ac31cb4fb17f14b54a7103ebab5228bdf8d9/fs/script-tests/FileSystemDirectoryHandle-getFileHandle.js"
+    },
+    {
+      "project": "wpt",
+      "repository": "web-platform-tests/wpt",
+      "commit": "a143ac31cb4fb17f14b54a7103ebab5228bdf8d9",
+      "path": "fs/FileSystemSyncAccessHandle-read-write.https.worker.js",
+      "retained": "original/wpt/fs/FileSystemSyncAccessHandle-read-write.https.worker.js.txt",
+      "sha256": "b4b716bf7e10f67fa58b3332a3fce2eebc38afc4869ea62c5ed50e58e6de916f",
+      "bytes": 11509,
+      "url": "https://github.com/web-platform-tests/wpt/blob/a143ac31cb4fb17f14b54a7103ebab5228bdf8d9/fs/FileSystemSyncAccessHandle-read-write.https.worker.js"
+    },
+    {
+      "project": "wpt",
+      "repository": "web-platform-tests/wpt",
+      "commit": "a143ac31cb4fb17f14b54a7103ebab5228bdf8d9",
+      "path": "fs/FileSystemSyncAccessHandle-truncate.https.worker.js",
+      "retained": "original/wpt/fs/FileSystemSyncAccessHandle-truncate.https.worker.js.txt",
+      "sha256": "962aa9dbd0733a9f666af1ea82c27db0c5dd30ca0ee45608407b8307e480b1c3",
+      "bytes": 2397,
+      "url": "https://github.com/web-platform-tests/wpt/blob/a143ac31cb4fb17f14b54a7103ebab5228bdf8d9/fs/FileSystemSyncAccessHandle-truncate.https.worker.js"
+    },
+    {
+      "project": "node",
+      "repository": "nodejs/node",
+      "commit": "151845ab90d3926ceb36eedf1eade09619c3adc9",
+      "path": "test/parallel/test-fs-truncate.js",
+      "retained": "original/node/test/parallel/test-fs-truncate.js.txt",
+      "sha256": "de0a9158843ba55a687520ecce1314dc5a33316ebfe69e208b9f803e070f7545",
+      "bytes": 8610,
+      "url": "https://github.com/nodejs/node/blob/151845ab90d3926ceb36eedf1eade09619c3adc9/test/parallel/test-fs-truncate.js"
+    },
+    {
+      "project": "node",
+      "repository": "nodejs/node",
+      "commit": "151845ab90d3926ceb36eedf1eade09619c3adc9",
+      "path": "test/parallel/test-fs-write-buffer.js",
+      "retained": "original/node/test/parallel/test-fs-write-buffer.js.txt",
+      "sha256": "818668e7e28256ad95635dde3e3eb79d1d06685acbbf31a9d59dd4bc34decd3e",
+      "bytes": 5291,
+      "url": "https://github.com/nodejs/node/blob/151845ab90d3926ceb36eedf1eade09619c3adc9/test/parallel/test-fs-write-buffer.js"
+    },
+    {
+      "project": "node",
+      "repository": "nodejs/node",
+      "commit": "151845ab90d3926ceb36eedf1eade09619c3adc9",
+      "path": "benchmark/fs/bench-ftruncateSync.js",
+      "retained": "original/node/benchmark/fs/bench-ftruncateSync.js.txt",
+      "sha256": "c647b6f5d853afc97a01672ea354ace7b690b268f4c559d2f3c21b9166bebabc",
+      "bytes": 769,
+      "url": "https://github.com/nodejs/node/blob/151845ab90d3926ceb36eedf1eade09619c3adc9/benchmark/fs/bench-ftruncateSync.js"
+    },
+    {
+      "project": "deno",
+      "repository": "denoland/deno",
+      "commit": "0c071246a412575e07423263404a5d13e7ed6aa2",
+      "path": "tests/unit/truncate_test.ts",
+      "retained": "original/deno/tests/unit/truncate_test.ts.txt",
+      "sha256": "bc5107a2b17ca090a16feecdf61c62f1c90048243c267450aef403925679435e",
+      "bytes": 6202,
+      "url": "https://github.com/denoland/deno/blob/0c071246a412575e07423263404a5d13e7ed6aa2/tests/unit/truncate_test.ts"
+    },
+    {
+      "project": "deno",
+      "repository": "denoland/deno",
+      "commit": "0c071246a412575e07423263404a5d13e7ed6aa2",
+      "path": "tests/unit/write_file_test.ts",
+      "retained": "original/deno/tests/unit/write_file_test.ts.txt",
+      "sha256": "d6ec04e0e286cee0c158d10730e5d1f778f9e744a3686b0f401fab63c1ce64df",
+      "bytes": 14188,
+      "url": "https://github.com/denoland/deno/blob/0c071246a412575e07423263404a5d13e7ed6aa2/tests/unit/write_file_test.ts"
+    },
+    {
+      "project": "bun",
+      "repository": "oven-sh/bun",
+      "commit": "0d9b296af33f2b851fcbf4df3e9ec89751734ba4",
+      "path": "test/js/node/fs/fs-promises-writeFile-async-iterator.test.ts",
+      "retained": "original/bun/test/js/node/fs/fs-promises-writeFile-async-iterator.test.ts.txt",
+      "sha256": "071c30b3f215b5db2d37d1ca6fa83777e90f5879edd8aad50bfbfe61306cdf1c",
+      "bytes": 1488,
+      "url": "https://github.com/oven-sh/bun/blob/0d9b296af33f2b851fcbf4df3e9ec89751734ba4/test/js/node/fs/fs-promises-writeFile-async-iterator.test.ts"
+    },
+    {
+      "project": "wpt",
+      "repository": "web-platform-tests/wpt",
+      "commit": "a143ac31cb4fb17f14b54a7103ebab5228bdf8d9",
+      "path": "LICENSE.md",
+      "retained": "original/wpt/LICENSE.md.txt",
+      "sha256": "5fac07febb0e2a97fb0d7b0def149ec08b642e1ba4b9c345283ab1cbd2af6570",
+      "bytes": 1500,
+      "license": true,
+      "url": "https://github.com/web-platform-tests/wpt/blob/a143ac31cb4fb17f14b54a7103ebab5228bdf8d9/LICENSE.md"
+    },
+    {
+      "project": "node",
+      "repository": "nodejs/node",
+      "commit": "151845ab90d3926ceb36eedf1eade09619c3adc9",
+      "path": "LICENSE",
+      "retained": "original/node/LICENSE.txt",
+      "sha256": "6b85ee1983d01fa2cdcdd5d1a3053c6221fae41d6a54e43b416bf35969fc4128",
+      "bytes": 156386,
+      "license": true,
+      "url": "https://github.com/nodejs/node/blob/151845ab90d3926ceb36eedf1eade09619c3adc9/LICENSE"
+    },
+    {
+      "project": "deno",
+      "repository": "denoland/deno",
+      "commit": "0c071246a412575e07423263404a5d13e7ed6aa2",
+      "path": "LICENSE.md",
+      "retained": "original/deno/LICENSE.md.txt",
+      "sha256": "f62497fffecc0852960c8d3e6934b9db86d16396e9b604072e923892cae3a588",
+      "bytes": 1074,
+      "license": true,
+      "url": "https://github.com/denoland/deno/blob/0c071246a412575e07423263404a5d13e7ed6aa2/LICENSE.md"
+    },
+    {
+      "project": "bun",
+      "repository": "oven-sh/bun",
+      "commit": "0d9b296af33f2b851fcbf4df3e9ec89751734ba4",
+      "path": "LICENSE.md",
+      "retained": "original/bun/LICENSE.md.txt",
+      "sha256": "2c6160ec8fb853f7e8f97d9b249e756c9b0ac44860a68b6bf4f1b0bcbc5c3741",
+      "bytes": 5376,
+      "license": true,
+      "url": "https://github.com/oven-sh/bun/blob/0d9b296af33f2b851fcbf4df3e9ec89751734ba4/LICENSE.md"
+    }
+  ],
+  "wptCases": [
+    {
+      "project": "wpt",
+      "path": "fs/script-tests/FileSystemWritableFileStream-write.js",
+      "case": "write() with an empty blob to an empty file",
+      "originalCallbackSha256": "a0d4a2228b8373a191355d3e70d286fdd3a4482b59f2fc8ef0ddeea69777c820",
+      "adaptations": [
+        "Test harness replaced by structural ports and immediate stream/writer cleanup.",
+        "TypeScript lexical declarations replace undeclared loop variables; TextEncoder must exist instead of silently skipping."
+      ]
+    },
+    {
+      "project": "wpt",
+      "path": "fs/script-tests/FileSystemWritableFileStream-write.js",
+      "case": "write() a blob to an empty file",
+      "originalCallbackSha256": "8acd649b01b1dda89afd59dcf11347099274b638bd0d9def8c894750fe5b98af",
+      "adaptations": [
+        "Test harness replaced by structural ports and immediate stream/writer cleanup.",
+        "TypeScript lexical declarations replace undeclared loop variables; TextEncoder must exist instead of silently skipping."
+      ]
+    },
+    {
+      "project": "wpt",
+      "path": "fs/script-tests/FileSystemWritableFileStream-write.js",
+      "case": "write() with WriteParams without position to an empty file",
+      "originalCallbackSha256": "616d9b0ccac966c3f71f7ae36bd19aa2a8371e90e62083ba7fb0c1a86e10665c",
+      "adaptations": [
+        "Test harness replaced by structural ports and immediate stream/writer cleanup.",
+        "TypeScript lexical declarations replace undeclared loop variables; TextEncoder must exist instead of silently skipping."
+      ]
+    },
+    {
+      "project": "wpt",
+      "path": "fs/script-tests/FileSystemWritableFileStream-write.js",
+      "case": "write() a string to an empty file with zero offset",
+      "originalCallbackSha256": "fb80d315ae2e0e0f228086bd9013ea7c30335cbeff16bf56128dfa04e642d2f6",
+      "adaptations": [
+        "Test harness replaced by structural ports and immediate stream/writer cleanup.",
+        "TypeScript lexical declarations replace undeclared loop variables; TextEncoder must exist instead of silently skipping."
+      ]
+    },
+    {
+      "project": "wpt",
+      "path": "fs/script-tests/FileSystemWritableFileStream-write.js",
+      "case": "write() a blob to an empty file with zero offset",
+      "originalCallbackSha256": "03691d40e85b707da895b45165a133b795d2e3920524c6cf7e7c78354424bc30",
+      "adaptations": [
+        "Test harness replaced by structural ports and immediate stream/writer cleanup.",
+        "TypeScript lexical declarations replace undeclared loop variables; TextEncoder must exist instead of silently skipping."
+      ]
+    },
+    {
+      "project": "wpt",
+      "path": "fs/script-tests/FileSystemWritableFileStream-write.js",
+      "case": "write() called consecutively appends",
+      "originalCallbackSha256": "bff151adab9adc0a79c575f1614e316dfe901a566c4126a14ac51424c767c695",
+      "adaptations": [
+        "Test harness replaced by structural ports and immediate stream/writer cleanup.",
+        "TypeScript lexical declarations replace undeclared loop variables; TextEncoder must exist instead of silently skipping."
+      ]
+    },
+    {
+      "project": "wpt",
+      "path": "fs/script-tests/FileSystemWritableFileStream-write.js",
+      "case": "write() WriteParams without position and string appends",
+      "originalCallbackSha256": "8f37c8678c2016859ef7bd5ae3f0a01c4654286e305bd588cfb9299eb60e27a9",
+      "adaptations": [
+        "Test harness replaced by structural ports and immediate stream/writer cleanup.",
+        "TypeScript lexical declarations replace undeclared loop variables; TextEncoder must exist instead of silently skipping."
+      ]
+    },
+    {
+      "project": "wpt",
+      "path": "fs/script-tests/FileSystemWritableFileStream-write.js",
+      "case": "write() WriteParams without position and blob appends",
+      "originalCallbackSha256": "6beb0b1ca257f3430888ee1dbf6a29b8973c10294141d6f552ffe2a0e7307ac0",
+      "adaptations": [
+        "Test harness replaced by structural ports and immediate stream/writer cleanup.",
+        "TypeScript lexical declarations replace undeclared loop variables; TextEncoder must exist instead of silently skipping."
+      ]
+    },
+    {
+      "project": "wpt",
+      "path": "fs/script-tests/FileSystemWritableFileStream-write.js",
+      "case": "write() called with a string and a valid offset",
+      "originalCallbackSha256": "96a2eb7b6a6d0efcad1c2539035888ecd3db9ccd95aab15cfdba5e5f30da8839",
+      "adaptations": [
+        "Test harness replaced by structural ports and immediate stream/writer cleanup.",
+        "TypeScript lexical declarations replace undeclared loop variables; TextEncoder must exist instead of silently skipping."
+      ]
+    },
+    {
+      "project": "wpt",
+      "path": "fs/script-tests/FileSystemWritableFileStream-write.js",
+      "case": "write() called with a string and a valid offset after seek",
+      "originalCallbackSha256": "027941a137c67469c776c69e3505bf0490a7d1fe8e5db188e5235417511e2ffc",
+      "adaptations": [
+        "Test harness replaced by structural ports and immediate stream/writer cleanup.",
+        "TypeScript lexical declarations replace undeclared loop variables; TextEncoder must exist instead of silently skipping."
+      ]
+    },
+    {
+      "project": "wpt",
+      "path": "fs/script-tests/FileSystemWritableFileStream-write.js",
+      "case": "write() called with a blob and a valid offset",
+      "originalCallbackSha256": "c4196d97d123d547abb882f8e5492f258c889b874430e92cd224db6c8f8770bf",
+      "adaptations": [
+        "Test harness replaced by structural ports and immediate stream/writer cleanup.",
+        "TypeScript lexical declarations replace undeclared loop variables; TextEncoder must exist instead of silently skipping."
+      ]
+    },
+    {
+      "project": "wpt",
+      "path": "fs/script-tests/FileSystemWritableFileStream-write.js",
+      "case": "write() called with an offset beyond the end of the file",
+      "originalCallbackSha256": "9502265cb48a640cc4634cacb8faaf71cb1b1e2aef93e0d4916072a8ea846d8f",
+      "adaptations": [
+        "Test harness replaced by structural ports and immediate stream/writer cleanup.",
+        "TypeScript lexical declarations replace undeclared loop variables; TextEncoder must exist instead of silently skipping."
+      ]
+    },
+    {
+      "project": "wpt",
+      "path": "fs/script-tests/FileSystemWritableFileStream-write.js",
+      "case": "write() with an empty string to an empty file",
+      "originalCallbackSha256": "dd1828f7b023e99b9172b6e3a113c134946c42e987fd6225f5ae6bfebbe8a5f5",
+      "adaptations": [
+        "Test harness replaced by structural ports and immediate stream/writer cleanup.",
+        "TypeScript lexical declarations replace undeclared loop variables; TextEncoder must exist instead of silently skipping."
+      ]
+    },
+    {
+      "project": "wpt",
+      "path": "fs/script-tests/FileSystemWritableFileStream-write.js",
+      "case": "write() with a valid utf-8 string",
+      "originalCallbackSha256": "0d9b624b3255f888fa867194fb2f3c132136298a5ef863fbe1226a4267e93668",
+      "adaptations": [
+        "Test harness replaced by structural ports and immediate stream/writer cleanup.",
+        "TypeScript lexical declarations replace undeclared loop variables; TextEncoder must exist instead of silently skipping."
+      ]
+    },
+    {
+      "project": "wpt",
+      "path": "fs/script-tests/FileSystemWritableFileStream-write.js",
+      "case": "write() with a string with unix line ending preserved",
+      "originalCallbackSha256": "0fa00ed52fe702954bd8fa349779bd1023dc1002b0f0f7a58e434e269fc37b53",
+      "adaptations": [
+        "Test harness replaced by structural ports and immediate stream/writer cleanup.",
+        "TypeScript lexical declarations replace undeclared loop variables; TextEncoder must exist instead of silently skipping."
+      ]
+    },
+    {
+      "project": "wpt",
+      "path": "fs/script-tests/FileSystemWritableFileStream-write.js",
+      "case": "write() with a string with windows line ending preserved",
+      "originalCallbackSha256": "e438d5dec4fe9575a6dd3d7c647739960190c69848b483d5c5e4e731c7d32f24",
+      "adaptations": [
+        "Test harness replaced by structural ports and immediate stream/writer cleanup.",
+        "TypeScript lexical declarations replace undeclared loop variables; TextEncoder must exist instead of silently skipping."
+      ]
+    },
+    {
+      "project": "wpt",
+      "path": "fs/script-tests/FileSystemWritableFileStream-write.js",
+      "case": "write() with an empty array buffer to an empty file",
+      "originalCallbackSha256": "726b80724df6b4cebe2c073ca27c099013d2f843531c645c3226670bc6de3c51",
+      "adaptations": [
+        "Test harness replaced by structural ports and immediate stream/writer cleanup.",
+        "TypeScript lexical declarations replace undeclared loop variables; TextEncoder must exist instead of silently skipping."
+      ]
+    },
+    {
+      "project": "wpt",
+      "path": "fs/script-tests/FileSystemWritableFileStream-write.js",
+      "case": "write() with a valid typed array buffer",
+      "originalCallbackSha256": "1aea4e299cbf33f041ca5d11293c977b2ba991272060f643d24e0a8b66f929ed",
+      "adaptations": [
+        "Test harness replaced by structural ports and immediate stream/writer cleanup.",
+        "TypeScript lexical declarations replace undeclared loop variables; TextEncoder must exist instead of silently skipping."
+      ]
+    },
+    {
+      "project": "wpt",
+      "path": "fs/script-tests/FileSystemWritableFileStream-write.js",
+      "case": "atomic writes: writable file streams make atomic changes on close",
+      "originalCallbackSha256": "59b61f8a8658ace90e3f73a2e57f60f9c7cf682b5bf57343f09fe89cb3276e25",
+      "adaptations": [
+        "Test harness replaced by structural ports and immediate stream/writer cleanup.",
+        "TypeScript lexical declarations replace undeclared loop variables; TextEncoder must exist instead of silently skipping."
+      ]
+    },
+    {
+      "project": "wpt",
+      "path": "fs/script-tests/FileSystemWritableFileStream-write.js",
+      "case": "getWriter() can be used",
+      "originalCallbackSha256": "d34ce7fc8e29fcb278d71a0bc3d0973907121b16d92007156722d4b6e7f88984",
+      "adaptations": [
+        "Test harness replaced by structural ports and immediate stream/writer cleanup.",
+        "TypeScript lexical declarations replace undeclared loop variables; TextEncoder must exist instead of silently skipping."
+      ]
+    },
+    {
+      "project": "wpt",
+      "path": "fs/script-tests/FileSystemDirectoryHandle-getFileHandle.js",
+      "case": "getFileHandle(create=true) creates an empty file for non-existing files",
+      "originalCallbackSha256": "f675bb66c10f5f88d954c9d34a225e233f7e15b18383277dfd75eeff9e48272b",
+      "adaptations": [
+        "Test harness replaced by structural ports and immediate stream/writer cleanup.",
+        "TypeScript lexical declarations replace undeclared loop variables; TextEncoder must exist instead of silently skipping."
+      ]
+    },
+    {
+      "project": "wpt",
+      "path": "fs/script-tests/FileSystemDirectoryHandle-getFileHandle.js",
+      "case": "getFileHandle(create=true) creates an empty file with non-ASCII characters in the name",
+      "originalCallbackSha256": "96bea6a1d2585588c1dbb673ccb0ca530a84cb6e0e5109472fa838c0afa039b1",
+      "adaptations": [
+        "Test harness replaced by structural ports and immediate stream/writer cleanup.",
+        "TypeScript lexical declarations replace undeclared loop variables; TextEncoder must exist instead of silently skipping."
+      ]
+    },
+    {
+      "project": "wpt",
+      "path": "fs/script-tests/FileSystemDirectoryHandle-getFileHandle.js",
+      "case": "getFileHandle(create=false) returns existing files",
+      "originalCallbackSha256": "a539db648d6ab186a92a3032e00e29b335039e6e0177c36149a157bf44377750",
+      "adaptations": [
+        "Test harness replaced by structural ports and immediate stream/writer cleanup.",
+        "TypeScript lexical declarations replace undeclared loop variables; TextEncoder must exist instead of silently skipping."
+      ]
+    },
+    {
+      "project": "wpt",
+      "path": "fs/script-tests/FileSystemDirectoryHandle-getFileHandle.js",
+      "case": "getFileHandle(create=true) returns existing files without erasing",
+      "originalCallbackSha256": "96e992de90d934a5c1942007e2f5f28e024c49982cf4d6691606e76e4d58170c",
+      "adaptations": [
+        "Test harness replaced by structural ports and immediate stream/writer cleanup.",
+        "TypeScript lexical declarations replace undeclared loop variables; TextEncoder must exist instead of silently skipping."
+      ]
+    },
+    {
+      "project": "wpt",
+      "path": "fs/FileSystemSyncAccessHandle-read-write.https.worker.js",
+      "case": "Test reading an empty file through a sync access handle.",
+      "originalCallbackSha256": "4489941575736c649627068a2d11079473ef29b73f951914afea81fc314aad92",
+      "adaptations": [
+        "Test harness replaced by structural ports and immediate stream/writer cleanup.",
+        "TypeScript lexical declarations replace undeclared loop variables; TextEncoder must exist instead of silently skipping."
+      ]
+    },
+    {
+      "project": "wpt",
+      "path": "fs/FileSystemSyncAccessHandle-read-write.https.worker.js",
+      "case": "Test writing and reading through a sync access handle.",
+      "originalCallbackSha256": "4f69e4010d8599038a8d7c58310195267ba97d496849dbdd069dd5584a2ccf4c",
+      "adaptations": [
+        "Test harness replaced by structural ports and immediate stream/writer cleanup.",
+        "TypeScript lexical declarations replace undeclared loop variables; TextEncoder must exist instead of silently skipping."
+      ]
+    },
+    {
+      "project": "wpt",
+      "path": "fs/FileSystemSyncAccessHandle-read-write.https.worker.js",
+      "case": "Test second write that is bigger than the first write",
+      "originalCallbackSha256": "218d6ed8c5b098a2137ea75d8ff2199d5928addba628ff230c601de341e4e280",
+      "adaptations": [
+        "Test harness replaced by structural ports and immediate stream/writer cleanup.",
+        "TypeScript lexical declarations replace undeclared loop variables; TextEncoder must exist instead of silently skipping."
+      ]
+    },
+    {
+      "project": "wpt",
+      "path": "fs/FileSystemSyncAccessHandle-read-write.https.worker.js",
+      "case": "Test second write that is smaller than the first write",
+      "originalCallbackSha256": "9e556f86113d5ee4e8a95feb2486f99c2e3e4ad64d45601ffe8456390c2f13f3",
+      "adaptations": [
+        "Test harness replaced by structural ports and immediate stream/writer cleanup.",
+        "TypeScript lexical declarations replace undeclared loop variables; TextEncoder must exist instead of silently skipping."
+      ]
+    },
+    {
+      "project": "wpt",
+      "path": "fs/FileSystemSyncAccessHandle-read-write.https.worker.js",
+      "case": "Test initial write with an offset",
+      "originalCallbackSha256": "b64f730f8c0bb5f4116b8b1eaf4da88ada36db7e5e322b1738a8effad81a7e0b",
+      "adaptations": [
+        "Test harness replaced by structural ports and immediate stream/writer cleanup.",
+        "TypeScript lexical declarations replace undeclared loop variables; TextEncoder must exist instead of silently skipping."
+      ]
+    },
+    {
+      "project": "wpt",
+      "path": "fs/FileSystemSyncAccessHandle-read-write.https.worker.js",
+      "case": "Test overwriting the file at an offset",
+      "originalCallbackSha256": "bca8ca832d72d12f0e7833bbbfcd618c80f9827f888c6f036b14575eb8973664",
+      "adaptations": [
+        "Test harness replaced by structural ports and immediate stream/writer cleanup.",
+        "TypeScript lexical declarations replace undeclared loop variables; TextEncoder must exist instead of silently skipping."
+      ]
+    },
+    {
+      "project": "wpt",
+      "path": "fs/FileSystemSyncAccessHandle-read-write.https.worker.js",
+      "case": "Test read at an offset",
+      "originalCallbackSha256": "8dbd896c644a0daf1e582d737d2cea728157a49d0b355f2a041502efb383d011",
+      "adaptations": [
+        "Test harness replaced by structural ports and immediate stream/writer cleanup.",
+        "TypeScript lexical declarations replace undeclared loop variables; TextEncoder must exist instead of silently skipping."
+      ]
+    },
+    {
+      "project": "wpt",
+      "path": "fs/FileSystemSyncAccessHandle-read-write.https.worker.js",
+      "case": "Test read with default options",
+      "originalCallbackSha256": "91f2f0b40752ca6f48ac67b96a68f7ba30575d0d24c21aac0c3b0606a9238fcc",
+      "adaptations": [
+        "Test harness replaced by structural ports and immediate stream/writer cleanup.",
+        "TypeScript lexical declarations replace undeclared loop variables; TextEncoder must exist instead of silently skipping."
+      ]
+    },
+    {
+      "project": "wpt",
+      "path": "fs/FileSystemSyncAccessHandle-read-write.https.worker.js",
+      "case": "Test write with default options",
+      "originalCallbackSha256": "795fef9dede8f32070c65d931c2341d93af98761f553778dabb8b34f250a0e63",
+      "adaptations": [
+        "Test harness replaced by structural ports and immediate stream/writer cleanup.",
+        "TypeScript lexical declarations replace undeclared loop variables; TextEncoder must exist instead of silently skipping."
+      ]
+    },
+    {
+      "project": "wpt",
+      "path": "fs/FileSystemSyncAccessHandle-read-write.https.worker.js",
+      "case": "Test reading and writing a file using the cursor",
+      "originalCallbackSha256": "2ce576deda4b0153363c193c0fc634092137312b68bde85da312ba4f1fb763e3",
+      "adaptations": [
+        "Test harness replaced by structural ports and immediate stream/writer cleanup.",
+        "TypeScript lexical declarations replace undeclared loop variables; TextEncoder must exist instead of silently skipping."
+      ]
+    },
+    {
+      "project": "wpt",
+      "path": "fs/FileSystemSyncAccessHandle-truncate.https.worker.js",
+      "case": "test SyncAccessHandle.truncate with different sizes",
+      "originalCallbackSha256": "e43b8917533560ccd7d935a71ae8862b68e3f2d16341e3fb85232465ff9d06a9",
+      "adaptations": [
+        "Test harness replaced by structural ports and immediate stream/writer cleanup.",
+        "TypeScript lexical declarations replace undeclared loop variables; TextEncoder must exist instead of silently skipping.",
+        "Negative native TypeError assertion omitted: facade validates numeric range with RangeError."
+      ]
+    },
+    {
+      "project": "wpt",
+      "path": "fs/FileSystemSyncAccessHandle-truncate.https.worker.js",
+      "case": "test SyncAccessHandle.truncate after SyncAccessHandle.write",
+      "originalCallbackSha256": "ce42357fdffaece563b9add27be549c45c2dd5f8ec2e07f4705f310eb5ad5cbd",
+      "adaptations": [
+        "Test harness replaced by structural ports and immediate stream/writer cleanup.",
+        "TypeScript lexical declarations replace undeclared loop variables; TextEncoder must exist instead of silently skipping."
+      ]
+    },
+    {
+      "project": "wpt",
+      "path": "fs/FileSystemSyncAccessHandle-truncate.https.worker.js",
+      "case": "Test truncate effect on cursor",
+      "originalCallbackSha256": "990d7141955bd0a6f618cece6a914b5718c74bf9b5f0a84100ea95d820b3f2b4",
+      "adaptations": [
+        "Test harness replaced by structural ports and immediate stream/writer cleanup.",
+        "TypeScript lexical declarations replace undeclared loop variables; TextEncoder must exist instead of silently skipping."
+      ]
+    }
+  ],
+  "exclusions": [
+    "Native WebIDL brands and DOMException names, unsupported ArrayBuffer sync inputs, platform filename universes, mode/permission flags, negative truncation runtime differences, repeated-close scheduling, invalid-fd exception benchmark, Bun internal Stats fields.",
+    "Deno createNew has no atomic exclusive-create facade mapping and is not claimed.",
+    "Bun string-yielding async iterators are outside the byte-only iterator input contract.",
+    "Copied WPT getWriter control retains writer ownership cleanup; original tests did not release its lock.",
+    "WebKit ephemeral acquisition UnknownError is a reported profile limitation; unexpected errors fail instead of skipping."
+  ],
+  "runtimeCases": [
+    {
+      "name": "Node buffer write preserves the selected byte view",
+      "project": "node",
+      "path": "test/parallel/test-fs-write-buffer.js",
+      "identity": "fs.write with a buffer, without the length parameter",
+      "commit": "151845ab90d3926ceb36eedf1eade09619c3adc9",
+      "url": "https://github.com/nodejs/node/blob/151845ab90d3926ceb36eedf1eade09619c3adc9/test/parallel/test-fs-write-buffer.js",
+      "adaptation": "Runtime calls translated to facade operations; original fixture values retained. See docs/upstream.md for changes and limits."
+    },
+    {
+      "name": "Node DataView write preserves bytes outside a nonzero view offset",
+      "project": "node",
+      "path": "test/parallel/test-fs-write-buffer.js",
+      "identity": "fs.write with a DataView, without the offset and length parameters",
+      "commit": "151845ab90d3926ceb36eedf1eade09619c3adc9",
+      "url": "https://github.com/nodejs/node/blob/151845ab90d3926ceb36eedf1eade09619c3adc9/test/parallel/test-fs-write-buffer.js",
+      "adaptation": "Runtime calls translated to facade operations; original fixture values retained. See docs/upstream.md for changes and limits."
+    },
+    {
+      "name": "Node ftruncate shrinks a 16 KiB file to 1024 and then zero bytes",
+      "project": "node",
+      "path": "test/parallel/test-fs-truncate.js",
+      "identity": "ftruncateSync length 1024 then 0",
+      "commit": "151845ab90d3926ceb36eedf1eade09619c3adc9",
+      "url": "https://github.com/nodejs/node/blob/151845ab90d3926ceb36eedf1eade09619c3adc9/test/parallel/test-fs-truncate.js",
+      "adaptation": "Runtime calls translated to facade operations; original fixture values retained. See docs/upstream.md for changes and limits."
+    },
+    {
+      "name": "Deno ftruncateSyncSuccess grows to 20 bytes and shrinks to five",
+      "project": "deno",
+      "path": "tests/unit/truncate_test.ts",
+      "identity": "ftruncateSyncSuccess / positive lengths",
+      "commit": "0c071246a412575e07423263404a5d13e7ed6aa2",
+      "url": "https://github.com/denoland/deno/blob/0c071246a412575e07423263404a5d13e7ed6aa2/tests/unit/truncate_test.ts",
+      "adaptation": "Runtime calls translated to facade operations; original fixture values retained. See docs/upstream.md for changes and limits."
+    },
+    {
+      "name": "Deno writeFileAppend appends once, then replacement and default writes truncate",
+      "project": "deno",
+      "path": "tests/unit/write_file_test.ts",
+      "identity": "writeFileAppend",
+      "commit": "0c071246a412575e07423263404a5d13e7ed6aa2",
+      "url": "https://github.com/denoland/deno/blob/0c071246a412575e07423263404a5d13e7ed6aa2/tests/unit/write_file_test.ts",
+      "adaptation": "Runtime calls translated to facade operations; original fixture values retained. See docs/upstream.md for changes and limits."
+    },
+    {
+      "name": "Deno overwriteFileWithStream removes the old trailing bytes",
+      "project": "deno",
+      "path": "tests/unit/write_file_test.ts",
+      "identity": "overwriteFileWithStream",
+      "commit": "0c071246a412575e07423263404a5d13e7ed6aa2",
+      "url": "https://github.com/denoland/deno/blob/0c071246a412575e07423263404a5d13e7ed6aa2/tests/unit/write_file_test.ts",
+      "adaptation": "Runtime calls translated to facade operations; original fixture values retained. See docs/upstream.md for changes and limits."
+    },
+    {
+      "name": "Bun fs.promises.writeFile async iterator concatenates byte chunks",
+      "project": "bun",
+      "path": "test/js/node/fs/fs-promises-writeFile-async-iterator.test.ts",
+      "identity": "fs.promises.writeFile async iterator / bufStream",
+      "commit": "0d9b296af33f2b851fcbf4df3e9ec89751734ba4",
+      "url": "https://github.com/oven-sh/bun/blob/0d9b296af33f2b851fcbf4df3e9ec89751734ba4/test/js/node/fs/fs-promises-writeFile-async-iterator.test.ts",
+      "adaptation": "Runtime calls translated to facade operations; original fixture values retained. See docs/upstream.md for changes and limits."
+    },
+    {
+      "name": "Bun async iterator producer failure preserves the original reason",
+      "project": "bun",
+      "path": "test/js/node/fs/fs-promises-writeFile-async-iterator.test.ts",
+      "identity": "fs.promises.writeFile async iterator throws on invalid input / Error(good)",
+      "commit": "0d9b296af33f2b851fcbf4df3e9ec89751734ba4",
+      "url": "https://github.com/oven-sh/bun/blob/0d9b296af33f2b851fcbf4df3e9ec89751734ba4/test/js/node/fs/fs-promises-writeFile-async-iterator.test.ts",
+      "adaptation": "Runtime calls translated to facade operations; original fixture values retained. See docs/upstream.md for changes and limits."
+    }
+  ],
+  "benchmark": {
+    "project": "node",
+    "path": "benchmark/fs/bench-ftruncateSync.js",
+    "identity": "main / type=valid / n=10000",
+    "adaptation": "Four preopened layers share original Some content. input and truncate(4) loop. Invalid-descriptor catch-and-ignore lane omitted. Errors propagate; preflight verifies Some prefix; timed loop consumes one getSize result per batch. Measures steady-state truncate dispatch/syscalls, not growth or durability."
+  }
+}

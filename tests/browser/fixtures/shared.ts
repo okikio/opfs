@@ -16,18 +16,21 @@ async function runSharedRequest(
   }
 
   const fileSystem = await openFileSystem();
+  let value: string;
   try {
     await fileSystem.writeFile(input.path, input.value, { parents: true });
-    port.postMessage({ supported: true, probe, value: await fileSystem.readText(input.path) });
+    value = await fileSystem.readText(input.path);
   } finally {
     await fileSystem.close();
   }
+  // The reply authorizes the page to close this port and its worker context.
+  port.postMessage({ supported: true, probe, value });
 }
 
 self.onconnect = (event: MessageEvent) => {
   const port = event.ports[0]!;
   port.onmessage = (message: MessageEvent<{ path: string; value: string }>) => {
-    void runSharedRequest(port, message.data);
+    void runSharedRequest(port, message.data).catch((error) => port.postMessage({ error: String(error) }));
   };
   port.start();
 };
