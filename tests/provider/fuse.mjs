@@ -5,6 +5,7 @@ import { promisify } from "node:util";
 import { arch, cpus, platform } from "node:os";
 import { validateMitata } from "../../bench/validate.ts";
 import { inputs as identity, verifyInputs } from "../../bench/input.ts";
+import { open } from "../../.mise/tasks/container.mjs";
 import { within } from "../gate.ts";
 import { GenericContainer, Network, Wait } from "testcontainers";
 import { BlobServiceClient, StorageSharedKeyCredential } from "@azure/storage-blob";
@@ -42,16 +43,33 @@ const metadata = {
   correctness: undefined,
   benchmark: undefined,
   versions: undefined,
+  admission: undefined,
+  admissionAfter: undefined,
+  copiedBefore: undefined,
+  copiedAfter: undefined,
   failure: undefined,
 };
 await save();
 let network;
+let source;
+let copiedClient;
+const copiedRoot = "/tmp/opfs-container";
 /** Membership, rather than an undefined sentinel, proves that even throw undefined failed. */
 const failures = [];
 let invalid = false;
 const containers = [];
 try {
   metadata.inputs = await identity();
+  await save();
+  metadata.phase = "source-admission";
+  const started = Date.now();
+  source = await open();
+  await writeFile(`${directory}/source-admission.json`, JSON.stringify(source.receipt, null, 2));
+  metadata.admission = {
+    report: `${directory}/source-admission.json`,
+    archiveSha256: source.archiveSha256,
+    setupMilliseconds: Date.now() - started,
+  };
   await save();
   network = await new Network().start();
   metadata.phase = "start-s3";
@@ -86,7 +104,7 @@ try {
   metadata.phase = "start-fuse";
   await save();
   const client = await new GenericContainer("opfs-reliability-fuse:1.24.0-2.5.5").withNetwork(network)
-    .withPrivilegedMode().withBindMounts([{ source: process.cwd(), target: "/workspace", mode: "ro" }]).withEnvironment(
+    .withPrivilegedMode().withUser("0:0").withEnvironment(
       {
         AWS_ACCESS_KEY_ID: S3_ACCESS_KEY,
         AWS_SECRET_ACCESS_KEY: S3_SECRET_KEY,
@@ -97,6 +115,35 @@ try {
     .withStartupTimeout(90000).start();
   containers.push(client);
   await image("fuse", client);
+  metadata.phase = "copy-source";
+  await save();
+  await within(
+    client.copyFilesToContainer([{ source: source.archive, target: "/tmp/opfs-inputs.tar", mode: 0o444 }]),
+    "FUSE input transfer",
+    180_000,
+  );
+  const transported = await within(
+    client.exec(["sha256sum", "/tmp/opfs-inputs.tar"]),
+    "FUSE archive identity",
+    180_000,
+  );
+  metadata.transportedArchiveSha256 = transported.output.trim().split(/\s+/u)[0];
+  if (transported.exitCode !== 0 || metadata.transportedArchiveSha256 !== source.archiveSha256) {
+    throw new Error("FUSE transported source archive differs.");
+  }
+  const extracted = await within(
+    client.exec([
+      "sh",
+      "-c",
+      `set -e; mkdir -p ${copiedRoot}; tar --no-same-owner -xf /tmp/opfs-inputs.tar -C ${copiedRoot}; rm /tmp/opfs-inputs.tar; node ${copiedRoot}/source/.mise/tasks/container-worker.mjs ${copiedRoot} --admit; mount --bind ${copiedRoot} ${copiedRoot}; mount -o remount,bind,ro ${copiedRoot}`,
+    ]),
+    "FUSE owned input extraction",
+    180_000,
+  );
+  if (extracted.exitCode !== 0) throw new Error(`FUSE owned input extraction failed: ${extracted.output}`);
+  copiedClient = client;
+  metadata.copiedBefore = await copied(client);
+  await save();
   const configuration =
     `logging:\n  type: base\n  level: log_debug\n  file-path: /tmp/blobfuse.log\ncomponents:\n  - libfuse\n  - file_cache\n  - azstorage\nlibfuse:\n  attribute-expiration-sec: 0\n  entry-expiration-sec: 0\n  negative-entry-expiration-sec: 0\nfile_cache:\n  path: /tmp/blobcache\n  timeout-sec: 0\nazstorage:\n  type: block\n  account-name: ${AZURE_ACCOUNT}\n  account-key: ${AZURE_KEY}\n  container: ${STORAGE_NAME}\n  endpoint: http://azure:10000/${AZURE_ACCOUNT}\n  mode: key\n  use-http: true\n`;
   await client.copyContentToContainer([{ content: configuration, target: "/tmp/blobfuse.yaml" }]);
@@ -127,7 +174,7 @@ try {
     // for the fixture's hour-long idle command to exit.
     const command = await within(
       client.exec(["node", "tests/provider/fuse-client.mjs"], {
-        workingDir: "/workspace",
+        workingDir: `${copiedRoot}/source`,
         env: environment,
       }),
       "FUSE correctness command",
@@ -151,7 +198,7 @@ try {
           "-c",
           "node --expose-gc bench/filesystem-provider.bench.ts >/tmp/fuse-bench.json 2>/tmp/fuse-bench.stderr",
         ], {
-          workingDir: "/workspace",
+          workingDir: `${copiedRoot}/source`,
           env: { ...environment, BENCH_JSON: "1" },
         }),
         "FUSE benchmark command",
@@ -197,6 +244,28 @@ try {
   metadata.status = "fail";
 } finally {
   metadata.phase = "cleanup";
+  if (copiedClient) {
+    try {
+      metadata.copiedAfter = await copied(copiedClient);
+    } catch (error) {
+      failures.push(error);
+      invalid = true;
+    }
+  }
+  if (source) {
+    try {
+      metadata.admissionAfter = await source.verify();
+    } catch (error) {
+      failures.push(error);
+      invalid = true;
+    }
+    try {
+      await source.close();
+    } catch (error) {
+      failures.push(error);
+      invalid = true;
+    }
+  }
   await observeSave();
   for (const container of containers.toReversed()) {
     try {
@@ -227,6 +296,17 @@ try {
   metadata.phase = "complete";
   await observeSave();
   console.log(JSON.stringify({ phase: "complete", status: metadata.status, report: directory }));
+}
+
+/** Runs the same admitted verifier on the private read-only tree, outside timed callbacks. */
+async function copied(client) {
+  const result = await within(
+    client.exec(["node", `${copiedRoot}/source/.mise/tasks/container-worker.mjs`, copiedRoot, "--verify"]),
+    "FUSE copied input guard",
+    180_000,
+  );
+  if (result.exitCode !== 0) throw new Error(`FUSE copied input guard failed: ${result.output}`);
+  return { status: "unchanged", output: result.output };
 }
 if (failures.length) throw new AggregateError(failures, "FUSE workflow or evidence/cleanup failed.");
 

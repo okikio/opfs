@@ -713,3 +713,8 @@ participants within each test; scheduler parallelism is not their oracle.
 Vite loads fixture configuration through `--configLoader native`. Deno already understands the TypeScript source, so the
 loader must not emit a temporary module beside maintained configuration files. This keeps startup compatible with the
 readonly source used by release preparation.
+
+Linux and FUSE runners admit owned source archives instead of binding a Git checkout into Docker. Complete copied
+membership and outer source/dependency/cache identities are checked before and after work. Copy and hashing costs are
+setup overhead outside timed library callbacks. See [container source admission](container-inputs.md) for permissions,
+alias limits, exact receipts, ordinary Linux runtime users and cleanup boundaries.
