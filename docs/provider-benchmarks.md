@@ -25,6 +25,11 @@ changed support invalidate that receipt and fail the command. An `unchanged` inp
 byte/request preflight and valid timing distributions. See [validation](validation.md) for catalog exclusions and the
 limits of before/after source observations.
 
+Native, FUSE and standalone provider reports acquire a fresh directory atomically. Its name has a readable timestamp and
+a random suffix, so simultaneous starts keep independent raw output and progress metadata. Provider children use their
+parent's explicitly supplied directory. A fresh report namespace prevents evidence overwrite; it does not make
+concurrent performance measurements comparable under shared host load.
+
 `bench/providers.ts` starts the providers before the benchmark programs and releases them after both runtimes finish.
 Each program first validates independent deterministic bytes, publication acknowledgements, and physical HTTP calls. It
 then times requests directly against the provider endpoints. The preflight observer is closed before timing; there is no

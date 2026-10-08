@@ -25,9 +25,13 @@ deno task test:filesystem-clients
 
 The native and FUSE reports retain their existing metadata and raw output. Browser collection adds
 `.tmp/reports/browser-bench/inputs.json`; provider orchestration adds `provider-inputs.json` in its report directory.
-Receipts retain running or invalid admission separately from workload results. An unchanged input receipt does not mean
-tests passed or timings are valid. A missing required input or changed source rejects collection, with failure evidence
-retained beside raw workload output.
+
+Native, FUSE and standalone provider invocations now acquire fresh report directories atomically. The readable timestamp
+is followed by an owned random suffix. Two invocations starting in the same millisecond therefore keep separate progress
+and raw evidence instead of overwriting one another's metadata. Provider children still write into their explicitly
+supplied parent report directory. Receipts retain running or invalid admission separately from workload results. An
+unchanged input receipt does not mean tests passed or timings are valid. A missing required input or changed source
+rejects collection, with failure evidence retained beside raw workload output.
 
 This catalog deliberately includes some support that a particular workload does not execute; it is not a parsed complete
 import graph. Before/after hashes cannot detect a temporary edit restored between observations or prove installed
