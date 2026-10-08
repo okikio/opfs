@@ -1,5 +1,6 @@
-import { test } from "./profile.ts";
-import { chromium, expect, firefox, webkit } from "@playwright/test";
+import { open, test } from "./profile.ts";
+import { expect } from "@playwright/test";
+import { withReleases } from "../close.ts";
 
 import type { BrowserTestGlobalType } from "./fixtures/api.ts";
 
@@ -86,31 +87,37 @@ test("fresh browser contexts do not inherit another context's OPFS file", async 
   }
 });
 
-test("a persistent profile reopens the same OPFS data", async ({ browserName }, testInfo) => {
-  const browserType = browserName === "chromium" ? chromium : browserName === "firefox" ? firefox : webkit;
-  const profile = testInfo.outputPath("profile");
+/**
+ * Two native launches and two native closes need their own finite scenario lifetime.
+ * The scenario reserves its final 30s and open() reserves another native-close
+ * interval before dispatch. This leaves at least 60s of acquisition/retirement
+ * headroom; the ordinary one-context body remains 30s.
+ */
+const REOPEN_TIMEOUT = 180_000;
+const REOPEN_RETIREMENT = 30_000;
+
+test("a persistent profile reopens the same OPFS data", async ({ playwright, browserName, profile }, testInfo) => {
+  testInfo.setTimeout(REOPEN_TIMEOUT);
+  const deadline = performance.now() + REOPEN_TIMEOUT - REOPEN_RETIREMENT;
+  const browserType = playwright[browserName];
   const path = `/persistence/${crypto.randomUUID()}.txt`;
 
-  const first = await browserType.launchPersistentContext(profile);
-  let written: Awaited<ReturnType<BrowserTestGlobalType["opfsTest"]["roundTrip"]>>;
-  try {
-    const firstPage = await first.newPage();
+  await withReleases(async (releases) => {
+    const first = await open(browserType, profile, releases, deadline);
+    const firstPage = await first.context.newPage();
     await ready(firstPage);
-    written = await firstPage.evaluate(
+    const written = await firstPage.evaluate(
       async ({ path }) => await (globalThis as InstalledFixtureGlobalType).opfsTest.roundTrip(path, "persisted"),
       { path },
     );
-  } finally {
     await first.close();
-  }
-  if (!written.probe?.rootAvailable) {
-    expect(written.probe?.rootError).toBeDefined();
-    return;
-  }
+    if (!written.probe?.rootAvailable) {
+      expect(written.probe?.rootError).toBeDefined();
+      return;
+    }
 
-  const second = await browserType.launchPersistentContext(profile);
-  try {
-    const secondPage = await second.newPage();
+    const second = await open(browserType, profile, releases, deadline);
+    const secondPage = await second.context.newPage();
     await ready(secondPage);
     expect(
       await secondPage.evaluate(
@@ -118,7 +125,5 @@ test("a persistent profile reopens the same OPFS data", async ({ browserName }, 
         { path },
       ),
     ).toBe("persisted");
-  } finally {
-    await second.close();
-  }
+  });
 });

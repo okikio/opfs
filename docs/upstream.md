@@ -49,13 +49,14 @@ and unexpected native OPFS acquisition failures. The separate provenance case ch
 
 The browser suite executes the same WPT callbacks directly against native OPFS and through the facade. Its 150
 Playwright tests cover three engines, two routes, 24 individual directory/writable cases and one 13-case sync batch per
-route in a DedicatedWorker. Every engine uses a fresh task-owned persistent profile for each test worker. Each test owns
-a separate page and UUID namespace, and the worker fixture deletes its profile after closing the context. Persistent
-storage is an explicit tested profile, not evidence for private or ephemeral browser contexts. A focused macOS probe
-observed native WebKit `UnknownError` in a fresh ephemeral context, while a fresh persistent profile wrote and read
-`foo🤘` with size seven. This is an observed deployment limitation, not API absence. The new suite skips only absent
-APIs, explicit native policy denial, or absent worker sync exposure. Unexpected acquisition errors fail and retain the
-native probe.
+route in a DedicatedWorker. Every engine uses a fresh task-owned persistent profile for each test. Each case owns its
+page and UUID namespace, and the fixture deletes its profile after closing the context. Native acquisition and
+retirement have the finite owner budgets described in [validation](validation.md#browser-tests-use-playwright).
+Persistent storage is an explicit tested profile, not evidence for private or ephemeral browser contexts. A focused
+macOS probe observed native WebKit `UnknownError` in a fresh ephemeral context, while a fresh persistent profile wrote
+and read `foo🤘` with size seven. This is an observed deployment limitation, not API absence. The new suite skips only
+absent APIs, explicit native policy denial, or absent worker sync exposure. Unexpected acquisition errors fail and
+retain the native probe.
 
 These cases prove selected byte and operation semantics. They do not certify native WebIDL object brands, structured
 cloning, permission methods, the complete WPT corpus, POSIX permission flags, a host root security jail, or every native

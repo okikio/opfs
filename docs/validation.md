@@ -285,6 +285,25 @@ worker type.
 Playwright's deeper ServiceWorker instrumentation is browser-specific, so cross-browser service-worker tests use a
 page-owned registration/message path when direct runner instrumentation is unavailable.
 
+Persistent OPFS correctness contexts use one acquired temporary profile per test. Native launch has a 30-second cap,
+shortened again when less owner time remains, instead of inheriting Playwright's longer native acquisition default. The
+profile and persistent-context fixtures each have a separate 90-second setup/teardown budget, retaining room for native
+retirement. Ordinary body/assertion timeouts stay unchanged. A context is registered for idempotent close as soon as
+acquisition completes; its profile is removed only after dependent context releases. The reopen case now uses this same
+disposable owner instead of retaining a browser cache profile under its report output; traces and configured report
+artifacts retain their existing evidence policy. Native deadline cancellation settles acquisition rather than abandoning
+a losing promise from `Promise.race()`.
+
+The same-profile reopen scenario has an explicit 180-second test lifetime for two launches, their native closes and both
+authored write/read sequences. It reserves its last 30 seconds before passing its deadline to the acquisition owner,
+which reserves another 30 seconds for native retirement. Acquisition dispatch therefore leaves at least 60 seconds
+before the scenario deadline and rechecks admission, including the second launch. Native cancellation may consume the
+inner retirement reserve; the outer reserve remains separate. Every launch still has the 30-second native cap. This is
+an operational fixture lifetime, not a throughput or latency requirement, and neither retries nor global suite timeout
+are increased. A native OS close or file operation can still require the outer runner watchdog. See the
+[Playwright timeout contract](https://playwright.dev/docs/test-timeouts): default test time includes fixture setup,
+while fixture setup/teardown can have their own finite budget.
+
 ## Provider tests use Testcontainers
 
 `tests/provider/fixture.ts` owns disposable provider services through Testcontainers.
