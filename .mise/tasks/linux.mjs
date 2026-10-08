@@ -88,7 +88,16 @@ try {
     "/tmp",
   ];
   const directory = "/tmp/opfs-container";
-  const deno = [...native, "--env", `DENO_DIR=${directory}/deno-cache`];
+  // These offline lanes run Deno itself. Its optional native `node` launcher
+  // would point outside the sealed cache before worker admission begins. Real
+  // Node compatibility remains the responsibility of the separate Node lanes.
+  const deno = [
+    ...native,
+    "--env",
+    `DENO_DIR=${directory}/deno-cache`,
+    "--env",
+    "DENO_DISABLE_NODE_SHIM=1",
+  ];
   const cases = [
     ["node:22.18.0-bookworm-slim", native, ["node"], ["node", ...nodeArgs]],
     ["node:24.21.0-slim", native, ["node"], ["node", ...nodeArgs]],
@@ -192,10 +201,24 @@ try {
       if (transported !== expected) throw new Error("Linux bootstrap bytes differ from independent host admission.");
       lane.transportedBootstrap = transported;
       const rootGate = `/tmp/library-attest-${randomUUID()}`;
+      // Admission uses only local modules and native built-ins. Deno may write
+      // analysis/SQLite metadata before those modules execute, so root startup
+      // gets its own disposable output cache instead of touching input bytes.
+      // Ordinary startup still uses the complete, now readonly admitted cache.
+      const rootCache = bootstrap[0] === "deno" ? `/tmp/opfs-bootstrap-${randomUUID()}` : undefined;
+      if (rootCache) {
+        lane.denoCache = {
+          rootBootstrap: rootCache,
+          ordinaryInput: `${directory}/deno-cache`,
+          nodeShim: "disabled",
+          outputOwnership: "named-container",
+        };
+      }
       lane.modeAdmission = await invoke("docker", [
         "exec",
         "--user",
         "0:0",
+        ...(rootCache ? ["--env", `DENO_DIR=${rootCache}`] : []),
         "--workdir",
         `${directory}/source`,
         name,
