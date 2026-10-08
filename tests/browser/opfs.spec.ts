@@ -1,25 +1,14 @@
 import { open, test } from "./profile.ts";
 import { expect } from "@playwright/test";
 import { withReleases } from "../close.ts";
+import { navigate, remaining } from "./ready.ts";
 
 import type { BrowserTestGlobalType } from "./fixtures/api.ts";
 
 /** File-local global shape after the fixture page installs its Playwright API. */
 type InstalledFixtureGlobalType = typeof globalThis & BrowserTestGlobalType;
-/** File-local global shape while the fixture module may still be initializing. */
-type PendingFixtureGlobalType = typeof globalThis & Partial<BrowserTestGlobalType>;
 
-/** Same-origin fixture page used by Window and persistence scenarios. */
-const APP_URL = "http://127.0.0.1:4173/tests/browser/fixtures/index.html";
-
-/** Opens the fixture page and waits for its OPFS test API. */
-async function ready(page: import("@playwright/test").Page): Promise<void> {
-  await page.goto(APP_URL);
-  await page.waitForFunction(() => Boolean((globalThis as PendingFixtureGlobalType).opfsTest?.ready));
-}
-
-test("window probes the actual capability and round-trips when OPFS is available", async ({ page }) => {
-  await ready(page);
+test("window probes the actual capability and round-trips when OPFS is available", async ({ ready: page }) => {
   const result = await page.evaluate(async () =>
     await (globalThis as InstalledFixtureGlobalType).opfsTest.roundTrip(`/window/${crypto.randomUUID()}.txt`, "window")
   );
@@ -29,8 +18,7 @@ test("window probes the actual capability and round-trips when OPFS is available
   else expect(result.probe?.rootError).toBeDefined();
 });
 
-test("an aborted write cannot commit", async ({ page }) => {
-  await ready(page);
+test("an aborted write cannot commit", async ({ ready: page }) => {
   const result = await page.evaluate(async () =>
     await (globalThis as InstalledFixtureGlobalType).opfsTest.abort(`/abort/${crypto.randomUUID()}.txt`)
   );
@@ -44,8 +32,7 @@ test("an aborted write cannot commit", async ({ page }) => {
   });
 });
 
-test("queued Web Locks cancellation is normalized to the package error", async ({ page }) => {
-  await ready(page);
+test("queued Web Locks cancellation is normalized to the package error", async ({ ready: page }) => {
   const result = await page.evaluate(async () =>
     await (globalThis as InstalledFixtureGlobalType).opfsTest.queuedAbort()
   );
@@ -53,38 +40,42 @@ test("queued Web Locks cancellation is normalized to the package error", async (
   expect(result).toEqual({ supported: true, name: "FileSystemError", code: "aborted" });
 });
 
-test("fresh browser contexts do not inherit another context's OPFS file", async ({ browser }) => {
+test("fresh browser contexts do not inherit another context's OPFS file", async ({ browser }, testInfo) => {
+  testInfo.setTimeout(REOPEN_TIMEOUT);
+  const deadline = performance.now() + REOPEN_TIMEOUT - REOPEN_RETIREMENT;
   const path = `/isolation/${crypto.randomUUID()}.txt`;
-  const first = await browser.newContext();
-  let written: Awaited<ReturnType<BrowserTestGlobalType["opfsTest"]["roundTrip"]>>;
-  try {
+  await withReleases(async (releases) => {
+    remaining(deadline, "navigation");
+    const first = await browser.newContext();
+    let firstClosing: Promise<void> | undefined;
+    const closeFirst = () => firstClosing ??= first.close();
+    releases.push(closeFirst);
+    remaining(deadline, "navigation");
     const firstPage = await first.newPage();
-    await ready(firstPage);
-    written = await firstPage.evaluate(
+    await navigate(firstPage, "app", deadline);
+    const written = await firstPage.evaluate(
       async ({ path }) => await (globalThis as InstalledFixtureGlobalType).opfsTest.roundTrip(path, "private"),
       { path },
     );
-  } finally {
-    await first.close();
-  }
-  if (!written.probe?.rootAvailable) {
-    expect(written.probe?.rootError).toBeDefined();
-    return;
-  }
+    await closeFirst();
+    if (!written.probe?.rootAvailable) {
+      expect(written.probe?.rootError).toBeDefined();
+      return;
+    }
 
-  const second = await browser.newContext();
-  try {
+    remaining(deadline, "navigation");
+    const second = await browser.newContext();
+    releases.push(() => second.close());
+    remaining(deadline, "navigation");
     const secondPage = await second.newPage();
-    await ready(secondPage);
+    await navigate(secondPage, "app", deadline);
     expect(
       await secondPage.evaluate(
         async ({ path }) => await (globalThis as InstalledFixtureGlobalType).opfsTest.read(path),
         { path },
       ),
     ).toBeNull();
-  } finally {
-    await second.close();
-  }
+  });
 });
 
 /**
@@ -104,8 +95,9 @@ test("a persistent profile reopens the same OPFS data", async ({ playwright, bro
 
   await withReleases(async (releases) => {
     const first = await open(browserType, profile, releases, deadline);
+    remaining(deadline, "navigation");
     const firstPage = await first.context.newPage();
-    await ready(firstPage);
+    await navigate(firstPage, "app", deadline);
     const written = await firstPage.evaluate(
       async ({ path }) => await (globalThis as InstalledFixtureGlobalType).opfsTest.roundTrip(path, "persisted"),
       { path },
@@ -117,8 +109,9 @@ test("a persistent profile reopens the same OPFS data", async ({ playwright, bro
     }
 
     const second = await open(browserType, profile, releases, deadline);
+    remaining(deadline, "navigation");
     const secondPage = await second.context.newPage();
-    await ready(secondPage);
+    await navigate(secondPage, "app", deadline);
     expect(
       await secondPage.evaluate(
         async ({ path }) => await (globalThis as InstalledFixtureGlobalType).opfsTest.read(path),

@@ -1,4 +1,4 @@
-import { test as base } from "@playwright/test";
+import { test as base } from "./ready.ts";
 import type { BrowserContext, BrowserType } from "@playwright/test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
