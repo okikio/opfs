@@ -113,3 +113,14 @@ Catalog mismatch diagnostics retain complete before/after SHA-256 identities, ac
 dependency/cache difference counts, and up to 32 changed entry observations. Linux and FUSE admission-after metadata
 retains that structured cause. A cache metadata difference is reported as an observation rather than guessed to be a
 source mutation. Truncating retained entry examples does not truncate the full-catalog hash or count.
+
+Canonical filesystem paths use the same
+[native realpath API](https://nodejs.org/api/fs.html#fsrealpathnativepath-options-callback) on Node, Bun and Deno. Every
+returned path must be absolute before root identity or alias containment is compared. This includes the volume root:
+Windows `C:` is relative to that drive's working directory and cannot substitute for `C:\`.
+[Bun's Windows promise-realpath defect](https://github.com/oven-sh/bun/issues/42581) exposed that distinction during
+private staging acquisition. Admission uses the native callback API rather than altering returned path text, omitting
+the root ancestor or weakening metadata checks. A mismatch retains observed metadata or canonical before/after paths
+separately in its cause. The unconditional volume-root control joins the existing binary, archive and cancellation
+controls; host POSIX exclusions remain unchanged. These controls require actual Windows CI proof and do not establish
+Windows-to-Docker workflow admission by themselves.

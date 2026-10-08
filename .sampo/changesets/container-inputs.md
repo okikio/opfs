@@ -38,3 +38,9 @@ Private host staging now stays owner-writable, while the Linux archive still dec
 Disposal checks the acquired canonical root and observable root/ancestor identity before native recursive removal; it
 never chmods or traverses substituted borrowed roots. A replacement refuses cleanup and retains the failure. Descendant
 aliases are unlinked without acquiring their outside targets. Repeated close calls retain the same promise.
+
+Windows Bun staging now uses the native canonical-path API for roots, ancestors and contained aliases. Its promise API
+could report a volume root as `C:` instead of the absolute `C:\`, so valid private-directory acquisition failed before
+copying began. The tasks now require absolute native results throughout admission. They retain ancestor identity checks,
+exact file kinds and bytes, contained aliases and guarded cleanup; no drive-root exception or Windows test skip is
+added. A volume-root behavioral control runs on every host. Existing maintainer commands and library APIs are unchanged.

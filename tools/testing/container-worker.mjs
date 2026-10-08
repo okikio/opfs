@@ -1,11 +1,33 @@
 /** One native-JavaScript verifier runs on Node, Bun and Deno; no compiler or Git is needed in the image. */
-import { createReadStream } from "node:fs";
-import { chmod, lstat, readdir, readFile, readlink, realpath } from "node:fs/promises";
+import { createReadStream, realpath } from "node:fs";
+import { chmod, lstat, readdir, readFile, readlink } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import process from "node:process";
+
+/**
+ * Resolves one absolute native filesystem identity before containment comparisons.
+ *
+ * Use the documented native API on every runtime. A drive-relative result such
+ * as C: would resolve against a per-drive working directory and cannot establish
+ * root or alias authority. Do not repair it by appending a separator or by
+ * dropping the volume-root check.
+ *
+ * @param {string} path Input filesystem path.
+ * @returns {Promise<string>} Absolute native canonical path.
+ */
+export function locate(path) {
+  return new Promise((accept, reject) => {
+    realpath.native(path, { encoding: "utf8" }, (error, canonical) => {
+      if (error) reject(error);
+      else if (!isAbsolute(canonical)) {
+        reject(new Error("Native container canonical path must be absolute.", { cause: { path, canonical } }));
+      } else accept(canonical);
+    });
+  });
+}
 
 /** Traverses physical children, hashes one regular file at a time, and never follows directory aliases. */
 export async function catalog(
@@ -22,7 +44,7 @@ export async function catalog(
     }
     if (info.isSymbolicLink()) {
       if (aliases) {
-        const target = await realpath(path);
+        const target = await locate(path);
         const suffix = relative(aliases, target);
         if (isAbsolute(suffix) || suffix === ".." || suffix.startsWith(`..${sep}`)) {
           throw new Error(`Container alias escapes copy: ${name}`);
@@ -57,7 +79,7 @@ export async function catalog(
       };
     } else throw new Error(`Unsupported container input kind: ${name}`);
     if (ownership) {
-      if (info.isSymbolicLink()) entries[name].resolved = await realpath(path);
+      if (info.isSymbolicLink()) entries[name].resolved = await locate(path);
       Object.assign(entries[name], { uid: windows ? null : info.uid, gid: windows ? null : info.gid });
     }
   }

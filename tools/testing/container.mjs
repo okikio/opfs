@@ -9,7 +9,6 @@ import {
   mkdtemp,
   readdir,
   readFile,
-  realpath,
   rm,
   statfs,
   symlink,
@@ -21,7 +20,7 @@ import { createRequire } from "node:module";
 import { finished, pipeline } from "node:stream/promises";
 import { tmpdir } from "node:os";
 import { constants } from "node:fs";
-import { catalog } from "./container-worker.mjs";
+import { catalog, locate } from "./container-worker.mjs";
 
 /** Outputs and repository administration are never admitted, even if tracked accidentally. */
 export const omitted = new Set([
@@ -79,7 +78,7 @@ export async function own(directory) {
   if (!(await lstat(original)).isDirectory() || (await lstat(original)).isSymbolicLink()) {
     throw new Error("Private container staging must be a physical directory.");
   }
-  const canonical = await realpath(original);
+  const canonical = await locate(original);
   const observations = [];
   const identity = (info) => ({
     directory: info.isDirectory(),
@@ -101,13 +100,30 @@ export async function own(directory) {
   }
   const verify = async () => {
     const root = await lstat(original);
-    if (!root.isDirectory() || root.isSymbolicLink() || await realpath(original) !== canonical) {
-      throw new Error("Private container root or parent alias changed.");
+    const actualRoot = { directory: root.isDirectory(), alias: root.isSymbolicLink() };
+    if (!actualRoot.directory || actualRoot.alias) {
+      throw new Error("Private container root or parent alias changed.", {
+        cause: { path: original, expected: { directory: true, alias: false }, actual: actualRoot },
+      });
+    }
+    const actualCanonical = await locate(original);
+    if (actualCanonical !== canonical) {
+      throw new Error("Private container canonical root changed.", {
+        cause: { path: original, expectedCanonical: canonical, actualCanonical },
+      });
     }
     for (const [path, observed] of observations) {
       const actual = identity(await lstat(path, { bigint: true }));
-      if (JSON.stringify(actual) !== JSON.stringify(observed) || await realpath(path) !== path) {
-        throw new Error(`Private container root or ancestor identity changed: ${path}`);
+      if (JSON.stringify(actual) !== JSON.stringify(observed)) {
+        throw new Error(`Private container root or ancestor identity changed: ${path}`, {
+          cause: { path, expected: observed, actual },
+        });
+      }
+      const actualCanonical = await locate(path);
+      if (actualCanonical !== path) {
+        throw new Error(`Private container canonical ancestor changed: ${path}`, {
+          cause: { path, expectedCanonical: path, actualCanonical },
+        });
       }
     }
   };
@@ -146,7 +162,7 @@ export async function copy(source, target, mappings, selected, signal, excluded 
   signal?.throwIfAborted();
   const info = await lstat(source);
   if (info.isSymbolicLink()) {
-    const resolved = await realpath(source);
+    const resolved = await locate(source);
     const mapping = mappings.filter(([root]) => inside(root, resolved)).sort(([a], [b]) => b.length - a.length)[0];
     if (!mapping) throw new Error(`Container input alias escapes admitted trees: ${source}`);
     const destination = resolve(mapping[1], relative(mapping[0], resolved));
@@ -385,10 +401,10 @@ async function sourcePaths(root, run) {
 export async function open(root = process.cwd(), { cache, run = command, signal, temporary = tmpdir() } = {}) {
   signal?.throwIfAborted();
   if ((await lstat(root)).isSymbolicLink()) throw new Error("Container source root cannot be an alias.");
-  root = await realpath(root);
-  const dependency = await realpath(join(root, "node_modules"));
+  root = await locate(root);
+  const dependency = await locate(join(root, "node_modules"));
   if (dependency !== join(root, "node_modules")) throw new Error("Installed node_modules root cannot be an alias.");
-  if (cache) cache = await realpath(cache);
+  if (cache) cache = await locate(cache);
   const created = await mkdtemp(join(temporary, "opfs-container-"));
   let ownership;
   try {
@@ -495,7 +511,7 @@ export async function open(root = process.cwd(), { cache, run = command, signal,
         : 0o444;
       if (value.kind === "file") value.links = 1;
       if (value.kind === "link") {
-        value.target = relative(dirname(join(tree, name)), await realpath(join(tree, name))).split(sep).join("/");
+        value.target = relative(dirname(join(tree, name)), await locate(join(tree, name))).split(sep).join("/");
       }
     }
     const manifest = { version: 1, roots, entries };
@@ -516,7 +532,7 @@ export async function open(root = process.cwd(), { cache, run = command, signal,
           .sort(([a], [b]) => b.length - a.length)[0];
         if (!mapping) throw new Error(`Original alias escaped admitted inputs: ${name}`);
         const expected = resolve(mapping[1], relative(mapping[0], value.resolved));
-        if (await realpath(join(tree, name)) !== expected) throw new Error(`Copied alias target differs: ${name}`);
+        if (await locate(join(tree, name)) !== expected) throw new Error(`Copied alias target differs: ${name}`);
       }
     }
     await ownership.verify();
