@@ -700,3 +700,8 @@ Generated coverage samples and LCOV output from `deno task test:coverage` live u
 correctness artifacts live under `.tmp/reports/browser/artifacts/`, and browser benchmark artifacts under
 `.tmp/reports/browser-bench/artifacts/`, beside their report files. Playwright and Deno may clean and recreate these
 ignored output directories inside an immutable release snapshot. Source directories remain readonly.
+
+Browser correctness and benchmark tasks use fresh Vite servers with file watching and hot reload disabled. Sources
+remain fixed for each run; report output does not trigger watcher work. Restart the task after editing a fixture. Both
+origins use the same explicit configuration and repository root, so invocation directory does not change the served
+source.
