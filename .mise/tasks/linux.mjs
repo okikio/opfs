@@ -69,6 +69,8 @@ try {
     "512",
     "--cap-drop",
     "ALL",
+    "--cap-add",
+    "CHOWN",
     "--security-opt",
     "no-new-privileges",
     "--user",
@@ -146,6 +148,17 @@ try {
       // Daemon copies bytes through its API; it never mounts the host checkout.
       await invoke("docker", ["cp", source.archive, `${name}:/tmp/opfs-inputs.tar`], 180_000);
       await invoke("docker", ["start", name], 30_000);
+      // Docker cp can retain the outer UID on this private copied archive.
+      // Root with only CHOWN first acquires that owned byte transport; no
+      // maintained or borrowed host input exists inside this authority.
+      await invoke("docker", ["exec", "--user", "0:0", name, "chown", "0:0", "/tmp/opfs-inputs.tar"], 30_000);
+      await invoke("docker", ["exec", "--user", "0:0", name, "chmod", "600", "/tmp/opfs-inputs.tar"], 30_000);
+      lane.archiveOwner = (await invoke(
+        "docker",
+        ["exec", "--user", "0:0", name, "stat", "--format", "%u:%g:%a", "/tmp/opfs-inputs.tar"],
+        15_000,
+      )).trim();
+      if (lane.archiveOwner !== "0:0:600") throw new Error("Private Linux archive owner or mode differs.");
       lane.transportedArchiveSha256 =
         (await invoke("docker", ["exec", "--user", "0:0", name, "sha256sum", "/tmp/opfs-inputs.tar"], 180_000)).trim()
           .split(/\s+/u)[0];
@@ -226,6 +239,15 @@ try {
     try {
       receipt.admissionAfter = await source.verify();
     } catch (error) {
+      receipt.admissionAfter = {
+        status: "fail",
+        diagnostic: error instanceof Error
+          ? error.cause ?? {
+            name: error.name,
+            message: error.message,
+          }
+          : { reason: error },
+      };
       failures.push(error);
     }
     try {

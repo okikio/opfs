@@ -33,3 +33,8 @@ mode and link-privilege controls are explicit. Private Linux admission always ch
 before establishing declared read-only modes. Directory aliases use contained owned junctions on Windows; file aliases
 require Developer Mode or symlink privilege and otherwise report that requirement. Portable streaming tar headers use
 the already locked Testcontainers archiver dependency, so the tasks no longer require the host's `env` or `tar` command.
+
+Private host staging now stays owner-writable, while the Linux archive still declares and enforces read-only modes.
+Disposal checks the acquired canonical root and observable root/ancestor identity before native recursive removal; it
+never chmods or traverses substituted borrowed roots. A replacement refuses cleanup and retains the failure. Descendant
+aliases are unlinked without acquiring their outside targets. Repeated close calls retain the same promise.

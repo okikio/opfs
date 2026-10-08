@@ -256,6 +256,15 @@ try {
     try {
       metadata.admissionAfter = await source.verify();
     } catch (error) {
+      metadata.admissionAfter = {
+        status: "fail",
+        diagnostic: error instanceof Error
+          ? error.cause ?? {
+            name: error.name,
+            message: error.message,
+          }
+          : { reason: error },
+      };
       failures.push(error);
       invalid = true;
     }

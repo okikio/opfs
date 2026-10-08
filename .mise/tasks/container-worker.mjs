@@ -121,6 +121,12 @@ async function main() {
   if (process.getuid?.() !== 1000 || process.getgid?.() !== 1000) {
     throw new Error("Linux test command must run as ordinary UID/GID 1000.");
   }
+  const status = await readFile("/proc/self/status", "utf8");
+  for (const field of ["CapEff", "CapPrm", "CapAmb"]) {
+    if (!new RegExp(`^${field}:\\s*0+$`, "m").test(status)) {
+      throw new Error(`Ordinary Linux test command retains ${field} capabilities.`);
+    }
+  }
   const failures = [];
   try {
     const exit = await new Promise((accept, reject) => {

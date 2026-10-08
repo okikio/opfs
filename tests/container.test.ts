@@ -8,7 +8,7 @@ import {
   readdir,
   readFile,
   realpath,
-  rm,
+  rename,
   symlink,
   unlink,
   writeFile,
@@ -18,7 +18,7 @@ import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
 import { platform } from "node:process";
 import { expect } from "@std/expect";
-import { copy, pack } from "../.mise/tasks/container.mjs";
+import { changes, copy, open, own, pack } from "../.mise/tasks/container.mjs";
 import { verify } from "../.mise/tasks/container-worker.mjs";
 import { withReleases } from "./close.ts";
 
@@ -27,31 +27,141 @@ const POSIX = {
   skip: platform === "win32" ? "Host POSIX modes and link privileges are not portable observations." : false,
 };
 
-/** Restores only this test's private directories; symbolic targets never gain cleanup ownership. */
-async function remove(root: string): Promise<void> {
-  async function visit(path: string): Promise<void> {
-    const info = await lstat(path);
-    if (info.isSymbolicLink()) return;
-    if (!info.isDirectory()) {
-      if (platform === "win32" && info.isFile()) await chmod(path, 0o600);
-      return;
-    }
-    if (platform !== "win32") await chmod(path, 0o700);
-    for (const name of await readdir(path)) await visit(join(path, name));
-  }
-  await visit(root);
-  await rm(root, { recursive: true });
-}
-
+/** Acquires cleanup immediately; owner-writable fixtures never need a chmod traversal. */
 async function fixture(action: (root: string) => Promise<void>): Promise<void> {
   await withReleases(async (releases) => {
-    const root = await mkdtemp(join(tmpdir(), "opfs-input-control-"));
-    releases.push(() => remove(root));
-    await action(root);
+    const acquired = await own(await mkdtemp(join(tmpdir(), "opfs-input-control-")));
+    releases.push(() => acquired.close());
+    await action(acquired.directory);
   });
 }
 
 describe("container copy admission", () => {
+  it("classifies real catalog differences with full digests and finite retained entries", () => {
+    const value = { kind: "file", mode: 0o600, links: 1, bytes: 1, sha256: "a" };
+    const before = {
+      paths: ["original"],
+      root: { uid: 1000, gid: 1000, mode: 0o755 },
+      entries: Object.fromEntries(Array.from({ length: 40 }, (_, index) => [`deno-cache/${index}`, value])),
+    };
+    const after = {
+      paths: ["new"],
+      root: { uid: 1000, gid: 1000, mode: 0o700 },
+      entries: {
+        ...Object.fromEntries(
+          Array.from({ length: 40 }, (_, index) => [`deno-cache/${index}`, { ...value, sha256: "b" }]),
+        ),
+        "source/mod.ts": value,
+        "source/node_modules/a": value,
+        "source/node_modules-example.ts": value,
+      },
+    };
+    const result = changes(before, after);
+    expect(result.scopes).toEqual({ source: 2, dependencies: 1, cache: 40 });
+    expect(result.changedEntries).toBe(43);
+    expect(result.differences.length).toBe(32);
+    expect(result.omittedDifferences).toBe(11);
+    expect(result.sourceMembership).toEqual({ addedCount: 1, removedCount: 1, added: ["new"], removed: ["original"] });
+    expect(result.beforeSha256).toBe(createHash("sha256").update(JSON.stringify(before)).digest("hex"));
+    expect(result.afterSha256).toBe(createHash("sha256").update(JSON.stringify(after)).digest("hex"));
+    expect(result.root).toEqual({ before: before.root, after: after.root });
+  });
+  it("settles one cached private cleanup without restoring descendant permissions", async () => {
+    await fixture(async (root) => {
+      const acquired = await own(await mkdtemp(join(root, "private-")));
+      await mkdir(join(acquired.directory, "child"));
+      await writeFile(join(acquired.directory, "child/bytes"), new Uint8Array([0, 255, 128]));
+      const closing = acquired.close();
+      expect(acquired.close()).toBe(closing);
+      await closing;
+      expect(acquired.close()).toBe(closing);
+      let failure: unknown;
+      try {
+        await lstat(acquired.directory);
+      } catch (error) {
+        failure = error;
+      }
+      expect(failure).toMatchObject({ code: "ENOENT" });
+    });
+  });
+  it("retains admission failure and refused substituted-root cleanup independently", POSIX, async () => {
+    await fixture(async (root) => {
+      const repository = join(root, "repository");
+      await mkdir(join(repository, "node_modules"), { recursive: true });
+      const primary = new Error("controlled admission failure");
+      let replaced = "";
+      let failure: unknown;
+      try {
+        await open(repository, {
+          temporary: root,
+          run: async () => {
+            const name = (await readdir(root)).find((value) => value.startsWith("opfs-container-"));
+            if (!name) throw new Error("Actual acquired staging directory was not observed.");
+            replaced = join(root, name);
+            await rename(replaced, join(root, "moved-private"));
+            await mkdir(replaced, { mode: 0o755 });
+            await writeFile(join(replaced, "sentinel"), "borrowed remains");
+            throw primary;
+          },
+        });
+      } catch (error) {
+        failure = error;
+      }
+      expect(failure).toBeInstanceOf(AggregateError);
+      if (!(failure instanceof AggregateError)) throw new Error("Admission and cleanup did not retain both outcomes.");
+      expect(failure.errors.length).toBe(2);
+      expect(failure.errors[0]).toBe(primary);
+      expect(failure.errors[1]).toBeInstanceOf(Error);
+      expect(await readFile(join(replaced, "sentinel"), "utf8")).toBe("borrowed remains");
+      expect((await lstat(replaced)).mode & 0o777).toBe(0o755);
+    });
+  });
+  it("refuses a substituted physical root and preserves outside bytes and modes", POSIX, async () => {
+    await fixture(async (root) => {
+      const directory = await mkdtemp(join(root, "owned-")), moved = join(root, "moved");
+      const acquired = await own(directory);
+      await rename(directory, moved);
+      await mkdir(directory, { mode: 0o755 });
+      await writeFile(join(directory, "sentinel"), "borrowed bytes");
+      const before = (await lstat(directory)).mode & 0o777;
+      const failure = acquired.close();
+      await expect(failure).rejects.toThrow();
+      expect(acquired.close()).toBe(failure);
+      expect(await readFile(join(directory, "sentinel"), "utf8")).toBe("borrowed bytes");
+      expect((await lstat(directory)).mode & 0o777).toBe(before);
+    });
+  });
+  it("refuses a replaced parent alias without traversing its outside descendant", POSIX, async () => {
+    await fixture(async (root) => {
+      const parent = join(root, "parent"), moved = join(root, "old-parent"), outside = join(root, "outside");
+      await mkdir(parent);
+      const directory = await mkdtemp(join(parent, "owned-"));
+      const acquired = await own(directory);
+      await mkdir(join(outside, directory.slice(parent.length + 1)), { recursive: true, mode: 0o755 });
+      const borrowed = join(outside, directory.slice(parent.length + 1));
+      const sentinel = join(borrowed, "sentinel");
+      await writeFile(sentinel, "outside remains");
+      const before = (await lstat(borrowed)).mode & 0o777;
+      await rename(parent, moved);
+      await symlink(outside, parent);
+      await expect(acquired.close()).rejects.toThrow();
+      expect(await readFile(sentinel, "utf8")).toBe("outside remains");
+      expect((await lstat(borrowed)).mode & 0o777).toBe(before);
+    });
+  });
+  it("removes an owned descendant alias without acquiring its outside target", POSIX, async () => {
+    await fixture(async (root) => {
+      const outside = join(root, "outside");
+      await mkdir(outside, { mode: 0o755 });
+      await writeFile(join(outside, "sentinel"), "outside remains");
+      const before = (await lstat(outside)).mode & 0o777;
+      const acquired = await own(await mkdtemp(join(root, "owned-")));
+      await symlink(outside, join(acquired.directory, "borrowed"));
+      await acquired.close();
+      expect(await readFile(join(outside, "sentinel"), "utf8")).toBe("outside remains");
+      expect((await lstat(outside)).mode & 0o777).toBe(before);
+    });
+  });
   it("copies binary files independently without needing host links or POSIX permissions", async () => {
     await fixture(async (root) => {
       const source = join(root, "original"), target = join(root, "source");
@@ -166,12 +276,12 @@ describe("container copy admission", () => {
       await mkdir(source, { mode: 0o755 });
       await writeFile(join(source, "a"), "oracle");
       await chmod(join(source, "a"), 0o444);
-      await chmod(source, 0o555);
+      await chmod(source, 0o700);
       const manifest = {
         version: 1,
         roots: ["source"],
         entries: {
-          source: { kind: "directory", mode: 0o555 },
+          source: { kind: "directory", mode: 0o700 },
           "source/a": {
             kind: "file",
             mode: 0o444,
@@ -189,8 +299,9 @@ describe("container copy admission", () => {
       await expect(verify(root, manifest)).rejects.toThrow();
       await chmod(source, 0o755);
       await writeFile(join(source, "unexpected"), "extra input");
-      await chmod(source, 0o555);
+      await chmod(source, 0o700);
       await expect(verify(root, manifest)).rejects.toThrow();
+      await chmod(source, 0o700);
     });
   });
 
@@ -201,12 +312,12 @@ describe("container copy admission", () => {
       await writeFile(join(root, "borrowed"), "oracle");
       await link(join(root, "borrowed"), join(source, "a"));
       await chmod(join(source, "a"), 0o444);
-      await chmod(source, 0o555);
+      await chmod(source, 0o700);
       const manifest = {
         version: 1,
         roots: ["source"],
         entries: {
-          source: { kind: "directory", mode: 0o555 },
+          source: { kind: "directory", mode: 0o700 },
           "source/a": {
             kind: "file",
             mode: 0o444,
@@ -219,6 +330,7 @@ describe("container copy admission", () => {
       await expect(verify(root, manifest)).rejects.toThrow();
       expect(await readFile(join(root, "borrowed"), "utf8")).toBe("oracle");
       await unlink(join(root, "borrowed"));
+      await chmod(source, 0o700);
     });
   });
 
