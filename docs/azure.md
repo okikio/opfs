@@ -31,8 +31,8 @@ Web Fetch
         `--> Azurite
 ```
 
-Web Crypto owns HMAC-SHA256 for Shared Key. `@std/encoding` owns Base64, `@std/async/pool` owns bounded block
-concurrency, and `@std/xml` owns list and block-list documents.
+Web Crypto owns HMAC-SHA256 for Shared Key. `@std/encoding` owns Base64, the internal ordered scheduler owns bounded
+block concurrency, and `@std/xml` owns list and block-list documents.
 
 This guide uses these evidence classes:
 
@@ -297,9 +297,25 @@ rather than hand-escaped text.
 When `ObjectPutOptionsType.size` is supplied, the final streamed byte count must match. A mismatch rejects the operation
 before final commit.
 
-When the producer fails or is canceled, the client waits for admitted block requests to settle and rejects with the
-exact input reason. Independent block failures are retained alongside that reason in an `AggregateError`, whose cause is
-the input reason. A failed producer never reaches `Put Block List`.
+When the input iterator actually observes a producer failure or cancellation, the client waits for admitted block
+requests to settle and rejects with that exact input reason. Independent block failures are retained alongside that
+reason in an `AggregateError`, whose cause is the input reason. A failed producer never reaches `Put Block List`.
+
+Cancellation can instead reject an admitted block or its response retirement before another input chunk is requested.
+That mapper-only failure stays in the operation-owned `AggregateError`, including when its sole error is the caller's
+cancellation reason. No signal flag replaces the observed operation failures. The source reader is retired and no block
+list is committed in either path; inspect all retained errors before treating the rejection as cancellation alone.
+
+The operation-owned scheduler yields blocks in source order, including when later requests finish first. Completed
+results count against the configured concurrency bound; there is at most one pending input read. A real block failure
+interrupts that native read and joins all admitted requests before retiring the reader. Input interruption does not
+abort those requests. Source and release failures remain inspectable beside the block failures, including equal-valued
+events.
+
+Known refusal comes from the actually acquired HTTP response, not from a foreign `AzureError` thrown by custom Fetch or
+metrics. After dispatch without a valid acknowledgement, publication stays unknown and requires inspection before retry.
+A valid acknowledgement followed by response retirement failure remains acknowledged; cleanup cannot change that
+publication fact.
 
 Unlike S3 multipart uploads, Azure uncommitted blocks do not have a separate abort REST operation. Failed uploads can
 leave uncommitted blocks until Azure cleans them up according to service policy. Documentation and tests therefore must
@@ -392,10 +408,43 @@ original Response
 Azure can return XML or provider-specific text. The error parser uses structured XML when available and retains the
 response even when a field is missing.
 
+If reading or parsing the error body fails, `AzureError.cause` retains that secondary failure, including `undefined` or
+`null`. HTTP status, header error code and request identity remain primary. The original response provides headers and
+identity; it is not a fresh readable copy of a body that was already consumed or failed.
+
+Typed methods retire internally owned response bodies before returning. This includes accepted HTTP 404 deletes,
+metadata, staged blocks, copied blocks and final publications. Unused bodies are cancelled without buffering arbitrary
+proxy payloads. A disposal failure after a valid acknowledgement stays the actual disposal fault and never causes a
+publication replay or an invented unknown outcome. Independent acknowledgement and disposal failures retain their
+classified primary reason and cleanup reason in an `AggregateError`. The operation awaits actual cancellation; an
+injected Fetch stream must settle it, and there is no separate disposal deadline. Successful `get()` streams and raw
+`request()` responses transfer their body lifetime to the caller, who must consume or cancel it.
+
+A transferred body that was partly read and then unlocked is still cancelled before a header-only method returns;
+`bodyUsed` does not establish EOF. If an injected Fetch returns a body with a borrowed reader still holding its lock,
+the operation rejects its inability to retire the body without cancelling or releasing that reader. A separate
+acknowledgement failure remains first when retirement is also refused.
+
+Incremental UTF-8 decoding preserves BOMs, then removes exactly one leading decoded BOM from the complete text. This
+keeps split and empty-chunk behavior consistent across supported runtimes while preserving a second or middle BOM and
+replacement characters for invalid or truncated byte sequences.
+
+Whole XML/error reads own a native reader through EOF or stream error, then release its lock. An explicitly terminal
+read is not cancelled again, including runtimes where an early `Response.text()` error leaves `bodyUsed` false.
+Conversion failure before stream settlement instead awaits cancellation and retains independent cleanup faults. UTF-8
+replacement decoding and initial BOM removal are unchanged; XML still requires complete materialized text.
+
 The client has a configurable transport retry policy built on `@std/async/retry`. Client options control retry count,
 exponential delay, jitter, and an optional per-attempt timeout. The policy retries 408, 429, 5xx, and transport failures
 for replayable requests. Authorization is rebuilt on every attempt, which matters for refreshable bearer/custom
 credentials and Shared Key dates. Redirects are manual so authorization is not silently carried to another authority.
+
+Intermediate retry responses are retired before the next attempt. An independent retirement failure refuses retry and
+retains both the HTTP retry reason and cleanup fault. Receiving a response is still one response metric event; disposal
+does not add a rejected Fetch event or become a retriable transport timeout when the attempt signal expires in cleanup.
+Disposal also remains owned when an injected metrics observer throws before response transfer. Independent Fetch,
+observer, and disposal faults retain their actual reasons; callbacks cannot borrow retry permission from an earlier
+request.
 
 A one-shot `ReadableStream` receives one attempt. The low-level `request()` API also accepts `retry: false` because
 replayability does not prove that a provider-specific operation is safe to repeat. `request: { retries: 0 }` disables
@@ -533,3 +582,22 @@ values and normalize metadata names; the receipt describes those applied propert
 A server/proxy HTTP 5xx response to publication also has an unknown outcome: a gateway can fail after the upstream
 commit. The original structured provider error remains the cause, including status and request identity. Ordinary
 provider rejection responses retain their provider error. Reconciliation precedes any application retry.
+
+Materialized byte writes use the same intrinsic admission as streamed byte chunks. Genuine readable `Uint8Array` views,
+including Buffer, subclasses and cross-realm views, are accepted without changing the declared byte/stream union.
+Genuine empty views are valid; detached or currently out-of-bounds resizable views are not empty uploads and reject
+before any request or remote allocation. DataView and other typed arrays remain outside this contract. This check does
+not prevent the caller from detaching, resizing or mutating borrowed backing storage after admission.
+
+Byte length and range come from native getters, even when a view shadows `byteLength`, `byteOffset` or `buffer`, or a
+subclass replaces slicing methods. Ordinary fixed views remain borrowed without an additional byte copy at admission.
+Materialized shared-buffer and resizable-buffer views receive a fixed ordinary copy before provider limits, hashing,
+signing and dispatch. This adds a copy proportional to that transmitted range; it adds no provider request. Copying
+concurrently modified shared memory is not an atomic snapshot. Callers own synchronization and must keep borrowed
+ordinary bytes valid and unchanged until the operation settles.
+
+The byte/stream union admits genuine native Web `ReadableStream` slots rather than a realm-local constructor or
+`getReader`/`cancel` duck shape. Admission inspects native state without acquiring a reader, reading a chunk or calling
+cancellation. Ordinary objects and malformed pretenders reject once before any request or attempted retirement. Native
+foreign prototypes remain valid; custom polyfills without native stream slots are outside this declared union. A real
+stream's later acquisition or retirement can independently fail, and a borrowed lock remains with its owner.

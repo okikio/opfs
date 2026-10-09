@@ -14,8 +14,13 @@ import type {
   ObjectReceiptType,
   ObjectStatType,
 } from "./driver/object.ts";
-import { split } from "./chunk.ts";
+import { open } from "./chunk.ts";
+import { isBytes, toRequestBytes, toView } from "./bytes.ts";
+import { isStream } from "./body.ts";
+import { close } from "./close.ts";
 import { copyOptions, putOptions, putProperties } from "./publication.ts";
+import type { ResponseTextType } from "./response.ts";
+import { readResponse } from "./response.ts";
 import {
   type FetchType,
   RequestMetrics,
@@ -169,8 +174,17 @@ export class AzureError extends Error {
   readonly response: Response;
 
   /** Creates a provider-aware error without discarding the original response. */
-  constructor(message: string, response: Response, details: { code?: string; requestId?: string } = {}) {
-    super(message);
+  constructor(
+    message: string,
+    response: Response,
+    details: {
+      code?: string;
+      requestId?: string;
+      /** Secondary response-body read or XML parse failure, including undefined and null. */
+      cause?: unknown;
+    } = {},
+  ) {
+    super(message, Object.hasOwn(details, "cause") ? { cause: details.cause } : undefined);
     this.name = "AzureError";
     this.status = response.status;
     this.response = response;
@@ -399,8 +413,8 @@ function getBodyLength(body: BodyInit | null | undefined): number | undefined {
   if (body === undefined || body === null) return 0;
   if (typeof body === "string") return textEncoder.encode(body).byteLength;
   if (body instanceof Blob) return body.size;
-  if (body instanceof ArrayBuffer) return body.byteLength;
-  if (ArrayBuffer.isView(body)) return body.byteLength;
+  if (body instanceof ArrayBuffer) return new Uint8Array(body).byteLength;
+  if (ArrayBuffer.isView(body)) return toView(body).byteLength;
   if (body instanceof URLSearchParams) return textEncoder.encode(body.toString()).byteLength;
   return undefined;
 }
@@ -480,9 +494,20 @@ function getStat(headers: Headers): ObjectStatType {
 }
 
 /** Parses Azure XML failures while preserving HTTP-only failures from proxies. */
-async function assertResponse(response: Response, operation: string): Promise<Response> {
+async function assertResponse(
+  response: Response,
+  operation: string,
+  text?: ResponseTextType,
+): Promise<Response> {
   if (response.ok) return response;
-  const body = await response.text().catch(() => "");
+  if (text === undefined) return await readResponse(response, (owned) => assertResponse(response, operation, owned));
+  let body = "";
+  let secondary: { readonly reason: unknown } | undefined;
+  try {
+    body = await text();
+  } catch (reason) {
+    secondary = { reason };
+  }
   let code = response.headers.get("x-ms-error-code") ?? undefined;
   let message = `${operation} failed with HTTP ${response.status}.`;
   if (body.trim().startsWith("<")) {
@@ -490,8 +515,9 @@ async function assertResponse(response: Response, operation: string): Promise<Re
       const root = parseXmlRoot(body);
       code ??= getXmlValue(root, "Code");
       message = getXmlValue(root, "Message") ?? message;
-    } catch {
+    } catch (reason) {
       // A proxy can return HTML or malformed XML. Preserve the HTTP failure.
+      secondary = { reason };
     }
   }
   throw new AzureError(message, response, {
@@ -499,6 +525,7 @@ async function assertResponse(response: Response, operation: string): Promise<Re
     ...(response.headers.get("x-ms-request-id") === null
       ? {}
       : { requestId: response.headers.get("x-ms-request-id")! }),
+    ...(secondary === undefined ? {} : { cause: secondary.reason }),
   });
 }
 
@@ -578,21 +605,35 @@ interface AzureCopyBlockType {
   readonly end: number;
 }
 
-/** Assigns stable IDs to streamed blocks and rejects the Azure block-count limit. */
-async function* getBlocks(
-  source: ReadableStream<Uint8Array>,
-  size: number,
-  signal?: AbortSignal,
-): AsyncIterableIterator<AzureBlockType> {
+/** Native block input exposes direct interruption rather than queued return. */
+interface AzureBlockSourceType extends AsyncIterableIterator<AzureBlockType> {
+  interrupt(): Promise<void>;
+}
+
+/** Assigns stable ordered IDs while owning the byte reader and its cleanup. */
+function getBlocks(source: ReadableStream<Uint8Array>, size: number, signal?: AbortSignal): AzureBlockSourceType {
   const session = crypto.getRandomValues(new Uint8Array(16));
+  const chunks = open(source, size, signal);
   let number = 0;
-  for await (const bytes of split(source, size, signal)) {
-    number += 1;
-    if (number > AZURE_LIMITS.maxCommittedBlocks) {
-      throw new RangeError(`Azure block upload exceeds the ${AZURE_LIMITS.maxCommittedBlocks}-block service limit.`);
-    }
-    yield { number, id: getBlockId(session, number), bytes };
-  }
+  return {
+    async next() {
+      const result = await chunks.next();
+      if (result.done) return { done: true, value: undefined };
+      number += 1;
+      if (number > AZURE_LIMITS.maxCommittedBlocks) {
+        throw new RangeError(`Azure block upload exceeds the ${AZURE_LIMITS.maxCommittedBlocks}-block service limit.`);
+      }
+      return { done: false, value: { number, id: getBlockId(session, number), bytes: result.value } };
+    },
+    async return() {
+      await chunks.return?.();
+      return { done: true, value: undefined };
+    },
+    interrupt: () => chunks.interrupt(),
+    [Symbol.asyncIterator]() {
+      return this;
+    },
+  };
 }
 
 /** Generates server-side source ranges without allocating the source object. */
@@ -780,7 +821,9 @@ class AzureClient implements AzureClientType {
 
   /** Tracks actual dispatch separately from signing and local validation. */
   async #send(options: AzureRequestOptionsType, onDispatch?: () => void): Promise<Response> {
-    const replayable = options.retry !== false && !(options.body instanceof ReadableStream);
+    const body = ArrayBuffer.isView(options.body) ? toRequestBytes(options.body) : options.body;
+    const streamed = isStream(body);
+    const replayable = options.retry !== false && !streamed;
     return await sendRequest(async (signal) => {
       const url = this.#getAddress(options.key);
       for (const [name, value] of Object.entries(options.query ?? {})) {
@@ -795,7 +838,7 @@ class AzureClient implements AzureClientType {
       headers.set("x-ms-version", this.#version);
       headers.set("x-ms-date", this.#now().toUTCString());
 
-      const bodyLength = getBodyLength(options.body);
+      const bodyLength = getBodyLength(body);
       if (
         bodyLength !== undefined && !headers.has("content-length") && options.method !== "GET" &&
         options.method !== "HEAD"
@@ -803,7 +846,7 @@ class AzureClient implements AzureClientType {
         headers.set("content-length", String(bodyLength));
       }
       if (
-        this.#credential.kind === "shared-key" && options.body instanceof ReadableStream &&
+        this.#credential.kind === "shared-key" && streamed &&
         !headers.has("content-length")
       ) {
         throw new TypeError(
@@ -816,10 +859,10 @@ class AzureClient implements AzureClientType {
         method: options.method,
         headers,
         redirect: "manual",
-        ...(options.body === undefined ? {} : { body: options.body }),
+        ...(body === undefined ? {} : { body }),
         ...(signal === undefined ? {} : { signal }),
       };
-      if (options.body instanceof ReadableStream) init.duplex = "half";
+      if (streamed) init.duplex = "half";
       return { input: url, init };
     }, {
       fetch: (input, init) => {
@@ -886,18 +929,30 @@ class AzureClient implements AzureClientType {
     }
   }
 
-  /** Publication is never automatically replayed after a lost response. */
-  async #publish<T>(options: AzureRequestOptionsType, read: (response: Response) => Promise<T>): Promise<T> {
+  /** Only an acquired HTTP response proves known refusal after dispatch. */
+  async #publish<T>(
+    options: AzureRequestOptionsType,
+    read: (response: Response, text: ResponseTextType) => Promise<T>,
+  ): Promise<T> {
     let dispatched = false;
+    let response: Response;
     try {
-      const response = await this.#send({ ...options, retry: false }, () => {
+      response = await this.#send({ ...options, retry: false }, () => {
         dispatched = true;
       });
-      return await read(response);
     } catch (error) {
-      if (!dispatched || (error instanceof AzureError && error.status < 500)) throw error;
+      if (!dispatched) throw error;
       throw new AzureCommitError(options.key ?? "", error);
     }
+    const rejected = response.status >= 300 && response.status < 500;
+    return await readResponse(response, async (text) => {
+      try {
+        return await read(response, text);
+      } catch (error) {
+        if (rejected) throw error;
+        throw new AzureCommitError(options.key ?? "", error);
+      }
+    });
   }
 
   /** Returns blob properties or null for an absent blob. */
@@ -907,9 +962,11 @@ class AzureClient implements AzureClientType {
       key,
       ...(options?.signal === undefined ? {} : { signal: options.signal }),
     });
-    if (response.status === 404) return null;
-    await assertResponse(response, `Get Blob Properties ${key}`);
-    return getStat(response.headers);
+    return await readResponse(response, async (text) => {
+      if (response.status === 404) return null;
+      await assertResponse(response, `Get Blob Properties ${key}`, text);
+      return getStat(response.headers);
+    });
   }
 
   /** Opens one full blob or byte range as the provider response stream. */
@@ -966,17 +1023,17 @@ class AzureClient implements AzureClientType {
 
   /** Uploads one uncommitted block. Preconditions belong to the final block-list commit. */
   async #putBlock(key: string, block: AzureBlockType, signal?: AbortSignal): Promise<AzureBlockType> {
-    await assertResponse(
-      await this.request({
-        method: "PUT",
-        key,
-        query: { comp: "block", blockid: block.id },
-        headers: { "content-type": "application/octet-stream" },
-        body: block.bytes as Uint8Array<ArrayBuffer>,
-        ...(signal === undefined ? {} : { signal }),
-      }),
-      `Put Block ${key}#${block.number}`,
-    );
+    if (!isBytes(block.bytes)) throw new TypeError("An upload block must be a readable Uint8Array.");
+    block = { ...block, bytes: toRequestBytes(block.bytes) };
+    const response = await this.request({
+      method: "PUT",
+      key,
+      query: { comp: "block", blockid: block.id },
+      headers: { "content-type": "application/octet-stream" },
+      body: block.bytes as Uint8Array<ArrayBuffer>,
+      ...(signal === undefined ? {} : { signal }),
+    });
+    await readResponse(response, (text) => assertResponse(response, `Put Block ${key}#${block.number}`, text));
     return block;
   }
 
@@ -996,7 +1053,7 @@ class AzureClient implements AzureClientType {
       headers,
       body: getBlockListBody(ids),
       ...(options.signal === undefined ? {} : { signal: options.signal }),
-    }, (response) => assertResponse(response, `Put Block List ${key}`));
+    }, (response, text) => assertResponse(response, `Put Block List ${key}`, text));
     return getReceipt(response, size, options);
   }
 
@@ -1011,10 +1068,12 @@ class AzureClient implements AzureClientType {
     options: ObjectPutOptionsType,
   ): Promise<ObjectReceiptType> {
     const blockSize = this.#getBlockSize(options.size);
+    const source = getBlocks(body, blockSize, options.signal);
     const blocks = map(
       this.#concurrency,
-      getBlocks(body, blockSize, options.signal),
+      source,
       (block) => this.#putBlock(key, block, options.signal),
+      { interrupt: () => source.interrupt() },
     );
     const ids: string[] = [];
     let size = 0;
@@ -1031,6 +1090,8 @@ class AzureClient implements AzureClientType {
 
   /** Uses one Put Blob request when the selected service version permits the byte length. */
   async #putBytes(key: string, body: Uint8Array, options: ObjectPutOptionsType): Promise<ObjectReceiptType> {
+    if (!isBytes(body)) throw new TypeError("A materialized upload body must be a readable Uint8Array.");
+    body = toRequestBytes(body);
     if (options.size !== undefined && options.size !== body.byteLength) {
       throw new RangeError("Azure body length does not match options.size.");
     }
@@ -1051,7 +1112,7 @@ class AzureClient implements AzureClientType {
       headers,
       body: body as Uint8Array<ArrayBuffer>,
       ...(options.signal === undefined ? {} : { signal: options.signal }),
-    }, (response) => assertResponse(response, `Put Blob ${key}`));
+    }, (response, text) => assertResponse(response, `Put Blob ${key}`, text));
     return getReceipt(response, body.byteLength, options);
   }
 
@@ -1071,13 +1132,19 @@ class AzureClient implements AzureClientType {
       ...(metadata === undefined ? {} : { metadata }),
     });
     this.#getAddress(key);
-    if (body instanceof Uint8Array) return await this.#putBytes(key, body, options);
+    // Intrinsic byte admission includes genuine foreign-realm views. A detached
+    // or out-of-bounds view must not fall through as an apparent empty stream.
+    if (isBytes(body)) return await this.#putBytes(key, body, options);
+    if (!isStream(body)) {
+      throw new TypeError("An upload body must be readable Uint8Array bytes or a native ReadableStream.");
+    }
     if (!this.optimizations.blockUpload) {
-      await body.cancel().catch(() => undefined);
-      throw new TypeError(
+      const failure = new TypeError(
         "Azure streamed writes require blockUpload; enable it or let the filesystem adapter buffer " +
           "a bounded stream before calling put().",
       );
+      await close([() => body.cancel()], [failure]);
+      throw failure;
     }
     return await this.#putBlocks(key, body, options);
   }
@@ -1089,8 +1156,10 @@ class AzureClient implements AzureClientType {
       key,
       ...(options?.signal === undefined ? {} : { signal: options.signal }),
     });
-    if (response.status === 404) return;
-    await assertResponse(response, `Delete Blob ${key}`);
+    await readResponse(response, async (text) => {
+      if (response.status === 404) return;
+      await assertResponse(response, `Delete Blob ${key}`, text);
+    });
   }
 
   /** Converts one `<Blob>` list element into provider-neutral metadata. */
@@ -1111,28 +1180,28 @@ class AzureClient implements AzureClientType {
 
   /** Lists one Azure container page with delimiter and marker semantics preserved. */
   async list(options: ObjectListOptionsType): Promise<ObjectListType> {
-    const response = await assertResponse(
-      await this.request({
-        method: "GET",
-        query: {
-          restype: "container",
-          comp: "list",
-          prefix: options.prefix,
-          delimiter: options.delimiter,
-          maxresults: options.limit === undefined ? undefined : String(options.limit),
-          marker: options.cursor,
-        },
-        ...(options.signal === undefined ? {} : { signal: options.signal }),
-      }),
-      "List Blobs",
-    );
-    const root = parseXmlRoot(await response.text());
-    const objects = getXmlElements(root, "Blob").map((blob) => this.#getListEntry(blob));
-    const prefixes = getXmlElements(root, "BlobPrefix")
-      .map((prefix) => getName(prefix))
-      .filter((value): value is string => value !== undefined);
-    const cursor = getXmlText(root, "NextMarker");
-    return { objects, prefixes, ...(cursor === undefined || cursor.length === 0 ? {} : { cursor }) };
+    const response = await this.request({
+      method: "GET",
+      query: {
+        restype: "container",
+        comp: "list",
+        prefix: options.prefix,
+        delimiter: options.delimiter,
+        maxresults: options.limit === undefined ? undefined : String(options.limit),
+        marker: options.cursor,
+      },
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
+    });
+    return await readResponse(response, async (text) => {
+      await assertResponse(response, "List Blobs", text);
+      const root = parseXmlRoot(await text());
+      const objects = getXmlElements(root, "Blob").map((blob) => this.#getListEntry(blob));
+      const prefixes = getXmlElements(root, "BlobPrefix")
+        .map((prefix) => getName(prefix))
+        .filter((value): value is string => value !== undefined);
+      const cursor = getXmlText(root, "NextMarker");
+      return { objects, prefixes, ...(cursor === undefined || cursor.length === 0 ? {} : { cursor }) };
+    });
   }
 
   /** Builds source URL authorization and source precondition headers for copy operations. */
@@ -1171,15 +1240,21 @@ class AzureClient implements AzureClientType {
     const headers = await this.#getCopyHeaders(source, options, version);
     headers.set("x-ms-source-range", `bytes=${block.start}-${block.end}`);
     headers.set("content-length", "0");
-    await assertResponse(
-      await this.request({
-        method: "PUT",
-        key: destination,
-        query: { comp: "block", blockid: block.id },
-        headers,
-        ...(options.signal === undefined ? {} : { signal: options.signal }),
-      }),
-      `Put Block From URL ${source}[${block.start}-${block.end}] -> ${destination}#${block.number}`,
+    const response = await this.request({
+      method: "PUT",
+      key: destination,
+      query: { comp: "block", blockid: block.id },
+      headers,
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
+    });
+    await readResponse(
+      response,
+      (text) =>
+        assertResponse(
+          response,
+          `Put Block From URL ${source}[${block.start}-${block.end}] -> ${destination}#${block.number}`,
+          text,
+        ),
     );
     return block;
   }
@@ -1202,7 +1277,7 @@ class AzureClient implements AzureClientType {
       headers,
       body: getBlockListBody(blocks.map((block) => block.id)),
       ...(options.signal === undefined ? {} : { signal: options.signal }),
-    }, (response) => assertResponse(response, `Put Block List ${destination}`));
+    }, (response, text) => assertResponse(response, `Put Block List ${destination}`, text));
     return getReceipt(response, source.size, source);
   }
 
@@ -1223,8 +1298,8 @@ class AzureClient implements AzureClientType {
       key: destination,
       headers,
       ...(options.signal === undefined ? {} : { signal: options.signal }),
-    }, async (response) => {
-      await assertResponse(response, `Copy Blob From URL ${source} -> ${destination}`);
+    }, async (response, text) => {
+      await assertResponse(response, `Copy Blob From URL ${source} -> ${destination}`, text);
       if (response.headers.get("x-ms-copy-status") !== "success") {
         throw new Error("Copy Blob From URL did not report synchronous success.");
       }
@@ -1276,9 +1351,13 @@ class AzureClient implements AzureClientType {
       headers: sourceHeaders,
       ...(options.signal === undefined ? {} : { signal: options.signal }),
     });
-    const sourceStat = sourceResponse.status === 404
-      ? null
-      : getStat((await assertResponse(sourceResponse, "Read copy source properties")).headers);
+    const sourceStat = await readResponse(
+      sourceResponse,
+      async (text) =>
+        sourceResponse.status === 404
+          ? null
+          : getStat((await assertResponse(sourceResponse, "Read copy source properties", text)).headers),
+    );
     if (sourceStat === null) {
       throw new AzureError(`Copy source '${source}' does not exist.`, new Response(null, { status: 404 }));
     }
