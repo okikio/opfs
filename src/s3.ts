@@ -3,8 +3,13 @@ import { map } from "./pool.ts";
 import { encodeHex } from "@std/encoding/hex";
 import { z } from "zod";
 
-import { split } from "./chunk.ts";
+import { open } from "./chunk.ts";
+import { isBytes, toRequestBytes, toView } from "./bytes.ts";
+import { isStream } from "./body.ts";
+import { close } from "./close.ts";
 import { copyOptions, putOptions, putProperties } from "./publication.ts";
+import type { ResponseTextType } from "./response.ts";
+import { readResponse } from "./response.ts";
 import {
   type FetchType,
   RequestMetrics,
@@ -138,7 +143,7 @@ export interface S3ClientOptionsType {
   readonly copy?: boolean;
   /** Disables conditional writes when a compatible service ignores S3 preconditions. */
   readonly conditionalWrite?: boolean;
-  /** Maximum time allowed for best-effort multipart abort cleanup after a failed streamed write. Defaults to 30 seconds. */
+  /** Maximum time allowed for owned multipart abort cleanup after a failed streamed write. Defaults to 30 seconds. */
   readonly abortTimeoutMs?: number;
   /** Retry/backoff and optional per-attempt timeout policy. */
   readonly request?: RequestPolicyType;
@@ -215,9 +220,15 @@ export class S3Error extends Error {
   constructor(
     message: string,
     response: Response,
-    details: { code?: string; requestId?: string; hostId?: string } = {},
+    details: {
+      code?: string;
+      requestId?: string;
+      hostId?: string;
+      /** Secondary response-body read or XML parse failure, including undefined and null. */
+      cause?: unknown;
+    } = {},
   ) {
-    super(message);
+    super(message, Object.hasOwn(details, "cause") ? { cause: details.cause } : undefined);
     this.name = "S3Error";
     this.status = response.status;
     this.response = response;
@@ -364,8 +375,7 @@ async function getPayloadHash(body: BodyInit | null | undefined): Promise<string
   if (typeof body === "string") return await getSha256(body);
   if (body instanceof ArrayBuffer) return await getSha256(body);
   if (ArrayBuffer.isView(body)) {
-    const bytes = new Uint8Array(body.byteLength);
-    bytes.set(new Uint8Array(body.buffer, body.byteOffset, body.byteLength));
+    const bytes = new Uint8Array(toView(body));
     return await getSha256(bytes);
   }
   if (body instanceof Blob) return await getSha256(await body.arrayBuffer());
@@ -444,14 +454,25 @@ function getReceipt(
 }
 
 /** Reads and throws a structured S3 error without losing provider request IDs. */
-async function assertResponse(response: Response, operation: string): Promise<Response> {
+async function assertResponse(
+  response: Response,
+  operation: string,
+  text?: ResponseTextType,
+): Promise<Response> {
   if (response.ok) return response;
+  if (text === undefined) return await readResponse(response, (owned) => assertResponse(response, operation, owned));
 
   let code: string | undefined;
   let requestId = response.headers.get("x-amz-request-id") ?? undefined;
   let hostId = response.headers.get("x-amz-id-2") ?? undefined;
   let message = `${operation} failed with HTTP ${response.status}.`;
-  const body = await response.text().catch(() => "");
+  let body = "";
+  let secondary: { readonly reason: unknown } | undefined;
+  try {
+    body = await text();
+  } catch (reason) {
+    secondary = { reason };
+  }
 
   if (body.trim().startsWith("<")) {
     try {
@@ -460,9 +481,10 @@ async function assertResponse(response: Response, operation: string): Promise<Re
       requestId ??= getXmlValue(root, "RequestId");
       hostId ??= getXmlValue(root, "HostId");
       message = getXmlValue(root, "Message") ?? message;
-    } catch {
+    } catch (reason) {
       // A gateway can return HTML or malformed XML. The HTTP status and provider
       // request headers still preserve the most useful failure evidence.
+      secondary = { reason };
     }
   }
 
@@ -470,13 +492,19 @@ async function assertResponse(response: Response, operation: string): Promise<Re
     ...(code === undefined ? {} : { code }),
     ...(requestId === undefined ? {} : { requestId }),
     ...(hostId === undefined ? {} : { hostId }),
+    ...(secondary === undefined ? {} : { cause: secondary.reason }),
   });
 }
 
 /** Parses an HTTP-success S3 XML response and detects the protocol's embedded `<Error>` form. */
-async function getSuccessXml(response: Response, operation: string) {
-  await assertResponse(response, operation);
-  const body = await response.text();
+async function getSuccessXml(
+  response: Response,
+  operation: string,
+  text: ResponseTextType,
+  rejected?: () => void,
+) {
+  await assertResponse(response, operation, text);
+  const body = await text();
   if (!body.trim().startsWith("<")) throw new SyntaxError("S3 success acknowledgement requires XML.");
   const root = parseXmlRoot(body);
   const errors = getXmlElements(root, "Error");
@@ -485,6 +513,7 @@ async function getSuccessXml(response: Response, operation: string) {
     throw new SyntaxError("S3 acknowledgement mixes success and error authority.");
   }
   const error = root;
+  rejected?.();
 
   throw new S3Error(getXmlValue(error, "Message") ?? `${operation} failed after HTTP 200.`, response, {
     ...(getXmlValue(error, "Code") === undefined ? {} : { code: getXmlValue(error, "Code")! }),
@@ -498,22 +527,41 @@ async function getCredentials(source: S3CredentialSourceType): Promise<S3Credent
   return S3CredentialsSchema.parse(typeof source === "function" ? await source() : source);
 }
 
-/** Yields one-based part numbers beside fixed-size chunks from a streamed object body. */
-async function* getChunks(
-  source: ReadableStream<Uint8Array>,
-  size: number,
-  signal?: AbortSignal,
-): AsyncGenerator<S3ChunkType> {
+/** Numbered native input retains direct interruption and one reader retirement. */
+interface S3ChunkSourceType extends AsyncIterableIterator<S3ChunkType> {
+  interrupt(): Promise<void>;
+}
+
+/** Owns a numbered byte source before multipart initiation can fail. */
+function getChunks(source: ReadableStream<Uint8Array>, size: number, signal?: AbortSignal): S3ChunkSourceType {
+  const chunks = open(source, size, signal);
   let number = 0;
-  for await (const bytes of split(source, size, signal)) {
-    number += 1;
-    if (number > S3_LIMITS.maxParts) {
-      throw new RangeError(
-        `S3 multipart upload exceeds ${S3_LIMITS.maxParts} parts. Supply the expected size or increase partSize.`,
-      );
-    }
-    yield { number, bytes };
-  }
+  return {
+    async next() {
+      const result = await chunks.next();
+      if (result.done) return { done: true, value: undefined };
+      number += 1;
+      if (number > S3_LIMITS.maxParts) {
+        throw new RangeError(
+          `S3 multipart upload exceeds ${S3_LIMITS.maxParts} parts. Supply the expected size or increase partSize.`,
+        );
+      }
+      return { done: false, value: { number, bytes: result.value } };
+    },
+    async return() {
+      await chunks.return?.();
+      return { done: true, value: undefined };
+    },
+    interrupt: () => chunks.interrupt(),
+    [Symbol.asyncIterator]() {
+      return this;
+    },
+  };
+}
+
+/** Only this publication invocation can establish dispatch and acknowledgement. */
+interface S3PublicationType {
+  phase: "not-dispatched" | "unknown" | "rejected" | "acknowledged";
 }
 
 /** Yields the inclusive source ranges required for multipart server-side copy. */
@@ -626,7 +674,7 @@ class S3Client implements S3ClientType {
   readonly #concurrency: number;
   /** Headers copied into each request before operation-specific headers. */
   readonly #headers: HeadersInit | undefined;
-  /** Maximum time allowed for best-effort AbortMultipartUpload cleanup. */
+  /** Maximum time allowed for owned AbortMultipartUpload cleanup. */
   readonly #abortTimeoutMs: number;
   /** Retry/backoff and optional per-attempt deadline. */
   readonly #requestPolicy: RequestPolicyType | undefined;
@@ -778,6 +826,8 @@ class S3Client implements S3ClientType {
 
   /** Writes one materialized object with PutObject and optional write preconditions. */
   async #putBytes(key: string, body: Uint8Array, options: ObjectPutOptionsType): Promise<ObjectReceiptType> {
+    if (!isBytes(body)) throw new TypeError("A materialized upload body must be a readable Uint8Array.");
+    body = toRequestBytes(body);
     if (options.size !== undefined && options.size !== body.byteLength) {
       throw new RangeError("S3 body length does not match options.size.");
     }
@@ -796,7 +846,7 @@ class S3Client implements S3ClientType {
       headers,
       body: body as Uint8Array<ArrayBuffer>,
       ...(options.signal === undefined ? {} : { signal: options.signal }),
-    }, (response) => assertResponse(response, `PutObject ${key}`));
+    }, (response, text) => assertResponse(response, `PutObject ${key}`, text));
     return getReceipt(response, body.byteLength, options);
   }
 
@@ -820,13 +870,18 @@ class S3Client implements S3ClientType {
       headers,
       ...(options.signal === undefined ? {} : { signal: options.signal }),
     });
-    const root = await getSuccessXml(
-      response,
-      `UploadPartCopy ${source}[${range.start}-${range.end}] -> ${upload.key}#${range.number}`,
-    );
-    if (root.name.local !== "CopyPartResult") throw new S3Error("Unexpected UploadPartCopy acknowledgement.", response);
-    const etag = getXmlScalar(root, "ETag");
-    return { number: range.number, etag };
+    return await readResponse(response, async (text) => {
+      const root = await getSuccessXml(
+        response,
+        `UploadPartCopy ${source}[${range.start}-${range.end}] -> ${upload.key}#${range.number}`,
+        text,
+      );
+      if (root.name.local !== "CopyPartResult") {
+        throw new S3Error("Unexpected UploadPartCopy acknowledgement.", response);
+      }
+      const etag = getXmlScalar(root, "ETag");
+      return { number: range.number, etag };
+    });
   }
 
   /** Uploads one indexed streamed chunk and retains its byte count for commit validation. */
@@ -859,11 +914,13 @@ class S3Client implements S3ClientType {
 
   /** Tracks actual dispatch separately from signing and local validation. */
   async #send(options: S3RequestOptionsType, onDispatch?: () => void): Promise<Response> {
-    const payloadHash = options.payloadHash ?? await getPayloadHash(options.body);
+    const body = ArrayBuffer.isView(options.body) ? toRequestBytes(options.body) : options.body;
+    const payloadHash = options.payloadHash ?? await getPayloadHash(body);
     // Body replayability and protocol idempotency are separate. A byte body can
     // be replayed mechanically while an operation such as CreateMultipartUpload
     // can still allocate a second server-side resource.
-    const replayable = options.retry !== false && !(options.body instanceof ReadableStream);
+    const streamed = isStream(body);
+    const replayable = options.retry !== false && !streamed;
 
     return await sendRequest(async (signal) => {
       const { url, canonicalUri } = this.#address(options.key);
@@ -912,10 +969,10 @@ class S3Client implements S3ClientType {
         method: options.method,
         headers,
         redirect: "manual",
-        ...(options.body === undefined ? {} : { body: options.body }),
+        ...(body === undefined ? {} : { body }),
         ...(signal === undefined ? {} : { signal }),
       };
-      if (options.body instanceof ReadableStream) init.duplex = "half";
+      if (streamed) init.duplex = "half";
       return { input: url, init };
     }, {
       fetch: (input, init) => {
@@ -979,18 +1036,35 @@ class S3Client implements S3ClientType {
     }
   }
 
-  /** Publication is never automatically replayed after a lost response. */
-  async #publish<T>(options: S3RequestOptionsType, read: (response: Response) => Promise<T>): Promise<T> {
-    let dispatched = false;
+  /** Actual response/parser events own publication disposition, never error classes. */
+  async #publish<T>(
+    options: S3RequestOptionsType,
+    read: (response: Response, text: ResponseTextType, rejected: () => void) => Promise<T>,
+    disposition: S3PublicationType = { phase: "not-dispatched" },
+  ): Promise<T> {
+    let response: Response;
     try {
-      const response = await this.#send({ ...options, retry: false }, () => {
-        dispatched = true;
+      response = await this.#send({ ...options, retry: false }, () => {
+        disposition.phase = "unknown";
       });
-      return await read(response);
     } catch (error) {
-      if (!dispatched || (error instanceof S3Error && error.status < 500)) throw error;
+      if (disposition.phase === "not-dispatched") throw error;
       throw new S3CommitError(options.key ?? "", error);
     }
+    if (response.status >= 300 && response.status < 500) disposition.phase = "rejected";
+    return await readResponse(response, async (text) => {
+      try {
+        const value = await read(response, text, () => {
+          disposition.phase = "rejected";
+        });
+        disposition.phase = "acknowledged";
+        return value;
+      } catch (error) {
+        if (disposition.phase === "rejected") throw error;
+        disposition.phase = "unknown";
+        throw new S3CommitError(options.key ?? "", error);
+      }
+    });
   }
 
   /** Returns exact-object metadata, or `null` when the object does not exist. */
@@ -1000,9 +1074,11 @@ class S3Client implements S3ClientType {
       key,
       ...(options?.signal === undefined ? {} : { signal: options.signal }),
     });
-    if (response.status === 404) return null;
-    await assertResponse(response, `HeadObject ${key}`);
-    return getStat(response.headers);
+    return await readResponse(response, async (text) => {
+      if (response.status === 404) return null;
+      await assertResponse(response, `HeadObject ${key}`, text);
+      return getStat(response.headers);
+    });
   }
 
   /** Opens an S3 object or byte range as a Web `ReadableStream`. */
@@ -1025,25 +1101,60 @@ class S3Client implements S3ClientType {
     return response.body ?? new Blob().stream();
   }
 
-  /** Starts a multipart upload and returns its provider identity. */
+  /**
+   * Transfers one validated allocation only after response retirement succeeds.
+   * A known allocation remains owned on failure and is aborted with a fresh,
+   * bounded cleanup signal. Unknown/malformed allocation is never guessed.
+   */
   async createUpload(key: string, options: ObjectPutOptionsType = {}): Promise<S3UploadType> {
-    const headers = this.#getPropertyHeaders(options);
-    const response = await assertResponse(
-      await this.request({
-        method: "POST",
-        key,
-        query: { uploads: "" },
-        headers,
-        retry: false,
-        ...(options.signal === undefined ? {} : { signal: options.signal }),
-      }),
-      `CreateMultipartUpload ${key}`,
-    );
-    const id = getXmlText(parseXmlRoot(await response.text()), "UploadId");
-    if (id === undefined || id.length === 0) {
-      throw new S3Error("CreateMultipartUpload response did not contain UploadId.", response);
+    let upload: S3UploadType | undefined;
+    try {
+      return await this.#createUpload(key, options, (acquired) => {
+        upload = acquired;
+      });
+    } catch (reason) {
+      const owned = upload;
+      await close([
+        async () => {
+          if (owned !== undefined) await this.abortUpload(owned, AbortSignal.timeout(this.#abortTimeoutMs));
+        },
+      ], [reason]);
+      throw reason;
     }
-    return { key, id };
+  }
+
+  /** Publishes the actual validated allocation to its owner before body retirement. */
+  async #createUpload(
+    key: string,
+    options: ObjectPutOptionsType,
+    acquired: (upload: S3UploadType) => void,
+  ): Promise<S3UploadType> {
+    const headers = this.#getPropertyHeaders(options);
+    const response = await this.request({
+      method: "POST",
+      key,
+      query: { uploads: "" },
+      headers,
+      retry: false,
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
+    });
+    return await readResponse(response, async (text) => {
+      await assertResponse(response, `CreateMultipartUpload ${key}`, text);
+      const root = parseXmlRoot(await text());
+      if (root.name.local !== "InitiateMultipartUploadResult") {
+        throw new SyntaxError("Unexpected multipart allocation acknowledgement.");
+      }
+      const id = getXmlText(root, "UploadId");
+      if (id === undefined || id.length === 0) {
+        throw new S3Error("CreateMultipartUpload response did not contain UploadId.", response);
+      }
+      // Required direct-scalar structure authorizes acquisition; retain the
+      // provider's decoded opaque text rather than reconstructing its identity.
+      getXmlScalar(root, "UploadId");
+      const upload = { key, id };
+      acquired(upload);
+      return upload;
+    });
   }
 
   /** Uploads one legal multipart part and retains the ETag required at completion. */
@@ -1051,22 +1162,24 @@ class S3Client implements S3ClientType {
     if (!Number.isSafeInteger(number) || number < 1 || number > S3_LIMITS.maxParts) {
       throw new RangeError(`S3 part number must be between 1 and ${S3_LIMITS.maxParts}.`);
     }
+    if (!isBytes(bytes)) throw new TypeError("An upload part must be a readable Uint8Array.");
+    bytes = toRequestBytes(bytes);
     if (bytes.byteLength > S3_LIMITS.maxPartBytes) {
       throw new RangeError(`S3 multipart parts cannot exceed ${S3_LIMITS.maxPartBytes} bytes.`);
     }
-    const response = await assertResponse(
-      await this.request({
-        method: "PUT",
-        key: upload.key,
-        query: { partNumber: String(number), uploadId: upload.id },
-        body: bytes as Uint8Array<ArrayBuffer>,
-        ...(signal === undefined ? {} : { signal }),
-      }),
-      `UploadPart ${upload.key}#${number}`,
-    );
-    const etag = response.headers.get("etag");
-    if (etag === null) throw new S3Error(`UploadPart ${number} response did not contain ETag.`, response);
-    return { number, etag };
+    const response = await this.request({
+      method: "PUT",
+      key: upload.key,
+      query: { partNumber: String(number), uploadId: upload.id },
+      body: bytes as Uint8Array<ArrayBuffer>,
+      ...(signal === undefined ? {} : { signal }),
+    });
+    return await readResponse(response, async (text) => {
+      await assertResponse(response, `UploadPart ${upload.key}#${number}`, text);
+      const etag = response.headers.get("etag");
+      if (etag === null) throw new S3Error(`UploadPart ${number} response did not contain ETag.`, response);
+      return { number, etag };
+    });
   }
 
   /** Commits uploaded parts after validating part identity and ordering. */
@@ -1074,6 +1187,16 @@ class S3Client implements S3ClientType {
     upload: S3UploadType,
     parts: readonly S3PartType[],
     options: S3CompleteOptionsType = {},
+  ): Promise<S3CommitType> {
+    return await this.#completeUpload(upload, parts, options);
+  }
+
+  /** Carries this final attempt's disposition through independent reader cleanup. */
+  async #completeUpload(
+    upload: S3UploadType,
+    parts: readonly S3PartType[],
+    options: S3CompleteOptionsType,
+    disposition: S3PublicationType = { phase: "not-dispatched" },
   ): Promise<S3CommitType> {
     if (
       options.expectedSize !== undefined &&
@@ -1096,9 +1219,9 @@ class S3Client implements S3ClientType {
       body: getCompleteBody(normalized),
       retry: false,
       ...(options.signal === undefined ? {} : { signal: options.signal }),
-    }, async (response) => {
+    }, async (response, text, rejected) => {
       // The whole XML body is commit authority; HTTP 200 can still contain Error.
-      const root = await getSuccessXml(response, `CompleteMultipartUpload ${upload.key}`);
+      const root = await getSuccessXml(response, `CompleteMultipartUpload ${upload.key}`, text, rejected);
       if (root.name.local !== "CompleteMultipartUploadResult") {
         throw new SyntaxError("Unexpected multipart acknowledgement.");
       }
@@ -1112,7 +1235,7 @@ class S3Client implements S3ClientType {
           ? {}
           : { requestId: response.headers.get("x-amz-request-id")! }),
       };
-    });
+    }, disposition);
   }
 
   /** Aborts one unfinished multipart upload. Missing upload IDs are already terminal. */
@@ -1123,18 +1246,20 @@ class S3Client implements S3ClientType {
       query: { uploadId: upload.id },
       ...(signal === undefined ? {} : { signal }),
     });
-    if (response.status === 404) return;
-    await assertResponse(response, `AbortMultipartUpload ${upload.key}`);
+    await readResponse(response, async (text) => {
+      if (response.status === 404) return;
+      await assertResponse(response, `AbortMultipartUpload ${upload.key}`, text);
+    });
   }
 
   /**
-   * Replaces one object from materialized bytes or a bounded multipart stream.
+   * Replaces one object with bounded, input-ordered multipart admission.
    *
-   * Streamed writes use `@std/async/pool` so the client admits at most
-   * `concurrency` active part requests. When a part fails, the pool stops
-   * pulling new chunks and waits for already-started requests. Only then does
-   * the client abort the multipart upload, which prevents a late part from
-   * arriving after the abort request.
+   * This invocation owns its source from acquisition through delayed probing,
+   * initialization, active parts and final acknowledgement. Failed part mapping
+   * interrupts pending input without aborting already-admitted requests. Their
+   * outcomes drain before remote abort. The final attempt's own disposition,
+   * never a thrown class, decides whether multipart abort remains safe.
    */
   async put(
     key: string,
@@ -1145,104 +1270,114 @@ class S3Client implements S3ClientType {
     const properties = getStat(this.#getPropertyHeaders(options));
     options = putProperties(options, properties);
     this.#address(key);
-    if (body instanceof Uint8Array) return await this.#putBytes(key, body, options);
-
-    const partSize = this.#getPartSize(options.size);
-    const sourceChunks = getChunks(body, partSize, options.signal);
-    let chunks = sourceChunks;
-
-    // Preserve the already-consumed chunks before replacing the iterator.
-    // A single chunk larger than PutObject's hard limit still enters multipart
-    // instead of failing only because delayed multipart is enabled.
-    async function* retained(
-      _first: IteratorResult<S3ChunkType>,
-      _second: IteratorResult<S3ChunkType>,
-      _chunks: AsyncGenerator<S3ChunkType>,
-    ): AsyncGenerator<S3ChunkType> {
-      try {
-        yield _first.value;
-        if (!_second.done) yield _second.value;
-        for await (const chunk of _chunks) yield chunk;
-      } finally {
-        await _chunks.return(undefined);
-      }
+    // Intrinsic byte admission includes genuine foreign-realm views. A detached
+    // or out-of-bounds view must not fall through as an apparent empty stream.
+    if (isBytes(body)) return await this.#putBytes(key, body, options);
+    if (!isStream(body)) {
+      throw new TypeError("An upload body must be readable Uint8Array bytes or a native ReadableStream.");
     }
 
-    if (this.optimizations.delayedMultipart) {
-      const first = await chunks.next();
-      if (first.done) return await this.#putBytes(key, new Uint8Array(), options);
-
-      const second = await chunks.next();
-      if (second.done && first.value.bytes.byteLength <= S3_LIMITS.maxPutBytes) {
-        if (options.size !== undefined && first.value.bytes.byteLength !== options.size) {
-          throw new RangeError(
-            `S3 streamed body produced ${first.value.bytes.byteLength} bytes but options.size declared ${options.size}.`,
-          );
+    const chunks = getChunks(body, this.#getPartSize(options.size), options.signal);
+    const disposition: S3PublicationType = { phase: "not-dispatched" };
+    let retired = false;
+    let upload: S3UploadType | undefined;
+    let primary: readonly unknown[] = [];
+    const retire = async (): Promise<void> => {
+      if (retired) return;
+      // This marks observation ownership, not successful cleanup. A rejected
+      // retirement is submitted to the current scope once, never attempted twice.
+      retired = true;
+      await chunks.return?.();
+    };
+    try {
+      const prefix: S3ChunkType[] = [];
+      if (this.optimizations.delayedMultipart) {
+        const first = await chunks.next();
+        if (first.done) {
+          await retire();
+          return await this.#putBytes(key, new Uint8Array(), options);
         }
-        return await this.#putBytes(key, first.value.bytes, options);
+        const second = await chunks.next();
+        if (second.done && first.value.bytes.byteLength <= S3_LIMITS.maxPutBytes) {
+          if (options.size !== undefined && first.value.bytes.byteLength !== options.size) {
+            throw new RangeError(
+              `S3 streamed body produced ${first.value.bytes.byteLength} bytes but options.size declared ${options.size}.`,
+            );
+          }
+          await retire();
+          return await this.#putBytes(key, first.value.bytes, options);
+        }
+        prefix.push(first.value);
+        if (!second.done) prefix.push(second.value);
       }
-
-      chunks = retained(first, second, chunks);
-    }
-
-    let upload: S3UploadType;
-    try {
-      upload = await this.createUpload(key, options);
-    } catch (error) {
-      // Delayed multipart can already hold a source reader and two parts.
-      // Failed initiation never transfers that reader to the request pool.
-      await sourceChunks.return(undefined).catch(() => undefined);
-      throw error;
-    }
-    let size = 0;
-    const parts: S3PartType[] = [];
-
-    try {
-      const uploaded = map(
-        this.#concurrency,
-        chunks,
-        (chunk) => this.#uploadChunk(upload, chunk, options.signal),
-      );
-      // The pool retains producer/caller failures after admitted uploads drain.
-      // Independent provider failures stay in the terminal aggregate.
-      for await (const result of uploaded) {
+      upload = await this.#createUpload(key, options, (acquired) => {
+        upload = acquired;
+      });
+      const active = upload;
+      const input: S3ChunkSourceType = {
+        async next() {
+          const value = prefix.shift();
+          return value === undefined ? await chunks.next() : { done: false, value };
+        },
+        async return() {
+          await retire();
+          return { done: true, value: undefined };
+        },
+        interrupt: () => chunks.interrupt(),
+        [Symbol.asyncIterator]() {
+          return this;
+        },
+      };
+      let size = 0;
+      const parts: S3PartType[] = [];
+      for await (
+        const result of map(
+          this.#concurrency,
+          input,
+          (chunk) => this.#uploadChunk(active, chunk, options.signal),
+          { interrupt: () => input.interrupt() },
+        )
+      ) {
         parts.push(result.part);
         size += result.size;
       }
-
       if (options.size !== undefined && size !== options.size) {
         throw new RangeError(`S3 streamed body produced ${size} bytes but options.size declared ${options.size}.`);
       }
       if (parts.length === 0) {
-        await this.abortUpload(upload, options.signal);
+        // Submit this abort once even when its own response retirement rejects.
+        upload = undefined;
+        await this.abortUpload(active, AbortSignal.timeout(this.#abortTimeoutMs));
         return await this.#putBytes(key, new Uint8Array(), options);
       }
-      if (options.size !== undefined && size !== options.size) {
-        throw new RangeError(`S3 streamed body produced ${size} bytes but options.size declared ${options.size}.`);
-      }
-
-      const receipt = await this.completeUpload(upload, parts, {
+      const receipt = await this.#completeUpload(active, parts, {
         ...(options.ifMatch === undefined ? {} : { ifMatch: options.ifMatch }),
         ...(options.ifNoneMatch === undefined ? {} : { ifNoneMatch: options.ifNoneMatch }),
         expectedSize: size,
         ...(options.signal === undefined ? {} : { signal: options.signal }),
-      });
+      }, disposition);
       return {
         size,
         ...receipt,
         ...(options.mediaType === undefined ? {} : { mediaType: options.mediaType }),
         ...(options.metadata === undefined ? {} : { metadata: { ...options.metadata } }),
       };
-    } catch (error) {
-      // Caller cancellation ends the write, but it must not also cancel the
-      // request that releases provider-side multipart state. Cleanup gets its
-      // own bounded signal so a failed provider cannot delay shutdown forever.
-      if (!(error instanceof S3CommitError)) {
-        await this.abortUpload(upload, AbortSignal.timeout(this.#abortTimeoutMs)).catch(() => undefined);
-      }
-      throw error;
+    } catch (reason) {
+      primary = [reason];
+      throw reason;
     } finally {
-      await sourceChunks.return(undefined).catch(() => undefined);
+      const owned = upload;
+      await close([
+        retire,
+        async () => {
+          if (
+            primary.length > 0 && owned !== undefined &&
+            (disposition.phase === "not-dispatched" || disposition.phase === "rejected")
+          ) {
+            await this.abortUpload(owned, AbortSignal.timeout(this.#abortTimeoutMs));
+          }
+        },
+      ], primary);
     }
   }
 
@@ -1253,38 +1388,40 @@ class S3Client implements S3ClientType {
       key,
       ...(options?.signal === undefined ? {} : { signal: options.signal }),
     });
-    if (response.status === 404) return;
-    await assertResponse(response, `DeleteObject ${key}`);
+    await readResponse(response, async (text) => {
+      if (response.status === 404) return;
+      await assertResponse(response, `DeleteObject ${key}`, text);
+    });
   }
 
   /** Lists one S3 `ListObjectsV2` page and preserves its continuation token. */
   async list(options: ObjectListOptionsType): Promise<ObjectListType> {
-    const response = await assertResponse(
-      await this.request({
-        method: "GET",
-        query: {
-          "list-type": "2",
-          "encoding-type": "url",
-          prefix: options.prefix,
-          delimiter: options.delimiter,
-          "max-keys": options.limit === undefined ? undefined : String(options.limit),
-          "continuation-token": options.cursor,
-        },
-        ...(options.signal === undefined ? {} : { signal: options.signal }),
-      }),
-      "ListObjectsV2",
-    );
-    const root = parseXmlRoot(await response.text());
-    const encoded = getXmlValue(root, "EncodingType") === "url";
-    const objects: ObjectEntryType[] = getXmlElements(root, "Contents").map((entry) =>
-      getListObject(entry, encoded, this.listEncoding)
-    );
-    const prefixes = getXmlElements(root, "CommonPrefixes")
-      .map((entry) => getXmlText(entry, "Prefix"))
-      .filter((value): value is string => value !== undefined)
-      .map((value) => encoded ? decodeListIdentity(value, this.listEncoding) : value);
-    const cursor = getXmlText(root, "NextContinuationToken");
-    return { objects, prefixes, ...(cursor === undefined ? {} : { cursor }) };
+    const response = await this.request({
+      method: "GET",
+      query: {
+        "list-type": "2",
+        "encoding-type": "url",
+        prefix: options.prefix,
+        delimiter: options.delimiter,
+        "max-keys": options.limit === undefined ? undefined : String(options.limit),
+        "continuation-token": options.cursor,
+      },
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
+    });
+    return await readResponse(response, async (text) => {
+      await assertResponse(response, "ListObjectsV2", text);
+      const root = parseXmlRoot(await text());
+      const encoded = getXmlValue(root, "EncodingType") === "url";
+      const objects: ObjectEntryType[] = getXmlElements(root, "Contents").map((entry) =>
+        getListObject(entry, encoded, this.listEncoding)
+      );
+      const prefixes = getXmlElements(root, "CommonPrefixes")
+        .map((entry) => getXmlText(entry, "Prefix"))
+        .filter((value): value is string => value !== undefined)
+        .map((value) => encoded ? decodeListIdentity(value, this.listEncoding) : value);
+      const cursor = getXmlText(root, "NextContinuationToken");
+      return { objects, prefixes, ...(cursor === undefined ? {} : { cursor }) };
+    });
   }
 
   /**
@@ -1314,9 +1451,13 @@ class S3Client implements S3ClientType {
       headers: sourceHeaders,
       ...(options.signal === undefined ? {} : { signal: options.signal }),
     });
-    const sourceStat = sourceResponse.status === 404
-      ? null
-      : getStat((await assertResponse(sourceResponse, "Read copy source properties")).headers);
+    const sourceStat = await readResponse(
+      sourceResponse,
+      async (text) =>
+        sourceResponse.status === 404
+          ? null
+          : getStat((await assertResponse(sourceResponse, "Read copy source properties", text)).headers),
+    );
     if (sourceStat === null) {
       throw new S3Error(`Copy source '${source}' does not exist.`, new Response(null, { status: 404 }));
     }
@@ -1332,8 +1473,8 @@ class S3Client implements S3ClientType {
         key: destination,
         headers: this.#getCopyHeaders(source, options, sourceStat.version),
         ...(options.signal === undefined ? {} : { signal: options.signal }),
-      }, async (response) => {
-        const root = await getSuccessXml(response, `CopyObject ${source} -> ${destination}`);
+      }, async (response, text, rejected) => {
+        const root = await getSuccessXml(response, `CopyObject ${source} -> ${destination}`, text, rejected);
         if (root.name.local !== "CopyObjectResult") throw new SyntaxError("Unexpected copy acknowledgement.");
         const etag = getXmlScalar(root, "ETag");
         return getReceipt(
@@ -1351,39 +1492,49 @@ class S3Client implements S3ClientType {
       throw new RangeError(`S3 server-side copy requires parts larger than ${S3_LIMITS.maxPartBytes} bytes.`);
     }
 
-    const upload = await this.createUpload(destination, {
-      ...(sourceStat.mediaType === undefined ? {} : { mediaType: sourceStat.mediaType }),
-      ...(sourceStat.metadata === undefined ? {} : { metadata: sourceStat.metadata }),
-      ...(options.signal === undefined ? {} : { signal: options.signal }),
-    });
-
+    let upload: S3UploadType | undefined;
+    const disposition: S3PublicationType = { phase: "not-dispatched" };
+    let primary: readonly unknown[] = [];
     try {
+      const active = await this.#createUpload(destination, {
+        ...(sourceStat.mediaType === undefined ? {} : { mediaType: sourceStat.mediaType }),
+        ...(sourceStat.metadata === undefined ? {} : { metadata: sourceStat.metadata }),
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      }, (acquired) => {
+        upload = acquired;
+      });
       const copied = map(
         this.#concurrency,
         getCopyRanges(sourceStat.size, copyPartSize),
-        (range) => this.#copyPart(source, upload, range, options, sourceStat.version),
+        (range) => this.#copyPart(source, active, range, options, sourceStat.version),
       );
       const parts = await Array.fromAsync(copied);
-      const receipt = await this.completeUpload(upload, parts, {
+      const receipt = await this.#completeUpload(active, parts, {
         ...(options.ifMatch === undefined ? {} : { ifMatch: options.ifMatch }),
         ...(options.ifNoneMatch === undefined ? {} : { ifNoneMatch: options.ifNoneMatch }),
         expectedSize: sourceStat.size,
         ...(options.signal === undefined ? {} : { signal: options.signal }),
-      });
+      }, disposition);
       return {
         size: sourceStat.size,
         ...receipt,
         ...(sourceStat.mediaType === undefined ? {} : { mediaType: sourceStat.mediaType }),
         ...(sourceStat.metadata === undefined ? {} : { metadata: { ...sourceStat.metadata } }),
       };
-    } catch (error) {
-      // Caller cancellation ends the write, but it must not also cancel the
-      // request that releases provider-side multipart state. Cleanup gets its
-      // own bounded signal so a failed provider cannot delay shutdown forever.
-      if (!(error instanceof S3CommitError)) {
-        await this.abortUpload(upload, AbortSignal.timeout(this.#abortTimeoutMs)).catch(() => undefined);
-      }
-      throw error;
+    } catch (reason) {
+      primary = [reason];
+      throw reason;
+    } finally {
+      await close([
+        async () => {
+          if (
+            primary.length > 0 && upload !== undefined &&
+            (disposition.phase === "not-dispatched" || disposition.phase === "rejected")
+          ) {
+            await this.abortUpload(upload, AbortSignal.timeout(this.#abortTimeoutMs));
+          }
+        },
+      ], primary);
     }
   }
 }
