@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { aggregate } from "../close.ts";
 import { FileSystemError, throwIfAborted } from "../error.ts";
 import type { DenoKvAtomicType, DenoKvCheckType, DenoKvEntryType, DenoKvKeyType, DenoKvType } from "./deno-kv.ts";
 
@@ -92,6 +93,19 @@ function lost(path: string, detail: string): FileSystemError {
   return new FileSystemError("locked", "generation", path, detail);
 }
 
+/**
+ * Inspects one uncertain commit without replacing its actual rejection.
+ * Successful inspection may establish the applied state; failed acquisition or
+ * validation is an independent event, even when both reasons are null/equal.
+ */
+async function inspect<Value>(primary: unknown, action: () => Promise<Value>): Promise<Value> {
+  try {
+    return await action();
+  } catch (reason) {
+    throw aggregate([primary, reason], "Generation commit and outcome inspection both failed.");
+  }
+}
+
 /** Validates policy before any resource is acquired. */
 function limit(value: number | undefined, fallback: number, name: string): number {
   const result = value ?? fallback;
@@ -164,15 +178,31 @@ export class KvGeneration {
   }
 
   async #initialize(): Promise<void> {
+    // One namespace identity and a fixed attempt budget remain authoritative.
+    // An applied create can still reconcile successfully; unsuccessful commits
+    // stay inspectable if the next probe fails or the budget is exhausted.
+    const failures: unknown[] = [];
     for (let retry = 0; retry < this.maxRetries; retry++) {
-      const entry = await this.#db.get(this.#usageKey());
-      if (entry.value !== null) {
-        const usage = UsageSchema.parse(entry.value);
-        if (usage.maxBytes !== this.#maxBytes || usage.maxGenerations !== this.#maxGenerations) {
-          throw new TypeError("All drivers in one Deno KV v3 namespace must use the same retention admission policy.");
+      const entry = await (async () => {
+        try {
+          const current = await this.#db.get(this.#usageKey());
+          if (current.value !== null) {
+            const usage = UsageSchema.parse(current.value);
+            if (usage.maxBytes !== this.#maxBytes || usage.maxGenerations !== this.#maxGenerations) {
+              throw new TypeError(
+                "All drivers in one Deno KV v3 namespace must use the same retention admission policy.",
+              );
+            }
+          }
+          return current;
+        } catch (reason) {
+          if (failures.length > 0) {
+            throw aggregate([...failures, reason], "Namespace admission and outcome inspection failed.");
+          }
+          throw reason;
         }
-        return;
-      }
+      })();
+      if (entry.value !== null) return;
       const value: KvUsageType = {
         version: 3,
         bytes: 0,
@@ -182,9 +212,15 @@ export class KvGeneration {
       };
       try {
         if ((await this.#db.atomic().check(entry).set(entry.key, value).commit()).ok) return;
-      } catch { /* Retain the namespace identity and reconcile a possibly applied create. */ }
+      } catch (reason) {
+        failures.push(reason);
+      }
     }
-    throw lost("/", "Cannot establish Deno KV namespace admission policy within the retry budget.");
+    const exhausted = lost("/", "Cannot establish Deno KV namespace admission policy within the retry budget.");
+    if (failures.length > 0) {
+      throw aggregate([exhausted, ...failures], "Namespace admission exhausted its bounded commit budget.");
+    }
+    throw exhausted;
   }
 
   async #state(path: string, generation: string): Promise<DenoKvEntryType<GenerationType>> {
@@ -266,8 +302,11 @@ export class KvGeneration {
           ).commit()).ok
         ) return;
       } catch (error) {
-        const current = await this.#db.get(existing.key);
-        if (current.value !== null && GenerationSchema.parse(current.value).owner === owner) return;
+        const applied = await inspect(error, async () => {
+          const current = await this.#db.get(existing.key);
+          return current.value !== null && GenerationSchema.parse(current.value).owner === owner;
+        });
+        if (applied) return;
         throw error;
       }
     }
@@ -302,11 +341,12 @@ export class KvGeneration {
       try {
         if ((await transaction.commit()).ok) return;
       } catch (error) {
-        const current = await this.#db.get<Uint8Array>(partKey);
-        if (
-          current.value !== null && current.value.byteLength === bytes.byteLength &&
-          current.value.every((byte, offset) => byte === bytes[offset])
-        ) return;
+        const applied = await inspect(error, async () => {
+          const current = await this.#db.get<Uint8Array>(partKey);
+          return current.value !== null && current.value.byteLength === bytes.byteLength &&
+            current.value.every((byte, offset) => byte === bytes[offset]);
+        });
+        if (applied) return;
         throw error;
       }
     }
@@ -379,10 +419,9 @@ export class KvGeneration {
             await this.#release(path, generation, pinKey, token);
             this.#pending.delete(token);
           } catch (reconcile) {
-            throw new AggregateError(
+            throw aggregate(
               [error, reconcile],
               `Reader acquisition outcome is unknown; attempt ${token} remains owned by maintenance.`,
-              { cause: error },
             );
           }
           throw error;
@@ -412,8 +451,11 @@ export class KvGeneration {
                 .commit()).ok
             ) return;
           } catch (error) {
-            const current = await this.#db.get<PinType>(pinKey);
-            if (current.value?.token === token && current.value.deadline >= deadline) return;
+            const applied = await inspect(error, async () => {
+              const current = await this.#db.get<PinType>(pinKey);
+              return current.value?.token === token && current.value.deadline >= deadline;
+            });
+            if (applied) return;
             throw error;
           }
         }
@@ -422,16 +464,17 @@ export class KvGeneration {
       tail = result.then(() => undefined, () => undefined);
       return result;
     };
+    let retirement: Promise<void> | undefined;
     return {
       check,
-      release: async () => {
-        if (released) return;
-        released = true;
-        await tail;
-        this.#pending.set(token, { path, generation, key: pinKey, token, uncertain: true });
-        await this.#release(path, generation, pinKey, token);
-        this.#pending.delete(token);
-      },
+      release: () =>
+        retirement ??= (async () => {
+          released = true;
+          await tail;
+          this.#pending.set(token, { path, generation, key: pinKey, token, uncertain: true });
+          await this.#release(path, generation, pinKey, token);
+          this.#pending.delete(token);
+        })(),
     };
   }
 
@@ -445,7 +488,8 @@ export class KvGeneration {
   ): Promise<boolean> {
     for (let retry = 0; retry < this.maxRetries; retry++) {
       const pin = await this.#db.get<PinType>(pinKey);
-      if (pin.value === null) return false;
+      if (pin.value === null && pin.versionstamp === null) return false;
+      if (pin.value === null || pin.versionstamp === null) throw lost(path, "Reader pin ownership is inconsistent.");
       if (pin.value.token !== token) throw new Error("Reader token identity changed.");
       // Collection eligibility must come from the same version checked by deletion.
       // A renewal after the listing snapshot keeps its pin and exact count.
@@ -460,7 +504,15 @@ export class KvGeneration {
           }).commit()).ok
         ) return true;
       } catch (error) {
-        if ((await this.#db.get(pinKey)).value === null) return true;
+        try {
+          const current = await this.#db.get(pinKey);
+          if (current.value === null && current.versionstamp === null) return true;
+          if (current.value === null || current.versionstamp === null) {
+            throw lost(path, "Reader pin ownership is inconsistent.");
+          }
+        } catch (reconcile) {
+          throw aggregate([error, reconcile], "Reader release and outcome inspection both failed.");
+        }
         throw error;
       }
     }
@@ -469,40 +521,43 @@ export class KvGeneration {
 
   /** Claims only unpublished writing state for abort; a possibly published generation is retained. */
   async abort(path: string, generation: string): Promise<void> {
-    let state: DenoKvEntryType<GenerationType>;
     try {
-      state = await this.#state(path, generation);
-    } catch {
+      const entry = await this.#db.get(this.#key(path, generation));
+      // Only an actually acquired absent entry proves idempotent retirement.
+      // Transport and schema faults must stay visible to the cleanup owner.
+      if (entry.value === null && entry.versionstamp === null) return;
+      if (entry.value === null || entry.versionstamp === null) {
+        throw lost(path, "Generation ownership is inconsistent.");
+      }
+      const state = { ...entry, value: GenerationSchema.parse(entry.value) };
+      if (state.value.state !== "writing") {
+        return;
+      }
+      const claim = crypto.randomUUID();
+      const result = await this.#db.atomic().check(state).set(state.key, { ...state.value, state: "reclaiming", claim })
+        .commit();
+      if (result.ok) {
+        await this.#reclaim(path, generation, claim, {
+          minAgeMs: 0,
+          maxDeletes: 10_000,
+          maxScans: 20_000,
+          maxPinScans: 1,
+          tombstoneAgeMs: 0,
+        }, {
+          generations: 0,
+          parts: 0,
+          deleted: 0,
+          retained: 0,
+          truncated: false,
+          active: 0,
+          pinned: 0,
+          conflicts: 0,
+          scanned: 0,
+          prunedPins: 0,
+        });
+      }
+    } finally {
       this.finish(generation);
-      return;
-    }
-    if (state.value!.state !== "writing") {
-      this.finish(generation);
-      return;
-    }
-    const claim = crypto.randomUUID();
-    const result = await this.#db.atomic().check(state).set(state.key, { ...state.value!, state: "reclaiming", claim })
-      .commit();
-    this.finish(generation);
-    if (result.ok) {
-      await this.#reclaim(path, generation, claim, {
-        minAgeMs: 0,
-        maxDeletes: 10_000,
-        maxScans: 20_000,
-        maxPinScans: 1,
-        tombstoneAgeMs: 0,
-      }, {
-        generations: 0,
-        parts: 0,
-        deleted: 0,
-        retained: 0,
-        truncated: false,
-        active: 0,
-        pinned: 0,
-        conflicts: 0,
-        scanned: 0,
-        prunedPins: 0,
-      });
     }
   }
 
@@ -537,7 +592,15 @@ export class KvGeneration {
         }
         result.deleted++;
       } catch (error) {
-        if ((await this.#db.get(part.key)).value === null) result.deleted++;
+        const removed = await inspect(error, async () => {
+          const current = await this.#db.get(part.key);
+          if (current.value === null && current.versionstamp === null) return true;
+          if (current.value === null || current.versionstamp === null) {
+            throw lost(path, "Part ownership is inconsistent.");
+          }
+          return false;
+        });
+        if (removed) result.deleted++;
         else throw error;
       }
     }
@@ -617,7 +680,15 @@ export class KvGeneration {
             await this.#db.atomic().check(state, usage).delete(state.key)
               .set(usage.key, this.#capacity(usage.value!, 0, -1)).commit();
           } catch (error) {
-            if ((await this.#db.get(state.key)).value !== null) throw error;
+            const removed = await inspect(error, async () => {
+              const current = await this.#db.get(state.key);
+              if (current.value === null && current.versionstamp === null) return true;
+              if (current.value === null || current.versionstamp === null) {
+                throw lost(path, "Generation ownership is inconsistent.");
+              }
+              return false;
+            });
+            if (!removed) throw error;
           }
         }
         completed();
