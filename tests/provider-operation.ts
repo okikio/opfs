@@ -1,4 +1,5 @@
 import { close } from "./close.ts";
+import { getCancellation } from "../src/abort.ts";
 
 /**
  * Admits only a successful uploaded part of this scenario's exact key.
@@ -10,6 +11,37 @@ export function isPart(provider: "s3" | "azure", key: string, url: URL, method: 
   return provider === "s3"
     ? url.searchParams.has("partNumber") && status === 200
     : url.searchParams.get("comp") === "block" && status === 201;
+}
+
+/**
+ * Recognizes only an already-observed cancellation rejection for this scenario.
+ *
+ * The exact caller signal must actually be aborted. Its reason can be delivered
+ * directly or by one sole mapper envelope. Request-owned observation metadata
+ * can also prove that concrete Fetch rejected with the forwarded caller reason
+ * while the same invocation observed this signal's abort. Those two observations
+ * stay in the actual error; this predicate infers no independent causal origins.
+ * Preparation, deadline, another signal and extra observer/retirement faults
+ * cannot become clean cancellation. Callers must first observe actual rejection;
+ * successful undefined is not cancellation evidence.
+ */
+export function isCancellation(reason: unknown, signal: AbortSignal): boolean {
+  if (!signal.aborted) return false;
+  const expected: unknown = signal.reason;
+  const matches = (failure: unknown): boolean => {
+    if (failure === expected) return true;
+    const observed = getCancellation(failure);
+    return observed !== undefined && observed.signal === signal && observed.reason === expected &&
+      observed.extra.length === 0 && observed.primary.kind === "operation" &&
+      observed.primary.stage === "fetch" && observed.primary.reason === expected;
+  };
+  if (matches(reason)) return true;
+  if (getCancellation(reason) !== undefined) return false;
+  // This is exactly one pool envelope, not a recursive aggregate search.
+  if (!(reason instanceof AggregateError)) return false;
+  const failures: readonly unknown[] = reason.errors;
+  return failures.length === 1 && matches(failures[0]) &&
+    (!("cause" in reason) || reason.cause === failures[0]);
 }
 
 /**

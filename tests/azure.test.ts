@@ -1,12 +1,331 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
+import { Buffer } from "node:buffer";
+import { runInNewContext } from "node:vm";
+import { parse } from "@std/xml/parse";
 
 import { AZURE_LIMITS, AzureError, createAzureClient } from "../src/azure.ts";
 import { createAzureDriver, createAzureDriverFromClient } from "../src/driver/azure.ts";
 import { RequestCapture } from "./http.ts";
-import { streamBytes } from "./stream.ts";
+import { changeStreamPrototype, streamBytes } from "./stream.ts";
 import { within } from "./gate.ts";
 import { withReleases } from "./close.ts";
+
+/**
+ * Reads the ordered Latest-only block list emitted by this client independently.
+ *
+ * Microsoft's Put Block List grammar defines direct block entries in source
+ * order. XML owns formatting, character references and CDATA, so fixture storage
+ * must use decoded scalar IDs instead of a serializer-specific tag expression.
+ * This reader does not claim acceptance of arbitrary Azure request namespaces or
+ * other block-selection kinds that this client does not emit.
+ * https://learn.microsoft.com/rest/api/storageservices/put-block-list#request-body
+ */
+function latestBlocks(value: string): string[] {
+  const root = parse(value).root;
+  if (root.name.raw !== "BlockList") throw new SyntaxError("Expected a BlockList request.");
+  return root.children.filter((node) => node.type === "element").map((block) => {
+    if (block.name.raw !== "Latest" || block.children.some((node) => node.type === "element")) {
+      throw new SyntaxError("Expected direct scalar Latest block IDs.");
+    }
+    const id = block.children.filter((node) => node.type === "text" || node.type === "cdata")
+      .map((node) => node.text).join("");
+    if (id.length === 0) throw new SyntaxError("Expected a nonempty block ID.");
+    return id;
+  });
+}
+
+it("reconstructs the same ordered block IDs across equivalent XML character-data spellings", () => {
+  // XML 1.0 section 3.1 defines CDATA and character references as element content.
+  // Keep opaque IDs exact: only formatting between elements is varied.
+  // https://www.w3.org/TR/xml/#sec-starttags
+  for (
+    const body of [
+      "<BlockList><Latest>AA==</Latest><Latest>AQ==</Latest></BlockList>",
+      "<BlockList>\n  <Latest>AA==</Latest>\n  <Latest>AQ==</Latest>\n</BlockList>",
+      "<BlockList><Latest><![CDATA[AA==]]></Latest><Latest>A&#81;==</Latest></BlockList>",
+    ]
+  ) expect(latestBlocks(body)).toEqual(["AA==", "AQ=="]);
+  expect(() => latestBlocks("<BlockList><Wrapper><Latest>AA==</Latest></Wrapper></BlockList>"))
+    .toThrow(SyntaxError);
+});
+
+/** Captures an actual rejection independently from successful undefined resolution. */
+async function rejectedResponse(action: Promise<unknown>): Promise<unknown> {
+  try {
+    await action;
+  } catch (error) {
+    return error;
+  }
+  throw new Error("Expected response retirement to reject.");
+}
+
+describe("Azure internal response ownership", () => {
+  const options = {
+    endpoint: "https://account.example.test",
+    container: "owned",
+    credential: { kind: "sas" as const, token: "sig=authored" },
+  };
+
+  it("retires missing DELETE and successful/missing internally owned metadata responses", async () => {
+    let requests = 0;
+    let cancellations = 0;
+    const client = createAzureClient({
+      ...options,
+      fetch: async () => {
+        requests++;
+        return new Response(
+          new ReadableStream<Uint8Array>({
+            cancel() {
+              cancellations++;
+            },
+          }, { highWaterMark: 0 }),
+          {
+            status: requests <= 2 ? 404 : 200,
+            headers: { "content-length": "3", etag: "own" },
+          },
+        );
+      },
+    });
+    await client.delete("missing");
+    expect(await client.head("missing")).toBeNull();
+    expect(await client.head("present")).toMatchObject({ size: 3, etag: "own" });
+    expect(cancellations).toBe(3);
+  });
+
+  it("retires each accepted streamed block and the final block-list acknowledgement", async () => {
+    let cancellations = 0;
+    const routes: string[] = [];
+    const client = createAzureClient({
+      ...options,
+      blockSize: 2,
+      concurrency: 1,
+      fetch: async (input) => {
+        const url = new URL(input instanceof Request ? input.url : input.toString());
+        routes.push(url.searchParams.get("comp") ?? "bytes");
+        return new Response(
+          new ReadableStream<Uint8Array>({
+            cancel() {
+              cancellations++;
+            },
+          }, { highWaterMark: 0 }),
+          {
+            status: 201,
+            headers: { etag: "actual-commit" },
+          },
+        );
+      },
+    });
+    expect(await client.put("value", streamBytes([new Uint8Array([17, 31, 47])]))).toMatchObject({
+      size: 3,
+      etag: "actual-commit",
+    });
+    expect(routes).toEqual(["block", "block", "blocklist"]);
+    expect(cancellations).toBe(3);
+  });
+
+  it("retires accepted URL-copy blocks and their final commit without reading source bytes", async () => {
+    const sourceSize = AZURE_LIMITS.copyBlobBytes + 1;
+    let cancellations = 0;
+    const routes: string[] = [];
+    const client = createAzureClient({
+      ...options,
+      blockSize: AZURE_LIMITS.copyBlobBytes,
+      concurrency: 1,
+      fetch: async (input, init) => {
+        const url = new URL(input instanceof Request ? input.url : input.toString());
+        if (init?.method === "HEAD") {
+          return new Response(null, { headers: { "content-length": String(sourceSize), etag: "pinned-source" } });
+        }
+        routes.push(url.searchParams.get("comp") ?? "copy");
+        return new Response(
+          new ReadableStream<Uint8Array>({
+            cancel() {
+              cancellations++;
+            },
+          }, { highWaterMark: 0 }),
+          {
+            status: 201,
+            headers: { etag: "actual-copy" },
+          },
+        );
+      },
+    });
+    expect(await client.copy("source", "destination")).toMatchObject({ size: sourceSize, etag: "actual-copy" });
+    expect(routes).toEqual(["block", "block", "blocklist"]);
+    expect(cancellations).toBe(3);
+  });
+
+  it("a valid synchronous copy acknowledgement followed by disposal failure is not replayed or uncertain", async () => {
+    const disposal = new Error("Acknowledged copy disposal failed.");
+    let publications = 0;
+    const client = createAzureClient({
+      ...options,
+      request: { retries: 3 },
+      fetch: async (_input, init) => {
+        if (init?.method === "HEAD") return new Response(null, { headers: { "content-length": "3", etag: "source" } });
+        publications++;
+        return new Response(
+          new ReadableStream<Uint8Array>({
+            cancel() {
+              throw disposal;
+            },
+          }),
+          {
+            status: 201,
+            headers: { "x-ms-copy-status": "success", etag: "copy" },
+          },
+        );
+      },
+    });
+    expect(await rejectedResponse(client.copy("source", "destination"))).toBe(disposal);
+    expect(publications).toBe(1);
+  });
+
+  it("preserves uncertain copy acknowledgement and independent body disposal failure", async () => {
+    const disposal = new Error("Uncertain copy disposal failed.");
+    let publications = 0;
+    const client = createAzureClient({
+      ...options,
+      fetch: async (_input, init) => {
+        if (init?.method === "HEAD") return new Response(null, { headers: { "content-length": "3", etag: "source" } });
+        publications++;
+        return new Response(
+          new ReadableStream<Uint8Array>({
+            cancel() {
+              throw disposal;
+            },
+          }),
+          { status: 201 },
+        );
+      },
+    });
+    const observed = await rejectedResponse(client.copy("source", "destination"));
+    if (!(observed instanceof AggregateError)) throw new Error("Expected independent response failures.");
+    expect(observed.errors[0]).toMatchObject({ effect: "unknown", key: "destination" });
+    expect(observed.errors[1]).toBe(disposal);
+    expect(observed.cause).toBe(observed.errors[0]);
+    expect(publications).toBe(1);
+  });
+
+  it("an acknowledged Put Blob disposal fault remains its exact fault without a replay", async () => {
+    const disposal = new Error("Acknowledged blob disposal failed.");
+    let publications = 0;
+    const client = createAzureClient({
+      ...options,
+      request: { retries: 3 },
+      fetch: async () => {
+        publications++;
+        return new Response(
+          new ReadableStream<Uint8Array>({
+            cancel() {
+              throw disposal;
+            },
+          }),
+          {
+            status: 201,
+            headers: { etag: "acknowledged" },
+          },
+        );
+      },
+    });
+    expect(await rejectedResponse(client.put("value", new Uint8Array([17])))).toBe(disposal);
+    expect(publications).toBe(1);
+  });
+
+  it("leaves raw requests and successful object body streams with the caller", async () => {
+    let cancellations = 0;
+    const client = createAzureClient({
+      ...options,
+      fetch: async () =>
+        new Response(
+          new ReadableStream<Uint8Array>({
+            cancel() {
+              cancellations++;
+            },
+          }, { highWaterMark: 0 }),
+        ),
+    });
+    const response = await client.request({ method: "GET" });
+    const stream = await client.get("value");
+    expect(cancellations).toBe(0);
+    await response.body?.cancel();
+    await stream.cancel();
+    expect(cancellations).toBe(2);
+  });
+
+  for (const reason of [undefined, null, new Error("Authored error-body read failure.")]) {
+    it(`keeps HTTP authority after a mid-body read failure (${String(reason)})`, async () => {
+      let pulls = 0;
+      let cancellations = 0;
+      const body = new ReadableStream<Uint8Array>({
+        pull(controller) {
+          if (pulls++ === 0) controller.enqueue(new TextEncoder().encode("<Error>"));
+          else controller.error(reason);
+        },
+        cancel() {
+          cancellations++;
+        },
+      }, { highWaterMark: 0 });
+      const client = createAzureClient({
+        ...options,
+        fetch: async () =>
+          new Response(body, {
+            status: 403,
+            headers: { "x-ms-error-code": "AuthoredDenied", "x-ms-request-id": "authored-mid-read" },
+          }),
+      });
+      const observed = await rejectedResponse(client.put("value", new Uint8Array([17])));
+      if (!(observed instanceof AzureError)) throw new Error("Expected the actual HTTP provider error.");
+      expect(observed.status).toBe(403);
+      expect(observed.code).toBe("AuthoredDenied");
+      expect(observed.requestId).toBe("authored-mid-read");
+      expect(Object.hasOwn(observed, "cause")).toBe(true);
+      expect(observed.cause).toBe(reason);
+      expect(body.locked).toBe(false);
+      expect(cancellations).toBe(0);
+    });
+
+    it(`keeps HTTP status/code/request identity and secondary body-read failure (${String(reason)})`, async () => {
+      const client = createAzureClient({
+        ...options,
+        fetch: async () =>
+          new Response(
+            new ReadableStream<Uint8Array>({
+              start(controller) {
+                controller.error(reason);
+              },
+            }),
+            { status: 403, headers: { "x-ms-error-code": "AuthoredDenied", "x-ms-request-id": "authored" } },
+          ),
+      });
+      const observed = await rejectedResponse(client.put("value", new Uint8Array([17])));
+      if (!(observed instanceof AzureError)) throw new Error("Expected the actual HTTP provider error.");
+      expect(observed.status).toBe(403);
+      expect(observed.code).toBe("AuthoredDenied");
+      expect(observed.requestId).toBe("authored");
+      expect(Object.hasOwn(observed, "cause")).toBe(true);
+      expect(observed.cause).toBe(reason);
+    });
+  }
+
+  it("keeps malformed proxy XML secondary while preserving header error authority", async () => {
+    const client = createAzureClient({
+      ...options,
+      fetch: async () =>
+        new Response("<Error><broken", {
+          status: 403,
+          headers: { "x-ms-error-code": "AuthoredDenied", "x-ms-request-id": "authored" },
+        }),
+    });
+    const observed = await rejectedResponse(client.put("value", new Uint8Array([17])));
+    if (!(observed instanceof AzureError)) throw new Error("Expected the actual HTTP provider error.");
+    expect(observed.status).toBe(403);
+    expect(observed.code).toBe("AuthoredDenied");
+    expect(observed.requestId).toBe("authored");
+    expect(observed.cause).toBeInstanceOf(Error);
+  });
+});
 
 /** Creates one Azure-style XML response without coupling tests to an HTTP server. */
 function xml(value: string, init: ResponseInit = {}): Response {
@@ -30,6 +349,89 @@ class BearerTokenSource {
 }
 
 describe("Azure Blob client", () => {
+  it("keeps mapper-only cancellation while an owned azure part response retires", async () => {
+    await withReleases(async (releases) => {
+      const reason = new Error("Authored cancellation after a part acknowledgement.");
+      const controller = new AbortController();
+      const admitted = Promise.withResolvers<void>();
+      const finish = Promise.withResolvers<void>();
+      let pulls = 0;
+      let cancellations = 0;
+      let retirements = 0;
+      let parts = 0;
+      let completed = 0;
+      let aborted = 0;
+      let settled = false;
+      const source = new ReadableStream<Uint8Array>({
+        pull(stream) {
+          if (pulls++ === 0) stream.enqueue(new Uint8Array(4));
+        },
+        cancel() {
+          cancellations++;
+        },
+      }, { highWaterMark: 0 });
+      const client = createAzureClient({
+        endpoint: "https://account.blob.core.windows.net",
+        container: "data",
+        credential: { kind: "sas", token: "?sig=test" },
+        blockSize: 4,
+        concurrency: 1,
+        request: { retries: 0 },
+        fetch: async (input, init) => {
+          const request = new Request(input, init);
+          const url = new URL(request.url);
+          if (url.searchParams.get("comp") === "block") {
+            parts++;
+            controller.abort(reason);
+            return new Response(
+              new ReadableStream<Uint8Array>({
+                async cancel() {
+                  retirements++;
+                  admitted.resolve();
+                  await finish.promise;
+                  throw reason;
+                },
+              }, { highWaterMark: 0 }),
+              { status: 201 },
+            );
+          }
+          if (url.searchParams.get("comp") === "blocklist") completed++;
+          if (request.method === "DELETE") aborted++;
+          return new Response(null, { status: 204 });
+        },
+      });
+      const pending = rejectedResponse(client.put("mapper-cancel.bin", source, { signal: controller.signal }))
+        .finally(() => {
+          settled = true;
+        });
+      releases.push(() => pending);
+      releases.push(() => finish.resolve());
+      releases.push(() => controller.abort(reason));
+      await within(admitted.promise, "owned part response retirement admission");
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      expect(settled).toBe(false);
+      // Input cancellation can finish while the acquired response still has
+      // real cleanup pending; the public operation must join both owners.
+      expect(source.locked).toBe(false);
+      expect(cancellations).toBe(1);
+      expect(completed).toBe(0);
+      finish.resolve();
+      const failure = await within(pending, "owned part response retirement settlement");
+      if (!(failure instanceof AggregateError)) {
+        throw new Error("Expected the actual operation-owned mapper aggregate.");
+      }
+      expect(failure.errors).toHaveLength(1);
+      expect(failure.errors[0]).toBe(reason);
+      expect(parts).toBe(1);
+      expect(retirements).toBe(1);
+      expect(completed).toBe(0);
+      expect(aborted).toBe(0);
+      expect(pulls).toBe(1);
+      expect(cancellations).toBe(1);
+      expect(source.locked).toBe(false);
+    });
+  });
+
   for (const failure of ["producer", "caller"] as const) {
     it(`preserves the ${failure} reason after admitted Azure chunks drain`, async () => {
       const reason = new Error(`${failure} terminal reason`);
@@ -485,7 +887,7 @@ describe("Azure Blob client", () => {
       expect(blocks.every((request) => !request.headers.has("if-none-match"))).toBe(true);
       expect(completed).toEqual(Array.from({ length: 20 }, (_, index) => 77 - index * 4));
       expect(commit?.headers.get("if-none-match")).toBe("*");
-      const ids = [...(await commit!.text()).matchAll(/<Latest>(.*?)<\/Latest>/g)].map((match) => match[1]!);
+      const ids = latestBlocks(await commit!.text());
       expect(new Set(ids).size).toBe(20);
       // Opaque provider IDs are interpreted only through independently captured request bodies.
       expect(new Uint8Array(ids.flatMap((id) => Array.from(payloads.get(id) ?? [])))).toEqual(bytes);
@@ -841,6 +1243,49 @@ describe("Azure request policy", () => {
     expect(response.status).toBe(503);
     expect(attempts).toBe(1);
   });
+
+  for (const length of [false, true]) {
+    it(`applies one-shot duplex and Shared Key length admission to a native stream across supported prototype changes with length ${length}`, async () => {
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.close();
+        },
+      });
+      const prototype: object = runInNewContext("({})");
+      const detached = changeStreamPrototype(body, prototype);
+      expect(body instanceof ReadableStream).toBe(!detached);
+      let attempts = 0;
+      const client = createAzureClient({
+        endpoint: "https://account.blob.core.windows.net",
+        container: "container",
+        credential: { kind: "shared-key", account: "account", key: btoa("authored key") },
+        request: { retries: 4, minDelayMs: 0, maxDelayMs: 0, jitter: 0 },
+        fetch: async (input, init) => {
+          attempts++;
+          expect(Reflect.get(init!, "duplex")).toBe("half");
+          expect(new Headers(init?.headers).get("content-length")).toBe("0");
+          expect([...new Uint8Array(await new Request(input, init).arrayBuffer())]).toEqual([]);
+          return new Response(null, { status: 503 });
+        },
+      });
+      const pending = client.request({
+        method: "PUT",
+        key: "stream.bin",
+        body,
+        ...(length ? { headers: { "content-length": "0" } } : {}),
+      });
+      if (length) {
+        expect((await pending).status).toBe(503);
+        expect(attempts).toBe(1);
+      } else {
+        await expect(pending).rejects.toBeInstanceOf(TypeError);
+        expect(attempts).toBe(0);
+        expect(body.locked).toBe(false);
+      }
+      // A dispatched request transfers its body to native Fetch. The client's
+      // length refusal, in contrast, must not acquire the caller's stream.
+    });
+  }
 });
 
 describe("Azure publication contracts", () => {
@@ -899,7 +1344,7 @@ describe("Azure publication contracts", () => {
             return new Response(null, { status: 201 });
           }
           await ready;
-          const ids = [...(await request.text()).matchAll(/<Latest>(.*?)<\/Latest>/g)].map((match) => match[1]!);
+          const ids = latestBlocks(await request.text());
           if (ids.some((id) => !blocks.has(id))) return new Response(null, { status: 400 });
           published = new Uint8Array(ids.flatMap((id) => Array.from(blocks.get(id)!)));
           blocks.clear();
@@ -1144,4 +1589,549 @@ describe("Azure publication contracts", () => {
     expect((failure as Error).cause).toBeInstanceOf(AzureError);
     expect(requests).toBe(1);
   });
+});
+
+describe("Azure invocation-owned publication and input", () => {
+  const options = {
+    endpoint: "https://account.example.test",
+    container: "owned",
+    credential: { kind: "sas" as const, token: "sig=authored" },
+  };
+  it("does not borrow known HTTP refusal from a foreign transport AzureError", async () => {
+    const foreign = new AzureError("foreign transport reason", new Response(null, { status: 403 }));
+    let calls = 0;
+    const client = createAzureClient({
+      ...options,
+      fetch: async () => {
+        calls++;
+        throw foreign;
+      },
+    });
+    expect(await rejectedResponse(client.put("destination", Uint8Array.of(17)))).toMatchObject({
+      effect: "unknown",
+      cause: foreign,
+    });
+    expect(calls).toBe(1);
+  });
+
+  it("joins failed block work and interrupts pending input without a final block list", async () => {
+    const stalled = Promise.withResolvers<void>();
+    const cleanup = new Error("actual Azure source cancel fault");
+    let reads = 0;
+    let cancels = 0;
+    let commits = 0;
+    let native: ReadableStreamDefaultController<Uint8Array> | undefined;
+    const source = new ReadableStream<Uint8Array>({
+      start(controller) {
+        native = controller;
+      },
+      pull(controller) {
+        if (reads++ === 0) controller.enqueue(Uint8Array.of(17));
+        else stalled.resolve();
+      },
+      cancel() {
+        cancels++;
+        throw cleanup;
+      },
+    }, { highWaterMark: 0 });
+    const client = createAzureClient({
+      ...options,
+      blockSize: 1,
+      concurrency: 2,
+      request: { retries: 0 },
+      fetch: async (input) => {
+        const url = new URL(input instanceof Request ? input.url : input.toString());
+        if (url.searchParams.get("comp") === "block") {
+          await stalled.promise;
+          return new Response("<Error><Code>AuthenticationFailed</Code></Error>", { status: 403 });
+        }
+        commits++;
+        return new Response(null, { status: 201 });
+      },
+    });
+    const pending = client.put("destination", source);
+    void pending.catch(() => {});
+    try {
+      await within(stalled.promise, "Azure pending input");
+      const failure = await rejectedResponse(within(pending, "Azure owned input retirement"));
+      expect(failure).toBeInstanceOf(AggregateError);
+      if (!(failure instanceof AggregateError)) throw failure;
+      expect(failure.errors[0]).toMatchObject({ errors: [expect.any(AzureError)] });
+      expect(failure.errors[1]).toBe(cleanup);
+      expect(commits).toBe(0);
+      expect(cancels).toBe(1);
+      expect(source.locked).toBe(false);
+    } finally {
+      stalled.resolve();
+      native?.error(new Error("Azure stalled-input fixture teardown"));
+      await within(Promise.allSettled([pending]), "Azure stalled-input cleanup");
+    }
+  });
+
+  it("retains refusal and failed source retirement when streamed blocks are disabled", async () => {
+    const cleanup = new Error("disabled Azure source retirement failed");
+    let calls = 0;
+    const source = new ReadableStream<Uint8Array>({
+      cancel() {
+        throw cleanup;
+      },
+    }, { highWaterMark: 0 });
+    const client = createAzureClient({
+      ...options,
+      blockUpload: false,
+      fetch: async () => {
+        calls++;
+        return new Response(null);
+      },
+    });
+    const failure = await rejectedResponse(client.put("destination", source));
+    expect(failure).toBeInstanceOf(AggregateError);
+    if (!(failure instanceof AggregateError)) throw failure;
+    expect(failure.errors[0]).toBeInstanceOf(TypeError);
+    expect(failure.errors[1]).toBe(cleanup);
+    expect(calls).toBe(0);
+  });
+});
+
+describe("Azure native byte admission", () => {
+  it("rejects invalid chunks without publishing an empty replacement", async () => {
+    const previous = Uint8Array.of(17, 31, 47);
+    let published = previous;
+    let cancels = 0;
+    let calls = 0;
+    const source = new ReadableStream<Uint8Array>({
+      start(controller) {
+        Reflect.apply(controller.enqueue, controller, [new DataView(new ArrayBuffer(1))]);
+      },
+      cancel() {
+        cancels++;
+      },
+    });
+    const client = createAzureClient({
+      endpoint: "https://account.example.test",
+      container: "owned",
+      credential: { kind: "sas", token: "sig=authored" },
+      fetch: async () => {
+        calls++;
+        published = new Uint8Array();
+        return new Response(null, { status: 201 });
+      },
+    });
+    expect(await rejectedResponse(client.put("destination", source))).toBeInstanceOf(TypeError);
+    expect(calls).toBe(0);
+    expect(published).toBe(previous);
+    expect(cancels).toBe(1);
+    expect(source.locked).toBe(false);
+  });
+});
+
+describe("Azure materialized put byte admission", () => {
+  const positive = [
+    ["empty", () => new Uint8Array(0), []],
+    ["shared empty", () => new Uint8Array(new SharedArrayBuffer(0)), []],
+    ["shared offset", () => {
+      const view = new Uint8Array(new SharedArrayBuffer(4));
+      view.set([99, 17, 31, 98]);
+      return view.subarray(1, 3);
+    }, [17, 31]],
+    ["offset", () => Uint8Array.of(99, 17, 31, 88).subarray(1, 3), [17, 31]],
+    ["Buffer offset", () => Buffer.from([99, 17, 31, 88]).subarray(1, 3), [17, 31]],
+    ["subclass", () => {
+      class Bytes extends Uint8Array {}
+      return new Bytes([17, 31]);
+    }, [17, 31]],
+    ["foreign realm offset", () => {
+      const bytes: unknown = runInNewContext("new Uint8Array([99,17,31,88]).subarray(1,3)");
+      expect(ArrayBuffer.isView(bytes)).toBe(true);
+      expect(bytes instanceof Uint8Array).toBe(false);
+      return bytes;
+    }, [17, 31]],
+    ["resizable offset", () => {
+      const backing = new ArrayBuffer(4, { maxByteLength: 8 });
+      const view = new Uint8Array(backing);
+      view.set([99, 17, 31, 88]);
+      return view.subarray(1, 3);
+    }, [17, 31]],
+    ["resizable tracking empty", () => {
+      const backing = new ArrayBuffer(2, { maxByteLength: 4 });
+      const view = new Uint8Array(backing);
+      backing.resize(0);
+      return view;
+    }, []],
+  ] as const;
+  for (const [kind, create, expected] of positive) {
+    it(`accepts genuine readable ${kind} with exact request bytes`, async () => {
+      let calls = 0;
+      let observed: number[] | undefined;
+      const client = createAzureClient({
+        endpoint: "https://account.example.test",
+        container: "owned",
+        credential: { kind: "sas", token: "sig=authored" },
+        fetch: async (input, init) => {
+          calls++;
+          const request = new Request(input, init);
+          observed = [...new Uint8Array(await request.arrayBuffer())];
+          return new Response(null, { status: 201, headers: { etag: '"accepted"' } });
+        },
+      });
+      const bytes: unknown = create();
+      await Reflect.apply(client.put, client, ["destination", bytes]);
+      expect(calls).toBe(1);
+      expect(observed).toEqual(expected);
+    });
+  }
+
+  const invalid = [
+    ["detached zero-length view", () => {
+      const bytes = Uint8Array.of(17);
+      structuredClone(bytes.buffer, { transfer: [bytes.buffer] });
+      expect(bytes.byteLength).toBe(0);
+      return bytes;
+    }],
+    ["out-of-bounds zero-length view", () => {
+      const backing = new ArrayBuffer(4, { maxByteLength: 8 });
+      const bytes = new Uint8Array(backing, 2, 2);
+      backing.resize(1);
+      expect(bytes.byteLength).toBe(0);
+      return bytes;
+    }],
+    ["Int8Array", () => new Int8Array([17])],
+    ["Uint16Array", () => new Uint16Array([17])],
+    ["DataView", () => new DataView(new ArrayBuffer(1))],
+    ["tag spoof", () => ({ [Symbol.toStringTag]: "Uint8Array", byteLength: 0 })],
+    ["ordinary object", () => ({ byteLength: 0 })],
+  ] as const;
+  for (const [kind, create] of invalid) {
+    it(`rejects ${kind} before request or remote allocation`, async () => {
+      let calls = 0;
+      const client = createAzureClient({
+        endpoint: "https://account.example.test",
+        container: "owned",
+        credential: { kind: "sas", token: "sig=authored" },
+        fetch: async () => {
+          calls++;
+          return new Response(null, { status: 201 });
+        },
+      });
+      const bytes: unknown = create();
+      await expect(Reflect.apply(client.put, client, ["destination", bytes])).rejects.toBeInstanceOf(TypeError);
+      expect(calls).toBe(0);
+    });
+  }
+});
+
+describe("Azure body union admission across blockUpload", () => {
+  for (const enabled of [false, true]) {
+    for (const kind of ["ordinary", "tag", "duck", "getter"] as const) {
+      it(`rejects ${kind} pretender before retirement under blockUpload=${enabled}`, async () => {
+        let effects = 0;
+        let calls = 0;
+        const bytes: unknown = kind === "ordinary"
+          ? { byteLength: 0 }
+          : kind === "tag"
+          ? { [Symbol.toStringTag]: "Uint8Array", byteLength: 0 }
+          : kind === "duck"
+          ? {
+            getReader() {
+              effects++;
+              throw new Error("Borrowed reader must not be acquired");
+            },
+            cancel() {
+              effects++;
+              throw new Error("Borrowed cancellation must not be called");
+            },
+          }
+          : Object.defineProperties({}, {
+            getReader: {
+              get() {
+                effects++;
+                throw new Error("Pretender getter must not be evaluated");
+              },
+            },
+            cancel: {
+              get() {
+                effects++;
+                throw new Error("Pretender cancellation getter must not be evaluated");
+              },
+            },
+          });
+        const client = createAzureClient({
+          endpoint: "https://account.example.test",
+          container: "owned",
+          credential: { kind: "sas", token: "sig=authored" },
+          blockUpload: enabled,
+          fetch: async () => {
+            calls++;
+            return new Response(null);
+          },
+        });
+        const failure = await rejectedResponse(Reflect.apply(client.put, client, ["destination", bytes]));
+        expect(failure).toBeInstanceOf(TypeError);
+        expect(failure).not.toBeInstanceOf(AggregateError);
+        expect(effects).toBe(0);
+        expect(calls).toBe(0);
+      });
+    }
+
+    it(`preserves branded readable empty bytes across supported prototype changes under blockUpload=${enabled}`, async () => {
+      let reads = 0;
+      let cancels = 0;
+      let calls = 0;
+      const source = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.close();
+        },
+        cancel() {
+          cancels++;
+        },
+      }, { highWaterMark: 0 });
+      const foreign: unknown = runInNewContext("({})");
+      if (typeof foreign !== "object" || foreign === null) {
+        throw new Error("Foreign prototype fixture must be an object");
+      }
+      expect(foreign instanceof Object).toBe(false);
+      const detached = changeStreamPrototype(source, foreign);
+      expect(source instanceof ReadableStream).toBe(!detached);
+      const acquire = source.getReader.bind(source);
+      Object.defineProperty(source, "getReader", {
+        value() {
+          reads++;
+          return acquire();
+        },
+      });
+      const client = createAzureClient({
+        endpoint: "https://account.example.test",
+        container: "owned",
+        credential: { kind: "sas", token: "sig=authored" },
+        blockUpload: enabled,
+        fetch: async (input, init) => {
+          calls++;
+          const request = new Request(input, init);
+          const url = new URL(request.url);
+          expect(url.searchParams.has("comp")).toBe(false);
+          expect([...new Uint8Array(await request.arrayBuffer())]).toEqual([]);
+          return new Response(null, { status: 201, headers: { etag: '"empty"' } });
+        },
+      });
+      if (enabled) {
+        const receipt = await client.put("destination", source);
+        expect(receipt.size).toBe(0);
+        expect(calls).toBe(1);
+        expect(reads).toBe(1);
+      } else {
+        await expect(client.put("destination", source)).rejects.toBeInstanceOf(TypeError);
+        expect(calls).toBe(0);
+        expect(reads).toBe(0);
+      }
+      expect(cancels).toBe(0);
+      expect(source.locked).toBe(false);
+    });
+  }
+});
+
+it("disabled Azure native-stream admission joins one real cancellation and retains its fault", async () => {
+  await withReleases(async (releases) => {
+    const entered = Promise.withResolvers<void>();
+    const held = Promise.withResolvers<void>();
+    const cleanup = new Error("actual disabled native stream cancellation failure");
+    let cancels = 0;
+    let reads = 0;
+    let calls = 0;
+    const source = new ReadableStream<Uint8Array>({
+      async cancel() {
+        cancels++;
+        entered.resolve();
+        await held.promise;
+        throw cleanup;
+      },
+    }, { highWaterMark: 0 });
+    const acquire = source.getReader.bind(source);
+    Object.defineProperty(source, "getReader", {
+      value() {
+        reads++;
+        return acquire();
+      },
+    });
+    const client = createAzureClient({
+      endpoint: "https://account.example.test",
+      container: "owned",
+      credential: { kind: "sas", token: "sig=authored" },
+      blockUpload: false,
+      fetch: async () => {
+        calls++;
+        return new Response(null);
+      },
+    });
+    let settled = false;
+    const pending = client.put("destination", source).finally(() => settled = true);
+    void pending.catch(() => {});
+    releases.push(() => within(Promise.allSettled([pending]), "disabled native body fixture drain"));
+    releases.push(() => held.resolve());
+    await within(entered.promise, "disabled native body cancellation admission");
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    expect(settled).toBe(false);
+    expect(cancels).toBe(1);
+    expect(reads).toBe(0);
+    expect(calls).toBe(0);
+    held.resolve();
+    const failure = await rejectedResponse(within(pending, "disabled native body retirement outcome"));
+    expect(failure).toBeInstanceOf(AggregateError);
+    if (!(failure instanceof AggregateError)) throw failure;
+    expect(failure.errors).toHaveLength(2);
+    expect(failure.errors[0]).toBeInstanceOf(TypeError);
+    expect(failure.errors[1]).toBe(cleanup);
+    expect(cancels).toBe(1);
+    expect(source.locked).toBe(false);
+  });
+});
+
+describe("Azure readable bytes across blockUpload", () => {
+  for (const enabled of [false, true]) {
+    it(`accepts genuine foreign bytes under blockUpload=${enabled}`, async () => {
+      const bytes: unknown = runInNewContext("new Uint8Array([99,17,31,88]).subarray(1,3)");
+      expect(ArrayBuffer.isView(bytes)).toBe(true);
+      expect(bytes instanceof Uint8Array).toBe(false);
+      let calls = 0;
+      const client = createAzureClient({
+        endpoint: "https://account.example.test",
+        container: "owned",
+        credential: { kind: "sas", token: "sig=authored" },
+        blockUpload: enabled,
+        fetch: async (input, init) => {
+          calls++;
+          const request = new Request(input, init);
+          expect([...new Uint8Array(await request.arrayBuffer())]).toEqual([17, 31]);
+          return new Response(null, { status: 201, headers: { etag: '"bytes"' } });
+        },
+      });
+      const receipt = await Reflect.apply(client.put, client, ["destination", bytes]);
+      expect(receipt.size).toBe(2);
+      expect(calls).toBe(1);
+    });
+    for (const kind of ["detached", "out-of-bounds"] as const) {
+      it(`rejects ${kind} zero-length backing under blockUpload=${enabled}`, async () => {
+        let calls = 0;
+        const client = createAzureClient({
+          endpoint: "https://account.example.test",
+          container: "owned",
+          credential: { kind: "sas", token: "sig=authored" },
+          blockUpload: enabled,
+          fetch: async () => {
+            calls++;
+            return new Response(null);
+          },
+        });
+        const backing = new ArrayBuffer(4, { maxByteLength: 8 });
+        const bytes = new Uint8Array(backing, 2, 2);
+        if (kind === "detached") structuredClone(backing, { transfer: [backing] });
+        else backing.resize(1);
+        expect(bytes.byteLength).toBe(0);
+        const failure = await rejectedResponse(client.put("destination", bytes));
+        expect(failure).toBeInstanceOf(TypeError);
+        expect(failure).not.toBeInstanceOf(AggregateError);
+        expect(calls).toBe(0);
+      });
+    }
+  }
+});
+
+describe("AZURE intrinsic byte metadata", () => {
+  for (const poisoned of [false, true]) {
+    it(`uses the two native bytes despite ${poisoned ? "throwing range getters" : "a shadowed zero length"}`, async () => {
+      const bytes = Uint8Array.of(99, 7, 8, 98).subarray(1, 3);
+      Object.defineProperty(bytes, "byteLength", { value: 0 });
+      if (poisoned) {
+        for (const name of ["buffer", "byteOffset", "subarray", Symbol.iterator]) {
+          Object.defineProperty(bytes, name, {
+            get() {
+              throw new Error("Borrowed metadata was consulted.");
+            },
+          });
+        }
+      }
+      let calls = 0;
+      const client = createAzureClient({
+        endpoint: "https://account.example.test",
+        container: "owned",
+        credential: { kind: "sas", token: "sig=authored" },
+        fetch: async (input, init) => {
+          calls++;
+          const request = new Request(input, init);
+          expect([...new Uint8Array(await request.arrayBuffer())]).toEqual([7, 8]);
+          expect(request.headers.get("content-length")).toBe("2");
+          return new Response(null, { status: 200, headers: { etag: '"accepted"' } });
+        },
+      });
+      const receipt = await client.put("destination", bytes);
+      expect(receipt.size).toBe(2);
+      expect(calls).toBe(1);
+      await expect(client.put("destination", bytes, { size: 0 })).rejects.toBeInstanceOf(RangeError);
+      expect(calls).toBe(1);
+    });
+  }
+});
+
+for (const kind of ["shared", "resizable"] as const) {
+  it(`captures ${kind} wire bytes and receipt size before credential-time source changes`, async () => {
+    const backing = kind === "shared" ? new SharedArrayBuffer(4) : new ArrayBuffer(4, { maxByteLength: 8 });
+    const whole = new Uint8Array(backing);
+    whole.set([99, 7, 8, 98]);
+    const bytes = whole.subarray(1, 3);
+    let authorizations = 0;
+    const change = () => {
+      authorizations++;
+      if (backing instanceof ArrayBuffer) backing.resize(0);
+      else whole.set([0, 9, 10, 0]);
+    };
+    const client = createAzureClient({
+      endpoint: "https://account.example.test",
+      container: "owned",
+      credential: {
+        kind: "bearer",
+        token: () => {
+          change();
+          return "authored-token";
+        },
+      },
+      fetch: async (input, init) => {
+        const request = new Request(input, init);
+        expect([...new Uint8Array(await request.arrayBuffer())]).toEqual([7, 8]);
+        expect(request.headers.get("content-length")).toBe("2");
+        return new Response(null, { status: 200, headers: { etag: '"accepted"' } });
+      },
+    });
+    const receipt = await client.put("destination", bytes, { size: 2 });
+    expect(receipt.size).toBe(2);
+    expect(authorizations).toBe(1);
+  });
+}
+
+it("retains raw BodyInit view kinds while ignoring borrowed range metadata", async () => {
+  for (const kind of ["DataView", "Uint16Array"] as const) {
+    const backing = Uint8Array.of(7, 8).buffer;
+    const bytes = kind === "DataView" ? new DataView(backing) : new Uint16Array(backing);
+    for (const name of ["buffer", "byteOffset", "byteLength"]) {
+      Object.defineProperty(bytes, name, {
+        get() {
+          throw new Error("Borrowed BodyInit metadata was consulted.");
+        },
+      });
+    }
+    let calls = 0;
+    const client = createAzureClient({
+      endpoint: "https://account.example.test",
+      container: "owned",
+      credential: { kind: "sas", token: "sig=authored" },
+      fetch: async (input, init) => {
+        calls++;
+        const request = new Request(input, init);
+        expect([...new Uint8Array(await request.arrayBuffer())]).toEqual([7, 8]);
+        expect(request.headers.get("content-length")).toBe("2");
+        return new Response(null);
+      },
+    });
+    const response = await client.request({ method: "PUT", key: "raw", body: bytes });
+    expect(response.ok).toBe(true);
+    expect(calls).toBe(1);
+  }
 });

@@ -1,8 +1,9 @@
 import { after, before, describe, it } from "node:test";
 import { close, withReleases } from "./close.ts";
-import { isPart, settle } from "./provider-operation.ts";
+import { isCancellation, isPart, settle } from "./provider-operation.ts";
 import { expect } from "@std/expect";
 import { toBytes } from "@std/streams/to-bytes";
+import { parse } from "@std/xml/parse";
 
 import { createFileSystem } from "../mod.ts";
 import { createObjectAdapter } from "../src/adapter/object.ts";
@@ -24,6 +25,96 @@ import { streamBytes } from "./stream.ts";
 import { expectBytes, fixtureBytes, verifyBytes } from "./reliability.ts";
 import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { BlobServiceClient, StorageSharedKeyCredential } from "@azure/storage-blob";
+
+/**
+ * Counts uploads only in an acquired, complete multipart listing document.
+ *
+ * Prefix-filtered cleanup checks need exhaustion, not a missing tag substring.
+ * AWS defines Upload as a direct result child and IsTruncated as pagination
+ * evidence. Namespace prefixes and XML formatting do not prove absence.
+ * https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListMultipartUploads.html
+ */
+function multipartUploads(value: string): number {
+  const root = parse(value).root;
+  if (root.name.local !== "ListMultipartUploadsResult") throw new SyntaxError("Expected multipart listing XML.");
+  const children = root.children.filter((node) => node.type === "element");
+  const fields = new Set([
+    "Bucket",
+    "KeyMarker",
+    "UploadIdMarker",
+    "NextKeyMarker",
+    "NextUploadIdMarker",
+    "MaxUploads",
+    "IsTruncated",
+    "Upload",
+    "CommonPrefixes",
+    "EncodingType",
+    "Delimiter",
+    "Prefix",
+  ]);
+  if (children.some((node) => !fields.has(node.name.local))) {
+    throw new SyntaxError("Unexpected multipart listing field.");
+  }
+  if (root.children.some((node) => (node.type === "text" || node.type === "cdata") && node.text.trim() !== "")) {
+    throw new SyntaxError("Expected multipart listing fields, not free text.");
+  }
+  for (const field of children) {
+    if (
+      field.name.local !== "Upload" && field.name.local !== "CommonPrefixes" &&
+      field.children.some((node) => node.type === "element")
+    ) {
+      throw new SyntaxError("Expected scalar multipart listing metadata.");
+    }
+  }
+  const truncated = children.filter((node) => node.name.local === "IsTruncated");
+  if (truncated.length !== 1 || truncated[0]!.children.some((node) => node.type === "element")) {
+    throw new SyntaxError("Expected scalar multipart pagination evidence.");
+  }
+  const complete = truncated[0]!.children.filter((node) => node.type === "text" || node.type === "cdata")
+    .map((node) => node.text).join("").trim();
+  if (complete !== "false" || children.some((node) => node.name.local === "CommonPrefixes")) {
+    throw new SyntaxError("A partial or delimiter-grouped listing cannot prove cleanup.");
+  }
+  const uploads = children.filter((node) => node.name.local === "Upload");
+  for (const upload of uploads) {
+    for (const name of ["Key", "UploadId"]) {
+      const values = upload.children.filter((node) => node.type === "element").filter((node) =>
+        node.name.local === name
+      );
+      if (
+        values.length !== 1 || values[0]!.children.some((node) => node.type === "element") ||
+        values[0]!.children.filter((node) => node.type === "text" || node.type === "cdata")
+            .map((node) => node.text).join("").length === 0
+      ) {
+        throw new SyntaxError("Expected a scalar multipart upload identity.");
+      }
+    }
+  }
+  return uploads.length;
+}
+
+it("requires complete semantic multipart-list evidence before certifying absence", () => {
+  const complete = "<ListMultipartUploadsResult><IsTruncated>false</IsTruncated></ListMultipartUploadsResult>";
+  expect(multipartUploads(complete)).toBe(0);
+  expect(
+    multipartUploads(
+      '<s:ListMultipartUploadsResult xmlns:s="http://s3.amazonaws.com/doc/2006-03-01/">\n<s:IsTruncated><![CDATA[false]]></s:IsTruncated>\n<s:Upload><s:Key>value</s:Key><s:UploadId>owned</s:UploadId></s:Upload>\n</s:ListMultipartUploadsResult>',
+    ),
+  ).toBe(1);
+  for (
+    const body of [
+      "<ListMultipartUploadsResult>",
+      "<Error><Code>AccessDenied</Code></Error>",
+      "<ListMultipartUploadsResult/>",
+      "<ListMultipartUploadsResult><IsTruncated>true</IsTruncated></ListMultipartUploadsResult>",
+      "<ListMultipartUploadsResult><IsTruncated>false</IsTruncated><IsTruncated>false</IsTruncated></ListMultipartUploadsResult>",
+      "<ListMultipartUploadsResult><IsTruncated>false</IsTruncated><Wrapper><Upload/></Wrapper></ListMultipartUploadsResult>",
+      "<ListMultipartUploadsResult><IsTruncated>false</IsTruncated><Bucket><Upload/></Bucket></ListMultipartUploadsResult>",
+      "<ListMultipartUploadsResult><IsTruncated>false</IsTruncated><Upload/></ListMultipartUploadsResult>",
+      "<ListMultipartUploadsResult><IsTruncated>false</IsTruncated><CommonPrefixes><Prefix>value/</Prefix></CommonPrefixes></ListMultipartUploadsResult>",
+    ]
+  ) expect(() => multipartUploads(body)).toThrow(SyntaxError);
+});
 
 /** Exact S3 multipart minimum used to force multipart behavior with a small fixture. */
 const S3_PART_SIZE = 5 * 1024 * 1024;
@@ -184,22 +275,34 @@ describe("Testcontainers-backed object providers", () => {
           },
         }, { highWaterMark: 0 });
         const pending = settle(controller, () => client.put(key, source, { signal: controller.signal }));
+        // Capture both outcomes immediately, including rejected null/undefined.
+        const observed = pending.then(
+          (value) => ({ ok: true as const, value }),
+          (reason: unknown) => ({ ok: false as const, reason }),
+        );
+        let consumed = false;
         // Retire the upload before deleting its key, including assertion failures.
         releases.push(async () => {
           controller.abort(new Error("Provider scenario cleanup."));
           await close([
-            () =>
-              pending.catch((error: unknown) => {
-                if (error !== "cancel after a real provider part") throw error;
-              }),
+            async () => {
+              const result = await observed;
+              // The main oracle owns its consumed rejection; teardown only
+              // reports a different/unconsumed failure, never repeats that event.
+              if (!consumed && !result.ok && !isCancellation(result.reason, controller.signal)) {
+                throw result.reason;
+              }
+            },
             async () => {
               if (!source.locked) await source.cancel();
             },
           ]);
         });
-        await expect(pending).rejects.toBe(
-          "cancel after a real provider part",
-        );
+        const result = await observed;
+        consumed = true;
+        expect(result.ok).toBe(false);
+        if (result.ok) throw new Error("The cancelled provider upload unexpectedly resolved.");
+        if (!isCancellation(result.reason, controller.signal)) throw result.reason;
         expect(parts).toBe(1);
         expect(cancelled).toBe(1);
         expect(source.locked).toBe(false);
@@ -207,7 +310,7 @@ describe("Testcontainers-backed object providers", () => {
         if (provider === "s3") {
           const uploads = await client.request({ method: "GET", query: { uploads: "", prefix: key } });
           expect(uploads.ok).toBe(true);
-          expect((await uploads.text()).includes("<Upload>")).toBe(false);
+          expect(multipartUploads(await uploads.text())).toBe(0);
         }
       }));
   }
