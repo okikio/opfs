@@ -117,7 +117,8 @@ not become an uncertain publication solely because Deno refuses their original b
 local backing with its native prototype and no own metadata avoid this additional copy. Foreign, custom-prototype and
 own-metadata backing also receives a clean wire copy because hosts can inspect its ordinary properties. A copy from
 concurrently modified shared memory is not an atomic snapshot; the caller owns synchronization. This is a correctness
-cost at the wire boundary, not a claim that all borrowed input is immutable.
+cost at the wire boundary, not a claim that all borrowed input is immutable. Borrowed backing must keep its bytes and
+lookup shape valid and unchanged until settlement, without added properties or prototype changes.
 
 Byte-range metadata now has the same native authority as byte admission. A genuine `Uint8Array` can have its own
 `byteLength`, `buffer` or `byteOffset` property, and subclasses can replace `subarray` or iteration. Previously a
