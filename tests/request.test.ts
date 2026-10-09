@@ -3,6 +3,9 @@ import { expect } from "@std/expect";
 import { RetryError } from "@std/async/retry";
 
 import { RequestMetrics, sendRequest } from "../src/request.ts";
+import { isStream } from "../src/body.ts";
+import { createS3Client } from "../src/s3.ts";
+import { createAzureClient } from "../src/azure.ts";
 import { getCancellation } from "../src/abort.ts";
 import { readResponse, readText } from "../src/response.ts";
 import { withReleases } from "./close.ts";
@@ -58,6 +61,125 @@ async function rejectedResponse(action: Promise<unknown>): Promise<unknown> {
 
 /** Stable URL used by request-policy tests without opening a real network connection. */
 const TEST_URL = new URL("https://storage.example/object");
+
+describe("default raw request stream admission", () => {
+  for (const native of ["refuses", "stringifies"] as const) {
+    it(`rejects a native constructor that ${native} streams without acquiring input`, async () =>
+      await withReleases(async (releases) => {
+        const NativeRequest = globalThis.Request, originalFetch = globalThis.fetch;
+        releases.push(() => {
+          Reflect.set(globalThis, "Request", NativeRequest);
+          Reflect.set(globalThis, "fetch", originalFetch);
+        });
+        let probes = 0, fetches = 0, credentials = 0;
+        class UnsupportedRequest extends NativeRequest {
+          constructor(input: RequestInfo | URL, init?: RequestInit) {
+            probes++;
+            if (native === "refuses") throw new TypeError("Authored native stream refusal.");
+            super(input, isStream(init?.body) ? { ...init, body: String(init.body) } : init);
+          }
+        }
+        const payloads: number[][] = [];
+        const transport = async (_input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+          fetches++;
+          if (isStream(init?.body)) {
+            const reader = init.body.getReader();
+            const bytes: number[] = [];
+            try {
+              while (true) {
+                const next = await reader.read();
+                if (next.done) break;
+                bytes.push(...next.value);
+                if (bytes.length > 2) throw new Error("The finite request fixture exceeded its byte bound.");
+              }
+            } finally {
+              reader.releaseLock();
+            }
+            payloads.push(bytes);
+          } else payloads.push([...new Uint8Array(await new Response(init?.body).arrayBuffer())]);
+          return new Response(null, { status: 503 });
+        };
+        Reflect.set(globalThis, "Request", UnsupportedRequest);
+        Reflect.set(globalThis, "fetch", transport);
+        const clients = (custom: boolean) => [
+          createS3Client({
+            endpoint: TEST_URL,
+            bucket: "bucket",
+            region: "us-east-1",
+            credentials: () => {
+              credentials++;
+              return { accessKeyId: "synthetic", secretAccessKey: "synthetic" };
+            },
+            ...(custom ? { fetch: transport } : {}),
+          }),
+          createAzureClient({
+            endpoint: TEST_URL,
+            container: "container",
+            credential: {
+              kind: "headers",
+              get: () => {
+                credentials++;
+                return { authorization: "synthetic" };
+              },
+            },
+            ...(custom ? { fetch: transport } : {}),
+          }),
+        ];
+        const defaults = clients(false);
+        expect(probes).toBe(0); // Client creation has no native probe effect.
+        for (const client of defaults) {
+          let pulls = 0, cancels = 0;
+          const source = new ReadableStream<Uint8Array>({
+            pull(controller) {
+              pulls++;
+              controller.enqueue(new Uint8Array([17, 31]));
+              controller.close();
+            },
+            cancel() {
+              cancels++;
+            },
+          }, { highWaterMark: 0 });
+          await expect(client.request({ method: "PUT", body: source })).rejects.toBeInstanceOf(TypeError);
+          expect({ pulls, cancels, fetches, credentials }).toEqual({
+            pulls: 0,
+            cancels: 0,
+            fetches: 0,
+            credentials: 0,
+          });
+          expect(source.locked).toBe(false);
+          expect(client.getMetrics()).toMatchObject({ requests: 0, retries: 0, failures: 1 });
+          const reader = source.getReader();
+          try {
+            expect(await reader.read()).toEqual({ done: false, value: new Uint8Array([17, 31]) });
+            expect(await reader.read()).toEqual({ done: true, value: undefined });
+          } finally {
+            reader.releaseLock();
+          }
+        }
+        expect(probes).toBe(1); // One lazy observation shared by this constructor pair.
+        for (const client of clients(true)) {
+          const source = new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.enqueue(new Uint8Array([17, 31]));
+              controller.close();
+            },
+          });
+          expect((await client.request({ method: "PUT", body: source })).status).toBe(503);
+          expect(source.locked).toBe(false);
+          expect(client.getMetrics()).toMatchObject({ requests: 1, retries: 0, failures: 0 });
+        }
+        expect(payloads).toEqual([[17, 31], [17, 31]]);
+        expect({ probes, fetches, credentials }).toEqual({ probes: 1, fetches: 2, credentials: 2 });
+        for (const client of defaults) {
+          expect((await client.request({ method: "PUT", body: new Uint8Array([17, 31]), retry: false })).status).toBe(
+            503,
+          );
+        }
+        expect(payloads).toEqual([[17, 31], [17, 31], [17, 31], [17, 31]]);
+        expect({ probes, fetches, credentials }).toEqual({ probes: 1, fetches: 4, credentials: 4 });
+      }));
+  }
+});
 
 describe("owned response text", () => {
   it("keeps UTF-8 replacement and BOM semantics across every split of authored bytes", async () => {

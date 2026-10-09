@@ -4,8 +4,8 @@ import { encodeHex } from "@std/encoding/hex";
 import { z } from "zod";
 
 import { open } from "./chunk.ts";
-import { isBytes, toRequestBytes, toView } from "./bytes.ts";
-import { isStream } from "./body.ts";
+import { isBuffer, isBytes, toRequestBuffer, toRequestBytes, toView } from "./bytes.ts";
+import { assertRequestStream, isStream } from "./body.ts";
 import { close } from "./close.ts";
 import { copyOptions, putOptions, putProperties } from "./publication.ts";
 import type { ResponseTextType } from "./response.ts";
@@ -127,7 +127,10 @@ export interface S3ClientOptionsType {
    * Unencoded fields and opaque continuation tokens are never reinterpreted by this policy.
    */
   readonly listEncoding?: S3ListEncodingType;
-  /** Fetch implementation. The global Web Fetch API is used by default. */
+  /**
+   * Fetch implementation. Defaults to native Fetch, whose raw stream support
+   * is admitted lazily. An injected transport owns its stream-byte capability.
+   */
   readonly fetch?: FetchType;
   /** Clock used for Signature Version 4 timestamps. */
   readonly now?: () => Date;
@@ -165,7 +168,19 @@ export interface S3RequestOptionsType {
   readonly query?: Readonly<Record<string, string | readonly string[] | undefined>>;
   /** Request headers added before signing. */
   readonly headers?: HeadersInit;
-  /** Request body. */
+  /**
+   * Web Fetch body. Raw ArrayBuffers use their native range across realms, and
+   * detached buffers reject before credentials or dispatch. Fixed ordinary
+   * buffers with this realm's native prototype and no own metadata stay borrowed:
+   * keep their bytes valid and unchanged, with no new backing properties or
+   * prototype changes until settlement. Resizable, foreign,
+   * custom-prototype or own-metadata backing receives one clean fixed copy before
+   * asynchronous signing and retries, costing its current native byte length. Raw
+   * SharedArrayBuffer is outside BodyInit; shared-backed views have a separate
+   * fixed wire conversion. Raw streams remain one-shot. Default Fetch checks
+   * native Request stream admission before signing; an injected Fetch owns its
+   * own stream-byte capability and reader retirement.
+   */
   readonly body?: BodyInit | null;
   /** Explicit payload SHA-256. Use `UNSIGNED-PAYLOAD` only when the provider accepts it. */
   readonly payloadHash?: string;
@@ -373,7 +388,7 @@ async function getSha256(value: BufferSource | string): Promise<string> {
 async function getPayloadHash(body: BodyInit | null | undefined): Promise<string> {
   if (body === undefined || body === null) return EMPTY_SHA256;
   if (typeof body === "string") return await getSha256(body);
-  if (body instanceof ArrayBuffer) return await getSha256(body);
+  if (isBuffer(body)) return await getSha256(body);
   if (ArrayBuffer.isView(body)) {
     const bytes = new Uint8Array(toView(body));
     return await getSha256(bytes);
@@ -664,6 +679,8 @@ class S3Client implements S3ClientType {
   readonly #addressing: S3AddressingType;
   /** Fetch implementation used for every request. */
   readonly #fetch: FetchType;
+  /** Only an omitted Fetch selects the native raw-stream capability contract. */
+  readonly #nativeFetch: boolean;
   /** Clock injected for deterministic signing and tests. */
   readonly #now: () => Date;
   /** Configured minimum multipart upload size. */
@@ -695,7 +712,9 @@ class S3Client implements S3ClientType {
     this.#credentials = options.credentials;
     this.#addressing = S3AddressingSchema.parse(options.addressing ?? "path");
     this.#listEncoding = S3ListEncodingSchema.parse(options.listEncoding ?? "percent");
-    this.#fetch = options.fetch ?? fetch;
+    const suppliedFetch = options.fetch;
+    this.#fetch = suppliedFetch ?? fetch;
+    this.#nativeFetch = suppliedFetch === undefined || suppliedFetch === null;
     this.#now = options.now ?? (() => new Date());
     this.#partSize = options.partSize ?? DEFAULT_PART_SIZE;
     this.#copyPartSize = options.copyPartSize ?? DEFAULT_COPY_PART_SIZE;
@@ -914,7 +933,12 @@ class S3Client implements S3ClientType {
 
   /** Tracks actual dispatch separately from signing and local validation. */
   async #send(options: S3RequestOptionsType, onDispatch?: () => void): Promise<Response> {
-    const body = ArrayBuffer.isView(options.body) ? toRequestBytes(options.body) : options.body;
+    const source = options.body;
+    const body = ArrayBuffer.isView(source)
+      ? toRequestBytes(source)
+      : isBuffer(source)
+      ? toRequestBuffer(source)
+      : source;
     const payloadHash = options.payloadHash ?? await getPayloadHash(body);
     // Body replayability and protocol idempotency are separate. A byte body can
     // be replayed mechanically while an operation such as CreateMultipartUpload
@@ -923,6 +947,7 @@ class S3Client implements S3ClientType {
     const replayable = options.retry !== false && !streamed;
 
     return await sendRequest(async (signal) => {
+      if (streamed && this.#nativeFetch) assertRequestStream();
       const { url, canonicalUri } = this.#address(options.key);
       const canonicalQuery = getQueryString(options.query);
       url.search = canonicalQuery;
