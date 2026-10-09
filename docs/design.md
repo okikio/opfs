@@ -571,6 +571,35 @@ stream
 
 The capability report distinguishes those routes. It does not label a buffered fallback as native streaming.
 
+The byte owner validates streamed and iterable chunks as genuine `Uint8Array` values even when no signal is supplied.
+Materialized `ArrayBufferView` inputs still mean their raw byte range. The buffered collector checks its byte limit
+before adding each chunk, then waits for producer cancellation and reader release after a limit or conversion failure.
+The limit bounds accepted payload bytes, not total process memory: retained chunk views and the completed value can
+coexist, and the producer owns its own buffering.
+
+Signal abort, cancellation, and operation cleanup share one physical reader retirement. Native EOF or a native read
+rejection is terminal proof, so cleanup releases the reader without cancelling an already errored stream again. An
+abort-induced read failure is published after that retirement settles. Independent read, cancel, and release failures
+remain observable even when their values are equal; the facade preserves the primary filesystem category and retains the
+complete owned aggregate as its cause. A Web consumer's `cancel()` can close pending reads before physical cleanup, so
+its returned promise is the cancellation boundary.
+
+Internal consumers use `openBytes()` to record actual terminal rejection delivery from their acquired reader. `retire()`
+joins the same owner without reporting a stored delivered failure as a second event. An unconsumed abort, or a fault
+published after a pending reader was released, remains observable during operation cleanup. These internal capabilities
+are not root package exports. They do not take a borrowed lock or infer ownership from matching error values. Byte
+metrics observe the same owner rather than a detached transform pipe.
+
+The acquired reader's native `closed` rejection observes stored source failure before read delivery reactions finish.
+That event prevents error and abort in the same turn from recancelling the errored source. A release-induced `closed`
+rejection has separate reader ownership and is not a new producer failure. Native `closed` fulfillment alone does not
+prove that queued bytes have been drained; only actual read EOF provides that proof.
+
+Async iterable conversion shares one `return()` operation and drains an admitted `next()` before completing retirement.
+An arbitrary iterator must cooperate: a queued async-generator `return()` cannot interrupt an uncooperative pending
+`next()`. No disposal timeout or interruption capability is invented for that producer. Release is independently
+attempted and any actual release failure is retained; a failed native release cannot certify physical closure.
+
 ## Writable-file invariant
 
 OPFS-shaped `createWritable()` stages a logical file image and commits on close. Abort discards the staged image.

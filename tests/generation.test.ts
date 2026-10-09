@@ -12,6 +12,7 @@ import {
   type DenoKvType,
 } from "../src/driver/deno-kv.ts";
 import { KvGeneration } from "../src/driver/generation.ts";
+import type { KvPinType } from "../src/driver/generation.ts";
 import { withReleases } from "./close.ts";
 import { within } from "./gate.ts";
 
@@ -369,6 +370,338 @@ describe("generation fencing and accounting", () => {
       await expect(pin.check()).rejects.toMatchObject({ code: "locked" });
       await pin.release();
       expect((await lifecycle.probe()).bytes).toBe(0);
+    });
+  });
+});
+
+describe("generation retirement observations", () => {
+  it("accepts only acquired missing state as idempotent abort and retains lookup failure", async () => {
+    await withReleases(async (releases) => {
+      const db = await Deno.openKv(":memory:");
+      releases.push(() => db.close());
+      const wire = transport(db);
+      const lifecycle = new KvGeneration(wire.database, "retirement:v3", {});
+      await lifecycle.abort("/value", "absent");
+      const get = wire.database.get;
+      const admitted = gate();
+      const held = gate();
+      const reason = new Error("actual state lookup failure");
+      wire.database.get = async () => {
+        admitted.resolve();
+        await held.promise;
+        throw reason;
+      };
+      const pending = lifecycle.abort("/value", "unknown");
+      void pending.catch(() => {});
+      releases.push(() => Promise.allSettled([pending]));
+      releases.push(() => held.resolve());
+      await within(admitted.promise, "generation cleanup lookup");
+      held.resolve();
+      await expect(within(pending, "generation lookup rejection")).rejects.toBe(reason);
+      wire.database.get = get;
+    });
+  });
+
+  it("refuses invalid acquired generation state instead of treating it as absent", async () => {
+    await withReleases(async (releases) => {
+      const db = await Deno.openKv(":memory:");
+      releases.push(() => db.close());
+      await db.set(["retirement:v3", "generation", "/value", "invalid"], { invalid: true });
+      const lifecycle = new KvGeneration(db, "retirement:v3", {});
+      await expect(lifecycle.abort("/value", "invalid")).rejects.toBeInstanceOf(Error);
+      expect((await db.get(["retirement:v3", "generation", "/value", "invalid"])).value).toEqual({ invalid: true });
+    });
+  });
+
+  it("shares one held pin-release result across repeated release calls", async () => {
+    await withReleases(async (releases) => {
+      const db = await Deno.openKv(":memory:");
+      releases.push(() => db.close());
+      const wire = transport(db);
+      const lifecycle = new KvGeneration(wire.database, "retirement:v3", {});
+      await lifecycle.part("/value", "owned", 0, Uint8Array.of(17));
+      const logical = await db.get(["retirement:v3", "entry", "/value"]);
+      const transaction = wire.database.atomic().set(logical.key, "visible");
+      await lifecycle.publish(transaction, "/value", "owned");
+      await transaction.commit();
+      const pin = await lifecycle.pin("/value", "owned", await db.get(logical.key));
+      const get = wire.database.get;
+      const admitted = gate();
+      const held = gate();
+      const reason = new Error("actual pin-release failure");
+      let requests = 0;
+      wire.database.get = async <T = unknown>(key: DenoKvKeyType) => {
+        if (key[1] === "pin") {
+          requests++;
+          admitted.resolve();
+          await held.promise;
+          throw reason;
+        }
+        return await get<T>(key);
+      };
+      let settled = false;
+      const first = pin.release();
+      const second = pin.release().finally(() => settled = true);
+      void first.catch(() => {});
+      void second.catch(() => {});
+      releases.push(() => Promise.allSettled([first, second]));
+      releases.push(() => held.resolve());
+      await within(admitted.promise, "pin release admission");
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      expect(settled).toBe(false);
+      held.resolve();
+      await expect(within(first, "first pin release")).rejects.toBe(reason);
+      await expect(within(second, "repeated pin release")).rejects.toBe(reason);
+      expect(requests).toBe(1);
+      wire.database.get = get;
+      await lifecycle.collect(policy);
+      expect((await lifecycle.probe()).pendingReaders).toBe(0);
+    });
+  });
+});
+
+/** Actual applied transactions remain the authority; only their receipt/inspection is faulted. */
+describe("generation uncertain-commit inspection ownership", () => {
+  const phases = ["namespace", "begin", "part", "pin", "renew", "release", "reclaim", "tombstone"] as const;
+  for (const phase of phases) {
+    for (const faults of ["undefined", "null", "equal"] as const) {
+      it(`retains ${phase} commit and held ${faults} inspection failures as two events`, async () => {
+        await withReleases(async (releases) => {
+          const db = await Deno.openKv(":memory:");
+          releases.push(() => db.close());
+          const wire = transport(db);
+          let now = 1;
+          const lifecycle = new KvGeneration(wire.database, "inspection:v3", {
+            clock: () => now,
+            writerLeaseMs: 10,
+            readerLeaseMs: 10,
+            maxRetries: 3,
+          });
+          let pin: KvPinType | undefined;
+          const physicalGet = wire.database.get;
+          releases.push(async () => {
+            wire.after(undefined);
+            wire.database.get = physicalGet;
+            await pin?.release();
+            lifecycle.finish("owned");
+          });
+          let invoke: () => Promise<unknown>;
+          if (phase === "namespace") invoke = () => lifecycle.open();
+          else {
+            await lifecycle.open();
+            if (phase === "begin") invoke = () => lifecycle.part("/value", "owned", 0, Uint8Array.of(17));
+            else {
+              await lifecycle.part("/value", "owned", 0, Uint8Array.of(17));
+              if (phase === "part") invoke = () => lifecycle.part("/value", "owned", 1, Uint8Array.of(31));
+              else if (phase === "reclaim") {
+                now = 100;
+                invoke = () => lifecycle.collect(policy);
+              } else if (phase === "tombstone") {
+                await lifecycle.abort("/value", "owned");
+                invoke = () => lifecycle.collect(policy);
+              } else {
+                const logical = await db.get(["inspection:v3", "entry", "/value"]);
+                const transaction = wire.database.atomic().set(logical.key, "visible");
+                await lifecycle.publish(transaction, "/value", "owned");
+                await transaction.commit();
+                const visible = await db.get(logical.key);
+                if (phase === "pin") {
+                  invoke = async () => {
+                    pin = await lifecycle.pin("/value", "owned", visible);
+                  };
+                } else {
+                  pin = await lifecycle.pin("/value", "owned", visible);
+                  if (phase === "renew") {
+                    now = 7;
+                    invoke = () => pin!.check();
+                  } else invoke = () => pin!.release();
+                }
+              }
+            }
+          }
+          const same = new Error("equal independently observed commit and inspection failures");
+          const primary = faults === "undefined" ? undefined : faults === "null" ? null : same;
+          const inspection = faults === "undefined" ? undefined : faults === "null" ? null : same;
+          const entered = gate();
+          const held = gate();
+          let selected: DenoKvKeyType | undefined;
+          let commits = 0;
+          let inspections = 0;
+          const kind = phase === "namespace"
+            ? "usage"
+            : ["part", "reclaim"].includes(phase)
+            ? "part"
+            : ["pin", "renew", "release"].includes(phase)
+            ? "pin"
+            : "generation";
+          wire.after((keys) => {
+            const key = keys.find((key) => key[1] === kind);
+            if (key === undefined) return;
+            wire.after(undefined);
+            commits++;
+            selected = key;
+            throw primary;
+          });
+          wire.database.get = async <T = unknown>(key: DenoKvKeyType) => {
+            if (
+              selected !== undefined && key.length === selected.length &&
+              key.every((value, index) => value === selected?.[index])
+            ) {
+              inspections++;
+              entered.resolve();
+              await held.promise;
+              throw inspection;
+            }
+            return await physicalGet<T>(key);
+          };
+          const pending = invoke();
+          let settled = false;
+          const observed = pending.then(
+            () => {
+              settled = true;
+              throw new Error("Expected commit and inspection failures");
+            },
+            (reason: unknown) => {
+              settled = true;
+              return reason;
+            },
+          );
+          void observed.catch(() => {});
+          releases.push(() => within(Promise.allSettled([observed]), "uncertain generation fixture drain"));
+          releases.push(() => {
+            held.resolve();
+            wire.database.get = physicalGet;
+          });
+          await within(entered.promise, "actual uncertain commit inspection admission");
+          await new Promise<void>((resolve) => setTimeout(resolve, 0));
+          expect(settled).toBe(false);
+          expect(commits).toBe(1);
+          held.resolve();
+          const failure = await within(observed, "uncertain generation inspection outcome");
+          expect(failure).toBeInstanceOf(AggregateError);
+          if (!(failure instanceof AggregateError)) throw failure;
+          expect(failure.errors).toHaveLength(2);
+          expect(failure.errors[0]).toBe(primary);
+          expect(failure.errors[1]).toBe(inspection);
+          expect(inspections).toBe(1);
+          if (phase === "release") pin = undefined; // The caller already observed this cached physical outcome.
+        });
+      });
+    }
+
+    it(`reconciles applied ${phase} receipt loss without reporting a false failure`, async () => {
+      await withReleases(async (releases) => {
+        const db = await Deno.openKv(":memory:");
+        releases.push(() => db.close());
+        const wire = transport(db);
+        let now = 1;
+        const lifecycle = new KvGeneration(wire.database, "reconciled:v3", {
+          clock: () => now,
+          writerLeaseMs: 10,
+          readerLeaseMs: 10,
+          maxRetries: 3,
+        });
+        let pin: KvPinType | undefined;
+        releases.push(async () => {
+          wire.after(undefined);
+          await pin?.release();
+          lifecycle.finish("owned");
+        });
+        let invoke: () => Promise<unknown>;
+        if (phase === "namespace") invoke = () => lifecycle.open();
+        else {
+          await lifecycle.open();
+          if (phase === "begin") invoke = () => lifecycle.part("/value", "owned", 0, Uint8Array.of(17));
+          else {
+            await lifecycle.part("/value", "owned", 0, Uint8Array.of(17));
+            if (phase === "part") invoke = () => lifecycle.part("/value", "owned", 1, Uint8Array.of(31));
+            else if (phase === "reclaim") {
+              now = 100;
+              invoke = () => lifecycle.collect(policy);
+            } else if (phase === "tombstone") {
+              await lifecycle.abort("/value", "owned");
+              invoke = () => lifecycle.collect(policy);
+            } else {
+              const logical = await db.get(["reconciled:v3", "entry", "/value"]);
+              const tx = wire.database.atomic().set(logical.key, "visible");
+              await lifecycle.publish(tx, "/value", "owned");
+              await tx.commit();
+              const visible = await db.get(logical.key);
+              if (phase === "pin") {
+                invoke = async () => {
+                  pin = await lifecycle.pin("/value", "owned", visible);
+                };
+              } else {
+                pin = await lifecycle.pin("/value", "owned", visible);
+                if (phase === "renew") {
+                  now = 7;
+                  invoke = () => pin!.check();
+                } else invoke = () => pin!.release();
+              }
+            }
+          }
+        }
+        const kind = phase === "namespace"
+          ? "usage"
+          : ["part", "reclaim"].includes(phase)
+          ? "part"
+          : ["pin", "renew", "release"].includes(phase)
+          ? "pin"
+          : "generation";
+        let lost = 0;
+        let selected: DenoKvKeyType | undefined;
+        wire.after((keys) => {
+          const key = keys.find((key) => key[1] === kind);
+          if (key === undefined) return;
+          selected = key;
+          wire.after(undefined);
+          lost++;
+          throw undefined;
+        });
+        await within(invoke(), "actual applied generation reconciliation");
+        expect(lost).toBe(1);
+        if (selected === undefined) throw new Error("Actual applied transaction was not observed");
+        const applied = await db.get(selected);
+        if (["release", "reclaim", "tombstone"].includes(phase)) {
+          expect(applied.value).toBe(null);
+          expect(applied.versionstamp).toBe(null);
+        } else if (phase === "part") expect(applied.value).toEqual(Uint8Array.of(31));
+        else if (phase === "begin") {
+          expect(applied.value).toMatchObject({ state: "writing", path: "/value", generation: "owned" });
+        } else if (phase === "namespace") expect(applied.value).toMatchObject({ version: 3, bytes: 0, generations: 0 });
+        else if (phase === "renew") expect(applied.value).toMatchObject({ deadline: 17 });
+        else expect(applied.value).toMatchObject({ deadline: 11 });
+        const usage = await lifecycle.probe();
+        expect(usage.bytes).toBe(["reclaim", "tombstone", "namespace"].includes(phase) ? 0 : phase === "part" ? 2 : 1);
+        expect(usage.generations).toBe(["tombstone", "namespace"].includes(phase) ? 0 : 1);
+      });
+    });
+  }
+
+  it("keeps the explicit namespace attempt limit and all exhausted commit faults", async () => {
+    await withReleases(async (releases) => {
+      const db = await Deno.openKv(":memory:");
+      releases.push(() => db.close());
+      const wire = transport(db);
+      let attempts = 0;
+      wire.before(async () => {
+        attempts++;
+        throw undefined;
+      });
+      const lifecycle = new KvGeneration(wire.database, "budget:v3", { maxRetries: 2 });
+      const failure = await lifecycle.open().then(
+        () => {
+          throw new Error("Expected bounded namespace admission failure");
+        },
+        (reason: unknown) => reason,
+      );
+      expect(failure).toBeInstanceOf(AggregateError);
+      if (!(failure instanceof AggregateError)) throw failure;
+      expect(failure.errors).toHaveLength(3);
+      expect(failure.errors[0]).toMatchObject({ code: "locked" });
+      expect(failure.errors.slice(1)).toEqual([undefined, undefined]);
+      expect(attempts).toBe(2);
+      expect((await db.get(["budget:v3", "usage"])).value).toBe(null);
     });
   });
 });

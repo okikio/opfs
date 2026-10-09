@@ -1,4 +1,3 @@
-import { withAbortSignal } from "../stream.ts";
 import { type GenerationOptionsType, KvGeneration, type KvPinType, type KvUsageType } from "./generation.ts";
 import { map as pooledMap } from "../pool.ts";
 import { concat } from "@std/bytes";
@@ -17,7 +16,10 @@ import {
 } from "./definition.ts";
 import type { FileDriverReadOptionsType, FileDriverWriteOptionsType } from "./file.ts";
 import { basename, dirname } from "../path.ts";
-import { split } from "../chunk.ts";
+import { open } from "../chunk.ts";
+import { aggregate, close } from "../close.ts";
+import { isBytes } from "../bytes.ts";
+import { retire as retireBytes } from "../stream.ts";
 import {
   PartitionModeSchema,
   type PartitionModeType,
@@ -257,7 +259,10 @@ const DenoKvManifestSchema = z.object({
   parts: z.number().int().positive(),
   partBytes: z.number().int().positive(),
   file: DenoKvFileSchema,
-}).strict();
+}).strict().refine(
+  (manifest) => manifest.parts === Math.max(1, Math.ceil(manifest.file.size / manifest.partBytes)),
+  { message: "Partition count must match the logical file size and physical part size." },
+);
 
 /** Validated private manifest that publishes one complete partition generation. */
 type DenoKvManifestType = z.output<typeof DenoKvManifestSchema>;
@@ -563,6 +568,36 @@ class DenoKvBackend implements RecordBackendType {
     return (await this.#entry(path)).value;
   }
 
+  /**
+   * Validates one immutable physical part before any bytes leave the driver.
+   *
+   * The manifest fixes each part's logical position, so equal total length is
+   * insufficient: a short part followed by an oversized part would shift range
+   * reads and could corrupt a later patch. Empty files own one empty part. Pins
+   * and their retirement remain owned by the caller of this read.
+   */
+  async #part(path: string, manifest: DenoKvManifestType, index: number): Promise<Uint8Array> {
+    const entry = await this.#database.get<Uint8Array>(partKey(this.#prefix, path, manifest.generation, index));
+    if (!isBytes(entry.value)) {
+      throw new FileSystemError(
+        "unknown",
+        "read",
+        path,
+        `Deno KV file '${path}' is missing or has invalid physical part ${index} of ${manifest.parts}.`,
+      );
+    }
+    const expected = Math.min(manifest.partBytes, manifest.file.size - index * manifest.partBytes);
+    if (entry.value.byteLength !== expected) {
+      throw new FileSystemError(
+        "unknown",
+        "read",
+        path,
+        `Deno KV physical part ${index} of '${path}' has ${entry.value.byteLength} bytes; expected ${expected}.`,
+      );
+    }
+    return entry.value;
+  }
+
   /** Returns logical metadata without joining any partition body. */
   async stat(path: Parameters<NonNullable<RecordBackendType["stat"]>>[0]): Promise<RecordListType | null> {
     const stored = await this.#stored(path);
@@ -578,23 +613,16 @@ class DenoKvBackend implements RecordBackendType {
 
     const manifest = stored;
     const pin = await this.#pin(path, manifest.generation);
+    let primary: readonly unknown[] = [];
     try {
       const chunks = new Array<Uint8Array>(manifest.parts);
       const indexes = Array.from({ length: manifest.parts }, (_, index) => index);
       for await (
         const result of pooledMap(this.#concurrency, indexes, async (index) => {
           await pin.check();
-          const part = await this.#database.get<Uint8Array>(partKey(this.#prefix, path, manifest.generation, index));
-          if (!(part.value instanceof Uint8Array)) {
-            throw new FileSystemError(
-              "unknown",
-              "read",
-              path,
-              `Deno KV file '${path}' is missing physical part ${index} of ${manifest.parts}.`,
-            );
-          }
+          const bytes = await this.#part(path, manifest, index);
           await pin.check();
-          return { index, bytes: part.value };
+          return { index, bytes };
         })
       ) chunks[result.index] = result.bytes;
 
@@ -608,8 +636,11 @@ class DenoKvBackend implements RecordBackendType {
         );
       }
       return RecordSchema.parse({ ...manifest.file, data: encodeBase64(bytes) });
+    } catch (reason) {
+      primary = [reason];
+      throw reason;
     } finally {
-      await pin.release();
+      await close([() => pin.release()], primary);
     }
   }
 
@@ -637,6 +668,7 @@ class DenoKvBackend implements RecordBackendType {
 
     const manifest = stored;
     const pin = await this.#pin(path, manifest.generation);
+    let primary: readonly unknown[] = [];
     try {
       const start = Math.min(options.at ?? 0, manifest.file.size);
       const end = options.length === undefined
@@ -652,17 +684,9 @@ class DenoKvBackend implements RecordBackendType {
         const result of pooledMap(this.#concurrency, indexes, async (index) => {
           throwIfAborted(options.signal, "read", path);
           await pin.check();
-          const part = await this.#database.get<Uint8Array>(partKey(this.#prefix, path, manifest.generation, index));
-          if (!(part.value instanceof Uint8Array)) {
-            throw new FileSystemError(
-              "unknown",
-              "read",
-              path,
-              `Deno KV file '${path}' is missing physical part ${index} of ${manifest.parts}.`,
-            );
-          }
+          const bytes = await this.#part(path, manifest, index);
           await pin.check();
-          return { index, bytes: part.value };
+          return { index, bytes };
         })
       ) chunks[result.index - first] = result.bytes;
 
@@ -678,8 +702,11 @@ class DenoKvBackend implements RecordBackendType {
         );
       }
       return result;
+    } catch (reason) {
+      primary = [reason];
+      throw reason;
     } finally {
-      await pin.release();
+      await close([() => pin.release()], primary);
     }
   }
 
@@ -716,54 +743,60 @@ class DenoKvBackend implements RecordBackendType {
     let index = Math.floor(start / manifest.partBytes);
     const last = Math.ceil(end / manifest.partBytes);
     const first = index;
-    const database = this.#database;
-    const prefix = this.#prefix;
+    const readPart = (index: number): Promise<Uint8Array> => this.#part(path, manifest, index);
     const signal = options.signal;
     const pin = await this.#pin(path, manifest.generation);
 
+    type ReadOutcomeType =
+      | { readonly ok: true; readonly value: { readonly complete: boolean; readonly chunk?: Uint8Array } }
+      | { readonly ok: false; readonly reason: unknown };
+    type ReleaseOutcomeType = { readonly ok: true } | { readonly ok: false; readonly reason: unknown };
+    let pending: Promise<ReadOutcomeType> | undefined;
+    let cancelled = false;
+    let retirement: Promise<ReleaseOutcomeType> | undefined;
+    // One physical release and terminal result belongs to the first terminal
+    // owner. Cancellation joins a real in-flight get; the database cannot revoke it.
+    const finish = (primary: readonly unknown[] = []): Promise<ReleaseOutcomeType> =>
+      retirement ??= close(
+        [() => pin.release()],
+        primary,
+      ).then(() => ({ ok: true }), (reason: unknown) => ({ ok: false, reason }));
     return new ReadableStream<Uint8Array>({
       async pull(controller) {
-        try {
+        const read = async (): Promise<{ readonly complete: boolean; readonly chunk?: Uint8Array }> => {
           await pin.check();
           throwIfAborted(signal, "read", path);
-          if (start === end || index >= last) {
-            await pin.release();
-            controller.close();
-            return;
-          }
-          const entry = await database.get<Uint8Array>(partKey(prefix, path, manifest.generation, index));
+          if (start === end || index >= last) return { complete: true };
+          const bytes = await readPart(index);
           throwIfAborted(signal, "read", path);
           await pin.check();
-          if (!(entry.value instanceof Uint8Array)) {
-            await pin.release();
-            controller.error(
-              new FileSystemError(
-                "unknown",
-                "read",
-                path,
-                `Deno KV file '${path}' is missing physical part ${index} of ${manifest.parts}.`,
-              ),
-            );
-            return;
-          }
           const physicalStart = index * manifest.partBytes;
           const from = index === first ? start - physicalStart : 0;
-          const to = index === last - 1
-            ? Math.min(entry.value.byteLength, end - physicalStart)
-            : entry.value.byteLength;
+          const to = index === last - 1 ? Math.min(bytes.byteLength, end - physicalStart) : bytes.byteLength;
           index += 1;
-          if (to > from) controller.enqueue(entry.value.slice(from, to));
-          if (index >= last) {
-            await pin.release();
-            controller.close();
-          }
-        } catch (error) {
-          await pin.release().catch(() => undefined);
-          controller.error(error);
+          return { complete: index >= last, ...(to > from ? { chunk: bytes.slice(from, to) } : {}) };
+        };
+        pending = read().then(
+          (value): ReadOutcomeType => ({ ok: true, value }),
+          (reason: unknown): ReadOutcomeType => ({ ok: false, reason }),
+        );
+        const result = await pending;
+        if (cancelled) return;
+        if (result.ok && result.value.chunk !== undefined) controller.enqueue(result.value.chunk);
+        if (result.ok && !result.value.complete) {
+          pending = undefined;
+          return;
         }
+        const retired = await finish(result.ok ? [] : [result.reason]);
+        if (cancelled) return;
+        if (retired.ok) controller.close();
+        else controller.error(retired.reason);
       },
       async cancel() {
-        await pin.release();
+        cancelled = true;
+        const read = await pending;
+        const retired = await finish(read === undefined || read.ok ? [] : [read.reason]);
+        if (!retired.ok) throw retired.reason;
       },
     });
   }
@@ -792,6 +825,7 @@ class DenoKvBackend implements RecordBackendType {
     }
 
     const pin = await this.#pin(path, stored.generation);
+    let primary: readonly unknown[] = [];
     try {
       const start = Math.min(at, stored.file.size);
       const end = Math.min(stored.file.size, start + length);
@@ -802,24 +836,19 @@ class DenoKvBackend implements RecordBackendType {
       for (let index = first; index < last; index += 1) {
         throwIfAborted(signal, "read", path);
         await pin.check();
-        const part = await this.#database.get<Uint8Array>(partKey(this.#prefix, path, stored.generation, index));
-        if (!(part.value instanceof Uint8Array)) {
-          throw new FileSystemError(
-            "unknown",
-            "read",
-            path,
-            `Deno KV file '${path}' is missing physical part ${index} of ${stored.parts}.`,
-          );
-        }
+        const bytes = await this.#part(path, stored, index);
         await pin.check();
-        chunks.push(part.value);
+        chunks.push(bytes);
       }
 
       const joined = concat(chunks);
       const localStart = start - first * stored.partBytes;
       return joined.slice(localStart, localStart + (end - start));
+    } catch (reason) {
+      primary = [reason];
+      throw reason;
     } finally {
-      await pin.release();
+      await close([() => pin.release()], primary);
     }
   }
 
@@ -873,9 +902,7 @@ class DenoKvBackend implements RecordBackendType {
           throw new DenoKvCommitError(
             operation,
             path,
-            new AggregateError([error, reconcile], "Commit response and own-state reconciliation failed.", {
-              cause: error,
-            }),
+            aggregate([error, reconcile], "Commit response and own-state reconciliation failed."),
           );
         }
         throw new DenoKvCommitError(operation, path, error);
@@ -994,7 +1021,7 @@ class DenoKvBackend implements RecordBackendType {
       });
       await this.#commit(path, previousEntry, manifest, "write", options.signal);
     } catch (error) {
-      await this.#deleteGeneration(path, nextGeneration, partCount).catch(() => undefined);
+      await close([() => this.#deleteGeneration(path, nextGeneration, partCount)], [error]);
       throw error;
     }
   }
@@ -1013,58 +1040,98 @@ class DenoKvBackend implements RecordBackendType {
     source: ReadableStream<Uint8Array>,
     options: FileDriverWriteOptionsType,
   ): Promise<void> {
-    if (options.mode !== "replace" || this.#partition === "never") {
-      await source.cancel().catch(() => undefined);
-      throw new FileSystemError("not-supported", "write", path, `Deno KV streaming requires partitioned replace mode.`);
-    }
-    throwIfAborted(options.signal, "write", path);
-    const previousEntry = await this.#entry(path);
-    const previousStored = previousEntry.value;
-    if (previousStored !== null && !isManifest(previousStored) && previousStored.kind === "directory") {
-      await source.cancel().catch(() => undefined);
-      throw new FileSystemError("type-mismatch", "write", path, `'${path}' is a directory.`);
-    }
-    const previousMediaType = previousStored === null
-      ? ""
-      : isManifest(previousStored)
-      ? previousStored.file.mediaType
-      : previousStored.kind === "file"
-      ? previousStored.mediaType
-      : "";
-    const nextGeneration = generation();
-    let scheduled = 0;
-    let size = 0;
-
     try {
+      if (options.mode !== "replace" || this.#partition === "never") {
+        throw new FileSystemError(
+          "not-supported",
+          "write",
+          path,
+          `Deno KV streaming requires partitioned replace mode.`,
+        );
+      }
+      throwIfAborted(options.signal, "write", path);
+    } catch (reason) {
+      await close([() => retireBytes(source)], [reason]);
+      throw reason;
+    }
+    const inputSignal = new AbortController();
+    // The actual caller event creates the public filesystem cancellation reason.
+    // Internal mapper-stop interrupts only the byte input, not admitted KV writes.
+    const abort = (): void =>
+      inputSignal.abort(
+        new FileSystemError(
+          "aborted",
+          "write",
+          path,
+          `Writing '${path}' was aborted.`,
+          options.signal?.reason,
+        ),
+      );
+    options.signal?.addEventListener("abort", abort, { once: true });
+    if (options.signal?.aborted) abort();
+    let retired = false;
+    let nextGeneration: string | undefined;
+    let scheduled = 0;
+    let primary: readonly unknown[] = [];
+    let chunks: ReturnType<typeof open> | undefined;
+    const retire = async (): Promise<void> => {
+      if (retired) return;
+      retired = true;
+      if (chunks === undefined) await retireBytes(source);
+      else await chunks.return?.();
+    };
+    try {
+      chunks = open(source, this.#partBytes, inputSignal.signal);
+      const input = chunks;
+      const previousEntry = await this.#entry(path);
+      const previousStored = previousEntry.value;
+      if (previousStored !== null && !isManifest(previousStored) && previousStored.kind === "directory") {
+        throw new FileSystemError("type-mismatch", "write", path, `'${path}' is a directory.`);
+      }
+      const previousMediaType = previousStored === null
+        ? ""
+        : isManifest(previousStored)
+        ? previousStored.file.mediaType
+        : previousStored.kind === "file"
+        ? previousStored.mediaType
+        : "";
+      const ownedGeneration = generation();
+      nextGeneration = ownedGeneration;
+      const numbered: AsyncIterableIterator<Uint8Array> = {
+        next: () => input.next(),
+        return: async () => {
+          await retire();
+          return { done: true, value: undefined };
+        },
+        [Symbol.asyncIterator]() {
+          return this;
+        },
+      };
+      let size = 0;
       for await (
-        const written of pooledMap(
-          this.#concurrency,
-          split(withAbortSignal(source, options.signal, path, "write"), this.#partBytes),
-          async (chunk) => {
-            const index = scheduled++;
-            if (index >= this.#maxParts) {
-              throw new FileSystemError(
-                "too-large",
-                "write",
-                path,
-                `Deno KV stream exceeded configured maxParts ${this.#maxParts}.`,
-              );
-            }
-            throwIfAborted(options.signal, "write", path);
-            await this.#generation.part(path, nextGeneration, index, chunk);
-            return { bytes: chunk.byteLength };
-          },
-        )
+        const written of pooledMap(this.#concurrency, numbered, async (chunk) => {
+          const index = scheduled++;
+          if (index >= this.#maxParts) {
+            throw new FileSystemError(
+              "too-large",
+              "write",
+              path,
+              `Deno KV stream exceeded configured maxParts ${this.#maxParts}.`,
+            );
+          }
+          throwIfAborted(options.signal, "write", path);
+          await this.#generation.part(path, ownedGeneration, index, chunk);
+          return { bytes: chunk.byteLength };
+        }, { interrupt: () => input.interrupt() })
       ) size += written.bytes;
-
       if (scheduled === 0) {
         scheduled = 1;
-        await this.#generation.part(path, nextGeneration, 0, new Uint8Array());
+        await this.#generation.part(path, ownedGeneration, 0, new Uint8Array());
       }
       throwIfAborted(options.signal, "write", path);
       const manifest = DenoKvManifestSchema.parse({
         storage: "deno-kv-parts-v3",
-        generation: nextGeneration,
+        generation: ownedGeneration,
         parts: scheduled,
         partBytes: this.#partBytes,
         file: {
@@ -1079,9 +1146,19 @@ class DenoKvBackend implements RecordBackendType {
         },
       });
       await this.#commit(path, previousEntry, manifest, "write", options.signal);
-    } catch (error) {
-      await this.#deleteGeneration(path, nextGeneration, scheduled).catch(() => undefined);
-      throw error;
+    } catch (reason) {
+      primary = [reason];
+      throw reason;
+    } finally {
+      options.signal?.removeEventListener("abort", abort);
+      await close([
+        retire,
+        async () => {
+          if (primary.length > 0 && nextGeneration !== undefined) {
+            await this.#deleteGeneration(path, nextGeneration, scheduled);
+          }
+        },
+      ], primary);
     }
   }
 
@@ -1149,7 +1226,7 @@ class DenoKvBackend implements RecordBackendType {
       });
       await this.#commit(record.path, previousEntry, manifest, "write");
     } catch (error) {
-      await this.#deleteGeneration(record.path, nextGeneration, count).catch(() => undefined);
+      await close([() => this.#deleteGeneration(record.path, nextGeneration, count)], [error]);
       throw error;
     }
   }
@@ -1232,7 +1309,7 @@ class DenoKvBackend implements RecordBackendType {
       });
       await this.#commit(file.path, previousEntry, manifest, "write", signal);
     } catch (error) {
-      await this.#deleteGeneration(file.path, nextGeneration, count).catch(() => undefined);
+      await close([() => this.#deleteGeneration(file.path, nextGeneration, count)], [error]);
       throw error;
     }
   }
