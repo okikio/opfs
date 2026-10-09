@@ -29,7 +29,9 @@ import type {
 import { createLocalPath } from "./local.ts";
 import { FileSystemError, throwIfAborted, toFileSystemError } from "../error.ts";
 import { dirname, joinPath, type PathType } from "../path.ts";
-import { withAbortSignal } from "../stream.ts";
+import { openBytes, withAbortSignal } from "../stream.ts";
+import { aggregate, close } from "../close.ts";
+import { isBytes, toView } from "../bytes.ts";
 
 /**
  * Options for the Deno-native file driver.
@@ -67,6 +69,19 @@ export class DenoRangeSource {
   #file: Deno.FsFile | undefined;
   /** Bytes still allowed to leave this source. */
   #remaining: number;
+  /** At most one admitted native read, with both outcomes observed immediately. */
+  #pending:
+    | Promise<{ readonly ok: true; readonly count: number | null } | { readonly ok: false; readonly reason: unknown }>
+    | undefined;
+  /** Already observed read outcome, used only to preserve event order at cancellation. */
+  #observed:
+    | { readonly ok: true; readonly count: number | null }
+    | { readonly ok: false; readonly reason: unknown }
+    | undefined;
+  /** Consumer cancellation prevents any later controller publication. */
+  #stopping = false;
+  /** One terminal cancellation result, assigned before native retirement effects. */
+  #cancel: Promise<void> | undefined;
 
   /** Takes ownership of one positioned Deno file for exactly `remaining` bytes. */
   constructor(file: Deno.FsFile, remaining: number) {
@@ -82,8 +97,9 @@ export class DenoRangeSource {
     file.close();
   }
 
-  /** Reads at most one bounded chunk and closes exactly at the requested range end. */
+  /** Reads one bounded chunk; an owned cancellation joins it without late publication. */
   async pull(controller: ReadableStreamDefaultController<Uint8Array>): Promise<void> {
+    if (this.#stopping) return;
     const file = this.#file;
     if (file === undefined) {
       controller.close();
@@ -96,8 +112,25 @@ export class DenoRangeSource {
     }
 
     const buffer = new Uint8Array(Math.min(RANGE_CHUNK_BYTES, this.#remaining));
+    // Publish pending ownership before invoking a native method that can reenter cancellation.
+    const pending = Promise.resolve().then(() => file.read(buffer)).then(
+      (count) => {
+        const outcome = { ok: true as const, count };
+        this.#observed = outcome;
+        return outcome;
+      },
+      (reason: unknown) => {
+        const outcome = { ok: false as const, reason };
+        this.#observed = outcome;
+        return outcome;
+      },
+    );
+    this.#pending = pending;
     try {
-      const count = await file.read(buffer);
+      const outcome = await pending;
+      if (this.#stopping) return;
+      if (!outcome.ok) throw outcome.reason;
+      const count = outcome.count;
       if (count === null) {
         this.#remaining = 0;
         this.#close();
@@ -113,15 +146,46 @@ export class DenoRangeSource {
         controller.close();
       }
     } catch (error) {
-      this.#close();
-      controller.error(error);
+      let failure = error;
+      try {
+        this.#close();
+      } catch (reason) {
+        failure = aggregate([error, reason], "Range read and native file close failed.");
+      }
+      controller.error(failure);
+    } finally {
+      if (this.#pending === pending) {
+        this.#pending = undefined;
+        this.#observed = undefined;
+      }
     }
   }
 
-  /** Releases the file when a downstream consumer stops before the requested range ends. */
-  cancel(): void {
+  /**
+   * Closes the descriptor, then joins the exact admitted read before cancellation settles.
+   *
+   * A close-induced native read rejection is actual retirement evidence. It is
+   * neither discarded by error class nor published into a canceled stream. A
+   * read fault already observed before cancellation retains primary position.
+   */
+  cancel(): Promise<void> {
+    if (this.#cancel !== undefined) return this.#cancel;
+    this.#stopping = true;
     this.#remaining = 0;
-    this.#close();
+    const pending = this.#pending;
+    const observed = this.#observed;
+    const primary: readonly unknown[] = observed !== undefined && !observed.ok ? [observed.reason] : [];
+    this.#cancel = Promise.resolve().then(async () => {
+      await close([
+        () => this.#close(),
+        async () => {
+          if (pending === undefined) return;
+          const outcome = await pending;
+          if (!outcome.ok && primary.length === 0) throw outcome.reason;
+        },
+      ], primary);
+    });
+    return this.#cancel;
   }
 }
 
@@ -138,7 +202,9 @@ export async function writeStreamToFile(
   source: ReadableStream<Uint8Array>,
   options: FileDriverWriteOptionsType,
 ): Promise<number> {
-  const reader = withAbortSignal(source, options.signal, path, "write").getReader();
+  const reader = openBytes(withAbortSignal(source, options.signal, path, "write"));
+  let terminal = false;
+  let primary: readonly unknown[] = [];
   try {
     throwIfAborted(options.signal, "write", path);
     let position = options.mode === "append"
@@ -151,30 +217,40 @@ export async function writeStreamToFile(
     throwIfAborted(options.signal, "write", path);
     while (true) {
       throwIfAborted(options.signal, "write", path);
-      const next = await reader.read();
+      let next: ReadableStreamReadResult<Uint8Array>;
+      try {
+        next = await reader.read();
+      } catch (reason) {
+        terminal = true;
+        throw reason;
+      }
+      if (next.done) terminal = true;
       throwIfAborted(options.signal, "write", path);
       if (next.done) break;
+      if (!isBytes(next.value)) throw new TypeError("A file stream chunk must be a Uint8Array.");
+      const bytes = toView(next.value);
 
       let offset = 0;
-      while (offset < next.value.byteLength) {
+      while (offset < bytes.byteLength) {
         throwIfAborted(options.signal, "write", path);
-        const count = await file.write(next.value.subarray(offset));
+        const count = await file.write(bytes.subarray(offset));
         throwIfAborted(options.signal, "write", path);
         if (count <= 0) throw new Error(`Deno stream write made no progress for '${path}'.`);
         offset += count;
       }
-      position += next.value.byteLength;
+      position += bytes.byteLength;
     }
     return position;
-  } catch (error) {
-    try {
-      await reader.cancel(error);
-    } catch {
-      // Preserve the first write or cancellation failure.
-    }
-    throw error;
+  } catch (reason) {
+    primary = [reason];
+    throw reason;
   } finally {
-    reader.releaseLock();
+    await close([
+      async () => {
+        if (!terminal) await reader.cancel(primary[0]);
+      },
+      () => reader.releaseLock(),
+    ], primary);
   }
 }
 
@@ -205,7 +281,7 @@ class DenoFile implements FileDriverWritableFileType {
 
   /** Writes all bytes at one explicit position, including partial native writes. */
   async write(buffer: ArrayBufferView, options: { readonly at: number }): Promise<void> {
-    const source = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+    const source = toView(buffer);
     const file = this.#getFile();
     await file.seek(options.at, Deno.SeekMode.Start);
     let offset = 0;
@@ -270,7 +346,7 @@ export class DenoSyncFile implements FileDriverSyncFileType {
 
   /** Reads synchronously and advances the wrapper cursor. */
   read(buffer: ArrayBufferView, options: { readonly at?: number } = {}): number {
-    const target = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+    const target = toView(buffer);
     const at = options.at ?? this.#cursor;
     const file = this.#getFile();
     file.seekSync(at, Deno.SeekMode.Start);
@@ -281,7 +357,7 @@ export class DenoSyncFile implements FileDriverSyncFileType {
 
   /** Writes synchronously and advances the wrapper cursor. */
   write(buffer: ArrayBufferView, options: { readonly at?: number } = {}): number {
-    const source = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+    const source = toView(buffer);
     const at = options.at ?? this.#cursor;
     const file = this.#getFile();
     file.seekSync(at, Deno.SeekMode.Start);
@@ -441,6 +517,7 @@ export class DenoBackend implements FileBackendType {
     }
 
     const file = await Deno.open(this.#hostPath(path), { read: true });
+    let primary: readonly unknown[] = [];
     try {
       throwIfAborted(options.signal, "read", path);
       const info = await file.stat();
@@ -461,8 +538,11 @@ export class DenoBackend implements FileBackendType {
         offset += count;
       }
       return offset === output.byteLength ? output : output.slice(0, offset);
+    } catch (reason) {
+      primary = [reason];
+      throw reason;
     } finally {
-      file.close();
+      await close([() => file.close()], primary);
     }
   }
 
@@ -470,6 +550,7 @@ export class DenoBackend implements FileBackendType {
   async openReadStream(path: PathType, options: FileDriverReadOptionsType = {}): Promise<ReadableStream<Uint8Array>> {
     throwIfAborted(options.signal, "read", path);
     const file = await Deno.open(this.#hostPath(path), { read: true });
+    let closing = false;
     try {
       throwIfAborted(options.signal, "read", path);
       if (options.at === undefined && options.length === undefined) {
@@ -485,6 +566,7 @@ export class DenoBackend implements FileBackendType {
       throwIfAborted(options.signal, "read", path);
       if (options.length === undefined) return withAbortSignal(file.readable, options.signal, path);
       if (options.length === 0) {
+        closing = true;
         file.close();
         return new ReadableStream<Uint8Array>({
           start(controller) {
@@ -494,7 +576,9 @@ export class DenoBackend implements FileBackendType {
       }
       return withAbortSignal(new ReadableStream(new DenoRangeSource(file, options.length)), options.signal, path);
     } catch (error) {
-      file.close();
+      await close([() => {
+        if (!closing) file.close();
+      }], [error]);
       throw error;
     }
   }
@@ -503,6 +587,8 @@ export class DenoBackend implements FileBackendType {
   async writeFile(path: PathType, data: Uint8Array, options: FileDriverWriteOptionsType): Promise<void> {
     this.#admit({ operation: "write", path, mode: options.mode, source: "bytes" });
     throwIfAborted(options.signal, "write", path);
+    if (!isBytes(data)) throw new TypeError("A file write must use a Uint8Array.");
+    data = toView(data);
     if (options.mode === "replace") {
       try {
         await Deno.writeFile(this.#hostPath(path), data, {
@@ -518,6 +604,7 @@ export class DenoBackend implements FileBackendType {
     }
 
     const file = await Deno.open(this.#hostPath(path), { read: true, write: true, create: true });
+    let primary: readonly unknown[] = [];
     try {
       throwIfAborted(options.signal, "write", path);
       const position = options.mode === "append" ? (await file.stat()).size : options.at ?? 0;
@@ -534,8 +621,11 @@ export class DenoBackend implements FileBackendType {
       }
       throwIfAborted(options.signal, "write", path);
       if (options.truncate) await file.truncate(position + data.byteLength);
+    } catch (reason) {
+      primary = [reason];
+      throw reason;
     } finally {
-      file.close();
+      await close([() => file.close()], primary);
     }
   }
 
@@ -553,12 +643,16 @@ export class DenoBackend implements FileBackendType {
       create: true,
       truncate: options.mode === "replace",
     });
+    let primary: readonly unknown[] = [];
     try {
       const position = await writeStreamToFile(file, path, source, options);
       throwIfAborted(options.signal, "write", path);
       if (options.truncate) await file.truncate(position);
+    } catch (reason) {
+      primary = [reason];
+      throw reason;
     } finally {
-      file.close();
+      await close([() => file.close()], primary);
     }
   }
 
@@ -618,15 +712,25 @@ export class DenoBackend implements FileBackendType {
     const stage = this.#hostPath(joinPath(dirname(destination), `.opfs-${crypto.randomUUID()}.part`));
     // Reserve before copying; cleanup must never remove an unowned collision.
     const reservation = await Deno.open(stage, { write: true, createNew: true });
+    let consumed = false;
+    let primary: readonly unknown[] = [];
     try {
       reservation.close();
       throwIfAborted(options.signal, "copy", source);
       await Deno.copyFile(from, stage);
       throwIfAborted(options.signal, "copy", source);
-      if (options.overwrite) await Deno.rename(stage, to);
-      else await Deno.link(stage, to);
+      if (options.overwrite) {
+        await Deno.rename(stage, to);
+        consumed = true;
+      } else await Deno.link(stage, to);
+    } catch (reason) {
+      primary = [reason];
+      throw reason;
     } finally {
-      await Deno.remove(stage).catch(() => undefined);
+      // A successful rename consumed this name. Never remove a later entry there.
+      await close([async () => {
+        if (!consumed) await Deno.remove(stage);
+      }], primary);
     }
   }
 
@@ -661,20 +765,30 @@ export class DenoBackend implements FileBackendType {
     await Deno.rename(this.#hostPath(source), this.#hostPath(destination));
   }
 
-  /** Opens one long-lived asynchronous positional Deno file. */
   /** Reserves a private sibling before any fallback can write or clean it up. */
   async reserve(path: PathType, options: FileDriverSignalOptionsType = {}): Promise<void> {
     assertHostPrimitive(this.hostProfile, "reserve", path);
     await this.#parents(path, options);
     throwIfAborted(options.signal, "reserve", path);
     const file = await Deno.open(this.#hostPath(path), { write: true, createNew: true });
-    file.close();
+    try {
+      file.close();
+    } catch (reason) {
+      await close([() => Deno.remove(this.#hostPath(path))], [reason]);
+    }
   }
 
+  /** Opens one long-lived asynchronous positional Deno file. */
   async openWritableFile(path: PathType, options?: WritableOptionsType): Promise<FileDriverWritableFileType> {
     assertHostPrimitive(this.hostProfile, "positionalWrite", path);
     validateWritableOptions(options);
-    return new DenoWritableFile(path, await Deno.open(this.#hostPath(path), { read: true, write: true }), options);
+    const file = await Deno.open(this.#hostPath(path), { read: true, write: true });
+    try {
+      return new DenoWritableFile(path, file, options);
+    } catch (reason) {
+      await close([() => file.close()], [reason]);
+      throw reason;
+    }
   }
 
   /** Opens one synchronous Deno file and transfers ownership to the wrapper. */

@@ -1,8 +1,12 @@
 import { expect } from "@std/expect";
 import { platform } from "node:os";
 
+import { createFileSystem } from "../mod.ts";
+import type { AdapterType } from "../src/adapter/definition.ts";
+import { defineAdapter } from "../src/adapter/definition.ts";
 import type { FileSystemType } from "../src/filesystem.ts";
-import { verifyBytes, verifyPendingAbort } from "./reliability.ts";
+import { withReleases } from "./close.ts";
+import { verifyBytes, verifyPendingAbort, within } from "./reliability.ts";
 
 /** Collects one host-driver stream without routing the assertion through `Response`. */
 async function bytes(source: ReadableStream<Uint8Array>): Promise<Uint8Array> {
@@ -106,4 +110,85 @@ export async function verifyWindowsNames(fileSystem: FileSystemType): Promise<vo
   expect(names).not.toContain("native-invalid.bin");
   await fileSystem.writeFile("/valid-after-invalid.bin", new Uint8Array([4, 5, 6]));
   expect(await fileSystem.readFile("/valid-after-invalid.bin")).toEqual(new Uint8Array([4, 5, 6]));
+}
+
+/**
+ * Holds the initial absence observation while a native writer creates the path.
+ *
+ * The permissioned Deno, Node, and Bun lanes supply a fresh real host adapter.
+ * The second observation must refuse a directory or retain an existing file's
+ * bytes, then release its creation lock. This helper owns and closes the adapter.
+ */
+export async function verifyFileAdmission(
+  native: AdapterType,
+  lockPrefix: string,
+  appeared: "directory" | "file",
+): Promise<void> {
+  await withReleases(async (releases) => {
+    const entered = Promise.withResolvers<void>();
+    const finish = Promise.withResolvers<void>();
+    let targetStats = 0;
+    let writes = 0;
+    const adapter: AdapterType = defineAdapter(
+      new Proxy(native, {
+        get(target, name) {
+          if (name === "stat") {
+            return async (...args: Parameters<AdapterType["stat"]>) => {
+              const result = await target.stat(...args);
+              if (args[0] === "/target" && ++targetStats === 1) {
+                expect(result).toBeNull();
+                entered.resolve();
+                await finish.promise;
+              }
+              return result;
+            };
+          }
+          if (name === "writeFile") {
+            return async (...args: Parameters<AdapterType["writeFile"]>) => {
+              writes++;
+              await target.writeFile(...args);
+            };
+          }
+          const value: unknown = Reflect.get(target, name, target);
+          return typeof value === "function" ? value.bind(target) : value;
+        },
+      }),
+    );
+    const fileSystem = createFileSystem(adapter, { coordination: "local", lockPrefix, disposeAdapter: true });
+    releases.push(() => fileSystem.close());
+    expect(fileSystem.inspect().adapter.native).toEqual(native.capabilities);
+    const pending = fileSystem.getFileHandle("/target", { create: true }).then(
+      (handle) => ({ handle }),
+      (error: unknown) => ({ error }),
+    );
+    releases.push(() => pending);
+    releases.push(() => finish.resolve());
+    await within(entered.promise, "initial absent native file stat");
+    const bytes = new Uint8Array([7, 8, 9]);
+    if (appeared === "directory") await native.createDir("/target");
+    else await native.writeFile("/target", bytes, { mode: "replace" });
+    finish.resolve();
+    const outcome = await within(pending, "locked file-kind recheck");
+    expect(targetStats).toBe(2);
+    expect(writes).toBe(0);
+    if (appeared === "directory") {
+      expect("error" in outcome).toBe(true);
+      if (!("error" in outcome)) throw new Error("Expected directory admission refusal.");
+      expect(outcome.error).toMatchObject({ code: "type-mismatch", operation: "get-file", path: "/target" });
+      expect(await native.stat("/target")).toMatchObject({ kind: "directory" });
+      await native.remove("/target");
+      const retry = await within(fileSystem.getFileHandle("/target", { create: true }), "released creation lock");
+      expect(retry.kind).toBe("file");
+      expect(writes).toBe(1);
+      expect(await native.readFile("/target")).toEqual(new Uint8Array());
+    } else {
+      expect("handle" in outcome).toBe(true);
+      if (!("handle" in outcome)) throw outcome.error;
+      expect(outcome.handle.kind).toBe("file");
+      expect(await native.readFile("/target")).toEqual(bytes);
+      await within(fileSystem.writeFile("/target", new Uint8Array([4])), "released existing-file lock");
+      expect(writes).toBe(1);
+      expect(await native.readFile("/target")).toEqual(new Uint8Array([4]));
+    }
+  });
 }

@@ -11,7 +11,10 @@ import type {
 } from "./file.ts";
 import { FileSystemError, throwIfAborted, toFileSystemError } from "../error.ts";
 import { basename, dirname, type PathType, ROOT_PATH, splitPath } from "../path.ts";
-import { toByteStream, withAbortSignal } from "../stream.ts";
+import { openBytes, toByteStream, withAbortSignal } from "../stream.ts";
+import { close } from "../close.ts";
+import { isBytes, toRequestBytes } from "../bytes.ts";
+import { QueuedWritableFile, validateWritableOptions, type WritableOptionsType } from "./writable.ts";
 
 /**
  * Staged writable operations used by the OPFS driver.
@@ -141,14 +144,12 @@ function getStream(file: File, options: FileDriverReadOptionsType): ReadableStre
  *
  * Portable streams can carry views backed by `SharedArrayBuffer`, while the File
  * System API's `BufferSource` deliberately accepts only `ArrayBuffer`-backed
- * views. Reusing an ArrayBuffer-backed chunk avoids a copy. Shared backing is
- * copied once before the value reaches the native writable stream.
+ * views. Intrinsic range admission ignores caller metadata and methods. Fixed
+ * ordinary backing avoids a byte copy; shared or resizable backing is copied
+ * once before the value reaches the native writable stream.
  */
-function toOpfsWriteBytes(value: Uint8Array<ArrayBufferLike>): Uint8Array<ArrayBuffer> {
-  if (value.buffer instanceof ArrayBuffer) {
-    return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
-  }
-  return Uint8Array.from(value);
+function toOpfsWriteBytes(value: ArrayBufferView): Uint8Array<ArrayBuffer> {
+  return toRequestBytes(value);
 }
 
 /**
@@ -196,47 +197,57 @@ async function writeToNative(
   const writable = await handle.createWritable({ keepExistingData: options.mode !== "replace" });
   let cursor = 0;
   try {
+    throwIfAborted(options.signal, "write", path);
     if (options.mode === "append") {
       cursor = (await handle.getFile()).size;
+      throwIfAborted(options.signal, "write", path);
       await writable.seek(cursor);
     } else if (options.mode === "update") {
       cursor = options.at ?? 0;
       await writable.seek(cursor);
     }
+    throwIfAborted(options.signal, "write", path);
 
-    const reader = withAbortSignal(source, options.signal, path, "write").getReader();
+    const reader = openBytes(withAbortSignal(source, options.signal, path, "write"));
+    let terminal = false;
+    let primary: readonly unknown[] = [];
     try {
       while (true) {
         throwIfAborted(options.signal, "write", path);
-        const next = await reader.read();
+        let next: ReadableStreamReadResult<Uint8Array>;
+        try {
+          next = await reader.read();
+        } catch (reason) {
+          terminal = true;
+          throw reason;
+        }
+        if (next.done) terminal = true;
         throwIfAborted(options.signal, "write", path);
         if (next.done) break;
-        await writable.write(toOpfsWriteBytes(next.value));
-        cursor += next.value.byteLength;
+        if (!isBytes(next.value)) throw new TypeError("An OPFS stream chunk must be a Uint8Array.");
+        const bytes = toOpfsWriteBytes(next.value);
+        const size = bytes.byteLength;
+        await writable.write(bytes);
+        cursor += size;
       }
-    } catch (error) {
-      try {
-        await reader.cancel(error);
-      } catch {
-        // Preserve the first write or cancellation failure.
-      }
-      throw error;
+    } catch (reason) {
+      primary = [reason];
+      throw reason;
     } finally {
-      reader.releaseLock();
+      await close([
+        async () => {
+          if (!terminal) await reader.cancel(primary[0]);
+        },
+        () => reader.releaseLock(),
+      ], primary);
     }
 
     if (options.truncate) await writable.truncate(cursor);
-    // EOF and truncate both await caller-controlled work. Cancellation that
-    // arrives there must discard staging before the browser publishes it.
+    // The source's owner retires before browser publication is admitted.
     throwIfAborted(options.signal, "write", path);
     await writable.close();
-  } catch (error) {
-    try {
-      await writable.abort(error);
-    } catch {
-      // The first write failure is more useful if abort also fails.
-    }
-    throw error;
+  } catch (reason) {
+    await close([() => writable.abort(reason)], [reason]);
   }
 }
 
@@ -273,8 +284,7 @@ class OpfsWritableFile implements FileDriverWritableFileType {
 
   /** Writes one byte view at its explicit file position. */
   async write(buffer: ArrayBufferView, options: { readonly at: number }): Promise<void> {
-    const view = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
-    await this.#getWritable().write({ type: "write", position: options.at, data: toOpfsWriteBytes(view) });
+    await this.#getWritable().write({ type: "write", position: options.at, data: toOpfsWriteBytes(buffer) });
   }
 
   /** Changes the staged file size. */
@@ -359,6 +369,8 @@ class OpfsBackend<RootType extends OpfsDirectoryHandleType> implements FileBacke
   /** Writes one materialized buffer through OPFS commit-on-close staging. */
   async writeFile(path: PathType, data: Uint8Array, options: FileDriverWriteOptionsType): Promise<void> {
     throwIfAborted(options.signal, "write", path);
+    if (!isBytes(data)) throw new TypeError("A file write must use a Uint8Array.");
+    data = toOpfsWriteBytes(data);
     await writeToNative(await getFile(this.#root, path, true), toByteStream(data), options, path);
   }
 
@@ -400,10 +412,16 @@ class OpfsBackend<RootType extends OpfsDirectoryHandleType> implements FileBacke
   }
 
   /** Opens one staged positional writable and transfers its lifetime to the wrapper. */
-  async openWritableFile(path: PathType): Promise<FileDriverWritableFileType> {
+  async openWritableFile(path: PathType, options?: WritableOptionsType): Promise<FileDriverWritableFileType> {
+    validateWritableOptions(options);
     const handle = await getFile(this.#root, path, true);
     const writable = await handle.createWritable({ keepExistingData: true });
-    return new OpfsWritableFile(path, writable);
+    try {
+      return new QueuedWritableFile(new OpfsWritableFile(path, writable), options);
+    } catch (reason) {
+      await close([() => writable.abort(reason)], [reason]);
+      throw reason;
+    }
   }
 
   /** Opens worker-only synchronous access when the native handle exposes it. */

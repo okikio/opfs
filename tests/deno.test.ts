@@ -4,7 +4,7 @@ import { platform } from "node:os";
 
 import { createFileSystem } from "../mod.ts";
 import { createDenoAdapter } from "../src/adapter/deno.ts";
-import { verifyHost, verifyWindowsNames } from "./host.ts";
+import { verifyFileAdmission, verifyHost, verifyWindowsNames } from "./host.ts";
 import { verifySync } from "./reliability.ts";
 import { withReleases } from "./close.ts";
 
@@ -21,6 +21,15 @@ describe("Deno adapter", () => {
         await verifyWindowsNames(fileSystem);
       }),
   );
+
+  for (const appeared of ["directory", "file"] as const) {
+    it(`classifies a native ${appeared} that appears after the initial absence`, async () =>
+      await withReleases(async (releases) => {
+        const root = await Deno.makeTempDir({ prefix: "okikio-opfs-admission-" });
+        releases.push(() => Deno.remove(root, { recursive: true }));
+        await verifyFileAdmission(createDenoAdapter({ root }), root, appeared);
+      }));
+  }
 
   it("preserves host range, directory removal, and overwrite semantics", async () =>
     await withReleases(async (releases) => {

@@ -486,3 +486,37 @@ publication guarantee. Node and Deno complete reads/replacements use their nativ
 reads/replacements delegate to the Node-compatible lane. Calls without a signal retain the ordinary Bun and native
 append fast paths. [Node filesystem cancellation](https://nodejs.org/api/fs.html#fspromiseswritefilefile-data-options)
 and [Deno filesystem APIs](https://docs.deno.com/api/deno/file-system/) describe their native boundaries.
+
+## Native retirement failures
+
+Node, Deno and browser OPFS writes await the resources they acquire. An ordinary operation failure remains the exact
+reason when cleanup succeeds, including a thrown `undefined` or `null`. If producer cancellation, reader lock release,
+file close or OPFS staged abort also fails, an `AggregateError` retains those independent events in ownership order.
+Nested ownership scopes can retain nested aggregates. A repeated reason value does not remove a separate failure. Actual
+reader EOF or read error releases its lock without cancelling the already-terminal native stream again.
+
+Streaming file writes require genuine `Uint8Array` chunks. Buffer instances, byte-array subclasses and offset views are
+accepted. A string, `DataView` or object that only imitates byte-array properties is rejected. Host stream replacement
+can already have truncated a file before it reads an invalid chunk; host writes do not acquire OPFS rollback semantics.
+OPFS staging instead aborts on invalid input or failed reader retirement before publication.
+
+Native host copy owns an exclusively reserved sibling. Successful rename consumes that sibling name, so cleanup never
+unlinks a new entry subsequently created there. No-replace link publication leaves the owned sibling to remove. If that
+removal fails, the copy rejects even though destination bytes can already be visible. These are cooperating-owner host
+semantics, not protection against hostile concurrent path swaps. OPFS close failure likewise reports the native failure;
+the library cannot infer browser publication from a failed close or grant durability beyond the browser contract.
+
+OPFS positional resources now use the same bounded operation queue as Node and Deno. The first close or abort stops new
+admission, waits for accepted work, invokes its winning native action once and shares that action's actual terminal
+promise with repeated calls. Failure settles the queue but does not prove physical retirement succeeded. This queue owns
+one writable resource; application staging, publication and path coordination remain their own authorities.
+
+Deno finite-range cancellation closes its descriptor and then joins the one already-admitted native read before
+settling. Bytes or errors arriving from that read are never sent into the canceled stream. An actual read rejection
+caused by retirement remains a cancellation failure, alongside any independent close failure; the driver does not
+discard it by native error class or matching reason. A successfully closed descriptor alone does not certify that the
+read settled.
+
+For the Deno KV adapter, source, read-pin, and unpublished-generation retirement failures remain alongside the operation
+failure. Only an actually missing state record, with both value and version absent, permits idempotent cleanup. Database
+failures and invalid stored state still reject. Repeated read-pin release joins one physical retirement result.
