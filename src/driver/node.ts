@@ -57,7 +57,11 @@ export interface NodeDriverOptionsType {
   readonly profile?: HostProfileInputType;
 }
 
-/** Opens one update-mode file, creating it only when the path was absent. */
+/**
+ * Acquires one mutable descriptor without truncating a raced-in file.
+ * An absent path permits exclusive creation. A collision reopens that entry
+ * once for update; another disappearance or native fault rejects admission.
+ */
 export async function openUpdateFile(
   fs: NodeFsPromisesType,
   path: string,
@@ -67,9 +71,15 @@ export async function openUpdateFile(
   try {
     return await fs.open(path, "r+");
   } catch (error) {
-    throwIfAborted(signal, "write", virtualPath);
     if (toFileSystemError(error, "write", virtualPath).code !== "not-found") throw error;
-    return await fs.open(path, "w+");
+    throwIfAborted(signal, "write", virtualPath);
+    try {
+      return await fs.open(path, "wx+");
+    } catch (error) {
+      if (toFileSystemError(error, "write", virtualPath).code !== "already-exists") throw error;
+      throwIfAborted(signal, "write", virtualPath);
+      return await fs.open(path, "r+");
+    }
   }
 }
 
@@ -80,6 +90,9 @@ export async function openUpdateFile(
  * explicit cursor until every chunk is committed. If writing fails, the source
  * producer is cancelled before the file closes so upstream work does not keep
  * producing bytes for a terminal operation.
+ * Append with truncation needs a mutable descriptor: EOF is captured once and
+ * both positioned writes and the final truncation use that acquired file.
+ * This route needs cooperating writers; ordinary append keeps native append.
  */
 export async function writeStreamToFile(
   fs: NodeFsPromisesType,
@@ -92,7 +105,7 @@ export async function writeStreamToFile(
   let file: NodeFileHandle | undefined;
   let primary: readonly unknown[] = [];
   try {
-    file = options.mode === "update"
+    file = options.mode === "update" || (options.mode === "append" && options.truncate)
       ? await openUpdateFile(fs, hostPath, virtualPath, options.signal)
       : await fs.open(hostPath, options.mode === "replace" ? "w+" : "a+");
 
@@ -499,7 +512,7 @@ export class NodeBackend implements FileBackendType {
       }
     }
     if (options.mode === "append") {
-      if (options.signal === undefined) await this.#fsp.appendFile(target, data);
+      if (options.signal === undefined && !options.truncate) await this.#fsp.appendFile(target, data);
       else {
         const source = new ReadableStream<Uint8Array>({
           start(controller) {

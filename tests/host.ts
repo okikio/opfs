@@ -47,6 +47,36 @@ export async function verifyHost(fileSystem: FileSystemType): Promise<void> {
   // URL-sensitive fixture rather than inheriting this host-only constraint.
   await verifyBytes(fileSystem, "/bytes", platform() === "win32" ? "世界 %#.bin" : "世界 %?#.bin");
   await verifyPendingAbort(fileSystem);
+  // Append with a final truncate needs mutable-file rights, including empty
+  // input. These actual host cases exercise native and signal-aware routes.
+  for (const existing of [false, true]) {
+    for (const source of ["bytes", "stream"] as const) {
+      for (const empty of [false, true]) {
+        for (const signalled of [false, true]) {
+          const path = `/append-${existing}-${source}-${empty}-${signalled}.bin`;
+          if (existing) await fileSystem.writeFile(path, new Uint8Array([1, 2]));
+          const data = empty ? new Uint8Array(0) : new Uint8Array([3, 4, 5]);
+          const input = source === "bytes" ? data : new ReadableStream<Uint8Array>({
+            start(controller) {
+              if (!empty) {
+                controller.enqueue(data.subarray(0, 2));
+                controller.enqueue(data.subarray(2));
+              }
+              controller.close();
+            },
+          });
+          await fileSystem.writeFile(path, input, {
+            mode: "append",
+            at: 99,
+            truncate: true,
+            ...(signalled ? { signal: new AbortController().signal } : {}),
+          });
+          expect([...await fileSystem.readFile(path)]).toEqual([...(existing ? [1, 2] : []), ...data]);
+          if (input instanceof ReadableStream) expect(input.locked).toBe(false);
+        }
+      }
+    }
+  }
   const rangeSource = Uint8Array.from({ length: 160 * 1024 }, (_, index) => index % 251);
   await fileSystem.writeFile("/range.bin", rangeSource);
   const range = await bytes(await fileSystem.openReadStream("/range.bin", { at: 7, length: 128 * 1024 + 13 }));
