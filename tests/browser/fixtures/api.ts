@@ -59,6 +59,48 @@ export interface BenchmarkResultType {
   };
 }
 
+/** Inputs for actual iframe-realm bodies sent through the parent provider clients. */
+export interface ProviderBodyOptionsType {
+  /** REST provider whose transmission boundary owns the body. */
+  readonly provider: "s3" | "azure";
+  /** Direct request versus the public upload planner. */
+  readonly route: "request" | "put";
+  /** Genuine foreign-realm bytes or native stream. */
+  readonly body: "bytes" | "stream";
+  /** Empty input versus an offset view with two payload bytes. */
+  readonly empty: boolean;
+  /** Enables S3 delayed multipart or Azure staged block upload for public put. */
+  readonly mode: boolean;
+  /** Provides the Shared Key stream length for a direct Azure request. */
+  readonly length: boolean;
+}
+
+/** Browser-observed transmission and ownership, without network or provider claims. */
+export interface ProviderBodyResultType {
+  /** Parent instanceof fails for the genuine iframe object. */
+  readonly foreign: boolean;
+  /** Parent native locked getter accepted the iframe stream and found it unlocked. */
+  readonly intrinsicUnlocked: boolean;
+  /** Each parent-native Request's protocol stage and consumed body. */
+  readonly requests: readonly {
+    readonly stage: string;
+    readonly bytes: readonly number[];
+    readonly duplex: boolean;
+    /** Prepared Content-Length before the browser Request header guard. */
+    readonly length: string | null;
+  }[];
+  /** Direct request response status. */
+  readonly status?: number;
+  /** Acknowledged public put size. */
+  readonly size?: number;
+  /** Error class at an intentionally refused admission boundary. */
+  readonly error?: string;
+  /** Input lock state after settlement; dispatched raw requests transfer ownership to Fetch. */
+  readonly locked: boolean;
+  /** Producer cancellations, separate from ordinary EOF. */
+  readonly cancellations: number;
+}
+
 /** Browser fixture API consumed by Playwright from the containing page. */
 export interface BrowserTestApiType {
   /** Signals that module initialization completed and Playwright can call the fixture. */
@@ -87,6 +129,8 @@ export interface BrowserTestApiType {
   adapter(kind: BrowserAdapterType): Promise<string>;
   /** Races two independent IndexedDB filesystem owners through atomic append transactions. */
   indexedDbAppend(): Promise<string>;
+  /** Exercises real iframe-realm provider bodies through parent-native Request consumption. */
+  providerBody(options: ProviderBodyOptionsType): Promise<ProviderBodyResultType>;
 }
 
 /**

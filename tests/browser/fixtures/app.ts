@@ -345,6 +345,7 @@ const opfsTest = {
     await (await import("../../../bench/browser/fixture.ts")).benchmarkAdapter(kind, iterations, bytes),
   adapter: roundTripAdapter,
   indexedDbAppend,
+  providerBody: async (options) => await (await import("./provider.ts")).providerBody(options),
 } satisfies BrowserTestApiType;
 
 Object.assign(window, { opfsTest });
