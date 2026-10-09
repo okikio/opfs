@@ -29,7 +29,9 @@ import type {
 import { createLocalPath } from "./local.ts";
 import { FileSystemError, throwIfAborted, toFileSystemError } from "../error.ts";
 import { dirname, joinPath, type PathType } from "../path.ts";
-import { withAbortSignal } from "../stream.ts";
+import { openBytes, withAbortSignal } from "../stream.ts";
+import { close } from "../close.ts";
+import { isBytes, toView } from "../bytes.ts";
 
 /** Node built-in filesystem module shape used through `process.getBuiltinModule()`. */
 export type NodeFsType = typeof import("node:fs");
@@ -88,13 +90,16 @@ export async function writeStreamToFile(
 ): Promise<void> {
   throwIfAborted(options.signal, "write", virtualPath);
   let file: NodeFileHandle | undefined;
+  let primary: readonly unknown[] = [];
   try {
     file = options.mode === "update"
       ? await openUpdateFile(fs, hostPath, virtualPath, options.signal)
       : await fs.open(hostPath, options.mode === "replace" ? "w+" : "a+");
 
-    const reader = withAbortSignal(source, options.signal, virtualPath, "write").getReader();
+    const reader = openBytes(withAbortSignal(source, options.signal, virtualPath, "write"));
     let position = 0;
+    let terminal = false;
+    let inputFailure: readonly unknown[] = [];
     try {
       throwIfAborted(options.signal, "write", virtualPath);
       position = options.mode === "replace"
@@ -105,35 +110,48 @@ export async function writeStreamToFile(
       throwIfAborted(options.signal, "write", virtualPath);
       while (true) {
         throwIfAborted(options.signal, "write", virtualPath);
-        const next = await reader.read();
+        let next: ReadableStreamReadResult<Uint8Array>;
+        try {
+          next = await reader.read();
+        } catch (reason) {
+          terminal = true;
+          throw reason;
+        }
+        if (next.done) terminal = true;
         throwIfAborted(options.signal, "write", virtualPath);
         if (next.done) break;
+        if (!isBytes(next.value)) throw new TypeError("A file stream chunk must be a Uint8Array.");
+        const bytes = toView(next.value);
 
         let offset = 0;
-        while (offset < next.value.byteLength) {
+        while (offset < bytes.byteLength) {
           throwIfAborted(options.signal, "write", virtualPath);
-          const result = await file.write(next.value, offset, next.value.byteLength - offset, position);
+          const result = await file.write(bytes, offset, bytes.byteLength - offset, position);
           throwIfAborted(options.signal, "write", virtualPath);
           if (result.bytesWritten <= 0) throw new Error(`Node write made no progress for '${virtualPath}'.`);
           offset += result.bytesWritten;
           position += result.bytesWritten;
         }
       }
-    } catch (error) {
-      try {
-        await reader.cancel(error);
-      } catch {
-        // The original write/cancellation failure is the useful terminal cause.
-      }
-      throw error;
+    } catch (reason) {
+      inputFailure = [reason];
+      throw reason;
     } finally {
-      reader.releaseLock();
+      await close([
+        async () => {
+          if (!terminal) await reader.cancel(inputFailure[0]);
+        },
+        () => reader.releaseLock(),
+      ], inputFailure);
     }
 
     throwIfAborted(options.signal, "write", virtualPath);
     if (options.truncate) await file.truncate(position);
+  } catch (reason) {
+    primary = [reason];
+    throw reason;
   } finally {
-    await file?.close();
+    await close([() => file?.close()], primary);
   }
 }
 
@@ -164,7 +182,7 @@ class NodeFile implements FileDriverWritableFileType {
 
   /** Writes every source byte at one explicit position, including partial native writes. */
   async write(buffer: ArrayBufferView, options: { readonly at: number }): Promise<void> {
-    const source = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+    const source = toView(buffer);
     let offset = 0;
     while (offset < source.byteLength) {
       const result = await this.#getFile().write(source, offset, source.byteLength - offset, options.at + offset);
@@ -236,7 +254,7 @@ export class NodeSyncFile implements FileDriverSyncFileType {
 
   /** Reads synchronously into the caller buffer and advances the local cursor. */
   read(buffer: ArrayBufferView, options: { readonly at?: number } = {}): number {
-    const target = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+    const target = toView(buffer);
     const position = options.at ?? this.#cursor;
     const count = this.#fs.readSync(this.#getDescriptor(), target, 0, target.byteLength, position);
     this.#cursor = Math.min(position + count, this.getSize());
@@ -245,7 +263,7 @@ export class NodeSyncFile implements FileDriverSyncFileType {
 
   /** Writes synchronously and advances the local cursor by native progress. */
   write(buffer: ArrayBufferView, options: { readonly at?: number } = {}): number {
-    const source = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+    const source = toView(buffer);
     const position = options.at ?? this.#cursor;
     const count = this.#fs.writeSync(this.#getDescriptor(), source, 0, source.byteLength, position);
     this.#cursor = position + count;
@@ -410,6 +428,7 @@ export class NodeBackend implements FileBackendType {
     }
 
     const file = await this.#fsp.open(this.#hostPath(path), "r");
+    let primary: readonly unknown[] = [];
     try {
       throwIfAborted(options.signal, "read", path);
       const info = await file.stat();
@@ -427,8 +446,11 @@ export class NodeBackend implements FileBackendType {
         offset += result.bytesRead;
       }
       return offset === output.byteLength ? output : output.slice(0, offset);
+    } catch (reason) {
+      primary = [reason];
+      throw reason;
     } finally {
-      await file.close();
+      await close([() => file.close()], primary);
     }
   }
 
@@ -463,6 +485,8 @@ export class NodeBackend implements FileBackendType {
   async writeFile(path: PathType, data: Uint8Array, options: FileDriverWriteOptionsType): Promise<void> {
     this.#admit({ operation: "write", path, mode: options.mode, source: "bytes" });
     throwIfAborted(options.signal, "write", path);
+    if (!isBytes(data)) throw new TypeError("A file write must use a Uint8Array.");
+    data = toView(data);
     const target = this.#hostPath(path);
     if (options.mode === "replace") {
       try {
@@ -489,6 +513,7 @@ export class NodeBackend implements FileBackendType {
     }
 
     const file = await openUpdateFile(this.#fsp, target, path, options.signal);
+    let primary: readonly unknown[] = [];
     try {
       throwIfAborted(options.signal, "write", path);
       const position = options.at ?? 0;
@@ -502,8 +527,11 @@ export class NodeBackend implements FileBackendType {
       }
       throwIfAborted(options.signal, "write", path);
       if (options.truncate) await file.truncate(position + data.byteLength);
+    } catch (reason) {
+      primary = [reason];
+      throw reason;
     } finally {
-      await file.close();
+      await close([() => file.close()], primary);
     }
   }
 
@@ -586,15 +614,25 @@ export class NodeBackend implements FileBackendType {
     const stage = this.#hostPath(joinPath(dirname(destination), `.opfs-${crypto.randomUUID()}.part`));
     // Reserve before copying; cleanup must never remove an unowned collision.
     const reservation = await this.#fsp.open(stage, "wx");
+    let consumed = false;
+    let primary: readonly unknown[] = [];
     try {
       await reservation.close();
       throwIfAborted(options.signal, "copy", source);
       await this.#fsp.copyFile(from, stage);
       throwIfAborted(options.signal, "copy", source);
-      if (options.overwrite) await this.#fsp.rename(stage, to);
-      else await this.#fsp.link(stage, to);
+      if (options.overwrite) {
+        await this.#fsp.rename(stage, to);
+        consumed = true;
+      } else await this.#fsp.link(stage, to);
+    } catch (reason) {
+      primary = [reason];
+      throw reason;
     } finally {
-      await this.#fsp.unlink(stage).catch(() => undefined);
+      // A successful rename consumed this name. Never unlink a later entry there.
+      await close([async () => {
+        if (!consumed) await this.#fsp.unlink(stage);
+      }], primary);
     }
   }
 
@@ -635,14 +673,25 @@ export class NodeBackend implements FileBackendType {
     await this.#parents(path, options);
     throwIfAborted(options.signal, "reserve", path);
     const file = await this.#fsp.open(this.#hostPath(path), "wx");
-    await file.close();
+    try {
+      await file.close();
+    } catch (reason) {
+      // The reservation was acquired, even though descriptor retirement failed.
+      await close([() => this.#fsp.unlink(this.#hostPath(path))], [reason]);
+    }
   }
 
   /** Opens one long-lived asynchronous positional file descriptor. */
   async openWritableFile(path: PathType, options?: WritableOptionsType): Promise<FileDriverWritableFileType> {
     assertHostPrimitive(this.hostProfile, "positionalWrite", path);
     validateWritableOptions(options);
-    return new NodeWritableFile(path, await this.#fsp.open(this.#hostPath(path), "r+"), options);
+    const file = await this.#fsp.open(this.#hostPath(path), "r+");
+    try {
+      return new NodeWritableFile(path, file, options);
+    } catch (reason) {
+      await close([() => file.close()], [reason]);
+      throw reason;
+    }
   }
 
   /** Opens one synchronous random-access descriptor and transfers ownership to the wrapper. */
@@ -662,7 +711,12 @@ export class NodeBackend implements FileBackendType {
  *
  * @example Use OPFS-shaped handles over a host directory.
  * ```ts
+ * import { createFileSystem } from "@okikio/opfs";
+ * import { createFileAdapter } from "@okikio/opfs/adapter/file";
+ * import { createNodeDriver } from "@okikio/opfs/driver/node";
+ *
  * const driver = createNodeDriver({ root: "./data" });
+ * await using fs = createFileSystem(createFileAdapter(driver));
  * await fs.writeFile("/state.json", "{}", { parents: true });
  * ```
  */

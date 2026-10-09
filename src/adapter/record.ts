@@ -9,7 +9,9 @@ import type {
   FileDriverStatType,
   FileDriverWriteOptionsType,
 } from "../driver/file.ts";
-import { FileSystemError, throwIfAborted } from "../error.ts";
+import { FileSystemError, throwIfAborted, toFileSystemError } from "../error.ts";
+import { close } from "../close.ts";
+import { retire } from "../stream.ts";
 import { basename, dirname, type PathType, ROOT_PATH } from "../path.ts";
 import { type AdapterLimitsType, type AdapterPartitionType, RecordSchema } from "../schema.ts";
 
@@ -221,15 +223,26 @@ class RecordAdapter implements AdapterType {
     source: ReadableStream<Uint8Array>,
     options: FileDriverWriteOptionsType,
   ): Promise<void> {
-    assertWritable(this.#readOnly, "write", path);
-    if (!this.capabilities.streamWriteModes.includes(options.mode) || this.driver.writeStream === undefined) {
-      await source.cancel().catch(() => undefined);
-      throw new FileSystemError(
-        "not-supported",
-        "write",
-        path,
-        `Record driver '${this.driver.name}' does not expose streaming ${options.mode} writes.`,
-      );
+    try {
+      assertWritable(this.#readOnly, "write", path);
+      throwIfAborted(options.signal, "write", path);
+      if (!this.capabilities.streamWriteModes.includes(options.mode) || this.driver.writeStream === undefined) {
+        throw new FileSystemError(
+          "not-supported",
+          "write",
+          path,
+          `Record driver '${this.driver.name}' does not expose streaming ${options.mode} writes.`,
+        );
+      }
+    } catch (error) {
+      // Rejected admission still owns the input supplied to this write. Wait
+      // for its cancellation, retaining an independent producer cleanup fault.
+      try {
+        await close([() => retire(source, error)], [error]);
+      } catch (reason) {
+        throw toFileSystemError(reason, "write", path);
+      }
+      throw error;
     }
     await this.driver.writeStream(path, source, options);
   }
