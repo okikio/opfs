@@ -1,9 +1,11 @@
 import { createBunDriver } from "../src/driver/bun.ts";
 import { HOST_PROFILES } from "../src/driver/host.ts";
+import type { FileHandle as NodeFileHandle } from "node:fs/promises";
 import {
   mkdtemp,
   readdir,
   readFile as nativeReadFile,
+  rename as nativeRename,
   rm,
   stat,
   symlink,
@@ -205,6 +207,182 @@ describe("intrinsic native byte ranges", () => {
           expect(input.locked).toBe(false);
           expect([...await nativeReadFile(join(root, "file"))]).toEqual([1, 2, 3]);
         }
+      }));
+  }
+});
+
+describe("mutable append descriptor ownership", () => {
+  for (const source of ["bytes", "stream"] as const) {
+    it(`Node ${source} append and truncate pins partial writes to one mutable file`, async () =>
+      await withReleases(async (releases) => {
+        const root = await mkdtemp(join(tmpdir(), "opfs-append-pin-"));
+        releases.push(() => rm(root, { recursive: true, force: true }));
+        const driver = createNodeDriver({ root });
+        const path = join(root, "file"), pinned = join(root, "pinned");
+        await nativeWriteFile(path, new Uint8Array([1, 2]));
+        const api = process.getBuiltinModule("node:fs/promises");
+        if (api === undefined) throw new Error("Native filesystem API is unavailable.");
+        const open = api.open;
+        let opens = 0, closes = 0, stats = 0, swapped = false;
+        const positions: number[] = [], truncations: number[] = [];
+        replaceNative(releases, api, "open", async (...args) => {
+          const file: NodeFileHandle = await Reflect.apply(open, api, args);
+          opens++;
+          let retired = false;
+          releases.push(async () => {
+            if (!retired) await file.close();
+          });
+          return new Proxy(file, {
+            get(target, key) {
+              if (key === "stat") {
+                return async () => {
+                  stats++;
+                  return await target.stat();
+                };
+              }
+              if (key === "write") {
+                return async (bytes: Uint8Array, offset: number, length: number, at: number) => {
+                  positions.push(at);
+                  const result = await target.write(bytes, offset, Math.min(length, 1), at);
+                  if (!swapped) {
+                    swapped = true;
+                    await nativeRename(path, pinned);
+                    await nativeWriteFile(path, new Uint8Array([8, 8, 8, 8]));
+                  }
+                  return result;
+                };
+              }
+              if (key === "truncate") {
+                return async (size: number) => {
+                  truncations.push(size);
+                  await target.truncate(size);
+                };
+              }
+              if (key === "close") {
+                return async () => {
+                  closes++;
+                  await target.close();
+                  retired = true;
+                };
+              }
+              const value = Reflect.get(target, key);
+              return typeof value === "function" ? value.bind(target) : value;
+            },
+          });
+        });
+        if (source === "bytes") {
+          await driver.writeFile("/file", new Uint8Array([3, 4, 5]), { mode: "append", at: 99, truncate: true });
+        } else {
+          const input = new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.enqueue(new Uint8Array([3, 4]));
+              controller.enqueue(new Uint8Array([5]));
+              controller.close();
+            },
+          });
+          await driver.writeStream!("/file", input, { mode: "append", at: 99, truncate: true });
+          expect(input.locked).toBe(false);
+        }
+        expect({ opens, closes, stats }).toEqual({ opens: 1, closes: 1, stats: 1 });
+        expect(positions).toEqual([2, 3, 4]);
+        expect(truncations).toEqual([5]);
+        expect([...await nativeReadFile(pinned)]).toEqual([1, 2, 3, 4, 5]);
+        expect([...await nativeReadFile(path)]).toEqual([8, 8, 8, 8]);
+      }));
+  }
+
+  for (const mode of ["append", "update"] as const) {
+    it(`Node ${mode} retains a file that appears during mutable acquisition`, async () =>
+      await withReleases(async (releases) => {
+        const root = await mkdtemp(join(tmpdir(), "opfs-mutable-create-"));
+        releases.push(() => rm(root, { recursive: true, force: true }));
+        const driver = createNodeDriver({ root });
+        const path = join(root, "file");
+        const api = process.getBuiltinModule("node:fs/promises");
+        if (api === undefined) throw new Error("Native filesystem API is unavailable.");
+        const open = api.open;
+        let appeared = false;
+        replaceNative(releases, api, "open", async (...args) => {
+          try {
+            return await Reflect.apply(open, api, args);
+          } catch (reason) {
+            if (!appeared && toFileSystemError(reason, "write", "/file").code === "not-found") {
+              await nativeWriteFile(path, new Uint8Array([1, 2, 3, 4]));
+              appeared = true;
+            }
+            throw reason;
+          }
+        });
+        await driver.writeFile("/file", new Uint8Array([9]), { mode, at: 1, truncate: mode === "append" });
+        expect(appeared).toBe(true);
+        expect([...await nativeReadFile(path)]).toEqual(mode === "append" ? [1, 2, 3, 4, 9] : [1, 9, 3, 4]);
+      }));
+  }
+
+  for (const stage of ["stat", "write", "truncate"] as const) {
+    it(`Node append and truncate retains its ${stage} failure beside descriptor close`, async () =>
+      await withReleases(async (releases) => {
+        const root = await mkdtemp(join(tmpdir(), "opfs-append-retirement-"));
+        releases.push(() => rm(root, { recursive: true, force: true }));
+        const driver = createNodeDriver({ root });
+        const path = join(root, "file");
+        await nativeWriteFile(path, new Uint8Array([1, 2]));
+        const api = process.getBuiltinModule("node:fs/promises");
+        if (api === undefined) throw new Error("Native filesystem API is unavailable.");
+        const open = api.open;
+        const primary = new Error("Authored mutable append failure.");
+        const retirement = new Error("Authored mutable descriptor close failure.");
+        let closes = 0, cancellations = 0;
+        replaceNative(releases, api, "open", async (...args) => {
+          const file: NodeFileHandle = await Reflect.apply(open, api, args);
+          let retired = false;
+          releases.push(async () => {
+            if (!retired) await file.close();
+          });
+          return new Proxy(file, {
+            get(target, key) {
+              if (key === stage) {
+                return () => {
+                  throw primary;
+                };
+              }
+              if (key === "close") {
+                return async () => {
+                  closes++;
+                  await target.close();
+                  retired = true;
+                  throw retirement;
+                };
+              }
+              const value = Reflect.get(target, key);
+              return typeof value === "function" ? value.bind(target) : value;
+            },
+          });
+        });
+        let sent = false;
+        const input = new ReadableStream<Uint8Array>({
+          pull(controller) {
+            if (sent) controller.close();
+            else {
+              sent = true;
+              controller.enqueue(new Uint8Array([3, 4]));
+            }
+          },
+          cancel() {
+            cancellations++;
+          },
+        }, { highWaterMark: 0 });
+        const failure = await failureOf(driver.writeStream!("/file", input, { mode: "append", truncate: true }));
+        expect(failure).toBeInstanceOf(AggregateError);
+        if (!(failure instanceof AggregateError)) throw new Error("Expected both acquired-owner failures.");
+        expect(failure.errors).toHaveLength(2);
+        expect(failure.errors[0]).toBe(primary);
+        expect(failure.errors[1]).toBe(retirement);
+        expect(failure.cause).toBe(primary);
+        expect(closes).toBe(1);
+        expect(cancellations).toBe(stage === "truncate" ? 0 : 1);
+        expect(input.locked).toBe(false);
+        expect([...await nativeReadFile(path)]).toEqual(stage === "truncate" ? [1, 2, 3, 4] : [1, 2]);
       }));
   }
 });

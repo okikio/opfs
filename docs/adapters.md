@@ -487,6 +487,18 @@ reads/replacements delegate to the Node-compatible lane. Calls without a signal 
 append fast paths. [Node filesystem cancellation](https://nodejs.org/api/fs.html#fspromiseswritefilefile-data-options)
 and [Deno filesystem APIs](https://docs.deno.com/api/deno/file-system/) describe their native boundaries.
 
+Append with `truncate: true` is a mutable-file operation. Node and its Bun-compatible lane capture the acquired file's
+EOF once, write from that cursor and truncate the same descriptor at the final cursor, as the Deno lane does. This
+requires ordinary write/truncate rights; a Windows append handle alone cannot truncate. Bytes, empty input and streams
+use the same rule, with or without a signal. A newly created file is acquired exclusively, so a file that appears after
+the initial missing-path observation is reopened for update instead of being truncated during acquisition.
+
+This append-and-truncate operation requires cooperating writers. A concurrent writer can change bytes or length after
+the initial EOF observation; the final truncate can remove its later tail. Use the facade's cooperating path locks or
+application coordination for this scenario. Ordinary Node append without truncation retains native append mode. All
+writes and truncation remain attached to the acquired file even when its path is renamed or replaced; this is descriptor
+ownership, not protection against hostile namespace changes or a promise of rollback.
+
 ## Native retirement failures
 
 Node, Deno and browser OPFS writes await the resources they acquire. An ordinary operation failure remains the exact
