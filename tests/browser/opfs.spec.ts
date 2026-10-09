@@ -10,6 +10,10 @@ type InstalledFixtureGlobalType = typeof globalThis & BrowserTestGlobalType;
 
 test("native OPFS writes count intrinsic offset bytes and ignore caller metadata", async ({ ready: page }) => {
   const result = await page.evaluate(async () => {
+    const probeUrl = new URL("/src/probe.ts", location.href).href;
+    const { probeOpfs } = await import(probeUrl) as typeof import("../../src/probe.ts");
+    const capabilities = await probeOpfs();
+    if (!capabilities.rootAvailable) return { available: false as const, capabilities };
     const moduleUrl = new URL("/src/driver/opfs.ts", location.href).href;
     const { createOpfsDriver } = await import(moduleUrl) as typeof import("../../src/driver/opfs.ts");
     const origin = await navigator.storage.getDirectory();
@@ -76,15 +80,22 @@ test("native OPFS writes count intrinsic offset bytes and ignore caller metadata
         if (!rejected) throw new Error("Invalid native byte input was accepted.");
         outcomes.push({ kind: "invalid/preserved", bytes: [...await driver.readFile("/file")] });
       }
-      return outcomes;
+      return { available: true as const, capabilities, outcomes };
     } finally {
       await origin.removeEntry(name, { recursive: true });
     }
   });
-  expect(result.some(({ kind }) => kind === "fixed/bytes")).toBe(true);
-  expect(result.some(({ kind }) => kind === "fixed/stream")).toBe(true);
-  expect(result.some(({ kind }) => kind === "fixed/positional")).toBe(true);
-  for (const { bytes } of result) expect(bytes).toEqual([1, 4, 5]);
+  if (!result.available) {
+    expect(result.capabilities.rootAvailable).toBe(false);
+    expect(result.capabilities.rootError).toBeDefined();
+    expect(result.capabilities.rootError?.name.length).toBeGreaterThan(0);
+    return;
+  }
+  expect(result.capabilities.rootAvailable).toBe(true);
+  expect(result.outcomes.some(({ kind }) => kind === "fixed/bytes")).toBe(true);
+  expect(result.outcomes.some(({ kind }) => kind === "fixed/stream")).toBe(true);
+  expect(result.outcomes.some(({ kind }) => kind === "fixed/positional")).toBe(true);
+  for (const { bytes } of result.outcomes) expect(bytes).toEqual([1, 4, 5]);
 });
 
 test("window probes the actual capability and round-trips when OPFS is available", async ({ ready: page }) => {
