@@ -113,9 +113,11 @@ consume the stream. The returned raw response still belongs to the caller.
 
 Materialized shared-buffer and resizable-buffer byte views now receive a fixed ordinary byte copy before provider
 hashing, signing and dispatch. Fetch BodyInit must accept the transmitted backing store, so genuine shared bytes must
-not become an uncertain publication solely because Deno refuses their original backing. Ordinary fixed offset views
-avoid this additional copy. A copy from concurrently modified shared memory is not an atomic snapshot; the caller owns
-synchronization. This is a correctness cost at the wire boundary, not a claim that all borrowed input is immutable.
+not become an uncertain publication solely because Deno refuses their original backing. Fixed offset views over clean
+local backing with its native prototype and no own metadata avoid this additional copy. Foreign, custom-prototype and
+own-metadata backing also receives a clean wire copy because hosts can inspect its ordinary properties. A copy from
+concurrently modified shared memory is not an atomic snapshot; the caller owns synchronization. This is a correctness
+cost at the wire boundary, not a claim that all borrowed input is immutable.
 
 Byte-range metadata now has the same native authority as byte admission. A genuine `Uint8Array` can have its own
 `byteLength`, `buffer` or `byteOffset` property, and subclasses can replace `subarray` or iteration. Previously a
@@ -124,10 +126,10 @@ prepared `content-length: 0`, and both clients returned a zero-size receipt. Chu
 that false length. Admission alone was therefore insufficient.
 
 The clients, byte owner, collector and chunker now capture the readable range through native getters and create a plain
-fixed-length byte view before counting, slicing, observing or signing. Ordinary fixed backing is shared without an extra
-byte copy. Shared and resizable backing receives its fixed ordinary wire copy before limits, credentials and publication
-receipts, so a credential callback cannot resize the source and change the acknowledged size afterward. The copy is not
-a synchronization primitive for concurrent shared-memory writers.
+fixed-length byte view before counting, slicing, observing or signing. Clean local fixed backing stays borrowed without
+an extra byte copy. Shared, resizable, foreign, custom-prototype and own-metadata backing receives its clean fixed wire
+copy before limits, credentials and publication receipts, so a credential callback cannot resize the source and change
+the acknowledged size afterward. The copy is not a synchronization primitive for concurrent shared-memory writers.
 
 ```ts
 const bytes = Uint8Array.of(7, 8);

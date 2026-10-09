@@ -450,6 +450,30 @@ client container and emits Mitata JSON in its benchmark phase.
 `oven/bun:1.3.14` Linux image. Each runtime container reads the repository through a read-only bind and runs without
 network access after its image and dependencies are available.
 
+## Raw HTTP body admission
+
+Low-level `request()` admits genuine raw `ArrayBuffer` bodies across realms through their native range. A detached
+buffer rejects before credentials or dispatch; a genuine empty buffer remains valid. Fixed ordinary backing with this
+realm's native prototype and no own keys stays borrowed: keep bytes valid and unchanged and add no backing properties or
+prototype changes until settlement. Resizable, shared, foreign, custom-prototype or own-metadata backing receives a
+clean fixed copy before asynchronous hash/signing/authorization work and retries; every attempt keeps that captured
+body. Hosts can inspect ordinary backing properties, including `detached`, during extraction, so native branding alone
+does not protect wire bytes. A raw buffer copy costs its native length; a view copy costs its admitted range. Both
+require caller cooperation during admission. Raw `SharedArrayBuffer` remains outside `BodyInit`; shared-backed views
+have their separate fixed wire conversion. This rule does not snapshot every BodyInit variant or claim native Request
+directly supports bare resizable buffers.
+
+Low-level S3 and Azure `client.request()` bodies can be one-shot native streams. Default Fetch dispatch first checks
+that the current native `Request` preserves a private stream body instead of converting it to text. The lazy check has
+no network or caller-input effects. An unsupported default rejects with `TypeError` before credentials, source reads or
+dispatch; it leaves the stream with its caller. Constructor support still does not prove service acceptance, CORS policy
+or network request-stream support.
+
+Use public `put()` to upload streams as bounded byte parts across browser runtimes. A custom `fetch` implementation can
+instead consume the raw stream through its own transport; that injected implementation owns its stream-byte support and
+physical reader retirement. Raw streams remain one-shot even when a service returns a retryable status. This guard does
+not buffer unknown-size raw bodies or weaken the Azure Shared Key requirement for an explicit raw-stream Content-Length.
+
 ## Object directory scans and admission
 
 `createObjectAdapter`, `createS3Adapter`, and `createAzureAdapter` accept `maxListPages` in their mapping options. The

@@ -11,6 +11,7 @@ const viewBuffer = Object.getOwnPropertyDescriptor(DataView.prototype, "buffer")
 const viewOffset = Object.getOwnPropertyDescriptor(DataView.prototype, "byteOffset")!.get!;
 const viewLength = Object.getOwnPropertyDescriptor(DataView.prototype, "byteLength")!.get!;
 const Bytes = Uint8Array;
+const BufferPrototype = ArrayBuffer.prototype;
 const length = Object.getOwnPropertyDescriptor(ArrayBuffer.prototype, "byteLength")!.get!;
 const resizable = Object.getOwnPropertyDescriptor(ArrayBuffer.prototype, "resizable")?.get;
 
@@ -56,20 +57,55 @@ export function toView(value: ArrayBufferView): Uint8Array {
 /**
  * Gives Fetch a fixed, non-shared backing store for an admitted native byte range.
  * Raw BodyInit views and admitted byte chunks retain their native range.
- * Ordinary offset views keep their existing bytes without an extra copy. Shared
- * and resizable backing is copied once before hashing/signing and dispatch, so
- * Web IDL's BodyInit restrictions cannot become a dispatched publication fault.
+ * A clean local fixed backing keeps its bytes without an extra copy. Shared,
+ * resizable, foreign, custom-prototype or own-metadata backing is copied before
+ * hashing/signing and dispatch. A host may inspect ordinary backing properties
+ * while extracting BodyInit, so native slots alone do not protect that boundary.
  * A copy of concurrently modified shared memory is not an atomic application
  * snapshot; callers still own synchronization while supplying their bytes.
  */
 export function toRequestBytes(value: ArrayBufferView): Uint8Array<ArrayBuffer> {
   const view = toView(value);
   const backing: unknown = buffer.call(view);
-  try {
-    length.call(backing);
-    if (resizable?.call(backing) !== true) return view as Uint8Array<ArrayBuffer>;
-  } catch {
-    // The ArrayBuffer intrinsic rejects SharedArrayBuffer without realm checks.
-  }
+  if (isCanonicalBuffer(backing)) return view as Uint8Array<ArrayBuffer>;
   return new Bytes(view);
+}
+
+/** Admits a genuine ArrayBuffer across realms, without admitting SharedArrayBuffer. */
+export function isBuffer(value: unknown): value is ArrayBuffer {
+  try {
+    length.call(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Authorizes borrowed backing only when host extraction has no caller metadata.
+ * Native brand and fixed storage are necessary but insufficient: hosts can read
+ * byteLength or detached properties. The captured local prototype and absence
+ * of all own keys exclude foreign/custom lookup and shadowed metadata without
+ * invoking getters. Borrowing requires that shape and bytes to stay valid and
+ * unchanged until settlement; admission does not freeze caller storage. Runtime
+ * globals and their intrinsic prototypes are trusted.
+ */
+function isCanonicalBuffer(value: unknown): value is ArrayBuffer {
+  return isBuffer(value) && resizable?.call(value) !== true &&
+    Object.getPrototypeOf(value) === BufferPrototype && Reflect.ownKeys(value).length === 0;
+}
+
+/**
+ * Validates a raw BodyInit buffer through native slots before signing or dispatch.
+ * A detached buffer is not an empty body: native range construction rejects it.
+ * Clean local fixed buffers without own metadata retain identity without a copy.
+ * Other genuine buffers receive one clean fixed snapshot before signing/retries:
+ * RAB, foreign, custom-prototype and own-metadata backing cannot expose caller
+ * properties to host extraction. The copy uses native size and requires caller
+ * synchronization during admission. Raw SharedArrayBuffer is outside BodyInit.
+ */
+export function toRequestBuffer(value: ArrayBuffer): ArrayBuffer {
+  const size: number = length.call(value);
+  const view = new Bytes(value, 0, size);
+  return isCanonicalBuffer(value) ? value : new Bytes(view).buffer;
 }

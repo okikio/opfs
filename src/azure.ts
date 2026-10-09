@@ -15,8 +15,8 @@ import type {
   ObjectStatType,
 } from "./driver/object.ts";
 import { open } from "./chunk.ts";
-import { isBytes, toRequestBytes, toView } from "./bytes.ts";
-import { isStream } from "./body.ts";
+import { isBuffer, isBytes, toRequestBuffer, toRequestBytes, toView } from "./bytes.ts";
+import { assertRequestStream, isStream } from "./body.ts";
 import { close } from "./close.ts";
 import { copyOptions, putOptions, putProperties } from "./publication.ts";
 import type { ResponseTextType } from "./response.ts";
@@ -112,7 +112,10 @@ export interface AzureClientOptionsType {
   readonly credential: AzureCredentialType;
   /** Blob REST version. Defaults to {@link AZURE_STORAGE_VERSION}. */
   readonly version?: AzureStorageVersionType;
-  /** Fetch implementation. */
+  /**
+   * Fetch implementation. Defaults to native Fetch, whose raw stream support
+   * is admitted lazily. An injected transport owns its stream-byte capability.
+   */
   readonly fetch?: FetchType;
   /** Clock used by `x-ms-date` and deterministic Shared Key tests. */
   readonly now?: () => Date;
@@ -142,7 +145,20 @@ export interface AzureRequestOptionsType {
   readonly query?: Readonly<Record<string, string | undefined>>;
   /** Request headers added before authorization. */
   readonly headers?: HeadersInit;
-  /** Request body. */
+  /**
+   * Web Fetch body. Raw ArrayBuffers use their native range across realms, and
+   * detached buffers reject before authorization or dispatch. Fixed ordinary
+   * buffers with this realm's native prototype and no own metadata stay borrowed:
+   * keep their bytes valid and unchanged, with no new backing properties or
+   * prototype changes until settlement. Resizable, foreign,
+   * custom-prototype or own-metadata backing receives one clean fixed copy before
+   * asynchronous authorization and retries, costing its native byte length. Raw
+   * SharedArrayBuffer is outside BodyInit; shared-backed views have a separate
+   * fixed wire conversion. Raw streams remain one-shot. Default Fetch checks
+   * native Request stream admission before authorization; an injected Fetch owns
+   * its stream-byte capability and reader retirement. Shared Key raw streams
+   * still need an explicit Content-Length.
+   */
   readonly body?: BodyInit | null;
   /** Cancels the request. */
   readonly signal?: AbortSignal;
@@ -413,7 +429,7 @@ function getBodyLength(body: BodyInit | null | undefined): number | undefined {
   if (body === undefined || body === null) return 0;
   if (typeof body === "string") return textEncoder.encode(body).byteLength;
   if (body instanceof Blob) return body.size;
-  if (body instanceof ArrayBuffer) return new Uint8Array(body).byteLength;
+  if (isBuffer(body)) return new Uint8Array(body).byteLength;
   if (ArrayBuffer.isView(body)) return toView(body).byteLength;
   if (body instanceof URLSearchParams) return textEncoder.encode(body.toString()).byteLength;
   return undefined;
@@ -670,6 +686,8 @@ class AzureClient implements AzureClientType {
   readonly #version: AzureStorageVersionType;
   /** Fetch implementation used for all provider traffic. */
   readonly #fetch: FetchType;
+  /** Only an omitted Fetch selects the native raw-stream capability contract. */
+  readonly #nativeFetch: boolean;
   /** Clock used for request authorization. */
   readonly #now: () => Date;
   /** Block size used by streamed uploads. */
@@ -700,7 +718,9 @@ class AzureClient implements AzureClientType {
     this.#container = options.container;
     this.#credential = options.credential;
     this.#version = AzureStorageVersionSchema.parse(options.version ?? AZURE_STORAGE_VERSION);
-    this.#fetch = options.fetch ?? fetch;
+    const suppliedFetch = options.fetch;
+    this.#fetch = suppliedFetch ?? fetch;
+    this.#nativeFetch = suppliedFetch === undefined || suppliedFetch === null;
     this.#now = options.now ?? (() => new Date());
     const blockLimit = getBlockLimit(this.#version);
     this.#blockSize = options.blockSize ?? Math.min(DEFAULT_BLOCK_SIZE, blockLimit);
@@ -821,10 +841,16 @@ class AzureClient implements AzureClientType {
 
   /** Tracks actual dispatch separately from signing and local validation. */
   async #send(options: AzureRequestOptionsType, onDispatch?: () => void): Promise<Response> {
-    const body = ArrayBuffer.isView(options.body) ? toRequestBytes(options.body) : options.body;
+    const source = options.body;
+    const body = ArrayBuffer.isView(source)
+      ? toRequestBytes(source)
+      : isBuffer(source)
+      ? toRequestBuffer(source)
+      : source;
     const streamed = isStream(body);
     const replayable = options.retry !== false && !streamed;
     return await sendRequest(async (signal) => {
+      if (streamed && this.#nativeFetch) assertRequestStream();
       const url = this.#getAddress(options.key);
       for (const [name, value] of Object.entries(options.query ?? {})) {
         if (value !== undefined) url.searchParams.set(name, value);

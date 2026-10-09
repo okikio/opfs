@@ -65,14 +65,18 @@ export interface ProviderBodyOptionsType {
   readonly provider: "s3" | "azure";
   /** Direct request versus the public upload planner. */
   readonly route: "request" | "put";
-  /** Genuine foreign-realm bytes or native stream. */
-  readonly body: "bytes" | "stream";
-  /** Empty input versus an offset view with two payload bytes. */
+  /** Genuine foreign-realm byte view, native stream, or raw ArrayBuffer. */
+  readonly body: "bytes" | "stream" | "buffer";
+  /** Uses actual iframe resizable ArrayBuffer storage for a direct raw body. */
+  readonly resizable?: boolean;
+  /** Empty input versus two payload bytes; byte views also exclude sentinel bytes. */
   readonly empty: boolean;
   /** Enables S3 delayed multipart or Azure staged block upload for public put. */
   readonly mode: boolean;
   /** Provides the Shared Key stream length for a direct Azure request. */
   readonly length: boolean;
+  /** Omission uses a capable injected transport; default selects native admission and Request consumption. */
+  readonly transport?: "custom" | "default";
 }
 
 /** Browser-observed transmission and ownership, without network or provider claims. */
@@ -81,7 +85,7 @@ export interface ProviderBodyResultType {
   readonly foreign: boolean;
   /** Parent native locked getter accepted the iframe stream and found it unlocked. */
   readonly intrinsicUnlocked: boolean;
-  /** Each parent-native Request's protocol stage and consumed body. */
+  /** Each prepared protocol stage and its actual consumed body. */
   readonly requests: readonly {
     readonly stage: string;
     readonly bytes: readonly number[];
@@ -99,6 +103,31 @@ export interface ProviderBodyResultType {
   readonly locked: boolean;
   /** Producer cancellations, separate from ordinary EOF. */
   readonly cancellations: number;
+  /** Actual native Request construction admits a stream instead of stringifying it. */
+  readonly nativeRequestStreams: boolean;
+  /** Actual source pulls; default refusal must leave input unacquired. */
+  readonly pulls: number;
+  /** Credential callbacks admitted after local default-transport capability checks. */
+  readonly credentialCalls: number;
+  /** Native raw-buffer admission and transmission observations, only for raw bodies. */
+  readonly buffer?: {
+    /** An independent iframe probe actually resized native resizable storage. */
+    readonly resizableSupported: boolean;
+    /** The caller's admitted buffer has native resizable storage. */
+    readonly resizable: boolean;
+    /** Initial caller bytes before provider preparation. */
+    readonly lengthBefore: number;
+    /** Caller length after dispatch-time resizing. */
+    readonly lengthAfter: number;
+    /** Independent Web Crypto hash of the expected payload. */
+    readonly expectedSha256: string;
+    /** Prepared S3 payload hashes, before native Request construction. */
+    readonly hashes: readonly (string | null)[];
+    /** Each dispatched raw body has fixed ordinary storage. */
+    readonly wireFixed: readonly boolean[];
+    /** Foreign caller backing receives a clean local snapshot before host extraction. */
+    readonly borrowed: readonly boolean[];
+  };
 }
 
 /** Browser fixture API consumed by Playwright from the containing page. */
@@ -129,7 +158,7 @@ export interface BrowserTestApiType {
   adapter(kind: BrowserAdapterType): Promise<string>;
   /** Races two independent IndexedDB filesystem owners through atomic append transactions. */
   indexedDbAppend(): Promise<string>;
-  /** Exercises real iframe-realm provider bodies through parent-native Request consumption. */
+  /** Exercises real iframe-realm bodies through native Request or capable custom consumption. */
   providerBody(options: ProviderBodyOptionsType): Promise<ProviderBodyResultType>;
 }
 
