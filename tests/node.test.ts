@@ -11,7 +11,7 @@ import { createDb0Adapter } from "../src/adapter/db0.ts";
 import { createNodeAdapter } from "../src/adapter/node.ts";
 import { createSqliteAdapter } from "../src/adapter/sqlite.ts";
 import type { Db0PrimitiveType } from "../src/driver/db0.ts";
-import { verifyHost, verifyWindowsNames } from "./host.ts";
+import { verifyFileAdmission, verifyHost, verifyWindowsNames } from "./host.ts";
 import { verifySync } from "./reliability.ts";
 import { withReleases } from "./close.ts";
 
@@ -56,6 +56,15 @@ describe("Node adapter", () => {
         await verifyWindowsNames(fileSystem);
       }),
   );
+
+  for (const appeared of ["directory", "file"] as const) {
+    it(`classifies a native ${appeared} that appears after the initial absence`, async () =>
+      await withReleases(async (releases) => {
+        const root = await mkdtemp(join(tmpdir(), "okikio-opfs-admission-"));
+        releases.push(() => rm(root, { recursive: true, force: true }));
+        await verifyFileAdmission(createNodeAdapter({ root }), root, appeared);
+      }));
+  }
 
   it("preserves host range, directory removal, and overwrite semantics", async () =>
     await withReleases(async (releases) => {

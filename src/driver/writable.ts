@@ -1,3 +1,4 @@
+import { toView } from "../bytes.ts";
 import { FileSystemError } from "../error.ts";
 import type { FileDriverWritableFileType } from "./file.ts";
 
@@ -116,12 +117,25 @@ export class QueuedWritableFile implements FileDriverWritableFileType {
     return result;
   }
 
+  /**
+   * Captures the native borrowed range before reserving queue capacity.
+   * Shadowed metadata cannot bypass the byte budget or position-end admission,
+   * and deferred work receives that same plain fixed-length view. Bytes remain
+   * borrowed and must stay valid and unchanged until the write settles. Native
+   * range conversion faults preserve this method's rejected-promise contract.
+   */
   write(buffer: ArrayBufferView, options: { readonly at: number }): Promise<void> {
-    if (!Number.isSafeInteger(options.at) || options.at < 0 || !Number.isSafeInteger(options.at + buffer.byteLength)) {
-      return Promise.reject(new RangeError("Write position and end must be non-negative safe integers."));
+    let bytes: Uint8Array;
+    try {
+      bytes = toView(buffer);
+    } catch (reason) {
+      return Promise.reject(reason);
     }
     const at = options.at;
-    return this.#admit(buffer.byteLength, () => this.#file.write(buffer, { at }));
+    if (!Number.isSafeInteger(at) || at < 0 || !Number.isSafeInteger(at + bytes.byteLength)) {
+      return Promise.reject(new RangeError("Write position and end must be non-negative safe integers."));
+    }
+    return this.#admit(bytes.byteLength, () => this.#file.write(bytes, { at }));
   }
 
   truncate(size: number): Promise<void> {

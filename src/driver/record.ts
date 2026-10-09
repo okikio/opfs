@@ -1,4 +1,6 @@
-import { FileSystemError } from "../error.ts";
+import { FileSystemError, toFileSystemError } from "../error.ts";
+import { close } from "../close.ts";
+import { retire } from "../stream.ts";
 import { z } from "zod";
 
 import type { PathType } from "../path.ts";
@@ -309,7 +311,11 @@ export function defineRecordDriver(
         try {
           admit({ operation: "write", path, source: "stream", mode: writeOptions.mode });
         } catch (error) {
-          await source.cancel(error).catch(() => undefined);
+          try {
+            await close([() => retire(source, error)], [error]);
+          } catch (reason) {
+            throw toFileSystemError(reason, "write", path);
+          }
           throw error;
         }
         return backend.writeStream!(path, source, writeOptions);

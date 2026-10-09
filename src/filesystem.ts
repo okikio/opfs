@@ -4,6 +4,7 @@ import type { WritableOptionsType } from "./driver/file.ts";
 import type { AdapterType, FileSystemOptionsType } from "./adapter/definition.ts";
 import type { FileDriverDirectoryEntryType, FileDriverSignalOptionsType } from "./driver/file.ts";
 import { FileSystemError, throwIfAborted, toFileSystemError } from "./error.ts";
+import { close } from "./close.ts";
 import { MutationLocks } from "./lock.ts";
 import { basename, dirname, isAncestorPath, joinPath, normalizePath, ROOT_PATH, splitPath } from "./path.ts";
 import {
@@ -27,6 +28,8 @@ import {
   collectBytes,
   isAsyncIterable,
   isReadableStream,
+  observeBytes,
+  retire,
   toBytes,
   toByteStream,
   withAbortSignal,
@@ -359,17 +362,30 @@ function getAdapterSignalOptions(signal: AbortSignal | undefined): FileDriverSig
  * Recursive copy and clear must not release their tree lock while sibling writes
  * are still running, even when one sibling has already failed.
  */
-async function settleConcurrent(active: Set<Promise<void>>, failures: unknown[], prior?: unknown): Promise<void> {
+async function settleConcurrent(
+  active: Set<Promise<void>>,
+  failures: ChildFailure[],
+  prior?: { reason: unknown },
+): Promise<void> {
   await Promise.allSettled([...active]);
-  if (prior !== undefined) throw prior;
-  if (failures.length > 0) throw failures[0];
+  // A race can deliver one of these private event records. It is the same
+  // recorded event, not a second failure with an equal error value.
+  const raced = prior !== undefined && failures.some((event) => event === prior.reason);
+  await close([], [
+    ...(prior === undefined || raced ? [] : [prior.reason]),
+    ...failures.map((event) => event.reason),
+  ]);
 }
 
-/** Tracks one bounded child mutation and records its first failure without an unhandled rejection. */
-function trackConcurrent(active: Set<Promise<void>>, failures: unknown[], operation: Promise<void>): void {
+/** One admitted child owns one failure event, even when reasons have equal values. */
+type ChildFailure = { readonly reason: unknown };
+
+/** Tracks an admitted child and immediately observes rejection until the tree owner joins it. */
+function trackConcurrent(active: Set<Promise<void>>, failures: ChildFailure[], operation: Promise<void>): void {
   const tracked = operation.catch((error) => {
-    failures.push(error);
-    throw error;
+    const event: ChildFailure = { reason: error };
+    failures.push(event);
+    throw event;
   }).finally(() => active.delete(tracked));
   active.add(tracked);
   void tracked.catch(() => undefined);
@@ -477,6 +493,8 @@ class FileSystemFacade implements FileSystemType {
   readonly #disposeAdapter: boolean;
   /** Terminal facade state. A closed facade never reopens. */
   #closed = false;
+  /** All terminal callers join the same physical adapter disposal outcome. */
+  #closing: Promise<void> | undefined;
 
   /** Acquires facade coordination state while borrowing or owning the selected adapter as configured. */
   constructor(adapter: AdapterType, options: FileSystemOptionsType) {
@@ -636,6 +654,8 @@ class FileSystemFacade implements FileSystemType {
    *
    * File creation takes the file mutation lock and rechecks storage after the
    * lock is acquired so two creators cannot both assume the path is missing.
+   * The recheck also classifies entry kind: an existing file is preserved, while
+   * a directory refuses file admission and releases the acquired lock.
    */
   async getFileHandle(path: string, options: FileOptionsType = {}): Promise<FileHandleType> {
     this.#assertOpen();
@@ -664,6 +684,9 @@ class FileSystemFacade implements FileSystemType {
           );
         }
         stat = await this.adapter.stat(normalized, getAdapterSignalOptions(options.signal));
+        if (stat?.kind === "directory") {
+          throw new FileSystemError("type-mismatch", "get-file", normalized, `'${normalized}' is a directory.`);
+        }
         if (stat === null) {
           await this.adapter.writeFile(normalized, new Uint8Array(), {
             mode: "replace",
@@ -811,9 +834,9 @@ class FileSystemFacade implements FileSystemType {
     if (physical === "link" || physical === "foreign") {
       throw new FileSystemError(
         "type-mismatch",
-        "empty-dir",
+        "read-dir",
         normalized,
-        "Only an ordinary directory can be emptied; links are removed as entries.",
+        "Only an ordinary directory can be listed; links and foreign entries cannot be traversed.",
       );
     }
     const stat = await this.stat(normalized, options);
@@ -1005,21 +1028,22 @@ class FileSystemFacade implements FileSystemType {
         // when the driver rejects before it acquires its own reader.
         let source = withAbortSignal(toByteStream(data), options.signal, normalized, "write");
         if (this.metricsMode !== "none") {
-          source = source.pipeThrough(
-            new TransformStream<Uint8Array, Uint8Array>({
-              transform(chunk, controller) {
-                metricBytes = (metricBytes ?? 0) + chunk.byteLength;
-                controller.enqueue(chunk);
-              },
-            }),
+          source = observeBytes(
+            source,
+            (chunk) => {
+              metricBytes = (metricBytes ?? 0) + chunk.byteLength;
+            },
+            normalized,
+            "write",
           );
         }
         try {
           await this.adapter.writeStream!(normalized, source, adapterOptions);
         } catch (error) {
-          // Acquisition can fail before the driver reads the source. Release
-          // that unconsumed pipeline without replacing the storage failure.
-          if (!source.locked) await source.cancel(error).catch(() => undefined);
+          // Acquisition can fail before the driver reads the source. Join the
+          // exact input owner instead of canceling an already-errored pipeline
+          // again, and retain independent retirement faults beside this failure.
+          await close([() => retire(source, error)], [error]);
           throw error;
         }
       } else if (stream) {
@@ -1179,15 +1203,30 @@ class FileSystemFacade implements FileSystemType {
             );
           }
           await this.adapter.reserve(stage, getAdapterSignalOptions(options.signal));
+          let consumed = false;
+          let failure: { readonly reason: unknown } | undefined;
           try {
             await this.#copyFileUnlocked(from, stage, options.signal, true);
             await this.adapter.move(stage, to, {
               overwrite: options.overwrite ?? false,
               ...getAdapterSignalOptions(options.signal),
             });
-          } finally {
-            await this.adapter.remove(stage).catch(() => undefined);
+            consumed = true;
+          } catch (reason) {
+            failure = { reason };
           }
+          // A successful move consumes this exact stage name. Removing that
+          // name afterward could unlink a different entry created there later.
+          await close(
+            consumed ? [] : [async () => {
+              try {
+                await this.adapter.remove(stage);
+              } catch (reason) {
+                if (toFileSystemError(reason, "remove", stage).code !== "not-found") throw reason;
+              }
+            }],
+            failure === undefined ? [] : [failure.reason],
+          );
         } else {
           await this.#copyFileUnlocked(
             from,
@@ -1203,7 +1242,8 @@ class FileSystemFacade implements FileSystemType {
       }
       await this.adapter.createDir(to, getAdapterSignalOptions(options.signal));
       const active = new Set<Promise<void>>();
-      const failures: unknown[] = [];
+      const failures: ChildFailure[] = [];
+      let prior: { reason: unknown } | undefined;
 
       try {
         for await (const entry of this.#walkAdapter(from, options.signal)) {
@@ -1214,6 +1254,7 @@ class FileSystemFacade implements FileSystemType {
             await this.adapter.createDir(target, getAdapterSignalOptions(options.signal));
           } else {
             while (active.size >= concurrency) await Promise.race(active);
+            if (failures.length > 0) break;
             trackConcurrent(
               active,
               failures,
@@ -1221,10 +1262,10 @@ class FileSystemFacade implements FileSystemType {
             );
           }
         }
-        await settleConcurrent(active, failures);
       } catch (error) {
-        await settleConcurrent(active, failures, error);
+        prior = { reason: error };
       }
+      await settleConcurrent(active, failures, prior);
       failed = false;
     } catch (error) {
       throw toFileSystemError(error, "copy", from);
@@ -1286,7 +1327,12 @@ class FileSystemFacade implements FileSystemType {
       }
       const stream = await this.adapter.openReadStream!(source, getAdapterSignalOptions(signal));
       if (streamWrite) {
-        await this.adapter.writeStream!(destination, stream, writeOptions);
+        const input = withAbortSignal(stream, signal, source, "copy");
+        try {
+          await this.adapter.writeStream!(destination, input, writeOptions);
+        } catch (reason) {
+          await close([() => retire(input, reason)], [reason]);
+        }
         return;
       }
 
@@ -1499,22 +1545,29 @@ class FileSystemFacade implements FileSystemType {
     const concurrency = getConcurrency(options.concurrency);
     const lock = await this.#locks.acquireTree(options.signal);
     const active = new Set<Promise<void>>();
-    const failures: unknown[] = [];
+    const failures: ChildFailure[] = [];
+    let prior: { reason: unknown } | undefined;
     try {
-      const children: string[] = [];
-      for await (
-        const entry of (this.adapter.entries?.(normalized, getAdapterSignalOptions(options.signal)) ??
-          this.adapter.readDir(normalized, getAdapterSignalOptions(options.signal)))
-      ) {
-        children.push(joinPath(normalized, entry.name));
+      try {
+        const children: string[] = [];
+        for await (
+          const entry of (this.adapter.entries?.(normalized, getAdapterSignalOptions(options.signal)) ??
+            this.adapter.readDir(normalized, getAdapterSignalOptions(options.signal)))
+        ) {
+          children.push(joinPath(normalized, entry.name));
+        }
+        for (const child of children) {
+          if (failures.length > 0) break;
+          while (active.size >= concurrency) await Promise.race(active);
+          if (failures.length > 0) break;
+          trackConcurrent(active, failures, this.#removeUnlocked(child, true, options.signal));
+        }
+      } catch (error) {
+        prior = { reason: error };
       }
-      for (const child of children) {
-        while (active.size >= concurrency) await Promise.race(active);
-        trackConcurrent(active, failures, this.#removeUnlocked(child, true, options.signal));
-      }
-      await settleConcurrent(active, failures);
-    } catch (error) {
-      await settleConcurrent(active, failures, error);
+      await settleConcurrent(active, failures, prior);
+    } catch (reason) {
+      throw toFileSystemError(reason, "empty-dir", normalized);
     } finally {
       lock.release();
     }
@@ -1665,12 +1718,18 @@ class FileSystemFacade implements FileSystemType {
    * Closes this facade once and optionally disposes the injected adapter.
    *
    * `disposeAdapter` controls ownership transfer. Borrowed adapters remain live
-   * after the facade closes.
+   * after the facade closes. Every terminal caller joins the actual disposal,
+   * including a rejected disposal. Close stops admission; callers still own
+   * returned streams and file resources and must settle their work before
+   * disposing an adapter that they transferred to this facade.
    */
-  async close(): Promise<void> {
-    if (this.#closed) return;
+  close(): Promise<void> {
+    if (this.#closing !== undefined) return this.#closing;
     this.#closed = true;
-    if (this.#disposeAdapter) await this.adapter.dispose?.();
+    this.#closing = Promise.resolve().then(async () => {
+      if (this.#disposeAdapter) await this.adapter.dispose?.();
+    });
+    return this.#closing;
   }
 
   /** Enables `await using` to apply the same ownership rules as {@link close}. */

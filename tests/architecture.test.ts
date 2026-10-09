@@ -1,6 +1,14 @@
 import { createBunDriver } from "../src/driver/bun.ts";
 import { HOST_PROFILES } from "../src/driver/host.ts";
-import { mkdtemp, readdir, rm, stat, symlink } from "node:fs/promises";
+import {
+  mkdtemp,
+  readdir,
+  readFile as nativeReadFile,
+  rm,
+  stat,
+  symlink,
+  writeFile as nativeWriteFile,
+} from "node:fs/promises";
 import { platform, tmpdir } from "node:os";
 import { join } from "node:path";
 /// <reference types="deno" />
@@ -8,9 +16,10 @@ import { describe, it } from "node:test";
 import { withReleases } from "./close.ts";
 import { within } from "./gate.ts";
 import { expect } from "@std/expect";
-import { createFileSystem } from "../mod.ts";
+import { createFileSystem, FileSystemError, toFileSystemError } from "../mod.ts";
 import { createNodeDriver } from "../src/driver/node.ts";
-import { createDenoDriver } from "../src/driver/deno.ts";
+import { createDenoDriver, DenoRangeSource } from "../src/driver/deno.ts";
+import { setImmediate } from "node:timers/promises";
 import { createFileAdapter } from "../src/adapter/file.ts";
 import { createMemoryAdapter } from "../src/adapter/memory.ts";
 import { createLocalStorageAdapter } from "../src/adapter/localstorage.ts";
@@ -22,6 +31,66 @@ import type {
   FileDriverWriteOptionsType,
 } from "../src/driver/file.ts";
 
+/** Enumerates authored fault events across ownership scopes without deduplicating equal reasons. */
+function faultsOf(reason: unknown): readonly unknown[] {
+  return reason instanceof AggregateError ? reason.errors.flatMap((nested: unknown) => faultsOf(nested)) : [reason];
+}
+
+/** Checks exact filesystem context without deriving authority from an arbitrary cause. */
+function assertAbort(error: unknown, operation: "read" | "write", reason: unknown): void {
+  expect(error).toBeInstanceOf(FileSystemError);
+  expect(error).toMatchObject({ code: "aborted", operation, path: "/file" });
+  if (!(error instanceof FileSystemError)) throw new Error("Expected a filesystem abort observation.");
+  expect(Object.hasOwn(error, "cause")).toBe(true);
+  expect(error.cause).toBe(reason);
+}
+
+/** The public normalizer alone selects category; owned aggregates remain inspectable causes. */
+function assertNormalizedAbort(failure: unknown, operation: "read" | "write", reason: unknown): void {
+  const normalized = toFileSystemError(failure, operation, "/file");
+  expect(normalized).toMatchObject({ code: "aborted", operation, path: "/file" });
+  if (failure instanceof AggregateError) expect(normalized.cause).toBe(failure);
+  else {
+    expect(normalized).toBe(failure);
+    assertAbort(failure, operation, reason);
+  }
+}
+
+/** Controlled stream-backed writes observe both the guard and undelivered input abort. */
+function assertWriteAbort(failure: unknown, reason: unknown, ownedInput: boolean): void {
+  assertNormalizedAbort(failure, "write", reason);
+  if (!ownedInput) {
+    assertAbort(failure, "write", reason);
+    return;
+  }
+  expect(failure).toBeInstanceOf(AggregateError);
+  if (!(failure instanceof AggregateError)) throw new Error("Expected both owned write abort observations.");
+  const observations: readonly unknown[] = failure.errors;
+  expect(observations).toHaveLength(2);
+  const [guard, retirement] = observations;
+  expect(failure.cause).toBe(guard);
+  assertAbort(guard, "write", reason);
+  assertAbort(retirement, "write", reason);
+  // The two owners observed separate events, even though both causes equal the caller reason.
+  expect(retirement).not.toBe(guard);
+}
+
+/** Real Deno cancellation can interrupt an outstanding native read during retirement. */
+function assertReadAbort(failure: unknown, runtime: "node" | "deno" | "bun", reason: unknown): void {
+  assertNormalizedAbort(failure, "read", reason);
+  if (!(failure instanceof AggregateError)) return;
+  expect(runtime).toBe("deno");
+  const observations: readonly unknown[] = failure.errors;
+  expect(observations).toHaveLength(2);
+  const [abort, native] = observations;
+  expect(failure.cause).toBe(abort);
+  assertAbort(abort, "read", reason);
+  // Native I/O may complete before cancellation, giving a bare abort instead.
+  // Only the acquired Deno read's concrete interruption is an allowed second event.
+  expect(native).toBeInstanceOf(Deno.errors.Interrupted);
+  expect(native).toMatchObject({ code: "EINTR" });
+}
+
 function gate() {
   let resolve!: () => void;
   const promise = new Promise<void>((done) => {
@@ -29,6 +98,173 @@ function gate() {
   });
   return { promise, resolve };
 }
+
+/** Genuine storage can have misleading own metadata and methods without changing its native range. */
+function shadowed<T extends ArrayBufferView>(view: T): T {
+  const refuse = () => {
+    throw new Error("Caller-owned byte method must not decide a native range.");
+  };
+  Object.defineProperties(view, {
+    buffer: { configurable: true, value: new ArrayBuffer(0) },
+    byteOffset: { configurable: true, value: 0 },
+    byteLength: { configurable: true, value: 0 },
+    length: { configurable: true, value: 0 },
+    subarray: { configurable: true, value: refuse },
+    slice: { configurable: true, value: refuse },
+    [Symbol.iterator]: { configurable: true, value: refuse },
+  });
+  return view;
+}
+
+/** Produces one real offset range with sentinels outside the admitted bytes. */
+function offsetBytes(): Uint8Array {
+  return shadowed(new Uint8Array(new Uint8Array([99, 4, 5, 99]).buffer, 1, 2));
+}
+
+describe("intrinsic native byte ranges", () => {
+  for (const [name, create] of [["node", createNodeDriver], ["deno", createDenoDriver]] as const) {
+    it(`${name} direct byte and stream writes use native ranges in every write mode`, {
+      skip: name === "deno" && typeof Deno === "undefined",
+    }, async () =>
+      await withReleases(async (releases) => {
+        const root = await mkdtemp(join(tmpdir(), "opfs-native-byte-range-"));
+        releases.push(() => rm(root, { recursive: true, force: true }));
+        const driver = create({ root });
+        for (const mode of ["replace", "append", "update"] as const) {
+          for (const source of ["bytes", "stream"] as const) {
+            await driver.writeFile("/file", new Uint8Array([1, 1, 1, 1]), { mode: "replace" });
+            const bytes = offsetBytes();
+            const options = { mode, at: 1, truncate: true };
+            if (source === "bytes") await driver.writeFile("/file", bytes, options);
+            else {
+              const input = new ReadableStream<Uint8Array>({
+                start(controller) {
+                  controller.enqueue(bytes);
+                  controller.close();
+                },
+              });
+              await driver.writeStream!("/file", input, options);
+              expect(input.locked).toBe(false);
+            }
+            expect([...await nativeReadFile(join(root, "file"))]).toEqual(
+              mode === "replace" ? [4, 5] : mode === "append" ? [1, 1, 1, 1, 4, 5] : [1, 4, 5],
+            );
+          }
+        }
+        await driver.writeFile("/file", shadowed(new Uint8Array(0)), { mode: "replace" });
+        expect([...await nativeReadFile(join(root, "file"))]).toEqual([]);
+      }));
+
+    it(`${name} direct positional and synchronous BufferSource ranges ignore own metadata`, {
+      skip: name === "deno" && typeof Deno === "undefined",
+    }, async () =>
+      await withReleases(async (releases) => {
+        const root = await mkdtemp(join(tmpdir(), "opfs-native-buffer-source-"));
+        releases.push(() => rm(root, { recursive: true, force: true }));
+        const driver = create({ root });
+        await driver.writeFile("/file", new Uint8Array([1, 1, 1, 1]), { mode: "replace" });
+        const writer = await driver.openWritableFile!("/file", { maxPendingBytes: 2 });
+        releases.push(() => writer.close());
+        const backing = new Uint8Array([99, 4, 5, 99]);
+        await writer.write(shadowed(new DataView(backing.buffer, 1, 2)), { at: 1 });
+        await writer.close();
+        expect([...await nativeReadFile(join(root, "file"))]).toEqual([1, 4, 5, 1]);
+        const sync = await driver.openSyncFile!("/file");
+        releases.push(() => sync.close());
+        const destination = new Uint8Array([99, 0, 0, 99]);
+        expect(sync.read(shadowed(new DataView(destination.buffer, 1, 2)), { at: 1 })).toBe(2);
+        expect([...destination]).toEqual([99, 4, 5, 99]);
+        expect(sync.write(offsetBytes(), { at: 0 })).toBe(2);
+        sync.close();
+        expect([...await nativeReadFile(join(root, "file"))]).toEqual([4, 5, 5, 1]);
+      }));
+
+    it(`${name} refuses invalid native materialized and stream byte input`, {
+      skip: name === "deno" && typeof Deno === "undefined",
+    }, async () =>
+      await withReleases(async (releases) => {
+        const root = await mkdtemp(join(tmpdir(), "opfs-native-invalid-bytes-"));
+        releases.push(() => rm(root, { recursive: true, force: true }));
+        const driver = create({ root });
+        const detached = new Uint8Array([4, 5]);
+        structuredClone(detached.buffer, { transfer: [detached.buffer] });
+        for (const bytes of [new Proxy(new Uint8Array([4, 5]), {}), detached, new Uint16Array([4, 5])]) {
+          await driver.writeFile("/file", new Uint8Array([1, 2, 3]), { mode: "replace" });
+          // Actual JavaScript callers can violate a TypeScript byte declaration.
+          expect(await failureOf(driver.writeFile("/file", bytes as Uint8Array, { mode: "replace" })))
+            .toBeInstanceOf(TypeError);
+          expect([...await nativeReadFile(join(root, "file"))]).toEqual([1, 2, 3]);
+          const input = new ReadableStream<Uint8Array>({
+            start(controller) {
+              Reflect.apply(controller.enqueue, controller, [bytes]);
+              controller.close();
+            },
+          });
+          const failure = await failureOf(driver.writeStream!("/file", input, { mode: "update", at: 0 }));
+          expect(failure).toBeInstanceOf(TypeError);
+          expect(input.locked).toBe(false);
+          expect([...await nativeReadFile(join(root, "file"))]).toEqual([1, 2, 3]);
+        }
+      }));
+  }
+});
+
+it("queued write admission counts the intrinsic range and fixes it before deferred execution", async () =>
+  await withReleases(async (releases) => {
+    const entered = gate(), released = gate();
+    const observations: Array<{ readonly bytes: number[]; readonly buffer: ArrayBufferLike }> = [];
+    const backend: FileDriverWritableFileType = {
+      async write(buffer) {
+        const view = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+        observations.push({ bytes: [...view], buffer: view.buffer });
+      },
+      async truncate() {
+        entered.resolve();
+        await released.promise;
+      },
+      async flush() {},
+      async close() {},
+      async abort() {},
+    };
+    const limited = new QueuedWritableFile(backend, { maxPendingBytes: 1 });
+    releases.push(() => limited.close());
+    await expect(limited.write(offsetBytes(), { at: 0 })).rejects.toMatchObject({ code: "too-large" });
+    expect(observations).toEqual([]);
+    expect(limited.inspect().pendingBytes).toBe(0);
+
+    const queued = new QueuedWritableFile(backend, { maxPendingBytes: 2 });
+    releases.push(async () => {
+      released.resolve();
+      await queued.close();
+    });
+    const predecessor = queued.truncate(0);
+    await entered.promise;
+    const backing = new Uint8Array([99, 4, 5, 99]);
+    const bytes = shadowed(new Uint8Array(backing.buffer, 1, 2));
+    const writing = queued.write(bytes, { at: 0 });
+    expect(queued.inspect().pendingBytes).toBe(2);
+    Object.defineProperty(bytes, "byteLength", { configurable: true, value: 500 });
+    Object.defineProperty(bytes, "byteOffset", { configurable: true, value: 99 });
+    released.resolve();
+    await Promise.all([predecessor, writing]);
+    expect(observations).toEqual([{ bytes: [4, 5], buffer: backing.buffer }]);
+    expect(observations[0]?.buffer).toBe(backing.buffer);
+    expect(queued.inspect().pendingBytes).toBe(0);
+    await expect(queued.write(offsetBytes(), { at: Number.MAX_SAFE_INTEGER - 1 })).rejects.toBeInstanceOf(RangeError);
+    const detached = new Uint8Array([4, 5]);
+    structuredClone(detached.buffer, { transfer: [detached.buffer] });
+    let rejection!: Promise<void>;
+    expect(() => rejection = queued.write(detached, { at: 0 })).not.toThrow();
+    await expect(rejection).rejects.toBeInstanceOf(TypeError);
+    if (Object.getOwnPropertyDescriptor(ArrayBuffer.prototype, "resizable")?.get) {
+      const storage = new ArrayBuffer(4, { maxByteLength: 8 });
+      const outside = new Uint8Array(storage, 2, 2);
+      storage.resize(1);
+      expect(() => rejection = queued.write(outside, { at: 0 })).not.toThrow();
+      await expect(rejection).rejects.toBeInstanceOf(TypeError);
+    }
+    expect(observations).toHaveLength(1);
+  }));
 
 describe("architecture failure classes", () => {
   for (const [name, create] of [["node", createNodeDriver], ["deno", createDenoDriver]] as const) {
@@ -318,7 +554,7 @@ describe("host profile native runtime parity", () => {
             releases.push(() => within(reader.cancel().catch(() => undefined), "native read signal teardown"));
             expect((await reader.read()).value?.byteLength).toBeGreaterThan(0);
             controller.abort("stop native source");
-            await expect(reader.read()).rejects.toMatchObject({ code: "aborted", cause: "stop native source" });
+            assertReadAbort(await failureOf(reader.read()), name, "stop native source");
           }
         }),
     );
@@ -531,7 +767,11 @@ describe("direct host cancellation admission", () => {
             const write = source === "bytes"
               ? driver.writeFile("/file", bytes, options)
               : driver.writeStream!("/file", new Blob([bytes]).stream(), options);
-            await expect(write).rejects.toMatchObject({ code: "aborted", cause: stage });
+            assertWriteAbort(
+              await failureOf(write),
+              stage,
+              source === "stream" || (name === "node" && stage === "stat"),
+            );
             expect(counts.write).toBe(stage === "write" ? 1 : 0);
             expect(counts.truncate).toBe(0);
             expect(counts.close).toBe(1);
@@ -586,7 +826,7 @@ it("Deno tail stream abort cancels the native reader and closes its actual file"
     releases.push(() => reader.releaseLock());
     releases.push(() => within(reader.cancel().catch(() => undefined), "Deno native read teardown"));
     controller.abort("close actual native file");
-    await expect(reader.read()).rejects.toMatchObject({ code: "aborted" });
+    assertReadAbort(await failureOf(reader.read()), "deno", "close actual native file");
     await within(released.promise, "Deno native reader release");
     const closedFile = native;
     expect(closedFile).toBeDefined();
@@ -619,8 +859,502 @@ it("Node tail stream abort closes the actual native stream descriptor", async ()
     releases.push(() => within(reader.cancel().catch(() => undefined), "Node native read teardown"));
     expect((await reader.read()).value?.byteLength).toBeGreaterThan(0);
     controller.abort("close native descriptor");
-    await expect(reader.read()).rejects.toMatchObject({ code: "aborted" });
+    assertReadAbort(await failureOf(reader.read()), "node", "close native descriptor");
     await within(closed.promise, "Node native descriptor close");
     expect(native?.destroyed).toBe(true);
     expect(native?.closed).toBe(true);
   }));
+
+/** Captures rejection separately from a successful undefined value. */
+async function failureOf(action: Promise<unknown>): Promise<unknown> {
+  try {
+    await action;
+  } catch (reason) {
+    return reason;
+  }
+  throw new Error("Expected an actual rejected operation.");
+}
+
+/** Patches only an owned test's native API method and restores it before retiring the root. */
+function replaceNative(
+  releases: Array<() => void | Promise<unknown>>,
+  api: object,
+  method: string,
+  replacement: (...args: unknown[]) => unknown,
+): void {
+  const original: unknown = Reflect.get(api, method);
+  releases.push(() => {
+    Reflect.set(api, method, original);
+  });
+  Reflect.set(api, method, replacement);
+}
+
+describe("native retirement observations", () => {
+  for (const [name, create] of [["node", createNodeDriver], ["deno", createDenoDriver]] as const) {
+    const options = { skip: name === "deno" && typeof Deno === "undefined" };
+    it(
+      `${name} leaves a newly recreated old stage name after acknowledged rename`,
+      options,
+      async () =>
+        await withReleases(async (releases) => {
+          const root = await mkdtemp(join(tmpdir(), "opfs-stage-owner-"));
+          releases.push(() => rm(root, { recursive: true, force: true }));
+          const driver = create({ root });
+          await driver.writeFile("/source", new Uint8Array([1, 2, 3]), { mode: "replace" });
+          const api = name === "deno" ? Deno : process.getBuiltinModule("node:fs/promises");
+          if (api === undefined) throw new Error("Native filesystem API is unavailable.");
+          const rename = Reflect.get(api, "rename") as (...args: unknown[]) => Promise<void>;
+          let oldStage: string | undefined;
+          replaceNative(releases, api, "rename", async (...args) => {
+            await Reflect.apply(rename, api, args);
+            oldStage = String(args[0]);
+            await nativeWriteFile(oldStage, new Uint8Array([9, 8, 7]));
+          });
+          await driver.copy!("/source", "/destination", { overwrite: true });
+          expect(await driver.readFile("/destination")).toEqual(new Uint8Array([1, 2, 3]));
+          expect(oldStage).toBeDefined();
+          expect([...await nativeReadFile(oldStage!)]).toEqual([9, 8, 7]);
+        }),
+    );
+
+    for (const failsBeforePublication of [false, true]) {
+      it(
+        `${name} retains ${failsBeforePublication ? "copy and cleanup" : "link-publication cleanup"} failures`,
+        options,
+        async () =>
+          await withReleases(async (releases) => {
+            const root = await mkdtemp(join(tmpdir(), "opfs-stage-fault-"));
+            releases.push(() => rm(root, { recursive: true, force: true }));
+            const driver = create({ root });
+            await driver.writeFile("/source", new Uint8Array([4, 5]), { mode: "replace" });
+            const api = name === "deno" ? Deno : process.getBuiltinModule("node:fs/promises");
+            if (api === undefined) throw new Error("Native filesystem API is unavailable.");
+            const reason = new Error("Authored independent copy/retirement events.");
+            const retirement = name === "deno" ? "remove" : "unlink";
+            let removals = 0;
+            replaceNative(releases, api, retirement, () => {
+              removals++;
+              throw reason;
+            });
+            if (failsBeforePublication) {
+              replaceNative(releases, api, "copyFile", () => {
+                throw reason;
+              });
+            }
+            const failure = await failureOf(driver.copy!("/source", "/destination", { overwrite: false }));
+            if (failsBeforePublication) {
+              expect(failure).toBeInstanceOf(AggregateError);
+              expect((failure as AggregateError).errors).toEqual([reason, reason]);
+              expect((failure as AggregateError).cause).toBe(reason);
+              await expect(nativeReadFile(join(root, "destination"))).rejects.toMatchObject({ code: "ENOENT" });
+            } else {
+              expect(failure).toBe(reason);
+              expect([...await nativeReadFile(join(root, "destination"))]).toEqual([4, 5]);
+            }
+            expect(removals).toBe(1);
+            expect((await readdir(root)).length).toBe(failsBeforePublication ? 2 : 3);
+          }),
+      );
+    }
+
+    it(
+      `${name} removes its acquired stage after reservation close fails`,
+      options,
+      async () =>
+        await withReleases(async (releases) => {
+          const root = await mkdtemp(join(tmpdir(), "opfs-reservation-close-"));
+          releases.push(() => rm(root, { recursive: true, force: true }));
+          const driver = create({ root });
+          await driver.writeFile("/source", new Uint8Array([1]), { mode: "replace" });
+          const api = name === "deno" ? Deno : process.getBuiltinModule("node:fs/promises");
+          if (api === undefined) throw new Error("Native filesystem API is unavailable.");
+          const open = Reflect.get(api, "open") as (...args: unknown[]) => Promise<object>;
+          const reason = new Error("Authored reservation close fault.");
+          let closes = 0;
+          replaceNative(releases, api, "open", async (...args) => {
+            const file = await Reflect.apply(open, api, args);
+            const nativeClose = Reflect.get(file, "close");
+            let retired = false;
+            releases.push(async () => {
+              if (!retired) {
+                await Reflect.apply(nativeClose, file, []);
+                retired = true;
+              }
+            });
+            return new Proxy(file, {
+              get(target, key) {
+                const value = Reflect.get(target, key);
+                if (key === "close") {
+                  return name === "deno"
+                    ? () => {
+                      closes++;
+                      Reflect.apply(value, target, []);
+                      retired = true;
+                      throw reason;
+                    }
+                    : async () => {
+                      closes++;
+                      await Reflect.apply(value, target, []);
+                      retired = true;
+                      throw reason;
+                    };
+                }
+                return typeof value === "function" ? value.bind(target) : value;
+              },
+            });
+          });
+          expect(await failureOf(driver.copy!("/source", "/destination", { overwrite: true }))).toBe(reason);
+          expect(closes).toBe(1);
+          expect(await readdir(root)).toEqual(["source"]);
+        }),
+    );
+
+    for (const reason of [undefined, null, new Error("Authored native write fault.")]) {
+      it(
+        `${name} retains write/cancel/release/file-close events (${String(reason)})`,
+        options,
+        async () =>
+          await withReleases(async (releases) => {
+            const root = await mkdtemp(join(tmpdir(), "opfs-native-fault-"));
+            releases.push(() => rm(root, { recursive: true, force: true }));
+            const driver = create({ root });
+            const api = name === "deno" ? Deno : process.getBuiltinModule("node:fs/promises");
+            if (api === undefined) throw new Error("Native filesystem API is unavailable.");
+            const open = Reflect.get(api, "open") as (...args: unknown[]) => Promise<object>;
+            const cancelFault = new Error("Authored producer cancel fault.");
+            const releaseFault = new Error("Authored reader release fault.");
+            const closeFault = new Error("Authored native close fault.");
+            let closes = 0, cancels = 0, unlocked = 0;
+            replaceNative(releases, api, "open", async (...args) => {
+              const file = await Reflect.apply(open, api, args);
+              const nativeClose = Reflect.get(file, "close");
+              let retired = false;
+              releases.push(async () => {
+                if (!retired) {
+                  await Reflect.apply(nativeClose, file, []);
+                  retired = true;
+                }
+              });
+              return new Proxy(file, {
+                get(target, key) {
+                  const value = Reflect.get(target, key);
+                  if (key === "write") {
+                    return () => {
+                      throw reason;
+                    };
+                  }
+                  if (key === "close") {
+                    return name === "deno"
+                      ? () => {
+                        closes++;
+                        Reflect.apply(value, target, []);
+                        retired = true;
+                        throw closeFault;
+                      }
+                      : async () => {
+                        closes++;
+                        await Reflect.apply(value, target, []);
+                        retired = true;
+                        throw closeFault;
+                      };
+                  }
+                  return typeof value === "function" ? value.bind(target) : value;
+                },
+              });
+            });
+            const source = new ReadableStream<Uint8Array>({
+              pull(controller) {
+                controller.enqueue(new Uint8Array([1]));
+              },
+              cancel() {
+                cancels++;
+                throw cancelFault;
+              },
+            }, { highWaterMark: 0 });
+            const reader = source.getReader();
+            const release = reader.releaseLock.bind(reader);
+            releases.push(() => {
+              if (source.locked) release();
+            });
+            reader.releaseLock = () => {
+              release();
+              unlocked++;
+              throw releaseFault;
+            };
+            Reflect.set(source, "getReader", () => reader);
+            const failure = await failureOf(driver.writeStream!("/file", source, { mode: "replace" }));
+            expect(failure).toBeInstanceOf(AggregateError);
+            const outer = failure as AggregateError;
+            expect(outer.errors[1]).toBe(closeFault);
+            expect(outer.errors[0]).toBeInstanceOf(AggregateError);
+            const input = outer.errors[0] as AggregateError;
+            expect(faultsOf(input)).toEqual([reason, cancelFault, releaseFault]);
+            expect(input.cause).toBe(reason);
+            expect(cancels).toBe(1);
+            expect(unlocked).toBe(1);
+            expect(closes).toBe(1);
+            expect(source.locked).toBe(false);
+          }),
+      );
+    }
+  }
+});
+
+for (const [name, create] of [["node", createNodeDriver], ["deno", createDenoDriver]] as const) {
+  for (const operation of ["range-read", "update-write", "stream-eof"] as const) {
+    it(`${name} composes ${operation} settlement with native close`, {
+      skip: name === "deno" && typeof Deno === "undefined",
+    }, async () =>
+      await withReleases(async (releases) => {
+        const root = await mkdtemp(join(tmpdir(), "opfs-native-close-"));
+        releases.push(() => rm(root, { recursive: true, force: true }));
+        const driver = create({ root });
+        await driver.writeFile("/file", new Uint8Array([1, 2]), { mode: "replace" });
+        const api = name === "deno" ? Deno : process.getBuiltinModule("node:fs/promises");
+        if (api === undefined) throw new Error("Native filesystem API is unavailable.");
+        const open = Reflect.get(api, "open") as (...args: unknown[]) => Promise<object>;
+        const primary = new Error("Authored native I/O fault.");
+        const retirement = new Error("Authored descriptor retirement fault.");
+        let closes = 0;
+        replaceNative(releases, api, "open", async (...args) => {
+          const file = await Reflect.apply(open, api, args);
+          const nativeClose = Reflect.get(file, "close");
+          let retired = false;
+          releases.push(async () => {
+            if (!retired) {
+              await Reflect.apply(nativeClose, file, []);
+              retired = true;
+            }
+          });
+          return new Proxy(file, {
+            get(target, key) {
+              const value = Reflect.get(target, key);
+              if (key === (operation === "range-read" ? "read" : "write") && operation !== "stream-eof") {
+                return () => {
+                  throw primary;
+                };
+              }
+              if (key === "close") {
+                return name === "deno"
+                  ? () => {
+                    closes++;
+                    Reflect.apply(value, target, []);
+                    retired = true;
+                    throw retirement;
+                  }
+                  : async () => {
+                    closes++;
+                    await Reflect.apply(value, target, []);
+                    retired = true;
+                    throw retirement;
+                  };
+              }
+              return typeof value === "function" ? value.bind(target) : value;
+            },
+          });
+        });
+        const action = operation === "range-read"
+          ? driver.readFile("/file", { at: 0, length: 1 })
+          : operation === "update-write"
+          ? driver.writeFile("/file", new Uint8Array([7]), { mode: "update" })
+          : driver.writeStream!("/file", new Blob([new Uint8Array([8, 9])]).stream(), { mode: "replace" });
+        const failure = await failureOf(action);
+        if (operation === "stream-eof") expect(failure).toBe(retirement);
+        else {
+          expect(failure).toBeInstanceOf(AggregateError);
+          expect((failure as AggregateError).errors).toEqual([primary, retirement]);
+          expect((failure as AggregateError).cause).toBe(primary);
+        }
+        expect(closes).toBe(1);
+      }));
+  }
+}
+
+for (const [name, create] of [["node", createNodeDriver], ["deno", createDenoDriver]] as const) {
+  it(`${name} refuses a collided reservation without removing the unowned entry`, {
+    skip: name === "deno" && typeof Deno === "undefined",
+  }, async () =>
+    await withReleases(async (releases) => {
+      const root = await mkdtemp(join(tmpdir(), "opfs-unowned-stage-"));
+      releases.push(() => rm(root, { recursive: true, force: true }));
+      const driver = create({ root });
+      await driver.writeFile("/source", new Uint8Array([1]), { mode: "replace" });
+      const api = name === "deno" ? Deno : process.getBuiltinModule("node:fs/promises");
+      if (api === undefined) throw new Error("Native filesystem API is unavailable.");
+      const open = Reflect.get(api, "open") as (...args: unknown[]) => Promise<object>;
+      const remove = Reflect.get(api, name === "deno" ? "remove" : "unlink") as (...args: unknown[]) => Promise<void>;
+      let collided: string | undefined, removals = 0;
+      replaceNative(releases, api, name === "deno" ? "remove" : "unlink", (...args) => {
+        removals++;
+        return Reflect.apply(remove, api, args);
+      });
+      replaceNative(releases, api, "open", async (...args) => {
+        collided = String(args[0]);
+        await nativeWriteFile(collided, new Uint8Array([6, 7]));
+        return await Reflect.apply(open, api, args);
+      });
+      await failureOf(driver.copy!("/source", "/destination", { overwrite: true }));
+      expect(removals).toBe(0);
+      expect(collided).toBeDefined();
+      expect([...await nativeReadFile(collided!)]).toEqual([6, 7]);
+      expect(await readdir(root)).toContain("source");
+      await expect(nativeReadFile(join(root, "destination"))).rejects.toMatchObject({ code: "ENOENT" });
+    }));
+}
+
+for (const [name, create] of [["node", createNodeDriver], ["deno", createDenoDriver]] as const) {
+  it(`${name} refuses an invalid byte chunk and retires its acquired file`, {
+    skip: name === "deno" && typeof Deno === "undefined",
+  }, async () =>
+    await withReleases(async (releases) => {
+      const root = await mkdtemp(join(tmpdir(), "opfs-native-byte-admission-"));
+      releases.push(() => rm(root, { recursive: true, force: true }));
+      const driver = create({ root });
+      let cancels = 0;
+      const source = new ReadableStream<Uint8Array>({
+        pull(controller) {
+          Reflect.apply(controller.enqueue, controller, ["wrong JavaScript bytes"]);
+        },
+        cancel() {
+          cancels++;
+        },
+      }, { highWaterMark: 0 });
+      expect(await failureOf(driver.writeStream!("/file", source, { mode: "replace" }))).toBeInstanceOf(TypeError);
+      expect(cancels).toBe(1);
+      expect(source.locked).toBe(false);
+      // Native replacement acquired/truncated the file; input was never silently published as valid bytes.
+      expect([...await nativeReadFile(join(root, "file"))]).toEqual([]);
+    }));
+}
+
+for (const mode of ["success", "read-fault", "close-fault", "read-and-close-fault", "reentrant-cancel"] as const) {
+  it(`Deno range cancellation joins a held native read: ${mode}`, {
+    skip: typeof Deno === "undefined",
+  }, async () =>
+    await withReleases(async (releases) => {
+      const root = await mkdtemp(join(tmpdir(), "opfs-range-retirement-"));
+      releases.push(() => rm(root, { recursive: true, force: true }));
+      const path = join(root, "file");
+      await nativeWriteFile(path, new Uint8Array([1, 2, 3]));
+      const file = await Deno.open(path, { read: true });
+      let physicallyClosed = false;
+      releases.push(() => {
+        if (!physicallyClosed) file.close();
+      });
+      const admitted = gate(), releaseRead = gate();
+      const readFault = new Error("Authored range read retirement fault.");
+      // Equal-valued faults still represent two independently settled native actions.
+      const closeFault = mode === "read-and-close-fault" ? readFault : new Error("Authored range close fault.");
+      let closes = 0;
+      let reentrant: Promise<void> | undefined;
+      let reentrantBytes: readonly number[] | undefined;
+      const owned = new Proxy(file, {
+        get(target, key) {
+          if (key === "read") {
+            return async (buffer: Uint8Array) => {
+              // The reentrant case uses real synchronous file bytes before requesting
+              // cancellation from inside this admitted asynchronous method.
+              const count = mode === "reentrant-cancel" ? target.readSync(buffer) : await target.read(buffer);
+              if (mode === "reentrant-cancel") {
+                reentrantBytes = [...buffer.subarray(0, count ?? 0)];
+                reentrant = source.cancel();
+                // The child effect owns both reactions before the parent assertions.
+                void reentrant.catch(() => {});
+              }
+              admitted.resolve();
+              await releaseRead.promise;
+              if (mode === "read-fault" || mode === "read-and-close-fault") throw readFault;
+              return count;
+            };
+          }
+          if (key === "close") {
+            return () => {
+              closes++;
+              target.close();
+              physicallyClosed = true;
+              if (mode === "close-fault" || mode === "read-and-close-fault") throw closeFault;
+            };
+          }
+          const value = Reflect.get(target, key);
+          return typeof value === "function" ? value.bind(target) : value;
+        },
+      });
+      const source = new DenoRangeSource(owned, 3);
+      let enqueues = 0, errors = 0, cancellationConsumed = false;
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          const enqueue = controller.enqueue.bind(controller), error = controller.error.bind(controller);
+          controller.enqueue = (chunk) => {
+            enqueues++;
+            enqueue(chunk);
+          };
+          controller.error = (reason) => {
+            errors++;
+            error(reason);
+          };
+        },
+        pull: (controller) => source.pull(controller),
+        cancel: () => source.cancel(),
+      }, { highWaterMark: 0 });
+      releases.push(async () => {
+        releaseRead.resolve();
+        if (!cancellationConsumed) await source.cancel();
+      });
+      const reader = stream.getReader();
+      releases.push(() => reader.releaseLock());
+      const reading = reader.read().then(
+        (value) => ({ ok: true as const, value }),
+        (reason: unknown) => ({ ok: false as const, reason }),
+      );
+      releases.push(async () => {
+        releaseRead.resolve();
+        const outcome = await reading;
+        if (!outcome.ok) throw outcome.reason;
+      });
+      await within(admitted.promise, "native range read admission");
+      let settled = false;
+      const stopping = reader.cancel().then(
+        () => {
+          settled = true;
+          return { ok: true as const };
+        },
+        (reason: unknown) => {
+          settled = true;
+          return { ok: false as const, reason };
+        },
+      );
+      releases.push(async () => {
+        releaseRead.resolve();
+        await stopping;
+      });
+      await setImmediate();
+      expect(closes).toBe(1);
+      expect(physicallyClosed).toBe(true);
+      // Independent read gate remains held after a complete native task checkpoint.
+      expect(settled).toBe(false);
+      const terminal = source.cancel();
+      expect(source.cancel()).toBe(terminal);
+      if (mode === "reentrant-cancel") {
+        expect(reentrant).toBe(terminal);
+        expect(reentrantBytes).toEqual([1, 2, 3]);
+      }
+      releaseRead.resolve();
+      const outcome = await within(stopping, "range cancellation joins native read");
+      cancellationConsumed = true;
+      if (mode === "success" || mode === "reentrant-cancel") expect(outcome.ok).toBe(true);
+      else {
+        expect(outcome.ok).toBe(false);
+        if (outcome.ok) throw new Error("Range cancellation unexpectedly succeeded.");
+        if (mode === "read-and-close-fault") {
+          expect(outcome.reason).toBeInstanceOf(AggregateError);
+          expect((outcome.reason as AggregateError).errors).toEqual([closeFault, readFault]);
+        } else expect(outcome.reason).toBe(mode === "read-fault" ? readFault : closeFault);
+      }
+      expect(await reading).toEqual({ ok: true, value: { done: true, value: undefined } });
+      expect(enqueues).toBe(0);
+      expect(errors).toBe(0);
+      expect(closes).toBe(1);
+      reader.releaseLock();
+      expect(stream.locked).toBe(false);
+    }));
+}
