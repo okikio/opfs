@@ -1,4 +1,8 @@
 import { retry, RetryError } from "@std/async/retry";
+import { aggregate } from "./close.ts";
+import { createCancellation, retainCancellation } from "./abort.ts";
+import type { CancellationPrimaryType, CancellationType } from "./abort.ts";
+import { readResponse } from "./response.ts";
 import { z } from "zod";
 
 /**
@@ -130,7 +134,7 @@ class RetryResponseError extends Error {
 interface RequestAttemptType {
   /** Fully prepared URL or RequestInfo for this attempt. */
   readonly input: RequestInfo | URL;
-  /** Fully prepared request initialization for this attempt. */
+  /** Fully prepared initialization, including the supplied attempt signal when Fetch must observe cancellation. */
   readonly init?: RequestInit;
 }
 
@@ -176,70 +180,108 @@ export function isRetryStatus(status: number): boolean {
   return status === 408 || status === 429 || status >= 500;
 }
 
-/**
- * Combines caller cancellation with one per-attempt deadline.
- *
- * The helper creates listeners only when a timeout is configured. Cleanup is
- * returned explicitly so long-lived clients do not accumulate abort listeners.
- */
-function getSignal(signal: AbortSignal | undefined, timeoutMs: number | false | undefined): {
-  readonly signal?: AbortSignal;
-  readonly cleanup: () => void;
-} {
-  if (timeoutMs === undefined || timeoutMs === false) {
-    return { ...(signal === undefined ? {} : { signal }), cleanup() {} };
-  }
+/** One actual signal event; its origin is independent of reason identity. */
+interface AbortEventType {
+  readonly origin: "caller" | "deadline";
+  readonly reason: unknown;
+}
 
-  const controller = new AbortController();
-  const onAbort = () => controller.abort(signal?.reason);
+/** Scoped signal plus the observed events owned by this attempt. */
+interface RequestSignalType {
+  readonly signal?: AbortSignal;
+  event(): AbortEventType | undefined;
+  caller(): { readonly signal: AbortSignal; readonly reason: unknown } | undefined;
+  cleanup(): void;
+}
+
+/**
+ * Records concrete caller/deadline events before request preparation starts.
+ * First scoped abort wins signal composition. A later caller event remains an
+ * observation even if this attempt's timer already expired. Cleanup retires the
+ * timer/listener; neither error classes nor equal values establish an event.
+ */
+function getSignal(signal: AbortSignal | undefined, timeoutMs: number | false | undefined): RequestSignalType {
+  const controller = typeof timeoutMs === "number" ? new AbortController() : undefined;
+  let event: AbortEventType | undefined;
+  let caller: { readonly signal: AbortSignal; readonly reason: unknown } | undefined;
+  const onAbort = () => {
+    if (signal === undefined) return;
+    caller ??= { signal, reason: signal.reason };
+    if (event === undefined) {
+      event = { origin: "caller", reason: caller.reason };
+      controller?.abort(caller.reason);
+    }
+  };
   if (signal?.aborted) onAbort();
   else signal?.addEventListener("abort", onAbort, { once: true });
-  const timer = setTimeout(
-    () => controller.abort(new DOMException(`Request timed out after ${timeoutMs} ms.`, "TimeoutError")),
-    timeoutMs,
-  );
+  const timer = controller === undefined || typeof timeoutMs !== "number" ? undefined : setTimeout(() => {
+    if (event !== undefined) return;
+    const reason = new DOMException(`Request timed out after ${timeoutMs} ms.`, "TimeoutError");
+    event = { origin: "deadline", reason };
+    controller.abort(reason);
+  }, timeoutMs);
+  const scoped = controller?.signal ?? signal;
   return {
-    signal: controller.signal,
+    ...(scoped === undefined ? {} : { signal: scoped }),
+    event: () => event,
+    caller: () => caller,
     cleanup() {
-      clearTimeout(timer);
+      if (timer !== undefined) clearTimeout(timer);
       signal?.removeEventListener("abort", onAbort);
     },
   };
 }
 
+/** Preparation's own abort winner is distinct from a concrete callback failure. */
+type PreparationType =
+  | { readonly kind: "prepared"; readonly value: RequestAttemptType }
+  | { readonly kind: "operation"; readonly reason: unknown }
+  | { readonly kind: "abort"; readonly event: AbortEventType };
+
 /**
- * Waits for request preparation while making the scoped attempt signal authoritative.
- *
- * Signing and credential callbacks are normally fast, but they are still part
- * of one request attempt. Racing preparation with the scoped signal means a
- * configured per-attempt timeout also limits a slow credential source. The
- * preparation promise can continue internally if that source has no cancellation
- * API, but its eventual result can no longer publish an HTTP request.
+ * Uses an opaque attempt-local abort token while preserving native race order.
+ * The original create promise is the first race input. Its rejected value is
+ * never interpreted as cancellation, even when equal to the signal's reason.
+ * Uncooperative preparation remains observed after abort but cannot dispatch;
+ * this scope cannot interrupt or join an arbitrary credential callback forever.
  */
 async function prepare(
   create: (signal?: AbortSignal) => Promise<RequestAttemptType>,
-  signal: AbortSignal | undefined,
-): Promise<RequestAttemptType> {
-  if (signal === undefined) return await create();
-  signal.throwIfAborted();
-
+  scoped: RequestSignalType,
+): Promise<PreparationType> {
+  const signal = scoped.signal;
+  const prior = scoped.event();
+  if (prior !== undefined) return { kind: "abort", event: prior };
+  if (signal === undefined) {
+    try {
+      return { kind: "prepared", value: await create() };
+    } catch (reason) {
+      return { kind: "operation", reason };
+    }
+  }
+  const token = Object.freeze({});
   let onAbort!: () => void;
   const aborted = new Promise<never>((_resolve, reject) => {
-    onAbort = () => reject(signal.reason ?? new DOMException("The request attempt was aborted.", "AbortError"));
+    onAbort = () => reject(token);
     signal.addEventListener("abort", onAbort, { once: true });
   });
-
+  // If create throws synchronously, the abort branch still has an immediate
+  // observer. Promise.race observes both outcomes of a returned create promise.
+  void aborted.catch(() => {});
   try {
-    return await Promise.race([create(signal), aborted]);
+    const value = await Promise.race([create(signal), aborted]);
+    const event = scoped.event();
+    return event === undefined ? { kind: "prepared", value } : { kind: "abort", event };
+  } catch (reason) {
+    if (reason === token) {
+      const event = scoped.event();
+      if (event === undefined) throw new Error("An owned abort winner has no observed signal event.");
+      return { kind: "abort", event };
+    }
+    return { kind: "operation", reason };
   } finally {
     signal.removeEventListener("abort", onAbort);
   }
-}
-
-/** Returns the error callers should observe after one internal retry marker escapes. */
-function unwrap(error: unknown): unknown {
-  const original = error instanceof RetryError ? error.cause : error;
-  return original instanceof RequestTransportError ? original.cause : original;
 }
 
 /**
@@ -249,6 +291,17 @@ function unwrap(error: unknown): unknown {
  * required for signed protocols because credentials and timestamps can change
  * between attempts. The shared layer owns the actual Fetch call so metrics count
  * concrete network attempts instead of deterministic signing failures.
+ * `create` must forward its supplied signal in `RequestInit.signal` for Fetch to
+ * observe the caller cancellation and attempt deadline. Preparation is raced
+ * against that signal; this layer does not rewrite the fully prepared Fetch init.
+ * Observer callbacks cannot grant retries. If a response observer fails, this
+ * layer retires the acquired response before rejecting. Independent Fetch,
+ * observer, and retirement faults retain their original identities in order.
+ * Preparation records an owned abort winner separately from actual callback
+ * rejection. Fetch rejection and a caller abort are retained as two observations
+ * even if Fetch forwards the same reason; this does not infer independent causes.
+ * The original operation remains primary, while an abort-winning preparation
+ * keeps its exact scalar reason. No reason-value equality grants retry authority.
  *
  * A non-replayable body or `retry: false` path passes `replayable: false`. That
  * path bypasses `@std/async/retry` completely and therefore cannot fail because
@@ -270,7 +323,7 @@ export async function sendRequest(
     readonly signal?: AbortSignal;
     /** Whether the request can be rebuilt and sent again after a transient failure. */
     readonly replayable?: boolean;
-    /** Optional concrete HTTP counters owned by the protocol client. */
+    /** Optional HTTP counters. Throwing observer overrides refuse retry and retain acquired-body ownership. */
     readonly metrics?: RequestMetrics;
   },
 ): Promise<Response> {
@@ -278,40 +331,121 @@ export async function sendRequest(
   const attempts = options.replayable === false ? 1 : policy.retries! + 1;
   let attempt = 0;
   let fetches = 0;
+  let cancellation: CancellationType | undefined;
+  // Only this attempt's acquired HTTP response, Fetch rejection, or owned
+  // deadline can grant replay authority. Callback-thrown markers from another
+  // request remain ordinary reasons, including externally supplied RetryError.
+  let admission: { readonly reason: RequestTransportError | RetryResponseError } | undefined;
+
+  /** Observers report work; their failures cannot authorize another attempt. */
+  const observe = <Value>(read: () => Value): Value => {
+    try {
+      return read();
+    } catch (reason) {
+      admission = undefined;
+      throw reason;
+    }
+  };
+
+  /** Admits only a reason created from this attempt's own retryable event. */
+  const transport = (reason: unknown): RequestTransportError => {
+    const error = new RequestTransportError(reason);
+    admission = { reason: error };
+    return error;
+  };
+
+  /** Composes current invocation observations, including equal-valued events. */
+  const retain = (reason: unknown, primary: CancellationPrimaryType, scoped: RequestSignalType): unknown => {
+    const caller = scoped.caller();
+    if (caller === undefined) return reason;
+    cancellation = createCancellation(caller.signal, caller.reason, primary);
+    if (primary.kind === "abort") return reason; // One owned scalar event, not a new borrowed-object tag.
+    return retainCancellation(
+      aggregate([reason, caller.reason], "Request rejection and caller abort were both observed."),
+      cancellation,
+    );
+  };
+
+  /** Observer faults cannot become clean cancellation or grant retry authority. */
+  const retainObserver = (reason: unknown, observer: unknown, message: string): AggregateError => {
+    const failure = aggregate([reason, observer], message);
+    if (cancellation !== undefined) {
+      cancellation = createCancellation(cancellation.signal, cancellation.reason, cancellation.primary, [
+        ...cancellation.extra,
+        observer,
+      ]);
+      retainCancellation(failure, cancellation);
+    }
+    return failure;
+  };
 
   const run = async (): Promise<Response> => {
     attempt += 1;
+    admission = undefined;
+    cancellation = undefined;
     const scoped = getSignal(options.signal, policy.timeoutMs);
     try {
-      const request = await prepare(create, scoped.signal);
-      if (options.signal?.aborted) {
-        throw options.signal.reason ?? new DOMException("The request was aborted.", "AbortError");
-      }
-      scoped.signal?.throwIfAborted();
-
-      const started = options.metrics?.request(fetches > 0);
-      fetches += 1;
-      try {
-        const response = await options.fetch(request.input, request.init);
-        options.metrics?.response(started);
-        if (attempt < attempts && isRetryStatus(response.status)) {
-          await response.body?.cancel().catch(() => undefined);
-          throw new RetryResponseError(response);
+      let prepared = await prepare(create, scoped);
+      // An event can arrive after prepare settles and before this owner resumes.
+      // Re-admit effects here rather than relying on an earlier signal snapshot.
+      const late = scoped.event();
+      if (prepared.kind === "prepared" && late !== undefined) prepared = { kind: "abort", event: late };
+      if (prepared.kind === "abort") {
+        const caller = scoped.caller();
+        if (prepared.event.origin === "caller") {
+          throw retain(prepared.event.reason, { kind: "abort" }, scoped);
         }
-        return response;
-      } catch (error) {
-        if (!(error instanceof RetryResponseError)) options.metrics?.rejected(started);
-        if (options.signal?.aborted) throw error;
-        if (error instanceof RetryResponseError) throw error;
-        throw new RequestTransportError(scoped.signal?.aborted ? scoped.signal.reason ?? error : error);
+        if (caller !== undefined) {
+          throw retain(prepared.event.reason, { kind: "deadline", reason: prepared.event.reason }, scoped);
+        }
+        throw transport(prepared.event.reason);
       }
-    } catch (error) {
-      if (options.signal?.aborted) throw error;
-      if (error instanceof RetryResponseError || error instanceof RequestTransportError) throw error;
-      if (scoped.signal?.aborted) throw new RequestTransportError(scoped.signal.reason ?? error);
-      // Request preparation, credentials, canonicalization, and signing failures
-      // are deterministic at this layer. Do not spend the network retry budget.
-      throw error;
+      if (prepared.kind === "operation") {
+        // The concrete preparation winner stays deterministic even if a later
+        // timer fires. Only the owned abort winner can grant deadline replay.
+        throw retain(prepared.reason, { kind: "operation", stage: "prepare", reason: prepared.reason }, scoped);
+      }
+      const request = prepared.value;
+
+      // Resolve injected properties before owning a concrete Fetch invocation.
+      // A preparation/getter failure cannot manufacture transport retry authority.
+      const fetch = options.fetch;
+      const input = request.input;
+      const init = request.init;
+      const started = observe(() => options.metrics?.request(fetches > 0));
+      fetches += 1;
+      let response: Response;
+      try {
+        response = await fetch.call(options, input, init);
+      } catch (error) {
+        const failure = retain(error, { kind: "operation", stage: "fetch", reason: error }, scoped);
+        try {
+          observe(() => options.metrics?.rejected(started));
+        } catch (observer) {
+          throw retainObserver(failure, observer, "Fetch and its rejection observer failed.");
+        }
+        if (scoped.caller() !== undefined) throw failure;
+        throw transport(failure);
+      }
+      try {
+        observe(() => options.metrics?.response(started));
+      } catch (observer) {
+        // Fetch has already transferred this response to us. The observer did
+        // not transfer its body to a caller, so retirement remains our duty.
+        return await readResponse(response, () => {
+          throw observer;
+        });
+      }
+      if (attempt < attempts && isRetryStatus(response.status)) {
+        // Retirement is not Fetch failure. Refuse another attempt when disposing
+        // this owned intermediate response fails, retaining its HTTP retry reason.
+        return await readResponse(response, () => {
+          const reason = new RetryResponseError(response);
+          admission = { reason };
+          throw reason;
+        });
+      }
+      return response;
     } finally {
       scoped.cleanup();
     }
@@ -326,10 +460,22 @@ export async function sendRequest(
       multiplier: policy.multiplier!,
       jitter: policy.jitter!,
       ...(options.signal === undefined ? {} : { signal: options.signal }),
-      isRetriable: (error: unknown) => error instanceof RetryResponseError || error instanceof RequestTransportError,
+      isRetriable: (error: unknown) => admission !== undefined && error === admission.reason,
     });
   } catch (error) {
-    options.metrics?.failure();
-    throw unwrap(error);
+    // Unwrap only our own admitted transport reason and the retry engine's
+    // wrapper around it. An external marker must retain its exact identity.
+    const original = error instanceof RetryError && admission !== undefined && error.cause === admission.reason
+      ? error.cause
+      : error;
+    const reason = admission !== undefined && original === admission.reason && original instanceof RequestTransportError
+      ? original.cause
+      : original;
+    try {
+      observe(() => options.metrics?.failure());
+    } catch (observer) {
+      throw retainObserver(reason, observer, "Request and its failure observer failed.");
+    }
+    throw reason;
   }
 }
