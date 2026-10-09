@@ -8,6 +8,85 @@ import type { BrowserTestGlobalType } from "./fixtures/api.ts";
 /** File-local global shape after the fixture page installs its Playwright API. */
 type InstalledFixtureGlobalType = typeof globalThis & BrowserTestGlobalType;
 
+test("native OPFS writes count intrinsic offset bytes and ignore caller metadata", async ({ ready: page }) => {
+  const result = await page.evaluate(async () => {
+    const moduleUrl = new URL("/src/driver/opfs.ts", location.href).href;
+    const { createOpfsDriver } = await import(moduleUrl) as typeof import("../../src/driver/opfs.ts");
+    const origin = await navigator.storage.getDirectory();
+    const name = `intrinsic-${crypto.randomUUID()}`;
+    const root = await origin.getDirectoryHandle(name, { create: true });
+    const driver = createOpfsDriver(root);
+    const outcomes: Array<{ readonly kind: string; readonly bytes: number[] }> = [];
+    try {
+      const stores: Array<readonly [string, ArrayBufferLike]> = [["fixed", new ArrayBuffer(4)]];
+      if (typeof SharedArrayBuffer !== "undefined") stores.push(["shared", new SharedArrayBuffer(4)]);
+      if (Object.getOwnPropertyDescriptor(ArrayBuffer.prototype, "resizable")?.get) {
+        stores.push(["resizable", new ArrayBuffer(4, { maxByteLength: 8 })]);
+      }
+      for (const [kind, store] of stores) {
+        new Uint8Array(store).set([99, 4, 5, 99]);
+        for (const route of ["bytes", "stream", "positional"] as const) {
+          await driver.writeFile("/file", new Uint8Array([1, 1, 1, 1]), { mode: "replace" });
+          const view = new Uint8Array(store, 1, 2);
+          const refuse = () => {
+            throw new Error("Caller-owned byte method was invoked.");
+          };
+          Object.defineProperties(view, {
+            buffer: { value: new ArrayBuffer(0) },
+            byteOffset: { value: 0 },
+            byteLength: { value: 0 },
+            subarray: { value: refuse },
+            slice: { value: refuse },
+            [Symbol.iterator]: { value: refuse },
+          });
+          if (route === "bytes") await driver.writeFile("/file", view, { mode: "update", at: 1, truncate: true });
+          else if (route === "stream") {
+            const source = new ReadableStream<Uint8Array>({
+              start(controller) {
+                controller.enqueue(view);
+                controller.close();
+              },
+            });
+            await driver.writeStream!("/file", source, { mode: "update", at: 1, truncate: true });
+            if (source.locked) throw new Error("Native byte input retained its borrowed lock.");
+          } else {
+            const writer = await driver.openWritableFile!("/file", { maxPendingBytes: 2 });
+            try {
+              await writer.write(view, { at: 1 });
+              await writer.truncate(3);
+              await writer.close();
+            } catch (error) {
+              await writer.abort(error);
+              throw error;
+            }
+          }
+          outcomes.push({ kind: `${kind}/${route}`, bytes: [...await driver.readFile("/file")] });
+        }
+      }
+      const detached = new Uint8Array([4, 5]);
+      structuredClone(detached.buffer, { transfer: [detached.buffer] });
+      for (const invalid of [new Proxy(new Uint8Array([4, 5]), {}), detached, new Uint16Array([4, 5])]) {
+        let rejected = false;
+        try {
+          await driver.writeFile("/file", invalid as Uint8Array, { mode: "replace" });
+        } catch (error) {
+          if (!(error instanceof TypeError)) throw error;
+          rejected = true;
+        }
+        if (!rejected) throw new Error("Invalid native byte input was accepted.");
+        outcomes.push({ kind: "invalid/preserved", bytes: [...await driver.readFile("/file")] });
+      }
+      return outcomes;
+    } finally {
+      await origin.removeEntry(name, { recursive: true });
+    }
+  });
+  expect(result.some(({ kind }) => kind === "fixed/bytes")).toBe(true);
+  expect(result.some(({ kind }) => kind === "fixed/stream")).toBe(true);
+  expect(result.some(({ kind }) => kind === "fixed/positional")).toBe(true);
+  for (const { bytes } of result) expect(bytes).toEqual([1, 4, 5]);
+});
+
 test("window probes the actual capability and round-trips when OPFS is available", async ({ ready: page }) => {
   const result = await page.evaluate(async () =>
     await (globalThis as InstalledFixtureGlobalType).opfsTest.roundTrip(`/window/${crypto.randomUUID()}.txt`, "window")

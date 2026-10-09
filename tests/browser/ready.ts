@@ -155,6 +155,7 @@ export async function admit(
           "queuedAbort",
           "adapter",
           "indexedDbAppend",
+          "providerBody",
           "benchmark",
           "benchmarkAdapter",
         ];
