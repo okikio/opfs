@@ -1,37 +1,22 @@
 # @okikio/opfs
 
-`@okikio/opfs` is an OPFS-shaped storage programming model for browser OPFS, host filesystems, object stores, key-value
-stores, browser storage, document databases, and SQL databases.
+Read and write files through one TypeScript API, with storage supplied by browser OPFS, a host filesystem, an object store, or a database. OPFS means Origin Private File System, the browser storage API that this package uses as its file-and-directory model.
 
-The package does not pretend those systems are identical. It separates protocol behavior, backend storage mechanics,
-OPFS translation, portable filesystem semantics, and reverse ecosystem projections so applications can inspect the real
-route and its limits before work starts.
+Each backend retains its own limits and guarantees. Before a write, use `inspect()` to see available capabilities and `plan()` to check known constraints. These operations help the application choose a supported route; they do not make every backend behave like a local disk.
 
-```text
-ecosystem / native API
-        |
-        v
-      client                 protocol client when a wire protocol exists
-        |
-        v
-      driver                 backend-native storage contract
-        |                    requirements / limits / optimizations / physical metrics
-        v
-      adapter                driver -> canonical OPFS primitives
-        |
-        v
-   FileSystemType            paths / handles / locks / fallbacks / logical metrics
-        |
-        v
-      bridge                 FileSystemType -> real ecosystem contract
-```
+## Follow a file operation
 
-A client is optional. Node, Deno, Bun, browser OPFS, IndexedDB, and SQLite can start at the driver layer. S3 and Azure
-Blob have explicit protocol clients because their wire contracts are independently useful.
+Application code normally calls `FileSystemType`, the filesystem returned by `openFileSystem()` or `createFileSystem()`. It owns virtual paths, handles, cancellation, and the available fallbacks. The lower layers translate that request into the selected backend's operations:
 
-The filesystem facade owns the behavior application code should not rebuild for every backend: canonical virtual paths,
-OPFS-shaped handles, recursive work, cancellation, staged writable files, bounded stream fallbacks, coordination,
-normalized failures, resource ownership, and deterministic preflight planning.
+| Component | Responsibility |
+| --- | --- |
+| Client, when needed | Implements a wire protocol, such as S3 or Azure Blob REST. |
+| Driver | Implements backend operations and reports limits, requirements, optimizations, physical metrics, and resource ownership. |
+| Adapter | Translates the driver into the OPFS primitives required by `FileSystemType`. |
+| `FileSystemType` | Provides the application's file API, including paths, handles, coordination, failure mapping, and planning. |
+| Optional bridge | Lets another ecosystem use an existing `FileSystemType`, for example through an unstorage driver. |
+
+A filesystem call travels through the adapter to the driver and, when needed, the protocol client. A bridge is a separate consumer of the filesystem. Node, Deno, Bun, browser OPFS, IndexedDB, and SQLite do not need a separate protocol client.
 
 ## Start with the storage you own
 
