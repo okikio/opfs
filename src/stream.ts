@@ -726,7 +726,7 @@ export function openBytes(source: ReadableStream<Uint8Array>): ByteReaderType {
     },
     async read(): Promise<ReadableStreamReadResult<Uint8Array>> {
       let native = false;
-      let next: ReadableStreamReadResult<Uint8Array>;
+      let next: Awaited<ReturnType<typeof reader.read>>;
       try {
         receipt.native = false;
         const declared = dataMethod(reader, "read", nativeRead);
