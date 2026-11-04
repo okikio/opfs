@@ -1412,10 +1412,13 @@ it("keeps the request deadline active after headers while an injected body stall
       cancels++;
     },
   });
-  const response = await sendRequest(async (signal) => ({ input: TEST_URL, init: { signal } }), {
-    fetch: async () => new Response(source),
-    policy: { retries: 0, timeoutMs: 10 },
-  });
+  const response = await sendRequest(
+    async (signal) => ({ input: TEST_URL, init: signal === undefined ? {} : { signal } }),
+    {
+      fetch: async () => new Response(source),
+      policy: { retries: 0, timeoutMs: 10 },
+    },
+  );
   await expect(within(response.text(), "response body deadline")).rejects.toMatchObject({ name: "TimeoutError" });
   expect(cancels).toBe(1);
   expect(source.locked).toBe(false);
@@ -1429,11 +1432,14 @@ it("actively cancels an unread acquired response after caller abort", async () =
       cancels++;
     },
   });
-  const response = await sendRequest(async (signal) => ({ input: TEST_URL, init: { signal } }), {
-    fetch: async () => new Response(source),
-    signal: controller.signal,
-    policy: { retries: 0 },
-  });
+  const response = await sendRequest(
+    async (signal) => ({ input: TEST_URL, init: signal === undefined ? {} : { signal } }),
+    {
+      fetch: async () => new Response(source),
+      signal: controller.signal,
+      policy: { retries: 0 },
+    },
+  );
   const reason = new Error("caller stopped");
   controller.abort(reason);
   await expect(within(response.text(), "response body deadline")).rejects.toBe(reason);
