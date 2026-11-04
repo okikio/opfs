@@ -5,7 +5,7 @@ import { withReleases } from "../../close.ts";
 /** Exercises byte semantics against real OPFS rather than memory handle doubles. */
 export async function bytes() {
   const probe = await probeOpfs();
-  if (!probe.rootAvailable) return { supported: false, probe };
+  if (!probe.rootAvailable) return { supported: false as const, probe };
   return await withReleases(async (releases) => {
     const fileSystem = await openFileSystem();
     releases.push(() => fileSystem.close());
@@ -25,14 +25,14 @@ export async function bytes() {
     const moved = Array.from(await fileSystem.readFile(`${root}/moved.bin`));
     const names = [];
     for await (const entry of fileSystem.readDir(root)) names.push(entry.name);
-    return { supported: true, value, range, empty, streamed, moved, names: names.sort() };
+    return { supported: true as const, value, range, empty, streamed, moved, names: names.sort() };
   });
 }
 
 /** A rejected producer cannot publish a partial replacement or retain a mutation lock. */
 export async function failure() {
   const probe = await probeOpfs();
-  if (!probe.rootAvailable) return { supported: false, probe };
+  if (!probe.rootAvailable) return { supported: false as const, probe };
   return await withReleases(async (releases) => {
     const fileSystem = await openFileSystem();
     releases.push(() => fileSystem.close());
@@ -98,7 +98,7 @@ export async function failure() {
     const aborted = await fileSystem.readText(path);
     await fileSystem.writeFile(path, "recovered");
     return {
-      supported: true,
+      supported: true as const,
       sourcePreserved,
       preserved,
       code,
