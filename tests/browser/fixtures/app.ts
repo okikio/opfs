@@ -7,7 +7,6 @@ import { createFileSystem } from "../../../src/filesystem.ts";
 import { reliability } from "./reliability.ts";
 import { within } from "../../gate.ts";
 import { close, withReleases } from "../../close.ts";
-import { benchmarkAdapter, benchmarkOpfs } from "../../../bench/browser/fixture.ts";
 
 import type { AbortResultType, BrowserAdapterType, BrowserTestApiType, RealmResultType } from "./api.ts";
 
@@ -340,10 +339,13 @@ const opfsTest = {
   service: runServiceWorker,
   abort: abortOpfsWrite,
   queuedAbort: abortQueuedWebLock,
-  benchmark: benchmarkOpfs,
-  benchmarkAdapter,
+  benchmark: async (iterations, bytes) =>
+    await (await import("../../../bench/browser/fixture.ts")).benchmarkOpfs(iterations, bytes),
+  benchmarkAdapter: async (kind, iterations, bytes) =>
+    await (await import("../../../bench/browser/fixture.ts")).benchmarkAdapter(kind, iterations, bytes),
   adapter: roundTripAdapter,
   indexedDbAppend,
+  providerBody: async (options) => await (await import("./provider.ts")).providerBody(options),
 } satisfies BrowserTestApiType;
 
 Object.assign(window, { opfsTest });

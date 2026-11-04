@@ -1,15 +1,16 @@
-import { createHash } from "node:crypto";
-import { mkdir, open, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, open, readFile, writeFile } from "node:fs/promises";
 import { arch, cpus, platform, release, totalmem } from "node:os";
 import { join } from "node:path";
 import { env, versions } from "node:process";
 import { validateLifecycle, validateMitata } from "./validate.ts";
 import { finish } from "./result.ts";
 import { runProgram } from "./process.ts";
+import { inputs as identity, verifyInputs } from "./input.ts";
 
 /** Each invocation retains progress and failures in its own report directory. */
-const root = join(".tmp", "reports", "bench", new Date().toISOString().replaceAll(":", "-"));
-await mkdir(root, { recursive: true });
+const parent = join(".tmp", "reports", "bench");
+await mkdir(parent, { recursive: true });
+const root = await mkdtemp(join(parent, `${new Date().toISOString().replaceAll(":", "-")}-`));
 /** Node/Deno expose manual GC consistently; each workload deliberately selects once or inner collection. */
 const programs = [
   ["memory", "node", ["--expose-gc", "bench/memory.bench.ts"]],
@@ -41,7 +42,7 @@ const metadata = {
     cpus: cpus().length,
     memoryBytes: totalmem(),
   },
-  inputs: await identity(),
+  inputs: {} as Record<string, string>,
   inputsAfter: undefined as Record<string, string> | undefined,
   failure: undefined as string | undefined,
   runs: [] as Array<
@@ -61,6 +62,13 @@ await save();
 let failed = false;
 let primary: unknown;
 try {
+  try {
+    metadata.inputs = await identity();
+    await save();
+  } catch (error) {
+    metadata.status = "invalid";
+    throw error;
+  }
   for (const [name, command, args] of programs) {
     if (selected !== undefined && !selected.includes(name)) continue;
     const report = join(root, `${name}.json`), stderrPath = join(root, `${name}.stderr`);
@@ -122,10 +130,12 @@ try {
       await finish([save], rowFailed ? [rowPrimary] : []);
     }
   }
-  metadata.inputsAfter = await identity();
-  if (JSON.stringify(metadata.inputs) !== JSON.stringify(metadata.inputsAfter)) {
+  try {
+    metadata.inputsAfter = await identity();
+    verifyInputs(metadata.inputs, metadata.inputsAfter);
+  } catch (error) {
     metadata.status = "invalid";
-    throw new Error(`Source inputs changed during measurement. Discard timings in ${root}.`);
+    throw error;
   }
   metadata.status = "pass";
 } catch (error) {
@@ -150,28 +160,4 @@ async function saveFinal(): Promise<void> {
 /** Persists progress before launch and after each completed or failed program. */
 async function save(): Promise<void> {
   await writeFile(join(root, "meta.json"), JSON.stringify(metadata, null, 2) + "\n");
-}
-/** Hashes source, benchmarks and provider fixtures, excluding ignored report output. */
-async function identity(): Promise<Record<string, string>> {
-  const files = ["deno.json", "deno.lock", "package.json", "mod.ts"];
-  for (const directory of ["src", "bench", "tests/provider", "tests/browser/fixtures", ".mise/tasks"]) {
-    await visit(directory, files);
-  }
-  const entries = await Promise.all(
-    files.sort().map(async (file) => [file, createHash("sha256").update(await readFile(file)).digest("hex")] as const),
-  );
-  return Object.fromEntries(entries);
-}
-/** Walks only explicit input directories; generated reports and package archives are excluded. */
-async function visit(directory: string, files: string[]): Promise<void> {
-  for (const entry of await readdir(directory, { withFileTypes: true })) {
-    const file = join(directory, entry.name);
-    if (entry.isDirectory()) await visit(file, files);
-    else if (
-      entry.isFile() &&
-      (directory === ".mise/tasks"
-        ? entry.name.startsWith("bench")
-        : /\.(?:ts|mjs|json|html|css)$/.test(entry.name) || entry.name.startsWith("Dockerfile"))
-    ) files.push(file);
-  }
 }

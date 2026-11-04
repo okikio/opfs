@@ -236,27 +236,42 @@ write new part 0..N
 atomic check old version
         |
         v
-commit retirement marker + new manifest
+CAS publish new generation + retire old generation
                   visibility point
         |
         v
-old readers keep using immutable old parts
+pinned readers keep using immutable old parts
         |
         v
-collect after retirement grace
+claim after retirement grace and reader release
 ```
 
-The metadata visibility commit uses Deno KV optimistic version checks, so an independent stale writer cannot publish
-over a newer logical entry. A failed write does not publish a partial logical file. A reader that already resolved the
-previous manifest can finish against its immutable generation after an overwrite commits while that generation remains
-inside the configured retirement grace. `collect()` measures a published generation's grace period from retirement, not
-from its potentially much older creation time. Unpublished crash leftovers have no retirement marker, so collection uses
-their generation creation time. Unknown-length streamed replacement uses the partitioned lane when partitioning is
-enabled. `partition: "never"` disables that behavior and makes oversized/streaming requests fail or use a bounded facade
-fallback instead of changing durable layout silently.
+Deno KV v3 checks writer ownership and part identity in each physical transaction. Publication atomically checks the old
+logical entry, publishes the new generation and retires its predecessor. Readers acquire bounded renewable pins before
+reading parts. Collection requires a versioned ownership claim and zero present pins; age alone never authorizes
+removal. A reader paused beyond its default 60-second lease can fail with `locked` and must reopen. The one-hour default
+grace starts at retirement; unpublished crash work becomes eligible after writer lease expiry. Per-pass scan/deletion
+bounds and continuation cursors keep maintenance explicit. Optional `maxRetainedBytes`/`maxGenerations` reject partition
+admission when aggregate retained bodies fill the namespace policy. They exclude inline records and provider overhead.
+
+The convenience adapter keeps its concrete driver: `adapter.driver.collect()`, `adapter.driver.maintenance`, and
+`await adapter.driver.probe()` expose maintenance, configured leases and live retention. No background timer starts.
+Legacy logical entries require a quiescent export/import to a fresh prefix; there is no automatic destructive migration.
+Unknown-length streamed replacement uses the partitioned lane when enabled. `partition: "never"` selects the bounded
+inline/facade path. See [storage ownership](docs/storage.md) for the complete state and lifetime contract.
 
 The preflight planner also evaluates the concrete virtual path. Deno KV limits serialized keys, so file size alone is
 not enough to decide whether an operation is admissible.
+
+Host drivers accept an explicit root-scoped `profile`; the ordinary native default stays convenient, while known
+Mountpoint/BlobFuse modes reject unsupported strong publication before I/O. See [host profiles](docs/host.md) for
+complete examples, advanced declarations, and the explicit best-effort alternative.
+
+Existing file destinations survive prepublication copy failures by default. Host copy stages into an exclusively owned
+sibling; tree replacement requires explicit `preserve: false`. Positional resources order accepted work, bound pending
+buffers and reserve a winning close/abort slot. Reverse bridges use a marked dedicated `/.opfs-kv` area and preserve
+exact JS-string keys; clear retains unrelated files. [Storage ownership and publication](docs/storage.md) teaches these
+contracts, advanced guarantee controls, recovery, migration and provider/runtime limits.
 
 ## Database direction matters
 

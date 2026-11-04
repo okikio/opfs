@@ -1,5 +1,6 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
+import { SEPARATOR } from "@std/path";
 
 import { FileSystemError } from "../src/error.ts";
 import { basename, dirname, isAncestorPath, joinPath, normalizePath, splitPath } from "../src/path.ts";
@@ -41,4 +42,44 @@ describe("virtual paths", () => {
       if (error instanceof FileSystemError) expect(error.code).toBe("invalid-path");
     }
   });
+});
+
+it("rejects forged record identities and noncanonical or mismatched base64 before decoding", async () => {
+  const { RecordSchema, FileRecordSchema, DirectoryRecordSchema } = await import("../src/schema.ts");
+  const file = {
+    version: 1,
+    path: "/tree/file",
+    parent: "/tree",
+    name: "file",
+    kind: "file",
+    lastModified: 0,
+    data: "AQ==",
+    size: 1,
+    mediaType: "",
+  };
+  expect(RecordSchema.safeParse(file).success).toBe(true);
+  for (
+    const changes of [
+      { name: "../victim" },
+      { name: ".." },
+      { parent: "/" },
+      { path: "/other" },
+      { data: "AQ==", size: 0 },
+      { data: "AR==" },
+      { data: "AQ" },
+      { data: "!!!!" },
+    ]
+  ) {
+    expect(RecordSchema.safeParse({ ...file, ...changes }).success).toBe(false);
+    expect(FileRecordSchema.safeParse({ ...file, ...changes }).success).toBe(false);
+  }
+  expect(DirectoryRecordSchema.safeParse({ ...file, kind: "directory", name: "../victim" }).success).toBe(false);
+});
+
+it("rejects Windows stream, trimming and device aliases in the host mapper", { skip: SEPARATOR !== "\\" }, async () => {
+  const { LocalPath } = await import("../src/driver/local.ts");
+  const mapper = new LocalPath(".");
+  for (const path of ["/victim::$DATA", "/victim:stream", "/victim.", "/victim ", "/CON", "/nul.txt"]) {
+    expect(() => mapper.get(path)).toThrow(TypeError);
+  }
 });

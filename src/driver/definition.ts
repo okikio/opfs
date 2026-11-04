@@ -193,6 +193,11 @@ export const DriverPlanInputSchema: z.ZodType<DriverPlanInputType, DriverPlanInp
   mode: WriteModeSchema.optional(),
   /** Whether a read request targets a byte range instead of the full file. */
   range: z.boolean().optional(),
+  /** Logical publication intent retained across a physical write fallback. */
+  intent: z.enum(["copy", "move"]).optional(),
+  overwrite: z.boolean().optional(),
+  preserve: z.boolean().optional(),
+  exclusive: z.boolean().optional(),
 }).strict();
 
 /** A validated backend driver preflight request. */
@@ -213,6 +218,14 @@ export interface DriverPlanInputType {
   readonly mode?: "replace" | "append" | "update" | undefined;
   /** Whether a read request targets a byte range instead of the full file. */
   readonly range?: boolean | undefined;
+  /** Logical publication intent when the physical operation is a fallback write. */
+  readonly intent?: "copy" | "move" | undefined;
+  /** Permits destination replacement for the retained logical copy/move intent. */
+  readonly overwrite?: boolean | undefined;
+  /** Requires failure-preserving publication unless the caller explicitly selects false. */
+  readonly preserve?: boolean | undefined;
+  /** Requires atomic destination no-replace when overwrite is false. */
+  readonly exclusive?: boolean | undefined;
 }
 
 type _DriverPlanInputTypeMatchesSchema = AssertTrue<
@@ -408,6 +421,13 @@ function parseDriverSchema<T>(label: string, schema: { parse(value: unknown): T 
   }
 }
 
+/** Freezes validated plain metadata recursively so advertised facts cannot rewrite admission. */
+function freezeFacts(value: unknown): void {
+  if (value === null || typeof value !== "object") return;
+  for (const child of Object.values(value)) freezeFacts(child);
+  Object.freeze(value);
+}
+
 /**
  * Creates an import-safe custom driver definition without global registration.
  *
@@ -461,6 +481,7 @@ export function defineDriver(options: DefineDriverOptionsType): DriverType {
     optimizations: options.optimizations ?? [],
   });
 
+  freezeFacts(inspection);
   return {
     ...inspection,
     inspect: () => DriverInspectionSchema.parse(inspection),

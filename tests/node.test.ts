@@ -11,8 +11,9 @@ import { createDb0Adapter } from "../src/adapter/db0.ts";
 import { createNodeAdapter } from "../src/adapter/node.ts";
 import { createSqliteAdapter } from "../src/adapter/sqlite.ts";
 import type { Db0PrimitiveType } from "../src/driver/db0.ts";
-import { verifyHost, verifyWindowsNames } from "./host.ts";
+import { verifyFileAdmission, verifyHost, verifyWindowsNames } from "./host.ts";
 import { verifySync } from "./reliability.ts";
+import { withReleases } from "./close.ts";
 
 /** Normalizes db0-style parameters to Node SQLite's narrower accepted input set. */
 function toSqliteParams(params: readonly Db0PrimitiveType[]): SQLInputValue[] {
@@ -43,33 +44,43 @@ class SqliteDb0Database {
 }
 
 describe("Node adapter", () => {
-  it("preserves Windows native filename rejection and remains usable", { skip: platform() !== "win32" }, async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "okikio-opfs-windows-"));
-    t.after(() => rm(root, { recursive: true, force: true }));
-    const fileSystem = createFileSystem(createNodeAdapter({ root }), { coordination: "local" });
-    try {
-      await verifyWindowsNames(fileSystem);
-    } finally {
-      await fileSystem.close();
-    }
-  });
+  it(
+    "preserves Windows native filename rejection and remains usable",
+    { skip: platform() !== "win32" },
+    async () =>
+      await withReleases(async (releases) => {
+        const root = await mkdtemp(join(tmpdir(), "okikio-opfs-windows-"));
+        releases.push(() => rm(root, { recursive: true, force: true }));
+        const fileSystem = createFileSystem(createNodeAdapter({ root }), { coordination: "local" });
+        releases.push(() => fileSystem.close());
+        await verifyWindowsNames(fileSystem);
+      }),
+  );
 
-  it("preserves host range, directory removal, and overwrite semantics", async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "okikio-opfs-"));
-    t.after(() => rm(root, { recursive: true, force: true }));
-    const fileSystem = createFileSystem(createNodeAdapter({ root }), { coordination: "local" });
-    try {
+  for (const appeared of ["directory", "file"] as const) {
+    it(`classifies a native ${appeared} that appears after the initial absence`, async () =>
+      await withReleases(async (releases) => {
+        const root = await mkdtemp(join(tmpdir(), "okikio-opfs-admission-"));
+        releases.push(() => rm(root, { recursive: true, force: true }));
+        await verifyFileAdmission(createNodeAdapter({ root }), root, appeared);
+      }));
+  }
+
+  it("preserves host range, directory removal, and overwrite semantics", async () =>
+    await withReleases(async (releases) => {
+      const root = await mkdtemp(join(tmpdir(), "okikio-opfs-"));
+      releases.push(() => rm(root, { recursive: true, force: true }));
+      const fileSystem = createFileSystem(createNodeAdapter({ root }), { coordination: "local" });
+      releases.push(() => fileSystem.close());
       await verifyHost(fileSystem);
-    } finally {
-      await fileSystem.close();
-    }
-  });
+    }));
 
-  it("streams, renames, performs synchronous random access, and holds the path lock until close", async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "okikio-opfs-"));
-    t.after(() => rm(root, { recursive: true, force: true }));
-    const fileSystem = createFileSystem(createNodeAdapter({ root }), { coordination: "local" });
-    try {
+  it("streams, renames, performs synchronous random access, and holds the path lock until close", async () =>
+    await withReleases(async (releases) => {
+      const root = await mkdtemp(join(tmpdir(), "okikio-opfs-"));
+      releases.push(() => rm(root, { recursive: true, force: true }));
+      const fileSystem = createFileSystem(createNodeAdapter({ root }), { coordination: "local" });
+      releases.push(() => fileSystem.close());
       const stream = new ReadableStream<Uint8Array>({
         start(controller) {
           controller.enqueue(new TextEncoder().encode("stream"));
@@ -81,52 +92,45 @@ describe("Node adapter", () => {
       await fileSystem.move("/nested/file.txt", "/nested/moved.txt");
       expect(await fileSystem.exists("/nested/file.txt")).toBe(false);
       await verifySync(fileSystem, "/nested/moved.txt", "NODE");
-    } finally {
-      await fileSystem.close();
-    }
-  });
+    }));
 
-  it("executes db0 SQLite SQL against the real Node SQLite engine", async (t) => {
-    const database = new SqliteDb0Database();
-    t.after(() => database.dispose());
-    const adapter = await createDb0Adapter(database as never, { disposeDatabase: true });
-    const fileSystem = createFileSystem(adapter, { coordination: "local", disposeAdapter: true });
-    try {
+  it("executes db0 SQLite SQL against the real Node SQLite engine", async () =>
+    await withReleases(async (releases) => {
+      const database = new SqliteDb0Database();
+      releases.push(() => database.dispose());
+      const adapter = await createDb0Adapter(database as never, { disposeDatabase: true });
+      const fileSystem = createFileSystem(adapter, { coordination: "local", disposeAdapter: true });
+      releases.push(() => fileSystem.close());
       await fileSystem.writeFile("/records/a.txt", "A", { parents: true });
       expect(await fileSystem.readText("/records/a.txt")).toBe("A");
       await fileSystem.writeFile("/records/a.txt", "replacement");
       expect(await fileSystem.readText("/records/a.txt")).toBe("replacement");
-    } finally {
-      await fileSystem.close();
-    }
-  });
+    }));
 
-  it("executes the direct SQLite adapter against Node's real SQLite engine", async (t) => {
-    const database = new DatabaseSync(":memory:");
-    t.after(() => {
-      if (database.isOpen) database.close();
-    });
-    const adapter = await createSqliteAdapter({
-      prepare(sql) {
-        const statement = database.prepare(sql);
-        return {
-          all: (...params) => statement.all(...toSqliteParams(params)),
-          get: (...params) => statement.get(...toSqliteParams(params)),
-          run: (...params) => statement.run(...toSqliteParams(params)),
-        };
-      },
-      close() {
-        database.close();
-      },
-    }, { disposeDatabase: true });
-    const fileSystem = createFileSystem(adapter, { coordination: "none", disposeAdapter: true });
-    try {
+  it("executes the direct SQLite adapter against Node's real SQLite engine", async () =>
+    await withReleases(async (releases) => {
+      const database = new DatabaseSync(":memory:");
+      releases.push(() => {
+        if (database.isOpen) database.close();
+      });
+      const adapter = await createSqliteAdapter({
+        prepare(sql) {
+          const statement = database.prepare(sql);
+          return {
+            all: (...params) => statement.all(...toSqliteParams(params)),
+            get: (...params) => statement.get(...toSqliteParams(params)),
+            run: (...params) => statement.run(...toSqliteParams(params)),
+          };
+        },
+        close() {
+          database.close();
+        },
+      }, { disposeDatabase: true });
+      const fileSystem = createFileSystem(adapter, { coordination: "none", disposeAdapter: true });
+      releases.push(() => fileSystem.close());
       await fileSystem.writeFile("/sqlite/value.txt", "sqlite", { parents: true });
       expect(await fileSystem.readText("/sqlite/value.txt")).toBe("sqlite");
       await fileSystem.writeFile("/sqlite/value.txt", "replacement");
       expect(await fileSystem.readText("/sqlite/value.txt")).toBe("replacement");
-    } finally {
-      await fileSystem.close();
-    }
-  });
+    }));
 });

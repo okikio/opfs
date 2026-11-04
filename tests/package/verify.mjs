@@ -91,6 +91,25 @@ try {
   if (!manifest.dependencies?.zod) {
     throw new Error("zod runtime dependency is missing.");
   }
+  if (manifest.dependencies?.["deno-types"] !== "npm:@types/deno@2.7.0") {
+    throw new Error(
+      "The native Deno leaf requires its reviewed published declaration dependency.",
+    );
+  }
+  for (
+    const field of ["dependencies", "peerDependencies", "optionalDependencies"]
+  ) {
+    if (manifest[field]?.["@types/deno"]) {
+      throw new Error(
+        "Native Deno declarations must not enter automatic portable ambient discovery.",
+      );
+    }
+    if (manifest[field]?.["@deno/shim-deno"]) {
+      throw new Error(
+        "Native Deno APIs must not become an installed runtime shim.",
+      );
+    }
+  }
 
   for (
     const field of ["dependencies", "peerDependencies", "optionalDependencies"]
@@ -123,6 +142,26 @@ try {
   const rawTs = publishedFiles.filter((path) => path.endsWith(".ts") && !path.endsWith(".d.ts"));
   if (rawTs.length > 0) {
     throw new Error(`npm tarball contains raw TypeScript: ${rawTs.join(", ")}`);
+  }
+  for (const path of publishedFiles.filter((path) => path.endsWith(".js"))) {
+    if ((await readFile(path, "utf8")).includes("@deno/shim-deno")) {
+      throw new Error(
+        `Published JavaScript contains a Deno runtime shim: ${path}`,
+      );
+    }
+  }
+  const nativeEntry = manifest.exports?.["./driver/deno"]?.import;
+  if (typeof nativeEntry !== "string" || !nativeEntry.endsWith(".js")) {
+    throw new Error("The packed native Deno ESM entrypoint is missing.");
+  }
+  const nativeDeclaration = await readFile(
+    join(packageRoot, nativeEntry.replace(/\.js$/u, ".d.ts")),
+    "utf8",
+  );
+  if (!nativeDeclaration.startsWith('/// <reference types="deno-types" />\n')) {
+    throw new Error(
+      "The native Deno type directive must precede every import and declaration.",
+    );
   }
 
   const consumer = join(workspace, "consumer");
@@ -264,6 +303,125 @@ try {
       ["check", "--no-config", "--node-modules-dir=manual", "consumer.ts"],
       { cwd: consumer },
     );
+  }
+
+  // Compiler and Node declarations are fixture tooling, never package runtime dependencies.
+  await command("npm", [
+    "install",
+    "--ignore-scripts",
+    "--no-audit",
+    "--no-fund",
+    "typescript@7.0.2",
+    "typescript59@npm:typescript@5.9.3",
+    "@types/node@26.2.0",
+  ], { cwd: consumer });
+  await writeFile(
+    join(consumer, "portable-types.ts"),
+    undent`
+    import { createFileSystem, type FileSystemType } from '@okikio/opfs';
+    import { createMemoryAdapter } from '@okikio/opfs/adapter/memory';
+    const fileSystem: FileSystemType = createFileSystem(createMemoryAdapter());
+    await fileSystem.writeFile('/types.txt', 'ok', { parents: true });
+    // @ts-expect-error Portable root declarations must not load the native Deno namespace.
+    void Deno;
+  `,
+  );
+  await writeFile(
+    join(consumer, "node-types.ts"),
+    undent`
+    import { createFileSystem } from '@okikio/opfs';
+    import { createNodeAdapter } from '@okikio/opfs/adapter/node';
+    import type { NodeFsPromisesType } from '@okikio/opfs/driver/node';
+    import type { FileHandle } from 'node:fs/promises';
+    const fileSystem = createFileSystem(createNodeAdapter({ root: '/type-only' }));
+    declare const host: NodeFsPromisesType;
+    const file: FileHandle = await host.open('/type-only/input', 'r');
+    // @ts-expect-error Node declarations must not load the native Deno namespace.
+    void Deno;
+    void fileSystem; void file;
+  `,
+  );
+  await writeFile(
+    join(consumer, "native-types.ts"),
+    undent`
+    import { DenoRangeSource, writeStreamToFile } from '@okikio/opfs/driver/deno';
+    import { createDenoAdapter } from '@okikio/opfs/adapter/deno';
+    declare const file: Deno.FsFile;
+    const accepted: Parameters<typeof writeStreamToFile>[0] = file;
+    const range = new DenoRangeSource(accepted, 4);
+    const adapter = createDenoAdapter({ root: '/type-only' });
+    // @ts-expect-error The native leaf retains the real FsFile contract.
+    new DenoRangeSource({ read: async () => null }, 4);
+    void range; void adapter;
+  `,
+  );
+  await writeFile(
+    join(consumer, "typecheck.mjs"),
+    undent`
+    import assert from 'node:assert/strict';
+    import { spawnSync } from 'node:child_process';
+    import { readFileSync, writeFileSync } from 'node:fs';
+    import { dirname, resolve } from 'node:path';
+    import { fileURLToPath } from 'node:url';
+    const compiler = process.argv[4] ?? 'typescript';
+    const manifestPath = fileURLToPath(import.meta.resolve(compiler + '/package.json'));
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    assert.equal(manifest.version, compiler === 'typescript' ? '7.0.2' : '5.9.3');
+    assert.equal(typeof manifest.bin?.tsc, 'string', 'Compiler must publish its real tsc binary');
+    const cli = resolve(dirname(manifestPath), manifest.bin.tsc);
+    const entry = process.argv[2];
+    const native = entry === 'native-types.ts';
+    const node = entry === 'node-types.ts';
+    const discovery = process.argv[3] === 'default';
+    writeFileSync('tsconfig.artifact.json', JSON.stringify({
+      compilerOptions: {
+        target: 'ESNext', module: 'NodeNext', moduleResolution: 'NodeNext',
+        lib: ['ESNext', 'DOM', 'DOM.Iterable'],
+        ...(node ? { types: ['node'] } : discovery ? {} : { types: [] }), strict: true, noEmit: true, skipLibCheck: false,
+      },
+      files: [entry],
+    }));
+    // --listFiles retains semantic checking; --listFilesOnly would bypass it.
+    const result = spawnSync(process.execPath, [cli, '--project', 'tsconfig.artifact.json', '--listFiles', '--pretty', 'false'], {
+      encoding: 'utf8', timeout: 60000, maxBuffer: 8 * 1024 * 1024,
+    });
+    if (result.error) throw result.error;
+    if (result.status !== 0) {
+      console.error(result.stdout); console.error(result.stderr);
+      throw new Error('Installed compiler rejected artifact declarations', { cause: { status: result.status, signal: result.signal } });
+    }
+    const sources = result.stdout.split(String.fromCharCode(10)).map(file => file.trim())
+      .filter(file => file.endsWith('.ts')).map(file => file.replaceAll(String.fromCharCode(92), '/'));
+    assert.ok(sources.length > 0, 'Compiler must report its checked declaration graph');
+    const deno = sources.some(file => file.includes('/node_modules/deno-types/'));
+    assert.equal(deno, native, 'Only the native Deno leaf may load its aliased namespace');
+    assert.equal(sources.some(file => file.includes('/node_modules/@types/deno/')), false,
+      'Build-only Deno declarations must not reach the installed consumer');
+    const nodeTypes = sources.some(file => file.includes('/node_modules/@types/node/'));
+    if (node) assert.ok(nodeTypes, 'The native Node leaf must use the actual selected Node host declarations');
+    if (entry === 'portable-types.ts' && (!discovery || compiler === 'typescript')) {
+      assert.equal(nodeTypes, false, 'Portable root requires no Node declarations');
+    }
+    console.log(JSON.stringify({ entry, compiler: manifest.version, types: node ? ['node'] : discovery ? 'default' : [], strict: true,
+      skipLibCheck: false, deno, checkedFiles: sources.length, checker: 'published tsc CLI --listFiles' }));
+  `,
+  );
+  for (const compiler of ["typescript", "typescript59"]) {
+    await command("node", ["typecheck.mjs", "node-types.ts", "node", compiler], { cwd: consumer });
+    for (const discovery of ["default", "explicit"]) {
+      await command("node", [
+        "typecheck.mjs",
+        "portable-types.ts",
+        discovery,
+        compiler,
+      ], { cwd: consumer });
+      await command("node", [
+        "typecheck.mjs",
+        "native-types.ts",
+        discovery,
+        compiler,
+      ], { cwd: consumer });
+    }
   }
 
   await writeFile(

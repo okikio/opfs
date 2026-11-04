@@ -157,9 +157,14 @@ function condition(column: DrizzleColumnType<string>, value: string): object {
   return eq(column as AnyColumn<{ data: string }>, value);
 }
 
-/** Converts a Drizzle row to the validated record format and restores version 1. */
+/**
+ * Validates original SQL kind and file fields before restoring record version 1.
+ *
+ * Directory rows omit nullable file columns; file rows do not default them.
+ */
 function toRecord(row: DrizzleRowType): RecordType {
-  if (row.kind === "directory") {
+  const kind = row.kind;
+  if (kind === "directory") {
     return RecordSchema.parse({
       version: 1,
       path: row.path,
@@ -169,16 +174,19 @@ function toRecord(row: DrizzleRowType): RecordType {
       lastModified: row.lastModified,
     });
   }
+  // SQL rows are runtime input. The static union cannot certify an externally
+  // edited discriminator, and absent file fields cannot become an empty file.
+  if (kind !== "file") throw new TypeError("Drizzle returned an invalid filesystem row kind.");
   return RecordSchema.parse({
     version: 1,
     path: row.path,
     parent: row.parent,
     name: row.name,
     kind: "file",
-    data: row.data ?? "",
+    data: row.data,
     size: row.size,
     lastModified: row.lastModified,
-    mediaType: row.mediaType ?? "",
+    mediaType: row.mediaType,
   });
 }
 

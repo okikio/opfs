@@ -1,3 +1,4 @@
+import type { DriverPlanInputType } from "../src/driver/definition.ts";
 import { withFileSystem } from "./reliability.ts";
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
@@ -56,9 +57,14 @@ class MemoryObjectBackend implements ObjectBackendType {
   copies = 0;
   /** Monotonic value used to produce deterministic synthetic ETags. */
   version = 0;
+  /** Physical metadata work used to compare enabled and disabled admission routes. */
+  heads = 0;
+  /** Physical prefix pages read by namespace admission. */
+  lists = 0;
 
   /** Returns metadata for one exact object key. */
   async head(key: string): Promise<ObjectStatType | null> {
+    this.heads += 1;
     return this.values.get(key)?.stat ?? null;
   }
 
@@ -87,6 +93,7 @@ class MemoryObjectBackend implements ObjectBackendType {
     body: Uint8Array | ReadableStream<Uint8Array>,
     options: ObjectPutOptionsType = {},
   ): Promise<ObjectStatType> {
+    const bytes = body instanceof Uint8Array ? body.slice() : await collect(body);
     const current = this.values.get(key);
     if (options.ifMatch !== undefined && current?.stat.etag !== options.ifMatch) {
       throw new Error("precondition failed: if-match");
@@ -94,7 +101,6 @@ class MemoryObjectBackend implements ObjectBackendType {
     if (options.ifNoneMatch === "*" && current !== undefined) {
       throw new Error("precondition failed: if-none-match");
     }
-    const bytes = body instanceof Uint8Array ? body.slice() : await collect(body);
     this.version += 1;
     const stat: ObjectStatType = {
       size: bytes.byteLength,
@@ -114,6 +120,7 @@ class MemoryObjectBackend implements ObjectBackendType {
 
   /** Lists provider keys and delimiter-derived prefixes under one prefix. */
   async list(options: ObjectListOptionsType): Promise<ObjectListType> {
+    this.lists += 1;
     const objects: ObjectEntryType[] = [];
     const prefixes = new Set<string>();
     for (const [key, value] of this.values) {
@@ -141,6 +148,8 @@ class MemoryObjectBackend implements ObjectBackendType {
       throw new Error("precondition failed: source if-match");
     }
     return await this.put(destination, value.bytes, {
+      ...(options.ifMatch === undefined ? {} : { ifMatch: options.ifMatch }),
+      ...(options.ifNoneMatch === undefined ? {} : { ifNoneMatch: options.ifNoneMatch }),
       ...(value.stat.mediaType === undefined ? {} : { mediaType: value.stat.mediaType }),
       ...(value.stat.metadata === undefined ? {} : { metadata: value.stat.metadata }),
     });
@@ -158,16 +167,380 @@ function createMemoryObjectDriver(store: MemoryObjectBackend) {
 }
 
 /** Creates a facade plus its observable provider backend for one object-store test. */
-function createObjectFileSystem(store = new MemoryObjectBackend()) {
+function createObjectFileSystem(store = new MemoryObjectBackend(), optimizations: { writeAdmission?: boolean } = {}) {
   const driver = createMemoryObjectDriver(store);
   return {
     store,
     driver,
-    fileSystem: createFileSystem(createObjectAdapter(driver), { coordination: "none" }),
+    fileSystem: createFileSystem(createObjectAdapter(driver), { coordination: "none", optimizations }),
   };
 }
 
 describe("object driver adapter", () => {
+  for (const evidence of ["object", "prefix"] as const) {
+    it(`finds ${evidence} directory evidence beyond an empty first page`, async () => {
+      const store = new MemoryObjectBackend();
+      const original = store.list.bind(store);
+      store.list = async (options) =>
+        options.prefix === "directory/"
+          ? options.cursor === undefined
+            ? { objects: [], prefixes: [], cursor: "opaque+token" }
+            : evidence === "object"
+            ? { objects: [{ key: "directory/child", size: 1 }], prefixes: [] }
+            : { objects: [], prefixes: ["directory/nested/"] }
+          : await original(options);
+      const adapter = createObjectAdapter(createMemoryObjectDriver(store));
+      expect(await adapter.stat("/directory")).toEqual({ kind: "directory" });
+      await expect(adapter.writeFile("/directory", new Uint8Array([9]), { mode: "replace" }))
+        .rejects.toMatchObject({ code: "type-mismatch" });
+      expect(store.values.has("directory")).toBe(false);
+      await store.put("directory", new Uint8Array([1]));
+      await expect(adapter.stat("/directory")).rejects.toMatchObject({ code: "invalid-operation" });
+    });
+  }
+
+  it("preserves a directory marker when later pages contain children", async () => {
+    const store = new MemoryObjectBackend();
+    await store.put("directory/", new Uint8Array(), { metadata: { okikio_opfs_kind: "directory" } });
+    const original = store.list.bind(store);
+    store.list = async (options) =>
+      options.prefix === "directory/"
+        ? options.cursor === undefined
+          ? { objects: [{ key: "directory/", size: 0 }], prefixes: [], cursor: "next" }
+          : { objects: [{ key: "directory/child", size: 1 }], prefixes: [] }
+        : await original(options);
+    const adapter = createObjectAdapter(createMemoryObjectDriver(store));
+    await expect(adapter.remove("/directory")).rejects.toMatchObject({ code: "invalid-operation" });
+    expect(store.values.has("directory/")).toBe(true);
+  });
+
+  it("follows exhausted empty pages, bounds scans, and rejects cursor cycles without mutation", async () => {
+    const store = new MemoryObjectBackend();
+    const requests: (string | undefined)[] = [];
+    store.list = async (options) => {
+      requests.push(options.cursor);
+      return {
+        objects: [],
+        prefixes: [],
+        ...(options.cursor === "B" ? {} : { cursor: options.cursor === undefined ? "A" : "B" }),
+      };
+    };
+    const adapter = createObjectAdapter(createMemoryObjectDriver(store), { maxListPages: 3 });
+    expect(await adapter.stat("/missing")).toBe(null);
+    expect(requests).toEqual([undefined, "A", "B"]);
+    store.list = async (options) => ({ objects: [], prefixes: [], cursor: options.cursor === "A" ? "B" : "A" });
+    await expect(adapter.stat("/missing")).rejects.toMatchObject({ code: "invalid-operation" });
+    store.list = async (options) => ({ objects: [], prefixes: [], cursor: `${options.cursor ?? ""}x` });
+    await expect(adapter.writeFile("/missing", new Uint8Array([1]), { mode: "replace" }))
+      .rejects.toMatchObject({ code: "too-large" });
+    expect(store.values.size).toBe(0);
+    expect(() => createObjectAdapter(createMemoryObjectDriver(store), { maxListPages: 0 })).toThrow(RangeError);
+  });
+
+  it("keeps listing lazy and observes abort even when a backend ignores its signal", async () => {
+    const store = new MemoryObjectBackend();
+    let lists = 0;
+    store.list = async () => {
+      lists++;
+      return { objects: [{ key: "child", size: 1 }], prefixes: [], cursor: "next" };
+    };
+    const adapter = createObjectAdapter(createMemoryObjectDriver(store));
+    for await (const entry of adapter.readDir("/")) {
+      expect(entry.name).toBe("child");
+      break;
+    }
+    expect(lists).toBe(1);
+    const controller = new AbortController();
+    store.list = async () => {
+      controller.abort("stop during page fetch");
+      return { objects: [], prefixes: [] };
+    };
+    await expect(adapter.stat("/missing", { signal: controller.signal })).rejects.toMatchObject({ code: "aborted" });
+    const failure = new Error("later page unavailable");
+    store.list = async (options) => {
+      if (options.cursor !== undefined) throw failure;
+      return { objects: [], prefixes: [], cursor: "next" };
+    };
+    await expect(adapter.stat("/missing")).rejects.toBe(failure);
+    store.list = async () => ({ objects: [{ key: "foreign/child", size: 1 }], prefixes: [] });
+    await expect(adapter.remove("/missing")).rejects.toMatchObject({ code: "invalid-operation" });
+  });
+
+  for (const stream of [false, true]) {
+    for (const present of [false, true]) {
+      it(`uses fresh exact destination preconditions (stream=${stream}, present=${present})`, async () => {
+        const store = new MemoryObjectBackend();
+        if (present) await store.put("value", new Uint8Array([1]));
+        const original = store.put.bind(store);
+        let condition: ObjectPutOptionsType | undefined;
+        store.put = async (key, bytes, options) => {
+          condition = options;
+          await original(key, new Uint8Array([7])); // An outside owner publishes after admission.
+          return await original(key, bytes, options);
+        };
+        const adapter = createObjectAdapter(createMemoryObjectDriver(store));
+        const source = new Blob([new Uint8Array([9])]).stream();
+        await expect(
+          stream
+            ? adapter.writeStream!("/value", source, { mode: "replace" })
+            : adapter.writeFile("/value", new Uint8Array([9]), { mode: "replace" }),
+        )
+          .rejects.toThrow("precondition failed");
+        expect(condition).toMatchObject(present ? { ifMatch: '"v1"' } : { ifNoneMatch: "*" });
+        expect([...store.values.get("value")!.bytes]).toEqual([7]);
+      });
+    }
+  }
+
+  it("rejects missing conditional identity and pre-aborted streams before producer acquisition", async () => {
+    const store = new MemoryObjectBackend();
+    await store.put("value", new Uint8Array([1]));
+    const value = store.values.get("value")!;
+    store.values.set("value", { bytes: value.bytes, stat: { size: 1 } });
+    const adapter = createObjectAdapter(createMemoryObjectDriver(store));
+    let pulls = 0;
+    const source = new ReadableStream<Uint8Array>({
+      pull() {
+        pulls++;
+      },
+    }, { highWaterMark: 0 });
+    await expect(adapter.writeStream!("/value", source, { mode: "replace" })).rejects.toMatchObject({
+      code: "unknown",
+    });
+    expect(pulls).toBe(0);
+    const controller = new AbortController();
+    controller.abort();
+    store.heads = 0;
+    await expect(adapter.writeStream!("/value", source, { mode: "replace", signal: controller.signal }))
+      .rejects.toMatchObject({ code: "aborted" });
+    expect(store.heads).toBe(0);
+    await source.cancel();
+  });
+
+  it("treats slash-only prefixes as the root and pins native copy to admitted source identity", async () => {
+    const store = new MemoryObjectBackend();
+    await store.put("source", new Uint8Array([1]));
+    const copy = store.copy.bind(store);
+    store.copy = async (source, destination, options) => {
+      await store.put(source, new Uint8Array([7]));
+      return await copy(source, destination, options);
+    };
+    const adapter = createObjectAdapter(createMemoryObjectDriver(store), { prefix: "///" });
+    expect(await adapter.stat("/source")).toMatchObject({ kind: "file", size: 1 });
+    await expect(adapter.copy!("/source", "/destination", { overwrite: false }))
+      .rejects.toThrow("source if-match");
+    expect(store.values.has("destination")).toBe(false);
+  });
+
+  it("stops after metadata cancellation before publication even with an injected signal-ignoring backend", async () => {
+    const store = new MemoryObjectBackend();
+    const controller = new AbortController();
+    const head = store.head.bind(store);
+    store.head = async (key) => {
+      controller.abort();
+      return await head(key);
+    };
+    const adapter = createObjectAdapter(createMemoryObjectDriver(store));
+    await expect(adapter.writeFile("/value", new Uint8Array([9]), { mode: "replace", signal: controller.signal }))
+      .rejects.toMatchObject({ code: "aborted" });
+    expect(store.values.size).toBe(0);
+  });
+
+  it("validates at the facade and adapter by default and rejects directories before adapter writes", async () => {
+    const store = new MemoryObjectBackend();
+    const adapter = createObjectAdapter(createMemoryObjectDriver(store));
+    const write = adapter.writeFile.bind(adapter);
+    let writes = 0;
+    adapter.writeFile = async (...args) => {
+      writes += 1;
+      return await write(...args);
+    };
+    const fs = createFileSystem(adapter, { coordination: "none" });
+    try {
+      expect(fs.inspect().optimizations.writeAdmission).toBe(false);
+      await fs.writeFile("/value", new Uint8Array([1]));
+      store.heads = 0;
+      store.lists = 0;
+      writes = 0;
+      await fs.writeFile("/value", new Uint8Array([2]));
+      expect(store.heads).toBe(4);
+      expect(store.lists).toBe(2);
+      expect(writes).toBe(1);
+      expect([...await fs.readFile("/value")]).toEqual([2]);
+      await fs.mkdir("/directory");
+      writes = 0;
+      await expect(fs.writeFile("/directory", new Uint8Array([9]))).rejects.toMatchObject({ code: "type-mismatch" });
+      expect(writes).toBe(0);
+    } finally {
+      await fs.close();
+    }
+  });
+
+  for (const enabled of [true, false]) {
+    it(`preserves replacement bytes and namespace validation with delegation ${enabled}`, async () => {
+      const store = new MemoryObjectBackend();
+      const adapter = createObjectAdapter(createMemoryObjectDriver(store));
+      const fs = createFileSystem(adapter, { coordination: "none", optimizations: { writeAdmission: enabled } });
+      try {
+        await fs.writeFile("/value", new Uint8Array([1, 2]));
+        store.heads = 0;
+        store.lists = 0;
+        await fs.writeFile("/value", new Uint8Array([3, 4, 5]));
+        expect(store.heads).toBe(enabled ? 2 : 4);
+        expect(store.lists).toBe(enabled ? 1 : 2);
+        expect(fs.inspect().adapter.native.validatesReplacement).toBe(true);
+        expect(fs.inspect().optimizations.writeAdmission).toBe(enabled);
+        expect([...await fs.readFile("/value")]).toEqual([3, 4, 5]);
+        await fs.mkdir("/directory");
+        await expect(fs.writeFile("/directory", new Uint8Array([9]))).rejects.toMatchObject({ code: "type-mismatch" });
+        await store.put("value/child", new Uint8Array([8]));
+        await expect(fs.writeFile("/value", new Uint8Array([9]))).rejects.toMatchObject({ code: "invalid-operation" });
+        expect([...store.values.get("value")!.bytes]).toEqual([3, 4, 5]);
+      } finally {
+        await fs.close();
+      }
+    });
+  }
+
+  it("keeps facade admission for custom adapters that omit the replacement guarantee", async () => {
+    const store = new MemoryObjectBackend();
+    const adapter = createObjectAdapter(createMemoryObjectDriver(store));
+    const { validatesReplacement: _guarantee, ...capabilities } = adapter.capabilities;
+    Object.assign(adapter, { capabilities });
+    const fs = createFileSystem(adapter, { coordination: "none", optimizations: { writeAdmission: true } });
+    try {
+      await fs.writeFile("/value", new Uint8Array([1]));
+      store.heads = 0;
+      store.lists = 0;
+      await fs.writeFile("/value", new Uint8Array([2]));
+      expect(store.heads).toBe(4);
+      expect(store.lists).toBe(2);
+      expect([...await fs.readFile("/value")]).toEqual([2]);
+    } finally {
+      await fs.close();
+    }
+  });
+
+  for (const enabled of [false, true]) {
+    it(`keeps fresh conditional publication with delegation ${enabled}`, async () => {
+      const { store, fileSystem: fs } = createObjectFileSystem(new MemoryObjectBackend(), { writeAdmission: enabled });
+      try {
+        await fs.writeFile("/value", new Uint8Array([1]));
+        const put = store.put.bind(store);
+        let precondition: string | undefined;
+        store.put = async (key, body, options = {}) => {
+          precondition = options.ifMatch;
+          // An independent writer commits after admission but before this PUT.
+          await put(key, new Uint8Array([7]));
+          return await put(key, body, options);
+        };
+        await expect(fs.writeFile("/value", new Uint8Array([9]))).rejects.toBeInstanceOf(FileSystemError);
+        expect(precondition).toBeDefined();
+        expect([...store.values.get("value")!.bytes]).toEqual([7]);
+      } finally {
+        await fs.close();
+      }
+    });
+  }
+
+  it("delegates binary views but retains append, update, parent, and pre-abort admission", async () => {
+    const { store, fileSystem: fs } = createObjectFileSystem(new MemoryObjectBackend(), { writeAdmission: true });
+    try {
+      await fs.writeFile("/value", new Uint8Array([1]));
+      const bytes = new Uint8Array([8, 2, 3, 8]);
+      store.heads = 0;
+      await fs.writeFile("/value", new DataView(bytes.buffer, 1, 2));
+      expect(store.heads).toBe(2);
+      expect([...store.values.get("value")!.bytes]).toEqual([2, 3]);
+      for (const mode of ["append", "update"] as const) {
+        store.heads = 0;
+        await fs.writeFile("/value", new Uint8Array([4]), { mode });
+        expect(store.heads).toBe(4);
+      }
+      expect([...store.values.get("value")!.bytes]).toEqual([4, 3, 4]);
+      await expect(fs.writeFile("/missing/child", bytes)).rejects.toMatchObject({ code: "not-found" });
+      expect(store.values.has("missing/child")).toBe(false);
+      const controller = new AbortController();
+      controller.abort();
+      store.heads = 0;
+      await expect(fs.writeFile("/value", bytes, { signal: controller.signal })).rejects.toMatchObject({
+        code: "aborted",
+      });
+      expect(store.heads).toBe(0);
+      expect([...store.values.get("value")!.bytes]).toEqual([4, 3, 4]);
+    } finally {
+      await fs.close();
+    }
+  });
+
+  for (const enabled of [false, true]) {
+    it(`rejects destinations before source acquisition with delegation ${enabled}`, async () => {
+      const { fileSystem: fs } = createObjectFileSystem(new MemoryObjectBackend(), { writeAdmission: enabled });
+      let reads = 0;
+      let acquisitions = 0;
+      class ObservedBlob extends Blob {
+        override async arrayBuffer(): Promise<ArrayBuffer> {
+          reads += 1;
+          return await super.arrayBuffer();
+        }
+      }
+      const iterable = {
+        async *[Symbol.asyncIterator]() {
+          acquisitions += 1;
+          yield new Uint8Array([1]);
+        },
+      };
+      try {
+        await fs.mkdir("/directory");
+        await expect(fs.writeFile("/directory", new ObservedBlob(["content"]))).rejects.toMatchObject({
+          code: "type-mismatch",
+        });
+        await expect(fs.writeFile("/directory", iterable)).rejects.toMatchObject({ code: "type-mismatch" });
+        expect(reads).toBe(0);
+        expect(acquisitions).toBe(0);
+      } finally {
+        await fs.close();
+      }
+    });
+  }
+
+  it("admits physical prefixed fallback writes without probing provider state", async () => {
+    const seen: DriverPlanInputType[] = [];
+    const store = Object.assign(new MemoryObjectBackend(), {
+      admit(input: DriverPlanInputType) {
+        seen.push(input);
+        return {
+          operation: input.operation,
+          supported: input.source !== "bytes",
+          support: input.source === "bytes" ? "unsupported" as const : "native" as const,
+          problems: input.source === "bytes"
+            ? [{
+              code: "native-limit",
+              layer: "driver" as const,
+              severity: "error" as const,
+              message: "Single-request bytes rejected.",
+            }]
+            : [],
+          actions: [],
+        };
+      },
+    });
+    const adapter = createObjectAdapter(createMemoryObjectDriver(store), { prefix: "owned/prefix" });
+    const fs = createFileSystem(adapter, { optimizations: { nativeCopy: false, streamWrite: false } });
+    try {
+      const plan = fs.plan({ operation: "write", path: "/value", source: "stream", size: 1 });
+      expect(plan.supported).toBe(false);
+      expect(seen.at(-1)).toMatchObject({ operation: "write", path: "/owned/prefix/value", source: "bytes" });
+      expect(fs.plan({ operation: "copy", path: "/source", destination: "/target", size: 1 }).supported).toBe(false);
+      expect(seen.at(-1)).toMatchObject({ operation: "write", path: "/owned/prefix/target", source: "bytes" });
+      expect(store.values.size).toBe(0);
+      expect(store.gets).toBe(0);
+      expect(store.copies).toBe(0);
+    } finally {
+      await fs.close();
+    }
+  });
+
   it("preserves empty directories and implicit prefix directories", async () => {
     const fixture = createObjectFileSystem();
     const { store } = fixture;
@@ -188,7 +561,7 @@ describe("object driver adapter", () => {
     });
   });
 
-  it("prefers an exact file when foreign objects also create the same prefix", async () => {
+  it("rejects ambiguous foreign file/prefix identities without deleting either", async () => {
     const fixture = createObjectFileSystem();
     const { store } = fixture;
     const fileSystem = fixture.fileSystem;
@@ -196,9 +569,13 @@ describe("object driver adapter", () => {
       await store.put("mixed", new TextEncoder().encode("file"));
       await store.put("mixed/child.txt", new TextEncoder().encode("child"));
 
-      expect((await fileSystem.stat("/mixed")).kind).toBe("file");
-      await fileSystem.writeFile("/mixed", "updated");
-      expect(await fileSystem.readText("/mixed")).toBe("updated");
+      await expect(fileSystem.stat("/mixed")).rejects.toMatchObject({ code: "invalid-operation" });
+      await expect(fileSystem.writeFile("/mixed", "updated")).rejects.toMatchObject({ code: "invalid-operation" });
+      await expect(fileSystem.remove("/mixed", { recursive: true })).rejects.toMatchObject({
+        code: "invalid-operation",
+      });
+      expect(await store.head("mixed")).not.toBe(null);
+      expect(await store.head("mixed/child.txt")).not.toBe(null);
     });
   });
 
@@ -322,4 +699,12 @@ describe("object driver adapter", () => {
       expect([...store.values.get("stream.bin")!.bytes]).toEqual([1, 2, 3]);
     });
   });
+});
+
+it("bounds provider entry work independently from page work and exposes both limits", async () => {
+  const store = new MemoryObjectBackend();
+  store.list = async () => ({ objects: [{ key: "one", size: 1 }, { key: "two", size: 1 }], prefixes: [] });
+  const adapter = createObjectAdapter(createMemoryObjectDriver(store), { maxListPages: 5, maxListEntries: 1 });
+  expect(adapter.limits).toMatchObject({ maxListPages: 5, maxListEntries: 1 });
+  await expect(Array.fromAsync(adapter.readDir("/"))).rejects.toMatchObject({ code: "too-large" });
 });

@@ -1,4 +1,3 @@
-import { deepStrictEqual } from "node:assert/strict";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -11,7 +10,7 @@ import { createNodeAdapter } from "../src/adapter/node.ts";
 import { createMemoryDriver } from "../src/driver/memory.ts";
 import { createNodeDriver } from "../src/driver/node.ts";
 import type { RecordType } from "../src/schema.ts";
-import { finish } from "./result.ts";
+import { expectBytes, finish } from "./result.ts";
 
 /** Each lane performs replacement followed by a fully consumed byte read. */
 interface LaneType {
@@ -137,10 +136,10 @@ try {
   for (const size of [1024, 64 * 1024, 1024 * 1024]) {
     const bytes = payload(size);
     for (const lane of lanes) {
-      deepStrictEqual(
+      expectBytes(
         await lane.roundtrip(bytes),
         bytes,
-        `${lane.name}: byte oracle`,
+        lane.name,
       );
     }
     group(`exact replacement + consumed read: ${size} bytes`, () => {

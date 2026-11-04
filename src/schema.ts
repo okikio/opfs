@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { basename, dirname, validateName } from "./path.ts";
 
 /**
  * Canonical virtual path stored and exchanged by adapters.
@@ -176,6 +177,10 @@ export const AdapterLimitsSchema: z.ZodType<AdapterLimitsType, AdapterLimitsType
   maxParts: z.number().int().positive().optional(),
   /** Maximum useful provider concurrency known by this adapter. */
   maxConcurrency: z.number().int().positive().optional(),
+  /** Caller policy: maximum provider pages examined by one object namespace scan. */
+  maxListPages: z.number().int().positive().optional(),
+  /** Caller policy: maximum raw provider entries examined by one object namespace scan. */
+  maxListEntries: z.number().int().positive().optional(),
   /** Maximum bytes in one transactional/batched provider mutation. */
   maxBatchBytes: z.number().int().positive().optional(),
 }).strict();
@@ -186,9 +191,10 @@ export type AdapterLimitsType = import("./_schema_types.ts").AdapterLimitsType;
 /**
  * Performance routes that the filesystem facade can deliberately bypass.
  *
- * Every field defaults to true. Disabling a route forces the semantically safe
- * fallback where one exists. This is useful for differential testing and for
- * applications that prefer a slower but more observable or more portable path.
+ * Native stream, range, copy, and move routes default to true. Replacement
+ * admission delegation defaults to false: the facade validates the destination
+ * and the adapter validates it again before publication. Disabling a route
+ * selects its fallback where one exists, which also supports differential tests.
  */
 export const OptimizationSchema: z.ZodType<OptimizationType, OptimizationType> = z.object({
   /** Use adapter-native streaming reads instead of materialized `readFile()`. */
@@ -201,6 +207,8 @@ export const OptimizationSchema: z.ZodType<OptimizationType, OptimizationType> =
   nativeCopy: z.boolean(),
   /** Use adapter-native move/rename instead of copy then remove. */
   nativeMove: z.boolean(),
+  /** Explicitly delegate binary replacement admission to a validating adapter; defaults to false. */
+  writeAdmission: z.boolean(),
 }).strict();
 
 /** Resolved performance-route policy for one filesystem facade. */
@@ -235,6 +243,13 @@ export const AdapterCapabilitiesSchema: z.ZodType<AdapterCapabilitiesType, Adapt
   positionalWrite: z.boolean(),
   /** Adapter exposes a synchronous random-access file resource. */
   syncAccess: z.boolean(),
+  /**
+   * Materialized replacement validates destination kind and namespace conflicts
+   * before publication. The facade may omit its duplicate destination stat for
+   * binary inputs. Absence keeps facade admission; this never covers source
+   * acquisition, parent validation, or append/update semantics.
+   */
+  validatesReplacement: z.boolean().optional(),
 });
 
 /** Native operations implemented by one adapter. */
@@ -292,6 +307,28 @@ const RecordBaseSchema = z.object({
   lastModified: z.number().int().nonnegative(),
 });
 
+/** Checks durable identity without normalizing hostile metadata into another path. */
+function recordIdentity(record: { path: string; parent: string; name: string; kind: string }): boolean {
+  if (record.path === "/") return record.kind === "directory" && record.parent === "/" && record.name === "";
+  try {
+    return validateName(record.name) === basename(record.path) && record.parent === dirname(record.path);
+  } catch {
+    return false;
+  }
+}
+
+/** Checks canonical base64 and its advertised size before allocating decoded bytes. */
+function recordData(record: { data: string; size: number }): boolean {
+  const data = record.data;
+  const padding = data.endsWith("==") ? 2 : data.endsWith("=") ? 1 : 0;
+  if (data.length % 4 !== 0 || data.length / 4 * 3 - padding !== record.size) return false;
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(data)) return false;
+  // Canonical padding bits must be zero; tolerant decoders otherwise accept aliases.
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  const last = alphabet.indexOf(data[data.length - padding - 1] ?? "");
+  return padding === 0 || (last >= 0 && (last & (padding === 2 ? 15 : 3)) === 0);
+}
+
 /** Persisted directory record used by record-store adapters. */
 const DirectoryRecordSchemaDefinition = RecordBaseSchema.extend({
   /** Discriminator that prevents a directory row from carrying file bytes. */
@@ -300,7 +337,7 @@ const DirectoryRecordSchemaDefinition = RecordBaseSchema.extend({
 
 /** Persisted directory validator with an explicit public type boundary. */
 export const DirectoryRecordSchema: z.ZodType<DirectoryRecordType, DirectoryRecordType> =
-  DirectoryRecordSchemaDefinition;
+  DirectoryRecordSchemaDefinition.refine(recordIdentity, "Record path, parent and name must agree.");
 
 /** A validated persisted directory record. */
 export type DirectoryRecordType = import("./_schema_types.ts").DirectoryRecordType;
@@ -318,7 +355,18 @@ const FileRecordSchemaDefinition = RecordBaseSchema.extend({
 });
 
 /** Persisted file validator with an explicit public type boundary. */
-export const FileRecordSchema: z.ZodType<FileRecordType, FileRecordType> = FileRecordSchemaDefinition;
+export const FileRecordSchema: z.ZodType<FileRecordType, FileRecordType> = FileRecordSchemaDefinition
+  .refine(recordIdentity, "Record path, parent and name must agree.")
+  .refine(recordData, "File data must be canonical base64 with the declared decoded size.");
+
+/** Listing metadata validates identity without requiring or decoding a file body. */
+export const RecordMetadataSchema: z.ZodType<RecordMetadataType, RecordMetadataType> = z.discriminatedUnion("kind", [
+  DirectoryRecordSchemaDefinition,
+  FileRecordSchemaDefinition.omit({ data: true }),
+]).refine(recordIdentity, "Record path, parent and name must agree.");
+
+/** Validated listing metadata with no file body. */
+export type RecordMetadataType = import("./_schema_types.ts").RecordMetadataType;
 
 /** A validated persisted file record. */
 export type FileRecordType = import("./_schema_types.ts").FileRecordType;
@@ -333,7 +381,8 @@ export type FileRecordType = import("./_schema_types.ts").FileRecordType;
 const RecordSchemaDefinition = z.discriminatedUnion("kind", [
   DirectoryRecordSchemaDefinition,
   FileRecordSchemaDefinition,
-]);
+]).refine(recordIdentity, "Record path, parent and name must agree.")
+  .refine((record) => record.kind === "directory" || recordData(record), "File data must match its decoded size.");
 
 /** Persisted record validator with an explicit public type boundary. */
 export const RecordSchema: z.ZodType<RecordType, RecordType> = RecordSchemaDefinition;

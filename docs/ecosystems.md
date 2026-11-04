@@ -78,7 +78,12 @@ foo:bar
 A normal filesystem cannot make `/foo` both a file and a directory, so the bridge stores each exact value in a private
 `value` leaf below its encoded hierarchy directory.
 
-Literal percent/tilde and separator-like characters are encoded reversibly so logical keys cannot collide.
+The generic KV bridge preserves exact JavaScript string identity, including empty colon segments and lone UTF-16 code
+units; canonical decoding rejects aliases. The unstorage bridge first applies the ecosystem's intentional slash/colon
+normalization. Both use a marked dedicated `/.opfs-kv` area by default, reject `/`, and clear only owned value leaves.
+Unmarked nonempty areas require explicit migration. Clear retains foreign files and the marker. Generic `keys()` lists
+all keys; `keys("")` selects the empty-key hierarchy. See [storage ownership](storage.md) for complete examples and
+limits.
 
 ## RxDB
 

@@ -18,7 +18,7 @@ try {
   cleanups.push(() => database.close());
   // Inline records and partitioned records have different physical layouts.
   // Partition cases include immediate reclamation so retired generations do not
-  // accumulate and change later samples. There are no concurrent old readers.
+  // accumulate and change later samples. Reader leases and writer claims still govern deletion; zero age only avoids benchmark retention drift.
   for (const size of [24 * 1024, 64 * 1024]) {
     const payload = createPayload(size);
     const rawKey = ["bench", size, "raw"] as const;
@@ -56,18 +56,18 @@ try {
       bench("deno-kv/driver", async () => {
         await driver.writeFile!("/bench.bin", payload, { mode: "replace" });
         do_not_optimize(await driver.readFile!("/bench.bin"));
-        if (reclaim) await driver.collect({ minAgeMs: 0 });
+        if (reclaim) await driver.collect({ minAgeMs: 0, tombstoneAgeMs: 0 });
       });
       bench("deno-kv/adapter", async () => {
         await adapter.writeFile("/bench.bin", payload, { mode: "replace" });
         do_not_optimize(await adapter.readFile("/bench.bin"));
-        if (reclaim) await maintenance.collect({ minAgeMs: 0 });
+        if (reclaim) await maintenance.collect({ minAgeMs: 0, tombstoneAgeMs: 0 });
       });
       for (const { metrics, fileSystem, maintenance } of facades) {
         bench(`deno-kv/facade metrics:${metrics}`, async () => {
           await fileSystem.writeFile("/bench.bin", payload);
           do_not_optimize(await fileSystem.readFile("/bench.bin"));
-          if (reclaim) await maintenance.collect({ minAgeMs: 0 });
+          if (reclaim) await maintenance.collect({ minAgeMs: 0, tombstoneAgeMs: 0 });
         });
       }
     });

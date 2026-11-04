@@ -48,6 +48,13 @@ Read `README.md` and `docs/design.md` before changing architecture or public API
   checking beside local tests or benchmarks, and do not count runtime-only passes as type validation.
 - Testcontainers owns disposable provider fixtures. Do not restore fixed host ports, hand-written readiness polling, or
   Compose lifecycle scripts for S3/Azure tests.
+- Adopt upstream runtime and WPT cases with immutable commits, original case identities, licenses/notices, copied-byte
+  hashes, adaptations and explicit capability exclusions. Native Web IDL expectations do not automatically apply to a
+  structural filesystem facade.
+- Retain raw executable snapshots as inert data; do not execute upstream setup or format its original bytes. Keep
+  adapted harnesses in the normal checks and compare behavioral output rather than incidental messages.
+- Separate upstream regression coverage, native browser conformance and performance observations. Investigate supported
+  case failures rather than silently excluding them or generating expectations from candidate output.
 - Benchmarks compare the native/provider baseline, project client when present, driver, adapter, facade with metrics
   disabled, and measured facade. Compare filesystem clients such as Mountpoint and BlobFuse only on operations their
   documented semantics support.

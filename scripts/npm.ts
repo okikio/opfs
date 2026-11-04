@@ -21,6 +21,39 @@ interface PackageSourceType {
   readonly peerDependencies?: Readonly<Record<string, string>>;
 }
 
+/** Native Deno declarations are part of the published leaf API, not a runtime polyfill. */
+const DENO_TYPES_VERSION = "2.7.0";
+
+interface NpmManifestType {
+  readonly exports: Readonly<Record<string, { readonly import?: string }>>;
+}
+
+/** Makes the native leaf's external type authority explicit even with consumer `types: []`. */
+async function preserveDenoDeclarations(directory: string): Promise<void> {
+  const manifest = await readJson<NpmManifestType>(
+    join(directory, "package.json"),
+  );
+  const runtime = manifest.exports["./driver/deno"]?.import;
+  if (typeof runtime !== "string" || !runtime.endsWith(".js")) {
+    throw new Error(
+      "The native Deno driver must have one emitted ESM entrypoint.",
+    );
+  }
+  const path = join(directory, runtime.replace(/\.js$/u, ".d.ts"));
+  const declaration = await Deno.readTextFile(path);
+  if (!/\bDeno\.FsFile\b/u.test(declaration)) {
+    throw new Error(
+      "The native Deno driver declaration lost its Deno.FsFile contract.",
+    );
+  }
+  // Source triple-slash comments are not preserved by dnt's transform and TS emit.
+  // Only this leaf imports the ambient namespace; root declarations remain portable.
+  await Deno.writeTextFile(
+    path,
+    `/// <reference types="deno-types" />\n${declaration}`,
+  );
+}
+
 /** Reads one JSON object without leaking an inferred filesystem shape into the public package. */
 async function readJson<Type>(path: string): Promise<Type> {
   return JSON.parse(await Deno.readTextFile(path)) as Type;
@@ -104,6 +137,16 @@ await build({
     ...(source.bugs === undefined ? {} : { bugs: source.bugs }),
     ...(source.keywords === undefined ? {} : { keywords: [...source.keywords] }),
     sideEffects: false,
+    // Official declaration bytes stay outside node_modules/@types, so portable
+    // consumers do not automatically load the Deno global namespace.
+    dependencies: {
+      "deno-types": `npm:@types/deno@${DENO_TYPES_VERSION}`,
+    },
+    // dnt explicitly includes installed @types packages in its semantic build.
+    // This name is build-only; the published leaf references the installed alias.
+    devDependencies: {
+      "@types/deno": DENO_TYPES_VERSION,
+    },
     ...(source.engines === undefined ? {} : { engines: { ...source.engines } }),
     peerDependencies: {
       "drizzle-orm": drizzle,
@@ -113,6 +156,7 @@ await build({
     },
   },
   async postBuild() {
+    await preserveDenoDeclarations(output);
     await Deno.copyFile(join(root, "README.md"), join(output, "README.md"));
     await Deno.copyFile(join(root, "LICENSE"), join(output, "LICENSE"));
     await Deno.copyFile(

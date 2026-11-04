@@ -1,6 +1,9 @@
+import { MOUNT_PROFILES } from "./mounts.ts";
+import { drain, stalled } from "./stalled.ts";
 /** Exact byte workflows against real, container-owned FUSE mounts. */
-import { appendFile, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { diagnostic } from "../../.mise/tasks/command.mjs";
 import { createFileSystem } from "../../mod.ts";
 import { createFileAdapter } from "../../src/adapter/file.ts";
 import { createNodeDriver } from "../../src/driver/node.ts";
@@ -19,7 +22,8 @@ async function check(client, name, action) {
     await action();
     results.push({ client, name, status: "pass" });
   } catch (error) {
-    results.push({ client, name, status: "fail", code: error.code, reason: error.message });
+    const failure = diagnostic(error);
+    results.push({ client, name, status: "fail", code: failure?.code, reason: failure?.message, failure });
   }
 }
 for (
@@ -31,7 +35,7 @@ for (
   if (!mounted) continue;
   const root = join(mounted, `reliability-${crypto.randomUUID()}`);
   await mkdir(root, { recursive: true });
-  const driver = createNodeDriver({ root }),
+  const driver = createNodeDriver({ root, profile: MOUNT_PROFILES[name] }),
     adapter = createFileAdapter(driver),
     filesystem = createFileSystem(adapter, { coordination: "local", metrics: "none" });
   const payload = Uint8Array.from({ length: 256 * 1024 }, (_, index) => (index * 29 + 17) % 251);
@@ -58,8 +62,53 @@ for (
       await filesystem.writeFile("/日本語-🦖.bin", new Uint8Array());
       bytes(await filesystem.readFile("/日本語-🦖.bin"), new Uint8Array());
     });
-    await check(name, "facade copy reads exact destination", async () => {
-      await filesystem.copy("/facade.bin", "/copy.bin");
+    // Independent pinned semantics exclude the preserving staging/publication primitives.
+    // The original unprofiled EPERM failures remain in the historical receipt.
+    await check(name, "declared strong copy/move rejects before parent or staging effects", async () => {
+      await filesystem.writeFile("/strong-old.bin", new Uint8Array([7, 8, 9]));
+      const before = (await readdir(root)).sort();
+      for (const native of [true, false]) {
+        const scoped = createFileSystem(adapter, {
+          coordination: "local",
+          metrics: "none",
+          optimizations: { nativeCopy: native, nativeMove: native },
+        });
+        try {
+          for (const operation of ["copy", "move"]) {
+            for (const [destination, overwrite] of [["/never-created/result", false], ["/strong-old.bin", true]]) {
+              const plan = scoped.plan({ operation, path: "/facade.bin", destination, overwrite });
+              if (plan.supported || !plan.problems.some((problem) => problem.code.startsWith("host-"))) {
+                throw new Error("Known limited mount publication unexpectedly admitted");
+              }
+              try {
+                await scoped[operation]("/facade.bin", destination, { overwrite });
+                throw new Error("Strong publication unexpectedly resolved");
+              } catch (error) {
+                if (error.code !== "not-supported") throw error;
+              }
+              bytes(await readFile(join(root, "facade.bin")), payload);
+              bytes(await readFile(join(root, "strong-old.bin")), new Uint8Array([7, 8, 9]));
+              if (JSON.stringify((await readdir(root)).sort()) !== JSON.stringify(before)) {
+                throw new Error("Rejected operation created parents, staging, or destination entries");
+              }
+            }
+          }
+        } finally {
+          await scoped.close();
+        }
+      }
+    });
+    await check(name, "explicit best-effort copy uses admitted direct writer and retains exact bytes", async () => {
+      const plan = filesystem.plan({
+        operation: "copy",
+        path: "/facade.bin",
+        destination: "/copy.bin",
+        preserve: false,
+      });
+      if (!plan.supported || plan.support !== "emulated") {
+        throw new Error("Direct best-effort write route was not admitted");
+      }
+      await filesystem.copy("/facade.bin", "/copy.bin", { preserve: false });
       bytes(await filesystem.readFile("/copy.bin"), payload);
     });
     await check(name, "facade streamed create", async () => {
@@ -82,7 +131,7 @@ for (
       }
     });
     await check(name, "five concurrent creates retain exact bytes", async () => {
-      await Promise.all(Array.from({ length: 5 }, async (_, index) => {
+      await drain(Array.from({ length: 5 }, async (_, index) => {
         const data = payload.slice();
         data[0] = index;
         const path = `/concurrent-${index}.bin`;
@@ -91,52 +140,7 @@ for (
       }));
     });
     await check(name, "stalled producer abort releases source and path lock", async () => {
-      let canceled = 0;
-      const started = Promise.withResolvers();
-      const controller = new AbortController(),
-        source = new ReadableStream({
-          pull() {
-            started.resolve();
-            return new Promise(() => {});
-          },
-          cancel() {
-            canceled++;
-          },
-        }, { highWaterMark: 0 });
-      const promise = filesystem.writeFile("/aborted.bin", source, { signal: controller.signal });
-      let admissionDeadline;
-      try {
-        await Promise.race([
-          started.promise,
-          promise,
-          new Promise((_, reject) => {
-            admissionDeadline = setTimeout(() => reject(new Error("Producer admission exceeded 5000ms")), 5000);
-          }),
-        ]);
-      } catch (error) {
-        controller.abort(error);
-        throw error;
-      } finally {
-        clearTimeout(admissionDeadline);
-      }
-      controller.abort(new Error("Caller canceled"));
-      let deadline;
-      try {
-        await Promise.race([
-          promise,
-          new Promise((_, reject) => {
-            deadline = setTimeout(() => reject(new Error("Abort exceeded 1500ms")), 1500);
-          }),
-        ]);
-        throw new Error("Aborted write resolved");
-      } catch (error) {
-        if (error.code !== "aborted") throw error;
-      } finally {
-        clearTimeout(deadline);
-      }
-      if (source.locked || canceled !== 1) {
-        throw new Error(`Source ownership: locked=${source.locked}, cancel=${canceled}`);
-      }
+      await stalled((source, signal) => filesystem.writeFile("/aborted.bin", source, { signal }));
       await filesystem.writeFile("/aborted.bin", new Uint8Array([1, 2, 3]));
       bytes(await filesystem.readFile("/aborted.bin"), new Uint8Array([1, 2, 3]));
     });

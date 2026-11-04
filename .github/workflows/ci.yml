@@ -176,6 +176,16 @@ jobs:
           version: "2026.8.6"
           install_args: deno node bun
       - run: deno task bench:all
+      - run: deno task bench:upstream:verify
+      - run: |
+          mkdir -p .tmp/reports/upstream-bench
+          BENCH_JSON=1 deno task bench:upstream > .tmp/reports/upstream-bench/mitata.json 2> .tmp/reports/upstream-bench/stderr.log
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: upstream-truncate-benchmark-evidence
+          if-no-files-found: error
+          path: .tmp/reports/upstream-bench
 
   provider-bench:
     name: Provider baseline benchmark smoke

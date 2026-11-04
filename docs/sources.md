@@ -110,8 +110,15 @@ Primary runtime sources:
 - Bun benchmarking guidance: <https://bun.com/docs/project/benchmarking>
 - Node documentation: <https://nodejs.org/docs/latest/api/>
 
-Current Deno documentation treats `node:test` as a first-class test API and currently marks Deno KV unstable. The real
-Deno KV suite therefore uses `--unstable-kv` without making that flag part of unrelated source imports. Current Deno KV
+Current Deno documentation treats `node:test` as a first-class test API and currently marks Deno KV unstable. The pinned
+runtime bounds the available lifecycle contract: in Deno2.9.7, the
+[suite implementation](https://github.com/denoland/deno/blob/0c071246a412575e07423263404a5d13e7ed6aa2/ext/node/polyfills/testing.ts#L1754-L1867)
+does not execute an `it` context's `t.after()` hooks and explicitly disables operation/resource sanitizers for suite
+steps. Native fixture scopes therefore await every release directly and test actual deletion/closed-resource behavior;
+CLI sanitizer flags and a passing `describe` suite alone are not leak proof. This limitation does not imply the native
+Deno test API disables its own sanitizers.
+
+The real Deno KV suite uses `--unstable-kv` without making that flag part of unrelated source imports. Current Deno KV
 documentation states a 2 KiB serialized key limit, a 64 KiB serialized value limit, 1,000 mutations per atomic
 operation, and an 800 KiB total atomic-operation limit. The Deno KV driver uses a versionstamp check plus a small atomic
 metadata commit for logical visibility, while file bodies remain in the configurable manifest/part layout instead of

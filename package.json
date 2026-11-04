@@ -67,6 +67,7 @@
     "./adapter/drizzle": "./src/adapter/drizzle.ts",
     "./driver": "./src/driver/definition.ts",
     "./driver/file": "./src/driver/file.ts",
+    "./driver/host": "./src/driver/host.ts",
     "./driver/record": "./src/driver/record.ts",
     "./driver/object": "./src/driver/object.ts",
     "./driver/opfs": "./src/driver/opfs.ts",
