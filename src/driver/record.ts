@@ -1,11 +1,12 @@
 import { FileSystemError, toFileSystemError } from "../error.ts";
 import { close } from "../close.ts";
+import { project } from "../iteration.ts";
 import { retire } from "../stream.ts";
 import { z } from "zod";
 
 import type { PathType } from "../path.ts";
 import type { DirectoryRecordType, FileRecordType, RecordType, WriteModeType } from "../schema.ts";
-import { WriteModeSchema } from "../schema.ts";
+import { RecordMetadataSchema, RecordSchema, WriteModeSchema } from "../schema.ts";
 import type { FileDriverReadOptionsType, FileDriverWriteOptionsType } from "./file.ts";
 import {
   defineDriver,
@@ -274,14 +275,22 @@ export function defineRecordDriver(
     ...base,
     kind: "record",
     capabilities,
-    get: (path) => {
+    get: async (path) => {
       admit({ operation: "read", path });
-      return backend.get(path);
+      const record = await backend.get(path);
+      if (record === null) return null;
+      const validated = RecordSchema.parse(record);
+      if (validated.path !== path) throw new TypeError("Stored record does not match its physical key.");
+      return validated;
     },
     ...(backend.stat === undefined ? {} : {
-      stat: (path: PathType) => {
+      stat: async (path: PathType) => {
         admit({ operation: "read", path });
-        return backend.stat!(path);
+        const record = await backend.stat!(path);
+        if (record === null) return null;
+        const validated = RecordMetadataSchema.parse(record);
+        if (validated.path !== path) throw new TypeError("Stored metadata does not match its physical key.");
+        return validated;
       },
     }),
     ...(backend.readFile === undefined ? {} : {
@@ -321,7 +330,8 @@ export function defineRecordDriver(
         return backend.writeStream!(path, source, writeOptions);
       },
     }),
-    set: (record) => {
+    set: (input) => {
+      const record = RecordSchema.parse(input);
       if (readOnly) {
         throw new Error(`Record driver '${base.name}' is read-only; '${record.path}' cannot be changed.`);
       }
@@ -341,9 +351,15 @@ export function defineRecordDriver(
       admit({ operation: "remove", path });
       return backend.delete(path);
     },
-    list: (parent) => {
+    async *list(parent) {
       admit({ operation: "list", path: parent });
-      return backend.list(parent);
+      yield* project(backend.list(parent), (record) => {
+        const validated = RecordMetadataSchema.parse(record);
+        if (validated.path === parent || validated.parent !== parent) {
+          throw new TypeError("Listed record is not a direct child of its requested parent.");
+        }
+        return validated;
+      });
     },
     ...(options.disposeBackend && backend.dispose !== undefined ? { dispose: () => backend.dispose!() } : {}),
   };

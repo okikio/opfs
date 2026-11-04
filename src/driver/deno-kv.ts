@@ -24,6 +24,7 @@ import {
   PartitionModeSchema,
   type PartitionModeType,
   PathSchema,
+  RecordMetadataSchema,
   RecordSchema,
   type RecordType,
   type WriteModeType,
@@ -250,12 +251,15 @@ const DenoKvFileSchema = z.object({
   size: z.number().int().nonnegative(),
   lastModified: z.number().int().nonnegative(),
   mediaType: z.string(),
-}).strict();
+}).strict().refine(
+  (record) => record.path !== "/" && RecordMetadataSchema.safeParse(record).success,
+  "Partition file path, parent and name must agree.",
+);
 
 /** Durable pointer to one generation of raw Deno KV body parts. */
 const DenoKvManifestSchema = z.object({
   storage: z.literal("deno-kv-parts-v3"),
-  generation: z.string().min(1),
+  generation: z.string().min(1).max(128),
   parts: z.number().int().positive(),
   partBytes: z.number().int().positive(),
   file: DenoKvFileSchema,
@@ -551,6 +555,23 @@ class DenoKvBackend implements RecordBackendType {
     return await this.#generation.pin(path, generation, entry);
   }
 
+  /** Bounds durable manifest work before pins, arrays or physical reads are acquired. */
+  #manifest(value: unknown): DenoKvManifestType {
+    const manifest = DenoKvManifestSchema.parse(value);
+    if (
+      manifest.parts > this.#maxParts || manifest.partBytes > DENO_KV_SAFE_PART_BYTES ||
+      manifest.file.size > this.#partBytes * this.#maxParts
+    ) {
+      throw new FileSystemError(
+        "too-large",
+        "read",
+        manifest.file.path,
+        "Stored manifest exceeds Deno KV physical policy.",
+      );
+    }
+    return manifest;
+  }
+
   /** Reads one exact logical entry and retains its provider version for a later optimistic commit. */
   async #entry(path: string): Promise<DenoKvStoredEntryType> {
     await this.#open();
@@ -558,8 +579,11 @@ class DenoKvBackend implements RecordBackendType {
     const value = entry.value === null
       ? null
       : isManifest(entry.value)
-      ? DenoKvManifestSchema.parse(entry.value)
+      ? this.#manifest(entry.value)
       : RecordSchema.parse(entry.value);
+    if (value !== null && (isManifest(value) ? value.file.path : value.path) !== path) {
+      throw new TypeError("Stored Deno KV record does not match its logical key.");
+    }
     return { key: entry.key, value, versionstamp: entry.versionstamp };
   }
 
@@ -1243,9 +1267,16 @@ class DenoKvBackend implements RecordBackendType {
     for await (const entry of this.#database.list<unknown>({ prefix: listKey(this.#prefix, parent) })) {
       if (entry.value === null) continue;
       const record = isManifest(entry.value)
-        ? manifestList(DenoKvManifestSchema.parse(entry.value))
+        ? manifestList(this.#manifest(entry.value))
         : RecordSchema.parse(entry.value);
-      if (record.parent === parent) yield record;
+      const expected = key(this.#prefix, record.path);
+      if (
+        record.parent !== parent || entry.key.length !== expected.length ||
+        entry.key.some((part, index) => part !== expected[index])
+      ) {
+        throw new TypeError("Listed Deno KV record does not match its physical key and parent.");
+      }
+      yield record;
     }
   }
 
