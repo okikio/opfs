@@ -1,22 +1,30 @@
 # @okikio/opfs
 
-Read and write files through one TypeScript API, with storage supplied by browser OPFS, a host filesystem, an object store, or a database. OPFS means Origin Private File System, the browser storage API that this package uses as its file-and-directory model.
+Read and write files through one TypeScript API, with storage supplied by browser OPFS, a host filesystem, an object
+store, or a database. OPFS means Origin Private File System, the browser storage API that this package uses as its
+file-and-directory model.
 
-Each backend retains its own limits and guarantees. Before a write, use `inspect()` to see available capabilities and `plan()` to check known constraints. These operations help the application choose a supported route; they do not make every backend behave like a local disk.
+Each backend retains its own limits and guarantees. Before a write, use `inspect()` to see available capabilities and
+`plan()` to check known constraints. These operations help the application choose a supported route; they do not make
+every backend behave like a local disk.
 
 ## Follow a file operation
 
-Application code normally calls `FileSystemType`, the filesystem returned by `openFileSystem()` or `createFileSystem()`. It owns virtual paths, handles, cancellation, and the available fallbacks. The lower layers translate that request into the selected backend's operations:
+Application code normally calls `FileSystemType`, the filesystem returned by `openFileSystem()` or `createFileSystem()`.
+It owns virtual paths, handles, cancellation, and the available fallbacks. The lower layers translate that request into
+the selected backend's operations:
 
-| Component | Responsibility |
-| --- | --- |
-| Client, when needed | Implements a wire protocol, such as S3 or Azure Blob REST. |
-| Driver | Implements backend operations and reports limits, requirements, optimizations, physical metrics, and resource ownership. |
-| Adapter | Translates the driver into the OPFS primitives required by `FileSystemType`. |
-| `FileSystemType` | Provides the application's file API, including paths, handles, coordination, failure mapping, and planning. |
-| Optional bridge | Lets another ecosystem use an existing `FileSystemType`, for example through an unstorage driver. |
+| Component           | Responsibility                                                                                                           |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Client, when needed | Implements a wire protocol, such as S3 or Azure Blob REST.                                                               |
+| Driver              | Implements backend operations and reports limits, requirements, optimizations, physical metrics, and resource ownership. |
+| Adapter             | Translates the driver into the OPFS primitives required by `FileSystemType`.                                             |
+| `FileSystemType`    | Provides the application's file API, including paths, handles, coordination, failure mapping, and planning.              |
+| Optional bridge     | Lets another ecosystem use an existing `FileSystemType`, for example through an unstorage driver.                        |
 
-A filesystem call travels through the adapter to the driver and, when needed, the protocol client. A bridge is a separate consumer of the filesystem. Node, Deno, Bun, browser OPFS, IndexedDB, and SQLite do not need a separate protocol client.
+A filesystem call travels through the adapter to the driver and, when needed, the protocol client. A bridge is a
+separate consumer of the filesystem. Node, Deno, Bun, browser OPFS, IndexedDB, and SQLite do not need a separate
+protocol client.
 
 ## Start with the storage you own
 

@@ -67,23 +67,19 @@ Deno KV remains responsible for the actual provider serialization contract.
 | `tests/ecosystem/live.mjs`                                                                 | Pinned unstorage/db0/Drizzle/RxDB on actual engines. Borrowed-owner checks now use a suite-owned sentinel rather than the current boundary-fixture count or filename.                                                                                                                                                                                                                                                                                                       |
 | `tests/package/verify.mjs`                                                                 | Built archive identity, exports, declarations, installed runtime behavior and consumer compiler checks. Retained exact artifact assertions. Its compiler subprocesses require the isolated type-check lane.                                                                                                                                                                                                                                                                 |
 
-The later browser review adds two fixture contracts. `tests/browser/environment.ts`
-admits the native Linux UTF-8 locale before Chromium, Firefox or WebKit starts.
-Both ordinary and persistent browser owners pass that environment to their child;
-the contributor's parent environment remains unchanged. The bounded native
-`locale charmap` probe writes a receipt beside the lane's existing reports. Ten
-maintained controls cover environment preservation, semantic charset spellings,
-raw probe failures and receipt ownership. A failed probe fails admission. It
-does not turn a filename assertion into a capability skip.
+The later browser review adds two fixture contracts. `tests/browser/environment.ts` admits the native Linux UTF-8 locale
+before Chromium, Firefox or WebKit starts. Both ordinary and persistent browser owners pass that environment to their
+child; the contributor's parent environment remains unchanged. The bounded native `locale charmap` probe writes a
+receipt beside the lane's existing reports. Ten maintained controls cover environment preservation, semantic charset
+spellings, raw probe failures and receipt ownership. A failed probe fails admission. It does not turn a filename
+assertion into a capability skip.
 
-`tests/browser/fixtures/reliability.ts` registers each acquired facade before
-fallible namespace setup. Owned paths, pending writers, cancellation controllers
-and facades retire in dependency order through the existing release primitive.
-The additional controls in `tests/retirement.test.ts` challenge partial setup,
-successful cleanup failure and simultaneous body/release failures, including
-equal raw `undefined` reasons. The byte oracle and Unicode filenames remain
-unchanged. These controls prove fixture ownership; the three-engine browser
-matrix separately proves the real storage behavior.
+`tests/browser/fixtures/reliability.ts` registers each acquired facade before fallible namespace setup. Owned paths,
+pending writers, cancellation controllers and facades retire in dependency order through the existing release primitive.
+The additional controls in `tests/retirement.test.ts` challenge partial setup, successful cleanup failure and
+simultaneous body/release failures, including equal raw `undefined` reasons. The byte oracle and Unicode filenames
+remain unchanged. These controls prove fixture ownership; the three-engine browser matrix separately proves the real
+storage behavior.
 
 ## Benchmark workload disposition
 
