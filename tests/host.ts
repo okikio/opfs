@@ -137,21 +137,26 @@ export async function verifyHost(fileSystem: FileSystemType): Promise<void> {
   expect(await fileSystem.exists("/move-target/old.txt")).toBe(false);
 }
 
-/** Exercises the actual Windows rejection without converting an invalid name to an alias. */
+/** Checks host-path admission before native I/O, then proves a valid write still succeeds. */
 export async function verifyWindowsNames(fileSystem: FileSystemType): Promise<void> {
-  const path = "/native-invalid?.bin";
-  let failure: unknown;
-  try {
-    await fileSystem.writeFile(path, new Uint8Array([1, 2, 3]));
-  } catch (error) {
-    failure = error;
+  const paths = ["/native-invalid?.bin", "/victim:stream", "/victim.", "/victim ", "/CON", "/nul.txt"];
+  for (const path of paths) {
+    let failure: unknown;
+    try {
+      await fileSystem.writeFile(path, new Uint8Array([1, 2, 3]));
+    } catch (error) {
+      failure = error;
+    }
+    // writeFile checks destination metadata before dispatching bytes. The host
+    // mapper refuses these names in that stat call, whose error remains intact.
+    expect(failure).toMatchObject({ name: "FileSystemError", operation: "stat", path });
+    expect((failure as Error).cause).toBeInstanceOf(TypeError);
   }
-  expect(failure).toMatchObject({ name: "FileSystemError", operation: "write", path });
-  expect((failure as Error).cause).toBeDefined();
   const names = [];
   for await (const entry of fileSystem.readDir("/")) names.push(entry.name);
-  expect(names).not.toContain("native-invalid?.bin");
+  for (const path of paths) expect(names).not.toContain(path.slice(1));
   expect(names).not.toContain("native-invalid.bin");
+  expect(names).not.toContain("victim");
   await fileSystem.writeFile("/valid-after-invalid.bin", new Uint8Array([4, 5, 6]));
   expect(await fileSystem.readFile("/valid-after-invalid.bin")).toEqual(new Uint8Array([4, 5, 6]));
 }
