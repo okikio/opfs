@@ -107,6 +107,9 @@ class LocalStorageBackend implements RecordBackendType {
       const value = this.#storage.getItem(key);
       if (value === null) continue;
       const record = RecordSchema.parse(JSON.parse(value));
+      // Listing and exact reads must agree on the same durable key identity.
+      // Schema-valid metadata at another key is corruption, not a new child.
+      if (record.path !== path) throw new TypeError("Stored Web Storage record does not match its physical key.");
       if (record.parent === parent) yield record;
     }
   }

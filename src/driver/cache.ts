@@ -93,6 +93,10 @@ class CacheBackend implements RecordBackendType {
       const response = await this.#cache.match(cacheRequest);
       if (response === undefined) continue;
       const record = RecordSchema.parse(await response.json());
+      // Canonical record fields cannot authorize a different physical key.
+      // Reject corruption before publishing a child that subsequent reads
+      // cannot retrieve from its reported path.
+      if (record.path !== path) throw new TypeError("Stored Cache record does not match its physical key.");
       if (record.parent === parent) yield record;
     }
   }

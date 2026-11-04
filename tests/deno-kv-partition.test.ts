@@ -977,3 +977,32 @@ describe("Deno KV partition integrity", () => {
     expect([...database.values.values()].filter((entry) => entry.key[1] === "pin")).toHaveLength(0);
   });
 });
+
+it("rejects forged manifest budgets and physical identity before pins or part reads", async () => {
+  const database = new FakeDenoKv();
+  const driver = createDenoKvDriver(database, { prefix: "security", partBytes: 2, inlineBytes: 1, maxParts: 2 });
+  await driver.writeFile!("/file", new Uint8Array([1, 2, 3]), { mode: "replace" });
+  const entry = [...database.values.values()].find((entry) => entry.key[1] === "entry")!;
+  const valid = structuredClone(entry.value) as {
+    generation: string;
+    parts: number;
+    partBytes: number;
+    file: { size: number; name: string };
+  };
+  const reads = database.partGets;
+  for (
+    const changes of [
+      { parts: 1_000_000_000, file: { ...valid.file, size: 2_000_000_000 } },
+      { partBytes: 1_000_000, parts: 1, file: { ...valid.file, size: 3 } },
+      { generation: "x".repeat(129) },
+      { file: { ...valid.file, name: "../victim" } },
+    ]
+  ) {
+    entry.value = { ...valid, ...changes };
+    await expect(driver.get("/file")).rejects.toBeDefined();
+    expect(database.partGets).toBe(reads);
+    expect([...database.values.values()].some((entry) => entry.key[1] === "pin")).toBe(false);
+  }
+  entry.value = valid;
+  await driver.dispose?.();
+});
