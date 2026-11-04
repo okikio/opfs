@@ -6,7 +6,16 @@ import type { FileDriverDirectoryEntryType, FileDriverSignalOptionsType } from "
 import { FileSystemError, throwIfAborted, toFileSystemError } from "./error.ts";
 import { close } from "./close.ts";
 import { MutationLocks } from "./lock.ts";
-import { basename, dirname, isAncestorPath, joinPath, normalizePath, ROOT_PATH, splitPath } from "./path.ts";
+import {
+  basename,
+  dirname,
+  isAncestorPath,
+  joinPath,
+  normalizePath,
+  ROOT_PATH,
+  splitPath,
+  validateName,
+} from "./path.ts";
 import {
   CoordinationModeSchema,
   EntryKindSchema,
@@ -415,13 +424,28 @@ async function ensureParents(adapter: AdapterType, path: string, signal?: AbortS
   }
 }
 
+/** Rejects adapter path injection before any recursive read or mutation. */
+function childPath(parent: string, name: string): string {
+  try {
+    validateName(name);
+  } catch (cause) {
+    throw new FileSystemError("invalid-path", "read-dir", parent, "Adapter entry is not one valid child name.", cause);
+  }
+  const path = joinPath(parent, name);
+  if (dirname(path) !== parent || !isAncestorPath(parent, path)) {
+    throw new FileSystemError("invalid-path", "read-dir", parent, "Adapter entry must be a strict direct child.");
+  }
+  return path;
+}
+
 /** Projects one adapter child into path metadata plus an OPFS-shaped facade handle. */
 function makeDirectoryEntry(
   fileSystem: FileSystemType,
   parent: string,
   entry: FileDriverDirectoryEntryType,
 ): DirectoryEntryType {
-  const path = joinPath(parent, entry.name);
+  const path = childPath(parent, entry.name);
+  EntryKindSchema.parse(entry.kind);
   return {
     path,
     name: entry.name,
@@ -926,36 +950,67 @@ class FileSystemFacade implements FileSystemType {
    * Opens an abortable byte stream.
    *
    * Streaming adapters stay incremental. Value-oriented adapters expose one
-   * materialized chunk because they cannot supply a native byte stream.
+   * materialized chunk because they cannot supply a native byte stream. Their
+   * open promise owns materialization before the stream is published. Aborted
+   * native acquisition joins the acquired stream's retirement before rejecting.
    */
   async openReadStream(path: string, options: ReadOptionsType = {}): Promise<ReadableStream<Uint8Array>> {
     this.#assertOpen();
-    const normalized = normalizePath(path);
-    if (options.at !== undefined) assertNonNegativeInteger(options.at, "at");
-    if (options.length !== undefined) assertNonNegativeInteger(options.length, "length");
+    const normalized = normalizePath(path), signal = options.signal;
+    throwIfAborted(signal, "read", normalized);
+    const at = options.at;
+    throwIfAborted(signal, "read", normalized);
+    const length = options.length;
+    throwIfAborted(signal, "read", normalized);
+    if (at !== undefined) assertNonNegativeInteger(at, "at");
+    if (length !== undefined) assertNonNegativeInteger(length, "length");
     const adapterOptions = {
-      ...(options.at === undefined ? {} : { at: options.at }),
-      ...(options.length === undefined ? {} : { length: options.length }),
-      ...getAdapterSignalOptions(options.signal),
+      ...(at === undefined ? {} : { at }),
+      ...(length === undefined ? {} : { length }),
+      ...getAdapterSignalOptions(signal),
     };
+    let nativeStream = false;
+    let acquired: ReadableStream<Uint8Array> | undefined;
     try {
-      const nativeStream = this.optimizations.streamRead && this.adapter.capabilities.streamRead &&
-        this.adapter.openReadStream !== undefined;
-      const source = nativeStream
-        ? await this.adapter.openReadStream!(normalized, adapterOptions)
-        : new ReadableStream<Uint8Array>({
-          start: async (controller) => {
-            controller.enqueue(await this.adapter.readFile(normalized, adapterOptions));
+      const open = this.optimizations.streamRead && this.adapter.capabilities.streamRead
+        ? this.adapter.openReadStream
+        : undefined;
+      nativeStream = open !== undefined;
+      throwIfAborted(signal, "read", normalized);
+      if (open !== undefined) {
+        acquired = await open.call(this.adapter, normalized, adapterOptions);
+      } else {
+        // Materialization belongs to acquisition, not an unowned async start.
+        // Publishing a stream while this signal-aware read is pending creates
+        // two abort actors and hides the actual source operation's lifetime.
+        const read = this.adapter.readFile;
+        throwIfAborted(signal, "read", normalized);
+        const bytes = await read.call(this.adapter, normalized, adapterOptions);
+        throwIfAborted(signal, "read", normalized);
+        acquired = new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(bytes);
             controller.close();
           },
         });
+      }
+      // Native acquisition can settle after cancellation. Until the wrapper
+      // accepts ownership, this facade must retire that acquired resource.
+      throwIfAborted(signal, "read", normalized);
+      const stream = withAbortSignal(acquired, signal, normalized);
       this.#metrics.record("read-stream", { support: nativeStream ? "native" : "emulated" });
-      return withAbortSignal(source, options.signal, normalized);
+      return stream;
     } catch (error) {
       this.#metrics.record("read-stream", {
-        support: this.optimizations.streamRead && this.adapter.capabilities.streamRead ? "native" : "emulated",
+        support: nativeStream ? "native" : "emulated",
         failed: true,
       });
+      try {
+        const source = acquired;
+        if (source !== undefined) await close([() => retire(source, error)], [error]);
+      } catch (retirement) {
+        throw toFileSystemError(retirement, "read", normalized);
+      }
       throw toFileSystemError(error, "read", normalized);
     }
   }
@@ -1101,6 +1156,17 @@ class FileSystemFacade implements FileSystemType {
    */
   async copy(source: string, destination: string, options: CopyOptionsType = {}): Promise<void> {
     this.#assertOpen();
+    const lock = await this.#locks.acquireTree(options.signal);
+    try {
+      await this.#copyUnlocked(source, destination, options);
+    } finally {
+      lock.release();
+    }
+  }
+
+  /** Copies under the caller's tree lock so an emulated move owns both phases. */
+  async #copyUnlocked(source: string, destination: string, options: CopyOptionsType): Promise<void> {
+    this.#assertOpen();
     const from = normalizePath(source);
     const to = normalizePath(destination);
     if (from === to || isAncestorPath(from, to) || isAncestorPath(to, from)) {
@@ -1132,7 +1198,6 @@ class FileSystemFacade implements FileSystemType {
       : getSupport(this.adapter, this.optimizations).copy;
     let metricBytes: number | undefined;
     let failed = true;
-    const lock = await this.#locks.acquireTree(options.signal);
     try {
       const sourceEntry = await this.adapter.entry?.(from, getAdapterSignalOptions(options.signal));
       if (sourceEntry === "link" || sourceEntry === "foreign") {
@@ -1276,7 +1341,6 @@ class FileSystemFacade implements FileSystemType {
         started,
         failed,
       });
-      lock.release();
     }
   }
 
@@ -1355,6 +1419,9 @@ class FileSystemFacade implements FileSystemType {
       );
     }
     const bytes = await this.adapter.readFile(source, getAdapterSignalOptions(signal));
+    if (bytes.byteLength > this.maxBufferedWriteBytes) {
+      throw new FileSystemError("too-large", "copy", source, "Observed copy bytes exceed maxBufferedWriteBytes.");
+    }
     this.#metrics.buffer(bytes.byteLength);
     try {
       await this.adapter.writeFile(destination, bytes, writeOptions);
@@ -1370,7 +1437,8 @@ class FileSystemFacade implements FileSystemType {
   ): AsyncIterableIterator<{ path: string; kind: EntryKindType }> {
     for await (const entry of this.adapter.readDir(path, getAdapterSignalOptions(signal))) {
       throwIfAborted(signal, "walk", path);
-      const child = joinPath(path, entry.name);
+      const child = childPath(path, entry.name);
+      EntryKindSchema.parse(entry.kind);
       yield { path: child, kind: entry.kind };
       if (entry.kind === "directory") yield* this.#walkAdapter(child, signal);
     }
@@ -1453,9 +1521,16 @@ class FileSystemFacade implements FileSystemType {
           lock.release();
         }
       } else {
-        // Copy and remove are intentionally separate commits on adapters without a native rename.
-        await this.copy(from, to, options);
-        await this.remove(from, { recursive: true, ...getAdapterSignalOptions(options.signal) });
+        this.#admit({ operation: "remove", path: from });
+        const lock = await this.#locks.acquireTree(options.signal);
+        try {
+          // Storage publication remains non-atomic, but queued facade mutations
+          // cannot enter between copying the source and removing that same tree.
+          await this.#copyUnlocked(from, to, options);
+          await this.#removeUnlocked(from, true, options.signal);
+        } finally {
+          lock.release();
+        }
       }
       this.#metrics.record("move", { support, started });
     } catch (error) {
@@ -1504,7 +1579,7 @@ class FileSystemFacade implements FileSystemType {
         const entry of (this.adapter.entries?.(path, getAdapterSignalOptions(signal)) ??
           this.adapter.readDir(path, getAdapterSignalOptions(signal)))
       ) {
-        children.push(joinPath(path, entry.name));
+        children.push(childPath(path, entry.name));
       }
       if (children.length > 0 && !recursive) {
         throw new FileSystemError(
@@ -1554,7 +1629,7 @@ class FileSystemFacade implements FileSystemType {
           const entry of (this.adapter.entries?.(normalized, getAdapterSignalOptions(options.signal)) ??
             this.adapter.readDir(normalized, getAdapterSignalOptions(options.signal)))
         ) {
-          children.push(joinPath(normalized, entry.name));
+          children.push(childPath(normalized, entry.name));
         }
         for (const child of children) {
           if (failures.length > 0) break;

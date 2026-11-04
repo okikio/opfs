@@ -24,6 +24,8 @@ export interface ObjectAdapterOptionsType {
   readonly disposeDriver?: boolean;
   /** Maximum provider pages per scan. Defaults to 10,000; exhaustion rejects rather than reporting absence. */
   readonly maxListPages?: number;
+  /** Maximum raw objects and prefixes per scan, including duplicates. Defaults to 1,000,000. */
+  readonly maxListEntries?: number;
 }
 
 /** Minimal evidence retained while resolving whether one virtual directory exists. */
@@ -112,6 +114,8 @@ class ObjectAdapter implements AdapterType {
   readonly #disposeDriver: boolean;
   /** Application scan budget, independent of the provider page-size limit. */
   readonly #maxListPages: number;
+  /** Independent bound on names retained and provider entries examined. */
+  readonly #maxListEntries: number;
 
   /** Stable adapter name inherited from the provider client. */
   readonly name: string;
@@ -129,8 +133,16 @@ class ObjectAdapter implements AdapterType {
     if (!Number.isSafeInteger(this.#maxListPages) || this.#maxListPages < 1) {
       throw new RangeError("maxListPages must be a positive safe integer.");
     }
+    this.#maxListEntries = options.maxListEntries ?? 1_000_000;
+    if (!Number.isSafeInteger(this.#maxListEntries) || this.#maxListEntries < 1) {
+      throw new RangeError("maxListEntries must be a positive safe integer.");
+    }
     this.name = driver.name;
-    if (driver.portableLimits !== undefined) this.limits = structuredClone(driver.portableLimits);
+    this.limits = {
+      ...structuredClone(driver.portableLimits ?? {}),
+      maxListPages: this.#maxListPages,
+      maxListEntries: this.#maxListEntries,
+    };
     this.capabilities = {
       read: true,
       write: true,
@@ -199,6 +211,7 @@ class ObjectAdapter implements AdapterType {
     const prefix = directoryKey(this.#prefix, path);
     const cursors = new Set<string>();
     let cursor: string | undefined;
+    let entries = 0;
     for (let count = 0; count < this.#maxListPages; count++) {
       throwIfAborted(signal, "list", path);
       const page = await this.driver.list({
@@ -214,6 +227,15 @@ class ObjectAdapter implements AdapterType {
         page.prefixes.some((key) => !key.startsWith(prefix))
       ) {
         throw new FileSystemError("invalid-operation", "list", path, "Provider listing escaped the requested prefix.");
+      }
+      entries += page.objects.length + page.prefixes.length;
+      if (entries > this.#maxListEntries) {
+        throw new FileSystemError(
+          "too-large",
+          "list",
+          path,
+          `Object listing exceeded maxListEntries=${this.#maxListEntries}.`,
+        );
       }
       if (page.cursor !== undefined) {
         if (cursors.has(page.cursor)) {
