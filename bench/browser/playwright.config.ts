@@ -1,3 +1,4 @@
+import { create } from "../../tests/browser/environment.ts";
 import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
 
@@ -17,7 +18,7 @@ export default defineConfig({
   reporter: [["line"], ["json", {
     outputFile: fileURLToPath(new URL("../../.tmp/reports/browser-bench/results.json", import.meta.url)),
   }]],
-  use: { baseURL },
+  use: { baseURL, launchOptions: { env: create() } },
   webServer: {
     command:
       "deno run -A npm:vite@8.2.1 --configLoader native --config tests/browser/vite.config.ts --host 127.0.0.1 --port 4173 --strictPort",

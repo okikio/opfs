@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
 import { env } from "node:process";
+import { create } from "./environment.ts";
 
 /** Primary same-origin fixture server. */
 const first = "http://127.0.0.1:4173";
@@ -14,6 +15,7 @@ const secondReady = `${second}/tests/browser/fixtures/frame.html`;
 const ci = Boolean(env.CI);
 
 export default defineConfig({
+  globalSetup: fileURLToPath(new URL("./setup.ts", import.meta.url)),
   // Cleanup and artifact recreation stay inside the writable task-owned namespace.
   outputDir: fileURLToPath(new URL("../../.tmp/reports/browser/artifacts", import.meta.url)),
   testDir: ".",
@@ -33,6 +35,7 @@ export default defineConfig({
   use: {
     baseURL: first,
     trace: "retain-on-failure",
+    launchOptions: { env: create() },
   },
   webServer: [
     {

@@ -1,3 +1,4 @@
+import { create } from "./environment.ts";
 import { test as base } from "./ready.ts";
 import type { BrowserContext, BrowserType } from "@playwright/test";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -40,6 +41,7 @@ export async function open(
   }
   const context = await browser.launchPersistentContext(profile, {
     headless: true,
+    env: create(),
     baseURL: "http://127.0.0.1:4173",
     timeout: Math.min(LAUNCH_TIMEOUT, remaining),
   });

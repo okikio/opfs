@@ -788,6 +788,20 @@ correctness artifacts live under `.tmp/reports/browser/artifacts/`, and browser 
 `.tmp/reports/browser-bench/artifacts/`, beside their report files. Playwright and Deno may clean and recreate these
 ignored output directories inside an immutable release snapshot. Source directories remain readonly.
 
+Linux browser tasks require the native `locale` utility and an installed `C.UTF-8` locale. The browser launch owners
+preserve inherited nonlocale settings and explicitly pass `LC_ALL=C.UTF-8` and `LANG=C.UTF-8` to both ordinary and
+persistent browsers. Playwright page `locale` controls web-facing language settings; it does not establish the native
+filesystem encoding. Before acquiring browsers, setup runs bounded `locale charmap` under the same locale policy. An
+unavailable command, failed command, or non-UTF-8 charset fails admission instead of skipping Unicode cases. macOS and
+Windows retain their native environment without a POSIX locale probe.
+
+Each report owner retains `environment.json` beside its existing results: `.tmp/reports/browser/` for correctness and
+`.tmp/reports/browser-bench/` for benchmarks. This receipt contains platform, allowlisted ambient/effective locale
+fields, and bounded native probe output. It excludes credentials and other inherited environment variables. Locale
+admission is separate from actual engine versions, case outcomes, skips, and timings; passing the probe does not
+establish browser or library correctness. This requirement protects literal non-ASCII filenames rather than changing
+those filenames.
+
 Browser correctness and benchmark tasks use fresh Vite servers with file watching and hot reload disabled. Sources
 remain fixed for each run; report output does not trigger watcher work. Restart the task after editing a fixture. Both
 origins use the same explicit configuration and repository root, so invocation directory does not change the served

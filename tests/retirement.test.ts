@@ -595,3 +595,118 @@ describe("filesystem retirement", () => {
     });
   }
 });
+
+describe("fixture release ownership", () => {
+  for (const primary of [undefined, null, new Error("body primary")]) {
+    it(`attempts namespace removal and facade disposal after a raw primary ${String(primary)}`, async () => {
+      const memory = createMemoryAdapter(),
+        removed = new Error("namespace removal"),
+        closed = new Error("facade disposal");
+      const events: string[] = [];
+      let namespaceMissingAtClose = false;
+      let fileSystem: ReturnType<typeof createFileSystem> | undefined;
+      const actual = await rejected(withReleases(async (releases) => {
+        const fs = fileSystem = createFileSystem(
+          wrap(memory, {
+            async remove(path, options) {
+              events.push("namespace-remove");
+              await memory.remove(path, options);
+              throw removed;
+            },
+            async dispose() {
+              events.push("facade-close");
+              namespaceMissingAtClose = await memory.stat("/owned-namespace") === null;
+              await memory.dispose?.();
+              throw closed;
+            },
+          }),
+          { disposeAdapter: true, coordination: "local" },
+        );
+        releases.push(() => fs.close());
+        releases.push(() => fs.remove("/owned-namespace", { recursive: true }));
+        await fs.mkdir("/owned-namespace");
+        throw primary;
+      }));
+      expect(events).toEqual(["namespace-remove", "facade-close"]);
+      expect(namespaceMissingAtClose).toBe(true);
+      expect(actual).toBeInstanceOf(AggregateError);
+      if (!(actual instanceof AggregateError)) throw new Error("Expected independent release failures.");
+      expect(actual.errors.length).toBe(3);
+      expect(actual.errors[0]).toBe(primary);
+      expect(actual.errors[1]).toBe(removed);
+      expect(actual.errors[2]).toBe(closed);
+      expect(actual.cause).toBe(primary);
+      if (fileSystem === undefined) throw new Error("Expected acquired facade.");
+      expect(await rejected(fileSystem.writeFile("/later", "refused"))).toMatchObject({ code: "invalid-operation" });
+    });
+  }
+  for (const primary of [undefined, null, new Error("UUID setup refusal")]) {
+    it(`closes an acquired facade when setup fails before namespace ownership ${String(primary)}`, async () => {
+      const memory = createMemoryAdapter(), events: string[] = [];
+      let fileSystem: ReturnType<typeof createFileSystem> | undefined;
+      const actual = await rejected(withReleases(async (releases) => {
+        const fs = fileSystem = createFileSystem(
+          wrap(memory, {
+            async remove(path, options) {
+              events.push("unowned-remove");
+              await memory.remove(path, options);
+            },
+            async dispose() {
+              events.push("facade-close");
+              await memory.dispose?.();
+            },
+          }),
+          { disposeAdapter: true, coordination: "local" },
+        );
+        releases.push(() => fs.close());
+        // This models a UUID/setup failure before a namespace is allocated.
+        throw primary;
+      }));
+      expect(actual).toBe(primary);
+      expect(events).toEqual(["facade-close"]);
+      if (fileSystem === undefined) throw new Error("Expected acquired facade.");
+      expect(await rejected(fileSystem.writeFile("/later", "refused"))).toMatchObject({ code: "invalid-operation" });
+    });
+  }
+  for (const cleanup of [undefined, null, new Error("cleanup after success")]) {
+    it(`refuses a successful body when actual facade disposal fails ${String(cleanup)}`, async () => {
+      const memory = createMemoryAdapter(), events: string[] = [];
+      const actual = await rejected(withReleases(async (releases) => {
+        const fs = createFileSystem(
+          wrap(memory, {
+            async dispose() {
+              events.push("facade-close");
+              await memory.dispose?.();
+              throw cleanup;
+            },
+          }),
+          { disposeAdapter: true, coordination: "local" },
+        );
+        releases.push(() => fs.close());
+        events.push("body-success");
+        return 42;
+      }));
+      expect(actual).toBe(cleanup);
+      expect(events).toEqual(["body-success", "facade-close"]);
+    });
+  }
+  it("retains equal-valued physical release events without fabricating or dropping a primary", async () => {
+    const events: string[] = [];
+    const actual = await rejected(withReleases(async (releases) => {
+      releases.push(() => {
+        events.push("facade-close");
+        throw undefined;
+      });
+      releases.push(() => {
+        events.push("namespace-remove");
+        throw undefined;
+      });
+      throw undefined;
+    }));
+    expect(events).toEqual(["namespace-remove", "facade-close"]);
+    expect(actual).toBeInstanceOf(AggregateError);
+    if (!(actual instanceof AggregateError)) throw new Error("Expected independent equal-valued failures.");
+    expect(actual.errors).toEqual([undefined, undefined, undefined]);
+    expect(actual.cause).toBeUndefined();
+  });
+});
