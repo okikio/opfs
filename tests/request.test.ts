@@ -1401,3 +1401,61 @@ describe("request cancellation event authority", () => {
     expect(requests).toBe(0);
   });
 });
+
+it("keeps the request deadline active after headers while an injected body stalls", async () => {
+  let cancels = 0;
+  const source = new ReadableStream<Uint8Array>({
+    pull() {
+      return new Promise<void>(() => {});
+    },
+    cancel() {
+      cancels++;
+    },
+  });
+  const response = await sendRequest(async (signal) => ({ input: TEST_URL, init: { signal } }), {
+    fetch: async () => new Response(source),
+    policy: { retries: 0, timeoutMs: 10 },
+  });
+  await expect(within(response.text(), "response body deadline")).rejects.toMatchObject({ name: "TimeoutError" });
+  expect(cancels).toBe(1);
+  expect(source.locked).toBe(false);
+});
+
+it("actively cancels an unread acquired response after caller abort", async () => {
+  const controller = new AbortController();
+  let cancels = 0;
+  const source = new ReadableStream<Uint8Array>({
+    cancel() {
+      cancels++;
+    },
+  });
+  const response = await sendRequest(async (signal) => ({ input: TEST_URL, init: { signal } }), {
+    fetch: async () => new Response(source),
+    signal: controller.signal,
+    policy: { retries: 0 },
+  });
+  const reason = new Error("caller stopped");
+  controller.abort(reason);
+  await expect(within(response.text(), "response body deadline")).rejects.toBe(reason);
+  expect(cancels).toBe(1);
+  expect(source.locked).toBe(false);
+});
+
+it("cancels oversized provider control text and rejects deep or excessive XML", async () => {
+  const { MAX_CONTROL_BYTES } = await import("../src/response.ts");
+  const { parseXmlRoot } = await import("../src/xml.ts");
+  let cancels = 0;
+  const source = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new Uint8Array(MAX_CONTROL_BYTES + 1));
+    },
+    cancel() {
+      cancels++;
+    },
+  });
+  await expect(readText(new Response(source))).rejects.toBeInstanceOf(RangeError);
+  expect(cancels).toBe(1);
+  expect(source.locked).toBe(false);
+  expect(() => parseXmlRoot("<x>".repeat(65) + "</x>".repeat(65))).toThrow();
+  expect(() => parseXmlRoot("<root>" + "<x/>".repeat(100_000) + "</root>")).toThrow(RangeError);
+});

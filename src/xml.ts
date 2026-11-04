@@ -16,7 +16,20 @@ import type { XmlElement, XmlNode, XmlTextNode } from "@std/xml/types";
  * valid storage protocol use case.
  */
 export function parseXmlRoot(value: string): XmlElement {
-  return parse(value, { trackPosition: false }).root;
+  // The byte owner bounds network input. Bound direct parser callers too, and
+  // let the upstream parser reject depth before constructing the next element.
+  if (value.length > 8 * 1024 * 1024) throw new RangeError("Provider XML exceeds the control text ceiling.");
+  const root = parse(value, { trackPosition: false, maxDepth: 64, maxAttributes: 128 }).root;
+  const stack: XmlNode[] = [root];
+  let nodes = 0;
+  while (stack.length > 0) {
+    const node = stack.pop()!;
+    if (++nodes > 100_000) throw new RangeError("Provider XML exceeds the control node ceiling.");
+    if (node.type === "element") {
+      for (const child of node.children) stack.push(child);
+    }
+  }
+  return root;
 }
 
 /**
@@ -65,9 +78,16 @@ export function stringifyXml(root: XmlElement): string {
 
 /** Returns one element's decoded text, including text nested below child elements. */
 function getText(node: XmlNode): string {
-  if (node.type === "text" || node.type === "cdata") return node.text;
-  if (node.type === "comment") return "";
-  return node.children.map(getText).join("");
+  const stack: XmlNode[] = [node];
+  const text: string[] = [];
+  while (stack.length > 0) {
+    const item = stack.pop()!;
+    if (item.type === "text" || item.type === "cdata") text.push(item.text);
+    else if (item.type === "element") {
+      for (let index = item.children.length - 1; index >= 0; index--) stack.push(item.children[index]!);
+    }
+  }
+  return text.join("");
 }
 
 /**
@@ -78,9 +98,14 @@ function getText(node: XmlNode): string {
  * element contract without depending on a particular namespace prefix.
  */
 export function getXmlElements(node: XmlNode, name: string): XmlElement[] {
-  if (node.type !== "element") return [];
-  const output: XmlElement[] = node.name.local === name ? [node] : [];
-  for (const child of node.children) output.push(...getXmlElements(child, name));
+  const output: XmlElement[] = [];
+  const stack: XmlNode[] = [node];
+  while (stack.length > 0) {
+    const item = stack.pop()!;
+    if (item.type !== "element") continue;
+    if (item.name.local === name) output.push(item);
+    for (let index = item.children.length - 1; index >= 0; index--) stack.push(item.children[index]!);
+  }
   return output;
 }
 
