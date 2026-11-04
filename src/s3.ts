@@ -1,3 +1,4 @@
+import { range } from "./range.ts";
 import type { DriverPlanInputType, DriverPlanType } from "./driver/definition.ts";
 import { map } from "./pool.ts";
 import { encodeHex } from "@std/encoding/hex";
@@ -1108,18 +1109,16 @@ class S3Client implements S3ClientType {
 
   /** Opens an S3 object or byte range as a Web `ReadableStream`. */
   async get(key: string, options: ObjectGetOptionsType = {}): Promise<ReadableStream<Uint8Array>> {
+    const selected = range(options);
+    if (selected.empty) return new Blob().stream();
     const headers = new Headers();
-    if (options.at !== undefined || options.length !== undefined) {
-      const start = options.at ?? 0;
-      const end = options.length === undefined ? "" : String(start + Math.max(0, options.length - 1));
-      headers.set("range", `bytes=${start}-${end}`);
-    }
+    if (selected.header !== undefined) headers.set("range", selected.header);
     const response = await assertResponse(
       await this.request({
         method: "GET",
         key,
         headers,
-        ...(options.signal === undefined ? {} : { signal: options.signal }),
+        ...(selected.signal === undefined ? {} : { signal: selected.signal }),
       }),
       `GetObject ${key}`,
     );
