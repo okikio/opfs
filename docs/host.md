@@ -101,3 +101,10 @@ availability can change after admission. Staging cleanup remains best effort aft
 profiles do not establish crash durability, cross-process writer locks, hostile path-swap confinement, complete POSIX
 conformance, or visibility to every remote client. See [storage ownership](storage.md) for the publication boundary and
 [validation](validation.md) for actual runtime evidence.
+
+## Windows entry names
+
+Windows host drivers reject colon-bearing names, trailing dots or spaces, control/reserved characters, and DOS device
+names before native I/O. NTFS alternate data streams and Win32 aliases otherwise let different virtual names address the
+same physical entry and acquire different facade locks. Other backends retain the portable name grammar. Host case
+folding, symlinks, and permissions remain properties of the selected host filesystem; the lexical root is not a sandbox.

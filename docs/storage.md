@@ -227,3 +227,21 @@ cannot authorize deletion after a concurrent renewal. Explicit reader release re
 unexpired pin, and present-pin CAS still decrements the count exactly once. A lease deadline is local eligibility; only
 changed state versions fence a previously prepared transaction. A renewal dispatched late can therefore succeed when no
 collector claim changed its checked versions, and collection must retain that renewed record.
+
+## Durable record validation
+
+All record drivers validate that `path`, `parent`, and `name` describe the same canonical identity. Listings reject
+records outside their requested direct parent; Deno KV also checks the physical tuple. The implicit root can only be a
+directory with an empty name. File data must be canonical padded base64, including zero padding bits, and its decoded
+length must equal `size`. Validation checks the encoded length before allocating a decoded image. Existing malformed
+records need application repair; the library rejects them rather than normalizing them into another entry.
+
+Stored Deno KV manifests must fit the configured part count and logical-size policy and the safe physical part ceiling.
+Generation identifiers are bounded to 128 characters. These checks run before pins, index arrays, or body-part reads.
+Changing policy to smaller budgets can therefore make a previously stored large file unreadable; keep the namespace
+policy compatible with its existing files.
+
+An emulated move now holds one facade tree lock through both copy and removal. A queued facade write to the source runs
+after removal and remains visible. Storage crash atomicity and independent backend writers still require application
+publication or backend-native transactions. Materialized copy also checks observed byte length before destination
+writes, so a custom adapter's smaller advertised size cannot authorize an oversized output.
