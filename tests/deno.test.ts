@@ -10,7 +10,7 @@ import { withReleases } from "./close.ts";
 
 describe("Deno adapter", () => {
   it(
-    "preserves Windows native filename rejection and remains usable",
+    "rejects invalid Windows names before native I/O and remains usable",
     { skip: platform() !== "win32" },
     async () =>
       await withReleases(async (releases) => {
