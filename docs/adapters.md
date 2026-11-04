@@ -83,9 +83,9 @@ The backend must implement every capability it advertises. The adapter does not 
 
 ### Browser OPFS
 
-`createOpfsDriver(root)` owns native browser handles. `createOpfsAdapter(driver)` is the explicit translation. The
-convenience `openFileSystem()` acquires `navigator.storage.getDirectory()`, creates the OPFS driver and adapter, then
-creates the facade.
+`createOpfsDriver(root)` binds native browser handles. `createOpfsAdapter(root)` is the convenience adapter; use
+`createFileAdapter(driver)` to translate an already-created file driver explicitly. The convenience `openFileSystem()`
+acquires `navigator.storage.getDirectory()`, creates the OPFS driver and adapter, then creates the facade.
 
 The driver retains the native root for advanced browser interop. Sync access is advertised only when the actual file
 handle exposes the required method in the current realm.
@@ -314,8 +314,10 @@ or consistency rules.
 
 The S3 client owns REST, SigV4, request policy, multipart operations, copy, listing, and protocol errors.
 
-`createS3Driver(client)` adds backend capability/limit/optimization inspection. `createS3Adapter(driver)` translates
-object keys and directory prefixes into filesystem primitives.
+`createS3Driver(options)` constructs a client from provider settings; `createS3DriverFromClient(client)` adds backend
+capability/limit/optimization inspection to an existing client. `createS3Adapter(client)` translates object keys and
+directory prefixes into filesystem primitives. Use `createObjectAdapter(driver)` when composing an existing object
+driver explicitly.
 
 The client optimizations include independently controllable delayed multipart promotion and derived signing-key caching.
 See `s3.md`.
@@ -324,9 +326,10 @@ See `s3.md`.
 
 The Azure client owns Blob REST, authentication, block upload, server-side copy, listing, and provider errors.
 
-`createAzureDriver(client)` adds backend inspection. `createAzureAdapter(driver)` supplies filesystem translation. Block
-upload and server copy are independently disableable. Azure metadata is validated before provider I/O, and the shared
-object adapter uses the Azure-compatible `okikio_opfs_kind` key for private directory markers. See `azure.md`.
+`createAzureDriver(options)` constructs a client from provider settings; `createAzureDriverFromClient(client)` adds
+backend inspection to an existing client. `createAzureAdapter(client)` supplies filesystem translation. Block upload and
+server copy are independently disableable. Azure metadata is validated before provider I/O, and the shared object
+adapter uses the Azure-compatible `okikio_opfs_kind` key for private directory markers. See `azure.md`.
 
 ## Adapter contract
 
@@ -476,15 +479,16 @@ not buffer unknown-size raw bodies or weaken the Azure Shared Key requirement fo
 
 ## Object directory scans and admission
 
-`createObjectAdapter`, `createS3Adapter`, and `createAzureAdapter` accept `maxListPages` in their mapping options. The
-positive safe-integer default is 10,000 pages per directory scan. This is an application safety policy, not a provider
-maximum. Increase it explicitly for a namespace that legitimately needs more pages. An exhausted scan fails with
-`too-large`; a repeated continuation cursor or an out-of-prefix result fails with `invalid-operation`. Neither becomes
-an absent path or an empty directory. Existence checks stop on positive evidence; empty-directory removal and negative
-lookups require exhaustion. Empty pages and marker-only pages can still have a continuation. Listing remains lazy and
-returning from its iterator stops additional page requests. Provider errors retain their identity at the adapter
-boundary and their `cause` through facade normalization. Cancellation is checked around page acquisition and before
-mutation.
+`createObjectAdapter`, `createS3Adapter`, and `createAzureAdapter` accept `maxListPages` and `maxListEntries` in their
+mapping options. The positive safe-integer defaults are 10,000 pages and 1,000,000 raw object/prefix entries per
+directory scan. Duplicates count toward the entry budget. Inspection exposes both configured budgets in
+`adapter.limits`. This is an application safety policy, not a provider maximum. Increase it explicitly for a namespace
+that legitimately needs more pages. An exhausted scan fails with `too-large`; a repeated continuation cursor or an
+out-of-prefix result fails with `invalid-operation`. Neither becomes an absent path or an empty directory. Existence
+checks stop on positive evidence; empty-directory removal and negative lookups require exhaustion. Empty pages and
+marker-only pages can still have a continuation. Listing remains lazy and returning from its iterator stops additional
+page requests. Provider errors retain their identity at the adapter boundary and their `cause` through facade
+normalization. Cancellation is checked around page acquisition and before mutation.
 
 Conditional object backends apply fresh destination ETags to both materialized and streamed replacements. A fresh absent
 object uses `ifNoneMatch: "*"`. Missing ETag evidence on an existing conditional object rejects before producer work.
