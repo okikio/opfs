@@ -2342,3 +2342,36 @@ for (const backingKind of ["local", "foreign", "detached flag", "detached getter
     });
   }
 }
+
+it("uses disjoint staged block identities for interleaved uploads to one blob", async () => {
+  const staged = new Map<string, Uint8Array>();
+  const commits: string[][] = [];
+  const bodies: number[][] = [];
+  const client = createAzureClient({
+    endpoint: "https://storage.example",
+    container: "container",
+    credential: { kind: "sas", token: "sig=test" },
+    blockSize: 1,
+    concurrency: 1,
+    fetch: async (input, init) => {
+      const request = new Request(input, init);
+      const url = new URL(request.url);
+      if (url.searchParams.get("comp") === "block") {
+        staged.set(url.searchParams.get("blockid")!, new Uint8Array(await request.arrayBuffer()));
+        await Promise.resolve();
+      } else if (url.searchParams.get("comp") === "blocklist") {
+        const ids = latestBlocks(await request.text());
+        commits.push(ids);
+        bodies.push(ids.flatMap((id) => [...staged.get(id)!]));
+      }
+      return new Response(null, { status: 201 });
+    },
+  });
+  await Promise.all([
+    client.put("same", streamBytes([new Uint8Array([1, 2])])),
+    client.put("same", streamBytes([new Uint8Array([3, 4])])),
+  ]);
+  expect(commits).toHaveLength(2);
+  expect(commits[0]!.some((id) => commits[1]!.includes(id))).toBe(false);
+  expect(bodies.sort((a, b) => a[0]! - b[0]!)).toEqual([[1, 2], [3, 4]]);
+});
