@@ -2,6 +2,9 @@ import { isBytes } from "./bytes.ts";
 import { openBytes } from "./stream.ts";
 import { aggregate } from "./close.ts";
 
+/** Implementation safety bound for provider XML and error bodies, independent of file payloads. */
+export const MAX_CONTROL_BYTES = 8 * 1024 * 1024;
+
 /** Awaitable whole-text capability bound to one internally owned response. */
 export type ResponseTextType = () => PromiseLike<string>;
 
@@ -39,7 +42,8 @@ function fail(reasons: readonly unknown[]): void {
  * before a runtime marks bodyUsed. Conversion failure is not stream settlement:
  * cancel the still-readable source, then release the acquired lock. An unused
  * header response never enters this materializing path. Like Response.text(),
- * this returns the complete text and does not introduce a payload-size policy.
+ * this returns complete control text within the implementation byte ceiling.
+ * File payloads use their separate streamed read path.
  */
 async function readBody(response: Response, state: ResponseReadType): Promise<string> {
   const body = response.body;
@@ -52,6 +56,7 @@ async function readBody(response: Response, state: ResponseReadType): Promise<st
   const reader = openBytes(body);
   let failure: { readonly reason: unknown } | undefined;
   let text = "";
+  let bytes = 0;
   try {
     const decoder = new TextDecoder("utf-8", { ignoreBOM: true });
     while (true) {
@@ -69,6 +74,8 @@ async function readBody(response: Response, state: ResponseReadType): Promise<st
       if (!isBytes(chunk.value)) {
         throw new TypeError("A response body chunk must be a Uint8Array.");
       }
+      bytes += chunk.value.byteLength;
+      if (bytes > MAX_CONTROL_BYTES) throw new RangeError(`Provider control body exceeds ${MAX_CONTROL_BYTES} bytes.`);
       text += decoder.decode(chunk.value, { stream: true });
     }
     text += decoder.decode();

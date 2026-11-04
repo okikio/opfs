@@ -3,6 +3,7 @@ import { aggregate } from "./close.ts";
 import { createCancellation, retainCancellation } from "./abort.ts";
 import type { CancellationPrimaryType, CancellationType } from "./abort.ts";
 import { readResponse } from "./response.ts";
+import { close } from "./close.ts";
 import { z } from "zod";
 
 /**
@@ -232,6 +233,92 @@ function getSignal(signal: AbortSignal | undefined, timeoutMs: number | false | 
   };
 }
 
+/** Transfers future attempt cancellation to the returned body until its terminal event. */
+function scopedResponse(response: Response, scoped: RequestSignalType): Response {
+  // A signal-ignoring injected Fetch may return a publication acknowledgement
+  // after abort. Keep that already acquired response available for reconciliation.
+  // Native Fetch normally rejects before this point. Future body events still
+  // need active cancellation even when the consumer has not requested a read.
+  if (response.body === null || scoped.signal === undefined || scoped.signal.aborted) return response;
+  const reader = response.body.getReader();
+  let retiring: Promise<void> | undefined;
+  let sourceFailure: { reason: unknown } | undefined;
+  let sourceDone = false;
+  let controller: ReadableStreamDefaultController<Uint8Array>;
+  void reader.closed.then(() => {
+    sourceDone = true;
+  }, (reason: unknown) => {
+    sourceDone = true;
+    sourceFailure = { reason };
+  });
+  const finish = () => {
+    scoped.signal?.removeEventListener("abort", abort);
+    scoped.cleanup();
+  };
+  const cancel = (reason: unknown, primary: readonly unknown[] = []): Promise<void> => {
+    if (retiring !== undefined) return retiring;
+    // Publish the terminal owner before an underlying cancel callback can abort
+    // the caller. That event cannot turn retirement into a second read failure.
+    retiring = Promise.resolve().then(() =>
+      close([
+        () => sourceDone ? undefined : reader.cancel(reason),
+        () => reader.releaseLock(),
+      ], [...primary, ...(sourceFailure === undefined ? [] : [sourceFailure.reason])])
+    );
+    finish();
+    return retiring;
+  };
+  const abort = () => {
+    if (retiring !== undefined) return;
+    const reason = scoped.signal!.reason;
+    void cancel(reason, [reason]).then(() => controller.error(reason), (failure: unknown) => controller.error(failure));
+  };
+  const body = new ReadableStream<Uint8Array>({
+    start(value) {
+      controller = value;
+      scoped.signal!.addEventListener("abort", abort, { once: true });
+    },
+    async pull(value) {
+      try {
+        const next = await reader.read();
+        if (retiring !== undefined) return;
+        if (!next.done) value.enqueue(next.value);
+        else {
+          sourceDone = true;
+          retiring = close([() => reader.releaseLock()]);
+          finish();
+          try {
+            await retiring;
+            value.close();
+          } catch (failure) {
+            value.error(failure);
+          }
+        }
+      } catch (reason) {
+        if (retiring !== undefined) return;
+        sourceDone = true;
+        retiring = close([() => reader.releaseLock()], [reason]);
+        finish();
+        try {
+          await retiring;
+        } catch (failure) {
+          value.error(failure);
+        }
+      }
+    },
+    cancel: (reason) => cancel(reason),
+  }, { highWaterMark: 0 });
+  const wrapped = new Response(body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: response.headers,
+  });
+  for (const name of ["url", "redirected", "type"] as const) {
+    Object.defineProperty(wrapped, name, { value: response[name] });
+  }
+  return wrapped;
+}
+
 /** Preparation's own abort winner is distinct from a concrete callback failure. */
 type PreparationType =
   | { readonly kind: "prepared"; readonly value: RequestAttemptType }
@@ -384,6 +471,7 @@ export async function sendRequest(
     admission = undefined;
     cancellation = undefined;
     const scoped = getSignal(options.signal, policy.timeoutMs);
+    let transferred = false;
     try {
       let prepared = await prepare(create, scoped);
       // An event can arrive after prepare settles and before this owner resumes.
@@ -445,9 +533,18 @@ export async function sendRequest(
           throw reason;
         });
       }
-      return response;
+      let result: Response;
+      try {
+        result = scopedResponse(response, scoped);
+      } catch (reason) {
+        return await readResponse(response, () => {
+          throw reason;
+        });
+      }
+      transferred = result !== response;
+      return result;
     } finally {
-      scoped.cleanup();
+      if (!transferred) scoped.cleanup();
     }
   };
 
