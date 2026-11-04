@@ -64,13 +64,21 @@ function getLegacyKey(prefix: string, path: string): string {
 
 /** Maps a driver-owned unstorage key back to a canonical path, or null for foreign keys. */
 function getPath(prefix: string, key: string): PathType | null {
-  const flatBase = `${prefix}:record:`;
-  if (key.startsWith(flatBase)) return normalizePath(decodeSegment(key.slice(flatBase.length)));
-  const base = `${prefix}:entry`;
-  if (key === base) return "/";
-  if (!key.startsWith(`${base}:`)) return null;
-  const encoded = key.slice(base.length + 1).split(":");
-  return normalizePath(encoded.map(decodeSegment).join("/"));
+  try {
+    const flatBase = `${prefix}:record:`;
+    if (key.startsWith(flatBase)) {
+      const path = normalizePath(decodeSegment(key.slice(flatBase.length)));
+      return getKey(prefix, path) === key ? path : null;
+    }
+    const base = `${prefix}:entry`;
+    if (key === base) return "/";
+    if (!key.startsWith(`${base}:`)) return null;
+    const encoded = key.slice(base.length + 1).split(":");
+    const path = normalizePath(encoded.map(decodeSegment).join("/"));
+    return getLegacyKey(prefix, path) === key ? path : null;
+  } catch {
+    return null;
+  }
 }
 
 /**

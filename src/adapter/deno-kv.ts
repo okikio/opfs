@@ -17,6 +17,7 @@ import {
   type DenoKvCheckType,
   type DenoKvCollectOptionsType,
   type DenoKvCollectResultType,
+  DenoKvCommitError,
   type DenoKvCommitType,
   type DenoKvDriverOptionsType,
   type DenoKvDriverType,
@@ -25,6 +26,7 @@ import {
   type DenoKvListOptionsType,
   type DenoKvListSelectorType,
   type DenoKvType,
+  type DenoKvUsageType,
 } from "../driver/deno-kv.ts";
 import { PartitionModeSchema } from "../schema.ts";
 
@@ -41,6 +43,7 @@ export {
   DENO_KV_MAX_VALUE_BYTES,
   DENO_KV_SAFE_INLINE_BYTES,
   DENO_KV_SAFE_PART_BYTES,
+  DenoKvCommitError,
 };
 
 /** Options forwarded to the Deno KV record driver. */
@@ -59,7 +62,13 @@ export type {
   DenoKvListOptionsType,
   DenoKvListSelectorType,
   DenoKvType,
+  DenoKvUsageType,
 };
+
+/** Adapter retaining the concrete driver's explicit maintenance surface. */
+export interface DenoKvAdapterType extends AdapterType {
+  readonly driver: DenoKvDriverType;
+}
 
 /** Resolves a positive integer adapter setting before projecting driver policy. */
 function positive(value: number | undefined, fallback: number, name: string): number {
@@ -81,7 +90,7 @@ function positive(value: number | undefined, fallback: number, name: string): nu
 export function createDenoKvAdapter(
   database: DenoKvType,
   options: DenoKvAdapterOptionsType = {},
-): AdapterType {
+): DenoKvAdapterType {
   const partition = PartitionModeSchema.parse(options.partition ?? "auto");
   const partBytes = positive(options.partBytes, DENO_KV_DEFAULT_PART_BYTES, "partBytes");
   const maxParts = positive(options.maxParts, DENO_KV_DEFAULT_MAX_PARTS, "maxParts");
@@ -89,7 +98,7 @@ export function createDenoKvAdapter(
   const inlineBytes = positive(options.inlineBytes, DENO_KV_DEFAULT_INLINE_BYTES, "inlineBytes");
   const driver = createDenoKvDriver(database, options);
 
-  return createRecordAdapter(driver, {
+  const adapter = createRecordAdapter(driver, {
     name: "deno-kv",
     readOnly: options.readOnly ?? false,
     disposeDriver: true,
@@ -107,7 +116,8 @@ export function createDenoKvAdapter(
       thresholdBytes: inlineBytes,
       stream: partition !== "never",
       maxParts,
-      layout: "deno-kv-parts-v2",
+      layout: "deno-kv-parts-v3",
     },
   });
+  return Object.assign(adapter, { driver });
 }

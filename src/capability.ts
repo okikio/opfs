@@ -59,6 +59,10 @@ export interface AdapterInspectionType {
   readonly name: string;
   /** Native adapter capabilities before facade fallbacks are considered. */
   readonly native: AdapterType["capabilities"];
+  /** Single-file publication facts; absence means no stronger guarantee declared. */
+  readonly publication?: AdapterType["publication"];
+  /** Caller-selected host facts, separate from current mount observations. */
+  readonly hostProfile?: AdapterType["hostProfile"];
   /** Translation-layer limits, such as record payload ceilings. */
   readonly limits?: AdapterLimitsType;
   /** Translation-layer partition behavior when the adapter exposes one. */

@@ -91,24 +91,37 @@ function placeholders(count: number): string[] {
   return Array.from({ length: count }, () => "?");
 }
 
-/** Normalizes BIGINT driver results and rejects values outside JavaScript safe-integer range. */
+/**
+ * Admits complete nonnegative decimal integers before converting connector metadata.
+ *
+ * Some SQL connectors return BIGINT columns as strings. Parsing a numeric
+ * prefix would silently turn corrupt sizes or timestamps into valid records,
+ * so signs, whitespace, fractions, exponents and trailing text are refused.
+ * Leading decimal zeros retain their ordinary numeric meaning. Number and
+ * bigint values share the same safe-integer boundary after conversion.
+ */
 function toNumber(value: number | string | bigint, field: string): number {
-  const normalized = typeof value === "bigint"
-    ? Number(value)
-    : typeof value === "string"
-    ? Number.parseInt(value, 10)
-    : value;
+  if (typeof value === "string" && !/^[0-9]+$/.test(value)) {
+    throw new TypeError(`db0 returned invalid ${field} '${value}'.`);
+  }
+  const normalized = typeof value === "bigint" ? Number(value) : typeof value === "string" ? Number(value) : value;
   if (!Number.isSafeInteger(normalized) || normalized < 0) {
     throw new TypeError(`db0 returned invalid ${field} '${String(value)}'.`);
   }
   return normalized;
 }
 
-/** Converts a connector-dependent db0 row into the validated record-store format. */
+/**
+ * Validates the stored kind and required file fields before restoring record format.
+ *
+ * Directory rows omit their nullable file columns. File rows must retain actual
+ * data and media-type strings; absent columns are not a valid empty file.
+ */
 function parseRow(value: unknown): RecordType {
   if (typeof value !== "object" || value === null) throw new TypeError("db0 returned a non-object filesystem row.");
   const row = value as Db0RowType;
-  if (row.kind === "directory") {
+  const kind = row.kind;
+  if (kind === "directory") {
     return RecordSchema.parse({
       version: 1,
       path: row.path,
@@ -118,16 +131,17 @@ function parseRow(value: unknown): RecordType {
       lastModified: toNumber(row.last_modified, "last_modified"),
     });
   }
+  if (kind !== "file") throw new TypeError("db0 returned an invalid filesystem row kind.");
   return RecordSchema.parse({
     version: 1,
     path: row.path,
     parent: row.parent_path,
     name: row.name,
     kind: "file",
-    data: row.data ?? "",
+    data: row.data,
     size: toNumber(row.size, "size"),
     lastModified: toNumber(row.last_modified, "last_modified"),
-    mediaType: row.media_type ?? "",
+    mediaType: row.media_type,
   });
 }
 
@@ -250,8 +264,19 @@ export class Db0Backend implements RecordBackendType {
     return row == null ? null : parseRow(row);
   }
 
-  /** Upserts one validated filesystem record through the dialect-specific statement. */
+  /**
+   * Upserts exact integer text through the dialect-specific statement.
+   * SQL INTEGER/BIGINT affinity admits these decimal parameters; caller TEXT
+   * columns retain them verbatim instead of receiving floating-point spellings.
+   */
   async set(record: RecordType): Promise<void> {
+    // Own every field before the asynchronous path hash. A caller can mutate
+    // its record while hashing is pending; SQL must receive one admitted image.
+    record = RecordSchema.parse(record);
+    // Admit numeric metadata before path hashing or connector dispatch. Text
+    // affinity then retains a spelling the complete integer reader admits.
+    const size = record.kind === "file" ? toNumber(record.size, "size") : 0;
+    const modified = toNumber(record.lastModified, "last_modified");
     const params: Db0PrimitiveType[] = [
       await getPathId(record.path),
       record.path,
@@ -259,8 +284,8 @@ export class Db0Backend implements RecordBackendType {
       record.name,
       record.kind,
       record.kind === "file" ? record.data : null,
-      record.kind === "file" ? record.size : 0,
-      record.lastModified,
+      String(size),
+      String(modified),
       record.kind === "file" ? record.mediaType : null,
     ];
     const result = await this.#upsert.run(...params);

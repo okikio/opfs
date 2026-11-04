@@ -118,6 +118,17 @@ openSyncFile
 The adapter reports whether those direct routes are native. It does not say that a portable operation is unavailable
 merely because the facade can emulate it.
 
+An adapter can also declare `capabilities.validatesReplacement`. This promises that materialized replacement writes
+validate the destination kind and namespace conflicts before publication. Object adapters provide that guarantee with
+fresh provider metadata and ETag admission when the backend declares conditional writes. Nonconditional backends retain
+their explicitly weaker exact-object concurrency contract. The facade validates the destination by default, and the
+adapter validates it again before publication. Explicitly setting `optimizations.writeAdmission: true` delegates
+destination admission for materialized binary replacements to a validating adapter. This opt-in route keeps adapter
+validation and its fresh ETag precondition; it does not turn validation off. An undeclared capability retains facade
+admission even when delegation is requested. Parent checks and coordination still belong to the facade. String encoding,
+Blob materialization, stream acquisition, append, and update keep their existing validation path so an invalid
+destination cannot cause new source work.
+
 This distinction is important:
 
 ```text
@@ -356,6 +367,15 @@ filesystem: requested stream would exceed maxBufferedWriteBytes
 
 The caller can distinguish each cause and choose a concrete action.
 
+## Host deployment authority
+
+Native runtime function availability does not prove that a particular mount supports those primitives. Host drivers
+validate an immutable profile and derive publication/capability facts from it. The same hard admission owns native
+entrypoints and facade preflight, before metadata, parents, stages, locks, or producer acquisition. Driver requests
+retain overwrite/preserve/exclusive and logical publication intent across physical write fallbacks. Advisory custom
+plans cannot override backend hard admission. See [host profiles](host.md); plans remain pure and declarations remain
+separate from runtime observations.
+
 ## File drivers
 
 A file driver is closest to native OPFS semantics. Node, Deno, Bun, and browser OPFS can expose direct ranges, streams,
@@ -469,7 +489,7 @@ Deno KV demonstrates the full model.
 The provider documents serialized key/value limits. The driver also chooses smaller decoded-body budgets because a raw
 byte count is not equal to serialized value size.
 
-The large-file layout uses an immutable generation, manifest-last publication, and a retirement marker for the
+The large-file layout uses an immutable generation, manifest-last publication, and a durable ownership state for the
 generation that is about to lose visibility:
 
 ```text
@@ -484,26 +504,32 @@ write new part N
 check old versionstamp
        |
        v
-atomic retirement marker + new manifest commit
+atomic generation publication + predecessor retirement
                  logical visibility point
        |
        v
-old readers can finish during configured retirement grace
+pinned readers can finish within their supported lease
        |
        v
-explicit collection after retirement grace
+explicit claim after grace and pin release
 ```
 
-If part writing fails, the new manifest is not published. If the logical entry changes while parts are prepared, the
-optimistic version check also rejects the stale publication. The previous or independently committed generation remains
-visible. The driver best-effort removes parts from the failed unpublished generation.
+V3 stores durable generation state and checks it on each immutable part/accounting transaction. Publication and
+predecessor retirement share the logical-entry version check. Readers check and renew operation-owned pins; present pin
+records, including expired records awaiting transactional pruning, exactly match the generation counter. No independent
+KV TTL deletes accounting records. Lost acknowledgements reconcile the same attempt token; uncertain reader cleanup
+remains owned by explicit maintenance.
 
-A process crash before publication can still leave unreachable physical parts. That is storage leakage, not a partially
-visible logical file. `DenoKvDriverType.collect()` exposes explicit, age-gated reclamation. For a published generation,
-the default one-hour grace starts when that generation is retired, so a generation that was visible for days is not
-immediately reclaimed after a new write commits. An unpublished crash leftover has no retirement marker and uses its
-generation creation time instead. `maxDeletes` bounds one maintenance pass. Background deletion is not hidden inside
-ordinary reads or writes.
+A collector requires an eligible generation with zero pins, changes its version to `reclaiming`, and checks that claim
+while deleting each part/accounting entry. Local expiry permits revocation; the version change fences a suspended
+transaction. Prepared work can commit after expiry when no state change intervenes. Readers paused beyond their lease
+fail and reopen; arbitrary suspension does not promise indefinite retention.
+
+Per-pass scan, pin and deletion budgets return an opaque continuation. Optional aggregate retained-byte/generation
+admission protects partition storage when maintenance stalls; unlimited policy requires application quota and
+maintenance liveness. Reclaimed state retention protects recovery before its version-checked removal. New generation
+identities are not reused by the internal operation protocol. Legacy layouts require a quiescent export/import to a
+fresh prefix. See [storage ownership](storage.md) for concrete APIs, state transitions, failure outcomes and costs.
 
 The Deno KV planner also estimates physical tuple size from the concrete logical path. A file can be small enough to fit
 by byte count while its physical key is too large. The planner reports that condition before provider I/O.
@@ -544,6 +570,35 @@ stream
 ```
 
 The capability report distinguishes those routes. It does not label a buffered fallback as native streaming.
+
+The byte owner validates streamed and iterable chunks as genuine `Uint8Array` values even when no signal is supplied.
+Materialized `ArrayBufferView` inputs still mean their raw byte range. The buffered collector checks its byte limit
+before adding each chunk, then waits for producer cancellation and reader release after a limit or conversion failure.
+The limit bounds accepted payload bytes, not total process memory: retained chunk views and the completed value can
+coexist, and the producer owns its own buffering.
+
+Signal abort, cancellation, and operation cleanup share one physical reader retirement. Native EOF or a native read
+rejection is terminal proof, so cleanup releases the reader without cancelling an already errored stream again. An
+abort-induced read failure is published after that retirement settles. Independent read, cancel, and release failures
+remain observable even when their values are equal; the facade preserves the primary filesystem category and retains the
+complete owned aggregate as its cause. A Web consumer's `cancel()` can close pending reads before physical cleanup, so
+its returned promise is the cancellation boundary.
+
+Internal consumers use `openBytes()` to record actual terminal rejection delivery from their acquired reader. `retire()`
+joins the same owner without reporting a stored delivered failure as a second event. An unconsumed abort, or a fault
+published after a pending reader was released, remains observable during operation cleanup. These internal capabilities
+are not root package exports. They do not take a borrowed lock or infer ownership from matching error values. Byte
+metrics observe the same owner rather than a detached transform pipe.
+
+The acquired reader's native `closed` rejection observes stored source failure before read delivery reactions finish.
+That event prevents error and abort in the same turn from recancelling the errored source. A release-induced `closed`
+rejection has separate reader ownership and is not a new producer failure. Native `closed` fulfillment alone does not
+prove that queued bytes have been drained; only actual read EOF provides that proof.
+
+Async iterable conversion shares one `return()` operation and drains an admitted `next()` before completing retirement.
+An arbitrary iterator must cooperate: a queued async-generator `return()` cannot interrupt an uncooperative pending
+`next()`. No disposal timeout or interruption capability is invented for that producer. Release is independently
+attempted and any actual release failure is retained; a failed native release cannot certify physical closure.
 
 ## Writable-file invariant
 
@@ -770,3 +825,12 @@ A storage change is not complete until these questions have concrete answers:
 8. Does an emulated route state its weaker atomicity, consistency, or memory behavior?
 9. Does a reverse bridge implement the ecosystem's real contract?
 10. Do tests and benchmarks exercise the layer being claimed rather than bypassing it?
+
+## Publication and resource authority
+
+[Storage ownership](storage.md) defines preserving file routes, explicit best-effort tree replacement, physical host
+entry identity, positional admission/terminal order, and bridge namespace ownership. Host copy uses an owned exclusive
+sibling before replacement; a direct native overwrite copy is not a preserving primitive. Resource queues order one
+descriptor and keep application staging/publication queues separate. Provider receipts identify an acknowledged own
+operation; current-state HEAD remains a separate observation. Pure plans use concrete adapter physical paths and
+effective source routes, while live retention/quota/connectivity stay behind explicit probes.

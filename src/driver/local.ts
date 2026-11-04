@@ -33,6 +33,15 @@ export class LocalPath {
   get(path: string): string {
     const virtual = normalizePath(path);
     if (virtual === "/") return this.#root;
+    // NTFS streams, Win32 trimming and device names can map distinct virtual
+    // identities to the same host entry. Reject them before native I/O or locking.
+    if (
+      SEPARATOR === "\\" &&
+      virtual.slice(1).split("/").some((name) =>
+        /[:<>"|?*]/.test(name) || [...name].some((character) => character.charCodeAt(0) < 32) || /[. ]$/.test(name) ||
+        /^(?:con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(?:\.|$)/i.test(name)
+      )
+    ) throw new TypeError("Virtual path contains a Windows stream, device or aliased entry name.");
 
     const output = resolve(this.#root, `.${virtual}`);
     if (output !== this.#root && !output.startsWith(this.#prefix)) {

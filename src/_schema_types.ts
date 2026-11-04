@@ -47,6 +47,8 @@ export type AdapterLimitsType = {
   "maxPartBytes"?: number | undefined;
   "maxParts"?: number | undefined;
   "maxConcurrency"?: number | undefined;
+  "maxListPages"?: number | undefined;
+  "maxListEntries"?: number | undefined;
   "maxBatchBytes"?: number | undefined;
 };
 
@@ -57,6 +59,7 @@ export type OptimizationType = {
   "rangeRead": boolean;
   "nativeCopy": boolean;
   "nativeMove": boolean;
+  "writeAdmission": boolean;
 };
 
 /** Structural output compiled from the runtime schema for `AdapterCapabilitiesType`. */
@@ -70,6 +73,7 @@ export type AdapterCapabilitiesType = {
   "nativeMove": boolean;
   "positionalWrite": boolean;
   "syncAccess": boolean;
+  "validatesReplacement"?: boolean | undefined;
 };
 
 /** Structural output compiled from the runtime schema for `ErrorCodeType`. */
@@ -115,7 +119,43 @@ export type FileRecordType = {
 };
 
 /** Structural output compiled from the runtime schema for `RecordType`. */
-export type RecordType = DirectoryRecordType | FileRecordType;
+export type RecordType = {
+  "version": RecordVersionType;
+  "path": PathType;
+  "parent": PathType;
+  "name": string;
+  "lastModified": number;
+  "kind": "directory";
+} | {
+  "version": RecordVersionType;
+  "path": PathType;
+  "parent": PathType;
+  "name": string;
+  "lastModified": number;
+  "kind": "file";
+  "data": string;
+  "size": number;
+  "mediaType": string;
+};
+
+/** Structural output compiled from the runtime schema for `RecordMetadataType`. */
+export type RecordMetadataType = {
+  "version": RecordVersionType;
+  "path": PathType;
+  "parent": PathType;
+  "name": string;
+  "lastModified": number;
+  "kind": "directory";
+} | {
+  "version": RecordVersionType;
+  "path": PathType;
+  "parent": PathType;
+  "name": string;
+  "lastModified": number;
+  "kind": "file";
+  "size": number;
+  "mediaType": string;
+};
 
 /** Structural output compiled from the runtime schema for `Db0DialectType`. */
 export type Db0DialectType = "mysql" | "postgresql" | "sqlite" | "libsql";

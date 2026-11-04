@@ -211,3 +211,13 @@ adapter/*
 ```
 
 No driver reads environment variables or configures global application logging at import time.
+
+Native host structural operations use no-follow entries and reject stable alias ancestors. Roots remain trusted host
+namespaces; checks cannot prevent hostile path swaps. Positional resources order accepted native work and bound pending
+buffers. Host mutation acknowledgement is not a universal crash-durability guarantee. Browser OPFS correctness suites
+use disposable persistent profiles so WebKit is tested in a realm with native OPFS; unsupported actual capabilities
+still report skips. [Storage ownership](storage.md) describes the runtime guarantees and recovery boundaries.
+
+Host driver root profiles distinguish configured primitive admission from live mount/permission observations. Known
+limited modes reject strong copy/move before effects; runtime restrictions, positive native-host behavior, and actual
+mounted-client negative/byte oracles remain separate. See [host roots](host.md).

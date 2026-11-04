@@ -209,7 +209,6 @@ class WriteSession {
  */
 export class WritableFileStream extends WritableStream<WritableChunkType> {
   /** In-memory staged write state committed only when the writable stream closes. */
-  readonly #session: WriteSession;
 
   /** Wraps one staged session in the browser-compatible WritableStream contract. */
   constructor(session: WriteSession) {
@@ -218,7 +217,6 @@ export class WritableFileStream extends WritableStream<WritableChunkType> {
       close: async () => await session.close(),
       abort: () => session.abort(),
     });
-    this.#session = session;
   }
 
   /** Writes bytes or a standard write/seek/truncate command. */
@@ -235,13 +233,13 @@ export class WritableFileStream extends WritableStream<WritableChunkType> {
   /** Changes the staged cursor without committing. */
   async seek(position: number): Promise<void> {
     if (this.locked) throw new TypeError("Writable file stream is locked by another writer.");
-    this.#session.seek(position);
+    await this.write({ type: "seek", position });
   }
 
   /** Changes staged file length without committing. */
   async truncate(size: number): Promise<void> {
     if (this.locked) throw new TypeError("Writable file stream is locked by another writer.");
-    this.#session.truncate(size);
+    await this.write({ type: "truncate", size });
   }
 
   /** Commits staged bytes and closes the stream. */

@@ -1,3 +1,4 @@
+import { MOUNT_PROFILES } from "../tests/provider/mounts.ts";
 import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { env } from "node:process";
@@ -24,10 +25,10 @@ const roots = [
 const fileSystems: Array<Awaited<ReturnType<typeof createStack>>> = [];
 
 /** Creates raw, driver, adapter, and facade views over one already-mounted provider filesystem. */
-async function createStack(name: string, mountedRoot: string) {
+async function createStack(name: keyof typeof MOUNT_PROFILES, mountedRoot: string) {
   const root = join(mountedRoot, runId, name);
   await mkdir(root, { recursive: true });
-  const driver = createNodeDriver({ root, createRoot: true });
+  const driver = createNodeDriver({ root, createRoot: true, profile: MOUNT_PROFILES[name] });
   const adapter = createFileAdapter(driver);
   const fileSystem = createFileSystem(adapter, { coordination: "none", metrics: "none" });
   const rawRead = join(root, "raw-read.bin");
