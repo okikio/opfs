@@ -1,3 +1,4 @@
+import { admit } from "../../tests/browser/environment.ts";
 import { mkdir, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
@@ -11,6 +12,7 @@ import { openInputGuard } from "../input.ts";
  */
 export default async function setup(): Promise<() => Promise<void>> {
   const root = fileURLToPath(new URL("../../", import.meta.url));
+  await admit(root, "browser-bench");
   const directory = join(root, ".tmp/reports/browser-bench");
   await mkdir(directory, { recursive: true });
   return await openInputGuard(async (receipt) => {
