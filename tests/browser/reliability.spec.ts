@@ -10,7 +10,10 @@ type FixtureType = typeof globalThis & BrowserTestGlobalType & { opfsReliability
 
 test("binary ranges, append, update, copy and move preserve real OPFS bytes", async ({ ready: page }) => {
   const result = await page.evaluate(() => (globalThis as FixtureType).opfsReliability.bytes());
-  test.skip(!result.supported, "OPFS is unavailable in the actual Window realm.");
+  if (!result.supported) {
+    test.skip(true, "OPFS is unavailable in the actual Window realm.");
+    return;
+  }
   expect(result.value).toEqual([0, 1, 42, 255, 8, 9]);
   expect(result.range).toEqual([1, 42, 255]);
   expect(result.empty).toEqual([]);
@@ -21,7 +24,10 @@ test("binary ranges, append, update, copy and move preserve real OPFS bytes", as
 
 test("producer failure and pending-read cancellation preserve committed bytes and release locks", async ({ ready: page }) => {
   const result = await page.evaluate(() => (globalThis as FixtureType).opfsReliability.failure());
-  test.skip(!result.supported, "OPFS is unavailable in the actual Window realm.");
+  if (!result.supported) {
+    test.skip(true, "OPFS is unavailable in the actual Window realm.");
+    return;
+  }
   expect(result.sourcePreserved).toBe(true);
   expect(result.preserved).toBe("original");
   expect(result.code).toBe("aborted");
