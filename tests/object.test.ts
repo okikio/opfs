@@ -700,3 +700,11 @@ describe("object driver adapter", () => {
     });
   });
 });
+
+it("bounds provider entry work independently from page work and exposes both limits", async () => {
+  const store = new MemoryObjectBackend();
+  store.list = async () => ({ objects: [{ key: "one", size: 1 }, { key: "two", size: 1 }], prefixes: [] });
+  const adapter = createObjectAdapter(createMemoryObjectDriver(store), { maxListPages: 5, maxListEntries: 1 });
+  expect(adapter.limits).toMatchObject({ maxListPages: 5, maxListEntries: 1 });
+  await expect(Array.fromAsync(adapter.readDir("/"))).rejects.toMatchObject({ code: "too-large" });
+});

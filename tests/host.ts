@@ -109,6 +109,20 @@ export async function verifyHost(fileSystem: FileSystemType): Promise<void> {
   for await (const entry of fileSystem.readDir("/clear")) children.push(entry.name);
   expect(children).toEqual([]);
 
+  // Exercise the public adapter primitives directly: facade prechecks must not
+  // be the only control preserving an existing no-replace destination.
+  await fileSystem.writeFile("/exclusive-source", "source");
+  await fileSystem.writeFile("/exclusive-target", "target");
+  await expect(fileSystem.adapter.copy!("/exclusive-source", "/exclusive-target", { overwrite: false })).rejects
+    .toBeDefined();
+  await expect(fileSystem.adapter.move!("/exclusive-source", "/exclusive-target", { overwrite: false })).rejects
+    .toBeDefined();
+  expect(await fileSystem.readText("/exclusive-source")).toBe("source");
+  expect(await fileSystem.readText("/exclusive-target")).toBe("target");
+  await expect(fileSystem.adapter.move!("/exclusive-source", "/exclusive-new", { overwrite: false, exclusive: true }))
+    .rejects.toMatchObject({ code: "not-supported" });
+  expect(await fileSystem.exists("/exclusive-new")).toBe(false);
+
   await fileSystem.writeFile("/copy-source/new.txt", "copy", { parents: true });
   await fileSystem.writeFile("/copy-target/old.txt", "old", { parents: true });
   await fileSystem.copy("/copy-source", "/copy-target", { overwrite: true, preserve: false });

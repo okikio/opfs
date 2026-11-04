@@ -1210,3 +1210,72 @@ it("uses intrinsic materialized ranges and streamed limits despite borrowed meta
   expect(cancellations).toBe(1);
   expect(source.locked).toBe(false);
 });
+
+for (const operation of ["read-dir", "walk", "copy", "remove", "empty-dir"] as const) {
+  it(`rejects adapter child path injection during ${operation}`, async () => {
+    const adapter = createMemoryAdapter();
+    const fs = createFileSystem(adapter, { coordination: "local", lockPrefix: crypto.randomUUID() });
+    await withFileSystem(fs, async () => {
+      await fs.writeFile("/victim", "keep");
+      await fs.ensureDir("/tree");
+      const original = adapter.readDir.bind(adapter);
+      adapter.readDir = async function* (path, options) {
+        if (path === "/tree") yield { name: "../victim", kind: "file" };
+        else yield* original(path, options);
+      };
+      const pending = operation === "read-dir"
+        ? Array.fromAsync(fs.readDir("/tree"))
+        : operation === "walk"
+        ? Array.fromAsync(fs.walk("/tree"))
+        : operation === "copy"
+        ? fs.copy("/tree", "/copy")
+        : operation === "remove"
+        ? fs.remove("/tree", { recursive: true })
+        : fs.emptyDir("/tree");
+      await expect(pending).rejects.toBeInstanceOf(FileSystemError);
+      expect(await fs.readText("/victim")).toBe("keep");
+    });
+  });
+}
+
+it("holds one tree lock across emulated move copy and removal", async () => {
+  const adapter = createMemoryAdapter();
+  const entered = deferred();
+  const resume = deferred();
+  const original = adapter.readFile.bind(adapter);
+  adapter.readFile = async (path, options) => {
+    const bytes = await original(path, options);
+    if (path === "/source") {
+      entered.resolve();
+      await resume.promise;
+    }
+    return bytes;
+  };
+  const fs = createFileSystem(adapter, { coordination: "local", lockPrefix: crypto.randomUUID() });
+  await withFileSystem(fs, async () => {
+    await fs.writeFile("/source", "old");
+    const moving = fs.move("/source", "/destination");
+    await entered.promise;
+    const writing = fs.writeFile("/source", "new");
+    await Promise.resolve();
+    resume.resolve();
+    await within(Promise.all([moving, writing]), "move and queued writer");
+    expect(await fs.readText("/destination")).toBe("old");
+    expect(await fs.readText("/source")).toBe("new");
+  });
+});
+
+it("rejects observed copy bytes above the limit even when stat advertises a small file", async () => {
+  const adapter = createMemoryAdapter();
+  const fs = createFileSystem(adapter, { maxBufferedWriteBytes: 2 });
+  await withFileSystem(fs, async () => {
+    await fs.writeFile("/source", "long");
+    const stat = adapter.stat.bind(adapter);
+    adapter.stat = async (path, options) => {
+      const result = await stat(path, options);
+      return result?.kind === "file" ? { ...result, size: 1 } : result;
+    };
+    await expect(fs.copy("/source", "/destination")).rejects.toMatchObject({ code: "too-large" });
+    expect(await fs.exists("/destination")).toBe(false);
+  });
+});
