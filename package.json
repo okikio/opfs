@@ -176,7 +176,8 @@
     "./archive/udf": "./src/archive/udf.ts",
     "./supabase": "./src/supabase.ts",
     "./archive/rar": "./src/archive/rar.ts",
-    "./nextcloud": "./src/nextcloud.ts"
+    "./nextcloud": "./src/nextcloud.ts",
+    "./restic": "./src/restic.ts"
   },
   "dependencies": {
     "@okikio/undent": "^0.3.3",
