@@ -11,8 +11,8 @@ import type {
   TarWriteOptionsType,
 } from "./stream.ts";
 
-/** Native zlib framing, raw DEFLATE, or a gzip member. No automatic format sniffing or fallback codec. */
-export type CompressionFormatType = "gzip" | "deflate" | "deflate-raw";
+/** Native Web codecs, selected explicitly. Unsupported host formats fail without a fallback dependency. */
+export type CompressionFormatType = "gzip" | "deflate" | "deflate-raw" | "brotli" | "zstd";
 
 /** Finite admission at the producer, native codec and consumer boundaries. */
 export interface CompressionOptionsType extends ArchiveLimitsType {
@@ -66,13 +66,15 @@ function codecStream(
   const inputBytes = options.inputChunkBytes ?? 1024;
   const codecMaximum = options.maxCodecChunkBytes ?? 4 * 1024 * 1024;
   const outputBytes = options.outputChunkBytes ?? 65536;
-  const frame = mode === "decompress" ? new CompressionFrame(format) : undefined;
+  const frame = mode === "decompress" && (format === "gzip" || format === "deflate")
+    ? new CompressionFrame(format)
+    : undefined;
   for (const [name, value] of Object.entries({ maximum, inputBytes, codecMaximum, outputBytes })) {
     integer(value, name);
     if (value === 0) throw new RangeError(`${name} must be positive.`);
   }
   if (inputBytes > 65536) throw new RangeError("Native codec inputChunkBytes cannot exceed 64 KiB.");
-  if (format !== "gzip" && format !== "deflate" && format !== "deflate-raw") {
+  if (!["gzip", "deflate", "deflate-raw", "brotli", "zstd"].includes(format)) {
     unsupported("Unknown compression profile.");
   }
   signal?.throwIfAborted();
@@ -80,7 +82,9 @@ function codecStream(
   if (typeof Codec !== "function") unsupported(`Native ${mode}ion streams are unavailable.`);
   let codec: ReadableWritablePair<Uint8Array, Uint8Array<ArrayBuffer>>;
   try {
-    codec = new Codec(format);
+    // Host declarations can lag native codec support. The constructor is the capability check;
+    // no codec is acquired from another runtime when this format is unavailable.
+    codec = new Codec(format as CompressionFormat);
   } catch {
     unsupported(`The native ${mode}ion codec does not support ${format}.`);
   }

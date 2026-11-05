@@ -1,9 +1,9 @@
 # Stream compressed bytes and TAR members
 
-Use native gzip, zlib-framed `deflate`, or unframed `deflate-raw` without collecting an archive. `compressStream()` and
-`decompressStream()` return Web byte streams. `createCompressedTar()` and `readCompressedTar()` compose those codecs
-with the [TAR writer and visitor](tar.md). A late TAR member still requires sequential decompression of preceding bytes;
-these APIs do not provide compressed random access or resume checkpoints.
+Use native gzip, zlib-framed `deflate`, unframed `deflate-raw`, or optional Brotli/Zstandard codecs without collecting
+an archive. `compressStream()` and `decompressStream()` return Web byte streams. `createCompressedTar()` and
+`readCompressedTar()` compose those codecs with the [TAR writer and visitor](tar.md). A late TAR member still requires
+sequential decompression of preceding bytes; these APIs do not provide compressed random access or resume checkpoints.
 
 This example writes a gzip TAR, then consumes a selected member. Both layers have explicit byte limits:
 
@@ -150,3 +150,41 @@ The API follows the [WHATWG Compression Streams specification](https://compressi
 definitions from [RFC1950](https://www.rfc-editor.org/rfc/rfc1950), [RFC1951](https://www.rfc-editor.org/rfc/rfc1951)
 and [RFC1952](https://www.rfc-editor.org/rfc/rfc1952). This implementation supports the three profiles listed here;
 newer native codec names do not automatically expand its public profile set.
+
+## Optional Brotli and Zstandard
+
+```ts
+import { decompressStream } from "@okikio/opfs/archive/compress";
+
+export function decodePreview(input: ReadableStream<Uint8Array>, signal: AbortSignal) {
+  return decompressStream(input, "brotli", {
+    signal,
+    maxSourceBytes: 1024 * 1024,
+    maxDecodedBytes: 4 * 1024 * 1024,
+    maxOutputBytes: 4 * 1024 * 1024,
+    outputChunkBytes: 4096,
+  });
+}
+```
+
+The returned stream owns the acquired input reader. Consume or cancel it; importing this module does not acquire a
+codec. Brotli follows RFC7932 and is now included by the [Compression Standard](https://compression.spec.whatwg.org/).
+`zstd` names a host extension and is not part of that standard's current format enum. Both formats require native
+support for the selected direction. Unsupported constructors fail synchronously before acquiring the input reader; the
+library does not substitute Node modules, download a codec or add a runtime package. No version string is used as a
+capability oracle. The installed Deno2.9.8, Node26.13.0 and Bun1.4.2 support Brotli; only Bun's native Web stream
+constructors support Zstandard in this recorded environment. These observations do not promise support in older runtimes
+or browsers.
+
+Brotli has no content checksum. Zstandard can include optional frame checksums, but this wrapper neither parses their
+presence nor independently verifies them. Native parsing, dictionaries, window allocation, concatenated frames and
+trailing-data acceptance remain host behavior. Successful native EOF therefore reports `compression.integrity: "none"`
+in the TAR composition for both formats. It is not proof of authenticated content or strict single-frame conformance. A
+trusted expected digest/length is still needed when those properties matter. Early TAR preview remains incomplete and
+does not certify unseen content. Existing input/output/work limits, cancellation and native-allocation limits apply.
+
+Independent signed Debian `brotli`1.0.9-2+deb12u1 and `zstd`1.5.4+dfsg2-5 CLIs produce and independently decode the
+retained binary/empty fixtures. Tests compare complete authored bytes across tiny chunks, reject truncated fixtures and
+excess decoded work on supported hosts, compose a TAR and exercise explicit refusal on unsupported hosts. Those cases
+establish their exercised profiles, not all dialects or native codec implementations. See the retained fixture receipt
+for source and encoded-byte hashes; no producer executable enters the package.
