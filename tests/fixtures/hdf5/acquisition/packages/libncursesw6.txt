@@ -1,0 +1,20 @@
+Package: libncursesw6
+Source: ncurses
+Version: 6.4-4
+Installed-Size: 568
+Maintainer: Craig Small <csmall@debian.org>
+Architecture: arm64
+Depends: libtinfo6 (= 6.4-4), libc6 (>= 2.34)
+Recommends: libgpm2
+Description: shared libraries for terminal handling (wide character support)
+Description-md5: 1a69a793355bf1fff9186f00b71dd14a
+Multi-Arch: same
+Homepage: https://invisible-island.net/ncurses/
+Tag: role::shared-lib
+Section: libs
+Priority: optional
+Filename: pool/main/n/ncurses/libncursesw6_6.4-4_arm64.deb
+Size: 121688
+MD5sum: 6db1ee29d18fa8cc59e5eb48c5824e04
+SHA256: cf32cb6751718872c6def448b82211eec494f688e2f1a3e6c71bfdaf6b0722c5
+

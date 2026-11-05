@@ -1,0 +1,20 @@
+Package: libsqlite3-0
+Source: sqlite3
+Version: 3.40.1-2+deb12u2
+Installed-Size: 1702
+Maintainer: Laszlo Boszormenyi (GCS) <gcs@debian.org>
+Architecture: arm64
+Depends: libc6 (>= 2.34)
+Breaks: crowdsec (<< 1.4), python-migrate (<< 0.11.0-4~), python3-migrate (<< 0.11.0-4~)
+Description: SQLite 3 shared library
+Description-md5: 701b171ca60f3c96227ee4783a35419c
+Multi-Arch: same
+Homepage: https://www.sqlite.org/
+Tag: role::shared-lib
+Section: libs
+Priority: optional
+Filename: pool/main/s/sqlite3/libsqlite3-0_3.40.1-2+deb12u2_arm64.deb
+Size: 785596
+MD5sum: 12ec3e1f33dc436140969da798c0f9d2
+SHA256: a690f7f2aa6435bd1fd7cbbd2216acb9acbb8c48c9721f2c195766375439eb13
+

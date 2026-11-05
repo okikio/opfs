@@ -1,0 +1,21 @@
+Package: libgssapi-krb5-2
+Source: krb5
+Version: 1.20.1-2+deb12u5
+Installed-Size: 422
+Maintainer: Sam Hartman <hartmans@debian.org>
+Architecture: arm64
+Depends: libc6 (>= 2.33), libcom-err2 (>= 1.43.9), libk5crypto3 (>= 1.20), libkrb5-3 (= 1.20.1-2+deb12u5), libkrb5support0 (>= 1.15~beta1)
+Suggests: krb5-doc, krb5-user
+Breaks: moonshot-gss-eap (<= 1.0)
+Description: MIT Kerberos runtime libraries - krb5 GSS-API Mechanism
+Description-md5: 2dd7fe357b29d0ba6727171c01f0301c
+Multi-Arch: same
+Homepage: https://web.mit.edu/kerberos/
+Tag: role::shared-lib
+Section: libs
+Priority: optional
+Filename: pool/main/k/krb5/libgssapi-krb5-2_1.20.1-2+deb12u5_arm64.deb
+Size: 124152
+MD5sum: 82840e00deb29df1dedd08d647a7e630
+SHA256: a00678963f692a929312968f19b77a61a8fc0011690d7dc909a8a2c4810fc7b3
+

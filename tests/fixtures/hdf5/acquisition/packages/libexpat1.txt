@@ -1,0 +1,17 @@
+Package: libexpat1
+Source: expat
+Version: 2.5.0-1+deb12u5
+Installed-Size: 438
+Maintainer: Laszlo Boszormenyi (GCS) <gcs@debian.org>
+Architecture: arm64
+Depends: libc6 (>= 2.36)
+Description: XML parsing C library - runtime library
+Description-md5: 969a775adb36dbfb73b9d7ef67f13bd6
+Homepage: https://libexpat.github.io/
+Multi-Arch: same
+Section: libs
+Priority: optional
+Filename: pool/updates/main/e/expat/libexpat1_2.5.0-1+deb12u5_arm64.deb
+Size: 91748
+SHA256: 4a733e7f636de4a4483e3e5d7b02dc8e788b115361a04dd58df89461ce2ae65a
+

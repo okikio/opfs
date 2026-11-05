@@ -1,0 +1,17 @@
+Package: media-types
+Version: 10.0.0
+Installed-Size: 92
+Maintainer: Mime-Support Packagers <team+debian-mimesupport-packagers@tracker.debian.org>
+Architecture: all
+Replaces: mime-support (<< 3.65)
+Breaks: mime-support (<< 3.65)
+Description: List of standard media types and their usual file extension
+Description-md5: 1f316b51a44bfe33091e9f103c610fa4
+Multi-Arch: foreign
+Section: net
+Priority: standard
+Filename: pool/main/m/media-types/media-types_10.0.0_all.deb
+Size: 26136
+MD5sum: 90fd2adb74d07dcc8875d93b1fa12833
+SHA256: aaa46dcb3b39948ae2e0fdb72cfcb2f48c0b59f19785a3da8045c05eb19955dd
+

@@ -1,0 +1,18 @@
+Package: libpython3.11-stdlib
+Source: python3.11
+Version: 3.11.2-6+deb12u9
+Installed-Size: 9879
+Maintainer: Matthias Klose <doko@debian.org>
+Architecture: arm64
+Replaces: python3-gdbm (<< 3.9.9-1~)
+Depends: libpython3.11-minimal (= 3.11.2-6+deb12u9), media-types | mime-support, libbz2-1.0, libc6 (>= 2.34), libcrypt1 (>= 1:4.1.0), libdb5.3, libffi8 (>= 3.4), liblzma5 (>= 5.1.1alpha+20120614), libncursesw6 (>= 6.1), libnsl2 (>= 1.0), libreadline8 (>= 7.0~beta), libsqlite3-0 (>= 3.36.0), libtinfo6 (>= 6), libtirpc3 (>= 1.0.2), libuuid1 (>= 2.20.1)
+Breaks: python3-gdbm (<< 3.9.9-1~)
+Description: Interactive high-level object-oriented language (standard library, version 3.11)
+Description-md5: 41c666a330b08b8fcf8ac78687a72b26
+Multi-Arch: same
+Section: python
+Priority: optional
+Filename: pool/updates/main/p/python3.11/libpython3.11-stdlib_3.11.2-6+deb12u9_arm64.deb
+Size: 1750132
+SHA256: 9937cbe3f647aa89a590fec647438ce02098c113d1c6f70e4cb1230c368d42a4
+

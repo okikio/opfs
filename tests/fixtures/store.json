@@ -46,6 +46,10 @@
       "size": 3279318,
       "sha256": "e1fd0fc980e6704c32d0d61590fcf5e955d9156ceb83dd953138822f24d7ec98"
     },
+    "tests/fixtures/hdf5/independent.json": {
+      "size": 776740,
+      "sha256": "4b38fa96e379405f48a64430d1b83fac4265a669f0367804ec2f0ccf9cdeeccb"
+    },
     "tests/fixtures/iso/independent.json": {
       "size": 16005999,
       "sha256": "53afc0dcb88cba82830b48f253f5a6dd3c69ee29c43029ef2b6a37b8df78c318"

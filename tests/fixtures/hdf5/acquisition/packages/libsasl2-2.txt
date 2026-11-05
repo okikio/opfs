@@ -1,0 +1,19 @@
+Package: libsasl2-2
+Source: cyrus-sasl2
+Version: 2.1.28+dfsg-10+deb12u1
+Installed-Size: 187
+Maintainer: Debian Cyrus Team <team+cyrus@tracker.debian.org>
+Architecture: arm64
+Replaces: libsasl2
+Depends: libsasl2-modules-db (>= 2.1.28+dfsg-10+deb12u1), libc6 (>= 2.34)
+Description: Cyrus SASL - authentication abstraction library
+Description-md5: d811c9b198bbabf125251a777e13f648
+Homepage: https://www.cyrusimap.org/sasl/
+Multi-Arch: same
+Recommends: libsasl2-modules (>= 2.1.28+dfsg-10+deb12u1)
+Section: libs
+Priority: optional
+Filename: pool/updates/main/c/cyrus-sasl2/libsasl2-2_2.1.28+dfsg-10+deb12u1_arm64.deb
+Size: 58272
+SHA256: b3686e0815d99e5ca6ce9234e486ca0ecd373d491e34457c3b9cba5c6dbba287
+

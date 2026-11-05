@@ -1,0 +1,19 @@
+Package: python3-pkg-resources
+Source: setuptools
+Version: 66.1.1-1+deb12u2
+Installed-Size: 1052
+Maintainer: Matthias Klose <doko@debian.org>
+Architecture: all
+Depends: python3:any
+Suggests: python3-setuptools
+Description: Package Discovery and Resource Access using pkg_resources
+Description-md5: 455aab7092c23bbca0a002df43ba97e4
+Multi-Arch: foreign
+Homepage: https://pypi.python.org/pypi/setuptools
+Section: python
+Priority: optional
+Filename: pool/main/s/setuptools/python3-pkg-resources_66.1.1-1+deb12u2_all.deb
+Size: 296604
+MD5sum: 21cba5eff55a33563ca52f36f114b3ef
+SHA256: 25dfb378939ccdf27e7382adf44c168f86e22f9f1a8e6e3a2ec526431ed5e30f
+

@@ -1,0 +1,19 @@
+Package: libkeyutils1
+Source: keyutils
+Version: 1.6.3-2
+Installed-Size: 84
+Maintainer: Christian Kastner <ckk@debian.org>
+Architecture: arm64
+Depends: libc6 (>= 2.17)
+Description: Linux Key Management Utilities (library)
+Description-md5: 5c4d88a0a818e5ef897f2a9fa5c3ac2d
+Multi-Arch: same
+Homepage: https://git.kernel.org/pub/scm/linux/kernel/git/dhowells/keyutils.git
+Tag: role::shared-lib
+Section: libs
+Priority: optional
+Filename: pool/main/k/keyutils/libkeyutils1_1.6.3-2_arm64.deb
+Size: 8844
+MD5sum: 619ea0a701389dfb16b885a54ccc4e3b
+SHA256: aac46cb6faec4e737502b3c2290b7b02f8ba04e8accd5af7fd07934df0c867b1
+

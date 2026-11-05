@@ -1,0 +1,20 @@
+Package: libtirpc-common
+Source: libtirpc
+Version: 1.3.3+ds-1
+Installed-Size: 35
+Maintainer: Josue Ortega <josue@debian.org>
+Architecture: all
+Replaces: libtirpc1, libtirpc3 (<< 1.1.4-0.1~)
+Breaks: libtirpc1, libtirpc3 (<< 1.1.4-0.1~)
+Description: transport-independent RPC library - common files
+Description-md5: f186b4d689860df1502b7e1917b6dad9
+Multi-Arch: foreign
+Homepage: http://sourceforge.net/projects/libtirpc
+Tag: role::shared-lib
+Section: libs
+Priority: optional
+Filename: pool/main/libt/libtirpc/libtirpc-common_1.3.3+ds-1_all.deb
+Size: 14048
+MD5sum: e49aca93814724ed80fa8932a1f7523b
+SHA256: 3e3ef129b4bf61513144236e15e1b4ec57fa5ae3dc8a72137abdbefb7a63af85
+

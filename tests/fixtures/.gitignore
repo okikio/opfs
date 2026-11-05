@@ -11,6 +11,7 @@
 /cpio/gnu.json
 /cpio/independent.json
 /fits/independent.json
+/hdf5/independent.json
 /iso/independent.json
 /las/independent.json
 /lha/independent.json
