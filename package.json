@@ -165,7 +165,8 @@
     "./pcloud": "./src/pcloud.ts",
     "./archive/iso": "./src/archive/iso.ts",
     "./archive/xar": "./src/archive/xar.ts",
-    "./yandex": "./src/yandex.ts"
+    "./yandex": "./src/yandex.ts",
+    "./archive/wim": "./src/archive/wim.ts"
   },
   "dependencies": {
     "@okikio/undent": "^0.3.3",
