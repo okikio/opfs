@@ -1,0 +1,12 @@
+{
+  "independent.json": {
+    "rawSha256": "2606def430cd78c19ac9098b0fd8f294cabd0b52b004a3bf2fb9668ff2c6eb8d",
+    "formattedSha256": "2606def430cd78c19ac9098b0fd8f294cabd0b52b004a3bf2fb9668ff2c6eb8d",
+    "semanticEquality": true
+  },
+  "acquisition.json": {
+    "rawSha256": "260123d7fcaa25d47c09ac7228ba3e02135c1d7636c0a9a819f1f85977887052",
+    "formattedSha256": "260123d7fcaa25d47c09ac7228ba3e02135c1d7636c0a9a819f1f85977887052",
+    "semanticEquality": true
+  }
+}

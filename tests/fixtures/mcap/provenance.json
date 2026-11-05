@@ -1,0 +1,29 @@
+{
+  "primary": {
+    "repository": "foxglove/mcap",
+    "commit": "23d6c627a27ac089d418d9e7f8cdcef9ed86dac1",
+    "specificationSha256": "4197b0200bb5c657d2a97e70816b078fdb050a9027f030c342c2862a3c33b3b6"
+  },
+  "native": {
+    "package": "mcap",
+    "version": "1.6.0",
+    "wheelBytes": 21955,
+    "wheelSha256": "7cd37fba2cf51d033f2139ca837d2ed3024dcec3cd9f8ecdf3d4d15930df6e17",
+    "license": "MIT declared in wheel METADATA; no license member present; pinned repository MIT license retained separately",
+    "rawJsonSha256": "2606def430cd78c19ac9098b0fd8f294cabd0b52b004a3bf2fb9668ff2c6eb8d",
+    "scope": "genuine NONE writer; native sequential/seeking reader full-byte/value checks from one project; no cross-vendor or resolved Git LFS conformance claim"
+  },
+  "snapshots": {
+    "website_docs_spec_notes.md.snapshot": "36ffa675cb18b0226881fd84f3e63f60193a63f5142e34ac3f1862fb429edaf0",
+    "acquire.py.snapshot": "42817e28364e2e21a71790b218b03f2b977829e14cf36d62ee71fa28571fd918",
+    "produce.py.snapshot": "03869e3ff535741be89a3fd5648223206c0431d4e9c72095bb3546a7ab7a7ce2",
+    "mcap-1.6.0.dist-info_METADATA.snapshot": "1893c28c8aefd5c828cd196cd81f0ba74f90cd6607617a4169c87868f6bd8b59",
+    "website_docs_spec_index.md.snapshot": "4197b0200bb5c657d2a97e70816b078fdb050a9027f030c342c2862a3c33b3b6",
+    "acquisition.json.snapshot": "260123d7fcaa25d47c09ac7228ba3e02135c1d7636c0a9a819f1f85977887052",
+    "LICENSE.snapshot": "da11235665c17d4c1634072dae92b8ba1b38d6fdde2ccf19a6bbede33253f58d",
+    "mcap_stream_reader.py.snapshot": "00dbcc49116c1323e6341ef48f56832a289ee78885c1465f23ed2a3b6da375c7",
+    "mcap_writer.py.snapshot": "27b4ccb8b72fe36e49e30a2c61aba3f95d4ebefdaf78fac5de5ef3ca9e4e9802",
+    "website_docs_spec_registry.md.snapshot": "2bd4d5d6e7356b7259238c7e54acc4c0bb62545ff0d639b90984ac415d471ef1",
+    "independent.json.snapshot": "2606def430cd78c19ac9098b0fd8f294cabd0b52b004a3bf2fb9668ff2c6eb8d"
+  }
+}
