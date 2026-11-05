@@ -79,3 +79,11 @@ decoding and sidecar discovery remain application decisions. [Pub/Sub](pubsub.md
 publication, pull and settlement; uncertain mutations require application recovery rather than hidden retries. Native
 qualifications and unsupported profiles are recorded in each guide; these additions do not complete their catalog
 groups.
+
+[GeoTIFF](geotiff.md) plans exact uncompressed row spans and reads owned numeric windows, while raw block sources retain
+physical padding and bits. CRS declarations remain unresolved; successful reads do not certify COG layout or server
+behavior. [QCOW2](qcow2.md) reconstructs selected standalone guest bytes, distinguishing absent mappings and explicit
+zeros without a host mount or guest filesystem parser. Its active mapping checks do not establish refcount truth or
+payload authentication. [Redis and Valkey](redis.md) share a bounded RESP2 byte client with separate native server
+qualifications, explicit expiry and caller-owned recovery after uncertain mutations. These native commands do not supply
+record-driver revisions, a filesystem projection or a persistence guarantee.
