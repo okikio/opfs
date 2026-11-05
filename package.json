@@ -203,7 +203,10 @@
     "./pubsub": "./src/pubsub.ts",
     "./dataset/geotiff": "./src/dataset/geotiff.ts",
     "./image/qcow2": "./src/image/qcow2.ts",
-    "./redis": "./src/redis.ts"
+    "./redis": "./src/redis.ts",
+    "./crypto/jwe": "./src/crypto/jwe.ts",
+    "./nats": "./src/nats.ts",
+    "./dataset/parquet": "./src/dataset/parquet.ts"
   },
   "dependencies": {
     "@okikio/undent": "^0.3.3",

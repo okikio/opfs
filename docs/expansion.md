@@ -87,3 +87,11 @@ zeros without a host mount or guest filesystem parser. Its active mapping checks
 payload authentication. [Redis and Valkey](redis.md) share a bounded RESP2 byte client with separate native server
 qualifications, explicit expiry and caller-owned recovery after uncertain mutations. These native commands do not supply
 record-driver revisions, a filesystem projection or a persistence guarantee.
+
+[JWE](jwe.md) authenticates an entire bounded compact direct-AES-GCM message before exposing an owned plaintext source.
+Archive readers can borrow that source until its owner is disposed; a small preview still requires whole-message
+authentication and buffering. [NATS JetStream](nats.md) preserves native publication receipts and sequence reads over
+exclusive caller-supplied channels. Stream retention and deduplication windows remain deployment policy, and an
+unacknowledged publication can have an unknown outcome. [Parquet](parquet.md) reads selected flat physical numeric
+columns with separate null masks and per-page checksum evidence. It does not provide a query engine, nested records or
+arbitrary codecs. These profiles extend their individual routes rather than completing the broader catalog groups.

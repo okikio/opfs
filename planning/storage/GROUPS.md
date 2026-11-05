@@ -112,6 +112,13 @@ have separate native server evidence behind one RESP2 client; no generic record 
 inferred. See [GeoTIFF](../../docs/geotiff.md), [QCOW2](../../docs/qcow2.md) and [Redis/Valkey](../../docs/redis.md) for
 selected profiles, native evidence and remaining boundaries.
 
+The focused `enc-jwe` record adds bounded compact direct-AES-GCM message previews. Whole-message authentication precedes
+plaintext publication, so it does not offer streaming ciphertext decryption or cheap encrypted random access. The
+`log-nats-jetstream` route preserves native message publication/sequence reads rather than filesystem operations. The
+`format-parquet` route exposes selected flat physical numeric columns; logical conversions, nesting and arbitrary codecs
+remain outside that profile. See [JWE](../../docs/jwe.md), [NATS](../../docs/nats.md) and
+[Parquet](../../docs/parquet.md) for ownership, exact costs and verification limits.
+
 ## Present scope by group
 
 Each section distinguishes the implemented profile from the next boundary. Follow its capability guide for the public
@@ -166,7 +173,8 @@ Existing SQL/record families, Workers KV and bounded D1 binding records cover se
 record layout or filesystem semantics. [etcd](../../docs/etcd.md) adds native byte keys, modification-revision
 conditions, explicit lease policy and historical prefix cursors without a record layout. Remaining databases, queues,
 logs and vector stores need different contracts. Redis/Valkey add independently qualified native RESP2 byte commands
-with explicit expiry; record-driver revisions and filesystem semantics remain separate.
+with explicit expiry; record-driver revisions and filesystem semantics remain separate. JetStream adds bounded native
+message publication and sequence reads, preserving retention and deduplication as stream policy.
 
 ### native-protocol
 
@@ -295,7 +303,10 @@ masks. LAS 1.2 adds uncompressed point formats 0–3 with raw/scaled columns and
 bounded direct root links and allocated contiguous numeric views; chunked/filtered HDF5, netCDF-4 interpretation,
 LAZ/COPC, TABLE/compressed FITS, compressed/v3 Zarr and remaining dataset/columnar profiles need individual decoders and
 proof. Classic GeoTIFF adds selected uncompressed strip/tile windows and raw geospatial declarations; CRS
-interpretation, compressed TIFF and COG qualification remain unsupported.
+interpretation, compressed TIFF and COG qualification remain unsupported. Parquet adds flat physical numeric
+PLAIN/uncompressed v1/v2 data pages with selected row ranges and separate validity bytes. Signed full-width integer
+annotations that preserve the physical representation are accepted; other logical conversions, dictionaries, codecs and
+nested records remain separate.
 
 ### format-view
 
