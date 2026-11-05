@@ -168,7 +168,8 @@
     "./yandex": "./src/yandex.ts",
     "./archive/wim": "./src/archive/wim.ts",
     "./archive/lzma": "./src/archive/lzma.ts",
-    "./firebase": "./src/firebase.ts"
+    "./firebase": "./src/firebase.ts",
+    "./archive/xz": "./src/archive/xz.ts"
   },
   "dependencies": {
     "@okikio/undent": "^0.3.3",
