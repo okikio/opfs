@@ -62,8 +62,9 @@ export async function readNote(file: Blob): Promise<Uint8Array> {
 ```
 
 Names can repeat. IDs preserve archive order and distinguish duplicates; choosing the first name is application policy,
-as in this example. No path normalization or traversal protection is implied by metadata inspection. A future filesystem
-projection or extractor must separately validate names, duplicate paths, collisions and links before effects.
+as in this example. No path normalization or traversal protection is implied by metadata inspection. The optional
+read-only filesystem projection below validates names, duplicate paths, collisions and links before exposing entries; it
+is not an extractor.
 
 `openTar()` rejects an undeclared source unless `allowUnverifiedSource: true` explicitly accepts mutation risk. An
 identity string alone does not prove a snapshot. Indexed reads return `integrity: "header-checksum-only"`: TAR checksums
@@ -153,3 +154,39 @@ and [GNU TAR format documentation](https://www.gnu.org/software/tar/manual/html_
 implemented [Python tarfile source](https://github.com/python/cpython/blob/v3.13.0/Lib/tarfile.py) also documents GNU
 magic, long-record identities and PAX override fields. Those references describe broader profiles than this
 implementation; the explicit support and refusal rules above define this API's contract.
+
+## Browse an indexed TAR as a read-only filesystem
+
+```ts
+import { createFileSystem } from "@okikio/opfs";
+import { createBlobSource } from "@okikio/opfs/source";
+import { openTar } from "@okikio/opfs/archive/tar";
+import { createTarAdapter } from "@okikio/opfs/view/tar";
+
+export async function preview(file: Blob): Promise<Uint8Array> {
+  const archive = await openTar(createBlobSource(file), { maxEntries: 10_000 });
+  const fs = createFileSystem(createTarAdapter(archive, {
+    maxSourceBytes: 4096,
+    maxDecodedBytes: 4096,
+    maxOutputBytes: 4096,
+  }));
+  try {
+    return await fs.readFile("/notes/hello.txt", { at: 0, length: 4096 });
+  } finally {
+    await fs[Symbol.asyncDispose]();
+  }
+}
+```
+
+The adapter admits the entire namespace before payload acquisition. It refuses duplicate paths, absolute paths,
+dot/empty components, backslashes, file/directory collisions and all symbolic or hard links. Direct reader metadata
+inspection still permits these literal archive names; choosing a filtered subset is explicit application policy.
+Implicit parent directories are synthesized. No entry is extracted to the host, and no link is followed.
+
+Each selected read uses the archive's exact payload extent and clamps filesystem reads at EOF. The adapter buffers that
+selected result; it does not advertise streaming or payload verification. TAR header checksums never authenticate file
+content, and the filesystem's byte result does not add integrity evidence. Use the direct reader when that evidence must
+travel alongside bytes. Per-read budgets remain independent unless a caller-owned ledger joins them. Closing the
+filesystem leaves the archive and source usable. Mutations are refused before acquiring producer bytes. Cancellation
+follows the filesystem's `FileSystemError` with `code: "aborted"` and the original cause; direct adapter reads retain
+the original abort reason.

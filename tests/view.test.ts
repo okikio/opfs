@@ -102,5 +102,7 @@ describe("ZIP filesystem view", () => {
     const linked = { ...input, entries: [{ ...input.entries[0]!, kind: "symbolic-link" as const }] };
     expect(() => createZipAdapter(linked)).toThrow();
     expect(input.reads).toEqual([]);
+    const disagree = { ...input, entries: [{ ...input.entries[0]!, kind: "directory" as const, directory: false }] };
+    expect(() => createZipAdapter(disagree)).toThrow();
   });
 });
