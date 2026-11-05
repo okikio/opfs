@@ -1,4 +1,4 @@
-# Preview ordinary uncompressed WIM images
+# Preview ordinary stored and XPRESS WIM images
 
 A Windows Imaging (WIM) file can contain several directory-tree images that share deduplicated file resources.
 `openWim()` indexes the resource table and image descriptions. `image(index)` parses one selected image's metadata.
@@ -42,24 +42,30 @@ export async function memberSource(source: ByteSourceType, subtle: SubtleCrypto)
 }
 ```
 
-A member source has exact range semantics, cumulative limits and a physical provenance tuple when the original source
-has an identity. It does not verify a resource hash on each read. It can be passed to another archive reader for nested
-preview. Identical files in different images may share one resource and physical identity; a resource does not own a
-unique filename. Original methods, size, identity and stability are captured when opening. Missing stability evidence
-requires explicit `allowUnverifiedSource: true` and remains unverified.
+A member source has exact logical range semantics, cumulative limits and a provenance tuple when the original source has
+an identity. The tuple keeps physical resource position and logical decoded offset separate; compressed logical bytes
+are not claimed to occupy one contiguous physical range. It does not verify a resource hash on each read. It can be
+passed to another archive reader for nested preview. Identical files in different images may share one resource and
+physical identity; a resource does not own a unique filename. Original methods, size, identity and stability are
+captured when opening. Missing stability evidence requires explicit `allowUnverifiedSource: true` and remains
+unverified.
 
-## The supported profile
+## The supported profiles
 
 `uncompressed-1.13` means ordinary `MSWIM` magic, exact 208-byte header, format version `0x10d00`, one complete unsplit
 part, zero compression chunk size and uncompressed resources. It is a format profile, not a wimlib software version.
-XPRESS, WIM-specific LZX, LZMS, solid ESD, split SWM, pipable WIM, write-in-progress and resource-only/metadata-only
-variants are refused. CAB's existing codec is not assumed to implement WIM's distinct LZX framing or E8 behavior. There
-is no fallback SDK, external-part lookup or arbitrary URL fetch.
+`xpress-huffman-32k-1.13` additionally accepts ordinary resources using WIM XPRESS-Huffman with exactly 32,768-byte
+independent chunks. Stored resources and stored fallback chunks remain supported within that profile. Plain XPRESS,
+other chunk sizes, WIM-specific LZX, LZMS, solid ESD, split SWM, pipable WIM, write-in-progress and
+resource-only/metadata-only variants are refused. CAB's existing codec is not assumed to implement WIM's distinct LZX
+framing or E8 behavior. There is no fallback SDK, external-part lookup or arbitrary URL fetch.
 
 Each ordinary resource-table record is 50 bytes. Its first 24 bytes contain a 56-bit stored size, flags, physical offset
 and decoded size. Uncompressed sizes must agree. The remaining fields contain part number, reference count and SHA-1.
 All extents are checked against the exact source and the fixed header. Duplicate data-resource hashes are refused rather
-than resolved by an arbitrary winner. Resources retain physical ordinal IDs and declared SHA-1 values.
+than resolved by an arbitrary winner. Resources retain physical ordinal IDs, physical `offset`, logical decoded `size`,
+physical `storedSize`, declared `compression` and SHA-1 values. The header resource table, XML and integrity table must
+remain stored in this profile.
 
 Image indices are 1-based. Metadata resources are assigned to images in **resource-table order**, matching the pinned
 wimlib source's description of Microsoft behavior. Physical offsets, boot metadata and XML names do not reorder them.
@@ -79,13 +85,45 @@ are never followed. Hardlink group IDs remain decimal metadata; ordinary hardlin
 without following a host link. Extra-stream names and hashes are retained, bounded and checked for duplicate
 names/missing resource references. **File interpretation with extra streams is deferred**: those entries reject file
 reads because WIM's unnamed/reparse/encrypted stream-selection rules need a wider evidence profile. The raw resource
-`archive.read(resourceId)` and `archive.source(resourceId)` operations expose explicitly selected stored blobs without
-claiming they are a file's default plaintext stream. Windows metadata restoration and image mounting are not provided.
+`archive.read(resourceId)` and `archive.source(resourceId)` operations expose explicitly selected decoded resource blobs
+without claiming they are a file's default plaintext stream. Windows metadata restoration and image mounting are not
+provided.
+
+## Compressed ranges and strict writer termination
+
+A compressed resource starts with a chunk table. There is one cumulative offset per chunk except the first, whose
+implicit offset is zero. Entries are four bytes below 4 GiB decoded size and eight bytes otherwise; offsets are relative
+to the end of the table, not the WIM header or resource start. The complete table is bounded and validated before any
+selected payload is read. Offsets must increase, stay within the resource and describe positive chunks no larger than
+the expected decoded chunk. Equal packed and decoded lengths mean a stored fallback chunk, not a compressed stream.
+
+`verify: false` reads and decodes only chunks intersecting the selected logical range. A three-byte preview can still
+read and decode 32 KiB plus the complete chunk table. A boundary-crossing range may need two full chunks. The default
+SHA1 verification reads and decodes every chunk of the selected resource, then hashes all decoded bytes before returning
+the requested range. `work.decodedBytes` counts table bytes, complete selected chunk output and, for verification, the
+whole digest input. `xpressSteps` reports codec work separately; image views report the work for their metadata decode.
+A zero-length pending read performs no chunk-table or payload I/O and proves nothing about unexamined chunks.
+
+The internal kernel implements the MS-XCA LZ77+Huffman variant with 512 canonical symbols, code lengths at most 15,
+little-endian 16-bit coding words, interleaved match lengths and overlapping copies. It uses bounded flat tables rather
+than a 32,768-entry decode table. Match distances cannot precede this independent chunk and matches cannot exceed its
+declared output. The 32 KiB profile does not need the encoding document's 32-bit match-length extension; invalid small
+16-bit extensions are refused rather than guessed as another variant.
+
+After exactly the declared decoded size, this selected writer profile requires canonical symbol 256, exact packed extent
+and 16 through 31 remaining zero bits. Those bits are alignment plus the reserved zero coding word described by the
+Microsoft writer and confirmed in all retained native compressed chunks. This is an explicit strict writer profile:
+size-only native decoders can stop earlier and do not establish those tail conditions. No arbitrary trailing bytes,
+missing end markers or nonzero padding are accepted as a compatibility fallback. These structural checks are not a
+checksum; only a requested complete resource SHA1 check provides the reported resource consistency evidence.
 
 ## Bounds and cancellation
 
 | Policy                   | Default | Meaning                                                                          |
 | ------------------------ | ------- | -------------------------------------------------------------------------------- |
+| `maxChunkTableBytes`     | 256 KiB | Per-resource retained chunk table; hard 2 MiB                                    |
+| `maxXpressChunks`        | 65536   | Per-resource chunk count; hard 262144                                            |
+| `maxXpressSteps`         | 16 Mi   | Per-read codec work across selected chunks; hard 64 Mi                           |
 | `maxImages`              | 128     | Includes each image description                                                  |
 | `maxResources`           | 50000   | Physical blob table entries                                                      |
 | `maxResourceIndexBytes`  | 16 MiB  | Estimated 256 bytes per retained resource                                        |
@@ -108,7 +146,13 @@ and subsequent file reads/sources. Explicit caller ledgers span composed readers
 its internal metadata buffer is charged as source/decoded work, **not returned payload**. File/resource reads charge
 only returned payload length as output, even when complete verification costs more. Source requests are reserved against
 cumulative ledgers before collection buffers are allocated. Limits are finite estimates and admitted work, not exact
-JavaScript heap or CPU guarantees. Metadata buffers, bitmap/index strings and WebCrypto copies coexist.
+JavaScript heap or CPU guarantees. Metadata buffers, bitmap/index strings and WebCrypto copies coexist. A compressed
+read also holds the bounded chunk table and at most 513 selected-range records (the buffered return is at most 16 MiB).
+One chunk needs at most 32 KiB packed input, 32 KiB decoded output and less than 4 KiB typed canonical tables. The
+internal kernel additionally caps one chunk at 1 Mi work units. These are implementation safety bounds, not format
+maxima or process-RSS guarantees. Aggregate selected source bytes, requests, decoded work and returned bytes are
+reserved before the result buffer; pre-reserved source credits are consumed once during chunk reads. No decoded chunk
+cache is retained between calls.
 
 A pending prefix, including a zero-length suffix request, never becomes verified evidence for unseen bytes. Whole
 verification can reject a tiny preview when the complete resource exceeds `maxVerifyBytes`; increase the finite policy
@@ -122,6 +166,13 @@ archive or image. A returned source combines all captured parent signals with it
 or native codecs are acquired. Abort remains failure rather than checksum success.
 
 ## Independent evidence
+
+The [XPRESS receipt](../tests/fixtures/wim/xpress-README.md) adds two genuine XPRESS images. Native wimlib verifies,
+applies and supplies complete decoded metadata/resource bytes through its decompressor API. Independent 7-Zip compares
+every authored file byte, including stored random data, extended matches, shared resources, multiple chunks and
+32,767/32,768/32,769-byte boundaries. The separate authored framing audit checks all 13 genuine compressed chunks
+against those already established bytes and retains their exact termination measurements. It is not claimed as a third
+independent native decoder. Its source and primary grammar are pinned with the receipt.
 
 The [retained fixture](https://github.com/okikio/opfs/blob/6e0df56/tests/fixtures/wim/README.md) contains two genuine
 uncompressed images produced by Debian wimtools in a disposable bounded container. Native capture/append/verify/apply
@@ -138,3 +189,10 @@ The Microsoft source is the official
 including `header.h`, `resource.h`, `blob_table.c`, `dentry.c`, `metadata_resource.c` and `security.c`. Their exact
 hashes and producer/package identity limits are recorded with the fixture. No upstream implementation code was copied
 and no native tool is a production dependency.
+
+`bench/wim.bench.ts` measures cold stored/XPRESS image indexing, complete resource SHA1 verification and pending early
+or late ranges. Every complete authored file is checked before timing; selected ranges are also compared with their
+original bytes. Labels show source bytes, requests, decoded work, returned bytes, codec steps and hash scope. Warm index
+reuse has an explicit finite 64 GiB/10-million-request sampling lifetime allowance; per-read limits stay unchanged. The
+predecoded Blob baseline only copies existing plaintext and supplies a lower bound. Different fixtures, output sizes and
+integrity scopes do not establish a general codec or checksum speed ranking.

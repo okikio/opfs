@@ -108,7 +108,7 @@ describe("ordinary uncompressed WIM resource and image preview", () => {
     await expect(open(overflow)).rejects.toThrow("exact JavaScript");
     const flags = bytes.slice();
     flags[table + 7] = 4;
-    await expect(open(flags)).rejects.toThrow("Compressed");
+    await expect(open(flags)).rejects.toMatchObject({ code: "unsupported-profile" });
     const count = bytes.slice();
     viewOf(count).setUint32(44, 3, true);
     await expect(open(count)).rejects.toThrow("image count");
