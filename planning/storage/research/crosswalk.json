@@ -1,0 +1,937 @@
+{
+  "parent_sha256": "7fc1fefdfea648cfab176f38b6351b8b5c4d547b5a259ef103861aef8b6851b5",
+  "parent_records": 895,
+  "interpretation": "A link can refine an existing broad entry. Unmapped focused records are possible catalog additions, not automatically new providers. The parent is unchanged.",
+  "mapped_parent_ids": [
+    "amazon-s3",
+    "bagit",
+    "bitlocker",
+    "borg-repository",
+    "car",
+    "composition-crypt",
+    "compression-brotli",
+    "compression-bzip2",
+    "compression-deflate",
+    "compression-gzip",
+    "compression-lz4",
+    "compression-snappy",
+    "compression-xz",
+    "compression-zlib",
+    "compression-zstd",
+    "cryptomator-vault",
+    "dm-crypt-luks",
+    "duplicati-repository",
+    "duplicity-repository",
+    "format-7z",
+    "format-cab",
+    "format-cpio",
+    "format-dmg",
+    "format-iso-image",
+    "format-qcow2",
+    "format-rar",
+    "format-raw-image",
+    "format-tar",
+    "format-udf-image",
+    "format-vhd",
+    "format-vmdk",
+    "format-warc",
+    "format-wim",
+    "format-zip",
+    "kopia-repository",
+    "lib-zipjs",
+    "mets",
+    "ocfl",
+    "premis",
+    "restic-repository",
+    "s3-rest",
+    "tarsnap"
+  ],
+  "unmapped_focused_ids": [
+    "archive-ar",
+    "archive-zpaq",
+    "archive-dar",
+    "behavior-par2",
+    "codec-lzip",
+    "codec-unix-compress",
+    "codec-lzo",
+    "codec-lzop",
+    "codec-bgzf",
+    "archive-xar",
+    "archive-arc-legacy",
+    "archive-arj",
+    "archive-lha",
+    "archive-ace",
+    "archive-stuffit",
+    "archive-stuffitx",
+    "metadata-applesingle-double",
+    "archive-macbinary",
+    "archive-binhex",
+    "image-apple-sparse",
+    "archive-apple-archive",
+    "codec-lzfse",
+    "enc-age-v1",
+    "enc-age-recipient-profiles",
+    "enc-age-plugin",
+    "enc-openpgp-rfc9580",
+    "enc-openpgp-legacy",
+    "enc-openpgp-rfc9980",
+    "enc-librepgp-ocb",
+    "enc-cms-enveloped-data",
+    "enc-cms-auth-enveloped-data",
+    "enc-jwe",
+    "enc-cose-encrypt0",
+    "enc-cose-encrypt",
+    "enc-tink-streaming-aead",
+    "enc-libsodium-secretstream",
+    "enc-miscreant-stream",
+    "enc-aws-encryption-sdk",
+    "enc-openssl-enc",
+    "enc-aescrypt-v3",
+    "enc-scrypt-file",
+    "enc-apple-encrypted-archive",
+    "sig-minisign",
+    "sig-signify",
+    "crypto-aead",
+    "crypto-password-kdf",
+    "crypto-hash-mac-hkdf",
+    "crypto-hpke",
+    "key-pkcs8",
+    "key-pkcs12",
+    "encoding-pem-der",
+    "key-jwk-jwks",
+    "key-cose",
+    "credential-kdbx",
+    "sig-evidence-records",
+    "vault-gocryptfs-forward",
+    "vault-gocryptfs-reverse",
+    "vault-encfs-legacy",
+    "vault-encfs-v7",
+    "vault-cryfs",
+    "vault-securefs",
+    "filesystem-fscrypt",
+    "filesystem-ecryptfs",
+    "volume-veracrypt",
+    "volume-apfs-filevault",
+    "filesystem-windows-efs",
+    "volume-apple-disk-images",
+    "backup-android-ab",
+    "repository-duplicacy",
+    "package-wacz",
+    "metadata-ro-crate",
+    "package-eark-csip",
+    "package-oci-image-layout"
+  ],
+  "links": [
+    {
+      "focused_id": "archive-zip",
+      "name": "ZIP",
+      "parent_ids": [
+        "format-zip"
+      ]
+    },
+    {
+      "focused_id": "archive-zip64",
+      "name": "ZIP64 extensions",
+      "parent_ids": [
+        "format-zip"
+      ]
+    },
+    {
+      "focused_id": "archive-zipx",
+      "name": "ZIPX",
+      "parent_ids": [
+        "format-zip"
+      ]
+    },
+    {
+      "focused_id": "archive-7z",
+      "name": "7z",
+      "parent_ids": [
+        "format-7z"
+      ]
+    },
+    {
+      "focused_id": "archive-rar5",
+      "name": "RAR5 container",
+      "parent_ids": [
+        "format-rar"
+      ]
+    },
+    {
+      "focused_id": "archive-tar-ustar",
+      "name": "tar / POSIX ustar",
+      "parent_ids": [
+        "format-tar"
+      ]
+    },
+    {
+      "focused_id": "archive-tar-pax",
+      "name": "POSIX pax extended tar",
+      "parent_ids": [
+        "format-tar"
+      ]
+    },
+    {
+      "focused_id": "archive-tar-gnu",
+      "name": "GNU tar extensions",
+      "parent_ids": [
+        "format-tar"
+      ]
+    },
+    {
+      "focused_id": "archive-tar-sparse",
+      "name": "Sparse-file archive representations",
+      "parent_ids": [
+        "format-tar"
+      ]
+    },
+    {
+      "focused_id": "archive-cpio",
+      "name": "cpio: binary, odc, newc and crc",
+      "parent_ids": [
+        "format-cpio"
+      ]
+    },
+    {
+      "focused_id": "archive-ar",
+      "name": "ar, including GNU/BSD naming and thin archives",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "archive-cab",
+      "name": "Microsoft Cabinet (CAB)",
+      "parent_ids": [
+        "format-cab"
+      ]
+    },
+    {
+      "focused_id": "archive-wim",
+      "name": "WIM and split WIM (SWM)",
+      "parent_ids": [
+        "format-wim"
+      ]
+    },
+    {
+      "focused_id": "archive-wim-solid-esd",
+      "name": "Solid WIM / ESD variants",
+      "parent_ids": [
+        "format-wim"
+      ]
+    },
+    {
+      "focused_id": "archive-iso9660",
+      "name": "ISO 9660 / ECMA-119 optical filesystem images",
+      "parent_ids": [
+        "format-iso-image"
+      ]
+    },
+    {
+      "focused_id": "archive-udf",
+      "name": "Universal Disk Format (UDF)",
+      "parent_ids": [
+        "format-udf-image"
+      ]
+    },
+    {
+      "focused_id": "archive-zpaq",
+      "name": "ZPAQ streaming and journaling archives",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "archive-dar",
+      "name": "DAR archive format",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "behavior-par2",
+      "name": "PAR2 recovery volumes",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "codec-deflate",
+      "name": "Raw DEFLATE",
+      "parent_ids": [
+        "compression-deflate"
+      ]
+    },
+    {
+      "focused_id": "codec-zlib",
+      "name": "zlib stream",
+      "parent_ids": [
+        "compression-zlib"
+      ]
+    },
+    {
+      "focused_id": "codec-gzip",
+      "name": "gzip members",
+      "parent_ids": [
+        "compression-gzip"
+      ]
+    },
+    {
+      "focused_id": "codec-bzip2",
+      "name": "bzip2 stream",
+      "parent_ids": [
+        "compression-bzip2"
+      ]
+    },
+    {
+      "focused_id": "codec-xz",
+      "name": "XZ container",
+      "parent_ids": [
+        "compression-xz"
+      ]
+    },
+    {
+      "focused_id": "codec-lzma-alone",
+      "name": "Legacy .lzma / LZMA-Alone",
+      "parent_ids": [
+        "compression-xz"
+      ]
+    },
+    {
+      "focused_id": "codec-zstd",
+      "name": "Zstandard frame",
+      "parent_ids": [
+        "compression-zstd"
+      ]
+    },
+    {
+      "focused_id": "codec-zstd-seekable",
+      "name": "Zstandard seekable format",
+      "parent_ids": [
+        "compression-zstd"
+      ]
+    },
+    {
+      "focused_id": "codec-lz4",
+      "name": "LZ4 frame format",
+      "parent_ids": [
+        "compression-lz4"
+      ]
+    },
+    {
+      "focused_id": "codec-brotli",
+      "name": "Brotli stream",
+      "parent_ids": [
+        "compression-brotli"
+      ]
+    },
+    {
+      "focused_id": "codec-snappy-framed",
+      "name": "Snappy framed stream",
+      "parent_ids": [
+        "compression-snappy"
+      ]
+    },
+    {
+      "focused_id": "codec-lzip",
+      "name": "lzip",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "codec-unix-compress",
+      "name": "Unix compress (.Z)",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "codec-lzo",
+      "name": "LZO raw block codecs",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "codec-lzop",
+      "name": "lzop file framing",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "codec-bgzf",
+      "name": "BGZF blocked gzip",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "archive-rar4",
+      "name": "RAR 1.5–4.x legacy container",
+      "parent_ids": [
+        "format-rar"
+      ]
+    },
+    {
+      "focused_id": "archive-xar",
+      "name": "XAR (eXtensible ARchive)",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "archive-arc-legacy",
+      "name": "SEA ARC and related PAK archives",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "archive-arj",
+      "name": "ARJ",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "archive-lha",
+      "name": "LHA / LZH and LArc-related methods",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "archive-ace",
+      "name": "ACE 1.x / 2.0",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "archive-stuffit",
+      "name": "StuffIt classic and version 5",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "archive-stuffitx",
+      "name": "StuffIt X",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "metadata-applesingle-double",
+      "name": "AppleSingle / AppleDouble / MacMIME",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "archive-macbinary",
+      "name": "MacBinary I / II / III",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "archive-binhex",
+      "name": "BinHex 4.0 (.hqx)",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "image-raw",
+      "name": "Raw disk image",
+      "parent_ids": [
+        "format-raw-image"
+      ]
+    },
+    {
+      "focused_id": "image-qcow2",
+      "name": "QCOW2",
+      "parent_ids": [
+        "format-qcow2"
+      ]
+    },
+    {
+      "focused_id": "image-vhd",
+      "name": "VHD (Virtual Hard Disk)",
+      "parent_ids": [
+        "format-vhd"
+      ]
+    },
+    {
+      "focused_id": "image-vhdx",
+      "name": "VHDX (Virtual Hard Disk v2)",
+      "parent_ids": [
+        "format-vhd"
+      ]
+    },
+    {
+      "focused_id": "image-vmdk",
+      "name": "VMDK image family",
+      "parent_ids": [
+        "format-vmdk"
+      ]
+    },
+    {
+      "focused_id": "image-dmg-udif",
+      "name": "Apple DMG / UDIF image family",
+      "parent_ids": [
+        "format-dmg"
+      ]
+    },
+    {
+      "focused_id": "image-apple-sparse",
+      "name": "Apple sparse images: UDSB sparse bundle and ASIF",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "archive-apple-archive",
+      "name": "Apple Archive (.aar)",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "codec-lzfse",
+      "name": "LZFSE stream",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "enc-age-v1",
+      "name": "age v1 encrypted file format",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "enc-age-recipient-profiles",
+      "name": "age native, passphrase, hybrid, and tagged recipient profiles",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "enc-age-plugin",
+      "name": "age recipient and identity plugin protocol",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "enc-openpgp-rfc9580",
+      "name": "OpenPGP RFC 9580 encrypted-message profile",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "enc-openpgp-legacy",
+      "name": "OpenPGP RFC 4880-era encrypted message import profiles",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "enc-openpgp-rfc9980",
+      "name": "OpenPGP post-quantum algorithm extension",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "enc-librepgp-ocb",
+      "name": "LibrePGP OCB encrypted-data packet profile",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "enc-cms-enveloped-data",
+      "name": "CMS EnvelopedData",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "enc-cms-auth-enveloped-data",
+      "name": "CMS AuthEnvelopedData with AES-GCM/CCM profiles",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "enc-jwe",
+      "name": "JSON Web Encryption (JWE)",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "enc-cose-encrypt0",
+      "name": "COSE_Encrypt0",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "enc-cose-encrypt",
+      "name": "COSE_Encrypt",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "enc-tink-streaming-aead",
+      "name": "Tink Streaming AEAD wire profiles",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "enc-libsodium-secretstream",
+      "name": "libsodium secretstream_xchacha20poly1305",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "enc-miscreant-stream",
+      "name": "Miscreant STREAM construction",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "enc-aws-encryption-sdk",
+      "name": "AWS Encryption SDK message format",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "enc-s3-encryption-client",
+      "name": "Amazon S3 Encryption Client object envelope",
+      "parent_ids": [
+        "amazon-s3"
+      ]
+    },
+    {
+      "focused_id": "enc-openssl-enc",
+      "name": "OpenSSL enc salted ciphertext convention",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "enc-aescrypt-v3",
+      "name": "AES Crypt .aes stream format 3",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "enc-scrypt-file",
+      "name": "Tarsnap scrypt encrypted file format",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "enc-zipcrypto",
+      "name": "ZIP traditional encryption (ZipCrypto)",
+      "parent_ids": [
+        "format-zip",
+        "lib-zipjs"
+      ]
+    },
+    {
+      "focused_id": "enc-winzip-aes",
+      "name": "ZIP WinZip AES AE-1 and AE-2",
+      "parent_ids": [
+        "format-zip",
+        "lib-zipjs"
+      ]
+    },
+    {
+      "focused_id": "enc-pkware-strong",
+      "name": "ZIP PKWARE Strong Encryption profile",
+      "parent_ids": [
+        "format-zip"
+      ]
+    },
+    {
+      "focused_id": "enc-zip-central-directory",
+      "name": "ZIP central-directory encryption",
+      "parent_ids": [
+        "format-zip"
+      ]
+    },
+    {
+      "focused_id": "enc-7z-aes",
+      "name": "7z AES encryption and optional encrypted headers",
+      "parent_ids": [
+        "format-7z"
+      ]
+    },
+    {
+      "focused_id": "enc-rar5",
+      "name": "RAR 5 encryption and encrypted-header profiles",
+      "parent_ids": [
+        "format-rar"
+      ]
+    },
+    {
+      "focused_id": "enc-apple-encrypted-archive",
+      "name": "Apple Encrypted Archive (AEA) profiles",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "sig-minisign",
+      "name": "Minisign detached signature format",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "sig-signify",
+      "name": "OpenBSD signify signatures",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "control-s3-sse-s3",
+      "name": "Amazon S3 SSE-S3",
+      "parent_ids": [
+        "amazon-s3",
+        "s3-rest"
+      ]
+    },
+    {
+      "focused_id": "control-s3-sse-kms",
+      "name": "Amazon S3 SSE-KMS",
+      "parent_ids": [
+        "amazon-s3",
+        "s3-rest"
+      ]
+    },
+    {
+      "focused_id": "control-s3-dsse-kms",
+      "name": "Amazon S3 dual-layer SSE-KMS (DSSE-KMS)",
+      "parent_ids": [
+        "amazon-s3"
+      ]
+    },
+    {
+      "focused_id": "control-s3-sse-c",
+      "name": "Amazon S3 SSE-C",
+      "parent_ids": [
+        "amazon-s3",
+        "s3-rest"
+      ]
+    },
+    {
+      "focused_id": "control-cse-kms",
+      "name": "Client-side envelope encryption with KMS-managed wrapping keys",
+      "parent_ids": [
+        "amazon-s3"
+      ]
+    },
+    {
+      "focused_id": "crypto-aead",
+      "name": "AEAD cipher constructions",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "crypto-password-kdf",
+      "name": "Password key derivation: Argon2, scrypt, and PBKDF2",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "crypto-hash-mac-hkdf",
+      "name": "Hashes, keyed MACs, and HKDF",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "crypto-hpke",
+      "name": "Hybrid Public Key Encryption (HPKE)",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "key-pkcs8",
+      "name": "PKCS #8 private-key containers",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "key-pkcs12",
+      "name": "PKCS #12 / PFX credential bundles",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "encoding-pem-der",
+      "name": "PEM-style textual encoding and ASN.1 DER",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "key-jwk-jwks",
+      "name": "JSON Web Key / JSON Web Key Set",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "key-cose",
+      "name": "COSE_Key",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "credential-kdbx",
+      "name": "KeePass KDBX 4.1 credential database",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "sig-asic",
+      "name": "ETSI ASiC-S / ASiC-E signed ZIP containers",
+      "parent_ids": [
+        "format-zip"
+      ]
+    },
+    {
+      "focused_id": "sig-evidence-records",
+      "name": "Evidence Record Syntax (ERS) and XMLERS",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "vault-cryptomator",
+      "name": "Cryptomator vault",
+      "parent_ids": [
+        "cryptomator-vault"
+      ]
+    },
+    {
+      "focused_id": "vault-gocryptfs-forward",
+      "name": "gocryptfs forward format",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "vault-gocryptfs-reverse",
+      "name": "gocryptfs reverse view",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "vault-rclone-crypt",
+      "name": "rclone crypt file and name format",
+      "parent_ids": [
+        "composition-crypt"
+      ]
+    },
+    {
+      "focused_id": "vault-encfs-legacy",
+      "name": "EncFS legacy V4/V5/V6",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "vault-encfs-v7",
+      "name": "EncFS V7",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "vault-cryfs",
+      "name": "CryFS encrypted block tree",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "vault-securefs",
+      "name": "securefs lite and full formats",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "filesystem-fscrypt",
+      "name": "Linux fscrypt policies",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "filesystem-ecryptfs",
+      "name": "eCryptfs stacked filesystem",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "volume-luks",
+      "name": "LUKS1 / LUKS2 with dm-crypt",
+      "parent_ids": [
+        "dm-crypt-luks"
+      ]
+    },
+    {
+      "focused_id": "volume-veracrypt",
+      "name": "VeraCrypt volumes",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "volume-bitlocker",
+      "name": "BitLocker volumes",
+      "parent_ids": [
+        "bitlocker"
+      ]
+    },
+    {
+      "focused_id": "volume-apfs-filevault",
+      "name": "APFS encryption / FileVault",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "filesystem-windows-efs",
+      "name": "Windows EFS encrypted files",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "volume-apple-disk-images",
+      "name": "Encrypted Apple disk images and sparse bundles",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "backup-android-ab",
+      "name": "Android ADB .ab backup envelope",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "repository-restic",
+      "name": "restic repository",
+      "parent_ids": [
+        "restic-repository"
+      ]
+    },
+    {
+      "focused_id": "repository-borg",
+      "name": "Borg repository and archive snapshots",
+      "parent_ids": [
+        "borg-repository"
+      ]
+    },
+    {
+      "focused_id": "repository-kopia",
+      "name": "Kopia repository",
+      "parent_ids": [
+        "kopia-repository"
+      ]
+    },
+    {
+      "focused_id": "repository-duplicacy",
+      "name": "Duplicacy repository",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "repository-duplicati",
+      "name": "Duplicati backup volumes",
+      "parent_ids": [
+        "duplicati-repository"
+      ]
+    },
+    {
+      "focused_id": "repository-tarsnap",
+      "name": "Tarsnap archive and chunk model",
+      "parent_ids": [
+        "tarsnap"
+      ]
+    },
+    {
+      "focused_id": "repository-duplicity",
+      "name": "Duplicity full and incremental backup chains",
+      "parent_ids": [
+        "duplicity-repository"
+      ]
+    },
+    {
+      "focused_id": "package-bagit",
+      "name": "BagIt 1.0 package",
+      "parent_ids": [
+        "bagit"
+      ]
+    },
+    {
+      "focused_id": "package-ocfl",
+      "name": "Oxford Common File Layout 1.1",
+      "parent_ids": [
+        "ocfl"
+      ]
+    },
+    {
+      "focused_id": "package-warc",
+      "name": "WARC web archive records",
+      "parent_ids": [
+        "format-warc"
+      ]
+    },
+    {
+      "focused_id": "package-wacz",
+      "name": "Web Archive Collection Zipped (WACZ)",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "metadata-ro-crate",
+      "name": "RO-Crate research-object metadata",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "package-eark-csip",
+      "name": "E-ARK information packages and CSIP",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "metadata-premis",
+      "name": "PREMIS preservation metadata",
+      "parent_ids": [
+        "premis"
+      ]
+    },
+    {
+      "focused_id": "metadata-mets",
+      "name": "METS structural metadata",
+      "parent_ids": [
+        "mets"
+      ]
+    },
+    {
+      "focused_id": "package-oci-image-layout",
+      "name": "OCI image layout and filesystem layers",
+      "parent_ids": []
+    },
+    {
+      "focused_id": "package-car-v1",
+      "name": "IPLD CAR version 1",
+      "parent_ids": [
+        "car"
+      ]
+    },
+    {
+      "focused_id": "package-car-v2",
+      "name": "IPLD CAR version 2",
+      "parent_ids": [
+        "car"
+      ]
+    }
+  ]
+}

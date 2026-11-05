@@ -1,0 +1,1102 @@
+[
+  {
+    "id": "impl-libarchive",
+    "name": "libarchive native C library",
+    "role": "storage-tooling",
+    "selectable_backend": false,
+    "verified_as_of": "2026-11-05",
+    "verification_scope": "Primary documentation and source-manifest review; no package execution, interoperability test, or OPFS implementation in this research.",
+    "evidence_level": "Documented capability; integration assessments and caller policies are proposals, not executed results.",
+    "catalog_mapping_note": "Existing IDs identify related catalog concepts; they do not claim that this implementation is an existing OPFS dependency or driver.",
+    "existing_catalog_ids": [
+      "lib-libarchive"
+    ],
+    "version_observed": "Official homepage lists stable 3.8.11, released 2026-10-30.",
+    "lifecycle": "Current upstream release observed; format and codec support still depend on build configuration.",
+    "read_support": "Multi-format reader, including tar/PAX/cpio, ZIP/ZIPX, 7z, RAR4/5, ISO, CAB, WARC and XAR. RAR support has documented limitations.",
+    "write_support": "Creates tar/PAX/cpio, ZIP/ZIPX, 7z, ISO, WARC, XAR and other listed formats. RAR creation is not listed. No general in-place archive update API.",
+    "encryption_read": "ZIP password decryption is verified by upstream AES tests; encrypted 7z/RAR support is not established by the reviewed documents.",
+    "encryption_write": "ZIP AES writer options are exercised by upstream tests and require a cryptographic build dependency. Do not infer encryption for every writable format.",
+    "encrypted_listing": "The upstream ZIP AES test lists names and sizes before a password is supplied; payload encryption does not imply hidden metadata.",
+    "runtimes": [
+      "Native POSIX-like systems",
+      "Native Windows builds"
+    ],
+    "runtime_unknown": [
+      "Browser, Deno, Node and Bun require a separately assessed native binding or WASM build."
+    ],
+    "access_model": "Callback-driven, predominantly sequential processing. The project explicitly does not promise general random member access or in-place changes.",
+    "streaming_and_staging": "Can process data without loading a whole archive. A format-specific seek callback or restart may still be necessary; a replacement archive needs its own destination.",
+    "byte_limits": "The streaming architecture is not a whole-archive memory limit. Entry and codec limits remain format- and build-specific.",
+    "metadata": "archive_entry and disk APIs can preserve ownership, permissions, times, links, ACLs, flags and xattrs where the format and destination support them.",
+    "abort_and_cleanup": "Integration must stop callbacks and close/free archive handles on every exit. Disk extraction finalizes some directory metadata on close.",
+    "extraction_safety": "Disk API has explicit secure-symlink, no-dotdot and no-absolute-path flags; the cited manual says these checks are not the default. Enforce output budgets separately.",
+    "atomic_output": "ARCHIVE_EXTRACT_SAFE_WRITES stages and renames individual extracted files. It does not make a complete multi-file extraction transactional.",
+    "license": "New BSD license stated by upstream; enabled dependencies require their own review.",
+    "opfs_assessment": "Candidate native bridge or separately pinned WASM backend. Prefer entry-byte callbacks over giving an extractor unrestricted destination paths.",
+    "evidence": [
+      {
+        "claims": [
+          "version",
+          "runtimes",
+          "license",
+          "streaming"
+        ],
+        "source_urls": [
+          "https://www.libarchive.org/"
+        ]
+      },
+      {
+        "claims": [
+          "read",
+          "write",
+          "access_model",
+          "build_selection"
+        ],
+        "source_urls": [
+          "https://github.com/libarchive/libarchive",
+          "https://github.com/libarchive/libarchive/wiki/LibarchiveFormats"
+        ]
+      },
+      {
+        "claims": [
+          "ZIP encryption",
+          "metadata visibility",
+          "close/free example"
+        ],
+        "source_urls": [
+          "https://github.com/libarchive/libarchive/blob/master/libarchive/test/test_read_format_zip_winzip_aes.c"
+        ]
+      },
+      {
+        "claims": [
+          "extraction flags",
+          "metadata",
+          "per-file safe writes",
+          "close lifecycle"
+        ],
+        "source_urls": [
+          "https://man.freebsd.org/cgi/man.cgi?query=archive_write_disk&sektion=3&format=html"
+        ]
+      }
+    ],
+    "source_urls": [
+      "https://www.libarchive.org/",
+      "https://github.com/libarchive/libarchive",
+      "https://github.com/libarchive/libarchive/wiki/LibarchiveFormats",
+      "https://github.com/libarchive/libarchive/blob/master/libarchive/test/test_read_format_zip_winzip_aes.c",
+      "https://man.freebsd.org/cgi/man.cgi?query=archive_write_disk&sektion=3&format=html"
+    ]
+  },
+  {
+    "id": "impl-7zip-native",
+    "name": "7-Zip native CLI and libraries",
+    "role": "storage-tooling",
+    "selectable_backend": false,
+    "verified_as_of": "2026-11-05",
+    "verification_scope": "Primary documentation and source-manifest review; no package execution, interoperability test, or OPFS implementation in this research.",
+    "evidence_level": "Documented capability; integration assessments and caller policies are proposals, not executed results.",
+    "catalog_mapping_note": "Existing IDs identify related catalog concepts; they do not claim that this implementation is an existing OPFS dependency or driver.",
+    "existing_catalog_ids": [
+      "format-7z",
+      "format-zip"
+    ],
+    "version_observed": "Official homepage and downloads list 26.05, released 2026-10-21.",
+    "lifecycle": "Current native release observed; this version must not be attributed to older WASM ports.",
+    "read_support": "Unpacks its writable formats and a larger read-only set including RAR, CAB, ISO/UDF, disk images and several filesystem images.",
+    "write_support": "Official list: 7z, XZ, BZIP2, GZIP, TAR, ZIP and WIM. Read support for a format does not imply creation support.",
+    "encryption_read": "The official feature list establishes AES-256 support for 7z and ZIP. Additional password formats/methods need separate verification.",
+    "encryption_write": "Officially documents AES-256 for 7z and ZIP. Pinned 7z writer source has a separate he property for header encryption.",
+    "encrypted_listing": "7z header encryption is separate from payload encryption. WinZip AES leaves names visible; PKWARE central-directory encryption is a different profile outside this claim.",
+    "runtimes": [
+      "Windows native application/CLI",
+      "Linux console builds",
+      "macOS console build"
+    ],
+    "runtime_unknown": [
+      "No native browser API; Deno/Node/Bun would invoke a process or a separately assessed binding."
+    ],
+    "access_model": "Member selection is a CLI operation, not proof of cheap byte-range access. Solid compression can couple extraction of multiple members.",
+    "streaming_and_staging": "Memory use depends on codec dictionary and solid-block choices. An OPFS process integration needs controlled local staging and output collection.",
+    "byte_limits": "The published 7z format size ceiling is not a practical process, filesystem or WASM allocation guarantee.",
+    "metadata": "Unicode names and format-specific metadata; preservation differs by archive format and operating system.",
+    "abort_and_cleanup": "OPFS integration must own the subprocess, exit status, cancellation and temporary-output cleanup. No JavaScript AbortSignal contract is claimed.",
+    "extraction_safety": "Candidate adapter must validate member paths/types and extraction quotas and confine native output to a staging directory.",
+    "atomic_output": "Do not equate a successful individual write with atomic publication of the entire extraction or replacement archive.",
+    "license": "Upstream states LGPL for most code, BSD-3-Clause for some parts, and unRAR restrictions for some components.",
+    "opfs_assessment": "Native multi-format route. A new driver would map listing/extraction/creation separately and reject unsupported combinations.",
+    "evidence": [
+      {
+        "claims": [
+          "version",
+          "read",
+          "write",
+          "AES",
+          "license"
+        ],
+        "source_urls": [
+          "https://www.7-zip.org/"
+        ]
+      },
+      {
+        "claims": [
+          "native operating systems"
+        ],
+        "source_urls": [
+          "https://www.7-zip.org/download.html"
+        ]
+      },
+      {
+        "claims": [
+          "solid compression",
+          "Unicode",
+          "format size versus implementation limit"
+        ],
+        "source_urls": [
+          "https://www.7-zip.org/7z.html"
+        ]
+      },
+      {
+        "claims": [
+          "separate he property and header encryption in native writer; connector-read blob c1c2b6369b8d2a401471da166ee4df3b06f16156"
+        ],
+        "source_urls": [
+          "https://github.com/ip7z/7zip/blob/b88c6bc09339de32f7d18bbab900686b244f42ba/CPP/7zip/Archive/7z/7zHandlerOut.cpp"
+        ]
+      },
+      {
+        "claims": [
+          "WinZip AES metadata visibility, profile-qualified"
+        ],
+        "source_urls": [
+          "https://www.winzip.com/en/support/aes-encryption/"
+        ]
+      }
+    ],
+    "source_urls": [
+      "https://www.7-zip.org/",
+      "https://www.7-zip.org/download.html",
+      "https://www.7-zip.org/7z.html",
+      "https://github.com/ip7z/7zip/blob/b88c6bc09339de32f7d18bbab900686b244f42ba/CPP/7zip/Archive/7z/7zHandlerOut.cpp",
+      "https://www.winzip.com/en/support/aes-encryption/"
+    ]
+  },
+  {
+    "id": "impl-libzip",
+    "name": "libzip native ZIP library",
+    "role": "storage-tooling",
+    "selectable_backend": false,
+    "verified_as_of": "2026-11-05",
+    "verification_scope": "Primary documentation and source-manifest review; no package execution, interoperability test, or OPFS implementation in this research.",
+    "evidence_level": "Documented capability; integration assessments and caller policies are proposals, not executed results.",
+    "catalog_mapping_note": "Existing IDs identify related catalog concepts; they do not claim that this implementation is an existing OPFS dependency or driver.",
+    "existing_catalog_ids": [
+      "format-zip"
+    ],
+    "version_observed": "Official reference documentation identifies current version 1.12.1.",
+    "lifecycle": "Current upstream documentation observed; selected compression and crypto backends remain build choices.",
+    "read_support": "ZIP reading, member lookup, metadata and encrypted-member reads.",
+    "write_support": "Create and modify ZIP archives, including add/replace/delete and explicit commit/discard.",
+    "encryption_read": "Encrypted ZIP member APIs and per-method capability query are documented.",
+    "encryption_write": "WinZip AES-128/192/256 and traditional PKWare encryption are documented. The manual warns that traditional PKWare encryption is insecure.",
+    "encrypted_listing": "These per-member encryption methods do not establish encrypted central-directory support.",
+    "runtimes": [
+      "Native C library"
+    ],
+    "runtime_unknown": [
+      "Browser/WASM and JavaScript runtime bindings were not validated."
+    ],
+    "access_model": "Opening an archive from a custom source requires seek/tell support. zip_fseek within a member is documented only for stored, unencrypted data.",
+    "streaming_and_staging": "New member data can come from streamed read sources. A writable archive source must implement begin, commit, rollback and seek-write semantics.",
+    "byte_limits": "API offsets and sizes use explicit 64-bit integer types; a JavaScript bridge must retain exact integer and buffer limits.",
+    "metadata": "Archive/member attributes, timestamps, names and extra fields have dedicated APIs.",
+    "abort_and_cleanup": "zip_close commits and frees only on success. On error the handle remains owned by the caller; zip_discard frees without saving. A registered cancel callback interrupts zip_close.",
+    "extraction_safety": "It exposes member data; destination confinement, name collisions, link policy and decompression limits remain adapter responsibilities.",
+    "atomic_output": "File-backed close can fail on temporary-file creation or rename. Custom sources must provide real commit/rollback rather than destructively overwriting their original.",
+    "license": "BSD-3-Clause as stated by upstream.",
+    "opfs_assessment": "A native custom-source bridge can map seekable reads and staged replacement. This is not automatically a browser-ready dependency.",
+    "evidence": [
+      {
+        "claims": [
+          "version",
+          "read",
+          "write",
+          "metadata"
+        ],
+        "source_urls": [
+          "https://libzip.org/documentation/"
+        ]
+      },
+      {
+        "claims": [
+          "encryption methods"
+        ],
+        "source_urls": [
+          "https://libzip.org/documentation/zip_file_set_encryption/"
+        ]
+      },
+      {
+        "claims": [
+          "custom source protocol",
+          "rollback",
+          "resource ownership"
+        ],
+        "source_urls": [
+          "https://libzip.org/documentation/zip_source_function/"
+        ]
+      },
+      {
+        "claims": [
+          "member seeking"
+        ],
+        "source_urls": [
+          "https://libzip.org/documentation/zip_fseek/"
+        ]
+      },
+      {
+        "claims": [
+          "commit",
+          "discard",
+          "cancel"
+        ],
+        "source_urls": [
+          "https://libzip.org/documentation/zip_close/",
+          "https://libzip.org/documentation/zip_register_cancel_callback_with_state/"
+        ]
+      },
+      {
+        "claims": [
+          "license"
+        ],
+        "source_urls": [
+          "https://libzip.org/license/"
+        ]
+      }
+    ],
+    "source_urls": [
+      "https://libzip.org/documentation/",
+      "https://libzip.org/documentation/zip_file_set_encryption/",
+      "https://libzip.org/documentation/zip_source_function/",
+      "https://libzip.org/documentation/zip_fseek/",
+      "https://libzip.org/documentation/zip_close/",
+      "https://libzip.org/documentation/zip_register_cancel_callback_with_state/",
+      "https://libzip.org/license/"
+    ]
+  },
+  {
+    "id": "impl-zipjs",
+    "name": "zip.js",
+    "role": "storage-tooling",
+    "selectable_backend": false,
+    "verified_as_of": "2026-11-05",
+    "verification_scope": "Primary documentation and source-manifest review; no package execution, interoperability test, or OPFS implementation in this research.",
+    "evidence_level": "Documented capability; integration assessments and caller policies are proposals, not executed results.",
+    "catalog_mapping_note": "Existing IDs identify related catalog concepts; they do not claim that this implementation is an existing OPFS dependency or driver.",
+    "existing_catalog_ids": [
+      "lib-zipjs",
+      "format-zip"
+    ],
+    "version_observed": "Reviewed master package manifest says 2.24.0; online API documentation reviewed on 2026-11-05. Package execution and release equivalence were not tested.",
+    "lifecycle": "Current project documentation with explicit multi-runtime compatibility; pin the adopted release and its worker/WASM assets.",
+    "read_support": "ZIP/ZIP64 and split ZIP, STORE/DEFLATE and documented DEFLATE64 decoding; metadata enumeration and streamed member extraction.",
+    "write_support": "ZIP/ZIP64 creation, streamed entry output, parallel compression and split-output options; changing an existing archive normally creates replacement output.",
+    "encryption_read": "WinZip AES and PKWare ZipCrypto are documented. AES authentication checking defaults to true in the reviewed API.",
+    "encryption_write": "Password/raw-password options, AES strength and ZipCrypto selection are exposed.",
+    "encrypted_listing": "Do not treat per-entry AES/ZipCrypto as hidden filenames or claim support for PKWARE encrypted central directories without a separate fixture.",
+    "runtimes": [
+      "Browsers: Chrome, Firefox, Safari, Edge (publisher compatibility table)",
+      "Node.js (publisher compatibility table)",
+      "Deno (publisher compatibility table)",
+      "Bun (publisher compatibility table)"
+    ],
+    "runtime_unknown": [
+      "Exact minimum versions differ by native-JavaScript, WASM and core build; this research did not execute them."
+    ],
+    "access_model": "ZipReader reads the central directory first. A plain ReadableStream is buffered fully; custom Reader.readUint8Array(index,length), lazy Blob or HttpRangeReader avoids that whole-input buffering.",
+    "streaming_and_staging": "Parallel entry compression automatically enables buffering. createTempStream can put each temporary compressed entry on OPFS or another store; its dispose hook runs after success, error or abort.",
+    "byte_limits": "ZIP64 support does not remove runtime Number, typed-array, quota or codec limits. Apply explicit member-count and actual-output budgets.",
+    "metadata": "Writer options expose timestamps, comments, extra attributes, Unix mode/uid/gid and DOS attributes. A portable filesystem cannot necessarily apply them all.",
+    "abort_and_cleanup": "Entry read/write options accept AbortSignal; ZipReader.close and async disposal are documented, and terminateWorkers ends the shared worker pool. Own temporary-stream disposal separately.",
+    "extraction_safety": "Reviewed options include structural ambiguity/overlap checks. CRC32 checking defaults to false, AES authentication to true. These checks do not replace path/type/size policies.",
+    "atomic_output": "The writer targets a sink; a filesystem adapter must stage and commit the final archive or extracted file after validation.",
+    "license": "BSD-3-Clause in the reviewed package manifest.",
+    "opfs_assessment": "Direct typed range-reader and stream-writer seam; the existing OPFS helpers are evidence that temporary storage is a distinct lifecycle, not permission to assume whole-archive random writes.",
+    "evidence": [
+      {
+        "claims": [
+          "format features",
+          "runtimes"
+        ],
+        "source_urls": [
+          "https://gildas-lormeau.github.io/zip.js/"
+        ]
+      },
+      {
+        "claims": [
+          "version",
+          "license"
+        ],
+        "source_urls": [
+          "https://github.com/gildas-lormeau/zip.js/blob/master/package.json"
+        ]
+      },
+      {
+        "claims": [
+          "input buffering",
+          "range seam",
+          "close"
+        ],
+        "source_urls": [
+          "https://gildas-lormeau.github.io/zip.js/api/classes/ZipReader.html",
+          "https://gildas-lormeau.github.io/zip.js/api/classes/HttpRangeReader.html"
+        ]
+      },
+      {
+        "claims": [
+          "parallel staging",
+          "OPFS helper",
+          "metadata",
+          "write options"
+        ],
+        "source_urls": [
+          "https://gildas-lormeau.github.io/zip.js/api/interfaces/ZipWriterConstructorOptions.html"
+        ]
+      },
+      {
+        "claims": [
+          "AbortSignal",
+          "integrity defaults",
+          "ambiguity checks"
+        ],
+        "source_urls": [
+          "https://gildas-lormeau.github.io/zip.js/api/interfaces/EntryGetDataOptions.html"
+        ]
+      },
+      {
+        "claims": [
+          "worker cleanup"
+        ],
+        "source_urls": [
+          "https://gildas-lormeau.github.io/zip.js/api/functions/terminateWorkers.html"
+        ]
+      }
+    ],
+    "source_urls": [
+      "https://gildas-lormeau.github.io/zip.js/",
+      "https://github.com/gildas-lormeau/zip.js/blob/master/package.json",
+      "https://gildas-lormeau.github.io/zip.js/api/classes/ZipReader.html",
+      "https://gildas-lormeau.github.io/zip.js/api/classes/HttpRangeReader.html",
+      "https://gildas-lormeau.github.io/zip.js/api/interfaces/ZipWriterConstructorOptions.html",
+      "https://gildas-lormeau.github.io/zip.js/api/interfaces/EntryGetDataOptions.html",
+      "https://gildas-lormeau.github.io/zip.js/api/functions/terminateWorkers.html"
+    ]
+  },
+  {
+    "id": "impl-fflate",
+    "name": "fflate",
+    "role": "storage-tooling",
+    "selectable_backend": false,
+    "verified_as_of": "2026-11-05",
+    "verification_scope": "Primary documentation and source-manifest review; no package execution, interoperability test, or OPFS implementation in this research.",
+    "evidence_level": "Documented capability; integration assessments and caller policies are proposals, not executed results.",
+    "catalog_mapping_note": "Existing IDs identify related catalog concepts; they do not claim that this implementation is an existing OPFS dependency or driver.",
+    "existing_catalog_ids": [
+      "format-zip",
+      "compression-deflate",
+      "compression-gzip",
+      "compression-zlib"
+    ],
+    "version_observed": "README and changelog document 0.8.3.",
+    "lifecycle": "Current project documentation reviewed; an upstream ZIP64 allocation issue was reported for 0.8.3 and was not reproduced here.",
+    "read_support": "ZIP STORE/DEFLATE plus gzip, zlib and raw DEFLATE; complete-buffer and streaming unzip APIs.",
+    "write_support": "ZIP creation and gzip/zlib/DEFLATE compression, synchronous, callback-based and streaming forms.",
+    "encryption_read": "No password-decryption API verified; do not advertise encrypted ZIP support.",
+    "encryption_write": "No encryption writer verified.",
+    "encrypted_listing": "Encrypted archive support is outside the verified contract.",
+    "runtimes": [
+      "Browser (documented)",
+      "Node.js (documented)",
+      "Deno (documented import example)"
+    ],
+    "runtime_unknown": [
+      "Bun was not explicitly established by the reviewed evidence."
+    ],
+    "access_model": "Buffer-based ZIP operations or sequential streaming Unzip; no range-reader provider contract established.",
+    "streaming_and_staging": "Async streams expose queuedSize/ondrain; worker transfer can consume input buffers. Whole-result helpers still allocate complete results.",
+    "byte_limits": "ZIP64 reading exists, but the changelog does not promise arbitrary-large entry support. Test sentinel-size handling and bound allocation before trusting metadata.",
+    "metadata": "ZIP extra fields, comments and timestamps are available; not a native metadata restoration layer.",
+    "abort_and_cleanup": "Async one-shot calls return a termination function; async streams and streamed entries expose terminate. A terminated one-shot callback is not invoked.",
+    "extraction_safety": "The caller chooses output paths and limits. A parser returning a filename is not an extraction sandbox.",
+    "atomic_output": "Caller owns destination staging and commit.",
+    "license": "No license conclusion required for this capability assessment; verify the selected package license before embedding.",
+    "opfs_assessment": "Codec/streaming ZIP route with explicit backpressure and cancellation adaptation; no broad encrypted/large-ZIP claim.",
+    "evidence": [
+      {
+        "claims": [
+          "read",
+          "write",
+          "runtime",
+          "worker lifecycle"
+        ],
+        "source_urls": [
+          "https://github.com/101arrowz/fflate"
+        ]
+      },
+      {
+        "claims": [
+          "ZIP64 history",
+          "backpressure",
+          "version"
+        ],
+        "source_urls": [
+          "https://github.com/101arrowz/fflate/blob/master/CHANGELOG.md"
+        ]
+      },
+      {
+        "claims": [
+          "API surface"
+        ],
+        "source_urls": [
+          "https://github.com/101arrowz/fflate/blob/master/docs/README.md"
+        ]
+      },
+      {
+        "claims": [
+          "reported unreproduced allocation edge case"
+        ],
+        "source_urls": [
+          "https://github.com/101arrowz/fflate/issues/298"
+        ]
+      }
+    ],
+    "source_urls": [
+      "https://github.com/101arrowz/fflate",
+      "https://github.com/101arrowz/fflate/blob/master/CHANGELOG.md",
+      "https://github.com/101arrowz/fflate/blob/master/docs/README.md",
+      "https://github.com/101arrowz/fflate/issues/298"
+    ]
+  },
+  {
+    "id": "impl-jszip",
+    "name": "JSZip",
+    "role": "storage-tooling",
+    "selectable_backend": false,
+    "verified_as_of": "2026-11-05",
+    "verification_scope": "Primary documentation and source-manifest review; no package execution, interoperability test, or OPFS implementation in this research.",
+    "evidence_level": "Documented capability; integration assessments and caller policies are proposals, not executed results.",
+    "catalog_mapping_note": "Existing IDs identify related catalog concepts; they do not claim that this implementation is an existing OPFS dependency or driver.",
+    "existing_catalog_ids": [
+      "format-zip"
+    ],
+    "version_observed": "Official project website identifies 3.10.2.",
+    "lifecycle": "Current documentation reviewed; browser support examples include historical runtimes and are not a current benchmark.",
+    "read_support": "Classic ZIP, data descriptors and limited ZIP64 loading. STORE and DEFLATE.",
+    "write_support": "Create/edit the logical file set and generate a new ZIP; streamFiles uses data descriptors.",
+    "encryption_read": "Explicitly unsupported.",
+    "encryption_write": "Encrypted ZIP support is not part of the documented feature set.",
+    "encrypted_listing": "Password-protected input is rejected rather than providing a guaranteed metadata-only view.",
+    "runtimes": [
+      "Browser (documented)",
+      "Node.js (documented)"
+    ],
+    "runtime_unknown": [
+      "Deno and Bun were not independently verified."
+    ],
+    "access_model": "loadAsync accepts complete byte/string/Blob input and merges entries by name; no native remote-range reader is documented.",
+    "streaming_and_staging": "async/generateAsync hold the complete result. Node streams or StreamHelper permit chunk consumption; streamFiles alone does not remove whole-result accumulation.",
+    "byte_limits": "The limitations page says ZIP64 values must fit its 32-bit processing assumptions; do not equate ZIP64 parsing with practical >4GiB support.",
+    "metadata": "Round-tripping may discard metadata and add folders; native encoding support is UTF-8 with caller-provided decoders for other names.",
+    "abort_and_cleanup": "StreamHelper offers pause/resume. A general AbortSignal cancellation/cleanup contract is not established by these docs.",
+    "extraction_safety": "loadAsync strips relative .. components since 3.8.0 and retains unsafeOriginalName; duplicate names overwrite in its object model. CRC verification is opt-in.",
+    "atomic_output": "Caller must publish a successfully generated or validated result through a separate staged write.",
+    "license": "MIT or GPLv3 dual license, stated by upstream.",
+    "opfs_assessment": "Convenience ZIP manipulation route with explicit size and memory scope, not an encrypted or range-native archive driver.",
+    "evidence": [
+      {
+        "claims": [
+          "version",
+          "runtime",
+          "license"
+        ],
+        "source_urls": [
+          "https://stuk.github.io/jszip/"
+        ]
+      },
+      {
+        "claims": [
+          "encryption exclusion",
+          "ZIP64",
+          "buffering",
+          "metadata"
+        ],
+        "source_urls": [
+          "https://stuk.github.io/jszip/documentation/limitations.html"
+        ]
+      },
+      {
+        "claims": [
+          "path sanitization",
+          "duplicate entries",
+          "CRC",
+          "input shape"
+        ],
+        "source_urls": [
+          "https://stuk.github.io/jszip/documentation/api_jszip/load_async.html"
+        ]
+      },
+      {
+        "claims": [
+          "write methods",
+          "streamFiles"
+        ],
+        "source_urls": [
+          "https://stuk.github.io/jszip/documentation/api_jszip/generate_async.html"
+        ]
+      }
+    ],
+    "source_urls": [
+      "https://stuk.github.io/jszip/",
+      "https://stuk.github.io/jszip/documentation/limitations.html",
+      "https://stuk.github.io/jszip/documentation/api_jszip/load_async.html",
+      "https://stuk.github.io/jszip/documentation/api_jszip/generate_async.html"
+    ]
+  },
+  {
+    "id": "impl-web-compression-streams",
+    "name": "Web CompressionStream / DecompressionStream",
+    "role": "storage-tooling",
+    "selectable_backend": false,
+    "verified_as_of": "2026-11-05",
+    "verification_scope": "Primary documentation and source-manifest review; no package execution, interoperability test, or OPFS implementation in this research.",
+    "evidence_level": "Documented capability; integration assessments and caller policies are proposals, not executed results.",
+    "catalog_mapping_note": "Existing IDs identify related catalog concepts; they do not claim that this implementation is an existing OPFS dependency or driver.",
+    "existing_catalog_ids": [
+      "compression-deflate",
+      "compression-gzip",
+      "compression-zlib"
+    ],
+    "version_observed": "WHATWG Living Standard last updated 2026-10-19 in the retrieved page.",
+    "lifecycle": "Web standard implemented by runtimes; algorithm availability must be probed in the deployed runtime.",
+    "read_support": "Streaming decompression of the standard gzip, deflate (zlib framing) and deflate-raw formats; no archive-member parser.",
+    "write_support": "Streaming compression of those formats; no ZIP/tar directory, entry metadata, append or update API.",
+    "encryption_read": "None.",
+    "encryption_write": "None.",
+    "encrypted_listing": "Not applicable: it has no archive listing.",
+    "runtimes": [
+      "Web browser/worker implementations",
+      "Deno documented web API",
+      "Node documented Web Streams API",
+      "Bun documented global API"
+    ],
+    "runtime_unknown": [
+      "Runtime-specific extra algorithms and exact version support are not portable standard guarantees."
+    ],
+    "access_model": "Forward stream transform. No random decompressed-byte access without a separate seekable format/index.",
+    "streaming_and_staging": "Uses readable/writable Web Streams; accumulating a final Blob or ArrayBuffer is a caller choice, not a streaming guarantee.",
+    "byte_limits": "No application-level decompressed-byte budget is supplied by the standard. Count produced bytes and propagate cancellation.",
+    "metadata": "Only compression framing; no filesystem metadata contract.",
+    "abort_and_cleanup": "Use stream cancellation/abort and release locks through the enclosing pipeline; there is no separate archive handle.",
+    "extraction_safety": "No path handling. A valid compressed stream can still expand beyond application resources.",
+    "atomic_output": "Destination staging remains external to the transform.",
+    "license": "Platform API; no bundled codec package is implied.",
+    "opfs_assessment": "Reusable codec layer under tar or another container, or a transparent stream transform. Do not call it archive support.",
+    "evidence": [
+      {
+        "claims": [
+          "standard formats",
+          "API shape",
+          "no archive contract"
+        ],
+        "source_urls": [
+          "https://compression.spec.whatwg.org/"
+        ]
+      },
+      {
+        "claims": [
+          "Deno runtime API"
+        ],
+        "source_urls": [
+          "https://docs.deno.com/api/web/streams/"
+        ]
+      },
+      {
+        "claims": [
+          "Node runtime API"
+        ],
+        "source_urls": [
+          "https://nodejs.org/api/webstreams.html#class-compressionstream"
+        ]
+      },
+      {
+        "claims": [
+          "Bun runtime API"
+        ],
+        "source_urls": [
+          "https://bun.sh/reference/globals/CompressionStream"
+        ]
+      }
+    ],
+    "source_urls": [
+      "https://compression.spec.whatwg.org/",
+      "https://docs.deno.com/api/web/streams/",
+      "https://nodejs.org/api/webstreams.html#class-compressionstream",
+      "https://bun.sh/reference/globals/CompressionStream"
+    ]
+  },
+  {
+    "id": "impl-deno-std-tar",
+    "name": "Deno standard library @std/tar",
+    "role": "storage-tooling",
+    "selectable_backend": false,
+    "verified_as_of": "2026-11-05",
+    "verification_scope": "Primary documentation and source-manifest review; no package execution, interoperability test, or OPFS implementation in this research.",
+    "evidence_level": "Documented capability; integration assessments and caller policies are proposals, not executed results.",
+    "catalog_mapping_note": "Existing IDs identify related catalog concepts; they do not claim that this implementation is an existing OPFS dependency or driver.",
+    "existing_catalog_ids": [
+      "format-tar"
+    ],
+    "version_observed": "JSR page lists 0.1.10, explicitly UNSTABLE.",
+    "lifecycle": "Current successor to archived @std/archive; instability is part of the published contract.",
+    "read_support": "UntarStream parses a tar byte stream into entries and member streams.",
+    "write_support": "TarStream creates tar from typed file/directory/link inputs. File input requires path, size and readable content.",
+    "encryption_read": "None in tar.",
+    "encryption_write": "None in tar; compose a separate envelope if required.",
+    "encrypted_listing": "An external whole-archive envelope would require decryption before this parser.",
+    "runtimes": [
+      "Deno, explicitly indicated by the package"
+    ],
+    "runtime_unknown": [
+      "The JSR compatibility panel explicitly marks Node, Bun, browsers and Cloudflare Workers unknown."
+    ],
+    "access_model": "Sequential Web Streams. No central-directory lookup or in-place mutation contract.",
+    "streaming_and_staging": "Compose a codec stream for .tar.gz; avoid materializing entries merely to obtain a Blob.",
+    "byte_limits": "File size is supplied as a JavaScript number. Validate safe integer sizes and actual byte counts; no unlimited-size promise.",
+    "metadata": "Typed input includes per-entry metadata options and entry kind. Destination metadata support must be assessed separately.",
+    "abort_and_cleanup": "Use the Web Streams pipeline lifecycle and ensure open Deno files are closed on cancellation/error.",
+    "extraction_safety": "The package example normalizes a path before writing; normalization alone is not destination confinement. Enforce path/link/collision/output-size rules in the adapter.",
+    "atomic_output": "Caller supplies staged sinks and publication policy.",
+    "license": "Package license was not independently inspected in this capability pass.",
+    "opfs_assessment": "Native stream-shaped integration possibility for Deno; cross-runtime availability remains an explicit validation task.",
+    "evidence": [
+      {
+        "claims": [
+          "version",
+          "status",
+          "runtime qualifications",
+          "Untar example"
+        ],
+        "source_urls": [
+          "https://jsr.io/@std/tar"
+        ]
+      },
+      {
+        "claims": [
+          "write API"
+        ],
+        "source_urls": [
+          "https://jsr.io/@std/tar/doc/~/TarStream",
+          "https://jsr.io/@std/tar/doc/~/TarStreamFile"
+        ]
+      },
+      {
+        "claims": [
+          "migration from archived package"
+        ],
+        "source_urls": [
+          "https://jsr.io/@std/archive"
+        ]
+      }
+    ],
+    "source_urls": [
+      "https://jsr.io/@std/tar",
+      "https://jsr.io/@std/tar/doc/~/TarStream",
+      "https://jsr.io/@std/tar/doc/~/TarStreamFile",
+      "https://jsr.io/@std/archive"
+    ]
+  },
+  {
+    "id": "impl-deno-std-archive-legacy",
+    "name": "Deno @std/archive (historical API)",
+    "role": "storage-tooling",
+    "selectable_backend": false,
+    "verified_as_of": "2026-11-05",
+    "verification_scope": "Primary documentation and source-manifest review; no package execution, interoperability test, or OPFS implementation in this research.",
+    "evidence_level": "Documented capability; integration assessments and caller policies are proposals, not executed results.",
+    "catalog_mapping_note": "Existing IDs identify related catalog concepts; they do not claim that this implementation is an existing OPFS dependency or driver.",
+    "existing_catalog_ids": [
+      "format-tar"
+    ],
+    "version_observed": "JSR lists 0.225.4 and an archived/read-only package notice.",
+    "lifecycle": "Deprecated; the publisher directs users to @std/tar.",
+    "read_support": "Historical tar extraction API.",
+    "write_support": "Historical Tar append/getReader API; not a current general ZIP/compression package.",
+    "encryption_read": "None verified.",
+    "encryption_write": "None verified.",
+    "encrypted_listing": "Not applicable to tar itself.",
+    "runtimes": [
+      "Deno as indicated by JSR"
+    ],
+    "runtime_unknown": [
+      "Other runtimes not established."
+    ],
+    "access_model": "Legacy Reader-based tar workflow.",
+    "streaming_and_staging": "Historical streaming file example.",
+    "byte_limits": "No broader size claim made.",
+    "metadata": "Tar metadata is format-limited.",
+    "abort_and_cleanup": "Caller closes readers and writers.",
+    "extraction_safety": "No extraction-sandbox claim.",
+    "atomic_output": "Caller-managed.",
+    "license": "Not independently inspected.",
+    "opfs_assessment": "Migration reference only; do not present it as the maintained standard-library archive choice.",
+    "evidence": [
+      {
+        "claims": [
+          "all package lifecycle and legacy API observations"
+        ],
+        "source_urls": [
+          "https://jsr.io/@std/archive"
+        ]
+      }
+    ],
+    "source_urls": [
+      "https://jsr.io/@std/archive"
+    ]
+  },
+  {
+    "id": "impl-deno-community-compress",
+    "name": "@deno-library/compress",
+    "role": "storage-tooling",
+    "selectable_backend": false,
+    "verified_as_of": "2026-11-05",
+    "verification_scope": "Primary documentation and source-manifest review; no package execution, interoperability test, or OPFS implementation in this research.",
+    "evidence_level": "Documented capability; integration assessments and caller policies are proposals, not executed results.",
+    "catalog_mapping_note": "Existing IDs identify related catalog concepts; they do not claim that this implementation is an existing OPFS dependency or driver.",
+    "existing_catalog_ids": [
+      "format-tar",
+      "format-zip",
+      "compression-gzip",
+      "compression-deflate",
+      "compression-brotli"
+    ],
+    "version_observed": "JSR lists 0.5.6.",
+    "lifecycle": "Community package, not @std/compress. Its documentation records migration from @std/archive to @std/tar.",
+    "read_support": "Documented tar/tgz/ZIP, gzip/deflate and Brotli utilities.",
+    "write_support": "Corresponding compression/archive convenience operations are documented; support depends on each implementation.",
+    "encryption_read": "Not established by reviewed documentation.",
+    "encryption_write": "Not established by reviewed documentation.",
+    "encrypted_listing": "No encrypted-header listing guarantee.",
+    "runtimes": [
+      "Deno, explicitly indicated by JSR"
+    ],
+    "runtime_unknown": [
+      "Other JSR runtime indicators are unknown."
+    ],
+    "access_model": "Path-based convenience functions plus byte/stream codec APIs; no verified general OPFS random-access provider interface.",
+    "streaming_and_staging": "GzipStream is documented for file streaming; that does not prove streaming for every format helper.",
+    "byte_limits": "No universal size guarantee established.",
+    "metadata": "Per-format helper behavior must be checked.",
+    "abort_and_cleanup": "No unified AbortSignal contract verified.",
+    "extraction_safety": "Audit delegated extractors and path handling before using untrusted input.",
+    "atomic_output": "No unified transaction guarantee verified.",
+    "license": "Not independently inspected.",
+    "opfs_assessment": "Possible Deno-specific wrapper route. Keep community ownership and unresolved per-format behavior visible.",
+    "evidence": [
+      {
+        "claims": [
+          "version",
+          "runtime",
+          "formats",
+          "std migration"
+        ],
+        "source_urls": [
+          "https://jsr.io/@deno-library/compress"
+        ]
+      },
+      {
+        "claims": [
+          "project identity",
+          "API families"
+        ],
+        "source_urls": [
+          "https://github.com/deno-library/compress"
+        ]
+      }
+    ],
+    "source_urls": [
+      "https://jsr.io/@deno-library/compress",
+      "https://github.com/deno-library/compress"
+    ]
+  },
+  {
+    "id": "impl-tar-stream",
+    "name": "tar-stream",
+    "role": "storage-tooling",
+    "selectable_backend": false,
+    "verified_as_of": "2026-11-05",
+    "verification_scope": "Primary documentation and source-manifest review; no package execution, interoperability test, or OPFS implementation in this research.",
+    "evidence_level": "Documented capability; integration assessments and caller policies are proposals, not executed results.",
+    "catalog_mapping_note": "Existing IDs identify related catalog concepts; they do not claim that this implementation is an existing OPFS dependency or driver.",
+    "existing_catalog_ids": [
+      "format-tar"
+    ],
+    "version_observed": "Current primary README; no exact package release asserted.",
+    "lifecycle": "Project documentation reviewed; no maintenance-frequency promise.",
+    "read_support": "USTAR with PAX extended-header support.",
+    "write_support": "pack generates tar; modifications use extract plus pack to create replacement output.",
+    "encryption_read": "None.",
+    "encryption_write": "None.",
+    "encrypted_listing": "Not applicable to unencrypted tar.",
+    "runtimes": [
+      "Node.js stream API documented"
+    ],
+    "runtime_unknown": [
+      "Browser/Deno/Bun support not established by this review."
+    ],
+    "access_model": "Sequential parser/generator; deliberately does not access the filesystem.",
+    "streaming_and_staging": "Each entry stream must be drained before advancing, or extraction stops under backpressure. gzip is a separate transform.",
+    "byte_limits": "Supply the declared entry size when packing a stream; enforce actual-output limits externally.",
+    "metadata": "Headers expose name, size, mode, time, owner IDs/names, type and link target.",
+    "abort_and_cleanup": "Adapter owns stream destruction and upstream cancellation; drain/advance sequencing is part of normal operation.",
+    "extraction_safety": "It returns headers and bytes. Filesystem path and special-file policies are caller responsibilities.",
+    "atomic_output": "Caller-managed staging.",
+    "license": "MIT stated by upstream.",
+    "opfs_assessment": "Container stream engine with an explicit provider writer; no tar-fs extraction behavior is inherited.",
+    "evidence": [
+      {
+        "claims": [
+          "all library-specific facts"
+        ],
+        "source_urls": [
+          "https://github.com/mafintosh/tar-stream"
+        ]
+      }
+    ],
+    "source_urls": [
+      "https://github.com/mafintosh/tar-stream"
+    ]
+  },
+  {
+    "id": "impl-libarchivejs",
+    "name": "libarchive.js / nika-begiashvili/libarchivejs",
+    "role": "storage-tooling",
+    "selectable_backend": false,
+    "verified_as_of": "2026-11-05",
+    "verification_scope": "Primary documentation and source-manifest review; no package execution, interoperability test, or OPFS implementation in this research.",
+    "evidence_level": "Documented capability; integration assessments and caller policies are proposals, not executed results.",
+    "catalog_mapping_note": "Existing IDs identify related catalog concepts; they do not claim that this implementation is an existing OPFS dependency or driver.",
+    "existing_catalog_ids": [
+      "lib-libarchive",
+      "format-zip",
+      "format-7z",
+      "format-rar",
+      "format-tar"
+    ],
+    "version_observed": "Reviewed master manifest says package libarchive.js 2.0.2.",
+    "lifecycle": "Separate WASM wrapper; the embedded native libarchive revision and release freshness were not established.",
+    "read_support": "README lists ZIP, 7z, RAR4/5 and tar extraction; listing and individual-member extract methods are documented.",
+    "write_support": "Version-2 documentation exposes Archive.write with format/compression choices. Do not infer RAR creation or every native writer from the broad read-format list.",
+    "encryption_read": "usePassword and hasEncryptedData are exposed; hasEncryptedData may return unknown. A format-by-format crypto matrix is not supplied.",
+    "encryption_write": "Archive.write accepts passphrase, but supported encrypted output formats were not independently established.",
+    "encrypted_listing": "Listing support does not imply listing encrypted headers without a password.",
+    "runtimes": [
+      "Browser worker/WASM route documented",
+      "Node.js build documented"
+    ],
+    "runtime_unknown": [
+      "Deno and Bun not verified."
+    ],
+    "access_model": "File/Blob input and extracted File objects. No OPFS/custom byte-range reader was established from the reviewed API.",
+    "streaming_and_staging": "Treat whole-input/whole-member materialization and WASM memory as adoption questions until measured; do not inherit native streaming guarantees.",
+    "byte_limits": "Wrapper and WASM allocation limits not verified.",
+    "metadata": "Listing returns member paths/objects; full native metadata fidelity is not established.",
+    "abort_and_cleanup": "No explicit close/AbortSignal contract found in the reviewed README. Worker ownership and disposal require source review before integration.",
+    "extraction_safety": "Confine extracted paths and cap results independently; WASM isolation does not prevent memory exhaustion.",
+    "atomic_output": "Returned objects must be staged and published by the caller.",
+    "license": "Wrapper manifest is MIT; upstream libarchive and compiled dependencies remain separate license inputs.",
+    "opfs_assessment": "Broad browser parsing candidate with unresolved lifecycle and per-format details; not a drop-in proof of native libarchive feature parity.",
+    "evidence": [
+      {
+        "claims": [
+          "read",
+          "write",
+          "runtime",
+          "password API",
+          "worker asset loading"
+        ],
+        "source_urls": [
+          "https://github.com/nika-begiashvili/libarchivejs"
+        ]
+      },
+      {
+        "claims": [
+          "version",
+          "package identity",
+          "wrapper license"
+        ],
+        "source_urls": [
+          "https://github.com/nika-begiashvili/libarchivejs/blob/master/package.json"
+        ]
+      }
+    ],
+    "source_urls": [
+      "https://github.com/nika-begiashvili/libarchivejs",
+      "https://github.com/nika-begiashvili/libarchivejs/blob/master/package.json"
+    ]
+  },
+  {
+    "id": "impl-7z-wasm",
+    "name": "use-strict/7z-wasm",
+    "role": "storage-tooling",
+    "selectable_backend": false,
+    "verified_as_of": "2026-11-05",
+    "verification_scope": "Primary documentation and source-manifest review; no package execution, interoperability test, or OPFS implementation in this research.",
+    "evidence_level": "Documented capability; integration assessments and caller policies are proposals, not executed results.",
+    "catalog_mapping_note": "Existing IDs identify related catalog concepts; they do not claim that this implementation is an existing OPFS dependency or driver.",
+    "existing_catalog_ids": [
+      "format-7z",
+      "format-zip",
+      "format-rar"
+    ],
+    "version_observed": "Wrapper manifest 1.2.0; README explicitly identifies embedded 7-Zip 24.09 (2024-11-29).",
+    "lifecycle": "Its embedded version is older than the native upstream release observed in this review. No claim of latest native fixes.",
+    "read_support": "Publisher states the formats supported by its compiled full 7zz CLI; verify against embedded 24.09, not current 26.05.",
+    "write_support": "CLI invocation can create archives using the embedded 7zz writer set; no uniform JavaScript archive-update API.",
+    "encryption_read": "Embedded 7zz password operations are the route; exact crypto fixtures were not run.",
+    "encryption_write": "Use the embedded CLI format-specific options; no independent wrapper encryption guarantee.",
+    "encrypted_listing": "Inherits format/header constraints of the embedded build.",
+    "runtimes": [
+      "Browser WASM documented",
+      "Node.js WASM documented"
+    ],
+    "runtime_unknown": [
+      "Deno/Bun and direct OPFS filesystem integration were not verified."
+    ],
+    "access_model": "Emscripten virtual filesystem plus callMain. README documents NODEFS and WORKERFS as included adapters.",
+    "streaming_and_staging": "The basic example stages input/output in virtual FS; NODEFS exposes native files in Node. Browser large-file behavior depends on the selected FS and WASM build.",
+    "byte_limits": "No portable multi-gigabyte guarantee established. Account for linear memory, virtual-file copies and decompressor working memory.",
+    "metadata": "CLI/build and mounted filesystem determine metadata preservation.",
+    "abort_and_cleanup": "No AbortSignal API documented. Worker isolation and whole-job teardown are possible integration designs, not verified wrapper cancellation.",
+    "extraction_safety": "Constrain virtual/native mounts and output paths. Native-style CLI paths do not automatically obey an OPFS provider root.",
+    "atomic_output": "Stage results and validate CLI exit before publishing.",
+    "license": "The port License.txt states GNU LGPL for its files, with the additional unRAR restriction for 7zz JavaScript/WASM artifacts; it is not an MIT-only port.",
+    "opfs_assessment": "Worker-hosted tool route requiring an explicit filesystem bridge and pinned embedded version.",
+    "evidence": [
+      {
+        "claims": [
+          "embedded version",
+          "formats",
+          "runtime",
+          "FS adapters",
+          "callMain"
+        ],
+        "source_urls": [
+          "https://github.com/use-strict/7z-wasm"
+        ]
+      },
+      {
+        "claims": [
+          "wrapper version",
+          "license pointer"
+        ],
+        "source_urls": [
+          "https://github.com/use-strict/7z-wasm/blob/master/package.json"
+        ]
+      },
+      {
+        "claims": [
+          "port license composition"
+        ],
+        "source_urls": [
+          "https://github.com/use-strict/7z-wasm/blob/master/License.txt"
+        ]
+      },
+      {
+        "claims": [
+          "native comparison version and license composition"
+        ],
+        "source_urls": [
+          "https://www.7-zip.org/"
+        ]
+      }
+    ],
+    "source_urls": [
+      "https://github.com/use-strict/7z-wasm",
+      "https://github.com/use-strict/7z-wasm/blob/master/package.json",
+      "https://github.com/use-strict/7z-wasm/blob/master/License.txt",
+      "https://www.7-zip.org/"
+    ]
+  },
+  {
+    "id": "impl-node-unrar-js",
+    "name": "node-unrar-js",
+    "role": "storage-tooling",
+    "selectable_backend": false,
+    "verified_as_of": "2026-11-05",
+    "verification_scope": "Primary documentation and source-manifest review; no package execution, interoperability test, or OPFS implementation in this research.",
+    "evidence_level": "Documented capability; integration assessments and caller policies are proposals, not executed results.",
+    "catalog_mapping_note": "Existing IDs identify related catalog concepts; they do not claim that this implementation is an existing OPFS dependency or driver.",
+    "existing_catalog_ids": [
+      "format-rar"
+    ],
+    "version_observed": "Reviewed manifest says 2.0.2 and its source-download script names UnRAR 6.1.7; the shipped binary was not inspected.",
+    "lifecycle": "Wrapper and native core update status are separate; do not infer current UnRAR fixes from the wrapper name.",
+    "read_support": "RAR listing/extraction from an ArrayBuffer or native file; the README explicitly excludes multi-volume archives.",
+    "write_support": "No RAR creation. This is an extractor.",
+    "encryption_read": "Optional password; header-encryption flags and missing/wrong-password errors are documented.",
+    "encryption_write": "None.",
+    "encrypted_listing": "Encrypted headers can require a password even to obtain file names.",
+    "runtimes": [
+      "Node.js CommonJS/file extractor",
+      "Browser bundled ESM/WASM memory extractor"
+    ],
+    "runtime_unknown": [
+      "Deno and Bun not verified."
+    ],
+    "access_model": "Memory input takes a complete ArrayBuffer; native file extraction uses synchronous I/O. No range-source API verified.",
+    "streaming_and_staging": "Extraction yields complete Uint8Array results in the memory variant. Iterators do not establish bounded-memory streaming.",
+    "byte_limits": "Bound compressed input and extracted output; wrapper/WASM limits were not measured.",
+    "metadata": "Header listing includes names, sizes, CRC, time and flags, including solid/header-encrypted/recovery-record indicators.",
+    "abort_and_cleanup": "README explicitly warns that fileHeaders/files generators must be traversed to completion or the C++ object leaks. Early cancellation needs a verified disposal design.",
+    "extraction_safety": "Avoid direct file extraction for untrusted names until filenameTransform, symlink and containment behavior are reviewed.",
+    "atomic_output": "Caller staging required; extraction success and complete iteration are separate lifecycle requirements.",
+    "license": "Wrapper manifest says MIT; the compiled UnRAR source is separately governed by RARLAB terms.",
+    "opfs_assessment": "Read-only RAR route with a material early-exit cleanup constraint; not a full multi-volume/recovery engine.",
+    "evidence": [
+      {
+        "claims": [
+          "read",
+          "unsupported volumes",
+          "passwords",
+          "metadata",
+          "runtime",
+          "iterator leak"
+        ],
+        "source_urls": [
+          "https://github.com/YuJianrong/node-unrar.js"
+        ]
+      },
+      {
+        "claims": [
+          "wrapper/core version evidence",
+          "wrapper license"
+        ],
+        "source_urls": [
+          "https://github.com/YuJianrong/node-unrar.js/blob/master/package.json"
+        ]
+      },
+      {
+        "claims": [
+          "native component provenance"
+        ],
+        "source_urls": [
+          "https://www.rarlab.com/rar_add.htm"
+        ]
+      }
+    ],
+    "source_urls": [
+      "https://github.com/YuJianrong/node-unrar.js",
+      "https://github.com/YuJianrong/node-unrar.js/blob/master/package.json",
+      "https://www.rarlab.com/rar_add.htm"
+    ]
+  }
+]
