@@ -187,7 +187,8 @@
     "./seafile": "./src/seafile.ts",
     "./content/arfs": "./src/content/arfs.ts",
     "./arweave": "./src/arweave.ts",
-    "./content/arweave": "./src/content/arweave.ts"
+    "./content/arweave": "./src/content/arweave.ts",
+    "./cmis": "./src/cmis.ts"
   },
   "dependencies": {
     "@okikio/undent": "^0.3.3",
