@@ -164,7 +164,8 @@
     "./content/git": "./src/content/git.ts",
     "./pcloud": "./src/pcloud.ts",
     "./archive/iso": "./src/archive/iso.ts",
-    "./archive/xar": "./src/archive/xar.ts"
+    "./archive/xar": "./src/archive/xar.ts",
+    "./yandex": "./src/yandex.ts"
   },
   "dependencies": {
     "@okikio/undent": "^0.3.3",
