@@ -158,7 +158,8 @@
     "./sftp": "./src/sftp.ts",
     "./archive/ocfl": "./src/archive/ocfl.ts",
     "./dropbox": "./src/dropbox.ts",
-    "./archive/lz4": "./src/archive/lz4.ts"
+    "./archive/lz4": "./src/archive/lz4.ts",
+    "./box": "./src/box.ts"
   },
   "dependencies": {
     "@okikio/undent": "^0.3.3",
