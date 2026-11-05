@@ -12,14 +12,10 @@ client -> driver -> adapter -> FileSystemType -> bridge
 
 No public constructor requires a global registry.
 
-Optional byte sources, resumable transfers, GCS and selected archive/encryption views have separate guides:
-[sources](source.md), [extensions](extensions.md), [GCS](gcs.md), [transfers](transfer.md),
-[archive preview](archive.md), [TAR streaming](tar.md), [ZIP creation](zip.md), [HTTP](http.md), [WebDAV](webdav.md),
-[B2](b2.md), [Swift](swift.md), [WebHDFS](webhdfs.md), [runtime bindings](bindings.md), [D1](d1.md), [Drive](drive.md),
-[OneDrive](onedrive.md), [OCI](oci.md), [CPIO](cpio.md), [CAB](cab.md), [WARC](warc.md),
-[native compression](compression.md) and [authenticated encryption](encryption.md). Their current boundaries and
-remaining protocols are recorded in [the expansion status](expansion.md). These subpaths are opt-in; the root remains
-the filesystem facade.
+Optional capabilities use explicit subpaths. Choose a native provider client, byte source, upload continuation or
+archive reader through the [capability navigation](../README.md#select-a-native-client-or-preview). The
+[expansion status](expansion.md) records implemented profiles, proof levels and remaining work. Individual guides own
+complete examples, work limits and recovery behavior. The root remains the filesystem facade.
 
 ## Filesystem root
 
@@ -858,26 +854,3 @@ resource's admitted bytes, operations and terminal state. Defaults are 64 MiB/64
 admission before effects while close/abort has a reserved terminal slot. Keep caller buffers unchanged until settlement.
 Native resource ordering does not replace application publication or cross-process coordination. See
 [storage ownership](storage.md).
-
-[MIME message previews](mime.md) and [7z inspection](seven.md) explain the separate costs of indexing, decoding and
-checksum verification.
-
-[FTP and explicit FTPS](ftp.md) require caller-supplied transports. [MBOX](mbox.md) and [ar](ar.md) provide bounded
-sources for nested previews without host extraction.
-
-[SFTP v3](sftp.md) uses an injected authenticated SSH subsystem for finite reads and acknowledged writes.
-[BagIt](bagit.md) separates supplied-inventory coverage from selected-file digest verification.
-[Legacy ZIP password previews](password.md) describe explicit password bytes and unauthenticated ZipCrypto evidence.
-
-[OCFL](ocfl.md) separates exact inventory verification from selected physical-content verification.
-[WinZip AES STORED/DEFLATE](aes.md) authenticates bounded ciphertext before selected-block decryption.
-[Dropbox](dropbox.md) exposes native revisions and upload-session offset evidence.
-[Optional native codecs](compression.md#optional-brotli-and-zstandard) depend on the host constructor and add no
-independent checksum claim.
-
-[LZ4](lz4.md) decodes bounded modern frames; complete content checksum evidence requires EOF. [Box](box.md) preserves
-native versions and distinguishes pending upload commits from final file receipts. [Internet Archive ARC](arc.md)
-exposes exact physical capture blocks with explicit producer framing.
-
-[Git loose objects](git.md) verify complete SHA-1/SHA-256 object bytes before exposing private payload ranges and inert
-tree names. Packs, refs and traversal remain outside that profile.
