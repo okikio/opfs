@@ -62,11 +62,12 @@ protect against a maliciously constructed archive. Parsed directory fields are n
 
 Legacy ZipCrypto STORED and DEFLATE members accept explicit password bytes; see the complete
 [password preview guide](password.md). A partial read can return plaintext with a pending CRC, and even a verified CRC
-provides no authentication. Strong/AES encryption profiles, split volumes, extra directory records/signatures and
-unsupported compression methods return `ArchiveError` with `code: "unsupported-profile"` when requested. ZIP64 values
-above `Number.MAX_SAFE_INTEGER` are refused instead of rounded. Data-descriptor members can be read using their
-central-directory sizes; descriptor bytes are not independently verified. Self-extracting or offset-rebased archives
-require an explicit supported profile rather than automatic offset guessing.
+provides no authentication. The optional [WinZip AES STORED profile](aes.md) authenticates the complete bounded
+ciphertext before decrypting selected blocks. Other strong encryption profiles, split volumes, extra directory
+records/signatures and unsupported compression methods return `ArchiveError` with `code: "unsupported-profile"` when
+requested. ZIP64 values above `Number.MAX_SAFE_INTEGER` are refused instead of rounded. Data-descriptor members can be
+read using their central-directory sizes; descriptor bytes are not independently verified. Self-extracting or
+offset-rebased archives require an explicit supported profile rather than automatic offset guessing.
 
 `maxDirectoryBytes` defaults to 16 MiB and `maxEntries` to 100,000. Each open/read also defaults to 64 MiB source bytes,
 4,096 source requests, 64 MiB decoded bytes and 16 MiB returned bytes. A selected output can be smaller than actual

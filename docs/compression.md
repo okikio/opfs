@@ -170,11 +170,13 @@ export function decodePreview(input: ReadableStream<Uint8Array>, signal: AbortSi
 The returned stream owns the acquired input reader. Consume or cancel it; importing this module does not acquire a
 codec. Brotli follows RFC7932 and is now included by the [Compression Standard](https://compression.spec.whatwg.org/).
 `zstd` names a host extension and is not part of that standard's current format enum. Both formats require native
-support for the selected direction. Unsupported constructors fail synchronously before acquiring the input reader; the
-library does not substitute Node modules, download a codec or add a runtime package. No version string is used as a
-capability oracle. The installed Deno2.9.8, Node26.13.0 and Bun1.4.2 support Brotli; only Bun's native Web stream
-constructors support Zstandard in this recorded environment. These observations do not promise support in older runtimes
-or browsers.
+support for the selected direction. The reviewed living-standard revision is
+[`94b42518d2c2f97e64bd5a483d6deb8c8f14c365`](https://compression.spec.whatwg.org/commit-snapshots/94b42518d2c2f97e64bd5a483d6deb8c8f14c365/);
+that immutable snapshot records the review, while the living standard remains the current reference. Unsupported
+constructors fail synchronously before acquiring the input reader; the library does not substitute Node modules,
+download a codec or add a runtime package. No version string is used as a capability oracle. The installed Deno2.9.8,
+Node26.13.0 and Bun1.4.2 support Brotli; only Bun's native Web stream constructors support Zstandard in this recorded
+environment. These observations do not promise support in older runtimes or browsers.
 
 Brotli has no content checksum. Zstandard can include optional frame checksums, but this wrapper neither parses their
 presence nor independently verifies them. Native parsing, dictionaries, window allocation, concatenated frames and
