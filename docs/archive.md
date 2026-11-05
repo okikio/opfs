@@ -112,7 +112,7 @@ as `0`; media type is empty. Streaming read is not advertised: member output is 
 and directory-creation admission fails before producer consumption. Closing the filesystem leaves the borrowed
 archive/source live.
 
-## Inspect uncompressed POSIX ustar
+## Inspect uncompressed TAR
 
 ```ts
 import { createBlobSource } from "@okikio/opfs/source";
@@ -125,15 +125,16 @@ export async function readTarMember(blob: Blob) {
 }
 ```
 
-This is a header scan over a known-size random-access source, not a one-shot `ReadableStream` TAR reader. It supports
-the POSIX ustar magic/version, octal sizes, regular files, directories and link metadata. Header checksums and two
-terminating zero blocks are checked. Payloads are skipped using offsets and selected regular-file bytes use ranges. It
-never follows links. Results say `header-checksum-only`: TAR supplies no payload checksum or authentication.
+`openTar()` scans a known-size random-access source. It supports POSIX ustar headers, bounded PAX local/global metadata
+and GNU long-name/long-link records. Header checksums and two terminating zero blocks are checked. Payloads are skipped
+using offsets and selected regular-file bytes use ranges. It never follows links. Results say `header-checksum-only`:
+TAR supplies no payload checksum or authentication.
 
-GNU/PAX/sparse records, base-256 numeric fields, non-UTF-8 names and special records are explicitly unsupported.
-Gzip/compressed TAR needs an appropriate bounded decoding/source strategy and is not accepted as plain TAR. std TAR was
-considered; its sequential entry/drain contract does not provide this range-scan API, so this narrow reader owns its
-explicit subset rather than claiming the full std or TAR dialect surface.
+For a one-shot `ReadableStream`, use `readTarStream()`; entry bodies are single-use within the visitor callback and
+unconsumed payloads are drained under the same budget. `createTarStream()` writes deterministic ustar/PAX streams. See
+the [TAR guide](tar.md) for complete examples, metadata precedence, resource ownership and exact limits. Sparse records,
+base-256 numeric fields and unsupported special records remain refused. Compressed TAR needs an explicitly bounded
+decompression strategy. The [ZIP writer](zip.md) creates a narrower STORED ZIP32 profile than `openZip()` reads.
 
 Focused checks are in `tests/archive.test.ts` and `tests/view.test.ts`. Fixtures were produced with Python 3.9
 `zipfile`/`tarfile` plus explicit ZIP64 record assembly; expected content is independent of the parser. Tests cover

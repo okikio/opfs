@@ -187,6 +187,9 @@ try {
     import { createByteSource } from '@okikio/opfs/source';
     import { testByteSource } from '@okikio/opfs/testing/source';
     import { createNativeTink } from '@okikio/opfs/crypto/tink';
+    import { createTarStream, readTarStream } from '@okikio/opfs/archive/stream';
+    import { createZipStream } from '@okikio/opfs/archive/write';
+    import { openZip } from '@okikio/opfs/archive/zip';
     ${finish.toString()}
     const failures = [], releases = [];
     let writer;
@@ -214,6 +217,36 @@ try {
         throw new Error('Packed consumer bytes differ');
       }
     };
+    const archivePayload = bytes.slice(0, 1024);
+    const tarName = 'caf\u00e9/' + 'long-name-'.repeat(20);
+    let tarMembers = 0;
+    const tarScan = await readTarStream(createTarStream([
+      { name: tarName, size: archivePayload.length, body: new Blob([archivePayload]).stream() },
+      { name: 'empty/', kind: 'directory', size: 0 },
+    ]), async (entry, body) => {
+      tarMembers++;
+      let offset = 0;
+      for await (const chunk of body) {
+        assertBytes(chunk, archivePayload.subarray(offset, offset + chunk.length));
+        offset += chunk.length;
+      }
+      if (entry.kind === 'file' && (entry.name !== tarName || offset !== archivePayload.length)) {
+        throw new Error('Packed PAX TAR member mismatch');
+      }
+    }, { bodyChunkBytes: 31, maxOutputBytes: 1024 });
+    if (!tarScan.complete || tarMembers !== 2 || tarScan.work.outputBytes !== 1024) {
+      throw new Error('Packed one-shot TAR scan mismatch');
+    }
+    const zipBytes = new Uint8Array(await new Response(createZipStream([
+      { name: 'payload.bin', size: archivePayload.length, source: archivePayload },
+      { name: 'empty/', kind: 'directory' },
+    ])).arrayBuffer());
+    const zip = await openZip(createByteSource(zipBytes));
+    const zipRead = await zip.read(0);
+    assertBytes(zipRead.bytes, archivePayload);
+    if (zip.entries.length !== 2 || zipRead.integrity !== 'checksum-verified') {
+      throw new Error('Packed streaming ZIP verification mismatch');
+    }
     assertBytes(await fileSystem.readFile('/state/file.bin'), bytes);
     assertBytes(await fileSystem.readFile('/state/file.bin', { at: 65530, length: 7 }), bytes.slice(65530));
     await fileSystem.copy('/state/file.bin', '/copy.bin');
@@ -337,8 +370,25 @@ try {
     undent`
     import { createFileSystem, type FileSystemType } from '@okikio/opfs';
     import { createMemoryAdapter } from '@okikio/opfs/adapter/memory';
+    import { createTarStream, readTarStream } from '@okikio/opfs/archive/stream';
+    import type { TarWriteEntryType } from '@okikio/opfs/archive/stream';
+    import { createZipStream } from '@okikio/opfs/archive/write';
+    import type { ZipWriteEntryType } from '@okikio/opfs/archive/write';
+    import { openZip } from '@okikio/opfs/archive/zip';
+    import { createByteSource } from '@okikio/opfs/source';
     const fileSystem: FileSystemType = createFileSystem(createMemoryAdapter());
     await fileSystem.writeFile('/types.txt', 'ok', { parents: true });
+    const tarEntry: TarWriteEntryType = { name: 'typed', size: 0 };
+    await readTarStream(createTarStream([tarEntry]), async (entry, body) => {
+      const id: number = entry.id;
+      for await (const bytes of body) { const size: number = bytes.byteLength; void size; }
+      void id;
+    });
+    const zipEntry: ZipWriteEntryType = { name: 'typed', size: 0 };
+    const zipBytes = new Uint8Array(await new Response(createZipStream([zipEntry])).arrayBuffer());
+    const zip = await openZip(createByteSource(zipBytes));
+    const member: Uint8Array = (await zip.read(0)).bytes;
+    void member;
     // @ts-expect-error Portable root declarations must not load the native Deno namespace.
     void Deno;
   `,
