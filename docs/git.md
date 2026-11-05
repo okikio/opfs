@@ -85,8 +85,8 @@ validation, or filesystem projection.
 
 ## Evidence
 
-[The native Git fixture record](../tests/fixtures/git/README.md) records the CLI producer, exact raw payload oracles,
-immutable source revision, and file hashes. Tests compare native SHA-1 and SHA-256 objects and tree encodings byte for
-byte, then exercise corrupt checksums, wrong IDs, malformed extents, budgets, aborts, and mutable caller buffers. This
-proves the documented loose-object profile; it does not certify Git interoperability beyond those profiles or
-authenticate fixture authors.
+[The native Git fixture record](https://github.com/okikio/opfs/blob/f858764/tests/fixtures/git/README.md) records the
+CLI producer, exact raw payload oracles, immutable source revision, and file hashes. Tests compare native SHA-1 and
+SHA-256 objects and tree encodings byte for byte, then exercise corrupt checksums, wrong IDs, malformed extents,
+budgets, aborts, and mutable caller buffers. This proves the documented loose-object profile; it does not certify Git
+interoperability beyond those profiles or authenticate fixture authors.
