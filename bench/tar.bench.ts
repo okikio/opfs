@@ -6,6 +6,16 @@ import { createTarStream, readTarStream } from "../src/archive/stream.ts";
 import type { ArchiveWorkType } from "../src/archive/record.ts";
 import { expectBytes, payload, report } from "./result.ts";
 import fixtures from "../tests/fixtures/tar/independent.json" with { type: "json" };
+import sparseFixtures from "../tests/fixtures/tar-sparse/independent.json" with { type: "json" };
+
+// Warm indexed readers retain their opening admission owner. Repeated sampling
+// therefore needs an explicit finite allowance rather than resetting that owner.
+const samplingLimits = {
+  maxSourceBytes: 64 * 1024 ** 3,
+  maxDecodedBytes: 64 * 1024 ** 3,
+  maxOutputBytes: 1024 ** 3,
+  maxRequests: 10_000_000,
+};
 
 /** Independent Python POSIX header adapted only for the benchmark name, size and resulting checksum. */
 function fixture(bytes: Uint8Array): Uint8Array {
@@ -88,7 +98,7 @@ for (const size of [1024, 65536, 4194304]) {
   const archiveBytes = fixture(expected);
   const blob = new Blob([new Uint8Array(archiveBytes).buffer]);
   const source = createBlobSource(blob);
-  const archive = await openTar(source);
+  const archive = await openTar(source, samplingLimits);
   const length = Math.min(1024, size);
   const prefix = expected.subarray(0, length);
   const selected = await archive.read(0, { length });
@@ -168,4 +178,48 @@ for (const size of [1024, 65536, 4194304]) {
   });
 }
 
+// Genuine sparse files have a different physical layout from their logical
+// bytes. The native baseline already owns a fully expanded original Blob; it
+// measures copying alone, not map validation, zero reconstruction or archive I/O.
+const sparseFixture = sparseFixtures.fixtures.find((item) => item.profile === "1.0")!;
+const originals: Readonly<Record<string, { readonly base64: string }>> = sparseFixture.payloads;
+const sparseBytes = decodeBase64(sparseFixture.archive.base64);
+const sparseSource = createBlobSource(new Blob([new Uint8Array(sparseBytes).buffer]));
+const sparseArchive = await openTar(sparseSource, samplingLimits);
+for (const entry of sparseArchive.entries) {
+  expectBytes(
+    (await sparseArchive.read(entry.id)).bytes,
+    decodeBase64(originals[entry.name]!.base64),
+    `tar/sparse/${entry.name}/complete`,
+  );
+}
+const coldSparse = await openTar(sparseSource);
+bench(`tar/sparse image=${sparseBytes.length}B cold index ${counts(coldSparse.work)}`, async () => {
+  do_not_optimize(await openTar(sparseSource));
+});
+for (const name of ["all-hole.bin", "leading.bin", "many.bin"]) {
+  const entry = sparseArchive.entries.find((item) => item.name === name)!;
+  const expected = decodeBase64(originals[name]!.base64);
+  const originalBlob = new Blob([new Uint8Array(expected).buffer]);
+  const first = entry.sparse!.extents.find((extent) => extent.length > 0);
+  const offset = first ? Math.max(0, first.offset - 8) : 4096;
+  const length = 37;
+  const selected = await sparseArchive.read(entry.id, { offset, length });
+  const native = () => originalBlob.slice(offset, offset + length).arrayBuffer();
+  expectBytes(selected.bytes, expected.subarray(offset, offset + length), `tar/sparse/${name}/range`);
+  expectBytes(new Uint8Array(await native()), expected.subarray(offset, offset + length), `tar/sparse/${name}/native`);
+  if (
+    selected.work.outputBytes !== length || selected.work.decodedBytes !== length ||
+    name === "all-hole.bin" && (selected.work.requests !== 0 || selected.work.sourceBytes !== 0)
+  ) {
+    throw new Error("TAR sparse logical/physical benchmark accounting differs.");
+  }
+  const label = `tar/sparse ${name} logical=${entry.size}B stored=${entry.sparse!.storedSize}B offset=${offset}B`;
+  bench(`${label} preexpanded native Blob source=${length}B output=${length}B requests=1 integrity=none`, async () => {
+    do_not_optimize(await native());
+  });
+  bench(`${label} warm logical range ${counts(selected.work)} integrity=header-checksum-only`, async () => {
+    do_not_optimize(await sparseArchive.read(entry.id, { offset, length }));
+  });
+}
 await report();
