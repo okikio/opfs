@@ -1,0 +1,76 @@
+# Expansion groups and remaining work
+
+This index is for maintainers continuing the full expansion. Start with [current support](../../docs/expansion.md),
+then use a row below to locate the next kind of work. The 895 historical catalog records are grouped by their proposed
+owner, not by additive driver count. All original IDs and their constraints remain in [routing.json](research/routing.json).
+No group is complete merely because it has one implemented member. References and tooling are inputs to verification,
+not requests to turn an external program into a storage driver.
+
+For each implementation, review the canonical skills/guides before design, again before editing and after the focused
+tests. Record the actual contract review finding in the capability guide or commit when it affects use or maintenance.
+Use native Web APIs, Deno standard library or explicitly approved dependencies. A missing approved dependency is a reason
+to implement a bounded protocol/codec with independent fixtures, not to add a hidden runtime SDK.
+
+The counts below come from the preserved routing inventory. The source files, public exports, tests and capability
+guides establish present support; historical `current_opfs_status` fields describe their original checkpoint only.
+
+| Proposed owner | Records | Present route and next boundary |
+| --- | ---: | --- |
+| existing-driver | 16 | Existing file, record and object drivers; retain facade, runtime and artifact parity when extending them. |
+| object-native | 18 | GCS, B2, Swift, S3 and Azure have native clients. Other native APIs need individual authentication, limits and provider fixtures. |
+| s3-profile | 91 | Reuse the S3 client only after proving each provider's signing, listing, conditions, multipart and error dialect. R2 bindings are a separate API. |
+| object-profile | 1 | Decide the concrete provider profile from its catalog constraints; a compatible URL alone is insufficient. |
+| service-object | 1 | Preserve service-specific publication and authorization before choosing the object contract. |
+| http-access | 1 | Revision-bound HTTP resource reads exist; no directory or mutation semantics are inferred. |
+| webdav | 2 | Core file access exists; SEARCH remains separate, and generic removal is refused because collection DELETE is recursive. |
+| runtime-binding | 21 | Existing browser/host bindings cover selected APIs. Distinguish native ownership, permissions and transaction semantics for remaining bindings. |
+| record-store | 65 | Existing SQL/record families and Workers KV cover selected stores. Remaining databases, queues, logs and vector stores need different contracts. |
+| native-protocol | 5 | WebHDFS has an HTTP file client and conservative driver/adapter. Kernel clustered filesystems and procfs belong behind explicit host capabilities, not an invented portable wire API. |
+| file-transfer | 3 | FTP, FTPS and SFTP need explicit socket/TLS/SSH capabilities and independent servers; Fetch cannot implement those transports. |
+| cloud-drive | 49 | Pending native drive profiles. Model stable IDs, duplicate names, shared roots, export formats, revisions and session recovery before projecting paths. |
+| service-resource | 38 | Pending service resources; model originals, renditions, access controls and publication separately from generic file replacement. |
+| media-service | 1 | Preserve media processing/rendition state rather than treating an accepted upload as a ready downloadable file. |
+| content-repository | 16 | HTTP/IPFS read profiles exist. OCI, Git, artifact services and mutable repositories need their own identity and revision rules. |
+| content-view | 3 | CAR v1 indexes and verified block reads exist. UnixFS and ArFS traversal remain separate decoders and completeness contracts. |
+| peer-records | 15 | Pending peer discovery, record authenticity, retention and transport profiles; they are not ordinary object PUTs. |
+| decentralized-service | 46 | Pending service-specific persistence, retrieval, payment and proof contracts; content addressing alone does not establish availability. |
+| chain-publication | 12 | Pending transaction submission, finality/reorganization and on-chain/off-chain data separation. |
+| transfer | 7 | GCS/tus and S3/Azure continuation cover selected profiles. Peer exchange and IETF HTTP upload require separate versioned contracts. |
+| archive-view | 7 | ZIP and TAR readers/writers cover documented subsets. CPIO, 7z, RAR, CAB and WIM need independent format profiles and producers. |
+| image-view | 8 | Pending image/container directories, extent validation and optional filesystem views. Distinguish metadata preview from decoding image content. |
+| backup-view | 7 | Pending backup indexes, chunk references, key policy and restore verification; metadata visibility is format-specific. |
+| encrypted-view | 2 | Pending WNFS/Cryptomator layouts with authenticated names, keys and range boundaries. No unauthenticated preview claims. |
+| encryption | 4 | The separate Tink payload profile does not implement these four systems; each requires its own format, KDF and threat model. |
+| repository-view | 1 | Pending repository-format inspection; a worktree filesystem is not the same as interpreting historical objects. |
+| dataset-view | 20 | Pending dataset/columnar/container profiles with bounded indexes and explicit selected-record decoding. |
+| format-view | 2 | Composition routes need an actual format decoder and byte-source contract before claiming a generic archive/reference view. |
+| preservation-view | 4 | Pending BagIt, OCFL, ARC and WARC profiles; separate manifest checks, version identity and payload verification. |
+| mail-view | 2 | Pending mailbox/message views with bounded parsing, stable member identity and attachment decoding. |
+| backup-service | 9 | Pending service retention, job state and restore APIs; an initiated backup is not a file write receipt. |
+| domain-connector | 34 | Pending domain-specific resources; define their useful data model before deciding whether filesystem projection fits. |
+| linked-resource | 3 | Pending link resolution, authorization and identity rules; do not silently follow arbitrary origins. |
+| device-transfer | 5 | Pending caller-owned device capabilities, permission flow, disconnect and transfer-recovery behavior. |
+| synchronization | 9 | Pending conflict detection, reconciliation and deletion propagation policies; storage primitives alone are not a sync engine. |
+| consistency-policy | 17 | Selected native conditions exist. Other policies must preserve ownership, stale reads, pinning and loss of authority explicitly. |
+| authorization | 15 | Applications own credentials. Remaining schemes need explicit scope, expiry and per-target injection without ambient discovery. |
+| behavior | 78 | Selected ranges, naming and composition behaviors exist. Assess each behavior against its controlling layer and evidence. |
+| composition | 6 | Existing source/view/driver composition is explicit. Remaining layouts require bounds, visibility, cleanup and invalidation contracts. |
+| host-profile | 93 | Use an explicit host filesystem driver where semantics fit; verify permissions, naming, links, durability and mounts on the actual host. |
+| message-log | 1 | Pending append/order/retention model; do not reinterpret replayable messages as mutable byte-addressed files. |
+| retention | 1 | Pending retention enforcement and deletion policy, with explicit policy owner and failure behavior. |
+| cache | 1 | Pending cache-specific expiry/eviction/authority profile; a cache miss is not necessarily authoritative absence. |
+| tooling | 66 | Retained comparison/testing inputs. Select immutable versions and approved test-only use; no runtime dependency is implied. |
+| reference | 89 | Retained historical/specification inputs. Revalidate primary sources when implementing a current capability. |
+
+## Completion evidence for a record
+
+A tested route names the exact public subpath, supported profile, independent fixture/provider, limits, cancellation,
+recovery and package-consumer proof. A constraint names the missing transport/specification/permission or unsupported
+semantics, the layer that owns it and the concrete change that would permit reconsideration. Neither an inherited
+family label nor an unavailable live account is evidence of support. Do not mark a broad group complete while its
+remaining records have neither outcome.
+
+The focused archive/encryption inventory has 136 records with overlap into this catalog. Keep its crosswalk intact;
+compression algorithms, archive containers, encryption envelopes, key derivation and backup layouts are different
+capabilities. Partial preview may expose directory metadata, verify a covering encrypted segment or read a selected
+member, but must state which surrounding bytes and metadata remain unverified.
