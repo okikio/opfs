@@ -215,6 +215,7 @@ try {
     import { createLzmaDecoder } from '@okikio/opfs/archive/lzma';
     import { PcloudClient } from '@okikio/opfs/pcloud';
     import { YandexClient } from '@okikio/opfs/yandex';
+    import { FirebaseClient } from '@okikio/opfs/firebase';
     import { openGitObject, encodeGitTree } from '@okikio/opfs/content/git';
     import { createD1Adapter } from '@okikio/opfs/adapter/d1';
     import { createZipStream } from '@okikio/opfs/archive/write';
@@ -311,6 +312,18 @@ try {
     };
     const cabArchive = await openCab(createByteSource(Uint8Array.from(atob(cabFixture.archive), (byte) => byte.charCodeAt(0))));
     assertBytes((await cabArchive.read(0)).bytes, Uint8Array.from(atob(cabFixture.entries[0].body), (byte) => byte.charCodeAt(0)));
+    const mszipFixture = ${
+      JSON.stringify(
+        await (async () => {
+          return JSON.parse(await readFile(new URL("../fixtures/cab/mszip.json", import.meta.url), "utf8")).vectors
+            .find((entry) => entry.name === "dynamic-history");
+        })(),
+      )
+    };
+    const mszip = await openCab(createByteSource(Uint8Array.from(atob(mszipFixture.archive), (byte) => byte.charCodeAt(0))));
+    const mszipRead = await mszip.read(0, { offset: 32768, length: 3 });
+    assertBytes(mszipRead.bytes, Uint8Array.from(atob(mszipFixture.body), (byte) => byte.charCodeAt(0)).subarray(32768, 32771));
+    if (!mszipRead.blocks.some((block) => block.role === 'history') || mszipRead.integrity !== 'block-checksum-verified') throw new Error('Packed MSZIP prerequisite evidence changed');
     const warcFixture = ${
       JSON.stringify(
         JSON.parse(await readFile(new URL("../fixtures/warc/independent.json", import.meta.url), "utf8")).archives[1],
@@ -335,6 +348,25 @@ try {
     const sevenFile = sevenArchive.entries.find((entry) => entry.kind === 'file' && entry.readable && entry.size > 0);
     if (!sevenFile) throw new Error('Packed 7z COPY missing');
     assertBytes((await sevenArchive.read(sevenFile.id)).bytes, Uint8Array.from(atob(sevenFixture.entries.find((entry) => entry.name === sevenFile.name).body), (byte) => byte.charCodeAt(0)));
+    const compressedSevenFixtures = ${
+      JSON.stringify(
+        await (async () => {
+          const fixtures = JSON.parse(
+            await readFile(new URL("../fixtures/seven/independent.json", import.meta.url), "utf8"),
+          );
+          return [fixtures["encoded-lzma1"], fixtures.lzma2];
+        })(),
+      )
+    };
+    for (const fixture of compressedSevenFixtures) {
+      const compressedSeven = await openSeven(createByteSource(Uint8Array.from(atob(fixture.archive), (byte) => byte.charCodeAt(0))));
+      for (const entry of compressedSeven.entries.filter((entry) => entry.kind === 'file' && entry.size > 0)) {
+        const result = await compressedSeven.read(entry.id);
+        assertBytes(result.bytes, Uint8Array.from(atob(fixture.entries.find((item) => item.name === entry.name).body), (byte) => byte.charCodeAt(0)));
+        if (result.decoding !== 'complete' || result.integrity !== 'crc32-verified') throw new Error('Packed 7z compressed member scope changed');
+      }
+      if (fixture.nextHeaderTag === 23 && compressedSeven.headers.decoded?.integrity !== 'crc32-verified') throw new Error('Packed 7z encoded metadata was not verified');
+    }
     const arFixture = ${
       JSON.stringify(
         JSON.parse(await readFile(new URL("../fixtures/ar/independent.json", import.meta.url), "utf8")).gnu,
@@ -452,6 +484,11 @@ try {
     const git = await openGitObject(createByteSource(Uint8Array.from(atob(gitFixture.loose), (byte) => byte.charCodeAt(0))), { algorithm: 'sha256', oid: gitFixture.oid, subtle: globalThis.crypto.subtle });
     assertBytes(await git.read(), Uint8Array.from(atob(gitFixture.payload), (byte) => byte.charCodeAt(0)));
     if (encodeGitTree([], { algorithm: 'sha256' }).length !== 0) throw new Error('Packed empty Git tree failed');
+    const firebase = new FirebaseClient({ bucket: 'demo-opfs.appspot.com', credentials: () => ({ idToken: 'fixture-token' }), fetch: async (_input, init) => {
+      if (new Headers(init.headers).get('Authorization') !== 'Firebase fixture-token') throw new Error('Packed Firebase credential scheme changed');
+      return Response.json({ bucket: 'demo-opfs.appspot.com', name: 'packed', size: '3', generation: '9007199254740993', metageneration: '1' });
+    } });
+    if ((await firebase.stat('packed')).generation !== '9007199254740993') throw new Error('Packed Firebase generation was rounded');
     const yandex = new YandexClient({ token: () => 'fixture-token', fetch: async () => Response.json({ path: 'disk:/packed', name: 'packed', type: 'file', size: 3 }) });
     if ((await yandex.stat('disk:/packed')).size !== 3) throw new Error('Packed Yandex native resource failed');
     const pcloud = new PcloudClient({ endpoint: 'https://api.pcloud.com', token: () => 'fixture-token', fetch: async () => new Response('{"result":0,"metadata":{"isfolder":false,"id":"f7","fileid":7,"parentfolderid":0,"name":"packed","size":3,"hash":18446744073709551615}}') });
@@ -720,6 +757,7 @@ try {
     import { createLzmaDecoder } from '@okikio/opfs/archive/lzma';
     import { PcloudClient } from '@okikio/opfs/pcloud';
     import { YandexClient } from '@okikio/opfs/yandex';
+    import { FirebaseClient } from '@okikio/opfs/firebase';
     import { openGitObject, encodeGitTree } from '@okikio/opfs/content/git';
     import { createD1Adapter } from '@okikio/opfs/adapter/d1';
     import { createZipStream } from '@okikio/opfs/archive/write';
@@ -742,12 +780,19 @@ try {
     void [d1, driveFile, tarView, cpioView];
     const onedrive = new OnedriveClient({ driveId: 'typed', token: () => 'type-only' });
     const cab = await openCab(createByteSource(new Uint8Array()));
+    const cabRole: 'covering' | 'history' | undefined = (await cab.read(0)).blocks[0]?.role;
+    const cabDeflateBlocks: number = (await cab.read(0, { maxDeflateBlocks: 8192 })).deflateBlocks;
+    void [cabRole, cabDeflateBlocks];
     const warc = await openWarc(createByteSource(new Uint8Array()));
     const readable: boolean = warc.entries[0]!.readable;
     const mime = await openMime(createByteSource(new Uint8Array()));
     const mimeComplete: boolean = (await mime.prefix(0, 1)).complete;
     const seven = await openSeven(createByteSource(new Uint8Array()));
     const sevenReadable: boolean = seven.entries[0]!.readable;
+    const sevenCodecPolicy: import('@okikio/opfs/archive/seven').SevenLzmaOptionsType = { maxDictionaryBytes: 65536 };
+    const sevenHeader: string | undefined = seven.headers.decoded?.method;
+    const sevenDecoding: 'complete' | 'prefix' | undefined = (await seven.read(0, { lzma: sevenCodecPolicy })).decoding;
+    void [sevenHeader, sevenDecoding];
     const ar = await openAr(createByteSource(new Uint8Array()));
     const arSource = ar.member(0);
     const mbox = await openMbox(createByteSource(new Uint8Array()), { dialect: 'mboxrd' });
@@ -773,6 +818,10 @@ try {
     const gitIntegrity: import('@okikio/opfs/content/git').GitAlgorithmType = gitObject.integrity;
     const gitTree: Uint8Array = encodeGitTree([], { algorithm: 'sha256' });
     void [gitIntegrity, gitTree];
+    const firebase = new FirebaseClient({ bucket: 'demo-opfs.appspot.com', credentials: () => ({ idToken: 'types-only' }) });
+    const firebaseMetadata: import('@okikio/opfs/firebase').FirebaseMetadataType = await firebase.stat('packed');
+    const firebaseStatus: import('@okikio/opfs/firebase').FirebaseStatusType = await firebase.statusUpload({ url: 'https://firebasestorage.googleapis.com/v0/b/demo-opfs.appspot.com/o?name=packed&upload_id=types', bucket: 'demo-opfs.appspot.com', name: 'packed', size: 3 });
+    void [firebaseMetadata, firebaseStatus];
     const yandex = new YandexClient({ token: () => 'types-only' });
     const yandexPath: string = (await yandex.stat('disk:/packed')).path;
     void yandexPath;
