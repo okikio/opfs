@@ -77,24 +77,32 @@ an independent process or untrusted user can mutate the host filesystem.
 
 The first-party integration set is broad, but each layer has one job.
 
-| Family          | Client                | Driver                | Adapter                | Reverse bridge                          |
-| --------------- | --------------------- | --------------------- | ---------------------- | --------------------------------------- |
-| browser OPFS    | n/a                   | `driver/opfs`         | `adapter/opfs`         | filesystem itself                       |
-| Node filesystem | n/a                   | `driver/node`         | `adapter/node`         | ecosystem-specific                      |
-| Deno filesystem | n/a                   | `driver/deno`         | `adapter/deno`         | ecosystem-specific                      |
-| Bun filesystem  | n/a                   | `driver/bun`          | `adapter/bun`          | ecosystem-specific                      |
-| memory          | n/a                   | `driver/memory`       | `adapter/memory`       | generic KV bridge possible              |
-| Deno KV         | n/a                   | `driver/deno-kv`      | `adapter/deno-kv`      | generic KV bridge possible              |
-| localStorage    | n/a                   | `driver/localstorage` | `adapter/localstorage` | generic KV bridge possible              |
-| IndexedDB       | n/a                   | `driver/indexeddb`    | `adapter/indexeddb`    | generic KV bridge possible              |
-| Cache Storage   | n/a                   | `driver/cache`        | `adapter/cache`        | cache-specific bridge not yet provided  |
-| SQLite rows     | engine-owned          | `driver/sqlite`       | `adapter/sqlite`       | see database direction below            |
-| db0             | connector-owned       | `driver/db0`          | `adapter/db0`          | no fake SQL projection                  |
-| Drizzle         | dialect/driver-owned  | `driver/drizzle`      | `adapter/drizzle`      | no fake SQL projection                  |
-| RxDB            | RxStorage-owned       | `driver/rxdb`         | `adapter/rxdb`         | full RxStorage bridge not yet provided  |
-| unstorage       | upstream driver-owned | `driver/unstorage`    | `adapter/unstorage`    | `bridge/unstorage`                      |
-| S3              | `s3`                  | `driver/s3`           | `adapter/s3`           | object-specific bridge not yet provided |
-| Azure Blob      | `azure`               | `driver/azure`        | `adapter/azure`        | object-specific bridge not yet provided |
+| Family          | Client                | Driver                 | Adapter                 | Reverse bridge                          |
+| --------------- | --------------------- | ---------------------- | ----------------------- | --------------------------------------- |
+| browser OPFS    | n/a                   | `driver/opfs`          | `adapter/opfs`          | filesystem itself                       |
+| Node filesystem | n/a                   | `driver/node`          | `adapter/node`          | ecosystem-specific                      |
+| Deno filesystem | n/a                   | `driver/deno`          | `adapter/deno`          | ecosystem-specific                      |
+| Bun filesystem  | n/a                   | `driver/bun`           | `adapter/bun`           | ecosystem-specific                      |
+| memory          | n/a                   | `driver/memory`        | `adapter/memory`        | generic KV bridge possible              |
+| Deno KV         | n/a                   | `driver/deno-kv`       | `adapter/deno-kv`       | generic KV bridge possible              |
+| localStorage    | n/a                   | `driver/localstorage`  | `adapter/localstorage`  | generic KV bridge possible              |
+| IndexedDB       | n/a                   | `driver/indexeddb`     | `adapter/indexeddb`     | generic KV bridge possible              |
+| Cache Storage   | n/a                   | `driver/cache`         | `adapter/cache`         | cache-specific bridge not yet provided  |
+| SQLite rows     | engine-owned          | `driver/sqlite`        | `adapter/sqlite`        | see database direction below            |
+| db0             | connector-owned       | `driver/db0`           | `adapter/db0`           | no fake SQL projection                  |
+| Drizzle         | dialect/driver-owned  | `driver/drizzle`       | `adapter/drizzle`       | no fake SQL projection                  |
+| RxDB            | RxStorage-owned       | `driver/rxdb`          | `adapter/rxdb`          | full RxStorage bridge not yet provided  |
+| unstorage       | upstream driver-owned | `driver/unstorage`     | `adapter/unstorage`     | `bridge/unstorage`                      |
+| S3              | `s3`                  | `driver/s3`            | `adapter/s3`            | object-specific bridge not yet provided |
+| Azure Blob      | `azure`               | `driver/azure`         | `adapter/azure`         | object-specific bridge not yet provided |
+| GCS             | `gcs`                 | `driver/gcs`           | `adapter/gcs`           | object-specific bridge not yet provided |
+| B2              | `b2`                  | `driver/b2`            | `adapter/b2`            | object-specific bridge not yet provided |
+| Swift           | `swift`               | `driver/swift`         | `adapter/swift`         | object-specific bridge not yet provided |
+| WebDAV          | `webdav`              | `driver/webdav`        | `adapter/webdav`        | file contract                           |
+| WebHDFS         | `webhdfs`             | `driver/webhdfs`       | `adapter/webhdfs`       | file contract                           |
+| R2 binding      | `r2`                  | `driver/r2`            | `adapter/r2`            | object-specific bridge not yet provided |
+| Workers KV      | binding-owned         | `driver/cloudflare-kv` | `adapter/cloudflare-kv` | generic KV bridge possible              |
+| D1              | binding-owned         | `driver/d1`            | `adapter/d1`            | generic KV bridge possible              |
 
 `adapter/file`, `adapter/record`, and `adapter/object` are reusable translators for third-party drivers. `driver/file`,
 `driver/record`, and `driver/object` are the corresponding backend-native contracts.
@@ -131,6 +139,21 @@ For archive creation and one-shot streams, see [streaming TAR/PAX](docs/tar.md) 
 [STORED ZIP32 creation](docs/zip.md). Their writer profiles are narrower than the ZIP reader.
 [Native compression streams](docs/compression.md) compose gzip, zlib and raw DEFLATE with sequential TAR preview,
 independently checking gzip/zlib footers. Raw decoder EOF alone does not establish structural completeness.
+
+[CPIO previews](docs/cpio.md) index uncompressed newc/CRC archives and expose regular members through a read-only view.
+[TAR views](docs/tar.md#browse-an-indexed-tar-as-a-read-only-filesystem) add the same strict namespace admission while
+retaining TAR's header-only checksum scope. Both borrow their sources and refuse ambiguous paths before member reads.
+[Google Drive](docs/drive.md) operates on native IDs and resumable sessions without pretending duplicate names form a
+filesystem. [D1 bindings](docs/d1.md) store small files in a versioned SQL layout with bounded metadata-only directory
+pages. The guides distinguish protocol/SQL fixture evidence from deployed-service verification.
+
+[CAB inspection](docs/cab.md) reads uncompressed folder ranges and reports covering-block checksum scope.
+[WARC inspection](docs/warc.md) previews stored capture blocks with separate optional whole-block digest checks.
+[OneDrive](docs/onedrive.md) preserves drive/item IDs and native upload-session evidence; its capability URLs receive no
+Graph credentials. These are documented profiles, with unsupported codecs and reconstruction kept explicit.
+
+[OCI registry reads](docs/oci.md) verify complete manifest/blob bytes and distinguish server-trusted ranges from
+privately retained immutable sources. They do not reconstruct an image filesystem or verify publisher signatures.
 
 The optional [encryption profile](docs/encryption.md) authenticates selected ciphertext segments before archive access.
 See [expansion status](docs/expansion.md) for implemented capabilities and the protocols and formats still planned.
@@ -459,10 +482,3 @@ core task files delegate to Deno. Task implementation files under `.mise/tasks/`
 
 Use the [Deno and Bumpy release workflow](docs/releasing.md) to author explanatory release notes, synchronize package
 versions, inspect exact artifacts, and publish with independent JSR/npm receipts and fresh public-consumer checks.
-
-[CPIO previews](docs/cpio.md) index uncompressed newc/CRC archives and expose regular members through a read-only view.
-[TAR views](docs/tar.md#browse-an-indexed-tar-as-a-read-only-filesystem) add the same strict namespace admission while
-retaining TAR's header-only checksum scope. Both borrow their sources and refuse ambiguous paths before member reads.
-[Google Drive](docs/drive.md) operates on native IDs and resumable sessions without pretending duplicate names form a
-filesystem. [D1 bindings](docs/d1.md) store small files in a versioned SQL layout with bounded metadata-only directory
-pages. The guides distinguish protocol/SQL fixture evidence from deployed-service verification.

@@ -112,9 +112,10 @@ comparison for the reserved-checksum discrepancy. No upstream implementation sou
 `tests/fixtures/cab/create.py` invokes genuine gcab v1.5 to produce STORED and MSZIP archives and cabextract v1.9 to
 independently consume every original input payload. The corpus includes shared/crossing blocks, a 128 KiB binary file,
 empty files, a late member and a UTF-8 filename. Debian bookworm packages were `gcab 1.5-1` and `cabextract 1.9-3` in
-the disposable arm64 runner. The [producer receipt](../tests/fixtures/cab/provenance.json) pins archive, script and JSON
-digests. Its local base image is not publicly pullable; apt modified the producer environment, so the base ID is not a
-complete immutable producer image.
+the disposable arm64 runner. The
+[producer receipt](https://github.com/okikio/opfs/blob/9f2db24/tests/fixtures/cab/provenance.json) pins archive, script
+and JSON digests. Its local base image is not publicly pullable; apt modified the producer environment, so the base ID
+is not a complete immutable producer image.
 
 `vectors.py` constructs four original mathematical vectors for payload remainder lengths 1, 2, 3 and 0. cabextract must
 consume each complete payload successfully. The separate 24 reserved-area diagnostics record both checksum conventions,

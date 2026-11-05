@@ -15,9 +15,11 @@ No public constructor requires a global registry.
 Optional byte sources, resumable transfers, GCS and selected archive/encryption views have separate guides:
 [sources](source.md), [extensions](extensions.md), [GCS](gcs.md), [transfers](transfer.md),
 [archive preview](archive.md), [TAR streaming](tar.md), [ZIP creation](zip.md), [HTTP](http.md), [WebDAV](webdav.md),
-[B2](b2.md), [Swift](swift.md) and [authenticated encryption](encryption.md). Their current boundaries and remaining
-protocols are recorded in [the expansion status](expansion.md). These subpaths are opt-in; the root remains the
-filesystem facade.
+[B2](b2.md), [Swift](swift.md), [WebHDFS](webhdfs.md), [runtime bindings](bindings.md), [D1](d1.md), [Drive](drive.md),
+[OneDrive](onedrive.md), [OCI](oci.md), [CPIO](cpio.md), [CAB](cab.md), [WARC](warc.md),
+[native compression](compression.md) and [authenticated encryption](encryption.md). Their current boundaries and
+remaining protocols are recorded in [the expansion status](expansion.md). These subpaths are opt-in; the root remains
+the filesystem facade.
 
 ## Filesystem root
 

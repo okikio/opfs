@@ -193,6 +193,10 @@ try {
     import { openCpio } from '@okikio/opfs/archive/cpio';
     import { createCpioAdapter } from '@okikio/opfs/view/cpio';
     import { DriveClient } from '@okikio/opfs/drive';
+    import { OnedriveClient } from '@okikio/opfs/onedrive';
+    import { OciClient } from '@okikio/opfs/oci';
+    import { openCab } from '@okikio/opfs/archive/cab';
+    import { openWarc } from '@okikio/opfs/archive/warc';
     import { createD1Adapter } from '@okikio/opfs/adapter/d1';
     import { createZipStream } from '@okikio/opfs/archive/write';
     import { openZip } from '@okikio/opfs/archive/zip';
@@ -280,6 +284,35 @@ try {
     releases.push(() => cpioView.close());
     const cpioExpected = Uint8Array.from(atob(cpioFixture.entries.find((entry) => entry.name === 'folder/data.bin').body), (byte) => byte.charCodeAt(0));
     assertBytes(await cpioView.readFile('/folder/data.bin', { length: 7 }), cpioExpected.slice(0,7));
+    new OnedriveClient({ driveId: 'packed', token: () => { throw new Error('Construction obtained OAuth'); } });
+    const cabFixture = ${
+      JSON.stringify(
+        JSON.parse(await readFile(new URL("../fixtures/cab/independent.json", import.meta.url), "utf8")).stored,
+      )
+    };
+    const cabArchive = await openCab(createByteSource(Uint8Array.from(atob(cabFixture.archive), (byte) => byte.charCodeAt(0))));
+    assertBytes((await cabArchive.read(0)).bytes, Uint8Array.from(atob(cabFixture.entries[0].body), (byte) => byte.charCodeAt(0)));
+    const warcFixture = ${
+      JSON.stringify(
+        JSON.parse(await readFile(new URL("../fixtures/warc/independent.json", import.meta.url), "utf8")).archives[1],
+      )
+    };
+    const warcArchive = await openWarc(createByteSource(Uint8Array.from(atob(warcFixture.base64), (byte) => byte.charCodeAt(0))));
+    assertBytes((await warcArchive.read(1)).bytes, Uint8Array.from(atob(warcFixture.records[1].blockBase64), (byte) => byte.charCodeAt(0)));
+    if ((await warcArchive.verifyBlock(1, { subtle: globalThis.crypto.subtle })).integrity !== 'stored-block-digest') throw new Error('Packed WARC block proof failed');
+    const packedOciManifest = JSON.stringify({"schemaVersion":2,"mediaType":"application/vnd.oci.image.manifest.v1+json","config":{"mediaType":"application/vnd.oci.empty.v1+json","digest":"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a","size":2},"layers":[{"mediaType":"application/octet-stream","digest":"sha256:039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81","size":3}]});
+    const packedOci = new OciClient({
+      registry: 'https://registry.invalid/', repository: 'packed/artifact',
+      fetch: async (input) => {
+        const url = new URL(String(input));
+        if (url.pathname === '/v2/packed/artifact/manifests/release') return new Response(packedOciManifest, { headers: { 'Content-Type': 'application/vnd.oci.image.manifest.v1+json' } });
+        if (url.pathname === '/v2/packed/artifact/blobs/sha256:039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81') return new Response(new Uint8Array([1,2,3]));
+        throw new Error('Unexpected packed OCI request');
+      },
+    });
+    const packedManifest = await packedOci.getManifest('release');
+    const packedSource = await packedOci.openBlobSource(packedManifest.layers[0].digest, { size: 3 });
+    assertBytes(await packedSource.read(1, 2), new Uint8Array([2,3]));
     void createD1Adapter;
     const tarName = 'caf\u00e9/' + 'long-name-'.repeat(20);
     let tarMembers = 0;
@@ -440,6 +473,10 @@ try {
     import { openCpio } from '@okikio/opfs/archive/cpio';
     import { createCpioAdapter } from '@okikio/opfs/view/cpio';
     import { DriveClient } from '@okikio/opfs/drive';
+    import { OnedriveClient } from '@okikio/opfs/onedrive';
+    import { OciClient } from '@okikio/opfs/oci';
+    import { openCab } from '@okikio/opfs/archive/cab';
+    import { openWarc } from '@okikio/opfs/archive/warc';
     import { createD1Adapter } from '@okikio/opfs/adapter/d1';
     import { createZipStream } from '@okikio/opfs/archive/write';
     import type { ZipWriteEntryType } from '@okikio/opfs/archive/write';
@@ -459,6 +496,14 @@ try {
     const tarView = createTarAdapter(await openTar(createByteSource(new Uint8Array())));
     const cpioView = createCpioAdapter(await openCpio(createByteSource(new Uint8Array())));
     void [d1, driveFile, tarView, cpioView];
+    const onedrive = new OnedriveClient({ driveId: 'typed', token: () => 'type-only' });
+    const cab = await openCab(createByteSource(new Uint8Array()));
+    const warc = await openWarc(createByteSource(new Uint8Array()));
+    const readable: boolean = warc.entries[0]!.readable;
+    void [onedrive, cab, readable];
+    const registry = new OciClient({ registry: 'https://registry.invalid/', repository: 'types/content' });
+    const ociDigest: string = (await registry.getManifest('release')).digest;
+    void ociDigest;
     const fileSystem: FileSystemType = createFileSystem(createMemoryAdapter());
     await fileSystem.writeFile('/types.txt', 'ok', { parents: true });
     const tarEntry: TarWriteEntryType = { name: 'typed', size: 0 };
