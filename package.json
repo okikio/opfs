@@ -111,7 +111,8 @@
     "./archive/zip": "./src/archive/zip.ts",
     "./archive/tar": "./src/archive/tar.ts",
     "./view/zip": "./src/view/zip.ts",
-    "./testing/source": "./src/testing/source.ts"
+    "./testing/source": "./src/testing/source.ts",
+    "./crypto/tink": "./src/crypto/tink.ts"
   },
   "dependencies": {
     "@okikio/undent": "^0.3.3",
