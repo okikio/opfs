@@ -147,8 +147,8 @@ performance.
 
 The committed producer set includes bsdcpio 3.5.3 / libarchive 3.7.4 newc and GNU cpio 2.13 newc/CRC. GNU fixtures came
 from Debian bookworm's `cpio` package `2.13+dfsg-7.1` for arm64 in a disposable bounded runner. The
-[producer receipt](../tests/fixtures/cpio/provenance.json) pins the script and JSON file digests, commands, package
-version and exact archive digests:
+[producer receipt](https://github.com/okikio/opfs/blob/69790448d046ea3316867f658f86b7c0357a7199/tests/fixtures/cpio/provenance.json)
+pins the script and JSON file digests, commands, package version and exact archive digests:
 
 | GNU profile | Archive SHA-256                                                    |
 | ----------- | ------------------------------------------------------------------ |

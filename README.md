@@ -459,3 +459,10 @@ core task files delegate to Deno. Task implementation files under `.mise/tasks/`
 
 Use the [Deno and Bumpy release workflow](docs/releasing.md) to author explanatory release notes, synchronize package
 versions, inspect exact artifacts, and publish with independent JSR/npm receipts and fresh public-consumer checks.
+
+[CPIO previews](docs/cpio.md) index uncompressed newc/CRC archives and expose regular members through a read-only view.
+[TAR views](docs/tar.md#browse-an-indexed-tar-as-a-read-only-filesystem) add the same strict namespace admission while
+retaining TAR's header-only checksum scope. Both borrow their sources and refuse ambiguous paths before member reads.
+[Google Drive](docs/drive.md) operates on native IDs and resumable sessions without pretending duplicate names form a
+filesystem. [D1 bindings](docs/d1.md) store small files in a versioned SQL layout with bounded metadata-only directory
+pages. The guides distinguish protocol/SQL fixture evidence from deployed-service verification.
