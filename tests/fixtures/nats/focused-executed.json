@@ -1,0 +1,25 @@
+{
+  "scope": "Exact formatted files copied from passed focused runner b4184bfb after formatter/lint/three-runtime tests. Input tar records pre-format sources; these are executed post-format byte hashes. No semantic edits afterward.",
+  "paths": {
+    "src/nats.ts": {
+      "bytes": 24523,
+      "sha256": "8b0e51f85185a925fdb83dafa68b005e936e675cb5fc58cc62b2fae52ce45722"
+    },
+    "tests/nats.test.ts": {
+      "bytes": 19195,
+      "sha256": "04e932f1df38988eeb24f9e6fd499f230a6be7c48934f6cf21ee15a81e57e57b"
+    },
+    "tests/provider/nats.ts": {
+      "bytes": 22222,
+      "sha256": "091f4ec3c3fcf5da75fc6a0ea527ee7cef3b41eae707d816796771cf3869e58b"
+    },
+    "tests/nats-provider.test.ts": {
+      "bytes": 2597,
+      "sha256": "3fe085edc4c447038b5596f12fd89b615ef8c3e5bd3ec577f7d4b5a2faf3657a"
+    },
+    "bench/nats.bench.ts": {
+      "bytes": 6574,
+      "sha256": "5619fcd119a9ab957e676e2d6257b31add73f8eb19ab04d4a60d5dd2db269be3"
+    }
+  }
+}
