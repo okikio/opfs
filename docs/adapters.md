@@ -39,6 +39,15 @@ metrics, provider-specific operations, or a custom translation.
 | Drizzle database + table | `driver/drizzle`      | `adapter/drizzle`      | record        |
 | S3                       | `driver/s3`           | `adapter/s3`           | object        |
 | Azure Blob               | `driver/azure`        | `adapter/azure`        | object        |
+| Google Cloud Storage     | `driver/gcs`          | `adapter/gcs`          | object        |
+| Backblaze B2 native      | `driver/b2`           | `adapter/b2`           | object        |
+| OpenStack Swift          | `driver/swift`        | `adapter/swift`        | object        |
+| WebDAV                   | `driver/webdav`       | `adapter/webdav`       | file          |
+
+These rows identify implemented entrypoints, not identical capabilities or hosted-service certification. See the
+[GCS](gcs.md), [B2](b2.md), [Swift](swift.md) and [WebDAV](webdav.md) guides for exact profile and concurrency limits.
+WebDAV refuses canonical removal because its native DELETE can recursively remove a collection; the native client
+exposes that operation explicitly. [HTTP](http.md) is a single-resource byte source without a filesystem listing.
 
 Reusable family translators:
 

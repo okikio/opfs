@@ -104,11 +104,19 @@ distinct from ETags. The optional `tus` and `transfer` modules support known-len
 explicit session and source ownership. See [GCS](docs/gcs.md) and [transfer recovery](docs/transfer.md) for complete
 examples and verification limits.
 
+Optional [HTTP](docs/http.md), [WebDAV](docs/webdav.md), [Backblaze B2](docs/b2.md) and [OpenStack Swift](docs/swift.md)
+subpaths keep authentication caller-owned and refuse unsupported protocol guarantees. WebDAV exposes a file driver; B2
+and Swift use object drivers. HTTP exposes one revision-bound byte source.
+
 To inspect selected archive members, compose a revision-bound [byte source](docs/source.md) with `archive/zip` or the
-range-based ustar reader in `archive/tar`. `view/zip` projects an opened ZIP into a read-only filesystem and refuses
-ambiguous paths. [Archive documentation](docs/archive.md) explains supported profiles, work budgets and checksum scope;
-partial bytes do not establish whole-member integrity. [Independent extensions](docs/extensions.md) can supply public
-driver/source contracts, read-only adapters, bridges or codecs without global registration.
+range-based ustar/PAX/GNU metadata reader in `archive/tar`. `view/zip` projects an opened ZIP into a read-only
+filesystem and refuses ambiguous paths. [Archive documentation](docs/archive.md) explains supported profiles, work
+budgets and checksum scope; partial bytes do not establish whole-member integrity.
+[Independent extensions](docs/extensions.md) can supply public driver/source contracts, read-only adapters, bridges or
+codecs without global registration.
+
+For archive creation and one-shot streams, see [streaming TAR/PAX](docs/tar.md) and
+[STORED ZIP32 creation](docs/zip.md). Their writer profiles are narrower than the ZIP reader.
 
 The optional [encryption profile](docs/encryption.md) authenticates selected ciphertext segments before archive access.
 See [expansion status](docs/expansion.md) for implemented capabilities and the protocols and formats still planned.

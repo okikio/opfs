@@ -846,3 +846,19 @@ change the process umask to make assertions pass, and cleanup never changes borr
 explicit readonly modes remain a separate Linux contract; Windows host modes still do not establish POSIX authority. See
 the native contracts for [creation masks](https://nodejs.org/api/process.html#processumaskmask) and
 [file modes](https://nodejs.org/api/fs.html#file-modes).
+
+## HTTP storage and streaming archive gates
+
+Run `deno task test:expansion` for portable protocol/format contracts. `deno task test:expansion:providers` runs the
+existing disposable providers plus native Swift and WebDAV fixtures sequentially; fixtures use pinned images, ephemeral
+ports and awaited Testcontainers cleanup. These tests need Docker and establish only the exercised server profiles. B2
+currently has authored protocol fixtures, not hosted-service proof.
+
+On Linux with Node, Python 3 and system TAR available, run `deno task test:archive:interop`. It checks new writer output
+with independent consumers and fails on either producer or consumer errors. It lives in the Linux provider job instead
+of silently skipping absent tools in the Windows runtime matrix. Portable tests remain in Deno, Node and Bun gates.
+
+`bench:archive` includes ZIP writer workloads; `bench:tar` compares indexed and sequential reads plus streaming writes
+with byte-only baselines. Both validate byte/count oracles before sampling. CI retains their raw reports in the archive
+benchmark artifact. Sampling results describe the exact workload and runtime; a passed preflight alone is not a timing
+result. Run benchmarks separately from static/compiler jobs under the repository memory policy.

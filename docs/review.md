@@ -177,3 +177,25 @@ establish result/sample validity, not a universal latency budget.
 Deno 2.9.7, Node 26.10.0 and Bun 1.3.14 supplied host evidence. Linux compatibility lanes additionally used Node 22.18
 and 24.21. That isolated run did not exercise Windows; the CI host matrix owns Windows evidence. Original staged changes
 and ignored local evidence were preserved.
+
+## HTTP storage and streaming archive expansion
+
+The following suites own the new protocol and format boundaries. Keep independent provider/consumer tests separate from
+authored protocol fixtures; their proof levels are different.
+
+| Area                                                        | Maintained proof and limits                                                                                                                                                                           |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tests/http.test.ts`                                        | Exact HEAD/range/validator admission, header authority, redirects, encoded responses and body retirement. A single resource does not imply a listing.                                                 |
+| `tests/webdav.test.ts`                                      | DAV namespaces/hrefs, bounded listings, publication failures, strong revision fallback, driver admission and borrowed client ownership. Generic removal is refused because native DELETE can recurse. |
+| `tests/webdav-provider.test.ts`, `tests/provider/webdav.ts` | Pinned WsgiDAV Testcontainers fixture; actual PROPFIND, PUT, ranges, conditions, COPY/MOVE/DELETE and independent HTTP-source composition. No deployment-wide LOCK or concurrency claim.              |
+| `tests/b2.test.ts`                                          | Authored native B2 protocol fixtures, SHA1 known answer, immutable versions, hide markers, upload ambiguity, limits and source composition. Hosted B2 interoperability remains unverified.            |
+| `tests/swift.test.ts`                                       | Native regular-object protocol, bounded listings, streams, revisions, response retirement and refusal of unsupported manifests/conditions.                                                            |
+| `tests/swift-provider.test.ts`, `tests/provider/swift.ts`   | Pinned disposable SAIO server; actual regular-object CRUD, ranges, listings, filesystem projection and manifest refusal. No claim for arbitrary middleware.                                           |
+| `tests/tar.test.ts`, `tests/fixtures/tar/`                  | Independent Python PAX/GNU fixtures, complete payloads, exhaustive split boundaries, malformed metadata, budgets and stream lifetime.                                                                 |
+| `tests/zip-write.test.ts`, `tests/fixtures/zip-write/`      | STORED ZIP32 framing, independent payload/CRC oracles, path admission, bounded central metadata and cleanup. ZIP64 writing remains refused.                                                           |
+| `tests/tar-process.test.ts`, `tests/zip-process.test.ts`    | Linux CI task `test:archive:interop`; independent CPython consumers plus system TAR. Owned subprocesses are bounded and every exit status is checked.                                                 |
+| `tests/package/verify.mjs`                                  | Fresh installed consumers import every public subpath and exercise archive writers/readers, including PAX names and ZIP CRC verification.                                                             |
+| `bench/archive.bench.ts`, `bench/tar.bench.ts`              | Byte-only baselines, indexed/streaming reads and writer workloads with untimed complete-byte oracles. Different workloads do not imply equivalent work or universal performance.                      |
+
+The complete original catalog and format routing are retained under repository `planning/storage/`. Its validator checks
+planning integrity only. Production exports never import those records, and the runtime packages exclude that directory.

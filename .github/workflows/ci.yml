@@ -148,6 +148,7 @@ jobs:
           install_args: deno node
       - run: deno task deps:ci && deno task test:providers
       - run: deno task test:expansion:providers
+      - run: deno task test:archive:interop
 
   npm-package:
     name: npm tarball consumers
@@ -180,6 +181,7 @@ jobs:
       - run: |
           mkdir -p .tmp/reports/archive-bench
           BENCH_JSON=1 deno task bench:archive > .tmp/reports/archive-bench/mitata.json 2> .tmp/reports/archive-bench/stderr.log
+          BENCH_JSON=1 deno task bench:tar > .tmp/reports/archive-bench/tar.json 2> .tmp/reports/archive-bench/tar-stderr.log
       - run: deno task bench:upstream:verify
       - run: |
           mkdir -p .tmp/reports/upstream-bench

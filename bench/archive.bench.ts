@@ -1,6 +1,8 @@
 import { bench, do_not_optimize } from "mitata";
 import { createBlobSource } from "../src/source.ts";
 import { openZip } from "../src/archive/zip.ts";
+import { createZipStream } from "../src/archive/write.ts";
+import type { ZipWriteEntryType } from "../src/archive/write.ts";
 import { expectBytes, report } from "./result.ts";
 
 /** Independent Python binascii CRC32 results for all-A payloads at these sizes. */
@@ -64,5 +66,102 @@ for (const [size, crc] of cases) {
     do_not_optimize(await archive.read(0));
   });
 }
+
+/** Count output without retaining it; the caller still awaits EOF and each reader release. */
+async function drain(source: ReadableStream<Uint8Array>): Promise<number> {
+  const reader = source.getReader();
+  let total = 0;
+  try {
+    while (true) {
+      const next = await reader.read();
+      if (next.done) return total;
+      total += next.value.byteLength;
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+/** One stable 64 KiB input buffer models producer memory independent of logical member length. */
+function streamed(size: number): ReadableStream<Uint8Array> {
+  const chunk = new Uint8Array(Math.min(size, 65536)).fill(65);
+  let remaining = size;
+  return new ReadableStream<Uint8Array>({
+    pull(controller) {
+      if (remaining === 0) controller.close();
+      else {
+        const length = Math.min(remaining, chunk.byteLength);
+        remaining -= length;
+        controller.enqueue(chunk.subarray(0, length));
+      }
+    },
+  }, { highWaterMark: 0 });
+}
+
+// These lanes ask what CRC/ZIP framing and output materialization add to a
+// bounded stream drain. The bytes-only lane deliberately does not produce ZIP;
+// it is an I/O baseline, not an equivalent archive implementation or speed claim.
+for (const [size, crc] of cases) {
+  const input = new Uint8Array(size).fill(65);
+  const write = () => createZipStream([{ name: "payload.bin", source: streamed(size) }]);
+  const collected = new Uint8Array(await new Response(write()).arrayBuffer());
+  const opened = await openZip(createBlobSource(new Blob([collected.buffer])));
+  if (opened.entries.length !== 1 || opened.entries[0]!.crc32 !== crc || opened.entries[0]!.size !== size) {
+    throw new Error("ZIP writer benchmark differs from the independent CRC/extent oracle.");
+  }
+  expectBytes((await opened.read(0, { verify: true })).bytes, input, "archive/write-stream/oracle");
+  if (await drain(write()) !== collected.byteLength) {
+    throw new Error("ZIP benchmark drain did not reach the full end record.");
+  }
+
+  bench(`archive/write/${size} bytes: Web payload drain (no ZIP or CRC)`, async () => {
+    do_not_optimize(await drain(streamed(size)));
+  });
+  bench(`archive/write/${size} bytes: STORED stream + CRC, discard output`, async () => {
+    do_not_optimize(await drain(write()));
+  });
+  bench(`archive/write/${size} bytes: STORED stream + CRC, collect output`, async () => {
+    do_not_optimize(await new Response(write()).arrayBuffer());
+  });
+  bench(`archive/write/${size} bytes: STORED materialized input + CRC, discard output`, async () => {
+    do_not_optimize(await drain(createZipStream([{ name: "payload.bin", source: input }])));
+  });
+}
+
+/** Same payload per entry keeps directory cardinality separate from total stored bytes. */
+function* smallEntries(count: number): Generator<ZipWriteEntryType> {
+  const bytes = new Uint8Array(128).fill(65);
+  for (let index = 0; index < count; index++) {
+    yield { name: `items/${String(index).padStart(5, "0")}.bin`, source: bytes };
+  }
+}
+for (const count of [1, 1024, 10000]) {
+  const bytes = new Uint8Array(await new Response(createZipStream(smallEntries(count))).arrayBuffer());
+  const archive = await openZip(createBlobSource(new Blob([bytes.buffer])));
+  if (
+    archive.entries.length !== count || archive.entries.some((entry) => entry.size !== 128 || entry.crc32 !== 68717278)
+  ) {
+    // 68717278 is the independent Python binascii CRC32 of 128 ASCII A bytes.
+    throw new Error("ZIP directory workload lost an entry, extent or CRC.");
+  }
+  expectBytes(
+    (await archive.read(count - 1, { verify: true })).bytes,
+    new Uint8Array(128).fill(65),
+    "archive/write-many/oracle",
+  );
+  bench(`archive/write/${count} entries of 128 bytes: STORED directory + payload, discard output`, async () => {
+    do_not_optimize(await drain(createZipStream(smallEntries(count))));
+  });
+}
+
+bench("archive/write: first local header + cancel (no payload acquisition)", async () => {
+  const reader = createZipStream([{ name: "payload.bin", source: streamed(4194304) }]).getReader();
+  try {
+    do_not_optimize(await reader.read());
+    await reader.cancel();
+  } finally {
+    reader.releaseLock();
+  }
+});
 
 await report();
