@@ -1,0 +1,104 @@
+{
+  "scope": "Four native ZIPs, sixteen original members, twelve actual LZMA method-14 members. Python+7-Zip full bytes for all sixteen; libarchive full bytes for fourteen and exact empty-LZMA refusals for two.",
+  "packages": [
+    "7zip\t22.01+really26.02+dfsg-0+deb12u1",
+    "libarchive-tools\t3.6.2-1+deb12u5",
+    "python3\t3.11.2-1+b1"
+  ],
+  "pythonRuntime": "3.11.2",
+  "baseImage": "sha256:f1d61877be7f1023016b35716b2424f3f3d77825a875853130311bdb0d9fe43e",
+  "installedToolsImage": "sha256:510fda8f0728b4292afc34cad7c4a13176bcbf738396287e62f35b3043963adb",
+  "imageScope": "Local runner and signed-apt descendant only, not publicly pullable complete producer pins. Host bind mounts stalled before container creation; reviewed create/copy/start recipe succeeded.",
+  "limits": {
+    "memoryBytes": 1073741824,
+    "cpus": 1,
+    "pids": 128
+  },
+  "command": "python3 /produce.py --seven /usr/bin/7zz --bsdtar /usr/bin/bsdtar --output /tmp/independent.json",
+  "negativeReceipts": {
+    "missingOldImage": {
+      "exitCode": 143,
+      "producerStarted": false
+    },
+    "blockedBaseBindMount": {
+      "exitCode": 143,
+      "producerStarted": false
+    },
+    "firstActualProducer": {
+      "exitCode": 1,
+      "reason": "Libarchive empty LZMA refusal; no fixture JSON copied."
+    }
+  },
+  "successfulProducer": {
+    "exitCode": 0,
+    "oomKilled": false,
+    "containersRemoved": true
+  },
+  "consumerDiagnostics": [
+    {
+      "archive": "python",
+      "member": "empty.bin",
+      "status": "empty-lzma-refused",
+      "exitCode": 1,
+      "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr": "empty.bin: lzma unknown error 10: Unknown error -1\nbsdtar: Error exit delayed from previous errors.\n"
+    },
+    {
+      "archive": "python-descriptor",
+      "member": "empty.bin",
+      "status": "empty-lzma-refused",
+      "exitCode": 1,
+      "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr": "empty.bin: lzma unknown error 10: Unknown error -1\nbsdtar: Error exit delayed from previous errors.\n"
+    }
+  ],
+  "specification": {
+    "url": "https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT",
+    "version": "6.3.10",
+    "date": "2022-11-01",
+    "sha256": "0b993022a7d320a0bf704e6980bea36fafd17a6066ab994db0a0c16278a50cd6",
+    "sections": [
+      "4.4.3.2",
+      "4.4.4",
+      "5.8"
+    ],
+    "scope": "Primary wire framing, minimum version and EOS bit semantics reviewed; no specification text or codec implementation copied."
+  },
+  "files": {
+    "create.py": "65ebde7b1474b65338c1084643b54a556b6492287c87448b36edf773e359dd08",
+    "independent.json": "ec3e7153bc0aa047a9237649b1d6265dd45b2349f2a95b6e9e53a82c8d768c98"
+  },
+  "nativeCompactJsonSha256": "58769ef09cca695b7e94b1027d6462e48bb6639859cb37584ad0255c2d64bca6",
+  "checkedPayloadDigests": 20,
+  "nativeMethod14Members": 12,
+  "signedAptDebArtifacts": {
+    "7zip_22.01+really26.02+dfsg-0+deb12u1_arm64.deb": "7286900c80fb465544700bce4e392e9a091e0e84f4af8d9c6f9b951fffaa6164",
+    "libarchive-tools_3.6.2-1+deb12u5_arm64.deb": "fe47c9cb546d0c2fd94359c3b5ee461a3ae4d99f648d75bffcc6e8af262c31b6",
+    "libarchive13_3.6.2-1+deb12u5_arm64.deb": "0be76b2a5c9f1ff3f97ed44731175a5bf69fe0b89a8ebfb3cee7ad77777ee918",
+    "libexpat1_2.5.0-1+deb12u5_arm64.deb": "4a733e7f636de4a4483e3e5d7b02dc8e788b115361a04dd58df89461ce2ae65a",
+    "libgssapi-krb5-2_1.20.1-2+deb12u5_arm64.deb": "a00678963f692a929312968f19b77a61a8fc0011690d7dc909a8a2c4810fc7b3",
+    "libicu72_72.1-3+deb12u1_arm64.deb": "4f5d892fd81110435e45ed0a5f1b12899d7ff989d51db283cbc043f5631646d8",
+    "libk5crypto3_1.20.1-2+deb12u5_arm64.deb": "8ae2c31cde0b3e6f80c573a495b0f90bf6d9efb4455d900728278bb54d9092e5",
+    "libkeyutils1_1.6.3-2_arm64.deb": "aac46cb6faec4e737502b3c2290b7b02f8ba04e8accd5af7fd07934df0c867b1",
+    "libkrb5-3_1.20.1-2+deb12u5_arm64.deb": "c3c7227f5db903a7a8b8936d47d1d79643edcda36365c4c992e1a96bcc2d4c7e",
+    "libkrb5support0_1.20.1-2+deb12u5_arm64.deb": "3043fd4a54b945a1b503170749527f825dcfc7add2f8bf5abb4a329deeb48f4a",
+    "libncursesw6_6.4-4_arm64.deb": "cf32cb6751718872c6def448b82211eec494f688e2f1a3e6c71bfdaf6b0722c5",
+    "libnsl2_1.3.0-2_arm64.deb": "8f9ba58b219779b43c4ccc78c79b0a23f721fc96323c202abb31e02f942104b3",
+    "libpython3-stdlib_3.11.2-1+b1_arm64.deb": "3ceea13a9d2eff6e850d47b4f03ebd0162acb2aa5646a84ccbe77783be104302",
+    "libpython3.11-minimal_3.11.2-6+deb12u9_arm64.deb": "dd9847d2f77c5a924b1d3dd953b81f161db9374c94d03b9216191925350928c3",
+    "libpython3.11-stdlib_3.11.2-6+deb12u9_arm64.deb": "9937cbe3f647aa89a590fec647438ce02098c113d1c6f70e4cb1230c368d42a4",
+    "libreadline8_8.2-1.3_arm64.deb": "f3b162b7c1e05430607e792ebdbfc417cbd1f1d32cf83664133ae63d811a72d2",
+    "libsqlite3-0_3.40.1-2+deb12u2_arm64.deb": "a690f7f2aa6435bd1fd7cbbd2216acb9acbb8c48c9721f2c195766375439eb13",
+    "libssl3_3.0.22-1~deb12u2_arm64.deb": "3d04ecd8d0f57fed50d205abaeedfcc84c1960073ea085719c00add44b0ccd7f",
+    "libtirpc-common_1.3.3+ds-1_all.deb": "3e3ef129b4bf61513144236e15e1b4ec57fa5ae3dc8a72137abdbefb7a63af85",
+    "libtirpc3_1.3.3+ds-1_arm64.deb": "deaf9ea54f74cab6690b4bc0b427f05cbe62cc073580d84f5f18a8d9e2ece401",
+    "libxml2_2.9.14+dfsg-1.3~deb12u6_arm64.deb": "0bc00975e459387535a4bbabe98a398f0e77c9ab82474face18d01ae8ed0dae4",
+    "media-types_10.0.0_all.deb": "aaa46dcb3b39948ae2e0fdb72cfcb2f48c0b59f19785a3da8045c05eb19955dd",
+    "python3-minimal_3.11.2-1+b1_arm64.deb": "f01c94963ace8a6fec59300427c95fc4ac204d752567dd2e4b36ee930755110f",
+    "python3.11-minimal_3.11.2-6+deb12u9_arm64.deb": "617855dbf3299e03873926c75d61feaf3d36924586aecc1951a0b965a95bc694",
+    "python3.11_3.11.2-6+deb12u9_arm64.deb": "f8d1726c2f5c61b42dbf7652cd9c01da23e55029e3c384a9f1802334fd964091",
+    "python3_3.11.2-1+b1_arm64.deb": "d31a6f8bdea49711f221baee0e27197c314d0cbe748c020262d32650aca5f017",
+    "readline-common_8.2-1.3_all.deb": "69317523fe56429aa361545416ad339d138c1500e5a604856a80dd9074b4e35c"
+  },
+  "dictionaryQualification": "seven-1m names the requested setting; native producer reduced actual dictionary to 262144 bytes. seven-64k actually declares 65536 bytes, with a 230017-byte payload proving dictionary wrap."
+}

@@ -53,6 +53,7 @@ describe("ZIP method 12 BZip2 preview", () => {
           actualBzip++;
           expect(result.codec?.integrity).toBe("checksum-verified");
           expect(result.codec?.kind).toBe("bzip2");
+          if (result.codec?.kind !== "bzip2") throw new Error("Method 12 must report BZip2 evidence.");
           if (member.name === "many.bin" && item.name === "python-1") {
             expect(result.codec!.verifiedBlocks).toBeGreaterThan(1);
           }
@@ -72,6 +73,7 @@ describe("ZIP method 12 BZip2 preview", () => {
     expect(prefix.bytes).toEqual(original.slice(0, 7));
     expect(prefix.integrity).toBe("checksum-pending");
     expect(prefix.codec?.integrity).toBe("checksum-pending");
+    if (prefix.codec?.kind !== "bzip2") throw new Error("Method 12 must report BZip2 evidence.");
     expect(prefix.codec!.verifiedBlocks).toBe(1);
     expect(prefix.work.outputBytes).toBe(7);
     expect(ledger.inspect().outputBytes).toBe(7);
@@ -86,7 +88,8 @@ describe("ZIP method 12 BZip2 preview", () => {
     expect(verified.codec?.integrity).toBe("checksum-verified");
     const empty = await archive.read(entry.id, { length: 0 });
     expect(empty.bytes.length).toBe(0);
-    expect(empty.codec?.verifiedBlocks).toBe(0);
+    if (empty.codec?.kind !== "bzip2") throw new Error("Method 12 must report BZip2 evidence.");
+    expect(empty.codec.verifiedBlocks).toBe(0);
   });
   it("rejects corrupted block/footer, ZIP CRC, truncated exact extents and unsupported method versions", async () => {
     const raw = decodeBase64(native.archive.base64), h = headers(raw, many.name);
