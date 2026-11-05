@@ -150,7 +150,8 @@
     "./onedrive": "./src/onedrive.ts",
     "./oci": "./src/oci.ts",
     "./archive/mime": "./src/archive/mime.ts",
-    "./archive/seven": "./src/archive/seven.ts"
+    "./archive/seven": "./src/archive/seven.ts",
+    "./ftp": "./src/ftp.ts"
   },
   "dependencies": {
     "@okikio/undent": "^0.3.3",
