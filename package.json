@@ -147,7 +147,8 @@
     "./adapter/d1": "./src/adapter/d1.ts",
     "./archive/cab": "./src/archive/cab.ts",
     "./archive/warc": "./src/archive/warc.ts",
-    "./onedrive": "./src/onedrive.ts"
+    "./onedrive": "./src/onedrive.ts",
+    "./oci": "./src/oci.ts"
   },
   "dependencies": {
     "@okikio/undent": "^0.3.3",
