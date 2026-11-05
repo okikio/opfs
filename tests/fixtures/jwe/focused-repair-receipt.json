@@ -1,0 +1,26 @@
+{
+  "image": "sha256:3da9732c304854e7b6b6d665759fa2451e4a5705db1728033b47ebc83848967d",
+  "state": {
+    "Status": "exited",
+    "Running": false,
+    "Paused": false,
+    "Restarting": false,
+    "OOMKilled": false,
+    "Dead": false,
+    "Pid": 0,
+    "ExitCode": 0,
+    "Error": "",
+    "StartedAt": "2026-11-05T21:19:26.953914463Z",
+    "FinishedAt": "2026-11-05T21:19:28.885816672Z"
+  },
+  "resources": {
+    "Memory": 1073741824,
+    "MemorySwap": 1073741824,
+    "NanoCpus": 1000000000,
+    "PidsLimit": 128,
+    "NetworkMode": "none",
+    "Binds": null
+  },
+  "logSha256": "29e23f4ea61e3171234adc23088659a68d46dbadd49e4c4bba4bfbbe9bf7bad3",
+  "scope": "25 focused runtime cases pass on Deno/Node/Bun. First run has one intentional empty-catch lint finding; comment-only repair passes all runtimes and owned fmt/lint."
+}

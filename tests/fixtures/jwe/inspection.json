@@ -1,0 +1,719 @@
+{
+  "scope": "Static inspection only; no SDK import or installation. Every extracted path remains inert snapshot bytes.",
+  "version": "6.2.15",
+  "license": "MIT",
+  "dependencies": {},
+  "optionalDependencies": {},
+  "selectedFiles": 49,
+  "tarMembers": 80,
+  "compressedBytes": 50313,
+  "expandedTarBytes": 286208,
+  "sha256": "e6d47adc1d83ec95215d791e966362629e75ce1973902fd29ae4bbd468500e9c",
+  "imports": [
+    {
+      "path": "sdk/dist/webapi/index.js.snapshot",
+      "specifier": "./jwe/compact/decrypt.js"
+    },
+    {
+      "path": "sdk/dist/webapi/index.js.snapshot",
+      "specifier": "./jwe/flattened/decrypt.js"
+    },
+    {
+      "path": "sdk/dist/webapi/index.js.snapshot",
+      "specifier": "./jwe/general/decrypt.js"
+    },
+    {
+      "path": "sdk/dist/webapi/index.js.snapshot",
+      "specifier": "./jwe/general/encrypt.js"
+    },
+    {
+      "path": "sdk/dist/webapi/index.js.snapshot",
+      "specifier": "./jws/compact/verify.js"
+    },
+    {
+      "path": "sdk/dist/webapi/index.js.snapshot",
+      "specifier": "./jws/flattened/verify.js"
+    },
+    {
+      "path": "sdk/dist/webapi/index.js.snapshot",
+      "specifier": "./jws/general/verify.js"
+    },
+    {
+      "path": "sdk/dist/webapi/index.js.snapshot",
+      "specifier": "./jwt/verify.js"
+    },
+    {
+      "path": "sdk/dist/webapi/index.js.snapshot",
+      "specifier": "./jwt/decrypt.js"
+    },
+    {
+      "path": "sdk/dist/webapi/index.js.snapshot",
+      "specifier": "./jwe/compact/encrypt.js"
+    },
+    {
+      "path": "sdk/dist/webapi/index.js.snapshot",
+      "specifier": "./jwe/flattened/encrypt.js"
+    },
+    {
+      "path": "sdk/dist/webapi/index.js.snapshot",
+      "specifier": "./jws/compact/sign.js"
+    },
+    {
+      "path": "sdk/dist/webapi/index.js.snapshot",
+      "specifier": "./jws/flattened/sign.js"
+    },
+    {
+      "path": "sdk/dist/webapi/index.js.snapshot",
+      "specifier": "./jws/general/sign.js"
+    },
+    {
+      "path": "sdk/dist/webapi/index.js.snapshot",
+      "specifier": "./jwt/sign.js"
+    },
+    {
+      "path": "sdk/dist/webapi/index.js.snapshot",
+      "specifier": "./jwt/encrypt.js"
+    },
+    {
+      "path": "sdk/dist/webapi/index.js.snapshot",
+      "specifier": "./jwk/thumbprint.js"
+    },
+    {
+      "path": "sdk/dist/webapi/index.js.snapshot",
+      "specifier": "./jwk/embedded.js"
+    },
+    {
+      "path": "sdk/dist/webapi/index.js.snapshot",
+      "specifier": "./jwks/local.js"
+    },
+    {
+      "path": "sdk/dist/webapi/index.js.snapshot",
+      "specifier": "./jwks/remote.js"
+    },
+    {
+      "path": "sdk/dist/webapi/index.js.snapshot",
+      "specifier": "./jwt/unsecured.js"
+    },
+    {
+      "path": "sdk/dist/webapi/index.js.snapshot",
+      "specifier": "./key/export.js"
+    },
+    {
+      "path": "sdk/dist/webapi/index.js.snapshot",
+      "specifier": "./key/import.js"
+    },
+    {
+      "path": "sdk/dist/webapi/index.js.snapshot",
+      "specifier": "./util/decode_protected_header.js"
+    },
+    {
+      "path": "sdk/dist/webapi/index.js.snapshot",
+      "specifier": "./util/decode_jwt.js"
+    },
+    {
+      "path": "sdk/dist/webapi/index.js.snapshot",
+      "specifier": "./util/errors.js"
+    },
+    {
+      "path": "sdk/dist/webapi/index.js.snapshot",
+      "specifier": "./key/generate_key_pair.js"
+    },
+    {
+      "path": "sdk/dist/webapi/index.js.snapshot",
+      "specifier": "./key/generate_secret.js"
+    },
+    {
+      "path": "sdk/dist/webapi/index.js.snapshot",
+      "specifier": "./util/base64url.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwe/compact/decrypt.js.snapshot",
+      "specifier": "../../lib/jwe_decrypt.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwe/compact/encrypt.js.snapshot",
+      "specifier": "../../lib/validate.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwe/compact/encrypt.js.snapshot",
+      "specifier": "../../lib/jwe_encrypt.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwe/flattened/decrypt.js.snapshot",
+      "specifier": "../../util/errors.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwe/flattened/decrypt.js.snapshot",
+      "specifier": "../../lib/validate.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwe/flattened/decrypt.js.snapshot",
+      "specifier": "../../lib/jwe_decrypt.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwe/flattened/encrypt.js.snapshot",
+      "specifier": "../../lib/validate.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwe/flattened/encrypt.js.snapshot",
+      "specifier": "../../lib/jwe_encrypt.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwe/general/decrypt.js.snapshot",
+      "specifier": "../../lib/jwe_decrypt.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwe/general/decrypt.js.snapshot",
+      "specifier": "../../util/errors.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwe/general/decrypt.js.snapshot",
+      "specifier": "../../lib/validate.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwe/general/decrypt.js.snapshot",
+      "specifier": "../../lib/jwe_algorithms.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwe/general/encrypt.js.snapshot",
+      "specifier": "../../lib/validate.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwe/general/encrypt.js.snapshot",
+      "specifier": "../../util/errors.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwe/general/encrypt.js.snapshot",
+      "specifier": "../../lib/content_encryption.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwe/general/encrypt.js.snapshot",
+      "specifier": "../../util/base64url.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwe/general/encrypt.js.snapshot",
+      "specifier": "../../lib/jwe_encrypt.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwe/general/encrypt.js.snapshot",
+      "specifier": "../../lib/key_management.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwe/general/encrypt.js.snapshot",
+      "specifier": "../../lib/jwe_algorithms.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwk/embedded.js.snapshot",
+      "specifier": "../lib/key.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwk/embedded.js.snapshot",
+      "specifier": "../lib/jws_algorithms.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwk/embedded.js.snapshot",
+      "specifier": "../lib/validate.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwk/embedded.js.snapshot",
+      "specifier": "../util/errors.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwk/thumbprint.js.snapshot",
+      "specifier": "../lib/buffer_utils.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwk/thumbprint.js.snapshot",
+      "specifier": "../util/base64url.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwk/thumbprint.js.snapshot",
+      "specifier": "../util/errors.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwk/thumbprint.js.snapshot",
+      "specifier": "../lib/key.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwk/thumbprint.js.snapshot",
+      "specifier": "../lib/validate.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwk/thumbprint.js.snapshot",
+      "specifier": "../key/export.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwks/local.js.snapshot",
+      "specifier": "../lib/key.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwks/local.js.snapshot",
+      "specifier": "../lib/jws_algorithms.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwks/local.js.snapshot",
+      "specifier": "../util/errors.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwks/local.js.snapshot",
+      "specifier": "../lib/validate.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwks/remote.js.snapshot",
+      "specifier": "../util/errors.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwks/remote.js.snapshot",
+      "specifier": "./local.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwks/remote.js.snapshot",
+      "specifier": "../lib/validate.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jws/compact/sign.js.snapshot",
+      "specifier": "../../lib/jws_sign.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jws/compact/sign.js.snapshot",
+      "specifier": "../../lib/validate.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jws/compact/verify.js.snapshot",
+      "specifier": "../../lib/jws_verify.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jws/flattened/sign.js.snapshot",
+      "specifier": "../../lib/jws_sign.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jws/flattened/sign.js.snapshot",
+      "specifier": "../../lib/validate.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jws/flattened/verify.js.snapshot",
+      "specifier": "../../util/errors.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jws/flattened/verify.js.snapshot",
+      "specifier": "../../lib/validate.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jws/flattened/verify.js.snapshot",
+      "specifier": "../../lib/jws_verify.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jws/general/sign.js.snapshot",
+      "specifier": "../../lib/jws_sign.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jws/general/sign.js.snapshot",
+      "specifier": "../../util/errors.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jws/general/sign.js.snapshot",
+      "specifier": "../../lib/validate.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jws/general/verify.js.snapshot",
+      "specifier": "../../lib/jws_verify.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jws/general/verify.js.snapshot",
+      "specifier": "../../util/errors.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jws/general/verify.js.snapshot",
+      "specifier": "../../lib/validate.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwt/decrypt.js.snapshot",
+      "specifier": "../lib/jwe_decrypt.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwt/decrypt.js.snapshot",
+      "specifier": "../lib/jwt_claims_set.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwt/decrypt.js.snapshot",
+      "specifier": "../util/errors.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwt/encrypt.js.snapshot",
+      "specifier": "../lib/jwe_encrypt.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwt/encrypt.js.snapshot",
+      "specifier": "../lib/jwt_claims_set.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwt/encrypt.js.snapshot",
+      "specifier": "../lib/validate.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwt/sign.js.snapshot",
+      "specifier": "../lib/jws_sign.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwt/sign.js.snapshot",
+      "specifier": "../util/errors.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwt/sign.js.snapshot",
+      "specifier": "../lib/jwt_claims_set.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwt/sign.js.snapshot",
+      "specifier": "../lib/validate.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwt/unsecured.js.snapshot",
+      "specifier": "../util/base64url.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwt/unsecured.js.snapshot",
+      "specifier": "../lib/validate.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwt/unsecured.js.snapshot",
+      "specifier": "../util/errors.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwt/unsecured.js.snapshot",
+      "specifier": "../lib/jwt_claims_set.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwt/verify.js.snapshot",
+      "specifier": "../lib/jws_verify.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwt/verify.js.snapshot",
+      "specifier": "../lib/jwt_claims_set.js"
+    },
+    {
+      "path": "sdk/dist/webapi/jwt/verify.js.snapshot",
+      "specifier": "../util/errors.js"
+    },
+    {
+      "path": "sdk/dist/webapi/key/export.js.snapshot",
+      "specifier": "../lib/asn1.js"
+    },
+    {
+      "path": "sdk/dist/webapi/key/export.js.snapshot",
+      "specifier": "../lib/key.js"
+    },
+    {
+      "path": "sdk/dist/webapi/key/export.js.snapshot",
+      "specifier": "../util/base64url.js"
+    },
+    {
+      "path": "sdk/dist/webapi/key/generate_key_pair.js.snapshot",
+      "specifier": "../util/errors.js"
+    },
+    {
+      "path": "sdk/dist/webapi/key/generate_key_pair.js.snapshot",
+      "specifier": "../lib/key.js"
+    },
+    {
+      "path": "sdk/dist/webapi/key/generate_key_pair.js.snapshot",
+      "specifier": "../lib/key_algorithm.js"
+    },
+    {
+      "path": "sdk/dist/webapi/key/generate_secret.js.snapshot",
+      "specifier": "../lib/key_algorithm.js"
+    },
+    {
+      "path": "sdk/dist/webapi/key/generate_secret.js.snapshot",
+      "specifier": "../lib/key.js"
+    },
+    {
+      "path": "sdk/dist/webapi/key/import.js.snapshot",
+      "specifier": "../util/base64url.js"
+    },
+    {
+      "path": "sdk/dist/webapi/key/import.js.snapshot",
+      "specifier": "../lib/asn1.js"
+    },
+    {
+      "path": "sdk/dist/webapi/key/import.js.snapshot",
+      "specifier": "../lib/key.js"
+    },
+    {
+      "path": "sdk/dist/webapi/key/import.js.snapshot",
+      "specifier": "../lib/key_algorithm.js"
+    },
+    {
+      "path": "sdk/dist/webapi/key/import.js.snapshot",
+      "specifier": "../util/errors.js"
+    },
+    {
+      "path": "sdk/dist/webapi/key/import.js.snapshot",
+      "specifier": "../lib/validate.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/asn1.js.snapshot",
+      "specifier": "./key.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/asn1.js.snapshot",
+      "specifier": "./buffer_utils.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/asn1.js.snapshot",
+      "specifier": "../util/errors.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/asn1.js.snapshot",
+      "specifier": "./key_algorithm.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/content_encryption.js.snapshot",
+      "specifier": "./buffer_utils.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/content_encryption.js.snapshot",
+      "specifier": "./key.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/content_encryption.js.snapshot",
+      "specifier": "../util/errors.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/deflate.js.snapshot",
+      "specifier": "../util/errors.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/deflate.js.snapshot",
+      "specifier": "./buffer_utils.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/jwe_algorithms.js.snapshot",
+      "specifier": "../util/errors.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/jwe_algorithms.js.snapshot",
+      "specifier": "./key_descriptor.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/jwe_decrypt.js.snapshot",
+      "specifier": "./content_encryption.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/jwe_decrypt.js.snapshot",
+      "specifier": "./validate.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/jwe_decrypt.js.snapshot",
+      "specifier": "../util/errors.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/jwe_decrypt.js.snapshot",
+      "specifier": "./key_management.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/jwe_decrypt.js.snapshot",
+      "specifier": "./buffer_utils.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/jwe_decrypt.js.snapshot",
+      "specifier": "./key.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/jwe_decrypt.js.snapshot",
+      "specifier": "./jwe_algorithms.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/jwe_decrypt.js.snapshot",
+      "specifier": "./deflate.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/jwe_encrypt.js.snapshot",
+      "specifier": "../util/base64url.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/jwe_encrypt.js.snapshot",
+      "specifier": "./content_encryption.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/jwe_encrypt.js.snapshot",
+      "specifier": "./key_management.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/jwe_encrypt.js.snapshot",
+      "specifier": "../util/errors.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/jwe_encrypt.js.snapshot",
+      "specifier": "./validate.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/jwe_encrypt.js.snapshot",
+      "specifier": "./buffer_utils.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/jwe_encrypt.js.snapshot",
+      "specifier": "./key.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/jwe_encrypt.js.snapshot",
+      "specifier": "./jwe_algorithms.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/jwe_encrypt.js.snapshot",
+      "specifier": "./deflate.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/jws_algorithms.js.snapshot",
+      "specifier": "../util/errors.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/jws_algorithms.js.snapshot",
+      "specifier": "./key_descriptor.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/jws_sign.js.snapshot",
+      "specifier": "../util/base64url.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/jws_sign.js.snapshot",
+      "specifier": "./jws_algorithms.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/jws_sign.js.snapshot",
+      "specifier": "./validate.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/jws_sign.js.snapshot",
+      "specifier": "../util/errors.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/jws_sign.js.snapshot",
+      "specifier": "./buffer_utils.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/jws_sign.js.snapshot",
+      "specifier": "./key.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/jws_verify.js.snapshot",
+      "specifier": "./jws_algorithms.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/jws_verify.js.snapshot",
+      "specifier": "../util/errors.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/jws_verify.js.snapshot",
+      "specifier": "./buffer_utils.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/jws_verify.js.snapshot",
+      "specifier": "./validate.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/jws_verify.js.snapshot",
+      "specifier": "./key.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/jwt_claims_set.js.snapshot",
+      "specifier": "../util/errors.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/jwt_claims_set.js.snapshot",
+      "specifier": "./buffer_utils.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/jwt_claims_set.js.snapshot",
+      "specifier": "./validate.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/key.js.snapshot",
+      "specifier": "./validate.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/key.js.snapshot",
+      "specifier": "../util/base64url.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/key.js.snapshot",
+      "specifier": "../util/errors.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/key_algorithm.js.snapshot",
+      "specifier": "../util/errors.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/key_algorithm.js.snapshot",
+      "specifier": "./jws_algorithms.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/key_algorithm.js.snapshot",
+      "specifier": "./jwe_algorithms.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/key_management.js.snapshot",
+      "specifier": "../util/base64url.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/key_management.js.snapshot",
+      "specifier": "./key.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/key_management.js.snapshot",
+      "specifier": "./jwe_algorithms.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/key_management.js.snapshot",
+      "specifier": "../util/errors.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/key_management.js.snapshot",
+      "specifier": "./validate.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/key_management.js.snapshot",
+      "specifier": "./buffer_utils.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/key_management.js.snapshot",
+      "specifier": "./content_encryption.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/validate.js.snapshot",
+      "specifier": "../util/errors.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/validate.js.snapshot",
+      "specifier": "../util/base64url.js"
+    },
+    {
+      "path": "sdk/dist/webapi/lib/validate.js.snapshot",
+      "specifier": "./buffer_utils.js"
+    },
+    {
+      "path": "sdk/dist/webapi/util/base64url.js.snapshot",
+      "specifier": "../lib/buffer_utils.js"
+    },
+    {
+      "path": "sdk/dist/webapi/util/decode_jwt.js.snapshot",
+      "specifier": "./base64url.js"
+    },
+    {
+      "path": "sdk/dist/webapi/util/decode_jwt.js.snapshot",
+      "specifier": "../lib/buffer_utils.js"
+    },
+    {
+      "path": "sdk/dist/webapi/util/decode_jwt.js.snapshot",
+      "specifier": "../lib/validate.js"
+    },
+    {
+      "path": "sdk/dist/webapi/util/decode_jwt.js.snapshot",
+      "specifier": "./errors.js"
+    },
+    {
+      "path": "sdk/dist/webapi/util/decode_protected_header.js.snapshot",
+      "specifier": "../lib/validate.js"
+    }
+  ],
+  "externalImports": []
+}

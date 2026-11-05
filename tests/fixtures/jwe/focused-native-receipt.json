@@ -1,0 +1,27 @@
+{
+  "scope": "All 35 cases pass on Deno 2.9.8, Node 26.13.0 and Bun 1.4.2, including eight complete native originals and two ZIP preview cases. Owned formatting and lint passed before execution.",
+  "state": {
+    "Status": "exited",
+    "Running": false,
+    "Paused": false,
+    "Restarting": false,
+    "OOMKilled": false,
+    "Dead": false,
+    "Pid": 0,
+    "ExitCode": 0,
+    "Error": "",
+    "StartedAt": "2026-11-05T21:35:08.391805176Z",
+    "FinishedAt": "2026-11-05T21:35:15.163836388Z"
+  },
+  "image": "sha256:b97211e26cc9baba8599d969bccd03c350886bd33a2031035a78d690d4dbeb84",
+  "resources": {
+    "Memory": 1073741824,
+    "MemorySwap": 1073741824,
+    "NanoCpus": 1000000000,
+    "PidsLimit": 128,
+    "NetworkMode": "none",
+    "Binds": null
+  },
+  "stdoutSha256": "e269b3a41309264e8277ed1beee5e768822badf65a75c2c415f50e0fec7ceaee",
+  "stderrSha256": "5c588aa8de51eb699d57f35f3a2abd61eaf60f516a6f65ba91237fa2bd955e15"
+}

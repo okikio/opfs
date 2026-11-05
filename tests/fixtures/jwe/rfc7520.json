@@ -1,0 +1,17 @@
+{
+  "id": "RFC7520-5.6-figures72-130-136",
+  "profile": "jwe-compact-dir-a128gcm",
+  "compact": "eyJhbGciOiJkaXIiLCJraWQiOiI3N2M3ZTJiOC02ZTEzLTQ1Y2YtODY3Mi02MTdiNWI0NTI0M2EiLCJlbmMiOiJBMTI4R0NNIn0..refa467QzzKx6QAB.JW_i_f52hww_ELQPGaYyeAB6HYGcR559l9TYnSovc23XJoBcW29rHP8yZOZG7YhLpT1bjFuvZPjQS-m0IFtVcXkZXdH_lr_FrdYt9HRUYkshtrMmIUAyGmUnd9zMDB2n0cRDIHAzFVeJUDxkUwVAE7_YGRPdcqMyiBoCO-FBdE-Nceb4h3-FtBP-c_BIwCPTjb9o0SbdcdREEMJMyZBH8ySWMVi1gPD9yxi-aQpGbSv_F9N4IZAxscj5g-NJsUPbjk29-s7LJAGb15wEBtXphVCgyy53CoIKLHHeJHXex45Uz9aKZSRSInZI-wjsY0yu3cT4_aQ3i1o-tiE-F8Ios61EKgyIQ4CWao8PFMj8TTnp.vbb32Xvllea2OtmHAdccRQ",
+  "keyBase64Url": "XctOhJAkA-pD9Lh7ZgW_2A",
+  "original": {
+    "bytes": 273,
+    "sha256": "f5c3e318a8c09ba078afdf853fcbb871e91844fa444ee8764bacf5dece5bc8b4"
+  },
+  "scope": "Published independent compact JWE wire vector; full original plaintext is checked by its digest without reproducing the prose quote. No candidate cryptography was executed for extraction.",
+  "primary": {
+    "url": "https://www.rfc-editor.org/rfc/rfc7520.txt",
+    "bytes": 198174,
+    "sha256": "14798c3b2d72e35375d5fb86d280a1e8df6109a6ee6cbfc091a0c57a8cc076c6"
+  },
+  "extraction": "Remove only RFC display whitespace from Figure136; key Figure130; derive UTF-8 original digest from concatenated Figure72 strings with its explicit en-dash byte escape."
+}
