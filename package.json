@@ -160,7 +160,8 @@
     "./dropbox": "./src/dropbox.ts",
     "./archive/lz4": "./src/archive/lz4.ts",
     "./box": "./src/box.ts",
-    "./archive/arc": "./src/archive/arc.ts"
+    "./archive/arc": "./src/archive/arc.ts",
+    "./content/git": "./src/content/git.ts"
   },
   "dependencies": {
     "@okikio/undent": "^0.3.3",
