@@ -201,20 +201,22 @@ or native codecs are acquired. Abort remains failure rather than checksum succes
 
 ## Independent evidence
 
-The [LZX receipt](../tests/fixtures/wim/lzx-README.md) retains two genuine wimlib LZX images, complete metadata and
-resource bytes from native libwim, and independent 7-Zip full-file comparisons. The 19 genuine compressed chunks contain
-17 verbatim and two aligned blocks, 304 aligned-offset uses and ten E8 reversals. A separately authored
-raw-plus-verbatim adaptation was accepted by native libwim, wimlib verify/apply and 7-Zip against every original file.
-It proves that particular raw/multiblock profile; it is not claimed to be a genuine producer-selected raw block. The
-authored tail audit compares all decoded bytes against the pre-established native oracles, not candidate output. Primary
-MS-PATCH LZX Delta grammar and immutable wimlib WIM-dialect sources are pinned with hashes in the receipt.
+The [LZX receipt](https://github.com/okikio/opfs/blob/86f8041/tests/fixtures/wim/lzx-README.md) retains two genuine
+wimlib LZX images, complete metadata and resource bytes from native libwim, and independent 7-Zip full-file comparisons.
+The 19 genuine compressed chunks contain 17 verbatim and two aligned blocks, 304 aligned-offset uses and ten E8
+reversals. A separately authored raw-plus-verbatim adaptation was accepted by native libwim, wimlib verify/apply and
+7-Zip against every original file. It proves that particular raw/multiblock profile; it is not claimed to be a genuine
+producer-selected raw block. The authored tail audit compares all decoded bytes against the pre-established native
+oracles, not candidate output. Primary MS-PATCH LZX Delta grammar and immutable wimlib WIM-dialect sources are pinned
+with hashes in the receipt.
 
-The [XPRESS receipt](../tests/fixtures/wim/xpress-README.md) adds two genuine XPRESS images. Native wimlib verifies,
-applies and supplies complete decoded metadata/resource bytes through its decompressor API. Independent 7-Zip compares
-every authored file byte, including stored random data, extended matches, shared resources, multiple chunks and
-32,767/32,768/32,769-byte boundaries. The separate authored framing audit checks all 13 genuine compressed chunks
-against those already established bytes and retains their exact termination measurements. It is not claimed as a third
-independent native decoder. Its source and primary grammar are pinned with the receipt.
+The [XPRESS receipt](https://github.com/okikio/opfs/blob/b1be45b/tests/fixtures/wim/xpress-README.md) adds two genuine
+XPRESS images. Native wimlib verifies, applies and supplies complete decoded metadata/resource bytes through its
+decompressor API. Independent 7-Zip compares every authored file byte, including stored random data, extended matches,
+shared resources, multiple chunks and 32,767/32,768/32,769-byte boundaries. The separate authored framing audit checks
+all 13 genuine compressed chunks against those already established bytes and retains their exact termination
+measurements. It is not claimed as a third independent native decoder. Its source and primary grammar are pinned with
+the receipt.
 
 The [retained fixture](https://github.com/okikio/opfs/blob/6e0df56/tests/fixtures/wim/README.md) contains two genuine
 uncompressed images produced by Debian wimtools in a disposable bounded container. Native capture/append/verify/apply
