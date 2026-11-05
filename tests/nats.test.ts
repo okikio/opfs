@@ -292,7 +292,15 @@ describe("bounded NATS JetStream request/reply", () => {
   });
   it("bounds stalled bodies and control floods, and retains partial stream-lock cleanup", async () => {
     const stalled = peer(() => undefined);
-    await expect(new NatsClient({ ...stalled.config, timeoutMs: 10 }).get("ORDERS", "1", { inbox })).rejects.toThrow();
+    // The in-memory transport owns no socket handle. Keep this test alive while
+    // Node's unreferenced AbortSignal timeout exercises the real client deadline.
+    const alive = setTimeout(() => {}, 1000);
+    try {
+      await expect(new NatsClient({ ...stalled.config, timeoutMs: 10 }).get("ORDERS", "1", { inbox })).rejects
+        .toThrow();
+    } finally {
+      clearTimeout(alive);
+    }
     expect(stalled.closes()).toBe(1);
     const flood = peer(encode("PING\r\n".repeat(129)));
     await expect(new NatsClient(flood.config).get("ORDERS", "1", { inbox })).rejects.toThrow("control budget");
