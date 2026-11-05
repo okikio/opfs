@@ -187,6 +187,7 @@ jobs:
           BENCH_JSON=1 deno task bench:cab > .tmp/reports/archive-bench/cab.json 2> .tmp/reports/archive-bench/cab-stderr.log
           BENCH_JSON=1 deno task bench:seven > .tmp/reports/archive-bench/seven.json 2> .tmp/reports/archive-bench/seven-stderr.log
           BENCH_JSON=1 deno task bench:ar > .tmp/reports/archive-bench/ar.json 2> .tmp/reports/archive-bench/ar-stderr.log
+          BENCH_JSON=1 deno task bench:lz4 > .tmp/reports/archive-bench/lz4.json 2> .tmp/reports/archive-bench/lz4-stderr.log
       - run: deno task bench:upstream:verify
       - run: |
           mkdir -p .tmp/reports/upstream-bench

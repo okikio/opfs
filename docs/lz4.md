@@ -122,3 +122,18 @@ diagnostic provenance, not a publicly pullable complete producer pin. The source
 and
 [xxHash specification](https://github.com/Cyan4973/xxHash/blob/bbb27a5efb85b92a0486cf361a8635715a53f6ba/doc/xxhash_spec.md).
 The implementation is written from those format rules; it does not copy an upstream decoder or hash implementation.
+
+## Reproduce the decoder workloads
+
+Run `BENCH_JSON=1 deno task bench:lz4` on a quiet machine to retain Mitata distributions for twelve warm workloads. The
+fixtures cover independent blocks, dependent history, overlapping matches and raw blocks. Each complete decode compares
+4 KiB and 64 KiB output chunks, while a separate 4 KiB-prefix workload awaits cancellation. Full-byte and terminal-state
+oracles run before timing, and timed consumers discard output without retaining a complete decoded file. Labels include
+actual source, decoded and returned byte counts.
+
+The 4 KiB policy is a comparison baseline for chunk policy, not an independent codec or a performance acceptance target.
+Prefix cancellation and complete footer verification perform different work. These fixed fixtures do not measure cold
+imports, remote I/O, engine peak heap or application queues. CI retains raw JSON and stderr alongside other archive
+benchmark evidence; there is no universal throughput, speedup or memory-regression claim. Compare the same named cases
+on recorded baseline and candidate revisions before changing the default policy, keeping semantic and cleanup tests as
+required gates.
