@@ -51,11 +51,13 @@ retain unique numeric IDs even when names duplicate. UTF-8 names are validated; 
 `decodeName(bytes)` callback. The parser does not normalize names or extract paths. Directory, codec, encryption and
 Unix entry kind are separate facts. Listing an encrypted entry does not mean its payload is readable.
 
-`archive.read(id, { offset, length })` returns a decoded interval. Stored members can map directly to source ranges.
-Raw-DEFLATE members decode from their beginning, so a late interval can cost much more than its returned bytes. The
-default native codec is feature-tested at execution. A runtime without raw-DEFLATE must receive an explicit `inflate()`
-factory returning an independently owned `TransformStream<Uint8Array, Uint8Array>`; no codec is downloaded or silently
-substituted. An injected factory failure remains the original error.
+`archive.read(id, { offset, length })` returns a decoded interval. Returned bytes are owned copies: a later source read
+cannot overwrite a prior preview. The reader also keeps bounded local-header and directory copies across borrowed reads
+and name callbacks. Stored members can map directly to source ranges. Raw-DEFLATE members decode from their beginning,
+so a late interval can cost much more than its returned bytes. The default native codec is feature-tested at execution.
+A runtime without raw-DEFLATE must receive an explicit `inflate()` factory returning an independently owned
+`TransformStream<Uint8Array, Uint8Array>`; no codec is downloaded or silently substituted. An injected factory failure
+remains the original error.
 
 Read results distinguish `checksum-pending` from `checksum-verified`. Complete member reads check size and CRC32. For a
 partial interval, `verify: true` decodes the complete member and checks its CRC before returning the selected bytes.
