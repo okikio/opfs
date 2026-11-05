@@ -1,0 +1,44 @@
+[0m[38;5;245mrunning 2 tests from ./tests/geotiff.test.ts[0m
+classic GeoTIFF authored grammar ...
+  reads exact II tile edge windows ... [0m[32mok[0m [0m[38;5;245m(5ms)[0m
+  reads exact II strip edge windows ... [0m[32mok[0m [0m[38;5;245m(1ms)[0m
+  reads exact MM tile edge windows ... [0m[32mok[0m [0m[38;5;245m(3ms)[0m
+  reads exact MM strip edge windows ... [0m[32mok[0m [0m[38;5;245m(1ms)[0m
+  retains three raw RGB bands without color conversion ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+  retains WhiteIsZero without inversion ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+  preserves f32 NaN and negative-zero semantics and raw block bits ... [0m[32mok[0m [0m[38;5;245m(1ms)[0m
+  preserves f64 NaN and negative-zero semantics and raw block bits ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+  freezes public metadata independently of the internal index ... [0m[32mok[0m [0m[38;5;245m(1ms)[0m
+  returns zero-work empty windows and refuses rectangles beyond the image ... [0m[32mok[0m [0m[38;5;245m(1ms)[0m
+  rejects BigTIFF, compression, separate planes and missing geospatial authority ... [0m[32mok[0m [0m[38;5;245m(1ms)[0m
+  rejects unsorted/duplicate tags, cycles, unsafe field extents and short block tables ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+  rejects payload extents overlapping metadata ... [0m[32mok[0m [0m[38;5;245m(1ms)[0m
+  admits all selected work before provider I/O ... [0m[32mok[0m [0m[38;5;245m(1ms)[0m
+  retains opening quotas and deduplicates repeated external ledger identity ... [0m[32mok[0m [0m[38;5;245m(1ms)[0m
+  does no I/O when a final foreign reservation aborts, including derived block reads ... [0m[32mok[0m [0m[38;5;245m(1ms)[0m
+  preserves parent cancellation through fresh child signals and source creation ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+  captures source methods and options before asynchronous callbacks ... [0m[32mok[0m [0m[38;5;245m(1ms)[0m
+  copies reused borrowed scratch and admits cross-realm byte views ... [0m[32mok[0m [0m[38;5;245m(22ms)[0m
+  rejects spoofed byte extents and overlong identities before provider I/O ... [0m[32mok[0m [0m[38;5;245m(1ms)[0m
+  bounds composed source identities at source creation without truncation ... [0m[32mok[0m [0m[38;5;245m(2ms)[0m
+  rejects malformed GeoKey references and present empty coordinate authority tags ... [0m[32mok[0m [0m[38;5;245m(2ms)[0m
+  does not return a pure plan after a caller window getter aborts its parent ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+  enforces the local output ceiling on raw block ranges before source I/O ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+  charges each retained GeoKey parameter copy before metadata amplification ... [0m[32mok[0m [0m[38;5;245m(21ms)[0m
+classic GeoTIFF authored grammar ... [0m[32mok[0m [0m[38;5;245m(76ms)[0m
+genuine GDAL and independent tifffile GeoTIFF profiles ...
+  reads every native sample and physical block from u16-strips-le ... [0m[32mok[0m [0m[38;5;245m(3ms)[0m
+  reads every native sample and physical block from u16-tiles-be ... [0m[32mok[0m [0m[38;5;245m(6ms)[0m
+  reads every native sample and physical block from rgb-u8-tiles ... [0m[32mok[0m [0m[38;5;245m(5ms)[0m
+  reads every native sample and physical block from i16-strips ... [0m[32mok[0m [0m[38;5;245m(2ms)[0m
+  reads every native sample and physical block from u32-strips ... [0m[32mok[0m [0m[38;5;245m(1ms)[0m
+  reads every native sample and physical block from i32-strips ... [0m[32mok[0m [0m[38;5;245m(1ms)[0m
+  reads every native sample and physical block from f32-tiles ... [0m[32mok[0m [0m[38;5;245m(3ms)[0m
+  reads every native sample and physical block from f64-strips-be ... [0m[32mok[0m [0m[38;5;245m(3ms)[0m
+  reads every native sample and physical block from u16-main-chain-overview ... [0m[32mok[0m [0m[38;5;245m(35ms)[0m
+  reads every native sample and physical block from tifffile-strips ... [0m[32mok[0m [0m[38;5;245m(2ms)[0m
+  reads every native sample and physical block from tifffile-tiles ... [0m[32mok[0m [0m[38;5;245m(3ms)[0m
+genuine GDAL and independent tifffile GeoTIFF profiles ... [0m[32mok[0m [0m[38;5;245m(103ms)[0m
+
+[0m[32mok[0m | 2 passed (36 steps) | 0 failed [0m[38;5;245m(203ms)[0m
+

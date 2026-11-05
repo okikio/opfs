@@ -1,0 +1,125 @@
+Reading package lists...
+Building dependency tree...
+Reading state information...
+Correcting dependencies... Done
+fontconfig-config is already the newest version (2.14.1-4).
+fonts-dejavu-core is already the newest version (2.37-6).
+gdal-bin is already the newest version (3.6.2+dfsg-1+b2).
+gdal-data is already the newest version (3.6.2+dfsg-1).
+gdal-plugins is already the newest version (3.6.2+dfsg-1+b2).
+libaec0 is already the newest version (1.0.6-1+b1).
+libaom3 is already the newest version (3.6.0-1+deb12u3).
+libarmadillo11 is already the newest version (1:11.4.2+dfsg-1).
+libarpack2 is already the newest version (3.8.0-3).
+libblas3 is already the newest version (3.11.0-2).
+libblosc1 is already the newest version (1.21.3+ds-1).
+libbrotli1 is already the newest version (1.0.9-2+deb12u1).
+libcfitsio10 is already the newest version (4.2.0-3).
+libcurl3-gnutls is already the newest version (7.88.1-10+deb12u15).
+libcurl4 is already the newest version (7.88.1-10+deb12u15).
+libdav1d6 is already the newest version (1.0.0-2+deb12u1).
+libde265-0 is already the newest version (1.0.11-1+deb12u3).
+libdeflate0 is already the newest version (1.14-1).
+libexpat1 is already the newest version (2.5.0-1+deb12u5).
+libfontconfig1 is already the newest version (2.14.1-4).
+libfreetype6 is already the newest version (2.12.1+dfsg-5+deb12u4).
+libfreexl1 is already the newest version (1.0.6-2).
+libfyba0 is already the newest version (4.1.1-8).
+libgdal32 is already the newest version (3.6.2+dfsg-1+b2).
+libgeos-c1v5 is already the newest version (3.11.1-1).
+libgeos3.11.1 is already the newest version (3.11.1-1).
+libgeotiff5 is already the newest version (1.7.1-2+b1).
+libgfortran5 is already the newest version (12.2.0-14+deb12u1).
+libgif7 is already the newest version (5.2.1-2.5+deb12u1).
+libgssapi-krb5-2 is already the newest version (1.20.1-2+deb12u5).
+libhdf4-0-alt is already the newest version (4.2.15-5).
+libhdf5-103-1 is already the newest version (1.10.8+repack1-1).
+libhdf5-hl-100 is already the newest version (1.10.8+repack1-1).
+libheif1 is already the newest version (1.15.1-1+deb12u1).
+libicu72 is already the newest version (72.1-3+deb12u1).
+libjbig0 is already the newest version (2.1-6.1).
+libjpeg62-turbo is already the newest version (1:2.1.5-2).
+libjson-c5 is already the newest version (0.16-2).
+libk5crypto3 is already the newest version (1.20.1-2+deb12u5).
+libkeyutils1 is already the newest version (1.6.3-2).
+libkmlbase1 is already the newest version (1.3.0-10).
+libkmldom1 is already the newest version (1.3.0-10).
+libkmlengine1 is already the newest version (1.3.0-10).
+libkrb5-3 is already the newest version (1.20.1-2+deb12u5).
+libkrb5support0 is already the newest version (1.20.1-2+deb12u5).
+liblapack3 is already the newest version (3.11.0-2).
+liblcms2-2 is already the newest version (2.14-2+deb12u1).
+libldap-2.5-0 is already the newest version (2.5.13+dfsg-5).
+liblerc4 is already the newest version (4.0.0+ds-2).
+libltdl7 is already the newest version (2.4.7-7~deb12u1).
+libmariadb3 is already the newest version (1:10.11.19-0+deb12u1).
+libminizip1 is already the newest version (1.1-8+deb12u1).
+libnetcdf19 is already the newest version (1:4.9.0-3+b1).
+libnghttp2-14 is already the newest version (1.52.0-1+deb12u3).
+libnsl2 is already the newest version (1.3.0-2).
+libnspr4 is already the newest version (2:4.35-1).
+libnss3 is already the newest version (2:3.87.1-1+deb12u4).
+libnuma1 is already the newest version (2.0.16-1).
+libodbc2 is already the newest version (2.3.11-2+deb12u1).
+libodbcinst2 is already the newest version (2.3.11-2+deb12u1).
+libogdi4.1 is already the newest version (4.1.0+ds-6).
+libopenjp2-7 is already the newest version (2.5.0-2+deb12u3).
+libpng16-16 is already the newest version (1.6.39-2+deb12u6).
+libpoppler126 is already the newest version (22.12.0-2+deb12u3).
+libpq5 is already the newest version (15.19-0+deb12u1).
+libproj25 is already the newest version (9.1.1-1+b1).
+libpsl5 is already the newest version (0.21.2-1).
+libpython3-stdlib is already the newest version (3.11.2-1+b1).
+libpython3.11-minimal is already the newest version (3.11.2-6+deb12u9).
+libpython3.11-stdlib is already the newest version (3.11.2-6+deb12u9).
+libqhull-r8.0 is already the newest version (2020.2-5).
+librtmp1 is already the newest version (2.4+20151223.gitfa8646d.1-2+b2).
+librttopo1 is already the newest version (1.1.0-3).
+libsasl2-2 is already the newest version (2.1.28+dfsg-10+deb12u1).
+libsasl2-modules-db is already the newest version (2.1.28+dfsg-10+deb12u1).
+libsnappy1v5 is already the newest version (1.1.9-3).
+libspatialite7 is already the newest version (5.0.1-3).
+libssh2-1 is already the newest version (1.10.0-3+deb12u1).
+libsuperlu5 is already the newest version (5.3.0+dfsg1-2+b1).
+libsz2 is already the newest version (1.0.6-1+b1).
+libtiff-tools is already the newest version (4.5.0-6+deb12u4).
+libtiff6 is already the newest version (4.5.0-6+deb12u4).
+libtirpc-common is already the newest version (1.3.3+ds-1).
+libtirpc3 is already the newest version (1.3.3+ds-1).
+liburiparser1 is already the newest version (0.9.7+dfsg-2).
+libwebp7 is already the newest version (1.2.4-0.2+deb12u1).
+libx265-199 is already the newest version (3.5-2+b1).
+libxerces-c3.2 is already the newest version (3.2.4+debian-1).
+libxml2 is already the newest version (2.9.14+dfsg-1.3~deb12u6).
+mariadb-common is already the newest version (1:10.11.19-0+deb12u1).
+media-types is already the newest version (10.0.0).
+mysql-common is already the newest version (5.8+1.1.0).
+proj-data is already the newest version (9.1.1-1).
+python3-gdal is already the newest version (3.6.2+dfsg-1+b2).
+python3-numpy is already the newest version (1:1.24.2-1+deb12u1).
+python3-pkg-resources is already the newest version (66.1.1-1+deb12u2).
+python3-tifffile is already the newest version (20230203-1).
+python3.11-minimal is already the newest version (3.11.2-6+deb12u9).
+python3.11 is already the newest version (3.11.2-6+deb12u9).
+unixodbc-common is already the newest version (2.3.11-2+deb12u1).
+Suggested packages:
+  python3-doc python3-tk python3-venv
+The following NEW packages will be installed:
+  python3 python3-minimal
+debconf: delaying package configuration, since apt-utils is not installed
+0 upgraded, 2 newly installed, 0 to remove and 0 not upgraded.
+5 not fully installed or removed.
+After this operation, 197 kB of additional disk space will be used.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 9739 files and directories currently installed.)
+Preparing to unpack .../python3-minimal_3.11.2-1+b1_arm64.deb ...
+Unpacking python3-minimal (3.11.2-1+b1) ...
+Setting up python3-minimal (3.11.2-1+b1) ...
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 9760 files and directories currently installed.)
+Preparing to unpack .../python3_3.11.2-1+b1_arm64.deb ...
+Unpacking python3 (3.11.2-1+b1) ...
+Setting up python3 (3.11.2-1+b1) ...
+Setting up python3-pkg-resources (66.1.1-1+deb12u2) ...
+Setting up python3-numpy (1:1.24.2-1+deb12u1) ...
+Setting up python3-gdal (3.6.2+dfsg-1+b2) ...
+Setting up python3-tifffile (20230203-1) ...
+Setting up gdal-bin (3.6.2+dfsg-1+b2) ...

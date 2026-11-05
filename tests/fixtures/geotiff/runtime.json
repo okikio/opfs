@@ -1,0 +1,938 @@
+{
+  "systemPython": "3.11.2 (main, Oct  7 2026, 12:35:07) [GCC 12.2.0]",
+  "interpreter": "/usr/bin/python3",
+  "basePython": "Python 3.13.18",
+  "numpy": {
+    "version": "1.24.2",
+    "path": "/usr/lib/python3/dist-packages/numpy/__init__.py"
+  },
+  "tifffile": {
+    "version": "2023.2.3",
+    "path": "/usr/lib/python3/dist-packages/tifffile/__init__.py"
+  },
+  "gdal": {
+    "version": "GDAL 3.6.2, released 2023/01/02",
+    "path": "/usr/lib/python3/dist-packages/osgeo/gdal.py"
+  },
+  "libtiff": "libtiff.so.6",
+  "licenses": [
+    {
+      "package": "fontconfig-config",
+      "version": "2.14.1-4",
+      "source": "fontconfig",
+      "sourceVersion": "2.14.1-4",
+      "bytes": 1301,
+      "sha256": "b215a61cdd3e62b5b17cc28b1852c78acb3dd38be0fb30706f7efc050dba91db",
+      "file": "licenses/fontconfig-config.copyright.snapshot"
+    },
+    {
+      "package": "fonts-dejavu-core",
+      "version": "2.37-6",
+      "source": "fonts-dejavu",
+      "sourceVersion": "2.37-6",
+      "bytes": 3859,
+      "sha256": "63d3ba759d12804c5b31a9d5940d855c1820d1f5999e6b0872eb1c7ff045fbc9",
+      "file": "licenses/fonts-dejavu-core.copyright.snapshot"
+    },
+    {
+      "package": "gdal-bin",
+      "version": "3.6.2+dfsg-1+b2",
+      "source": "gdal",
+      "sourceVersion": "3.6.2+dfsg-1",
+      "bytes": 61786,
+      "sha256": "21f44a87cbd9dc25cd063dbee6b93ea568585ddcc56a3417067399cd09e2f0b6",
+      "file": "licenses/gdal-bin.copyright.snapshot"
+    },
+    {
+      "package": "gdal-data",
+      "version": "3.6.2+dfsg-1",
+      "source": "gdal",
+      "sourceVersion": "3.6.2+dfsg-1",
+      "bytes": 61786,
+      "sha256": "21f44a87cbd9dc25cd063dbee6b93ea568585ddcc56a3417067399cd09e2f0b6",
+      "file": "licenses/gdal-data.copyright.snapshot"
+    },
+    {
+      "package": "gdal-plugins",
+      "version": "3.6.2+dfsg-1+b2",
+      "source": "gdal",
+      "sourceVersion": "3.6.2+dfsg-1",
+      "bytes": 61786,
+      "sha256": "21f44a87cbd9dc25cd063dbee6b93ea568585ddcc56a3417067399cd09e2f0b6",
+      "file": "licenses/gdal-plugins.copyright.snapshot"
+    },
+    {
+      "package": "libaec0:arm64",
+      "version": "1.0.6-1+b1",
+      "source": "libaec",
+      "sourceVersion": "1.0.6-1",
+      "bytes": 1500,
+      "sha256": "d4db5de948df5daca9cffd24de298cda96616b0b9c66a967d0b20be664f0ebda",
+      "file": "licenses/libaec0_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libaom3:arm64",
+      "version": "3.6.0-1+deb12u3",
+      "source": "aom",
+      "sourceVersion": "3.6.0-1+deb12u3",
+      "bytes": 12416,
+      "sha256": "eee66c2417bfa30107700b89144f2ec15701e4b0b36b2c7fc5dd96937679cee0",
+      "file": "licenses/libaom3_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libarmadillo11",
+      "version": "1:11.4.2+dfsg-1",
+      "source": "armadillo",
+      "sourceVersion": "1:11.4.2+dfsg-1",
+      "bytes": 1126,
+      "sha256": "27e33857725a4581e2207b6dea0b27f3d9790cdc2767cc4c4a40cd5b42d3465b",
+      "file": "licenses/libarmadillo11.copyright.snapshot"
+    },
+    {
+      "package": "libarpack2:arm64",
+      "version": "3.8.0-3",
+      "source": "arpack",
+      "sourceVersion": "3.8.0-3",
+      "bytes": 2125,
+      "sha256": "ad019136ed1cb4a3f626b103473303a86570401629c9eb5feb10bd3b43a74e1c",
+      "file": "licenses/libarpack2_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libblas3:arm64",
+      "version": "3.11.0-2",
+      "source": "lapack",
+      "sourceVersion": "3.11.0-2",
+      "bytes": 4906,
+      "sha256": "e7381ebec88ee34b83d4f33e7e32b24a438fef8915489a48c94557a17ac745f3",
+      "file": "licenses/libblas3_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libblosc1:arm64",
+      "version": "1.21.3+ds-1",
+      "source": "c-blosc",
+      "sourceVersion": "1.21.3+ds-1",
+      "bytes": 4867,
+      "sha256": "7ad145c5736ea7ca15c380ea829b1bcb76e28b2137614103058f48994bf15646",
+      "file": "licenses/libblosc1_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libbrotli1:arm64",
+      "version": "1.0.9-2+deb12u1",
+      "source": "brotli",
+      "sourceVersion": "1.0.9-2+deb12u1",
+      "bytes": 1354,
+      "sha256": "24a64e5bb83d0960d1835696a1e23c0896ad6055b0ca47c66ab0eb9a766324b1",
+      "file": "licenses/libbrotli1_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libcfitsio10:arm64",
+      "version": "4.2.0-3",
+      "source": "cfitsio",
+      "sourceVersion": "4.2.0-3",
+      "bytes": 5140,
+      "sha256": "53f9aee79bcd00cf7517e13d0f5500cb49b8e593b8f6913a38460cd1e5dc1d6e",
+      "file": "licenses/libcfitsio10_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libcurl3-gnutls:arm64",
+      "version": "7.88.1-10+deb12u15",
+      "source": "curl",
+      "sourceVersion": "7.88.1-10+deb12u15",
+      "bytes": 21749,
+      "sha256": "a7c131b21e6e73b3b085a7d9f1637b68f5f92b832cc6f462e0c978fbe7841ccb",
+      "file": "licenses/libcurl3-gnutls_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libcurl4:arm64",
+      "version": "7.88.1-10+deb12u15",
+      "source": "curl",
+      "sourceVersion": "7.88.1-10+deb12u15",
+      "bytes": 21749,
+      "sha256": "a7c131b21e6e73b3b085a7d9f1637b68f5f92b832cc6f462e0c978fbe7841ccb",
+      "file": "licenses/libcurl4_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libdav1d6:arm64",
+      "version": "1.0.0-2+deb12u1",
+      "source": "dav1d",
+      "sourceVersion": "1.0.0-2+deb12u1",
+      "bytes": 9722,
+      "sha256": "d5dd978a1dfbc87e2e0c0cbf47974c435394f31d6e2c454e104d6d07b6144978",
+      "file": "licenses/libdav1d6_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libde265-0:arm64",
+      "version": "1.0.11-1+deb12u3",
+      "source": "libde265",
+      "sourceVersion": "1.0.11-1+deb12u3",
+      "bytes": 7228,
+      "sha256": "2dd8bb1cac96311447eeb3b66570ef262437fa7f47b1be667a4f82f3f22ab8be",
+      "file": "licenses/libde265-0_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libdeflate0:arm64",
+      "version": "1.14-1",
+      "source": "libdeflate",
+      "sourceVersion": "1.14-1",
+      "bytes": 1483,
+      "sha256": "06b1e73b344fa5ad4c24a79547dd787623f3d118d681d6c9bd3fdc10a7070381",
+      "file": "licenses/libdeflate0_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libexpat1:arm64",
+      "version": "2.5.0-1+deb12u5",
+      "source": "expat",
+      "sourceVersion": "2.5.0-1+deb12u5",
+      "bytes": 1756,
+      "sha256": "60919fe1a156395ff14511bb6ff79756c50ade2fff59ac60c9bae1d8a7fe6292",
+      "file": "licenses/libexpat1_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libfontconfig1:arm64",
+      "version": "2.14.1-4",
+      "source": "fontconfig",
+      "sourceVersion": "2.14.1-4",
+      "bytes": 1301,
+      "sha256": "b215a61cdd3e62b5b17cc28b1852c78acb3dd38be0fb30706f7efc050dba91db",
+      "file": "licenses/libfontconfig1_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libfreetype6:arm64",
+      "version": "2.12.1+dfsg-5+deb12u4",
+      "source": "freetype",
+      "sourceVersion": "2.12.1+dfsg-5+deb12u4",
+      "bytes": 25069,
+      "sha256": "70a7a0a06e6440777417f6875476cb712b03943010abed1c32297798c8cc8ed8",
+      "file": "licenses/libfreetype6_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libfreexl1:arm64",
+      "version": "1.0.6-2",
+      "source": "freexl",
+      "sourceVersion": "1.0.6-2",
+      "bytes": 28204,
+      "sha256": "4352f7d89fa4bd721a11bb025992c6aa1955e4d1010c0aac03aea81f32485195",
+      "file": "licenses/libfreexl1_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libfyba0:arm64",
+      "version": "4.1.1-8",
+      "source": "fyba",
+      "sourceVersion": "4.1.1-8",
+      "bytes": 2155,
+      "sha256": "ae36a5e8e4924ceda8de7d9eb7a7ce1e4e09bd3526b01e9d55fd8fcfb7aaea16",
+      "file": "licenses/libfyba0_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libgdal32",
+      "version": "3.6.2+dfsg-1+b2",
+      "source": "gdal",
+      "sourceVersion": "3.6.2+dfsg-1",
+      "bytes": 61786,
+      "sha256": "21f44a87cbd9dc25cd063dbee6b93ea568585ddcc56a3417067399cd09e2f0b6",
+      "file": "licenses/libgdal32.copyright.snapshot"
+    },
+    {
+      "package": "libgeos-c1v5:arm64",
+      "version": "3.11.1-1",
+      "source": "geos",
+      "sourceVersion": "3.11.1-1",
+      "bytes": 7039,
+      "sha256": "c753e1dc2c54f2de4056c54c88f6b057304451b610e77a100ab854998e204ada",
+      "file": "licenses/libgeos-c1v5_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libgeos3.11.1:arm64",
+      "version": "3.11.1-1",
+      "source": "geos",
+      "sourceVersion": "3.11.1-1",
+      "bytes": 7039,
+      "sha256": "c753e1dc2c54f2de4056c54c88f6b057304451b610e77a100ab854998e204ada",
+      "file": "licenses/libgeos3.11.1_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libgeotiff5:arm64",
+      "version": "1.7.1-2+b1",
+      "source": "libgeotiff",
+      "sourceVersion": "1.7.1-2",
+      "bytes": 7390,
+      "sha256": "32638ca3db5169431bb26f4ddf6464e2b6c5d59d8ab16f3aa8f1ce04170c5ac0",
+      "file": "licenses/libgeotiff5_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libgfortran5:arm64",
+      "version": "12.2.0-14+deb12u1",
+      "source": "gcc-12",
+      "sourceVersion": "12.2.0-14+deb12u1",
+      "bytes": 68194,
+      "sha256": "da8191658b3452ce9caf31638ba61dab31a38c619fa39df119812e050f592fd3",
+      "file": "licenses/libgfortran5_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libgif7:arm64",
+      "version": "5.2.1-2.5+deb12u1",
+      "source": "giflib",
+      "sourceVersion": "5.2.1-2.5+deb12u1",
+      "bytes": 2562,
+      "sha256": "02757e541ee17e403a5caf5bcef74cc1c53a9560220b31aea78c726c78f789b6",
+      "file": "licenses/libgif7_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libgssapi-krb5-2:arm64",
+      "version": "1.20.1-2+deb12u5",
+      "source": "krb5",
+      "sourceVersion": "1.20.1-2+deb12u5",
+      "bytes": 63047,
+      "sha256": "936728f4181718f42951b881c1e8f1386bf6b2723c4fbc533c374d6f42c71816",
+      "file": "licenses/libgssapi-krb5-2_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libhdf4-0-alt",
+      "version": "4.2.15-5",
+      "source": "libhdf4",
+      "sourceVersion": "4.2.15-5",
+      "bytes": 12755,
+      "sha256": "87c4f9c83b7537e0c803d723852e8e084dd49ca00f95c7e58baf4f657be7a7fc",
+      "file": "licenses/libhdf4-0-alt.copyright.snapshot"
+    },
+    {
+      "package": "libhdf5-103-1:arm64",
+      "version": "1.10.8+repack1-1",
+      "source": "hdf5",
+      "sourceVersion": "1.10.8+repack1-1",
+      "bytes": 10468,
+      "sha256": "e818940033d22c7f70e8adb7e899481b03aae939b81cec07d8ccfebde0affcc9",
+      "file": "licenses/libhdf5-103-1_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libhdf5-hl-100:arm64",
+      "version": "1.10.8+repack1-1",
+      "source": "hdf5",
+      "sourceVersion": "1.10.8+repack1-1",
+      "bytes": 10468,
+      "sha256": "e818940033d22c7f70e8adb7e899481b03aae939b81cec07d8ccfebde0affcc9",
+      "file": "licenses/libhdf5-hl-100_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libheif1:arm64",
+      "version": "1.15.1-1+deb12u1",
+      "source": "libheif",
+      "sourceVersion": "1.15.1-1+deb12u1",
+      "bytes": 8636,
+      "sha256": "578d9edcdb9297025b359d30084b8862b8085640c6b33a681f70526da1165060",
+      "file": "licenses/libheif1_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libicu72:arm64",
+      "version": "72.1-3+deb12u1",
+      "source": "icu",
+      "sourceVersion": "72.1-3+deb12u1",
+      "bytes": 2214,
+      "sha256": "5bbff5f646ce750ac0a347e7f91793279b7422a1119820b5f75d98879c201c68",
+      "file": "licenses/libicu72_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libjbig0:arm64",
+      "version": "2.1-6.1",
+      "source": "jbigkit",
+      "sourceVersion": "2.1-6.1",
+      "bytes": 1849,
+      "sha256": "89ab20c324a191652e94598f2144a65442faed4f14f77bbd10516130ee20f05a",
+      "file": "licenses/libjbig0_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libjpeg62-turbo:arm64",
+      "version": "1:2.1.5-2",
+      "source": "libjpeg-turbo",
+      "sourceVersion": "1:2.1.5-2",
+      "bytes": 38846,
+      "sha256": "3821184e23385bf2cdc01f56bd999b34036fc3aa03d5135d41680374eb81bf8a",
+      "file": "licenses/libjpeg62-turbo_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libjson-c5:arm64",
+      "version": "0.16-2",
+      "source": "json-c",
+      "sourceVersion": "0.16-2",
+      "bytes": 2055,
+      "sha256": "17c4a26a5995911064bdfb8af6a5dacd2c29b2648da47045fe25c746dee23b2d",
+      "file": "licenses/libjson-c5_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libk5crypto3:arm64",
+      "version": "1.20.1-2+deb12u5",
+      "source": "krb5",
+      "sourceVersion": "1.20.1-2+deb12u5",
+      "bytes": 63047,
+      "sha256": "936728f4181718f42951b881c1e8f1386bf6b2723c4fbc533c374d6f42c71816",
+      "file": "licenses/libk5crypto3_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libkeyutils1:arm64",
+      "version": "1.6.3-2",
+      "source": "keyutils",
+      "sourceVersion": "1.6.3-2",
+      "bytes": 2104,
+      "sha256": "c62fe37d22203046611112bc10a9e03a39a7f73bec1b061e7c615326166d9ff5",
+      "file": "licenses/libkeyutils1_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libkmlbase1:arm64",
+      "version": "1.3.0-10",
+      "source": "libkml",
+      "sourceVersion": "1.3.0-10",
+      "bytes": 5827,
+      "sha256": "2ae76adeb402322425ee0a57d3728a46e606df0b769bba5be61d88016f37c92f",
+      "file": "licenses/libkmlbase1_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libkmldom1:arm64",
+      "version": "1.3.0-10",
+      "source": "libkml",
+      "sourceVersion": "1.3.0-10",
+      "bytes": 5827,
+      "sha256": "2ae76adeb402322425ee0a57d3728a46e606df0b769bba5be61d88016f37c92f",
+      "file": "licenses/libkmldom1_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libkmlengine1:arm64",
+      "version": "1.3.0-10",
+      "source": "libkml",
+      "sourceVersion": "1.3.0-10",
+      "bytes": 5827,
+      "sha256": "2ae76adeb402322425ee0a57d3728a46e606df0b769bba5be61d88016f37c92f",
+      "file": "licenses/libkmlengine1_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libkrb5-3:arm64",
+      "version": "1.20.1-2+deb12u5",
+      "source": "krb5",
+      "sourceVersion": "1.20.1-2+deb12u5",
+      "bytes": 63047,
+      "sha256": "936728f4181718f42951b881c1e8f1386bf6b2723c4fbc533c374d6f42c71816",
+      "file": "licenses/libkrb5-3_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libkrb5support0:arm64",
+      "version": "1.20.1-2+deb12u5",
+      "source": "krb5",
+      "sourceVersion": "1.20.1-2+deb12u5",
+      "bytes": 63047,
+      "sha256": "936728f4181718f42951b881c1e8f1386bf6b2723c4fbc533c374d6f42c71816",
+      "file": "licenses/libkrb5support0_arm64.copyright.snapshot"
+    },
+    {
+      "package": "liblapack3:arm64",
+      "version": "3.11.0-2",
+      "source": "lapack",
+      "sourceVersion": "3.11.0-2",
+      "bytes": 4906,
+      "sha256": "e7381ebec88ee34b83d4f33e7e32b24a438fef8915489a48c94557a17ac745f3",
+      "file": "licenses/liblapack3_arm64.copyright.snapshot"
+    },
+    {
+      "package": "liblcms2-2:arm64",
+      "version": "2.14-2+deb12u1",
+      "source": "lcms2",
+      "sourceVersion": "2.14-2+deb12u1",
+      "bytes": 5362,
+      "sha256": "420fd2c72204652c08a48548a0d1002edab3d9b180d3c416578c61f74092f460",
+      "file": "licenses/liblcms2-2_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libldap-2.5-0:arm64",
+      "version": "2.5.13+dfsg-5",
+      "source": "openldap",
+      "sourceVersion": "2.5.13+dfsg-5",
+      "bytes": 62837,
+      "sha256": "b4081907f0d9a4110736fa6540dc8ca9d7d60a20878b5d78f84916cc04907bdc",
+      "file": "licenses/libldap-2.5-0_arm64.copyright.snapshot"
+    },
+    {
+      "package": "liblerc4:arm64",
+      "version": "4.0.0+ds-2",
+      "source": "lerc",
+      "sourceVersion": "4.0.0+ds-2",
+      "bytes": 1242,
+      "sha256": "6c55caa8cb2c87c4f6fbe23c21e887a506455d81b5a8e98a7a62e6c81af39daf",
+      "file": "licenses/liblerc4_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libltdl7:arm64",
+      "version": "2.4.7-7~deb12u1",
+      "source": "libtool",
+      "sourceVersion": "2.4.7-7~deb12u1",
+      "bytes": 2099,
+      "sha256": "89186d1b870fc70e23f3cac2ccfa657c1697a53c1386e85dbaaa2042d4b76048",
+      "file": "licenses/libltdl7_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libmariadb3:arm64",
+      "version": "1:10.11.19-0+deb12u1",
+      "source": "mariadb",
+      "sourceVersion": "1:10.11.19-0+deb12u1",
+      "bytes": 38379,
+      "sha256": "276877507a647874fc6e08cecba53b0d3cb1ee61648bffc2c90420182c2cbb26",
+      "file": "licenses/libmariadb3_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libminizip1:arm64",
+      "version": "1.1-8+deb12u1",
+      "source": "minizip",
+      "sourceVersion": "1.1-8+deb12u1",
+      "bytes": 1587,
+      "sha256": "520c666ae15ce90b95c22c37e9a9fa030c775c8e9d5a8bce6a929bbe2a28dcca",
+      "file": "licenses/libminizip1_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libnetcdf19:arm64",
+      "version": "1:4.9.0-3+b1",
+      "source": "netcdf",
+      "sourceVersion": "1:4.9.0-3",
+      "bytes": 37141,
+      "sha256": "66e64ebd135eb3f8c54acf8bb6e422aeb0a05a7cb3b1cd88040239282915d3ed",
+      "file": "licenses/libnetcdf19_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libnghttp2-14:arm64",
+      "version": "1.52.0-1+deb12u3",
+      "source": "nghttp2",
+      "sourceVersion": "1.52.0-1+deb12u3",
+      "bytes": 6535,
+      "sha256": "a34ae32a5eba61e535835a8de7c398f47e420247d339bc400a3b9c618ba29a3d",
+      "file": "licenses/libnghttp2-14_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libnsl2:arm64",
+      "version": "1.3.0-2",
+      "source": "libnsl",
+      "sourceVersion": "1.3.0-2",
+      "bytes": 13646,
+      "sha256": "7d9c79b73fd956319a90cd210441498b225e00960352c4c6d447436481bb0eec",
+      "file": "licenses/libnsl2_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libnspr4:arm64",
+      "version": "2:4.35-1",
+      "source": "nspr",
+      "sourceVersion": "2:4.35-1",
+      "bytes": 331,
+      "sha256": "3c4fcc131809b2b6993513bfe4cf6f1ede391ec84f1d5ceca78fb75537b22452",
+      "file": "licenses/libnspr4_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libnss3:arm64",
+      "version": "2:3.87.1-1+deb12u4",
+      "source": "nss",
+      "sourceVersion": "2:3.87.1-1+deb12u4",
+      "bytes": 4058,
+      "sha256": "3f450f9453233852b3a469a36a897cc68fb87be3e8b3a5ba64f63a7904528408",
+      "file": "licenses/libnss3_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libnuma1:arm64",
+      "version": "2.0.16-1",
+      "source": "numactl",
+      "sourceVersion": "2.0.16-1",
+      "bytes": 1357,
+      "sha256": "179c34f5e56cd0b6b73dd7970a97357ee784e2236e8293826656c7ebb3bface7",
+      "file": "licenses/libnuma1_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libodbc2:arm64",
+      "version": "2.3.11-2+deb12u1",
+      "source": "unixodbc",
+      "sourceVersion": "2.3.11-2+deb12u1",
+      "bytes": 4332,
+      "sha256": "2f7bb610cae2143dacbfab8a550eea14afa672786fb9bf0cb4d92774d42fa99c",
+      "file": "licenses/libodbc2_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libodbcinst2:arm64",
+      "version": "2.3.11-2+deb12u1",
+      "source": "unixodbc",
+      "sourceVersion": "2.3.11-2+deb12u1",
+      "bytes": 4332,
+      "sha256": "2f7bb610cae2143dacbfab8a550eea14afa672786fb9bf0cb4d92774d42fa99c",
+      "file": "licenses/libodbcinst2_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libogdi4.1",
+      "version": "4.1.0+ds-6",
+      "source": "ogdi-dfsg",
+      "sourceVersion": "4.1.0+ds-6",
+      "bytes": 9286,
+      "sha256": "7caa11024d8e1362316a33c36a79f9a8b375a69981d6a1821463c463ff9d2669",
+      "file": "licenses/libogdi4.1.copyright.snapshot"
+    },
+    {
+      "package": "libopenjp2-7:arm64",
+      "version": "2.5.0-2+deb12u3",
+      "source": "openjpeg2",
+      "sourceVersion": "2.5.0-2+deb12u3",
+      "bytes": 42620,
+      "sha256": "eee37e01db9d8eabac77a49dbacb9ea8962e5cfc98a35b87ee02cc81eef94f40",
+      "file": "licenses/libopenjp2-7_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libpng16-16:arm64",
+      "version": "1.6.39-2+deb12u6",
+      "source": "libpng1.6",
+      "sourceVersion": "1.6.39-2+deb12u6",
+      "bytes": 12976,
+      "sha256": "68bd3997355bc44ccb97ff5e2bb146360e762c7d9c721945a4fabf77d1349e4a",
+      "file": "licenses/libpng16-16_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libpoppler126:arm64",
+      "version": "22.12.0-2+deb12u3",
+      "source": "poppler",
+      "sourceVersion": "22.12.0-2+deb12u3",
+      "bytes": 12722,
+      "sha256": "dad79f8e4b904808e65be744e3cd23303f050573c634a697ccb8696ef291eb63",
+      "file": "licenses/libpoppler126_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libpq5:arm64",
+      "version": "15.19-0+deb12u1",
+      "source": "postgresql-15",
+      "sourceVersion": "15.19-0+deb12u1",
+      "bytes": 12934,
+      "sha256": "afcc052a946b4117667527211b4ca303f07044f5585222f4c8f577e0764b2123",
+      "file": "licenses/libpq5_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libproj25:arm64",
+      "version": "9.1.1-1+b1",
+      "source": "proj",
+      "sourceVersion": "9.1.1-1",
+      "bytes": 10002,
+      "sha256": "4a264ea7de7864a0778df8720287012339f57913d3bfbceea4b2efa0f52ae47c",
+      "file": "licenses/libproj25_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libpsl5:arm64",
+      "version": "0.21.2-1",
+      "source": "libpsl",
+      "sourceVersion": "0.21.2-1",
+      "bytes": 3310,
+      "sha256": "bbafb0cf52d34465fc69f5ffd22d724224f6a2f28402c88b045c69d88af06aaf",
+      "file": "licenses/libpsl5_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libpython3-stdlib:arm64",
+      "version": "3.11.2-1+b1",
+      "source": "python3-defaults",
+      "sourceVersion": "3.11.2-1",
+      "bytes": 16122,
+      "sha256": "5b274dbb44b28a54b795b9471c07ab045054d6b8a86273cb9feb632b6fd2760d",
+      "file": "licenses/libpython3-stdlib_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libpython3.11-minimal:arm64",
+      "version": "3.11.2-6+deb12u9",
+      "source": "python3.11",
+      "sourceVersion": "3.11.2-6+deb12u9",
+      "bytes": 49855,
+      "sha256": "f1cbf908e1daa8789b389fdcf17811ed36b675d736b39a103591399861350382",
+      "file": "licenses/libpython3.11-minimal_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libpython3.11-stdlib:arm64",
+      "version": "3.11.2-6+deb12u9",
+      "source": "python3.11",
+      "sourceVersion": "3.11.2-6+deb12u9",
+      "bytes": 49855,
+      "sha256": "f1cbf908e1daa8789b389fdcf17811ed36b675d736b39a103591399861350382",
+      "file": "licenses/libpython3.11-stdlib_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libqhull-r8.0:arm64",
+      "version": "2020.2-5",
+      "source": "qhull",
+      "sourceVersion": "2020.2-5",
+      "bytes": 2350,
+      "sha256": "1a6b74a4dea43e7d8266d0fc1efd01e00dd66eb7cdc6a6ffba2f78f100d18861",
+      "file": "licenses/libqhull-r8.0_arm64.copyright.snapshot"
+    },
+    {
+      "package": "librtmp1:arm64",
+      "version": "2.4+20151223.gitfa8646d.1-2+b2",
+      "source": "rtmpdump",
+      "sourceVersion": "2.4+20151223.gitfa8646d.1-2",
+      "bytes": 2726,
+      "sha256": "4302abcc1ea1b6cbe8d19c79b892acf78878030220210707c19006828866207c",
+      "file": "licenses/librtmp1_arm64.copyright.snapshot"
+    },
+    {
+      "package": "librttopo1:arm64",
+      "version": "1.1.0-3",
+      "source": "librttopo",
+      "sourceVersion": "1.1.0-3",
+      "bytes": 1658,
+      "sha256": "9fa38c115ff104f8f4e526771f74f3008ebe8389b956906cc7b38aca8dfad48f",
+      "file": "licenses/librttopo1_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libsasl2-2:arm64",
+      "version": "2.1.28+dfsg-10+deb12u1",
+      "source": "cyrus-sasl2",
+      "sourceVersion": "2.1.28+dfsg-10+deb12u1",
+      "bytes": 32354,
+      "sha256": "5e77ddcac7fb682d696bc4b034dc2869e5a9011e8c2ed3c570ab8db0f4506931",
+      "file": "licenses/libsasl2-2_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libsasl2-modules-db:arm64",
+      "version": "2.1.28+dfsg-10+deb12u1",
+      "source": "cyrus-sasl2",
+      "sourceVersion": "2.1.28+dfsg-10+deb12u1",
+      "bytes": 32354,
+      "sha256": "5e77ddcac7fb682d696bc4b034dc2869e5a9011e8c2ed3c570ab8db0f4506931",
+      "file": "licenses/libsasl2-modules-db_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libsnappy1v5:arm64",
+      "version": "1.1.9-3",
+      "source": "snappy",
+      "sourceVersion": "1.1.9-3",
+      "bytes": 34490,
+      "sha256": "6e3b7206a2a68d959274c289922e06bd19788a3d48d3bf74e92db43ee21593e6",
+      "file": "licenses/libsnappy1v5_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libspatialite7:arm64",
+      "version": "5.0.1-3",
+      "source": "spatialite",
+      "sourceVersion": "5.0.1-3",
+      "bytes": 35428,
+      "sha256": "2e675cef8161c12bb23a92e9941558f8bfe079844f61d349878e4bfdd35441c4",
+      "file": "licenses/libspatialite7_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libssh2-1:arm64",
+      "version": "1.10.0-3+deb12u1",
+      "source": "libssh2",
+      "sourceVersion": "1.10.0-3+deb12u1",
+      "bytes": 2099,
+      "sha256": "98978241c573785aa7c8504e399bb66cfb3c40c1f20507a0d3c7580bfbf9d8d4",
+      "file": "licenses/libssh2-1_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libsuperlu5:arm64",
+      "version": "5.3.0+dfsg1-2+b1",
+      "source": "superlu",
+      "sourceVersion": "5.3.0+dfsg1-2",
+      "bytes": 5221,
+      "sha256": "d417a3b4fa03a1a90e1f748300f51695b27e2d91a7a0d1781795bd1956d34543",
+      "file": "licenses/libsuperlu5_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libsz2:arm64",
+      "version": "1.0.6-1+b1",
+      "source": "libaec",
+      "sourceVersion": "1.0.6-1",
+      "bytes": 1500,
+      "sha256": "d4db5de948df5daca9cffd24de298cda96616b0b9c66a967d0b20be664f0ebda",
+      "file": "licenses/libsz2_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libtiff-tools",
+      "version": "4.5.0-6+deb12u4",
+      "source": "tiff",
+      "sourceVersion": "4.5.0-6+deb12u4",
+      "bytes": 1935,
+      "sha256": "d73e31b03a0d7a515851601c19fee5792c7db03a312efacae146ddf9c91f86f1",
+      "file": "licenses/libtiff-tools.copyright.snapshot"
+    },
+    {
+      "package": "libtiff6:arm64",
+      "version": "4.5.0-6+deb12u4",
+      "source": "tiff",
+      "sourceVersion": "4.5.0-6+deb12u4",
+      "bytes": 1935,
+      "sha256": "d73e31b03a0d7a515851601c19fee5792c7db03a312efacae146ddf9c91f86f1",
+      "file": "licenses/libtiff6_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libtirpc-common",
+      "version": "1.3.3+ds-1",
+      "source": "libtirpc",
+      "sourceVersion": "1.3.3+ds-1",
+      "bytes": 13121,
+      "sha256": "401dcf98d8ef2b712ec6ab310dbf727fc2cdce290bfde5b6d0b609a927530217",
+      "file": "licenses/libtirpc-common.copyright.snapshot"
+    },
+    {
+      "package": "libtirpc3:arm64",
+      "version": "1.3.3+ds-1",
+      "source": "libtirpc",
+      "sourceVersion": "1.3.3+ds-1",
+      "bytes": 13121,
+      "sha256": "401dcf98d8ef2b712ec6ab310dbf727fc2cdce290bfde5b6d0b609a927530217",
+      "file": "licenses/libtirpc3_arm64.copyright.snapshot"
+    },
+    {
+      "package": "liburiparser1:arm64",
+      "version": "0.9.7+dfsg-2",
+      "source": "uriparser",
+      "sourceVersion": "0.9.7+dfsg-2",
+      "bytes": 3906,
+      "sha256": "de0309df42d0b84269e130f3063e3a1ec677884e28f79142a4a41c733a648cb7",
+      "file": "licenses/liburiparser1_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libwebp7:arm64",
+      "version": "1.2.4-0.2+deb12u1",
+      "source": "libwebp",
+      "sourceVersion": "1.2.4-0.2+deb12u1",
+      "bytes": 2027,
+      "sha256": "01eb328708a9454061dd13931b19135e1c2c6251a7e6a6d0efc4b9bc436109c7",
+      "file": "licenses/libwebp7_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libx265-199:arm64",
+      "version": "3.5-2+b1",
+      "source": "x265",
+      "sourceVersion": "3.5-2",
+      "bytes": 4546,
+      "sha256": "993d16fbf3d32b7eeeae4081167e4a4b1d05bdb0e20b79b576113c0697c5f729",
+      "file": "licenses/libx265-199_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libxerces-c3.2:arm64",
+      "version": "3.2.4+debian-1",
+      "source": "xerces-c",
+      "sourceVersion": "3.2.4+debian-1",
+      "bytes": 8191,
+      "sha256": "2b9fd427c0846a407b2b9bc16546a8519f4cf8bda85458a46401706650a3fd84",
+      "file": "licenses/libxerces-c3.2_arm64.copyright.snapshot"
+    },
+    {
+      "package": "libxml2:arm64",
+      "version": "2.9.14+dfsg-1.3~deb12u6",
+      "source": "libxml2",
+      "sourceVersion": "2.9.14+dfsg-1.3~deb12u6",
+      "bytes": 3067,
+      "sha256": "ee746b96cfa5be73c3ea3e4cfb1285e9b315d4c9267f99b2ee9c5d911d9fe3f4",
+      "file": "licenses/libxml2_arm64.copyright.snapshot"
+    },
+    {
+      "package": "mariadb-common",
+      "version": "1:10.11.19-0+deb12u1",
+      "source": "mariadb",
+      "sourceVersion": "1:10.11.19-0+deb12u1",
+      "bytes": 38379,
+      "sha256": "276877507a647874fc6e08cecba53b0d3cb1ee61648bffc2c90420182c2cbb26",
+      "file": "licenses/mariadb-common.copyright.snapshot"
+    },
+    {
+      "package": "media-types",
+      "version": "10.0.0",
+      "source": "media-types",
+      "sourceVersion": "10.0.0",
+      "bytes": 268,
+      "sha256": "5ded7c53199b6a1d089b0b7e231d77e5c84081c7156b372b3f11ad9c1c2c5cc7",
+      "file": "licenses/media-types.copyright.snapshot"
+    },
+    {
+      "package": "mysql-common",
+      "version": "5.8+1.1.0",
+      "source": "mysql-defaults",
+      "sourceVersion": "1.1.0",
+      "bytes": 1754,
+      "sha256": "8a1956f3a3b5083d777fcd17e0a56b0cdad556e379eacd3837ce9fc76ddd0179",
+      "file": "licenses/mysql-common.copyright.snapshot"
+    },
+    {
+      "package": "proj-data",
+      "version": "9.1.1-1",
+      "source": "proj",
+      "sourceVersion": "9.1.1-1",
+      "bytes": 10002,
+      "sha256": "4a264ea7de7864a0778df8720287012339f57913d3bfbceea4b2efa0f52ae47c",
+      "file": "licenses/proj-data.copyright.snapshot"
+    },
+    {
+      "package": "python3",
+      "version": "3.11.2-1+b1",
+      "source": "python3-defaults",
+      "sourceVersion": "3.11.2-1",
+      "bytes": 16122,
+      "sha256": "5b274dbb44b28a54b795b9471c07ab045054d6b8a86273cb9feb632b6fd2760d",
+      "file": "licenses/python3.copyright.snapshot"
+    },
+    {
+      "package": "python3-gdal",
+      "version": "3.6.2+dfsg-1+b2",
+      "source": "gdal",
+      "sourceVersion": "3.6.2+dfsg-1",
+      "bytes": 61786,
+      "sha256": "21f44a87cbd9dc25cd063dbee6b93ea568585ddcc56a3417067399cd09e2f0b6",
+      "file": "licenses/python3-gdal.copyright.snapshot"
+    },
+    {
+      "package": "python3-minimal",
+      "version": "3.11.2-1+b1",
+      "source": "python3-defaults",
+      "sourceVersion": "3.11.2-1",
+      "bytes": 16122,
+      "sha256": "5b274dbb44b28a54b795b9471c07ab045054d6b8a86273cb9feb632b6fd2760d",
+      "file": "licenses/python3-minimal.copyright.snapshot"
+    },
+    {
+      "package": "python3-numpy",
+      "version": "1:1.24.2-1+deb12u1",
+      "source": "numpy",
+      "sourceVersion": "1:1.24.2-1+deb12u1",
+      "bytes": 33406,
+      "sha256": "cbf4432dcb2267a33046448b5e3c7ccedcebb2240ea86c8f4c29577f58d12a07",
+      "file": "licenses/python3-numpy.copyright.snapshot"
+    },
+    {
+      "package": "python3-pkg-resources",
+      "version": "66.1.1-1+deb12u2",
+      "source": "setuptools",
+      "sourceVersion": "66.1.1-1+deb12u2",
+      "bytes": 3706,
+      "sha256": "b667d4e1f17b94a30d1398150ee53cfbe65e2c71b9fc12509d641612233abe97",
+      "file": "licenses/python3-pkg-resources.copyright.snapshot"
+    },
+    {
+      "package": "python3-tifffile",
+      "version": "20230203-1",
+      "source": "tifffile",
+      "sourceVersion": "20230203-1",
+      "bytes": 2040,
+      "sha256": "6e389da92f41a5b932bad1881314014deddacfdf121a61423529a43d4efe85bf",
+      "file": "licenses/python3-tifffile.copyright.snapshot"
+    },
+    {
+      "package": "python3.11",
+      "version": "3.11.2-6+deb12u9",
+      "source": "python3.11",
+      "sourceVersion": "3.11.2-6+deb12u9",
+      "bytes": 49855,
+      "sha256": "f1cbf908e1daa8789b389fdcf17811ed36b675d736b39a103591399861350382",
+      "file": "licenses/python3.11.copyright.snapshot"
+    },
+    {
+      "package": "python3.11-minimal",
+      "version": "3.11.2-6+deb12u9",
+      "source": "python3.11",
+      "sourceVersion": "3.11.2-6+deb12u9",
+      "bytes": 49855,
+      "sha256": "f1cbf908e1daa8789b389fdcf17811ed36b675d736b39a103591399861350382",
+      "file": "licenses/python3.11-minimal.copyright.snapshot"
+    },
+    {
+      "package": "unixodbc-common",
+      "version": "2.3.11-2+deb12u1",
+      "source": "unixodbc",
+      "sourceVersion": "2.3.11-2+deb12u1",
+      "bytes": 4332,
+      "sha256": "2f7bb610cae2143dacbfab8a550eea14afa672786fb9bf0cb4d92774d42fa99c",
+      "file": "licenses/unixodbc-common.copyright.snapshot"
+    }
+  ]
+}
