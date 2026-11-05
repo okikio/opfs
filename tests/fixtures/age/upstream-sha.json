@@ -1,0 +1,977 @@
+{
+  "scope": "Byte-preserved inert upstream originals, license scope identified in README.md.",
+  "files": [
+    {
+      "path": "upstream/FiloSottile/age/LICENSE.snapshot",
+      "bytes": 1516,
+      "sha256": "c5d65279d02955c0fc2294ae417c3add650d228f4f5c82bd6d531fc26c89cd96",
+      "gitBlob": "0080870bc29b23d7605816ac0a535a4eef9d1553",
+      "repo": "FiloSottile/age",
+      "ref": "b74dce4cdbe35b5e5f66c06d9612b72f89028758",
+      "originalPath": "LICENSE"
+    },
+    {
+      "path": "upstream/FiloSottile/age/internal/bech32/bech32.go.snapshot",
+      "bytes": 5226,
+      "sha256": "b541ad4caca899fb3e11902aa3f478321fe9d623edbf43a76dd306433a7b0436",
+      "gitBlob": "087de3d6b30e3ff6ad7d2bde65b7047cd2dcdf0b",
+      "repo": "FiloSottile/age",
+      "ref": "b74dce4cdbe35b5e5f66c06d9612b72f89028758",
+      "originalPath": "internal/bech32/bech32.go"
+    },
+    {
+      "path": "upstream/FiloSottile/age/internal/stream/stream.go.snapshot",
+      "bytes": 12332,
+      "sha256": "413d0fe48e66b7a0cc2319114a2d0a866803533de2e4348f4c26d7b8aad97798",
+      "gitBlob": "7e4a98a535c2185500ac61d2b6c818c6ffb53a97",
+      "repo": "FiloSottile/age",
+      "ref": "b74dce4cdbe35b5e5f66c06d9612b72f89028758",
+      "originalPath": "internal/stream/stream.go"
+    },
+    {
+      "path": "upstream/FiloSottile/age/primitives.go.snapshot",
+      "bytes": 2357,
+      "sha256": "1b15827d309761e6fcbfd7dc1a8fa2e7fba8accac6f91f5ba4a2c7b3c9b2646d",
+      "gitBlob": "804b0193f9ec0661f1832e8b39c3f8bf78f4b8c3",
+      "repo": "FiloSottile/age",
+      "ref": "b74dce4cdbe35b5e5f66c06d9612b72f89028758",
+      "originalPath": "primitives.go"
+    },
+    {
+      "path": "upstream/FiloSottile/age/x25519.go.snapshot",
+      "bytes": 6376,
+      "sha256": "796cdf9cc507e334beb550f2241b1b9cf1b514517f0885c962e414607ed2decb",
+      "gitBlob": "6c0814dba394dd6b849eca446c000464f7bb14bc",
+      "repo": "FiloSottile/age",
+      "ref": "b74dce4cdbe35b5e5f66c06d9612b72f89028758",
+      "originalPath": "x25519.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/README.md.snapshot",
+      "bytes": 6427,
+      "sha256": "fdbd4b06044f3803c72bdaf2df7681fdce3a45a326a2898e75640eae906606ad",
+      "gitBlob": "46a3cc45f9ad69331180c749556b88501be519ad",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/README.md"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/LICENSE.snapshot",
+      "bytes": 1490,
+      "sha256": "33e3b8217262512de912f5151613810033cdd4f855a8c3744e7a9a0efa10f7cc",
+      "gitBlob": "964a921afac754ccd46ccd4a9e847d5a7f52a219",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/LICENSE"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/testkit/testkit.go.snapshot",
+      "bytes": 11546,
+      "sha256": "8d2c918c083739cefdabde63b516557af58a79c27622244e81f963e18596f1de",
+      "gitBlob": "eba9a427fcc4e6ad621f37a35aa010209bfe8e9c",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/testkit/testkit.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/empty.snapshot",
+      "bytes": 67,
+      "sha256": "898891448a35f6db9b70878db483a0a1f514b98d94d881f3cce668e00a4c3de7",
+      "gitBlob": "880a77741bff9bf4b5ccd8a86fbec95e8e056d9e",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/empty"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/empty.go.snapshot",
+      "bytes": 339,
+      "sha256": "80e57874bc02082060d48630276ab1aecd4c9eb97a5653989f467aba2b86c7fd",
+      "gitBlob": "2fac68042ad38b8f0f36d3457d4fadf7675b7b22",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/empty.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/header_crlf.snapshot",
+      "bytes": 416,
+      "sha256": "a152ced12c1a52249d218b43b19d34267f9cd712113cc2e8098c92e267702c3d",
+      "gitBlob": "69cafae0053238c658aeaa4fc06657af9e9a02c2",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/header_crlf"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/header_crlf.go.snapshot",
+      "bytes": 651,
+      "sha256": "d25d2750e958fac46fc1d6c08c69f5de05cae2012ead7cddc25a4e1cc216230f",
+      "gitBlob": "809dbd3e56b2f85cb403faa0d886d9359ea386b1",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/header_crlf.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/hmac_bad.snapshot",
+      "bytes": 353,
+      "sha256": "07b287717c1cac4e99b0389d9aa7f94efddd6e3f5faa95963684f4d0abca3561",
+      "gitBlob": "5021bb6d925aaad632a2abfa781f416c7e36dead",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/hmac_bad"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/hmac_bad.go.snapshot",
+      "bytes": 485,
+      "sha256": "08c9e9a6006bc7804326296d72b22215caf192e8f78af98364403d56cc073e21",
+      "gitBlob": "cbd294a2054ab794df0cb4c8bb2445d7f2ea4a21",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/hmac_bad.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/hmac_extra_space.snapshot",
+      "bytes": 356,
+      "sha256": "f98b62cd56628b844a46c75eac9e14aed54ab96ac37f4d273800c5ab58a18dc5",
+      "gitBlob": "f3bfd1ec2c2f10e14f8bc39dd4942424157e32b3",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/hmac_extra_space"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/hmac_extra_space.go.snapshot",
+      "bytes": 509,
+      "sha256": "875b999ac0a428b45b0f22d03a0ad18eaa5a494949cac3434f32b7fdd2de7704",
+      "gitBlob": "57d372cb9d80ea797e858176e0f70b2e4e6699ce",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/hmac_extra_space.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/hmac_garbage.snapshot",
+      "bytes": 358,
+      "sha256": "0e2bcfc4d98bc286a01b9f3a69a71ed50b481f2ee0a20416ea7c1613cdaed10a",
+      "gitBlob": "29e54ab697fcbf90ba368400b80f57cd019d741e",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/hmac_garbage"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/hmac_garbage.go.snapshot",
+      "bytes": 462,
+      "sha256": "a2a0938d8f2fba9de5481fa41ce711ce3041ee9a6b37bcc53270f29011c708d5",
+      "gitBlob": "e73982f32ec6629529ed6607da43c2574cc0fe47",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/hmac_garbage.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/hmac_missing.snapshot",
+      "bytes": 312,
+      "sha256": "40503e56cf692a67c295d95e0c3f02a350c26398016e9f0d59723f7476721b13",
+      "gitBlob": "6ecea2aeb12154344d9665a2339fb5cb5cd53306",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/hmac_missing"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/hmac_missing.go.snapshot",
+      "bytes": 433,
+      "sha256": "c1be891b2534900bf85dc94412b52229231fc8a87c6cba2b0b0ae15410dc6dc0",
+      "gitBlob": "3139e912633684ef70b87f3d8ff37f4eacad09c6",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/hmac_missing.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/hmac_no_space.snapshot",
+      "bytes": 354,
+      "sha256": "6497b5cb51a58b4382d7e9419afacfd70df82d5e1ea36564c5da0e5ccfa300ad",
+      "gitBlob": "9f1d80d75142039c19cacb0cefd8d52bd9cd171c",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/hmac_no_space"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/hmac_no_space.go.snapshot",
+      "bytes": 507,
+      "sha256": "2d98c1c3d6dd786d691e7689d041c948b425d6bc30fdbe6792493a52c095b836",
+      "gitBlob": "ea4ddd863a98629a522b76eb1451bc030fef6fb3",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/hmac_no_space.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/hmac_not_canonical.snapshot",
+      "bytes": 413,
+      "sha256": "215c684fb5926db5a833de5b01d6b138b58f5838378d1e2b1859c4f9c9e4c81a",
+      "gitBlob": "fd18cda65cf8b1e6cdace69b77ac1cbb86af2650",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/hmac_not_canonical"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/hmac_not_canonical.go.snapshot",
+      "bytes": 545,
+      "sha256": "f822ff6d9e3e23673a0544f2106024ccfdaa90405d15f3edd5cd4f66cdfbb61d",
+      "gitBlob": "77225efba03b71280dbeece1c85415b8796b1a4a",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/hmac_not_canonical.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/hmac_trailing_space.snapshot",
+      "bytes": 356,
+      "sha256": "daf7151c8a5f6f48af641f4e0b3cdb41cb5876dbe0e4f6f24a3a4d0a452f7eb6",
+      "gitBlob": "2e216bddae73ff7a6441fa2e95bba6d5feb958d4",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/hmac_trailing_space"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/hmac_trailing_space.go.snapshot",
+      "bytes": 460,
+      "sha256": "811978f7f129dc296ee508bade1e524c11c8f697941874c5917c9683f73280d9",
+      "gitBlob": "d2594eb478fcf7f0d240acc98c1087c684317aef",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/hmac_trailing_space.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/hmac_truncated.snapshot",
+      "bytes": 316,
+      "sha256": "574748f519eddde3f8f7fd4eef8691d393d726d63b322e8c67f2377ea39b0841",
+      "gitBlob": "e7f719664c0c53563061b543ac17bb333520eb95",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/hmac_truncated"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/hmac_truncated.go.snapshot",
+      "bytes": 472,
+      "sha256": "c16a7b0e6835a24dfc74004ba7dfa798c5f852aeab6f661c0af8659cb6f4edb2",
+      "gitBlob": "cf2de850304ff74399bd32153c3bb6fc774c392b",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/hmac_truncated.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/stanza_bad_start.snapshot",
+      "bytes": 366,
+      "sha256": "e2ba22a45e0913065e920629ba6f6a06e04169e2fe5f49579c769893e46d71de",
+      "gitBlob": "699319673e2a9dcbd77a22fd13352da564046577",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/stanza_bad_start"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/stanza_bad_start.go.snapshot",
+      "bytes": 471,
+      "sha256": "f2714027101554fbd3ecbafed8521eb381bbb5889a356c3324891df3b9ae029c",
+      "gitBlob": "5bd432bbe4c843c4b9efdf97b8e1ed97fc674efe",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/stanza_bad_start.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/stanza_base64_padding.snapshot",
+      "bytes": 435,
+      "sha256": "7bf0dbb73084606ab26cd7a06b9fccc09b6f57b9cdd4b646f8b7e00c2402334e",
+      "gitBlob": "af0c16237918fc9f4f20c1286d474f28a0f39217",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/stanza_base64_padding"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/stanza_base64_padding.go.snapshot",
+      "bytes": 536,
+      "sha256": "39d281ce6129ec4a3ef645c2b76cb6852c445f0dab5bb3e305185328161f8c70",
+      "gitBlob": "53c49a51ecbb012581a853813bbfdf12b26da16e",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/stanza_base64_padding.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/stanza_empty_argument.snapshot",
+      "bytes": 376,
+      "sha256": "89ea531b7224b5e6dac6b55cb365e990c7a8caa6bba31840a19bb2f74e078497",
+      "gitBlob": "61d06b5baee35f5be254bddcaa28c902917c8763",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/stanza_empty_argument"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/stanza_empty_argument.go.snapshot",
+      "bytes": 484,
+      "sha256": "fad7dd54c809772fc6c4a003e98ded53267141d0c9cba53a2dabe9fbeef3d4cd",
+      "gitBlob": "c9282e63b927739416f0bc407ebb36b6a7beb89a",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/stanza_empty_argument.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/stanza_empty_body.snapshot",
+      "bytes": 432,
+      "sha256": "2c2fd1650f43d4d347bfbd729b05bff56e0ba30dfebc0625d461b42c12bb2552",
+      "gitBlob": "a7ef1eabb47f9503e24743bea5cd8e2ea63137dc",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/stanza_empty_body"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/stanza_empty_body.go.snapshot",
+      "bytes": 442,
+      "sha256": "8825f00561ee15d1f6042906a44e6b07ffc9e0e89d8001e77cad9c5a6ddc8158",
+      "gitBlob": "f1cc1a88adff1a94d8ea0bca76eaf6aa2d20c3dd",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/stanza_empty_body.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/stanza_empty_last_line.snapshot",
+      "bytes": 563,
+      "sha256": "f5760b7b3d27ac60c4390adab63f2387fec9a472dc71d68a94031e28174b6f14",
+      "gitBlob": "253707e7a240f40b51fadb24f4a80bfd82e1e6d3",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/stanza_empty_last_line"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/stanza_empty_last_line.go.snapshot",
+      "bytes": 479,
+      "sha256": "68b04fe83cc593b746529b7c700c2b897b467201154a557c83493d9147600d9d",
+      "gitBlob": "980fa9e98ee39c7891e7e2d3641ed824133e80ba",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/stanza_empty_last_line.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/stanza_invalid_character.snapshot",
+      "bytes": 369,
+      "sha256": "fc50cb20219d50837086cb295832a28a52feca62e142cca3b4aeda3ead50e954",
+      "gitBlob": "0455f914b20957469880bf88bde49fe9cdf3663d",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/stanza_invalid_character"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/stanza_invalid_character.go.snapshot",
+      "bytes": 474,
+      "sha256": "a1bd682b1df4a0e01b2a91ed8815d4b43276ae62782f27239c1a4f3fc4d5ae9a",
+      "gitBlob": "ee8f1f68f4fd2f42a8294ec0d7c79601cea65e77",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/stanza_invalid_character.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/stanza_long_line.snapshot",
+      "bytes": 482,
+      "sha256": "488be43646e7668cdc1db3260e0f84fd7b71ee40d797d22530d237b8c90d37b7",
+      "gitBlob": "645dce5cfc4bf9e128b532ce2732183dd09bf261",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/stanza_long_line"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/stanza_long_line.go.snapshot",
+      "bytes": 570,
+      "sha256": "4e7e4f457dd570edda6022f7f17c8e53f9967069e09f29a8885ebc6ac5b38e83",
+      "gitBlob": "9614e94b46f32f278dc882d2fcaa27afc7219e6e",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/stanza_long_line.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/stanza_missing_body.snapshot",
+      "bytes": 433,
+      "sha256": "2eb67c8cb24fcbd9dc37b9853ae1ddc0dac40ac17be8f7893909921a7bfefb2c",
+      "gitBlob": "8cbf4a160ddf0a2493fcd7dfce2c17c0a645b424",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/stanza_missing_body"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/stanza_missing_body.go.snapshot",
+      "bytes": 539,
+      "sha256": "6dc2e9594d4dcd7b91deefba3428c3df80eb405ce914a1e0260e8eab7239e744",
+      "gitBlob": "5896151db4c36c36425282fd75257680db3eaccf",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/stanza_missing_body.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/stanza_missing_final_line.snapshot",
+      "bytes": 484,
+      "sha256": "4dbbba0f136f577469141a5010e8ea474c9c532ab66187e63b6aac9bd23bc52a",
+      "gitBlob": "aef34c4c92a778ad1f7ea6d3838ff6e95c741ac0",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/stanza_missing_final_line"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/stanza_missing_final_line.go.snapshot",
+      "bytes": 561,
+      "sha256": "73753c103397011422d0297ce870c4e8f204bc8f188676b14bde9dfa223dea52",
+      "gitBlob": "7c9c915651670db3b96d7899d02da3503c3830a3",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/stanza_missing_final_line.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/stanza_multiple_short_lines.snapshot",
+      "bytes": 474,
+      "sha256": "e5146580aadb6942543acfb975ef2964f4a8a5eb2fd770c40d7da7b4a95f8834",
+      "gitBlob": "a5b2c3d22e73f8a0367bf8a8c926854736f395cc",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/stanza_multiple_short_lines"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/stanza_multiple_short_lines.go.snapshot",
+      "bytes": 587,
+      "sha256": "b02510a6a5f80143b825aeb832b8990e1923fede9e8ad6ae06da4a16a657adc6",
+      "gitBlob": "a8ea8cf72599d10d7c51b48a2197610ea40b26c9",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/stanza_multiple_short_lines.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/stanza_no_arguments.snapshot",
+      "bytes": 359,
+      "sha256": "730062e37e6fa0c0e1de5f8cee90662f61da99b7bb1a4996847a68afefaf8a1f",
+      "gitBlob": "1dca7c62061a6509a15fdbe7db66e0f6cc92de0a",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/stanza_no_arguments"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/stanza_no_arguments.go.snapshot",
+      "bytes": 460,
+      "sha256": "6ea66281e1b5dec4cf58b4b2de84b5f9589a408c30360a95ca8e6fcf943d0f17",
+      "gitBlob": "58c31fef92f0184c04745e7ed7843ab1cdc780b7",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/stanza_no_arguments.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/stanza_not_canonical.snapshot",
+      "bytes": 434,
+      "sha256": "e2516017cdfa589e9ebc18c1646664d375c56e6f594191ae814da614add0a9f4",
+      "gitBlob": "e6f52e3d0b910a197ee1b2ba392d75d9e3a60176",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/stanza_not_canonical"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/stanza_not_canonical.go.snapshot",
+      "bytes": 558,
+      "sha256": "8e1c77403654cd09489b99be0213c89a93e5db0a0325bcc9cfda07948f014cbf",
+      "gitBlob": "da17c2fb1d2f4091b0f493b8710204d934eef3cb",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/stanza_not_canonical.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/stanza_spurious_cr.snapshot",
+      "bytes": 430,
+      "sha256": "0a58d23cc4398edf6a16c034c4a61da2e2006e4010377654ad50017468baa39d",
+      "gitBlob": "2815c821976a289f9690a4873b38766b9df43b32",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/stanza_spurious_cr"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/stanza_spurious_cr.go.snapshot",
+      "bytes": 535,
+      "sha256": "ebe100bc071e3c86c43ace9faa26df1b97af94b404d730d140f927a1736abd15",
+      "gitBlob": "a95692b9d0f37b11862c5c529d42faef316c174e",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/stanza_spurious_cr.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/stanza_valid_characters.snapshot",
+      "bytes": 536,
+      "sha256": "115085567f8719b20e0903973873c20acae854b48975567f73cd15d29bd93a4d",
+      "gitBlob": "83a39c91a8bf71ae2c5456cf11c2423978d4a3dd",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/stanza_valid_characters"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/stanza_valid_characters.go.snapshot",
+      "bytes": 609,
+      "sha256": "f99be6efbe0260fe57ae0ff3855186a584728f96a24a81e02a33759eeff12130",
+      "gitBlob": "00af5b419e9ae77181459beb6b04c357e948b72f",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/stanza_valid_characters.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/stream_bad_tag.snapshot",
+      "bytes": 430,
+      "sha256": "b302d219368735ca621d8237a49906831b0aa0f6116c05a1863aba18c421d9fe",
+      "gitBlob": "90319f6ad3b95cf5ac777fc4f7455b2ffcf901d6",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/stream_bad_tag"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/stream_bad_tag.go.snapshot",
+      "bytes": 518,
+      "sha256": "600d03c06fe14b8b74eb4f0e41475fa7f1a0da467ece3a67a4f8bc1d5ba3126c",
+      "gitBlob": "ebc901dd33691ec5f36c141a852b87ba9fd7c487",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/stream_bad_tag.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/stream_bad_tag_second_chunk.snapshot",
+      "bytes": 587,
+      "sha256": "2763f46ed2ad05eace35a23084f14493b4593e03a85f8cbe15c4e608e2aaa324",
+      "gitBlob": "3c5a0ca2e5efd5517ed8d6f4b94cc343d1951e5e",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/stream_bad_tag_second_chunk"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/stream_bad_tag_second_chunk.go.snapshot",
+      "bytes": 587,
+      "sha256": "f5dc9456cbf7cc86486b0ce889d867f4bc6ce5ecaba14cc2dabb267fc097d7b6",
+      "gitBlob": "2f4e3d6a2963cba0189441f52ceec4fc5b23a32c",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/stream_bad_tag_second_chunk.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/stream_bad_tag_second_chunk_full.snapshot",
+      "bytes": 654,
+      "sha256": "30e7a10c2725ff919e5d471be8022084485cc9eb447ab86bd7f7a6a3fb9dab08",
+      "gitBlob": "1f5f73e9ad927b2272e2ef9336df7863621fea47",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/stream_bad_tag_second_chunk_full"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/stream_bad_tag_second_chunk_full.go.snapshot",
+      "bytes": 603,
+      "sha256": "481f02b9ecef726919b55f4f3925976f909fd4fdcc1da5e44b528cc158113a85",
+      "gitBlob": "221d4ce4fb5c78a2ae85a8f5688356e0873be38c",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/stream_bad_tag_second_chunk_full.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/stream_empty_payload.snapshot",
+      "bytes": 419,
+      "sha256": "c04491b616be7f9c72f0dfaaf2b0b7ff0a6a716d0afd37d96b1dfc1800367762",
+      "gitBlob": "5df70ed933b865428280d5f41809aeab47461742",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/stream_empty_payload"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/stream_empty_payload.go.snapshot",
+      "bytes": 398,
+      "sha256": "c2069c5d3aaa385ea68bff3a9e174ae8994114dd5e88a52a7d4a84c9b2f54742",
+      "gitBlob": "e2a0be1c3e84968fac098048343bdbd20267ee45",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/stream_empty_payload.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/stream_last_chunk_empty.snapshot",
+      "bytes": 662,
+      "sha256": "4810c276566fe9977021a15b4e739bea2319ad5ddf0847f1dfba6fc1556d582a",
+      "gitBlob": "0ada412091c31373bc64441a1b733cc38f0e0446",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/stream_last_chunk_empty"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/stream_last_chunk_empty.go.snapshot",
+      "bytes": 574,
+      "sha256": "26ba426c579ef6c7ec02de7407242cf082e9568d611ce40b154709eec368ab5c",
+      "gitBlob": "2d3e7ceb8b026d47363e7c606e35dd0733f2f87d",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/stream_last_chunk_empty.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/stream_last_chunk_full.snapshot",
+      "bytes": 557,
+      "sha256": "2dd3be61247bc2284cdac2df1cce6a18db0e00574157f19439e3c228245bfccd",
+      "gitBlob": "638db45d6274d0bbd0e6ab75fa480f3402973f21",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/stream_last_chunk_full"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/stream_last_chunk_full.go.snapshot",
+      "bytes": 434,
+      "sha256": "fb3efe873447b80a354ca94b4f81989f8aa33550d82ddf0eb2b47f717f022b60",
+      "gitBlob": "9f6cae8c8b52e8fc63907d14d341087f73db1671",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/stream_last_chunk_full.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/stream_last_chunk_full_second.snapshot",
+      "bytes": 647,
+      "sha256": "51008a18664460b97c6c621d71da607b09960141d08286a6b82e7a6818cc9efa",
+      "gitBlob": "b3a3a58565305106ba786324582755bd5a274745",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/stream_last_chunk_full_second"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/stream_last_chunk_full_second.go.snapshot",
+      "bytes": 469,
+      "sha256": "f42d85126b29177444d9164e2abf7ef7079f68c196095bb01577574388116ad6",
+      "gitBlob": "72048167b825fb72c9efccaf44e5c26569f5ff78",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/stream_last_chunk_full_second.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/stream_missing_tag.snapshot",
+      "bytes": 414,
+      "sha256": "51f96aba6a55c0c7634490a0b76ac53cfef383c44130f01de0b20cf0cad5ffcc",
+      "gitBlob": "e6793ba1a12ea471273b60730796c1fd7468f297",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/stream_missing_tag"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/stream_missing_tag.go.snapshot",
+      "bytes": 499,
+      "sha256": "7af13eede83d265fb5e0511ef23453c8a02b58c69706392a5557dde4ef8273a0",
+      "gitBlob": "443efe110bcf2eb0521ff3d6412679cf946c5c13",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/stream_missing_tag.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/stream_no_chunks.snapshot",
+      "bytes": 411,
+      "sha256": "506e93c795d1cab3cec64d6789f7fe45be545f10bff0b8a4d35d2472c58b5bd1",
+      "gitBlob": "ef5b4fc53bdff86a2a22a51937c518b14c97c828",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/stream_no_chunks"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/stream_no_chunks.go.snapshot",
+      "bytes": 420,
+      "sha256": "13a0bb9332fe83726465a0791e31adcc6e46fc48c4a93bd29904216656876bb0",
+      "gitBlob": "83db17768a20dccc4465e5cb152e6e60d8523f48",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/stream_no_chunks.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/stream_no_final.snapshot",
+      "bytes": 428,
+      "sha256": "22221d2161e2d579479f11a02061d30fa2004c3e55f256e3e7c33c4b1b8cf4b7",
+      "gitBlob": "4cfb2a445ca8d0fd1341d9eb1aa180f94d8feff3",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/stream_no_final"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/stream_no_final.go.snapshot",
+      "bytes": 439,
+      "sha256": "4b5ba590838df9076fc6fa5c94f3ba87270bffb2a78a710b94be9a99c609adf6",
+      "gitBlob": "c5732018c580aca370d941ad00119c3c3955570e",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/stream_no_final.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/stream_no_final_full.snapshot",
+      "bytes": 563,
+      "sha256": "23bce401fd7f428fa4b24d45c5054fef4cf3462a69047193032a17a2a043604c",
+      "gitBlob": "8dbb0b52160af5a0100afea9a85ac7ede98114e3",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/stream_no_final_full"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/stream_no_final_full.go.snapshot",
+      "bytes": 472,
+      "sha256": "100bf85851c8c1887f17d0b49cb74db787ed47ef44372d6c9b97cb216ebc5437",
+      "gitBlob": "8a036f894fdba06230634d238ae1c030b6c6b8e9",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/stream_no_final_full.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/stream_no_final_two_chunks.snapshot",
+      "bytes": 587,
+      "sha256": "0e1b1ae57c213c738f8ecb5367bd65d894e7ce78208cdee1ffef51d220d9d222",
+      "gitBlob": "2940d91e20580d1c898a11466292122db97e62d6",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/stream_no_final_two_chunks"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/stream_no_final_two_chunks.go.snapshot",
+      "bytes": 491,
+      "sha256": "77b905a0126c64f17447a284cdb2b0ed5b32a407aff2cf236bc9127c65a44302",
+      "gitBlob": "3c77806af89de67f6c29298aef4fde9f6514f81c",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/stream_no_final_two_chunks.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/stream_no_final_two_chunks_full.snapshot",
+      "bytes": 656,
+      "sha256": "060b80ffaf5ae85aae6cf13cfcf0210927ab87cd63b03c20799d1c304261f27d",
+      "gitBlob": "694f447e598aaed75aea5804da876343dd3d6be5",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/stream_no_final_two_chunks_full"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/stream_no_final_two_chunks_full.go.snapshot",
+      "bytes": 511,
+      "sha256": "33952d865dff291ac774220dc6567540deb508161ab700f5c196dc16f117eee2",
+      "gitBlob": "2b0a2ad3085676bb298c94c65f7067306aafaff2",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/stream_no_final_two_chunks_full.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/stream_no_nonce.snapshot",
+      "bytes": 320,
+      "sha256": "c849c71e932e72e87c576610ce2321ca80bd6500920c34c65230296c9fb7bcad",
+      "gitBlob": "c97ca1ca49bb01b2968f854b27a3134fd1787922",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/stream_no_nonce"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/stream_no_nonce.go.snapshot",
+      "bytes": 542,
+      "sha256": "d69d298c77a7fdac6c54ba67c75acb730f01a42036280e803ae386860e87fff2",
+      "gitBlob": "11f1e81f5e76322eb1d7933015095cddae1c8b0f",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/stream_no_nonce.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/stream_short_chunk.snapshot",
+      "bytes": 423,
+      "sha256": "0c7b3c918f717c8fc047143ddcd244937a94aa3d9d81115fbb7c429991656d5b",
+      "gitBlob": "87706817c976d9296f399de5fd000941a0dd431b",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/stream_short_chunk"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/stream_short_chunk.go.snapshot",
+      "bytes": 487,
+      "sha256": "5a0e7ff8af7a2793aa1292d6d9edd7024e4ad8c1ecae07d812839c78138e0aa5",
+      "gitBlob": "a624f0053283f25253a602abaebdf66eb87518f1",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/stream_short_chunk.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/stream_short_nonce.snapshot",
+      "bytes": 332,
+      "sha256": "89ac7c59680477968325e3e0ffb67973743ad63c42d601685f7d7513a6c2ff32",
+      "gitBlob": "6fad221d0b55feeeb05463745c80659cfa5ff7a5",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/stream_short_nonce"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/stream_short_nonce.go.snapshot",
+      "bytes": 567,
+      "sha256": "12937b022c2c12d209b36a9c17a2bea21979f6a111562b54f29e3a63fc5de164",
+      "gitBlob": "6aa7b308c212e120f48cfae9213c7a1518f00598",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/stream_short_nonce.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/stream_short_second_chunk.snapshot",
+      "bytes": 581,
+      "sha256": "6c719858e51bb460ce192bebff1e9a60c62296976c6a616b84a8b0dd1aae951e",
+      "gitBlob": "21cf942845f94a2043011712f67c1657dc030fcf",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/stream_short_second_chunk"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/stream_short_second_chunk.go.snapshot",
+      "bytes": 539,
+      "sha256": "8a59bba8696182a2236bf3faca19175ed36d0b9dea2676e273ace1961d0feaf5",
+      "gitBlob": "8030fc258b693bdc8d1cc4c8f195428de8a1615f",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/stream_short_second_chunk.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/stream_three_chunks.snapshot",
+      "bytes": 737,
+      "sha256": "65228acff4093f43666daca36557be239315153dfce50730ff7a7c79fbbb7d9c",
+      "gitBlob": "9289f7497f025b2005b28feee546f976ee8789ff",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/stream_three_chunks"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/stream_three_chunks.go.snapshot",
+      "bytes": 504,
+      "sha256": "f952723b9cb7cb50b1752ca0bd70ca2b820076e599b888b9d9adb9f08698b686",
+      "gitBlob": "fc71b2fb07464f6f8f42ad6acb70740ec2cf9476",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/stream_three_chunks.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/stream_trailing_garbage_long.snapshot",
+      "bytes": 593,
+      "sha256": "a019543f7c6d36a193e2f84ee348735e9e964f8785fdd5219e9cadef51211fc9",
+      "gitBlob": "43d6f076381a033cbcd270444653c0c3d8add2e0",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/stream_trailing_garbage_long"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/stream_trailing_garbage_long.go.snapshot",
+      "bytes": 502,
+      "sha256": "0e3b61935fe07a58830a731899661cc501b6630cdb3593e4460a12baed539e65",
+      "gitBlob": "5373d575523667c7488b6f5a0fc2e6161eeade93",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/stream_trailing_garbage_long.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/stream_trailing_garbage_short.snapshot",
+      "bytes": 582,
+      "sha256": "42ab8680743ba4bdae15a991ce53a6ecac747d269cced7ebc85f7e3ceaec5a01",
+      "gitBlob": "d690a546b4f61e6edfaa7a5aaf25ef0c9e5c1c9d",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/stream_trailing_garbage_short"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/stream_trailing_garbage_short.go.snapshot",
+      "bytes": 502,
+      "sha256": "19b9921be83248575f2dd4cbf1459460f224fae34c2bafcd343e72905bc620ba",
+      "gitBlob": "65bdfc91bf453cf27d97cfbeb259c4ca619d16bf",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/stream_trailing_garbage_short.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/stream_two_chunks.snapshot",
+      "bytes": 647,
+      "sha256": "51008a18664460b97c6c621d71da607b09960141d08286a6b82e7a6818cc9efa",
+      "gitBlob": "b3a3a58565305106ba786324582755bd5a274745",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/stream_two_chunks"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/stream_two_chunks.go.snapshot",
+      "bytes": 469,
+      "sha256": "f42d85126b29177444d9164e2abf7ef7079f68c196095bb01577574388116ad6",
+      "gitBlob": "72048167b825fb72c9efccaf44e5c26569f5ff78",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/stream_two_chunks.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/stream_two_final_chunks.snapshot",
+      "bytes": 590,
+      "sha256": "f29f4769f00b3e07fdf510b15e961d45b82137e86fe0282bb5e53a82a82ee1fa",
+      "gitBlob": "971f12ef3dcef61253562856b8b5e3c79cbefae5",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/stream_two_final_chunks"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/stream_two_final_chunks.go.snapshot",
+      "bytes": 501,
+      "sha256": "1836511080af3b02bcd8f398a3f70122a1a1d7c15088ec742b60e133397eebfe",
+      "gitBlob": "614fe4f476fa411beef6fbee96fce1d7083ca6fe",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/stream_two_final_chunks.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/stream_two_final_chunks_full.snapshot",
+      "bytes": 655,
+      "sha256": "faacbff4a2d17dad128ec4f2e527411a613ed304c45798edc7d7a37b70b14306",
+      "gitBlob": "ccaf6ffc49c8d03239c3d3aff7806279b72b60df",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/stream_two_final_chunks_full"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/stream_two_final_chunks_full.go.snapshot",
+      "bytes": 517,
+      "sha256": "0703335d3880775bce0f80937288c63098c6106524b7c7a0675f87c273a569c4",
+      "gitBlob": "dc161607ae14adeb1a9c7fdeb24a0d10a9eb926f",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/stream_two_final_chunks_full.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/stream_two_final_chunks_second.snapshot",
+      "bytes": 678,
+      "sha256": "10d2df215cb75721451d956dacd8e48aa67889dc16d651eb03fa0eee9db29ee2",
+      "gitBlob": "117c31fa139e8daa278128eb2647152d04093603",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/stream_two_final_chunks_second"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/stream_two_final_chunks_second.go.snapshot",
+      "bytes": 540,
+      "sha256": "e08b54002075b4c51b03171fd125614d3c145c6ee42cf7575f50bb2033e21839",
+      "gitBlob": "d3f57e3a2bc8c96bf6821aa7022a530d462c4301",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/stream_two_final_chunks_second.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/stream_two_final_chunks_short.snapshot",
+      "bytes": 445,
+      "sha256": "481f70693cce27ae33a9ab1b5721dee652d218703efc0c37078c9e066cae24a3",
+      "gitBlob": "a2c703ea5e324754420feabe77f440902814c4db",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/stream_two_final_chunks_short"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/stream_two_final_chunks_short.go.snapshot",
+      "bytes": 468,
+      "sha256": "390d046ebee980d50879ee714d9ad5d8442fb4e0263906c5443bddc8a082fff2",
+      "gitBlob": "003c5ef0873b51f2ac578bfad9c5ddb5d6fb2c48",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/stream_two_final_chunks_short.go"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/testdata/version_unsupported.snapshot",
+      "bytes": 358,
+      "sha256": "a13d6b218009563a1190ae5a19184a7325238903ec68d4ffe8593497ef4d7523",
+      "gitBlob": "54a4512b7591f7453b78f4e30b8d7a35b83e2864",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/testdata/version_unsupported"
+    },
+    {
+      "path": "upstream/C2SP/CCTV/age/internal/tests/version_unsupported.go.snapshot",
+      "bytes": 429,
+      "sha256": "03015895b72d3bf8e654832f1537332c149a4b9b49a55058d805c144d63bcdcd",
+      "gitBlob": "74d8fbbe4fd1e29840d52b618675124cd6c56b62",
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "originalPath": "age/internal/tests/version_unsupported.go"
+    }
+  ]
+}

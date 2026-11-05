@@ -1,0 +1,38 @@
+{
+  "python": "3.13.18 (main, Nov  5 2026, 08:07:50) [GCC 12.2.0]",
+  "architecture": "aarch64",
+  "rows": 109,
+  "rawBytes": 123398,
+  "expandedVectorBytes": 1583647,
+  "expectations": {
+    "header failure": 23,
+    "HMAC failure": 1,
+    "success": 8,
+    "payload failure": 18
+  },
+  "stageLaunches": {
+    "cli": {
+      "container": "opfs-age-cli-20261105",
+      "stage": "cli",
+      "exitCode": 0,
+      "primary": [],
+      "cleanupFaults": [],
+      "elapsedSeconds": 1.4425971670000002,
+      "logBytes": 0,
+      "outerDeadlineSeconds": 180,
+      "maxLogBytes": 1048576
+    },
+    "vectors": {
+      "container": "opfs-age-vectors-20261105",
+      "stage": "vectors",
+      "exitCode": 0,
+      "primary": [],
+      "cleanupFaults": [],
+      "elapsedSeconds": 19.90296675,
+      "logBytes": 0,
+      "outerDeadlineSeconds": 180,
+      "maxLogBytes": 1048576
+    }
+  },
+  "scope": "Inert acquisition only. No archived executable, producer or candidate run."
+}

@@ -1,0 +1,625 @@
+{
+  "scope": "Research metadata only. No vector bytes acquired or tests executed. Expectations inspected in immutable generator source and testkit; acquisition must compare original vector metadata.",
+  "repository": "C2SP/CCTV",
+  "commit": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+  "license": "0BSD (selected from upstream license options)",
+  "vectors": [
+    {
+      "path": "age/testdata/empty",
+      "bytes": 67,
+      "gitBlob": "880a77741bff9bf4b5ccd8a86fbec95e8e056d9e",
+      "expect": "header failure",
+      "generator": {
+        "path": "age/internal/tests/empty.go",
+        "bytes": 339,
+        "gitBlob": "2fac68042ad38b8f0f36d3457d4fadf7675b7b22"
+      },
+      "profileMapping": "header failure"
+    },
+    {
+      "path": "age/testdata/header_crlf",
+      "bytes": 416,
+      "gitBlob": "69cafae0053238c658aeaa4fc06657af9e9a02c2",
+      "expect": "header failure",
+      "generator": {
+        "path": "age/internal/tests/header_crlf.go",
+        "bytes": 651,
+        "gitBlob": "809dbd3e56b2f85cb403faa0d886d9359ea386b1"
+      },
+      "profileMapping": "header failure"
+    },
+    {
+      "path": "age/testdata/hmac_bad",
+      "bytes": 353,
+      "gitBlob": "5021bb6d925aaad632a2abfa781f416c7e36dead",
+      "expect": "HMAC failure",
+      "generator": {
+        "path": "age/internal/tests/hmac_bad.go",
+        "bytes": 485,
+        "gitBlob": "cbd294a2054ab794df0cb4c8bb2445d7f2ea4a21"
+      },
+      "profileMapping": "HMAC failure"
+    },
+    {
+      "path": "age/testdata/hmac_extra_space",
+      "bytes": 356,
+      "gitBlob": "f3bfd1ec2c2f10e14f8bc39dd4942424157e32b3",
+      "expect": "header failure",
+      "generator": {
+        "path": "age/internal/tests/hmac_extra_space.go",
+        "bytes": 509,
+        "gitBlob": "57d372cb9d80ea797e858176e0f70b2e4e6699ce"
+      },
+      "profileMapping": "header failure"
+    },
+    {
+      "path": "age/testdata/hmac_garbage",
+      "bytes": 358,
+      "gitBlob": "29e54ab697fcbf90ba368400b80f57cd019d741e",
+      "expect": "header failure",
+      "generator": {
+        "path": "age/internal/tests/hmac_garbage.go",
+        "bytes": 462,
+        "gitBlob": "e73982f32ec6629529ed6607da43c2574cc0fe47"
+      },
+      "profileMapping": "header failure"
+    },
+    {
+      "path": "age/testdata/hmac_missing",
+      "bytes": 312,
+      "gitBlob": "6ecea2aeb12154344d9665a2339fb5cb5cd53306",
+      "expect": "header failure",
+      "generator": {
+        "path": "age/internal/tests/hmac_missing.go",
+        "bytes": 433,
+        "gitBlob": "3139e912633684ef70b87f3d8ff37f4eacad09c6"
+      },
+      "profileMapping": "header failure"
+    },
+    {
+      "path": "age/testdata/hmac_no_space",
+      "bytes": 354,
+      "gitBlob": "9f1d80d75142039c19cacb0cefd8d52bd9cd171c",
+      "expect": "header failure",
+      "generator": {
+        "path": "age/internal/tests/hmac_no_space.go",
+        "bytes": 507,
+        "gitBlob": "ea4ddd863a98629a522b76eb1451bc030fef6fb3"
+      },
+      "profileMapping": "header failure"
+    },
+    {
+      "path": "age/testdata/hmac_not_canonical",
+      "bytes": 413,
+      "gitBlob": "fd18cda65cf8b1e6cdace69b77ac1cbb86af2650",
+      "expect": "header failure",
+      "generator": {
+        "path": "age/internal/tests/hmac_not_canonical.go",
+        "bytes": 545,
+        "gitBlob": "77225efba03b71280dbeece1c85415b8796b1a4a"
+      },
+      "profileMapping": "header failure"
+    },
+    {
+      "path": "age/testdata/hmac_trailing_space",
+      "bytes": 356,
+      "gitBlob": "2e216bddae73ff7a6441fa2e95bba6d5feb958d4",
+      "expect": "header failure",
+      "generator": {
+        "path": "age/internal/tests/hmac_trailing_space.go",
+        "bytes": 460,
+        "gitBlob": "d2594eb478fcf7f0d240acc98c1087c684317aef"
+      },
+      "profileMapping": "header failure"
+    },
+    {
+      "path": "age/testdata/hmac_truncated",
+      "bytes": 316,
+      "gitBlob": "e7f719664c0c53563061b543ac17bb333520eb95",
+      "expect": "header failure",
+      "generator": {
+        "path": "age/internal/tests/hmac_truncated.go",
+        "bytes": 472,
+        "gitBlob": "cf2de850304ff74399bd32153c3bb6fc774c392b"
+      },
+      "profileMapping": "header failure"
+    },
+    {
+      "path": "age/testdata/stanza_bad_start",
+      "bytes": 366,
+      "gitBlob": "699319673e2a9dcbd77a22fd13352da564046577",
+      "expect": "header failure",
+      "generator": {
+        "path": "age/internal/tests/stanza_bad_start.go",
+        "bytes": 471,
+        "gitBlob": "5bd432bbe4c843c4b9efdf97b8e1ed97fc674efe"
+      },
+      "profileMapping": "header failure"
+    },
+    {
+      "path": "age/testdata/stanza_base64_padding",
+      "bytes": 435,
+      "gitBlob": "af0c16237918fc9f4f20c1286d474f28a0f39217",
+      "expect": "header failure",
+      "generator": {
+        "path": "age/internal/tests/stanza_base64_padding.go",
+        "bytes": 536,
+        "gitBlob": "53c49a51ecbb012581a853813bbfdf12b26da16e"
+      },
+      "profileMapping": "header failure"
+    },
+    {
+      "path": "age/testdata/stanza_empty_argument",
+      "bytes": 376,
+      "gitBlob": "61d06b5baee35f5be254bddcaa28c902917c8763",
+      "expect": "header failure",
+      "generator": {
+        "path": "age/internal/tests/stanza_empty_argument.go",
+        "bytes": 484,
+        "gitBlob": "c9282e63b927739416f0bc407ebb36b6a7beb89a"
+      },
+      "profileMapping": "header failure"
+    },
+    {
+      "path": "age/testdata/stanza_empty_body",
+      "bytes": 432,
+      "gitBlob": "a7ef1eabb47f9503e24743bea5cd8e2ea63137dc",
+      "expect": "success",
+      "generator": {
+        "path": "age/internal/tests/stanza_empty_body.go",
+        "bytes": 442,
+        "gitBlob": "f1cc1a88adff1a94d8ea0bca76eaf6aa2d20c3dd"
+      },
+      "profileMapping": "success"
+    },
+    {
+      "path": "age/testdata/stanza_empty_last_line",
+      "bytes": 563,
+      "gitBlob": "253707e7a240f40b51fadb24f4a80bfd82e1e6d3",
+      "expect": "success",
+      "generator": {
+        "path": "age/internal/tests/stanza_empty_last_line.go",
+        "bytes": 479,
+        "gitBlob": "980fa9e98ee39c7891e7e2d3641ed824133e80ba"
+      },
+      "profileMapping": "success"
+    },
+    {
+      "path": "age/testdata/stanza_invalid_character",
+      "bytes": 369,
+      "gitBlob": "0455f914b20957469880bf88bde49fe9cdf3663d",
+      "expect": "header failure",
+      "generator": {
+        "path": "age/internal/tests/stanza_invalid_character.go",
+        "bytes": 474,
+        "gitBlob": "ee8f1f68f4fd2f42a8294ec0d7c79601cea65e77"
+      },
+      "profileMapping": "header failure"
+    },
+    {
+      "path": "age/testdata/stanza_long_line",
+      "bytes": 482,
+      "gitBlob": "645dce5cfc4bf9e128b532ce2732183dd09bf261",
+      "expect": "header failure",
+      "generator": {
+        "path": "age/internal/tests/stanza_long_line.go",
+        "bytes": 570,
+        "gitBlob": "9614e94b46f32f278dc882d2fcaa27afc7219e6e"
+      },
+      "profileMapping": "header failure"
+    },
+    {
+      "path": "age/testdata/stanza_missing_body",
+      "bytes": 433,
+      "gitBlob": "8cbf4a160ddf0a2493fcd7dfce2c17c0a645b424",
+      "expect": "header failure",
+      "generator": {
+        "path": "age/internal/tests/stanza_missing_body.go",
+        "bytes": 539,
+        "gitBlob": "5896151db4c36c36425282fd75257680db3eaccf"
+      },
+      "profileMapping": "header failure"
+    },
+    {
+      "path": "age/testdata/stanza_missing_final_line",
+      "bytes": 484,
+      "gitBlob": "aef34c4c92a778ad1f7ea6d3838ff6e95c741ac0",
+      "expect": "header failure",
+      "generator": {
+        "path": "age/internal/tests/stanza_missing_final_line.go",
+        "bytes": 561,
+        "gitBlob": "7c9c915651670db3b96d7899d02da3503c3830a3"
+      },
+      "profileMapping": "header failure"
+    },
+    {
+      "path": "age/testdata/stanza_multiple_short_lines",
+      "bytes": 474,
+      "gitBlob": "a5b2c3d22e73f8a0367bf8a8c926854736f395cc",
+      "expect": "header failure",
+      "generator": {
+        "path": "age/internal/tests/stanza_multiple_short_lines.go",
+        "bytes": 587,
+        "gitBlob": "a8ea8cf72599d10d7c51b48a2197610ea40b26c9"
+      },
+      "profileMapping": "header failure"
+    },
+    {
+      "path": "age/testdata/stanza_no_arguments",
+      "bytes": 359,
+      "gitBlob": "1dca7c62061a6509a15fdbe7db66e0f6cc92de0a",
+      "expect": "header failure",
+      "generator": {
+        "path": "age/internal/tests/stanza_no_arguments.go",
+        "bytes": 460,
+        "gitBlob": "58c31fef92f0184c04745e7ed7843ab1cdc780b7"
+      },
+      "profileMapping": "header failure"
+    },
+    {
+      "path": "age/testdata/stanza_not_canonical",
+      "bytes": 434,
+      "gitBlob": "e6f52e3d0b910a197ee1b2ba392d75d9e3a60176",
+      "expect": "header failure",
+      "generator": {
+        "path": "age/internal/tests/stanza_not_canonical.go",
+        "bytes": 558,
+        "gitBlob": "da17c2fb1d2f4091b0f493b8710204d934eef3cb"
+      },
+      "profileMapping": "header failure"
+    },
+    {
+      "path": "age/testdata/stanza_spurious_cr",
+      "bytes": 430,
+      "gitBlob": "2815c821976a289f9690a4873b38766b9df43b32",
+      "expect": "header failure",
+      "generator": {
+        "path": "age/internal/tests/stanza_spurious_cr.go",
+        "bytes": 535,
+        "gitBlob": "a95692b9d0f37b11862c5c529d42faef316c174e"
+      },
+      "profileMapping": "header failure"
+    },
+    {
+      "path": "age/testdata/stanza_valid_characters",
+      "bytes": 536,
+      "gitBlob": "83a39c91a8bf71ae2c5456cf11c2423978d4a3dd",
+      "expect": "success",
+      "generator": {
+        "path": "age/internal/tests/stanza_valid_characters.go",
+        "bytes": 609,
+        "gitBlob": "00af5b419e9ae77181459beb6b04c357e948b72f"
+      },
+      "profileMapping": "success"
+    },
+    {
+      "path": "age/testdata/stream_bad_tag",
+      "bytes": 430,
+      "gitBlob": "90319f6ad3b95cf5ac777fc4f7455b2ffcf901d6",
+      "expect": "payload failure",
+      "generator": {
+        "path": "age/internal/tests/stream_bad_tag.go",
+        "bytes": 518,
+        "gitBlob": "ebc901dd33691ec5f36c141a852b87ba9fd7c487"
+      },
+      "profileMapping": "payload failure"
+    },
+    {
+      "path": "age/testdata/stream_bad_tag_second_chunk",
+      "bytes": 587,
+      "gitBlob": "3c5a0ca2e5efd5517ed8d6f4b94cc343d1951e5e",
+      "expect": "payload failure",
+      "generator": {
+        "path": "age/internal/tests/stream_bad_tag_second_chunk.go",
+        "bytes": 587,
+        "gitBlob": "2f4e3d6a2963cba0189441f52ceec4fc5b23a32c"
+      },
+      "upstreamPartialPrefix": true,
+      "profileMapping": "eventual whole verification rejects; upstream streaming prefix hash is not claimed by the seek-first reader"
+    },
+    {
+      "path": "age/testdata/stream_bad_tag_second_chunk_full",
+      "bytes": 654,
+      "gitBlob": "1f5f73e9ad927b2272e2ef9336df7863621fea47",
+      "expect": "payload failure",
+      "generator": {
+        "path": "age/internal/tests/stream_bad_tag_second_chunk_full.go",
+        "bytes": 603,
+        "gitBlob": "221d4ce4fb5c78a2ae85a8f5688356e0873be38c"
+      },
+      "upstreamPartialPrefix": true,
+      "profileMapping": "eventual whole verification rejects; upstream streaming prefix hash is not claimed by the seek-first reader"
+    },
+    {
+      "path": "age/testdata/stream_empty_payload",
+      "bytes": 419,
+      "gitBlob": "5df70ed933b865428280d5f41809aeab47461742",
+      "expect": "success",
+      "generator": {
+        "path": "age/internal/tests/stream_empty_payload.go",
+        "bytes": 398,
+        "gitBlob": "e2a0be1c3e84968fac098048343bdbd20267ee45"
+      },
+      "profileMapping": "success"
+    },
+    {
+      "path": "age/testdata/stream_last_chunk_empty",
+      "bytes": 662,
+      "gitBlob": "0ada412091c31373bc64441a1b733cc38f0e0446",
+      "expect": "payload failure",
+      "generator": {
+        "path": "age/internal/tests/stream_last_chunk_empty.go",
+        "bytes": 574,
+        "gitBlob": "2d3e7ceb8b026d47363e7c606e35dd0733f2f87d"
+      },
+      "upstreamPartialPrefix": true,
+      "profileMapping": "eventual whole verification rejects; upstream streaming prefix hash is not claimed by the seek-first reader"
+    },
+    {
+      "path": "age/testdata/stream_last_chunk_full",
+      "bytes": 557,
+      "gitBlob": "638db45d6274d0bbd0e6ab75fa480f3402973f21",
+      "expect": "success",
+      "generator": {
+        "path": "age/internal/tests/stream_last_chunk_full.go",
+        "bytes": 434,
+        "gitBlob": "9f6cae8c8b52e8fc63907d14d341087f73db1671"
+      },
+      "profileMapping": "success"
+    },
+    {
+      "path": "age/testdata/stream_last_chunk_full_second",
+      "bytes": 647,
+      "gitBlob": "b3a3a58565305106ba786324582755bd5a274745",
+      "expect": "success",
+      "generator": {
+        "path": "age/internal/tests/stream_last_chunk_full_second.go",
+        "bytes": 469,
+        "gitBlob": "72048167b825fb72c9efccaf44e5c26569f5ff78"
+      },
+      "profileMapping": "success"
+    },
+    {
+      "path": "age/testdata/stream_missing_tag",
+      "bytes": 414,
+      "gitBlob": "e6793ba1a12ea471273b60730796c1fd7468f297",
+      "expect": "payload failure",
+      "generator": {
+        "path": "age/internal/tests/stream_missing_tag.go",
+        "bytes": 499,
+        "gitBlob": "443efe110bcf2eb0521ff3d6412679cf946c5c13"
+      },
+      "profileMapping": "payload failure"
+    },
+    {
+      "path": "age/testdata/stream_no_chunks",
+      "bytes": 411,
+      "gitBlob": "ef5b4fc53bdff86a2a22a51937c518b14c97c828",
+      "expect": "payload failure",
+      "generator": {
+        "path": "age/internal/tests/stream_no_chunks.go",
+        "bytes": 420,
+        "gitBlob": "83db17768a20dccc4465e5cb152e6e60d8523f48"
+      },
+      "profileMapping": "payload failure"
+    },
+    {
+      "path": "age/testdata/stream_no_final",
+      "bytes": 428,
+      "gitBlob": "4cfb2a445ca8d0fd1341d9eb1aa180f94d8feff3",
+      "expect": "payload failure",
+      "generator": {
+        "path": "age/internal/tests/stream_no_final.go",
+        "bytes": 439,
+        "gitBlob": "c5732018c580aca370d941ad00119c3c3955570e"
+      },
+      "profileMapping": "payload failure"
+    },
+    {
+      "path": "age/testdata/stream_no_final_full",
+      "bytes": 563,
+      "gitBlob": "8dbb0b52160af5a0100afea9a85ac7ede98114e3",
+      "expect": "payload failure",
+      "generator": {
+        "path": "age/internal/tests/stream_no_final_full.go",
+        "bytes": 472,
+        "gitBlob": "8a036f894fdba06230634d238ae1c030b6c6b8e9"
+      },
+      "upstreamPartialPrefix": true,
+      "profileMapping": "eventual whole verification rejects; upstream streaming prefix hash is not claimed by the seek-first reader"
+    },
+    {
+      "path": "age/testdata/stream_no_final_two_chunks",
+      "bytes": 587,
+      "gitBlob": "2940d91e20580d1c898a11466292122db97e62d6",
+      "expect": "payload failure",
+      "generator": {
+        "path": "age/internal/tests/stream_no_final_two_chunks.go",
+        "bytes": 491,
+        "gitBlob": "3c77806af89de67f6c29298aef4fde9f6514f81c"
+      },
+      "upstreamPartialPrefix": true,
+      "profileMapping": "eventual whole verification rejects; upstream streaming prefix hash is not claimed by the seek-first reader"
+    },
+    {
+      "path": "age/testdata/stream_no_final_two_chunks_full",
+      "bytes": 656,
+      "gitBlob": "694f447e598aaed75aea5804da876343dd3d6be5",
+      "expect": "payload failure",
+      "generator": {
+        "path": "age/internal/tests/stream_no_final_two_chunks_full.go",
+        "bytes": 511,
+        "gitBlob": "2b0a2ad3085676bb298c94c65f7067306aafaff2"
+      },
+      "upstreamPartialPrefix": true,
+      "profileMapping": "eventual whole verification rejects; upstream streaming prefix hash is not claimed by the seek-first reader"
+    },
+    {
+      "path": "age/testdata/stream_no_nonce",
+      "bytes": 320,
+      "gitBlob": "c97ca1ca49bb01b2968f854b27a3134fd1787922",
+      "expect": "header failure",
+      "generator": {
+        "path": "age/internal/tests/stream_no_nonce.go",
+        "bytes": 542,
+        "gitBlob": "11f1e81f5e76322eb1d7933015095cddae1c8b0f"
+      },
+      "profileMapping": "header failure"
+    },
+    {
+      "path": "age/testdata/stream_short_chunk",
+      "bytes": 423,
+      "gitBlob": "87706817c976d9296f399de5fd000941a0dd431b",
+      "expect": "payload failure",
+      "generator": {
+        "path": "age/internal/tests/stream_short_chunk.go",
+        "bytes": 487,
+        "gitBlob": "a624f0053283f25253a602abaebdf66eb87518f1"
+      },
+      "profileMapping": "payload failure"
+    },
+    {
+      "path": "age/testdata/stream_short_nonce",
+      "bytes": 332,
+      "gitBlob": "6fad221d0b55feeeb05463745c80659cfa5ff7a5",
+      "expect": "header failure",
+      "generator": {
+        "path": "age/internal/tests/stream_short_nonce.go",
+        "bytes": 567,
+        "gitBlob": "6aa7b308c212e120f48cfae9213c7a1518f00598"
+      },
+      "profileMapping": "header failure"
+    },
+    {
+      "path": "age/testdata/stream_short_second_chunk",
+      "bytes": 581,
+      "gitBlob": "21cf942845f94a2043011712f67c1657dc030fcf",
+      "expect": "payload failure",
+      "generator": {
+        "path": "age/internal/tests/stream_short_second_chunk.go",
+        "bytes": 539,
+        "gitBlob": "8030fc258b693bdc8d1cc4c8f195428de8a1615f"
+      },
+      "upstreamPartialPrefix": true,
+      "profileMapping": "eventual whole verification rejects; upstream streaming prefix hash is not claimed by the seek-first reader"
+    },
+    {
+      "path": "age/testdata/stream_three_chunks",
+      "bytes": 737,
+      "gitBlob": "9289f7497f025b2005b28feee546f976ee8789ff",
+      "expect": "success",
+      "generator": {
+        "path": "age/internal/tests/stream_three_chunks.go",
+        "bytes": 504,
+        "gitBlob": "fc71b2fb07464f6f8f42ad6acb70740ec2cf9476"
+      },
+      "profileMapping": "success"
+    },
+    {
+      "path": "age/testdata/stream_trailing_garbage_long",
+      "bytes": 593,
+      "gitBlob": "43d6f076381a033cbcd270444653c0c3d8add2e0",
+      "expect": "payload failure",
+      "generator": {
+        "path": "age/internal/tests/stream_trailing_garbage_long.go",
+        "bytes": 502,
+        "gitBlob": "5373d575523667c7488b6f5a0fc2e6161eeade93"
+      },
+      "upstreamPartialPrefix": true,
+      "profileMapping": "eventual whole verification rejects; upstream streaming prefix hash is not claimed by the seek-first reader"
+    },
+    {
+      "path": "age/testdata/stream_trailing_garbage_short",
+      "bytes": 582,
+      "gitBlob": "d690a546b4f61e6edfaa7a5aaf25ef0c9e5c1c9d",
+      "expect": "payload failure",
+      "generator": {
+        "path": "age/internal/tests/stream_trailing_garbage_short.go",
+        "bytes": 502,
+        "gitBlob": "65bdfc91bf453cf27d97cfbeb259c4ca619d16bf"
+      },
+      "upstreamPartialPrefix": true,
+      "profileMapping": "eventual whole verification rejects; upstream streaming prefix hash is not claimed by the seek-first reader"
+    },
+    {
+      "path": "age/testdata/stream_two_chunks",
+      "bytes": 647,
+      "gitBlob": "b3a3a58565305106ba786324582755bd5a274745",
+      "expect": "success",
+      "generator": {
+        "path": "age/internal/tests/stream_two_chunks.go",
+        "bytes": 469,
+        "gitBlob": "72048167b825fb72c9efccaf44e5c26569f5ff78"
+      },
+      "profileMapping": "success"
+    },
+    {
+      "path": "age/testdata/stream_two_final_chunks",
+      "bytes": 590,
+      "gitBlob": "971f12ef3dcef61253562856b8b5e3c79cbefae5",
+      "expect": "payload failure",
+      "generator": {
+        "path": "age/internal/tests/stream_two_final_chunks.go",
+        "bytes": 501,
+        "gitBlob": "614fe4f476fa411beef6fbee96fce1d7083ca6fe"
+      },
+      "upstreamPartialPrefix": true,
+      "profileMapping": "eventual whole verification rejects; upstream streaming prefix hash is not claimed by the seek-first reader"
+    },
+    {
+      "path": "age/testdata/stream_two_final_chunks_full",
+      "bytes": 655,
+      "gitBlob": "ccaf6ffc49c8d03239c3d3aff7806279b72b60df",
+      "expect": "payload failure",
+      "generator": {
+        "path": "age/internal/tests/stream_two_final_chunks_full.go",
+        "bytes": 517,
+        "gitBlob": "dc161607ae14adeb1a9c7fdeb24a0d10a9eb926f"
+      },
+      "upstreamPartialPrefix": true,
+      "profileMapping": "eventual whole verification rejects; upstream streaming prefix hash is not claimed by the seek-first reader"
+    },
+    {
+      "path": "age/testdata/stream_two_final_chunks_second",
+      "bytes": 678,
+      "gitBlob": "117c31fa139e8daa278128eb2647152d04093603",
+      "expect": "payload failure",
+      "generator": {
+        "path": "age/internal/tests/stream_two_final_chunks_second.go",
+        "bytes": 540,
+        "gitBlob": "d3f57e3a2bc8c96bf6821aa7022a530d462c4301"
+      },
+      "upstreamPartialPrefix": true,
+      "profileMapping": "eventual whole verification rejects; upstream streaming prefix hash is not claimed by the seek-first reader"
+    },
+    {
+      "path": "age/testdata/stream_two_final_chunks_short",
+      "bytes": 445,
+      "gitBlob": "a2c703ea5e324754420feabe77f440902814c4db",
+      "expect": "payload failure",
+      "generator": {
+        "path": "age/internal/tests/stream_two_final_chunks_short.go",
+        "bytes": 468,
+        "gitBlob": "003c5ef0873b51f2ac578bfad9c5ddb5d6fb2c48"
+      },
+      "profileMapping": "payload failure"
+    },
+    {
+      "path": "age/testdata/version_unsupported",
+      "bytes": 358,
+      "gitBlob": "54a4512b7591f7453b78f4e30b8d7a35b83e2864",
+      "expect": "header failure",
+      "generator": {
+        "path": "age/internal/tests/version_unsupported.go",
+        "bytes": 429,
+        "gitBlob": "74d8fbbe4fd1e29840d52b618675124cd6c56b62"
+      },
+      "profileMapping": "header failure"
+    }
+  ],
+  "excludedGroups": [
+    "armor: unsupported input encoding",
+    "recipient profiles: no production recipient unlocking",
+    "stream_257_chunks / stream_257_chunks_full / stream_258_chunks: larger CPU corpus deferred, not a conformance claim"
+  ]
+}

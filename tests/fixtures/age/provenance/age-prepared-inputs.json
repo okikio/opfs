@@ -1,0 +1,57 @@
+{
+  "scope": "Prepared immutable acquisition inputs only. No local image inspection, pull, acquisition or execution performed. Check again before copying; refuse drift.",
+  "files": [
+    {
+      "path": ".tmp/implementation/age-acquire.py",
+      "bytes": 11172,
+      "sha256": "0779340af909edc41caee666848c2d58d4b81cdd465781a8ee5ca231ba8e7da7"
+    },
+    {
+      "path": ".tmp/implementation/age-run.py",
+      "bytes": 7751,
+      "sha256": "e15912f717f518572ea658e81665ed8c4f1fa9339c78ee84e9b869a3eab68a82"
+    },
+    {
+      "path": ".tmp/implementation/age-vectors.json",
+      "bytes": 21900,
+      "sha256": "dd5e285a7c07aa0c6f0cc8d3b703b7da327320ddd8d023be899b6a8e1e93f9c5"
+    },
+    {
+      "path": ".tmp/implementation/age-sources.json",
+      "bytes": 2129,
+      "sha256": "cb6eb46c314c16f017c0581f22c5f188e0abca1fadae2c0f7e0d93a7367f55a0"
+    },
+    {
+      "path": ".tmp/implementation/age-produce.mjs",
+      "bytes": 11315,
+      "sha256": "4079ea121305c450f8c4f45ab4eabb4865e9e4c229aec754a6b93d87dc984d4a"
+    },
+    {
+      "path": ".tmp/implementation/age-native-recipe.md",
+      "bytes": 14729,
+      "sha256": "90c9bc0a804e80257b1e2250f834e410206369a28b1d4ed6ce95f50629f26976"
+    },
+    {
+      "path": "tests/fixtures/arfs/zip.json",
+      "bytes": 541,
+      "sha256": "ffc47f0fc7ff99ed86e85e004e8cbcc44657320906b585d9ef4b7817f3e1aba9"
+    }
+  ],
+  "sourceInventory": {
+    "sourceFiles": 9,
+    "vectors": 50,
+    "generatorFiles": 50,
+    "totalRawResponses": 109,
+    "totalDeclaredBytes": 123398
+  },
+  "images": {
+    "python": {
+      "reference": "python:3.13-slim-bookworm@sha256:a5a7017efc5969e00ae2b91c8eb0631049a569652aa4ffc4501769049ae45c72",
+      "expectedArm64Config": "sha256:8353ef33b6dea0ccf6eaf7d09905c675d0bd8f3bd38ac43d7171cf62f0e35e79"
+    },
+    "node": {
+      "reference": "node:26.13.0-bookworm-slim@sha256:add5c17c14752c54d2f3d519ec46a3815684d41c33f198bcb09fb998f7dcbf68",
+      "expectedArm64Config": "sha256:97000ec2e6fe65be46c887c441bb83ac6cb03d46091429bb73914a75bce6991e"
+    }
+  }
+}
