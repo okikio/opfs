@@ -1,0 +1,9 @@
+{
+  "name": "opfs-arfs-independent-tool",
+  "private": true,
+  "version": "1.0.0",
+  "dependencies": {
+    "ardrive-core-js": "5.1.1",
+    "arweave": "1.15.7"
+  }
+}

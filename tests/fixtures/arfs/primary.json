@@ -1,0 +1,46 @@
+[
+  {
+    "url": "https://raw.githubusercontent.com/ardriveapp/ardrive-web/5e1a81e7d5229e540da7fc6b144f455a812e8a2e/docs/ArweaveFS.md",
+    "sha256": "23e17bef95776d11ea3b54ab98773519ec3119d379262c1febfb64735eeec708"
+  },
+  {
+    "url": "https://raw.githubusercontent.com/ar-io/docs/38bc05ce5684c9faa2af0d0f22a60c0f2c178347/content/build/advanced/arfs/index.mdx",
+    "sha256": "52dd98a7e9644301b687a1eba0b3baad3e5982ab1e40642a01ab6d0c6f947472"
+  },
+  {
+    "url": "https://raw.githubusercontent.com/ar-io/docs/38bc05ce5684c9faa2af0d0f22a60c0f2c178347/content/build/advanced/arfs/entity-types.mdx",
+    "sha256": "abc1467a6e40dd41d360322b1e7c338750319eb2b6066d08bc4183099dfa49e7"
+  },
+  {
+    "url": "https://raw.githubusercontent.com/ar-io/docs/38bc05ce5684c9faa2af0d0f22a60c0f2c178347/content/build/advanced/arfs/data-model.mdx",
+    "sha256": "61047121611c503966e58aa64084f0fa1362ae7d0d064ad6a35ab94bfbf5a4c8"
+  },
+  {
+    "url": "https://raw.githubusercontent.com/ar-io/docs/38bc05ce5684c9faa2af0d0f22a60c0f2c178347/content/build/advanced/arfs/reading-data.mdx",
+    "sha256": "37139622362198f262193e4c6d7d1ec5a774c50d058d181a915b83639d91e7f0"
+  },
+  {
+    "url": "https://raw.githubusercontent.com/ar-io/docs/38bc05ce5684c9faa2af0d0f22a60c0f2c178347/content/build/advanced/arfs/privacy.mdx",
+    "sha256": "2a64941688cf9ea87a1899f4568389299496f1201733d779edbb4289f509f4ae"
+  },
+  {
+    "url": "https://raw.githubusercontent.com/ardriveapp/ardrive-core-js/54a3b4c3e9e1d03d76bfb1fec9fada1193745f22/src/arfs/tx/arfs_tx_data_types.ts",
+    "sha256": "1ef1379ed95b32dfd0105c4a47a7a363056581033536e1da9d436024939682ff"
+  },
+  {
+    "url": "https://raw.githubusercontent.com/ardriveapp/ardrive-core-js/54a3b4c3e9e1d03d76bfb1fec9fada1193745f22/src/arfs/tx/arfs_prototypes.ts",
+    "sha256": "3c0cfce26746400f5d50105fcce7f2872ab7cf3b1b16067e63f532a288ce637e"
+  },
+  {
+    "url": "https://raw.githubusercontent.com/ardriveapp/ardrive-core-js/54a3b4c3e9e1d03d76bfb1fec9fada1193745f22/src/utils/crypto.ts",
+    "sha256": "bfa9e5e8bbf8987a941580e343b490988c522b897986482e5b5e75b798f822d4"
+  },
+  {
+    "url": "https://raw.githubusercontent.com/ArweaveTeam/arweave-js/695dafc5d3bcd15aa52068e8a79b56b31d4ee262/src/common/common.ts",
+    "sha256": "2f2065245389d410cfac0d8b0e8dcd8711710142459bf692ffaaf6332a77d8aa"
+  },
+  {
+    "url": "https://raw.githubusercontent.com/ArweaveTeam/arweave-js/695dafc5d3bcd15aa52068e8a79b56b31d4ee262/src/common/transactions.ts",
+    "sha256": "4071950940f0c7648f0cc200afc75ecd435935129d3aeaf680298c15c12b4f1b"
+  }
+]
