@@ -149,7 +149,8 @@
     "./archive/warc": "./src/archive/warc.ts",
     "./onedrive": "./src/onedrive.ts",
     "./oci": "./src/oci.ts",
-    "./archive/mime": "./src/archive/mime.ts"
+    "./archive/mime": "./src/archive/mime.ts",
+    "./archive/seven": "./src/archive/seven.ts"
   },
   "dependencies": {
     "@okikio/undent": "^0.3.3",

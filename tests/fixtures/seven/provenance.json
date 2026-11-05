@@ -1,0 +1,21 @@
+{
+  "producerPackages": {
+    "7zip": "22.01+really26.02+dfsg-0+deb12u1",
+    "libarchive-tools": "3.6.2-1+deb12u5"
+  },
+  "architecture": "arm64",
+  "localBaseImage": "sha256:205a6b2ff80a9c72b8d3df0e9abc98970fde7edbbfcca91967bcf9a153e3bc79",
+  "imageLimit": "Local base only; apt mutates filesystem, not a public full-producer pin.",
+  "files": {
+    "create.py": "7ed226cbf0f5222843d191e8dd0b9ceb5959708eb335d3faa9915f665514ddbe",
+    "independent.json": "46feab7366b3c3c6078a260bf35455e7d4891bc253e0771c8a9cd19c8a948f96"
+  },
+  "archives": {
+    "copy": "6a70beaae516e8c79fd1475911ef3b5bb5eb460a6cfd666e06dafa09af4abd41",
+    "lzma2": "340149b76991d0b7684e8b592daf2454a48faaef83bdd62c86a70770b0483442",
+    "solid": "7cadd5ed5f395a7a3f88fd6995c9bc0240dccb1dcff4f581901a9c3b8c8030db",
+    "encoded": "c1a548afcd2b4bb76ce0fc9c2548c3b5add34b8438a5de026f03d715d0e1863f",
+    "encrypted": "41b72b11eb12cfaef5d0e833a840d2c3e29b427bd9cba972082516d40b2f37fd",
+    "encrypted-header": "9a5488413be00bef13491b89a333294407f84eb10e25338d79154e62980a9e60"
+  }
+}
