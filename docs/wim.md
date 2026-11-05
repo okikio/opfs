@@ -1,4 +1,4 @@
-# Preview ordinary stored and XPRESS WIM images
+# Preview ordinary stored, XPRESS and LZX WIM images
 
 A Windows Imaging (WIM) file can contain several directory-tree images that share deduplicated file resources.
 `openWim()` indexes the resource table and image descriptions. `image(index)` parses one selected image's metadata.
@@ -55,10 +55,11 @@ unverified.
 `uncompressed-1.13` means ordinary `MSWIM` magic, exact 208-byte header, format version `0x10d00`, one complete unsplit
 part, zero compression chunk size and uncompressed resources. It is a format profile, not a wimlib software version.
 `xpress-huffman-32k-1.13` additionally accepts ordinary resources using WIM XPRESS-Huffman with exactly 32,768-byte
-independent chunks. Stored resources and stored fallback chunks remain supported within that profile. Plain XPRESS,
-other chunk sizes, WIM-specific LZX, LZMS, solid ESD, split SWM, pipable WIM, write-in-progress and
-resource-only/metadata-only variants are refused. CAB's existing codec is not assumed to implement WIM's distinct LZX
-framing or E8 behavior. There is no fallback SDK, external-part lookup or arbitrary URL fetch.
+independent chunks. `lzx-32k-1.13` accepts the ordinary WIM LZX variant with the same chunk size. Stored resources and
+stored fallback chunks remain supported within both compressed profiles. Plain XPRESS, other chunk sizes, LZMS, solid
+ESD, split SWM, pipable WIM, write-in-progress and resource-only/metadata-only variants are refused. CAB's existing
+codec is not assumed to implement WIM's distinct LZX framing or E8 behavior. There is no fallback SDK, external-part
+lookup or arbitrary URL fetch.
 
 Each ordinary resource-table record is 50 bytes. Its first 24 bytes contain a 56-bit stored size, flags, physical offset
 and decoded size. Uncompressed sizes must agree. The remaining fields contain part number, reference count and SHA-1.
@@ -101,10 +102,11 @@ the expected decoded chunk. Equal packed and decoded lengths mean a stored fallb
 read and decode 32 KiB plus the complete chunk table. A boundary-crossing range may need two full chunks. The default
 SHA1 verification reads and decodes every chunk of the selected resource, then hashes all decoded bytes before returning
 the requested range. `work.decodedBytes` counts table bytes, complete selected chunk output and, for verification, the
-whole digest input. `xpressSteps` reports codec work separately; image views report the work for their metadata decode.
-A zero-length pending read performs no chunk-table or payload I/O and proves nothing about unexamined chunks.
+whole digest input. `xpressSteps`, `lzxSteps` and `lzxBlocks` report codec work separately; image views report the work
+for their metadata decode. A zero-length pending read performs no chunk-table or payload I/O and proves nothing about
+unexamined chunks.
 
-The internal kernel implements the MS-XCA LZ77+Huffman variant with 512 canonical symbols, code lengths at most 15,
+The XPRESS kernel implements the MS-XCA LZ77+Huffman variant with 512 canonical symbols, code lengths at most 15,
 little-endian 16-bit coding words, interleaved match lengths and overlapping copies. It uses bounded flat tables rather
 than a 32,768-entry decode table. Match distances cannot precede this independent chunk and matches cannot exceed its
 declared output. The 32 KiB profile does not need the encoding document's 32-bit match-length extension; invalid small
@@ -117,6 +119,35 @@ size-only native decoders can stop earlier and do not establish those tail condi
 missing end markers or nonzero padding are accepted as a compatibility fallback. These structural checks are not a
 checksum; only a requested complete resource SHA1 check provides the reported resource consistency evidence.
 
+## Ordinary WIM LZX
+
+LZX uses independent 32 KiB resource chunks with a 32 KiB window. Each chunk resets its recent offsets to `[1, 1, 1]`
+and its previous Huffman lengths to zero. Internal blocks can be verbatim, aligned-offset or raw; those blocks retain
+history and tree lengths within the chunk. The decoder uses flat canonical tables: 496 main symbols, 249 length symbols,
+20 pretree symbols and eight aligned symbols. Empty secondary trees are permitted only while unused. Distances must
+refer to preceding bytes in this chunk and matches cannot cross a block's declared output boundary. Packed input and
+output cannot alias.
+
+This is the pinned ordinary WIM writer dialect, not a generic LZX, CAB LZX or LZX Delta decoder. Its three-bit block
+type is followed by a one-bit size flag: **one means 32768 bytes**, zero introduces a 16-bit size. There is no stream
+Intel header. Raw blocks align to the next 16-bit boundary even when already aligned, carry three nonzero little-endian
+recent offsets, and have one zero padding byte after an odd-length body. This strict profile requires zero alignment.
+Compressed blocks finish when the exact declared output size is reached: no end symbol or reserved extra word follows.
+The packed extent must end exactly with zero through 15 unused zero bits. This differs from XPRESS termination above.
+Native size-only decoding alone does not establish these strict tail conditions.
+
+After a compressed chunk is decoded, the mandatory inverse E8 transform uses chunk-local positions and the fixed
+12,000,000-byte reference size. It scans only positions before the last ten bytes and skips each four-byte operand
+whether changed or unchanged. Stored fallback chunks bypass both LZX and E8. A selected range must therefore decode and
+transform its entire intersecting chunk before selecting bytes; it cannot apply E8 to a sliced prefix. Resource SHA1
+verification covers the final transformed logical bytes, not their intermediate coding representation.
+
+`lzxSteps` charges bit reads, Huffman work, copying and the E8 scan. `lzxBlocks` counts all internal blocks across all
+required chunks in one operation, including raw blocks. The implementation also has a hard local ceiling of 1 Mi work
+steps and 256 blocks per chunk. These are finite CPU policies, not format limits. Typed Huffman state is below 16 KiB
+per synchronous decoder invocation, in addition to its already admitted 32 KiB output chunk. There is no retained
+cross-call history or decoded chunk cache. Signal and admission checks also run after E8 and before returning bytes.
+
 ## Bounds and cancellation
 
 | Policy                   | Default | Meaning                                                                          |
@@ -124,6 +155,9 @@ checksum; only a requested complete resource SHA1 check provides the reported re
 | `maxChunkTableBytes`     | 256 KiB | Per-resource retained chunk table; hard 2 MiB                                    |
 | `maxXpressChunks`        | 65536   | Per-resource chunk count; hard 262144                                            |
 | `maxXpressSteps`         | 16 Mi   | Per-read codec work across selected chunks; hard 64 Mi                           |
+| `maxLzxChunks`           | 65536   | Per-resource LZX chunk count; hard 262144                                        |
+| `maxLzxSteps`            | 16 Mi   | Per-read LZX work across selected chunks; hard 64 Mi                             |
+| `maxLzxBlocks`           | 8192    | Per-read LZX internal blocks across chunks; hard 65536                           |
 | `maxImages`              | 128     | Includes each image description                                                  |
 | `maxResources`           | 50000   | Physical blob table entries                                                      |
 | `maxResourceIndexBytes`  | 16 MiB  | Estimated 256 bytes per retained resource                                        |
@@ -167,6 +201,14 @@ or native codecs are acquired. Abort remains failure rather than checksum succes
 
 ## Independent evidence
 
+The [LZX receipt](../tests/fixtures/wim/lzx-README.md) retains two genuine wimlib LZX images, complete metadata and
+resource bytes from native libwim, and independent 7-Zip full-file comparisons. The 19 genuine compressed chunks contain
+17 verbatim and two aligned blocks, 304 aligned-offset uses and ten E8 reversals. A separately authored
+raw-plus-verbatim adaptation was accepted by native libwim, wimlib verify/apply and 7-Zip against every original file.
+It proves that particular raw/multiblock profile; it is not claimed to be a genuine producer-selected raw block. The
+authored tail audit compares all decoded bytes against the pre-established native oracles, not candidate output. Primary
+MS-PATCH LZX Delta grammar and immutable wimlib WIM-dialect sources are pinned with hashes in the receipt.
+
 The [XPRESS receipt](../tests/fixtures/wim/xpress-README.md) adds two genuine XPRESS images. Native wimlib verifies,
 applies and supplies complete decoded metadata/resource bytes through its decompressor API. Independent 7-Zip compares
 every authored file byte, including stored random data, extended matches, shared resources, multiple chunks and
@@ -190,9 +232,10 @@ including `header.h`, `resource.h`, `blob_table.c`, `dentry.c`, `metadata_resour
 hashes and producer/package identity limits are recorded with the fixture. No upstream implementation code was copied
 and no native tool is a production dependency.
 
-`bench/wim.bench.ts` measures cold stored/XPRESS image indexing, complete resource SHA1 verification and pending early
-or late ranges. Every complete authored file is checked before timing; selected ranges are also compared with their
-original bytes. Labels show source bytes, requests, decoded work, returned bytes, codec steps and hash scope. Warm index
-reuse has an explicit finite 64 GiB/10-million-request sampling lifetime allowance; per-read limits stay unchanged. The
-predecoded Blob baseline only copies existing plaintext and supplies a lower bound. Different fixtures, output sizes and
-integrity scopes do not establish a general codec or checksum speed ranking.
+`bench/wim.bench.ts` measures cold stored/XPRESS/LZX image indexing, complete resource SHA1 verification and pending
+early or late ranges, including genuine E8 data and separately authored native-accepted raw blocks. Every complete
+authored file is checked before timing; selected ranges are also compared with their original bytes. Labels show source
+bytes, requests, decoded work, returned bytes, codec steps, LZX block counts and hash scope. Warm index reuse has an
+explicit finite 64 GiB/10-million-request sampling lifetime allowance; per-read limits stay unchanged. The predecoded
+Blob baseline only copies existing plaintext and supplies a lower bound. Different fixtures, output sizes and integrity
+scopes do not establish a general codec or checksum speed ranking.

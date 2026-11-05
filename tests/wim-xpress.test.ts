@@ -125,7 +125,7 @@ describe("XPRESS WIM public resource and image composition", () => {
   });
 
   it("rejects unsupported header codecs, chunk sizes, malformed offsets and corrupted selected tails", async () => {
-    for (const [at, value] of [[16, 0x40082], [16, 0x20080], [20, 65536]] as const) {
+    for (const [at, value] of [[16, 0x80082], [16, 0x20080], [20, 65536]] as const) {
       const bytes = packed();
       new DataView(bytes.buffer).setUint32(at, value, true);
       await expect(openWim(source(bytes))).rejects.toMatchObject({ code: "unsupported-profile" });

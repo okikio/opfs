@@ -5,6 +5,8 @@ import { openWim } from "../src/archive/wim.ts";
 import type { WimReadType } from "../src/archive/wim.ts";
 import { expectBytes, report } from "./result.ts";
 import storedFixture from "../tests/fixtures/wim/independent.json" with { type: "json" };
+import lzxFixture from "../tests/fixtures/wim/lzx-independent.json" with { type: "json" };
+import rawFixture from "../tests/fixtures/wim/lzx-authored.json" with { type: "json" };
 import xpressFixture from "../tests/fixtures/wim/xpress-independent.json" with { type: "json" };
 
 // Question: what does a cold selected-image index cost, and how much work does complete
@@ -13,8 +15,9 @@ import xpressFixture from "../tests/fixtures/wim/xpress-independent.json" with {
 const subtle = crypto.subtle;
 const xpressSource = createBlobSource(new Blob([new Uint8Array(decodeBase64(xpressFixture.base64)).buffer]));
 const storedSource = createBlobSource(new Blob([new Uint8Array(decodeBase64(storedFixture.base64)).buffer]));
-const sources = [storedSource, xpressSource];
-const fixtures = [storedFixture, xpressFixture];
+const lzxSource = createBlobSource(new Blob([new Uint8Array(decodeBase64(lzxFixture.base64)).buffer]));
+const sources = [storedSource, xpressSource, lzxSource];
+const fixtures = [storedFixture, xpressFixture, lzxFixture];
 for (let index = 0; index < sources.length; index++) {
   const source = sources[index]!, fixture = fixtures[index]!;
   const archive = await openWim(source, { subtle });
@@ -37,7 +40,7 @@ for (let index = 0; index < sources.length; index++) {
     output: archive.work.outputBytes + image.work.outputBytes,
   };
   bench(
-    `wim/${archive.profile} cold-selected-image-index entries=${image.entries.length} source=${work.source}B requests=${work.requests} decoded=${work.decoded}B output=${work.output}B xpressSteps=${image.xpressSteps} hash=${image.metadataIntegrity}`,
+    `wim/${archive.profile} cold-selected-image-index entries=${image.entries.length} source=${work.source}B requests=${work.requests} decoded=${work.decoded}B output=${work.output}B xpressSteps=${image.xpressSteps} lzxSteps=${image.lzxSteps} lzxBlocks=${image.lzxBlocks} hash=${image.metadataIntegrity}`,
     async () => {
       // Each sample owns a fresh finite default lifetime; it includes opening and metadata verification.
       const archive = await openWim(source, { subtle });
@@ -79,6 +82,50 @@ for (const name of ["random.bin", "long.bin"]) {
       `${label} source=${preflight.work.sourceBytes}B requests=${preflight.work.requests} decoded=${preflight.work.decodedBytes}B output=${preflight.work.outputBytes}B xpressSteps=${preflight.xpressSteps} hash=${preflight.integrity}`,
       async () => do_not_optimize(await archive.read(resource.id, options)),
     );
+  }
+}
+
+// Genuine LZX and separately authored raw/multiblock resources have independent native full-byte receipts.
+for (
+  const [fixture, names, profile] of [
+    [lzxFixture, ["long.bin", "calls.bin"], "genuine"],
+    [rawFixture, ["long.bin"], "authored-native-accepted-raw"],
+  ] as const
+) {
+  const source = createBlobSource(new Blob([new Uint8Array(decodeBase64(fixture.base64)).buffer]));
+  const archive = await openWim(source, {
+    subtle,
+    maxSourceBytes: allowance,
+    maxDecodedBytes: allowance,
+    maxOutputBytes: allowance,
+    maxRequests: 10000000,
+  });
+  for (const name of names) {
+    const original = fixture.images[0]!.files.find((file) => file.path === name)!;
+    const expected = decodeBase64(original.base64);
+    const resource = archive.resources.find((item) => item.sha1 === original.sha1)!;
+    expectBytes((await archive.read(resource.id)).bytes, expected, `wim/lzx/${profile}/${name}/complete-original`);
+    const plain = new Blob([new Uint8Array(expected).buffer]);
+    for (const mode of ["complete", "early", "late"] as const) {
+      const offset = mode === "late" ? expected.length - 48 : 0;
+      const length = mode === "complete" ? expected.length : 32;
+      const options = { offset, length, verify: mode === "complete" };
+      const result = await archive.read(resource.id, options);
+      expectBytes(
+        result.bytes,
+        expected.subarray(offset, offset + length),
+        `wim/lzx/${profile}/${name}/${mode}/original`,
+      );
+      const label = `wim/lzx ${profile} ${name} ${mode} original=${expected.length}B selected=${offset}+${length}`;
+      bench(
+        `${label} decoded-Blob-copy lower-bound hash=none`,
+        async () => do_not_optimize(await plain.slice(offset, offset + length).arrayBuffer()),
+      );
+      bench(
+        `${label} source=${result.work.sourceBytes}B requests=${result.work.requests} decoded=${result.work.decodedBytes}B output=${result.work.outputBytes}B lzxSteps=${result.lzxSteps} lzxBlocks=${result.lzxBlocks} hash=${result.integrity}`,
+        async () => do_not_optimize(await archive.read(resource.id, options)),
+      );
+    }
   }
 }
 
