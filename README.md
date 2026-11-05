@@ -502,3 +502,7 @@ core task files delegate to Deno. Task implementation files under `.mise/tasks/`
 
 Use the [Deno and Bumpy release workflow](docs/releasing.md) to author explanatory release notes, synchronize package
 versions, inspect exact artifacts, and publish with independent JSR/npm receipts and fresh public-consumer checks.
+
+[LZ4](docs/lz4.md) decodes bounded modern frames; complete content checksum evidence requires EOF. [Box](docs/box.md)
+preserves native versions and distinguishes pending upload commits from final file receipts.
+[Internet Archive ARC](docs/arc.md) exposes exact physical capture blocks with explicit producer framing.
