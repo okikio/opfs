@@ -123,12 +123,13 @@ or native codecs are acquired. Abort remains failure rather than checksum succes
 
 ## Independent evidence
 
-The [retained fixture](../tests/fixtures/wim/README.md) contains two genuine uncompressed images produced by Debian
-wimtools in a disposable bounded container. Native capture/append/verify/apply succeeded. Every authored file was also
-extracted with independent 7-Zip 26.02 and compared byte-for-byte, including shared binary content, nested paths, empty
-files, UTF16 names and different versions of `hello.txt` in two images. Native verification explicitly warned that no
-whole-file integrity table was present; that warning remains in the fixture. Ordinary metadata mutation tests exercise
-refusals, not independent interoperability for named streams, ACLs, hardlinks or reparse points.
+The [retained fixture](https://github.com/okikio/opfs/blob/6e0df56/tests/fixtures/wim/README.md) contains two genuine
+uncompressed images produced by Debian wimtools in a disposable bounded container. Native capture/append/verify/apply
+succeeded. Every authored file was also extracted with independent 7-Zip 26.02 and compared byte-for-byte, including
+shared binary content, nested paths, empty files, UTF16 names and different versions of `hello.txt` in two images.
+Native verification explicitly warned that no whole-file integrity table was present; that warning remains in the
+fixture. Ordinary metadata mutation tests exercise refusals, not independent interoperability for named streams, ACLs,
+hardlinks or reparse points.
 
 The Microsoft source is the official
 [Windows Imaging File Format 1.1 document](https://www.microsoft.com/en-us/download/details.aspx?id=13096), RTF SHA256

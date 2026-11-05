@@ -115,10 +115,11 @@ top-level global configuration is installed.
 
 ## Evidence and maintenance
 
-The fixture producer in `tests/fixtures/lzma/create.py` uses genuine XZ Utils raw and Alone encoders, native 7-Zip
-packed streams, and independent full-byte consumers. Known-size Alone and XZ framing adaptations are labelled
-explicitly; they do not claim that the framing was emitted by the codec producer. The provenance receipt pins producer
-source, fixture bytes, tools, and primary format sources. The fixtures exercise all 75 supported lc/lp/pb combinations,
-empty and literal output, overlapping matches, dictionary wraparound, and LZMA2 reset forms. Tests also cover exact
-truncation, trailing bytes, policy exhaustion, captured options, backpressure, cancellation during a borrowed read,
-abort and source failure propagation. No test executes the production decoder to manufacture its expected payload.
+The [fixture producer](https://github.com/okikio/opfs/blob/18a4eda/tests/fixtures/lzma/create.py) uses genuine XZ Utils
+raw and Alone encoders, native 7-Zip packed streams, and independent full-byte consumers. Known-size Alone and XZ
+framing adaptations are labelled explicitly; they do not claim that the framing was emitted by the codec producer. The
+provenance receipt pins producer source, fixture bytes, tools, and primary format sources. The fixtures exercise all 75
+supported lc/lp/pb combinations, empty and literal output, overlapping matches, dictionary wraparound, and LZMA2 reset
+forms. Tests also cover exact truncation, trailing bytes, policy exhaustion, captured options, backpressure,
+cancellation during a borrowed read, abort and source failure propagation. No test executes the production decoder to
+manufacture its expected payload.
