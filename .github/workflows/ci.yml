@@ -401,6 +401,7 @@ jobs:
           BENCH_JSON=1 deno task bench:couchdb > .tmp/reports/archive-bench/couchdb.json 2> .tmp/reports/archive-bench/couchdb-stderr.log
           BENCH_JSON=1 deno task bench:cmis > .tmp/reports/archive-bench/cmis.json 2> .tmp/reports/archive-bench/cmis-stderr.log
           BENCH_JSON=1 deno task bench:lha > .tmp/reports/archive-bench/lha.json 2> .tmp/reports/archive-bench/lha-stderr.log
+          BENCH_JSON=1 deno task bench:arj > .tmp/reports/archive-bench/arj.json 2> .tmp/reports/archive-bench/arj-stderr.log
           BENCH_JSON=1 deno task bench:hdf5 > .tmp/reports/archive-bench/hdf5.json 2> .tmp/reports/archive-bench/hdf5-stderr.log
           BENCH_JSON=1 deno task bench:zarr > .tmp/reports/archive-bench/zarr.json 2> .tmp/reports/archive-bench/zarr-stderr.log
           BENCH_JSON=1 deno task bench:unixfs > .tmp/reports/archive-bench/unixfs.json 2> .tmp/reports/archive-bench/unixfs-stderr.log
