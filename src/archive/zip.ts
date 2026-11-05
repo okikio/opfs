@@ -34,7 +34,7 @@ export interface ZipAesMetadataType {
   readonly method: number;
 }
 
-/** Directory parsing is bounded independently of selected-member reads. */
+/** Opening limits also bound cumulative work for this directory and every later member read. */
 export interface ZipOpenOptionsType extends ArchiveLimitsType {
   readonly signal?: AbortSignal;
   readonly maxDirectoryBytes?: number;
@@ -48,7 +48,7 @@ export interface ZipOpenOptionsType extends ArchiveLimitsType {
 /** A codec factory is called per read and must provide an independently owned raw-DEFLATE transform. */
 export type ZipInflateType = () => TransformStream<Uint8Array, Uint8Array>;
 
-/** A decoded interval; verification can require consuming the complete member. */
+/** A decoded interval; per-read limits can narrow, but cannot raise, the remaining opening allowance. */
 export interface ZipReadOptionsType extends ArchiveLimitsType {
   readonly signal?: AbortSignal;
   readonly offset?: number;
@@ -89,7 +89,11 @@ export interface ZipPlanType {
   readonly cryptoBlocks?: number;
 }
 
-/** An opened directory borrows its source. It owns no provider or background work. */
+/**
+ * An opened directory borrows its source and captures its descriptor and read method before I/O.
+ * Opening limits, ledger and abort signal remain authoritative for every read.
+ * It owns no provider or background work; changing underlying bytes invalidates its offsets.
+ */
 export interface ZipArchiveType {
   readonly entries: readonly ZipEntryType[];
   readonly work: ArchiveWorkType;
@@ -112,10 +116,41 @@ interface EntryType {
 
 /** Open a single-disk ZIP/ZIP64 directory without extracting its members. */
 export async function openZip(source: ByteSourceType, options: ZipOpenOptionsType = {}): Promise<ZipArchiveType> {
-  if (!source.stability && !options.allowUnverifiedSource) {
+  options = { ...options };
+  const size = source.size, identity = source.identity, stability = source.stability, read = source.read.bind(source);
+  integer(size, "ZIP source size");
+  if (identity !== undefined && (typeof identity !== "string" || identity.length > 8192)) {
+    throw new TypeError("Invalid ZIP source identity.");
+  }
+  if (stability !== undefined && stability !== "immutable" && stability !== "provider" && stability !== "caller") {
+    throw new TypeError("Unknown ZIP source stability evidence.");
+  }
+  if (options.allowUnverifiedSource !== undefined && typeof options.allowUnverifiedSource !== "boolean") {
+    throw new TypeError("ZIP unverified-source acceptance must be an explicit boolean.");
+  }
+  if (options.decodeName !== undefined && typeof options.decodeName !== "function") {
+    throw new TypeError("ZIP name decoder must be a function.");
+  }
+  if (!stability && options.allowUnverifiedSource !== true) {
     unsupported("ZIP index reads require declared source stability or explicit unverified-source acceptance.");
   }
-  const budget = new ArchiveBudget(source, options, options.signal);
+  // Source descriptors and the opening authority belong to this snapshot. Later
+  // reads cannot substitute a source method, reset its ledger or replace its abort.
+  source = {
+    size,
+    ...(identity === undefined ? {} : { identity }),
+    ...(stability === undefined ? {} : { stability }),
+    read,
+  };
+  const limits = limitsOf(options), lifetime = createArchiveLedger(options), external = options.ledger;
+  const openingLedger = {
+    reserve(kind: keyof ArchiveWorkType, count: number): void {
+      lifetime.reserve(kind, count);
+      external?.reserve(kind, count);
+    },
+    inspect: lifetime.inspect,
+  };
+  const budget = new ArchiveBudget(source, { ...options, ledger: openingLedger }, options.signal);
   const maxDirectory = options.maxDirectoryBytes ?? 16 * 1024 * 1024;
   const maxEntries = options.maxEntries ?? 100_000;
   integer(maxDirectory, "Directory limit");
@@ -181,6 +216,23 @@ export async function openZip(source: ByteSourceType, options: ZipOpenOptionsTyp
     if (!record) throw new RangeError("ZIP entry ID does not exist.");
     return record;
   };
+  /** Planning checks remaining local authority without reserving it. External
+   * ledgers remain independent admission owners whose limits are not introspected. */
+  const captured = (input: ZipReadOptionsType): ZipReadOptionsType => {
+    const opts = { ...input, ...(input.aes ? { aes: { ...input.aes } } : {}) };
+    const requested = limitsOf(opts), used = lifetime.inspect();
+    const signal = options.signal && opts.signal
+      ? AbortSignal.any([options.signal, opts.signal])
+      : options.signal ?? opts.signal;
+    return {
+      ...opts,
+      maxSourceBytes: Math.min(requested.maxSourceBytes, limits.maxSourceBytes - used.sourceBytes),
+      maxRequests: Math.min(requested.maxRequests, limits.maxRequests - used.requests),
+      maxDecodedBytes: Math.min(requested.maxDecodedBytes, limits.maxDecodedBytes - used.decodedBytes),
+      maxOutputBytes: Math.min(requested.maxOutputBytes, limits.maxOutputBytes - used.outputBytes),
+      ...(signal ? { signal } : {}),
+    };
+  };
   return Object.freeze({
     entries,
     work: budget.inspect(),
@@ -189,10 +241,21 @@ export async function openZip(source: ByteSourceType, options: ZipOpenOptionsTyp
       stability: source.stability ?? "unverified",
     }),
     plan(id: number, readOptions: ZipReadOptionsType = {}): ZipPlanType {
-      return planRead(select(id).entry, readOptions);
+      return planRead(select(id).entry, captured(readOptions));
     },
     read(id: number, readOptions: ZipReadOptionsType = {}): Promise<ZipReadType> {
-      return readMember(source, select(id), directoryOffset, readOptions);
+      const opts = captured(readOptions), own = createArchiveLedger(opts), extra = opts.ledger;
+      // The operation owner also spans separate local-header and compressed-data
+      // budgets. Sharing an opening ledger again must not reserve the same event twice.
+      const ledger = {
+        reserve(kind: keyof ArchiveWorkType, count: number): void {
+          own.reserve(kind, count);
+          openingLedger.reserve(kind, count);
+          if (extra && extra !== external) extra.reserve(kind, count);
+        },
+        inspect: own.inspect,
+      };
+      return readMember(source, select(id), directoryOffset, { ...opts, ledger });
     },
   });
 }

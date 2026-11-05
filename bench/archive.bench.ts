@@ -45,7 +45,13 @@ function fixture(size: number, crc: number): Uint8Array {
 for (const [size, crc] of cases) {
   const blob = new Blob([new Uint8Array(fixture(size, crc)).buffer]);
   const source = createBlobSource(blob);
-  const archive = await openZip(source);
+  // Repeated samples share one index; its lifetime allowance is finite and explicit.
+  const archive = await openZip(source, {
+    maxSourceBytes: 64 * 1024 ** 3,
+    maxDecodedBytes: 64 * 1024 ** 3,
+    maxOutputBytes: 64 * 1024 ** 3,
+    maxRequests: 100000000,
+  });
   const length = Math.min(1024, size);
   const expected = new Uint8Array(length).fill(65);
   const preview = await archive.read(0, { length });
