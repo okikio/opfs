@@ -64,6 +64,19 @@ release refs, and calls those same Deno tasks. Mise can provision runtimes and d
 Provider timing contracts, independent byte/acknowledgement preflights and the primitive-versus-projection comparison
 boundary are explained in [Provider benchmarks](provider-benchmarks.md).
 
+The expansion has focused commands: `deno task test:expansion`, `test:transfer:recovery`, `test:expansion:providers` and
+`bench:archive`. The first covers portable protocol/source/archive/encryption behavior; recovery starts separate Node
+processes around an acknowledged-write/checkpoint gap. Provider tests use disposable fake-gcs-server and PGSTY Silo
+containers, independent SDK writes and revision-bound ZIP preview. Their factories follow Core's Testkit pattern: lazy
+explicit acquisition, unique test namespaces, bounded container resources and awaited cleanup after partial acquisition
+or failure. They do not import Core or its private test packages.
+
+Silo exercises S3 semantics; it is not a GCS substitute. GCS emulator status-query behavior has an explicitly documented
+exclusion in [the GCS guide](gcs.md). No test discovers cloud credentials or claims live IAM/CORS verification. The
+provider CI lane runs these commands after the existing SeaweedFS/Azurite suite. Tink fixtures come from an
+independently pinned official producer; see their [provenance](../tests/fixtures/tink/README.md). A fixture match is not
+a cryptographic security audit.
+
 ## Local memory budget
 
 All Deno runtime test tasks use `deno test --no-check`, including stress, coverage, and release-tool tests. The separate

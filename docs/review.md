@@ -12,6 +12,15 @@ certify the complete native standard, a deployed provider or every application w
 
 ## Portable and native suites
 
+The storage expansion adds `source`, `read`, `revision`, `extension`, `range-response`, `gcs`, `tus`, `transfer`,
+`archive`, `view` and `tink` portable suites. They check exact byte extents, mutation admission, revision identity,
+protocol acknowledgements, bounded archive access and authenticated encrypted ranges against independent bytes.
+`transfer-process.test.ts` checks a real process restart after remote acknowledgement and before checkpoint publication.
+`gcs-provider`, `silo-provider` and `preview-provider` exercise disposable HTTP servers and selected ZIP preview. Their
+scope and exclusions are in [validation](validation.md); `bench/archive.bench.ts` separates Blob baseline, cold
+directory opening, selected prefixes and complete CRC reads at three payload sizes. It does not benchmark unimplemented
+formats.
+
 | Files                                                           | Protected behavior and disposition                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `tests/path.test.ts`                                            | Canonical paths, root escape, Standard Schema acceptance, Unicode spelling and proper ancestry. Consolidated duplicated facade path checks here; added a same-name-prefix counterexample.                                                                                                                                                                                                                                                                                                                                                                                                |

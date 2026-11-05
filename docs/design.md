@@ -10,6 +10,12 @@ Drizzle, db0, RxDB, and unstorage sit above their own storage engines.
 The architecture keeps those differences visible while giving applications one portable filesystem API where that API
 can be implemented correctly.
 
+One addressable object does not need a filesystem projection. `source` owns exact byte-range and replay identity
+contracts; archive readers borrow those sources, and `view/zip` applies a separately validated read-only namespace.
+`transfer` owns acknowledged offsets and checkpoint admission while each native client owns its upload protocol and
+publication receipt. [Sources](source.md), [archives](archive.md), [extensions](extensions.md) and
+[transfer recovery](transfer.md) explain these independently useful paths and their limits.
+
 The defining path is:
 
 ```text

@@ -233,7 +233,14 @@
     "test:upstream:bun": "bun test --timeout 30000 tests/upstream/host.test.ts tests/upstream/oracle.test.ts tests/upstream/provenance.test.ts",
     "test:upstream:browser": "deno run -A npm:@playwright/test@1.62.1 test --config tests/browser/playwright.config.ts tests/browser/upstream.spec.ts",
     "bench:upstream": "node --expose-gc bench/upstream.bench.ts",
-    "bench:upstream:verify": "OPFS_UPSTREAM_VERIFY=1 node bench/upstream.bench.ts"
+    "bench:upstream:verify": "OPFS_UPSTREAM_VERIFY=1 node bench/upstream.bench.ts",
+    "test:expansion": "deno test --no-check --sanitize-ops --sanitize-resources tests/source.test.ts tests/read.test.ts tests/revision.test.ts tests/extension.test.ts tests/gcs.test.ts tests/tus.test.ts tests/transfer.test.ts tests/archive.test.ts tests/view.test.ts tests/tink.test.ts tests/range-response.test.ts",
+    "test:transfer:recovery": "deno test --no-check --allow-run=node --allow-read --allow-write --allow-env tests/transfer-process.test.ts",
+    "test:gcs-provider": "node --test tests/gcs-provider.test.ts",
+    "test:silo-provider": "node --test tests/silo-provider.test.ts",
+    "test:expansion:providers": "deno task test:gcs-provider && deno task test:silo-provider && deno task test:preview-provider",
+    "bench:archive": "node --expose-gc bench/archive.bench.ts",
+    "test:preview-provider": "node --test tests/preview-provider.test.ts"
   },
   "publish": {
     "include": [
