@@ -506,3 +506,10 @@ core task files delegate to Deno. Task implementation files under `.mise/tasks/`
 
 Use the [Deno and Bumpy release workflow](docs/releasing.md) to author explanatory release notes, synchronize package
 versions, inspect exact artifacts, and publish with independent JSR/npm receipts and fresh public-consumer checks.
+
+[age](docs/age.md) authenticates selected covering payload chunks under a caller-unlocked file key, so an application
+can inspect a nested archive without collecting all plaintext. Whole-file verification remains explicit.
+[ORC](docs/orc.md) reads selected uncompressed physical numeric columns with separate validity masks and no invented
+integrity guarantee. [AMQP](docs/amqp.md) retains native publication confirmations and explicit destructive queue reads;
+applications own topology and recovery after uncertain mutations. Each module is optional and has its own limits and
+ownership contract.

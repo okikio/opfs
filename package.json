@@ -206,7 +206,11 @@
     "./redis": "./src/redis.ts",
     "./crypto/jwe": "./src/crypto/jwe.ts",
     "./nats": "./src/nats.ts",
-    "./dataset/parquet": "./src/dataset/parquet.ts"
+    "./dataset/parquet": "./src/dataset/parquet.ts",
+    "./crypto/age": "./src/crypto/age.ts",
+    "./crypto/age-node": "./src/crypto/age-node.ts",
+    "./dataset/orc": "./src/dataset/orc.ts",
+    "./amqp": "./src/amqp.ts"
   },
   "dependencies": {
     "@okikio/undent": "^0.3.3",

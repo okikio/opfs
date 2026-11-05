@@ -166,6 +166,11 @@ try {
 
   const consumer = join(workspace, "consumer");
   await command("mkdir", ["-p", consumer]);
+  // Test-only provider and child are copied into the disposable consumer, never the package.
+  for (const [source, target] of [["provider.mjs", "age-provider.mjs"], ["oracle.mjs", "age-oracle.mjs"]]) {
+    await writeFile(join(consumer, target), await readFile(new URL("../fixtures/age/" + source, import.meta.url)));
+  }
+
   await writeFile(
     join(consumer, "package.json"),
     `${JSON.stringify({ private: true, type: "module" }, null, 2)}\n`,
@@ -181,6 +186,12 @@ try {
   await writeFile(
     join(consumer, "smoke.mjs"),
     undent`
+    import { createCipheriv, createDecipheriv } from 'node:crypto';
+    import { env, versions } from 'node:process';
+    import { fileURLToPath } from 'node:url';
+    import { openAge, AgeError } from '@okikio/opfs/crypto/age';
+    import { createNodeAgeAead } from '@okikio/opfs/crypto/age-node';
+    import { createDenoAgeOracle } from './age-provider.mjs';
     import { createFileSystem } from '@okikio/opfs';
     import { createMemoryAdapter } from '@okikio/opfs/adapter/memory';
     import { normalizePath } from '@okikio/opfs/path';
@@ -253,7 +264,9 @@ try {
     import { openRedisClient, RedisExpirySchema } from '@okikio/opfs/redis';
     import { openJwe, JweProtectedSchema } from '@okikio/opfs/crypto/jwe';
     import { NatsClient } from '@okikio/opfs/nats';
+    import { AmqpClient } from '@okikio/opfs/amqp';
     import { openParquet } from '@okikio/opfs/dataset/parquet';
+    import { openOrc } from '@okikio/opfs/dataset/orc';
     import { openHdf5 } from '@okikio/opfs/dataset/hdf5';
     import { createCmisClient } from '@okikio/opfs/cmis';
     import { createCouchdbClient } from '@okikio/opfs/couchdb';
@@ -979,6 +992,37 @@ try {
       try{await message.source.read(0,0);}catch(error){if(error?.code!=='disposed')throw error;refused=true;}
       if(!refused)throw new Error('Packed disposed JWE source remained readable');
     }
+    const amqpNative = ${
+      JSON.stringify(JSON.parse(await readFile(new URL("../fixtures/amqp/independent.json", import.meta.url), "utf8")))
+    };
+    const amqpOriginal=fromBase64(amqpNative.oracle.base64);
+    const amqpReleases={take:[[0],[1],[],[2],[3],[4,5,6],[7]],publish:[[0],[1],[],[2],[3],[4],[],[],[5],[6]]};
+    for(const record of [amqpNative.oracle,...[amqpNative.take,amqpNative.publish].flatMap(tape=>[tape.replyWire,...tape.commands,...tape.replyFrames])]){
+      const bytes=fromBase64(record.base64);
+      const digest=Array.from(new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256',bytes)),byte=>byte.toString(16).padStart(2,'0')).join('');
+      if(bytes.length!==record.bytes||digest!==record.sha256)throw new Error('Packed native AMQP fixture identity changed');
+    }
+    const amqpReplay=(operation,fragmented)=>{
+      const tape=amqpNative[operation],commands=tape.commands.map(item=>fromBase64(item.base64)),replies=tape.replyFrames.map(item=>fromBase64(item.base64));
+      let controller,at=0,closed=false;
+      return {security:'plaintext',readable:new ReadableStream({start(value){controller=value;}}),writable:new WritableStream({write(bytes){
+        if(!commands[at])throw new Error('Packed AMQP sent an extra command');
+        assertBytes(bytes,commands[at]);
+        for(const index of amqpReleases[operation][at++]){
+          if(fragmented)for(const byte of replies[index])controller.enqueue(new Uint8Array([byte]));
+          else controller.enqueue(new Uint8Array(replies[index]));
+        }
+      }}),async close(){if(closed)return;closed=true;controller.close();if(at!==commands.length)throw new Error('Packed AMQP omitted a native producer command');}};
+    };
+    for(const fragmented of [false,true]){
+      const reader=new AmqpClient({openChannel:async()=>amqpReplay('take',fragmented),auth:{user:'fixture',password:'fixture-only-amqp'},vhost:'/owned',allowPlaintext:true});
+      const message=await reader.take('owned',{autoAck:true});
+      if(!message||message.exchange!=='owned'||message.routingKey!=='key')throw new Error('Packed AMQP native dequeue changed');
+      assertBytes(message.bytes,amqpOriginal);
+      const writer=new AmqpClient({openChannel:async()=>amqpReplay('publish',fragmented),auth:{user:'fixture',password:'fixture-only-amqp'},vhost:'/owned',allowPlaintext:true});
+      const receipt=await writer.publish('owned','key',amqpOriginal);
+      if(receipt.confirmation!=='ack'||receipt.requeue!==false||receipt.returned!==undefined)throw new Error('Packed AMQP native confirmation changed');
+    }
     const natsNative = ${
       JSON.stringify(JSON.parse(await readFile(new URL("../fixtures/nats/independent.json", import.meta.url), "utf8")))
     };
@@ -1008,6 +1052,100 @@ try {
         if(receipt.stream!==natsNative.stream||receipt.sequence!==String(envelope.seq)||receipt.duplicate!==false)throw new Error('Packed NATS publication receipt changed');
       }
       if(closes!==1)throw new Error('Packed NATS did not close its exclusive channel once');
+    }
+    const ageNative = ${
+      JSON.stringify(JSON.parse(await readFile(new URL("../fixtures/age/independent.json", import.meta.url), "utf8")))
+    };
+    if(ageNative.records.length!==8||ageNative.corpus.length!==8)throw new Error('Packed age native coverage changed');
+    const ageKey=hex=>Uint8Array.from(hex.match(/../g),byte=>Number.parseInt(byte,16));
+    const ageNativeAead=createNodeAgeAead({createDecipheriv});
+    // Bun always uses the same explicit, bounded test-only provider as its source tests.
+    // Deno and Node never read environment or spawn a child through this branch.
+    const ageAead=versions.bun===undefined?ageNativeAead:createDenoAgeOracle(
+      'deno',fileURLToPath(new URL('./age-oracle.mjs',import.meta.url)),AgeError,
+      {PATH:env.PATH??'',...(env.SystemRoot?{SystemRoot:env.SystemRoot}:{})},
+    );
+    for(const vector of [...ageNative.records,...ageNative.corpus]){
+      const original=fromBase64(vector.originalBase64),wire=fromBase64(vector.wireBase64);
+      const owner=await openAge(createByteSource(wire),{
+        profile:'age-v1-file-key',fileKey:ageKey(vector.fileKeyHex),subtle:globalThis.crypto.subtle,aead:ageAead,
+      });
+      try{
+        if(owner.size!==original.length||owner.integrity!=='header-and-final-chunk-authenticated')throw new Error('Packed age opening scope changed');
+        const whole=await owner.read(0,owner.size);
+        assertBytes(whole.bytes,original);
+        if(whole.integrity!=='selected-chunks-authenticated')throw new Error('Packed age selected authentication changed');
+        const verified=await owner.verify();
+        if(verified.integrity!=='all-chunks-authenticated'||verified.work.authenticatedBytes!==original.length)throw new Error('Packed age complete authentication changed');
+        assertBytes(await owner.source.read(0,owner.size),original);
+      }finally{await owner.dispose();}
+    }
+    // Native factory availability is a separate contract, not a reason to skip portable cases.
+    const ageProbeFailures=[];
+    try{createCipheriv('chacha20-poly1305',new Uint8Array(32),new Uint8Array(12),{authTagLength:16});}catch(reason){ageProbeFailures.push(reason);}
+    if(ageProbeFailures.length){
+      if(versions.bun===undefined||ageProbeFailures[0]?.code!=='ERR_CRYPTO_UNKNOWN_CIPHER')throw ageProbeFailures[0];
+      const failures=[];
+      try{await ageNativeAead.decrypt(new Uint8Array(32),new Uint8Array(12),new Uint8Array(16));}catch(reason){failures.push(reason);}
+      if(failures.length!==1||failures[0]?.code!=='ERR_CRYPTO_UNKNOWN_CIPHER')throw new Error('Packed age native unsupported-cipher contract changed');
+    }else{
+      const vector=ageNative.records.find(value=>value.name==='bytes-65537');
+      if(!vector)throw new Error('Packed age native availability fixture absent');
+      const owner=await openAge(createByteSource(fromBase64(vector.wireBase64)),{
+        profile:'age-v1-file-key',fileKey:ageKey(vector.fileKeyHex),subtle:globalThis.crypto.subtle,aead:ageNativeAead,
+      });
+      try{assertBytes((await owner.read(0,owner.size)).bytes,fromBase64(vector.originalBase64));}finally{await owner.dispose();}
+    }
+    const orcNative = ${
+      JSON.stringify(JSON.parse(await readFile(new URL("../fixtures/orc/independent.json", import.meta.url), "utf8")))
+    };
+    if(orcNative.fixtures.length!==18)throw new Error('Packed ORC native coverage changed');
+    const orcExpected=(name,bytes)=>{
+      const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
+      const width=name==='b'||name==='y'?1:name==='s'?2:name==='i'||name==='f'?4:8;
+      return Array.from({length:bytes.length/width},(_,row)=>{
+        const at=row*width;
+        switch(name){
+          case 'b':return view.getUint8(at);
+          case 'y':return view.getInt8(at);
+          case 's':return view.getInt16(at,true);
+          case 'i':return view.getInt32(at,true);
+          case 'q':return view.getBigInt64(at,true);
+          case 'f':return view.getFloat32(at,true);
+          case 'd':return view.getFloat64(at,true);
+          default:throw new Error('Packed ORC native original column unknown');
+        }
+      });
+    };
+    const orcCompare=(result,name,expected,mask)=>{
+      const constructor=name==='b'?Uint8Array:name==='y'?Int8Array:name==='s'?Int16Array:name==='i'?Int32Array:name==='q'?BigInt64Array:name==='f'?Float32Array:Float64Array;
+      if(!(result.values instanceof constructor)||result.values.length!==expected.length||result.integrity!=='none'||result.scope!=='selected-column-stripes')throw new Error('Packed ORC output type/scope changed');
+      assertBytes(result.validity,mask);
+      for(let row=0;row<expected.length;row++)if(!Object.is(result.values[row],expected[row]))throw new Error('Packed ORC native original changed at '+row);
+      if(!result.stripes.every(stripe=>stripe.encoding==='DIRECT'))throw new Error('Packed ORC selected encoding changed');
+    };
+    for(const fixture of orcNative.fixtures){
+      const wire=fromBase64(fixture.file.base64);
+      if(wire.length!==fixture.file.bytes)throw new Error('Packed ORC wire extent changed');
+      const dataset=await openOrc(createByteSource(wire));
+      if(dataset.rows!==fixture.rows||dataset.formatVersion!==fixture.fileVersion||dataset.contentLengthBasis!==fixture.contentLengthBasis||dataset.stripes.length!==fixture.stripes.length||dataset.columns.length!==7||dataset.integrity!=='none')throw new Error('Packed ORC native metadata changed');
+      for(const column of fixture.columns){
+        const descriptor=dataset.columns.find(value=>value.name===column.name);
+        if(!descriptor?.supported)throw new Error('Packed ORC physical schema column missing');
+        if(fixture.rows!==0&&fixture.fileVersion==='0.12'&&['s','i','q'].includes(column.name)){
+          let refused=false;try{await dataset.read(descriptor.id);}catch(error){if(error?.code!=='unsupported-profile')throw error;refused=true;}
+          if(!refused)throw new Error('Packed ORC DIRECT_V2 decoding admitted');
+          continue;
+        }
+        const expected=orcExpected(column.name,fromBase64(column.physicalLittleEndian.base64)),mask=fromBase64(column.validity.base64);
+        const full=await dataset.read(descriptor.id);
+        orcCompare(full,column.name,expected,mask);
+        if(fixture.rows===0&&(full.work.requests!==0||full.work.sourceBytes!==0||full.stripes.length!==0))throw new Error('Packed empty ORC selection acquired a body');
+        const offset=fixture.rows>256?253:Math.min(fixture.rows,1),length=Math.min(fixture.rows-offset,7);
+        const selected=await dataset.read(descriptor.id,{offset,length});
+        orcCompare(selected,column.name,expected.slice(offset,offset+length),mask.slice(offset,offset+length));
+        if(fixture.rows>256&&fixture.nulls!=='all'&&selected.stripes.length!==2)throw new Error('Packed ORC selected rows no longer cross stripes');
+      }
     }
     const parquetNative = ${
       JSON.stringify(
@@ -1886,6 +2024,10 @@ try {
     import { openJwe, JweProtectedSchema } from '@okikio/opfs/crypto/jwe';
     import { NatsClient } from '@okikio/opfs/nats';
     import { openParquet } from '@okikio/opfs/dataset/parquet';
+    import { openOrc } from '@okikio/opfs/dataset/orc';
+    import { openAge } from '@okikio/opfs/crypto/age';
+    import { createNodeAgeAead } from '@okikio/opfs/crypto/age-node';
+    import { AmqpClient } from '@okikio/opfs/amqp';
     import { openHdf5 } from '@okikio/opfs/dataset/hdf5';
     import { createCmisClient } from '@okikio/opfs/cmis';
     import { createCouchdbClient } from '@okikio/opfs/couchdb';
@@ -2083,6 +2225,15 @@ try {
     const natsTyped: NatsClient = new NatsClient({openChannel:async()=>{throw new Error('type-only');}});
     const natsReceiptTyped: import('@okikio/opfs/nats').NatsReceiptType = await natsTyped.publish('OWNED','owned.data',new Uint8Array(),{inbox:'_INBOX.package.publish'});
     const natsMessageTyped: import('@okikio/opfs/nats').NatsMessageType = await natsTyped.get('OWNED',natsReceiptTyped.sequence,{inbox:'_INBOX.package.read'});
+    const orcTyped: import('@okikio/opfs/dataset/orc').OrcDatasetType = await openOrc(createByteSource(new Uint8Array()),{maxRows:16});
+    const orcReadTyped: import('@okikio/opfs/dataset/orc').OrcReadType = await orcTyped.read(0,{length:1});
+    const ageAeadTyped: import('@okikio/opfs/crypto/age').AgeAeadType = createNodeAgeAead({createDecipheriv(){throw new Error('type-only');}});
+    const ageTyped: import('@okikio/opfs/crypto/age').AgeOpenedType = await openAge(createByteSource(new Uint8Array()),{profile:'age-v1-file-key',fileKey:new Uint8Array(16),subtle:globalThis.crypto.subtle,aead:ageAeadTyped});
+    const ageReadTyped: import('@okikio/opfs/crypto/age').AgeReadType = await ageTyped.read(0,1);
+    const amqpTyped = new AmqpClient({openChannel:async()=>{throw new Error('type-only');},auth:{user:'fixture',password:'fixture'},vhost:'/owned'});
+    const amqpReceiptTyped: import('@okikio/opfs/amqp').AmqpReceiptType = await amqpTyped.publish('owned','key',new Uint8Array());
+    const amqpMessageTyped: import('@okikio/opfs/amqp').AmqpMessageType | null = await amqpTyped.take('owned',{autoAck:true});
+    void [orcReadTyped,ageReadTyped,amqpReceiptTyped,amqpMessageTyped];
     const parquetTyped: import('@okikio/opfs/dataset/parquet').ParquetDatasetType = await openParquet(createByteSource(new Uint8Array()),{maxRows:16});
     const parquetReadTyped: import('@okikio/opfs/dataset/parquet').ParquetReadType = await parquetTyped.read(0,{offset:0,length:1});
     const parquetValuesTyped: import('@okikio/opfs/dataset/parquet').ParquetValuesType = parquetReadTyped.values;
@@ -2284,6 +2435,10 @@ try {
       export { openJwe } from '@okikio/opfs/crypto/jwe';
       export { NatsClient } from '@okikio/opfs/nats';
       export { openParquet } from '@okikio/opfs/dataset/parquet';
+      export { openOrc } from '@okikio/opfs/dataset/orc';
+      export { openAge } from '@okikio/opfs/crypto/age';
+      export { createNodeAgeAead } from '@okikio/opfs/crypto/age-node';
+      export { AmqpClient } from '@okikio/opfs/amqp';
     `,
     );
     await command("deno", [
@@ -2357,7 +2512,7 @@ try {
           throw new Error('Optional import discovered ambient capability: ' + name);
         }});
       }
-      for (const spec of ['crypto/jwe', 'nats', 'dataset/parquet']) await import('@okikio/opfs/' + spec);
+      for (const spec of ['crypto/jwe', 'nats', 'dataset/parquet', 'crypto/age', 'crypto/age-node', 'dataset/orc', 'amqp']) await import('@okikio/opfs/' + spec);
       if (touched.length) throw new Error('Optional import touched ambient capabilities: ' + touched.join(','));
     } finally {
       for (const [name, descriptor] of descriptors) {
@@ -2365,7 +2520,7 @@ try {
         else delete globalThis[name];
       }
     }
-    console.log('Imported JWE, NATS and Parquet without ambient crypto, fetch or sockets');
+    console.log('Imported seven optional capabilities without ambient crypto, fetch or sockets');
   `,
   );
   await command("node", ["optional-imports.mjs"], { cwd: consumer });

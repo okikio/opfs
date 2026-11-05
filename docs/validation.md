@@ -862,3 +862,9 @@ of silently skipping absent tools in the Windows runtime matrix. Portable tests 
 with byte-only baselines. Both validate byte/count oracles before sampling. CI retains their raw reports in the archive
 benchmark artifact. Sampling results describe the exact workload and runtime; a passed preflight alone is not a timing
 result. Run benchmarks separately from static/compiler jobs under the repository memory policy.
+
+Native age, ORC and AMQP original JSON bytes and the age acquisition/provenance snapshots are excluded from formatting.
+Their exact hashes establish the producer input and output, so format only the maintained readers, test adapters and
+recipe prose. The explicit `fmt.exclude` and `lint.exclude` entries in `deno.json` keep those inert originals separate
+from executable project tests. The shared age cipher transport and child remain in formatting and lint checks; they are
+test-only files and are not part of either published artifact.

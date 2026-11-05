@@ -119,6 +119,13 @@ plaintext publication, so it does not offer streaming ciphertext decryption or c
 remain outside that profile. See [JWE](../../docs/jwe.md), [NATS](../../docs/nats.md) and
 [Parquet](../../docs/parquet.md) for ownership, exact costs and verification limits.
 
+The age v1 caller-file-key profile authenticates selected covering chunks and exposes a borrowed nested-preview source;
+recipient unlocking and armored files remain separate. ORC adds flat uncompressed physical numeric columns with
+DIRECT/RLEv1 stripe decoding and separate null masks; RLEv2 and generic codecs remain unsupported. AMQP 0-9-1 adds
+mandatory confirmed publication and explicitly destructive auto-acknowledged queue reads over fresh injected channels.
+See [age](../../docs/age.md), [ORC](../../docs/orc.md) and [AMQP](../../docs/amqp.md) for exact scope and evidence;
+these profiles do not complete the encryption, dataset or record-store groups.
+
 ## Present scope by group
 
 Each section distinguishes the implemented profile from the next boundary. Follow its capability guide for the public
