@@ -1,4 +1,4 @@
-import { range } from "./range.ts";
+import { assertRangeResponse, range } from "./range.ts";
 import type { DriverPlanInputType, DriverPlanType } from "./driver/definition.ts";
 import { map } from "./pool.ts";
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
@@ -7,6 +7,7 @@ import { z } from "zod";
 import type {
   ObjectBackendType,
   ObjectCopyOptionsType,
+  ObjectDeleteOptionsType,
   ObjectEntryType,
   ObjectGetOptionsType,
   ObjectListOptionsType,
@@ -19,7 +20,12 @@ import { open } from "./chunk.ts";
 import { isBuffer, isBytes, toRequestBuffer, toRequestBytes, toView } from "./bytes.ts";
 import { assertRequestStream, isStream } from "./body.ts";
 import { close } from "./close.ts";
-import { copyOptions, putOptions, putProperties } from "./publication.ts";
+import {
+  etagCopyOptions as copyOptions,
+  etagPutOptions as putOptions,
+  objectETag,
+  putProperties,
+} from "./publication.ts";
 import type { ResponseTextType } from "./response.ts";
 import { readResponse } from "./response.ts";
 import {
@@ -706,6 +712,8 @@ class AzureClient implements AzureClientType {
 
   /** Stable object-store client name. */
   readonly name = "azure";
+  /** Credential-free namespace used to bind persistent source identities. */
+  readonly identity: string;
   /** Native operations guaranteed for this configured credential/version pair. */
   readonly capabilities: AzureClientType["capabilities"];
   /** Resolved behavior-changing client optimization switches. */
@@ -717,6 +725,7 @@ class AzureClient implements AzureClientType {
   constructor(options: AzureClientOptionsType) {
     this.#endpoint = new URL(options.endpoint);
     this.#container = options.container;
+    this.identity = JSON.stringify(["azure", this.#endpoint.origin, this.#endpoint.pathname, this.#container]);
     this.#credential = options.credential;
     this.#version = AzureStorageVersionSchema.parse(options.version ?? AZURE_STORAGE_VERSION);
     const suppliedFetch = options.fetch;
@@ -998,9 +1007,11 @@ class AzureClient implements AzureClientType {
 
   /** Opens one full blob or byte range as the provider response stream. */
   async get(key: string, options: ObjectGetOptionsType = {}): Promise<ReadableStream<Uint8Array>> {
+    const ifMatch = objectETag(options.revision);
     const selected = range(options);
     if (selected.empty) return getByteStream(new Uint8Array());
     const headers = new Headers();
+    if (ifMatch !== undefined) headers.set("if-match", ifMatch);
     if (selected.header !== undefined) headers.set("x-ms-range", selected.header);
     const response = await assertResponse(
       await this.request({
@@ -1011,6 +1022,7 @@ class AzureClient implements AzureClientType {
       }),
       `Get Blob ${key}`,
     );
+    await assertRangeResponse(response, selected);
     return response.body ?? getByteStream(new Uint8Array());
   }
 
@@ -1175,10 +1187,12 @@ class AzureClient implements AzureClientType {
   }
 
   /** Removes one exact blob. Missing blobs are already in the requested state. */
-  async delete(key: string, options?: { readonly signal?: AbortSignal }): Promise<void> {
+  async delete(key: string, options?: ObjectDeleteOptionsType): Promise<void> {
+    const ifMatch = objectETag(options?.revision);
     const response = await this.request({
       method: "DELETE",
       key,
+      ...(ifMatch === undefined ? {} : { headers: new Headers({ "if-match": ifMatch }) }),
       ...(options?.signal === undefined ? {} : { signal: options.signal }),
     });
     await readResponse(response, async (text) => {

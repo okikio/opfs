@@ -116,7 +116,7 @@ export function getSupport(adapter: AdapterType, optimizations: OptimizationType
   const readable = adapter.capabilities.read;
   const writable = adapter.capabilities.write;
   const streamWrite = (mode: WriteModeType): SupportModeType => {
-    const direct = optimizations.streamWrite && adapter.capabilities.streamWriteModes.includes(mode) &&
+    const direct = writable && optimizations.streamWrite && adapter.capabilities.streamWriteModes.includes(mode) &&
       adapter.writeStream !== undefined;
     if (direct && adapter.partition?.stream === true) return "partitioned";
     return native(direct, writable);
@@ -133,16 +133,18 @@ export function getSupport(adapter: AdapterType, optimizations: OptimizationType
     streamWrite: { replace: streamWrite("replace"), append: streamWrite("append"), update: streamWrite("update") },
     rangeRead: native(optimizations.rangeRead && adapter.capabilities.rangeRead, readable),
     copy: native(
-      optimizations.nativeCopy && adapter.capabilities.nativeCopy && adapter.copy !== undefined,
+      writable && optimizations.nativeCopy && adapter.capabilities.nativeCopy && adapter.copy !== undefined,
       readable && writable,
     ),
     move: native(
-      optimizations.nativeMove && adapter.capabilities.nativeMove && adapter.move !== undefined,
+      writable && optimizations.nativeMove && adapter.capabilities.nativeMove && adapter.move !== undefined,
       readable && writable,
     ),
-    positionalWrite: adapter.capabilities.positionalWrite && adapter.openWritableFile !== undefined
+    positionalWrite: writable && adapter.capabilities.positionalWrite && adapter.openWritableFile !== undefined
       ? "native"
       : "unsupported",
-    syncAccess: adapter.capabilities.syncAccess && adapter.openSyncFile !== undefined ? "native" : "unsupported",
+    syncAccess: writable && adapter.capabilities.syncAccess && adapter.openSyncFile !== undefined
+      ? "native"
+      : "unsupported",
   };
 }

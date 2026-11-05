@@ -562,6 +562,18 @@ class FileSystemFacade implements FileSystemType {
 
   /** Hard backend admission runs before locks, metadata, parents, or source ownership. */
   #admit(input: DriverPlanInputType): void {
+    if (
+      !this.adapter.capabilities.write &&
+      (input.operation === "write" || input.operation === "copy" || input.operation === "move" ||
+        input.operation === "remove")
+    ) {
+      throw new FileSystemError(
+        "not-supported",
+        input.operation,
+        input.path,
+        `Adapter '${this.adapter.name}' is read-only.`,
+      );
+    }
     const admitted = this.adapter.admit?.(input);
     if (admitted !== undefined && !admitted.supported) {
       throw new FileSystemError(
@@ -1667,7 +1679,10 @@ class FileSystemFacade implements FileSystemType {
       throw new FileSystemError("type-mismatch", "open-writable-file", normalized, "The virtual root is a directory.");
     }
     throwIfAborted(options.signal, "open-writable-file", normalized);
-    if (!this.adapter.capabilities.positionalWrite || this.adapter.openWritableFile === undefined) {
+    if (
+      !this.adapter.capabilities.write || !this.adapter.capabilities.positionalWrite ||
+      this.adapter.openWritableFile === undefined
+    ) {
       throw new FileSystemError(
         "not-supported",
         "open-writable-file",
@@ -1737,7 +1752,10 @@ class FileSystemFacade implements FileSystemType {
       throw new FileSystemError("type-mismatch", "open-sync-file", normalized, "The virtual root is a directory.");
     }
     throwIfAborted(options.signal, "open-sync-file", normalized);
-    if (!this.adapter.capabilities.syncAccess || this.adapter.openSyncFile === undefined) {
+    if (
+      !this.adapter.capabilities.write || !this.adapter.capabilities.syncAccess ||
+      this.adapter.openSyncFile === undefined
+    ) {
       throw new FileSystemError(
         "not-supported",
         "open-sync-file",
