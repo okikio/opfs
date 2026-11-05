@@ -1,0 +1,166 @@
+{
+  "stage": "native",
+  "name": "opfs-orc-native-20261105",
+  "image": "sha256:26e68cc881db490c8ebd14256fe101650609437f41017c0cd1d5a7df1c7db72f",
+  "launcherSha256": "85c71b1801d60d8c9b1d3b0b8e40d12eaf7ed9aa7cd1d4ab0692285947a5c271",
+  "deadlineSeconds": 210,
+  "failures": [],
+  "commands": [
+    {
+      "label": "image-inspect",
+      "argv": [
+        "docker",
+        "image",
+        "inspect",
+        "sha256:26e68cc881db490c8ebd14256fe101650609437f41017c0cd1d5a7df1c7db72f"
+      ],
+      "exit": 0,
+      "bytes": {
+        "stdout": 2635,
+        "stderr": 0
+      },
+      "seconds": 0.09965466700000003
+    },
+    {
+      "label": "create",
+      "argv": [
+        "docker",
+        "create",
+        "--pull",
+        "never",
+        "--name",
+        "opfs-orc-native-20261105",
+        "--network",
+        "none",
+        "--memory",
+        "1g",
+        "--memory-swap",
+        "1g",
+        "--cpus",
+        "1",
+        "--pids-limit",
+        "128",
+        "--cap-drop",
+        "ALL",
+        "--security-opt",
+        "no-new-privileges=true",
+        "--restart",
+        "no",
+        "--entrypoint",
+        "/usr/local/bin/python3",
+        "sha256:26e68cc881db490c8ebd14256fe101650609437f41017c0cd1d5a7df1c7db72f",
+        "-I",
+        "/producer-run.py"
+      ],
+      "exit": 0,
+      "bytes": {
+        "stdout": 65,
+        "stderr": 0
+      },
+      "seconds": 0.22046133299999993
+    },
+    {
+      "label": "copy-install.py",
+      "argv": [
+        "docker",
+        "cp",
+        "/Users/okikio/Other/Code/opfs/tests/fixtures/orc/install.py",
+        "opfs-orc-native-20261105:/install.py"
+      ],
+      "exit": 0,
+      "bytes": {
+        "stdout": 0,
+        "stderr": 0
+      },
+      "seconds": 0.46027525
+    },
+    {
+      "label": "copy-create.py",
+      "argv": [
+        "docker",
+        "cp",
+        "/Users/okikio/Other/Code/opfs/tests/fixtures/orc/create.py",
+        "opfs-orc-native-20261105:/produce.py"
+      ],
+      "exit": 0,
+      "bytes": {
+        "stdout": 0,
+        "stderr": 0
+      },
+      "seconds": 0.2893725410000001
+    },
+    {
+      "label": "copy-producer-run.py",
+      "argv": [
+        "docker",
+        "cp",
+        "/Users/okikio/Other/Code/opfs/tests/fixtures/orc/producer-run.py",
+        "opfs-orc-native-20261105:/producer-run.py"
+      ],
+      "exit": 0,
+      "bytes": {
+        "stdout": 0,
+        "stderr": 0
+      },
+      "seconds": 0.078375042
+    },
+    {
+      "label": "created-inspect",
+      "argv": [
+        "docker",
+        "inspect",
+        "opfs-orc-native-20261105"
+      ],
+      "exit": 0,
+      "bytes": {
+        "stdout": 7061,
+        "stderr": 0
+      },
+      "seconds": 0.02885120799999985
+    },
+    {
+      "label": "final-inspect",
+      "argv": [
+        "docker",
+        "inspect",
+        "opfs-orc-native-20261105"
+      ],
+      "exit": 0,
+      "bytes": {
+        "stdout": 7443,
+        "stderr": 0
+      },
+      "seconds": 0.13393437499999994
+    }
+  ],
+  "copyOutPaths": [
+    "/tmp/native-state.json",
+    "/tmp/native.log",
+    "/tmp/independent.json"
+  ],
+  "scripts": {
+    "install.py": "040b1241677c9670dc00d18736e1a2bebf98b0df914947cfc434618e31a996ce",
+    "create.py": "04eecdf17c1fda9e53dc581c52a5d2c10d093440c88bc302a93bf985d6fc2e1f",
+    "producer-run.py": "57b3280bffdcff144a44cd0d3ec76df4ca171ff76a59d48141546c60e2b4c189"
+  },
+  "preflight": "passed-before-start",
+  "attachmentBytes": {
+    "stdout": 146,
+    "stderr": 0
+  },
+  "finalStatus": {
+    "Status": "exited",
+    "Running": false,
+    "Paused": false,
+    "Restarting": false,
+    "OOMKilled": false,
+    "Dead": false,
+    "Pid": 0,
+    "ExitCode": 0,
+    "Error": "",
+    "StartedAt": "2026-11-05T22:58:16.547471094Z",
+    "FinishedAt": "2026-11-05T22:58:19.782283178Z"
+  },
+  "exit": 0,
+  "seconds": 5.0814065
+}

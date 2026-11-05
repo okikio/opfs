@@ -1,0 +1,50 @@
+{
+  "tag": "v1.1.1",
+  "commit": "0a48af85a6c067fdd681f2dbacc35f0b05a46715",
+  "files": [
+    {
+      "path": "src/main/proto/orc/proto/orc_proto.proto",
+      "url": "https://raw.githubusercontent.com/apache/orc-format/0a48af85a6c067fdd681f2dbacc35f0b05a46715/src/main/proto/orc/proto/orc_proto.proto",
+      "bytes": 14634,
+      "sha256": "3c91496c0f101a99f24dc5c70b38b244f0a25bd69bf263586fc1d38bda01c270"
+    },
+    {
+      "path": "specification/ORCv0.md",
+      "url": "https://raw.githubusercontent.com/apache/orc-format/0a48af85a6c067fdd681f2dbacc35f0b05a46715/specification/ORCv0.md",
+      "bytes": 29171,
+      "sha256": "aceb8d0705c74fe85647411ddd4fe2e202568e5c863d26ebbf9d14871738fa46"
+    },
+    {
+      "path": "specification/ORCv1.md",
+      "url": "https://raw.githubusercontent.com/apache/orc-format/0a48af85a6c067fdd681f2dbacc35f0b05a46715/specification/ORCv1.md",
+      "bytes": 50449,
+      "sha256": "f3575c109cca5bffc575ba72fc3cf9bf50c9bc6b14ad2247eb167ff880ebb4e2"
+    },
+    {
+      "path": "LICENSE",
+      "url": "https://raw.githubusercontent.com/apache/orc-format/0a48af85a6c067fdd681f2dbacc35f0b05a46715/LICENSE",
+      "bytes": 19441,
+      "sha256": "7722d6ce394ee750497a810b5e7c4eb52e9390128854d67ac1f5ffe29e5c0067"
+    },
+    {
+      "path": "NOTICE",
+      "url": "https://raw.githubusercontent.com/apache/orc-format/0a48af85a6c067fdd681f2dbacc35f0b05a46715/NOTICE",
+      "bytes": 302,
+      "sha256": "2fbb61b828d64a29b14904edf544e0a33ab710e22bc8bf74923e92c52188d5aa"
+    },
+    {
+      "path": "c++/src/ColumnReader.cc",
+      "commit": "e955e2bb5a0c3c9a0bb24a9039405ecea1878444",
+      "url": "https://raw.githubusercontent.com/apache/orc/e955e2bb5a0c3c9a0bb24a9039405ecea1878444/c++/src/ColumnReader.cc",
+      "bytes": 70768,
+      "sha256": "0ffdcbfcb82fe2706f535fb5287fa3e7177bded2e4cc603c49e759341ef05759"
+    },
+    {
+      "path": "c++/src/Writer.cc",
+      "commit": "e955e2bb5a0c3c9a0bb24a9039405ecea1878444",
+      "url": "https://raw.githubusercontent.com/apache/orc/e955e2bb5a0c3c9a0bb24a9039405ecea1878444/c++/src/Writer.cc",
+      "bytes": 23714,
+      "sha256": "7cb553d16423b56697cd612d0b9dabdb5a6ba571e0b59c3ffcac9117a6e15edf"
+    }
+  ]
+}
