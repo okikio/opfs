@@ -102,6 +102,10 @@
       "size": 441574,
       "sha256": "edd187d9e3488035f0d7d4c13513a3bbcbff78de3605b4e2773862cc554065e6"
     },
+    "tests/fixtures/qcow2/independent.json": {
+      "size": 3780718,
+      "sha256": "19d870dfa7e4f1bd8362b23c168d1c3795983f6c2468765adfe3d4eb94daf6db"
+    },
     "tests/fixtures/rar/independent.json": {
       "size": 9711030,
       "sha256": "f601a16df189cf583f3624317d5449dd4d07876838271f18bc82d8f103dd83f8"
