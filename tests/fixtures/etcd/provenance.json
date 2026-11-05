@@ -1,0 +1,629 @@
+{
+  "record": "db-etcd",
+  "profile": "Bounded etcd3.7.3 native JSON gateway byte-KV client; no canonical record/filesystem projection",
+  "sourceCommit": "0a173d0410a96d01091b484daae81365bbcde57e",
+  "sourceSha256": {
+    "etcd-rpc.proto": "d50fe7e0c2cb9d80fa6fed1b47fb5cadcda06674bef99c445adab40c24feedb2",
+    "etcd-kv.proto": "fa1da1204a680c5c8f3043edb77b9d5895a16a5b5ccb64b438ae1a65ab2f169c",
+    "etcd-LICENSE": "43ca1b4bbf462789ba15b28373e0c536e510f49e4d05d85a7690cfee94de6f49",
+    "etcd-put-command.go": "65b15b671f495a82050d0b3e3887bd5231869840455ae40b744d1fb8821ca3a5",
+    "etcd-user-command.go": "e2ac7d030841516f7000518a9f44a69da34b669e9454f9b2dfd4198a59cf4147",
+    "etcd-printer-simple.go": "b5465dd2ee6817d056fe4e044bcd460be04270b017259ae0f734ff95940bf8fa",
+    "etcd-embed-config.go": "8519fbc065039225616b8f5547f5369efdb02f97c6d835ae62a38f084e5e784e",
+    "etcd-auth-store.go": "9083a7ac8a91b25412e89bad51a320bef232f2fd04de7e8b487b6a68b563a638",
+    "etcd-txn.go": "6e895f9d3f5794a308881cce4b50878054e6f93e794506ca570042cefa7501bf"
+  },
+  "license": "Apache-2.0 official server/etcdctl, test-only; no production SDK",
+  "proof": "Native etcd3.7.3 server and official etcdctl gRPC complete-byte, CAS, lease, historical-prefix and authentication checks passed; authored protocol tests passed on Deno/Node/Bun",
+  "exclusions": [
+    "No general transaction program or arbitrary range deletion",
+    "No lease creation/renewal",
+    "No watch/stream/large-file/immutable source projection",
+    "No production replicated availability or durability qualification"
+  ],
+  "acquisition": {
+    "log": ".tmp/etcd-acquire-second.log",
+    "exitCode": 0,
+    "oomKilled": false,
+    "limits": {
+      "compressedBytes": 33554432,
+      "expandedBytes": 268435456,
+      "selectedFileBytes": 100663296,
+      "selectedTotalBytes": 201326592,
+      "memoryGiB": 1,
+      "cpus": 1,
+      "pids": 128
+    },
+    "archiveTool": "Existing project native TAR reader is used only for inert test-tool acquisition, not as an independent etcd protocol oracle. Explicit per-read limits repair the retained first acquisition output-budget failure.",
+    "archiveLicenses": "Neither official archive contains LICENSE or NOTICE. The Apache-2.0 source license is pinned separately at the source commit and SHA above.",
+    "artifacts": {
+      "arm64": {
+        "archiveSha256": "ce4c08f5f43d99f0d1993552ce2906829c0366077a97e5e52529337f151a29fb",
+        "expandedBytes": 58152960,
+        "entries": [
+          {
+            "name": "etcd-v3.7.3-linux-arm64",
+            "kind": "directory",
+            "size": 0
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/Documentation",
+            "kind": "directory",
+            "size": 0
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/Documentation/postmortems",
+            "kind": "directory",
+            "size": 0
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/Documentation/postmortems/v3.5-data-inconsistency.md",
+            "kind": "file",
+            "size": 12156
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/Documentation/etcd-internals",
+            "kind": "directory",
+            "size": 0
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/Documentation/etcd-internals/diagrams",
+            "kind": "directory",
+            "size": 0
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/Documentation/etcd-internals/diagrams/write_workflow_leader.png",
+            "kind": "file",
+            "size": 630084
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/Documentation/etcd-internals/diagrams/write_workflow_leader.drawio",
+            "kind": "file",
+            "size": 370194
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/Documentation/etcd-internals/diagrams/write_workflow_follower.png",
+            "kind": "file",
+            "size": 630280
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/Documentation/etcd-internals/diagrams/write_workflow_follower.drawio",
+            "kind": "file",
+            "size": 370098
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/Documentation/etcd-internals/diagrams/etcd_internal_parts.png",
+            "kind": "file",
+            "size": 294326
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/Documentation/etcd-internals/diagrams/etcd_internal_parts.drawio",
+            "kind": "file",
+            "size": 155226
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/Documentation/etcd-internals/diagrams/consistent_read_workflow.png",
+            "kind": "file",
+            "size": 472856
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/Documentation/etcd-internals/diagrams/consistent_read_workflow.drawio",
+            "kind": "file",
+            "size": 253430
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/Documentation/dev-guide",
+            "kind": "directory",
+            "size": 0
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/Documentation/dev-guide/apispec",
+            "kind": "directory",
+            "size": 0
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/Documentation/dev-guide/apispec/swagger",
+            "kind": "directory",
+            "size": 0
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/Documentation/dev-guide/apispec/swagger/v3lock.swagger.json",
+            "kind": "file",
+            "size": 5710
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/Documentation/dev-guide/apispec/swagger/v3election.swagger.json",
+            "kind": "file",
+            "size": 12131
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/Documentation/dev-guide/apispec/swagger/rpc.swagger.json",
+            "kind": "file",
+            "size": 97007
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/Documentation/contributor-guide",
+            "kind": "directory",
+            "size": 0
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/Documentation/contributor-guide/triage_prs.md",
+            "kind": "file",
+            "size": 2717
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/Documentation/contributor-guide/triage_issues.md",
+            "kind": "file",
+            "size": 15521
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/Documentation/contributor-guide/roadmap.md",
+            "kind": "file",
+            "size": 7145
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/Documentation/contributor-guide/reporting_bugs.md",
+            "kind": "file",
+            "size": 2332
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/Documentation/contributor-guide/release.md",
+            "kind": "file",
+            "size": 9760
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/Documentation/contributor-guide/prow_jobs.md",
+            "kind": "file",
+            "size": 10482
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/Documentation/contributor-guide/modules.svg",
+            "kind": "file",
+            "size": 114637
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/Documentation/contributor-guide/modules.md",
+            "kind": "file",
+            "size": 3577
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/Documentation/contributor-guide/modules-future.svg",
+            "kind": "file",
+            "size": 132232
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/Documentation/contributor-guide/logging.md",
+            "kind": "file",
+            "size": 1562
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/Documentation/contributor-guide/local_cluster.md",
+            "kind": "file",
+            "size": 4582
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/Documentation/contributor-guide/features.md",
+            "kind": "file",
+            "size": 5525
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/Documentation/contributor-guide/exit_codes.md",
+            "kind": "file",
+            "size": 5399
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/Documentation/contributor-guide/dependency_management.md",
+            "kind": "file",
+            "size": 9697
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/Documentation/contributor-guide/community-membership.md",
+            "kind": "file",
+            "size": 9921
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/Documentation/contributor-guide/cherry-pick.md",
+            "kind": "file",
+            "size": 1455
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/Documentation/contributor-guide/bump_etcd_version_k8s.md",
+            "kind": "file",
+            "size": 6680
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/Documentation/contributor-guide/branch_management.md",
+            "kind": "file",
+            "size": 1510
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/Documentation/README.md",
+            "kind": "file",
+            "size": 250
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/Documentation/OWNERS",
+            "kind": "file",
+            "size": 82
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/README-etcdutl.md",
+            "kind": "file",
+            "size": 10326
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/READMEv2-etcdctl.md",
+            "kind": "file",
+            "size": 7896
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/README-etcdctl.md",
+            "kind": "file",
+            "size": 44035
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/README.md",
+            "kind": "file",
+            "size": 10290
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/etcdutl",
+            "kind": "file",
+            "size": 15597730
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/etcdctl",
+            "kind": "file",
+            "size": 15728802
+          },
+          {
+            "name": "etcd-v3.7.3-linux-arm64/etcd",
+            "kind": "file",
+            "size": 23068834
+          }
+        ],
+        "selected": [
+          {
+            "name": "etcd",
+            "size": 23068834,
+            "sha256": "c38edc507985e915c0f25b2bc09b8ee90393f930152ade1860619ef9d3b69003"
+          },
+          {
+            "name": "etcdctl",
+            "size": 15728802,
+            "sha256": "b156c25ee70a241829ca7150e56276dd85de9efc5a3eed3cabc3f226d8c02bfb"
+          }
+        ]
+      },
+      "amd64": {
+        "archiveSha256": "5dfa9cc3b3ce3b4b491fbcc2057d3daa166bcc6676f743fcd20f8e5760cb9775",
+        "expandedBytes": 61911040,
+        "entries": [
+          {
+            "name": "etcd-v3.7.3-linux-amd64",
+            "kind": "directory",
+            "size": 0
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/Documentation",
+            "kind": "directory",
+            "size": 0
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/Documentation/postmortems",
+            "kind": "directory",
+            "size": 0
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/Documentation/postmortems/v3.5-data-inconsistency.md",
+            "kind": "file",
+            "size": 12156
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/Documentation/etcd-internals",
+            "kind": "directory",
+            "size": 0
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/Documentation/etcd-internals/diagrams",
+            "kind": "directory",
+            "size": 0
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/Documentation/etcd-internals/diagrams/write_workflow_leader.png",
+            "kind": "file",
+            "size": 630084
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/Documentation/etcd-internals/diagrams/write_workflow_leader.drawio",
+            "kind": "file",
+            "size": 370194
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/Documentation/etcd-internals/diagrams/write_workflow_follower.png",
+            "kind": "file",
+            "size": 630280
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/Documentation/etcd-internals/diagrams/write_workflow_follower.drawio",
+            "kind": "file",
+            "size": 370098
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/Documentation/etcd-internals/diagrams/etcd_internal_parts.png",
+            "kind": "file",
+            "size": 294326
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/Documentation/etcd-internals/diagrams/etcd_internal_parts.drawio",
+            "kind": "file",
+            "size": 155226
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/Documentation/etcd-internals/diagrams/consistent_read_workflow.png",
+            "kind": "file",
+            "size": 472856
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/Documentation/etcd-internals/diagrams/consistent_read_workflow.drawio",
+            "kind": "file",
+            "size": 253430
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/Documentation/dev-guide",
+            "kind": "directory",
+            "size": 0
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/Documentation/dev-guide/apispec",
+            "kind": "directory",
+            "size": 0
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/Documentation/dev-guide/apispec/swagger",
+            "kind": "directory",
+            "size": 0
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/Documentation/dev-guide/apispec/swagger/v3lock.swagger.json",
+            "kind": "file",
+            "size": 5710
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/Documentation/dev-guide/apispec/swagger/v3election.swagger.json",
+            "kind": "file",
+            "size": 12131
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/Documentation/dev-guide/apispec/swagger/rpc.swagger.json",
+            "kind": "file",
+            "size": 97007
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/Documentation/contributor-guide",
+            "kind": "directory",
+            "size": 0
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/Documentation/contributor-guide/triage_prs.md",
+            "kind": "file",
+            "size": 2717
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/Documentation/contributor-guide/triage_issues.md",
+            "kind": "file",
+            "size": 15521
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/Documentation/contributor-guide/roadmap.md",
+            "kind": "file",
+            "size": 7145
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/Documentation/contributor-guide/reporting_bugs.md",
+            "kind": "file",
+            "size": 2332
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/Documentation/contributor-guide/release.md",
+            "kind": "file",
+            "size": 9760
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/Documentation/contributor-guide/prow_jobs.md",
+            "kind": "file",
+            "size": 10482
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/Documentation/contributor-guide/modules.svg",
+            "kind": "file",
+            "size": 114637
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/Documentation/contributor-guide/modules.md",
+            "kind": "file",
+            "size": 3577
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/Documentation/contributor-guide/modules-future.svg",
+            "kind": "file",
+            "size": 132232
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/Documentation/contributor-guide/logging.md",
+            "kind": "file",
+            "size": 1562
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/Documentation/contributor-guide/local_cluster.md",
+            "kind": "file",
+            "size": 4582
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/Documentation/contributor-guide/features.md",
+            "kind": "file",
+            "size": 5525
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/Documentation/contributor-guide/exit_codes.md",
+            "kind": "file",
+            "size": 5399
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/Documentation/contributor-guide/dependency_management.md",
+            "kind": "file",
+            "size": 9697
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/Documentation/contributor-guide/community-membership.md",
+            "kind": "file",
+            "size": 9921
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/Documentation/contributor-guide/cherry-pick.md",
+            "kind": "file",
+            "size": 1455
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/Documentation/contributor-guide/bump_etcd_version_k8s.md",
+            "kind": "file",
+            "size": 6680
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/Documentation/contributor-guide/branch_management.md",
+            "kind": "file",
+            "size": 1510
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/Documentation/README.md",
+            "kind": "file",
+            "size": 250
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/Documentation/OWNERS",
+            "kind": "file",
+            "size": 82
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/README-etcdutl.md",
+            "kind": "file",
+            "size": 10326
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/READMEv2-etcdctl.md",
+            "kind": "file",
+            "size": 7896
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/README-etcdctl.md",
+            "kind": "file",
+            "size": 44035
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/README.md",
+            "kind": "file",
+            "size": 10290
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/etcdutl",
+            "kind": "file",
+            "size": 16601250
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/etcdctl",
+            "kind": "file",
+            "size": 16789666
+          },
+          {
+            "name": "etcd-v3.7.3-linux-amd64/etcd",
+            "kind": "file",
+            "size": 24760482
+          }
+        ],
+        "selected": [
+          {
+            "name": "etcd",
+            "size": 24760482,
+            "sha256": "31d9765b3ea2759838fb84b7b6b0c8bfe90c18ad86621ceec0b1e015afd96903"
+          },
+          {
+            "name": "etcdctl",
+            "size": 16789666,
+            "sha256": "39cdb8f2ebd12f680e0b7b8d724fe1159644d5939725977e32381ab6bf85ced3"
+          }
+        ]
+      }
+    }
+  },
+  "native": {
+    "image": "node:22.22.0-bookworm-slim@sha256:dd9d21971ec4395903fa6143c2b9267d048ae01ca6d3ea96f16cb30df6187d94",
+    "architecture": "arm64",
+    "memoryGiB": 1,
+    "cpus": 1,
+    "serverVersion": "3.7.3",
+    "oracle": "Official independently implemented etcdctl3.7.3 gRPC CLI, same pinned official release archive; copied binary input file to CLI stdin, full output bytes decoded from CLI base64. No production SDK.",
+    "log": ".tmp/etcd-provider-second.log",
+    "exitCode": 0,
+    "cases": [
+      "CLI seed to candidate and candidate replacement to CLI complete binary bytes",
+      "create condition false on existing key and stale modification revision false without retry",
+      "Existing empty value differs from missing key",
+      "CLI lease grant followed by explicit candidate preserve/detach and CLI byte readback",
+      "Prefix continuation reads original selected revision across concurrent current writes",
+      "Conditional exact-key removal preserves other keys",
+      "Invalid raw token receives native HTTP401"
+    ],
+    "retainedFirstFailure": ".tmp/etcd-provider-first.log",
+    "retainedDiagnostic": ".tmp/etcd-native-receipt-diagnostic.log",
+    "repair": "Native nested transaction response_put.header contains only revision, unlike the fully populated outer header. Separate nested schema validates that revision and any supplied nonzero cluster/member/term against the outer receipt. Authored negative cases reject mismatches.",
+    "cleanup": "Testcontainers-owned server/private network awaited before successful test or capture returned; acquisition-only stopped runner retained."
+  },
+  "capture": {
+    "fixture": "independent.json",
+    "log": ".tmp/etcd-capture.log",
+    "exitCode": 0,
+    "rangeRawSha256": "ff002f79e28a8499caf55103be6b4b14bbbf11bb118c2616b78852d9b895510c",
+    "rangeRawBytes": 247,
+    "oracleSha256": "a09e9c5394946ab8fc1b54a0c55618a96f2057e98e89cfdc36bb4d26ed0a1708",
+    "oracleBytes": 6,
+    "note": "Base64 preserves actual native response bytes and CLI complete original, independently of JSON formatting of this fixture. Token/request Authorization omitted. Native IDs, HTTP date and headers describe this disposable capture, not replay identity/authentication."
+  },
+  "benchmark": {
+    "source": "bench/etcd.bench.ts",
+    "receipt": ".tmp/etcd-bench-node.receipt.json",
+    "exitCode": 0,
+    "rawSha256": "f4c6d14365527ca6b6c8960332fc022d92f2d08dc0009164a454f1848705213f",
+    "rawBytes": 24514454,
+    "gzipSha256": "678fe4feb8282c715f99733e748f5ea1d4606c49549821641c75e061d801cd2d",
+    "gzipBytes": 80552,
+    "rawLosslessLog": ".tmp/etcd-bench-node.json.gz",
+    "runtime": {
+      "now": 1793903801349,
+      "arch": "arm64-linux",
+      "version": "26.13.0",
+      "runtime": "node"
+    },
+    "limits": {
+      "memoryBytes": 1073741824,
+      "nanoCpus": 1000000000,
+      "pidsLimit": 128,
+      "networkMode": "none",
+      "mounts": []
+    },
+    "image": "sha256:969e01d0cb839ffe8af9b6ddd9ee7359f95072d383aa8d1c76e5f2512c2c2a92",
+    "oomKilled": false,
+    "measurementsMicroseconds": {
+      "rawFetchJsonBase64": {
+        "mean": 18.115746823470065,
+        "p50": 11.208,
+        "p99": 89.625
+      },
+      "typedClientGet": {
+        "mean": 57.401509917755206,
+        "p50": 36.542,
+        "p99": 278.417
+      }
+    },
+    "limitsOfEvidence": "One bounded quiet Node26.13.0 arm64-linux in-memory 247-byte-envelope/six-byte-value run, raw lower bound versus typed validation; no deployed etcd, gRPC, consensus, network/TLS or bulk throughput claim. Exact timed input hashes remain in the ignored receipt; this provenance file adds the resulting evidence after timing."
+  }
+}
