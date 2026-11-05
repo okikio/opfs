@@ -108,6 +108,9 @@
     "./adapter/gcs": "./src/adapter/gcs.ts",
     "./tus": "./src/tus.ts",
     "./transfer": "./src/transfer.ts",
+    "./archive/zip": "./src/archive/zip.ts",
+    "./archive/tar": "./src/archive/tar.ts",
+    "./view/zip": "./src/view/zip.ts",
     "./testing/source": "./src/testing/source.ts"
   },
   "dependencies": {
