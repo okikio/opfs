@@ -1,0 +1,10 @@
+{
+  "removedStoppedTaskContainers": [
+    "opfs-shapefile-acquire-20261105",
+    "opfs-shapefile-producer-20261105",
+    "opfs-shapefile-bench-20261105"
+  ],
+  "removedTaskToolImage": "sha256:6e19aff0fb8859a5426c813de2bf5c66866c6c4cb96d1f48fdac5c086d5d07c1",
+  "publicBaseAndSharedRunnerPreserved": true,
+  "sourceAndArtifactPinsRetained": true
+}

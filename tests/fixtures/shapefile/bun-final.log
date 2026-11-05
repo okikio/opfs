@@ -1,0 +1,35 @@
+mise WARN  failed to write cache file: /Users/okikio/Library/Caches/mise/yarn/4.18.1/exec_env_3cf1104d9041e557-7deb1.msgpack.z Operation not permitted (os error 1)
+bun test v1.4.2 (744846f84)
+
+tests/shapefile.test.ts:
+(pass) Shapefile2D supplied component view > retains every physical ordinal, exact coordinates and raw high-precision attribute bytes [19.34ms]
+(pass) Shapefile2D supplied component view > keeps absent optional components explicit instead of fabricating a complete component set [0.46ms]
+(pass) Shapefile2D supplied component view > decodes complete multipart lines and preserves polygon ring order without topology conversion [1.96ms]
+(pass) Shapefile2D supplied component view > does not compact deleted rows or shift a later feature association [1.34ms]
+(pass) Shapefile2D supplied component view > cross-checks every supplied SHX offset and length against authoritative physical SHP records [4.71ms]
+(pass) Shapefile2D supplied component view > requires DBF physical count and fixed field widths to match without parsing field values [1.41ms]
+(pass) Shapefile2D supplied component view > checks the selected deletion flag while retaining opaque blank/numeric field representations [0.99ms]
+(pass) Shapefile2D supplied component view > bounds filtered scans independently of page results and preserves an empty continuing page [2.50ms]
+(pass) Shapefile2D supplied component view > refuses unsupported dimensional profiles and inconsistent record type/ordinal/extents [0.80ms]
+(pass) Shapefile2D supplied component view > rejects nonfinite coordinates and count/body mismatch before unsafe allocation [0.34ms]
+(pass) Shapefile2D supplied component view > validates complete selected part starts, ring closure and declared feature bounds [0.40ms]
+(pass) Shapefile2D supplied component view > preserves raw source provenance while leaving whole geometry validation explicit [1.10ms]
+(pass) Shapefile2D supplied component view > refuses exhausted opening and selected decoded/output limits before provider callbacks [1.25ms]
+(pass) Shapefile2D supplied component view > keeps the opening lifetime ledger authoritative and deduplicates it on children [0.20ms]
+(pass) Shapefile2D supplied component view > observes abort from the final foreign request reservation before any source callback, including derived sources [0.22ms]
+(pass) Shapefile2D supplied component view > preserves opening/view abort authority when a fresh child signal is supplied [0.31ms]
+(pass) Shapefile2D supplied component view > captures every component capability and option before the first asynchronous read [0.23ms]
+(pass) Shapefile2D supplied component view > admits cross-realm native byte views and rejects spoofed byte lengths [10.90ms]
+(pass) Shapefile2D supplied component view > copies each borrowed scratch extent before a later read can reuse its storage [0.47ms]
+(pass) Shapefile2D supplied component view > bounds identity admission before I/O or derived JSON composition [0.75ms]
+(pass) Shapefile2D supplied component view > requires explicit stable sources and preserves borrowed provider failure identity [0.20ms]
+(pass) genuine PyShp3.1.6 component fixtures > reads every physical byte/value from point without using synthesized native parts as wire data [4.71ms]
+(pass) genuine PyShp3.1.6 component fixtures > reads every physical byte/value from polyline without using synthesized native parts as wire data [3.97ms]
+(pass) genuine PyShp3.1.6 component fixtures > reads every physical byte/value from polygon without using synthesized native parts as wire data [1.95ms]
+(pass) genuine PyShp3.1.6 component fixtures > reads every physical byte/value from multipoint without using synthesized native parts as wire data [11.39ms]
+(pass) genuine PyShp3.1.6 component fixtures > reads every physical byte/value from empty without using synthesized native parts as wire data [0.15ms]
+(pass) genuine PyShp3.1.6 component fixtures > can index a MultiPoint without reading any of its point-array bytes [0.32ms]
+
+ 27 pass
+ 0 fail
+Ran 27 tests across 1 file. [265.00ms]

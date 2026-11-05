@@ -1,0 +1,148 @@
+{
+  "runtime": {
+    "platform": "linux",
+    "arch": "arm64",
+    "versions": {
+      "node": "26.13.0",
+      "acorn": "8.19.0",
+      "ada": "4.0.0",
+      "amaro": "1.1.11",
+      "ares": "1.34.9",
+      "brotli": "1.2.0",
+      "cldr": "48.0",
+      "icu": "78.3",
+      "libffi": "3.8.0",
+      "lief": "1.0.0",
+      "llhttp": "9.4.3",
+      "merve": "1.2.2",
+      "modules": "147",
+      "napi": "10",
+      "nbytes": "0.1.4",
+      "ncrypto": "0.0.1",
+      "nghttp2": "1.70.0",
+      "nghttp3": "",
+      "ngtcp2": "",
+      "openssl": "3.5.9",
+      "simdjson": "5.0.3",
+      "simdutf": "7.7.0",
+      "sqlite": "3.54.0",
+      "tz": "2026e",
+      "undici": "8.12.2",
+      "unicode": "17.0",
+      "uv": "1.52.1",
+      "uvwasi": "0.0.23",
+      "v8": "14.6.202.34-node.40",
+      "zlib": "1.3.2.1-motley-456ae73",
+      "zstd": "1.5.7"
+    }
+  },
+  "image": "sha256:0d27d74b49afa69518cd96806ca02f697e377c997d889c27cf60c4ae724adc39",
+  "container": "/opfs-shapefile-bench-20261105",
+  "exit": 0,
+  "oomKilled": false,
+  "resources": {
+    "Memory": 1073741824,
+    "MemorySwap": 1073741824,
+    "NanoCpus": 1000000000,
+    "PidsLimit": 128,
+    "NetworkMode": "none"
+  },
+  "mounts": [],
+  "ports": {},
+  "units": "nanoseconds per operation; distinct work contracts, no equivalent-SDK comparison",
+  "rawReport": {
+    "path": ".tmp/implementation/shapefile-benchmark.json.gz",
+    "rawBytes": 24306489,
+    "rawSha256": "5ca91bdf9c68124f634c77c0608fee1783b2fe8d685047778840940edd578d47",
+    "gzipSha256": "07b301bfaedfdb09a73009fc42d0c67368d457b784065d1a86355f8e3036cd6e",
+    "losslessReadbackVerified": true
+  },
+  "lanes": [
+    {
+      "name": "shapefile borrowed-record lower-bound 212 B validation=none conversion=none",
+      "meanNs": 5298.3394862583955,
+      "p50Ns": 4450.57177734375,
+      "p99Ns": 9480.275390625,
+      "ticks": 114688
+    },
+    {
+      "name": "shapefile cold-geometry-index records=3 source=216 B requests=7 metadata=16384 B optional-components=absent",
+      "meanNs": 58055.72340901693,
+      "p50Ns": 55176.371337890625,
+      "p99Ns": 67049.20434570312,
+      "ticks": 49152
+    },
+    {
+      "name": "shapefile cold-correlated-index records=3 source=469 B requests=11 SHX-checks=3 fields=3",
+      "meanNs": 91073.75504557292,
+      "p50Ns": 89991.64819335938,
+      "p99Ns": 93395.751953125,
+      "ticks": 49152
+    },
+    {
+      "name": "shapefile complete-polygon points=10 parts=2 source=212 B decoded=212 B output=168 B bounds+closure integrity=not-provided",
+      "meanNs": 10618.34795673077,
+      "p50Ns": 9574.819091796875,
+      "p99Ns": 13714.66064453125,
+      "ticks": 53248
+    },
+    {
+      "name": "shapefile raw-DBF-row source=66 B output=66 B fields=3 encoding=unknown numeric-conversion=none",
+      "meanNs": 8423.365921020508,
+      "p50Ns": 7405.09033203125,
+      "p99Ns": 11849.96533203125,
+      "ticks": 65536
+    },
+    {
+      "name": "shapefile empty-sparse-page limit=1 actual=0 scanned=2 cursor=2 payload-IO=none",
+      "meanNs": 631.1874904258578,
+      "p50Ns": 605.173583984375,
+      "p99Ns": 993.71337890625,
+      "ticks": 1044480
+    }
+  ],
+  "inputHashes": {
+    "package.json": {
+      "bytes": 9129,
+      "sha256": "e625b11bb990f8108ce17973c791148d1b5444ad0ca80f8de7531c10293b5810"
+    },
+    "bench/shapefile.bench.ts": {
+      "bytes": 4884,
+      "sha256": "052a7ce82f49b9d64c98639db385c87d78071a4e3b94540779ba8aa0358faaf9"
+    },
+    "bench/result.ts": {
+      "bytes": 2692,
+      "sha256": "1d619c1c202e4e77af8fed43fe9ccca1ad7df286aaa9dec5f49ac0a46c1f15a2"
+    },
+    "src/dataset/shapefile.ts": {
+      "bytes": 28245,
+      "sha256": "1d342c2b1149532d1cf32b087b33646b8c0d68bfe377458b6dd09831711121d9"
+    },
+    "src/source.ts": {
+      "bytes": 10421,
+      "sha256": "17b255de15bf25edfda4f6f587dc7ca390bdc4f0fa55606152351e3cd8dc4ae3"
+    },
+    "src/bytes.ts": {
+      "bytes": 5687,
+      "sha256": "2a6098dae39e46031ba8da2fd52475b361155fc7236146ce8624c4398e91894f"
+    },
+    "src/close.ts": {
+      "bytes": 1648,
+      "sha256": "d9d9e0dc945b87d039f0c17408de11216d10cfe53777d9390ec4a9674c876f1b"
+    },
+    "src/archive/record.ts": {
+      "bytes": 6848,
+      "sha256": "fc5a3a35d10aca347b86a8830682d46d8ec870c511d622ffa44cc69a73bce6b4"
+    },
+    "tests/shapefile.test.ts": {
+      "bytes": 22258,
+      "sha256": "d33bd9a2ce87030e84c26732bfabc57845003ee4f5892ef66e315959a7a9689a"
+    },
+    "tests/fixtures/shapefile/independent.json": {
+      "bytes": 20624,
+      "sha256": "82bfbbe0455bc1ffee662efb3f752946d58feb0083f233186de9db843655b5ad"
+    }
+  },
+  "outsideContainerActivity": "utils-test-quality-20261105 remained running and untouched; start/end CPU and memory snapshots are retained. Cross-run comparisons remain approximate.",
+  "closureTarSha256": "9445e0c13deb57eac4310ce3548e3b3f5c908534e60c69a4f9ccbabf102b1da7"
+}
