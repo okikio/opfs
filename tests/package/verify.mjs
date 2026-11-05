@@ -216,6 +216,9 @@ try {
     import { PcloudClient } from '@okikio/opfs/pcloud';
     import { YandexClient } from '@okikio/opfs/yandex';
     import { FirebaseClient } from '@okikio/opfs/firebase';
+    import { openUdf } from '@okikio/opfs/archive/udf';
+    import { createBzipDecoder } from '@okikio/opfs/archive/bzip';
+    import { PocketbaseClient } from '@okikio/opfs/pocketbase';
     import { openXz } from '@okikio/opfs/archive/xz';
     import { LfsClient, decodeLfsPointer, encodeLfsPointer, lfsPointerObject } from '@okikio/opfs/content/lfs';
     import { openGitObject, encodeGitTree } from '@okikio/opfs/content/git';
@@ -519,6 +522,50 @@ try {
     } });
     const lfsSource = await lfs.openVerified(lfsObject);
     assertBytes(await lfsSource.read(1, 3), new TextEncoder().encode('ell'));
+    const bzipFixture = ${
+      JSON.stringify(
+        JSON.parse(await readFile(new URL("../fixtures/bzip/independent.json", import.meta.url), "utf8")).fixtures.find(
+          (entry) => entry.name === "binary",
+        ),
+      )
+    };
+    const bzip = createBzipDecoder(createByteSource(Uint8Array.from(atob(bzipFixture.packed), (byte) => byte.charCodeAt(0))));
+    const [bzipBody, bzipEnd] = await Promise.all([new Response(bzip.stream).arrayBuffer(), bzip.finished]);
+    assertBytes(new Uint8Array(bzipBody), Uint8Array.from(atob(bzipFixture.body), (byte) => byte.charCodeAt(0)));
+    if (bzipEnd.status !== 'complete' || bzipEnd.integrity !== 'checksum-verified') throw new Error('Packed BZip2 terminal scope changed');
+    const pocketbase = new PocketbaseClient({ endpoint: 'https://pocket.example/', collection: 'documents', field: 'files', credentials: () => 'Bearer repository-token', fetch: async (input, init) => {
+      const url = new URL(String(input));
+      if (url.pathname.startsWith('/api/files/documents/')) {
+        if (new Headers(init.headers).has('Authorization') || url.searchParams.get('token') !== 'explicit-file-token') throw new Error('Packed PocketBase file authority changed');
+        return new Response(new TextEncoder().encode('hello'), { headers: { 'Content-Length': '5' } });
+      }
+      if (new Headers(init.headers).get('Authorization') !== 'Bearer repository-token') throw new Error('Packed PocketBase API header changed');
+      if (url.pathname === '/api/files/token') return Response.json({ token: 'explicit-file-token' });
+      return Response.json({ id: 'record000000001', collectionId: 'documents', collectionName: 'documents', files: ['hello.txt'] });
+    } });
+    const pocketRecord = await pocketbase.getRecord('record000000001');
+    const pocketToken = await pocketbase.fileToken();
+    assertBytes(await pocketbase.read(pocketRecord.id, pocketRecord.files[0], { token: pocketToken }), new TextEncoder().encode('hello'));
+    const udfFixture = ${
+      JSON.stringify(
+        await (async () => {
+          const value = JSON.parse(
+            await readFile(new URL("../fixtures/udf/independent.json", import.meta.url), "utf8"),
+          );
+          const original = value.entries.find((entry) => entry.name === "large.bin");
+          return {
+            archive: value.adaptations.find((entry) => entry.name === "split-long").archive,
+            body: original.body,
+          };
+        })(),
+      )
+    };
+    const udf = await openUdf(createByteSource(Uint8Array.from(atob(udfFixture.archive), (byte) => byte.charCodeAt(0))));
+    const udfEntry = udf.entries.find((entry) => entry.kind === 'file' && entry.name === 'large.bin');
+    const udfOriginal = Uint8Array.from(atob(udfFixture.body), (byte) => byte.charCodeAt(0));
+    assertBytes((await udf.read(udfEntry.id)).bytes, udfOriginal);
+    assertBytes(await udf.member(udfEntry.id).read(2040, 37), udfOriginal.slice(2040, 2077));
+    if (udf.metadata !== 'descriptor-crc16-verified' || (await udf.read(udfEntry.id, { length: 0 })).integrity !== 'none') throw new Error('Packed UDF metadata/payload scope changed');
     const yandex = new YandexClient({ token: () => 'fixture-token', fetch: async () => Response.json({ path: 'disk:/packed', name: 'packed', type: 'file', size: 3 }) });
     if ((await yandex.stat('disk:/packed')).size !== 3) throw new Error('Packed Yandex native resource failed');
     const pcloud = new PcloudClient({ endpoint: 'https://api.pcloud.com', token: () => 'fixture-token', fetch: async () => new Response('{"result":0,"metadata":{"isfolder":false,"id":"f7","fileid":7,"parentfolderid":0,"name":"packed","size":3,"hash":18446744073709551615}}') });
@@ -788,6 +835,9 @@ try {
     import { PcloudClient } from '@okikio/opfs/pcloud';
     import { YandexClient } from '@okikio/opfs/yandex';
     import { FirebaseClient } from '@okikio/opfs/firebase';
+    import { openUdf } from '@okikio/opfs/archive/udf';
+    import { createBzipDecoder } from '@okikio/opfs/archive/bzip';
+    import { PocketbaseClient } from '@okikio/opfs/pocketbase';
     import { openXz } from '@okikio/opfs/archive/xz';
     import { LfsClient, decodeLfsPointer, encodeLfsPointer, lfsPointerObject } from '@okikio/opfs/content/lfs';
     import { openGitObject, encodeGitTree } from '@okikio/opfs/content/git';
@@ -860,6 +910,15 @@ try {
     const pointer: import('@okikio/opfs/content/lfs').LfsPointerType = decodeLfsPointer(new Uint8Array());
     const lfsReady: readonly import('@okikio/opfs/content/lfs').LfsResultType[] = await lfs.batch('download', [{ oid: '0'.repeat(64), size: 1 }]);
     void [xzRead, pointer, lfsReady];
+    const bzip: import('@okikio/opfs/archive/bzip').BzipDecoderType = createBzipDecoder(createByteSource(new Uint8Array()));
+    const bzipEnd: import('@okikio/opfs/archive/bzip').BzipResultType = await bzip.finished;
+    const pocketbase = new PocketbaseClient({ endpoint: 'https://pocket.example/', collection: 'documents', field: 'files' });
+    const pocketRecord: import('@okikio/opfs/pocketbase').PocketbaseRecordType = await pocketbase.getRecord('record000000001');
+    void [bzipEnd, pocketRecord];
+    const udf: import('@okikio/opfs/archive/udf').UdfArchiveType = await openUdf(createByteSource(new Uint8Array()));
+    const udfRead: import('@okikio/opfs/archive/udf').UdfReadType = await udf.read(0, { length: 1 });
+    const udfMember: import('@okikio/opfs/source').ByteSourceType = udf.member(0);
+    void [udfRead, udfMember];
     const yandex = new YandexClient({ token: () => 'types-only' });
     const yandexPath: string = (await yandex.stat('disk:/packed')).path;
     void yandexPath;
