@@ -158,6 +158,10 @@ privately retained immutable sources. They do not reconstruct an image filesyste
 The optional [encryption profile](docs/encryption.md) authenticates selected ciphertext segments before archive access.
 See [expansion status](docs/expansion.md) for implemented capabilities and the protocols and formats still planned.
 
+MIME previews index strict CRLF message parts and decode bounded attachment ranges without rendering content. The 7z
+reader indexes unencoded headers and reads single COPY streams; encoded headers and compressed/encrypted payloads remain
+unsupported. See [MIME](docs/mime.md) and [7z](docs/seven.md) for costs and evidence.
+
 ## Drivers are independently useful
 
 A driver is not an adapter with a new name. It owns backend mechanics that remain meaningful without `FileSystemType`.

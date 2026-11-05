@@ -197,6 +197,8 @@ try {
     import { OciClient } from '@okikio/opfs/oci';
     import { openCab } from '@okikio/opfs/archive/cab';
     import { openWarc } from '@okikio/opfs/archive/warc';
+    import { openMime } from '@okikio/opfs/archive/mime';
+    import { openSeven } from '@okikio/opfs/archive/seven';
     import { createD1Adapter } from '@okikio/opfs/adapter/d1';
     import { createZipStream } from '@okikio/opfs/archive/write';
     import { openZip } from '@okikio/opfs/archive/zip';
@@ -300,6 +302,20 @@ try {
     const warcArchive = await openWarc(createByteSource(Uint8Array.from(atob(warcFixture.base64), (byte) => byte.charCodeAt(0))));
     assertBytes((await warcArchive.read(1)).bytes, Uint8Array.from(atob(warcFixture.records[1].blockBase64), (byte) => byte.charCodeAt(0)));
     if ((await warcArchive.verifyBlock(1, { subtle: globalThis.crypto.subtle })).integrity !== 'stored-block-digest') throw new Error('Packed WARC block proof failed');
+    const mimeFixture = ${
+      JSON.stringify(JSON.parse(await readFile(new URL("../fixtures/mime/independent.json", import.meta.url), "utf8")))
+    };
+    const mimeArchive = await openMime(createByteSource(Uint8Array.from(atob(mimeFixture.base64), (byte) => byte.charCodeAt(0))));
+    const mimeAttachment = mimeArchive.entries.find((entry) => entry.filenameStatus === 'decoded');
+    if (!mimeAttachment || !(await mimeArchive.read(mimeAttachment.id)).complete) throw new Error('Packed MIME attachment decode failed');
+    const sevenFixture = ${
+      JSON.stringify(
+        JSON.parse(await readFile(new URL("../fixtures/seven/independent.json", import.meta.url), "utf8")).copy,
+      )
+    };
+    const sevenArchive = await openSeven(createByteSource(Uint8Array.from(atob(sevenFixture.archive), (byte) => byte.charCodeAt(0))));
+    const sevenFile = sevenArchive.entries.find((entry) => entry.kind === 'file' && entry.readable && entry.size > 0);
+    if (!sevenFile || (await sevenArchive.read(sevenFile.id)).bytes.length !== sevenFile.size) throw new Error('Packed 7z COPY decode failed');
     const packedOciManifest = JSON.stringify({"schemaVersion":2,"mediaType":"application/vnd.oci.image.manifest.v1+json","config":{"mediaType":"application/vnd.oci.empty.v1+json","digest":"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a","size":2},"layers":[{"mediaType":"application/octet-stream","digest":"sha256:039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81","size":3}]});
     const packedOci = new OciClient({
       registry: 'https://registry.invalid/', repository: 'packed/artifact',
@@ -477,6 +493,8 @@ try {
     import { OciClient } from '@okikio/opfs/oci';
     import { openCab } from '@okikio/opfs/archive/cab';
     import { openWarc } from '@okikio/opfs/archive/warc';
+    import { openMime } from '@okikio/opfs/archive/mime';
+    import { openSeven } from '@okikio/opfs/archive/seven';
     import { createD1Adapter } from '@okikio/opfs/adapter/d1';
     import { createZipStream } from '@okikio/opfs/archive/write';
     import type { ZipWriteEntryType } from '@okikio/opfs/archive/write';
@@ -500,7 +518,11 @@ try {
     const cab = await openCab(createByteSource(new Uint8Array()));
     const warc = await openWarc(createByteSource(new Uint8Array()));
     const readable: boolean = warc.entries[0]!.readable;
-    void [onedrive, cab, readable];
+    const mime = await openMime(createByteSource(new Uint8Array()));
+    const mimeComplete: boolean = (await mime.prefix(0, 1)).complete;
+    const seven = await openSeven(createByteSource(new Uint8Array()));
+    const sevenReadable: boolean = seven.entries[0]!.readable;
+    void [onedrive, cab, readable, mimeComplete, sevenReadable];
     const registry = new OciClient({ registry: 'https://registry.invalid/', repository: 'types/content' });
     const ociDigest: string = (await registry.getManifest('release')).digest;
     void ociDigest;
