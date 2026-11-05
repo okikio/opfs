@@ -45,6 +45,10 @@
     "tests/fixtures/seven/independent.json": {
       "size": 2127666,
       "sha256": "f21a4da1c9dcbabda3fb5b40b6f706cd4410172d0eba4816ab8db2861584acf6"
+    },
+    "tests/fixtures/xz/independent.json": {
+      "size": 2275829,
+      "sha256": "c564d196b6b1b4a23c6d14e28cd51c6466e31e17c0e7f3b70dd5c6e0a30478cf"
     }
   }
 }

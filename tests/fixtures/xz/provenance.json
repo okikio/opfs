@@ -1,0 +1,50 @@
+{
+  "producerPackages": {
+    "xz-utils": "5.4.1-1+deb12u2 (Debian bookworm-security)"
+  },
+  "architecture": "arm64",
+  "tools": {
+    "xz": "xz (XZ Utils) 5.4.1\nliblzma 5.4.1",
+    "7zip": [
+      "",
+      "7-Zip (z) 26.02 (arm64) : Copyright (c) 1999-2026 Igor Pavlov : 2026-06-25",
+      " 64-bit arm_v:8-A locale=C.UTF-8 Threads:8 OPEN_MAX:1048576",
+      "",
+      "Usage: 7zz <command> [<switches>...] <archive_name> [<file_names>...] [@listfile]"
+    ]
+  },
+  "localBaseImage": "opfs-seven-tools:20261105",
+  "localBaseImageId": "sha256:527d62a5244f4fa71833b4a105a4906ec1c1c7708f64ea2967fa04d96c551dd5",
+  "imageLimit": "Local base; signed distro apt installation mutates filesystem. Not a publicly pullable complete producer pin.",
+  "files": {
+    "create.py": "361411982ae611586f9e11f68b88f3246dea14c16083b2d260ef6099684ea9c7",
+    "independent.json": "c564d196b6b1b4a23c6d14e28cd51c6466e31e17c0e7f3b70dd5c6e0a30478cf"
+  },
+  "specification": {
+    "url": "https://tukaani.org/xz/xz-file-format-1.2.1.txt",
+    "version": "1.2.1 (2024-04-08)",
+    "sha256": "acc324b995261e6d9d5793c6a504639a6dfe97f2ccaf3cf8667f20a2486fc85b",
+    "notice": "Specification is public domain. No upstream source decoder is copied."
+  },
+  "archives": {
+    "crc32-empty": "14c80c40f5b247deead9e9d1d31b8b4f5f0b4f4425e6eb12291fd3e505fc8414",
+    "crc32-literal": "d8a7fa95ce44621f7c553378498efb7a425a191f9d3248181661ab3c721d0094",
+    "none-literal": "91c1ac03320597575bdc5a69f40bde948b40cf65322e28a9d163138cc019029a",
+    "crc32-overlap": "73d080a6fd0fd95f9cd3bc6b31da5b7b085a910cbdb45b92ec63d27dee9c8380",
+    "crc32-wrap": "e93c6776a30b7985ff783017c551999883c6a917e2c3166c1e7ff6072e9e8fd8",
+    "crc32-blocks": "782a7ae6cef997577cc31619f3b55dc9b16a64d5c023ae4b7743e4c6bab5da96",
+    "crc32-threaded": "7833090e519adc0125929a69f29db85b44f734be5eaf3ba06b0785c95bac3813",
+    "crc64-literal": "8b6c202e373fe255650b0c8cb97a4485fbdc267f734e30a73064443c99fedd96",
+    "crc64-empty": "0040f94d11d0039505328a90b2ff48968db873e9e7967307631bf40ef5679275",
+    "crc64-vector": "53c320e697694b24b820aa8d9e5e9d6cec01aa962c1c7511c9272f687a2e9835",
+    "crc64-wrap": "8695772b122fa67e710745535ebed10d7ad4b625fe40216edf5ac9a1f1943f1a",
+    "crc64-default-threaded": "cedbf370ea7f6301a396f8f6d097a6b938259f578e4b0b9b355e07c0279d9710",
+    "sha256-refusal": "0f8c6afac856e4e8b2578762f211744c330156e053851fda602aa3cd642ddd07",
+    "delta-refusal": "5a7fed13a00bc1fc4ac01684c4df0800c6fe45980be928dacd697afda10bca60",
+    "bcj-refusal": "7b2c8c3f784b09b01ac378a1bbb6b0f2eb8718466de4ba33c791515efed77ee1",
+    "crc32-padded": "7b3e3996d5faef1e2712e144213822c74a7cd4e025da2bb4f516fb7a2376e231"
+  },
+  "paddingConsumerLimit": "Python convenience refusal retained in fixture. Low-level Python EOF/unused_data examines trailing framing; native xz CLI and independent7zz validate the complete padded container/payload.",
+  "crc64Evidence": "Native XZ default and explicit CRC64 containers are full-byte accepted by Python liblzma and independent 7-Zip. Independent Python bitwise CRC64/XZ oracle checks every stored native block check against original decoded slices. XZ CLI and 7-Zip reject recorded corrupted-check controls. Known ASCII 123456789 check is 995dc9bbdf1939fa.",
+  "producerLog": ".tmp/implementation/xz-producer-crc64-20261105.log (local ignored receipt)"
+}
