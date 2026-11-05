@@ -107,76 +107,41 @@ The first-party integration set is broad, but each layer has one job.
 `adapter/file`, `adapter/record`, and `adapter/object` are reusable translators for third-party drivers. `driver/file`,
 `driver/record`, and `driver/object` are the corresponding backend-native contracts.
 
-Native Google Cloud Storage is available through `gcs`, `driver/gcs`, and `adapter/gcs`. Its generation conditions stay
-distinct from ETags. The optional `tus` and `transfer` modules support known-length, checkpoint-resumable uploads with
-explicit session and source ownership. See [GCS](docs/gcs.md) and [transfer recovery](docs/transfer.md) for complete
-examples and verification limits.
+## Select a native client or preview
 
-[S3 multipart continuation](docs/s3-transfer.md) persists an explicit session and reconciles retained parts after
-restart. It also attributes a lost final acknowledgment through caller-owned session metadata. The caller must enforce
-exclusive ownership of the key, keep the source immutable and save checkpoints atomically.
-[Azure block continuation](docs/azure-transfer.md) follows the same checkpoint model while enforcing its captured
-destination condition at publication. Azure has no safe uncommitted-block-only abort operation.
+A native client preserves provider IDs, revisions and publication rules. It becomes a filesystem only when a driver and
+adapter define that translation. For example, duplicate Drive names do not silently become unique paths. Credentials,
+injected services and transport resources remain caller-owned. See the capability guide before choosing retry, overwrite
+or cancellation behavior.
 
-Optional [HTTP](docs/http.md), [WebDAV](docs/webdav.md), [Backblaze B2](docs/b2.md) and [OpenStack Swift](docs/swift.md)
-subpaths keep authentication caller-owned and refuse unsupported protocol guarantees. WebDAV exposes a file driver; B2
-and Swift use object drivers. HTTP exposes one revision-bound byte source. [WebHDFS](docs/webhdfs.md) adds guarded
-NameNode/DataNode file access with explicit per-target authentication and conservative filesystem primitives.
+| Task                      | Guides and boundaries                                                                                                                                                                                                                                                                                                                |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Cloud object access       | [GCS](docs/gcs.md), [B2](docs/b2.md), [Swift](docs/swift.md) and [R2 bindings](docs/bindings.md) expose native conditions and ranges. GCS generations remain distinct from ETags.                                                                                                                                                    |
+| HTTP and remote files     | [HTTP](docs/http.md) exposes one revision-bound source. [WebDAV](docs/webdav.md) and [WebHDFS](docs/webhdfs.md) expose documented file profiles; [FTP/explicit FTPS](docs/ftp.md) and [SFTP v3](docs/sftp.md) require injected transports.                                                                                           |
+| Native drive IDs          | [Drive](docs/drive.md), [OneDrive](docs/onedrive.md), [Dropbox](docs/dropbox.md) and [Box](docs/box.md) preserve provider-specific version/session evidence. Signed download capabilities receive no provider authorization.                                                                                                         |
+| Runtime database bindings | [Workers KV](docs/bindings.md) retains eventual consistency. [D1](docs/d1.md) uses a caller-owned versioned small-file SQL layout with bounded metadata pages.                                                                                                                                                                       |
+| Restartable uploads       | [tus and transfers](docs/transfer.md), [S3 multipart](docs/s3-transfer.md) and [Azure block continuation](docs/azure-transfer.md) use explicit checkpoints and reconciliation. Keep sources immutable, save checkpoints atomically and enforce exclusive destination ownership. Azure has no uncommitted-block-only abort operation. |
+| Content-addressed bytes   | [IPFS/CID/CAR](docs/ipfs.md) separates gateway trust from verified complete raw blocks. [OCI](docs/oci.md) verifies bounded complete manifests/blobs, without merging image layers. [Git](docs/git.md) verifies loose objects, without packs, refs or traversal. None establishes publisher identity.                                |
 
-[Cloudflare R2 and Workers KV bindings](docs/bindings.md) accept injected services without reading Worker globals. R2
-exposes native object conditions and ranges. KV uses a caller-reserved prefix and retains its eventual consistency.
-[IPFS gateway and CAR access](docs/ipfs.md) distinguishes gateway-trusted file bytes from complete SHA256-verified raw
-blocks; neither a CID URL nor a CAR directory index alone verifies a UnixFS file.
+For a nested preview, first choose a revision-bound [byte source](docs/source.md), open the matching reader, inspect its
+entries and request a finite member interval. A reader may still need a full ciphertext or compressed prefix. Inspect
+its plan and returned integrity evidence before displaying or publishing bytes; an early prefix can precede a later
+checksum failure. The application owns rendering, extraction policy and recovery.
 
-To inspect selected archive members, compose a revision-bound [byte source](docs/source.md) with `archive/zip` or the
-range-based ustar/PAX/GNU metadata reader in `archive/tar`. `view/zip` projects an opened ZIP into a read-only
-filesystem and refuses ambiguous paths. [Archive documentation](docs/archive.md) explains supported profiles, work
-budgets and checksum scope; partial bytes do not establish whole-member integrity.
-[Independent extensions](docs/extensions.md) can supply public driver/source contracts, read-only adapters, bridges or
-codecs without global registration.
+| Preview task               | Guides and boundaries                                                                                                                                                                                                                                                                                                                                                             |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ZIP, TAR and CPIO members  | [ZIP/ZIP64](docs/archive.md), [TAR](docs/tar.md) and [CPIO newc/CRC](docs/cpio.md) support their documented readers and read-only views. Views refuse ambiguous names and links before member acquisition.                                                                                                                                                                        |
+| Archive creation           | [Streaming TAR/PAX](docs/tar.md) and [STORED ZIP32](docs/zip.md) have narrower writer profiles than the readers.                                                                                                                                                                                                                                                                  |
+| Sequential compression     | [Native streams](docs/compression.md) support gzip/zlib/raw DEFLATE and available host Brotli/Zstandard codecs. Independent footer checks apply to gzip/zlib; raw native EOF alone does not prove structural completeness. [LZ4](docs/lz4.md) independently decodes modern frames; full content checksum evidence requires EOF.                                                   |
+| Password-protected content | [Legacy ZipCrypto](docs/password.md) supplies no authentication. [WinZip AES](docs/aes.md) authenticates complete member ciphertext first: STORED decrypts covering blocks, while DEFLATE decrypts all bounded compressed bytes before interval inflation. Names remain unauthenticated. The separate [Tink payload profile](docs/encryption.md) authenticates selected segments. |
+| Other archive containers   | [CAB](docs/cab.md) reads uncompressed folder ranges; [7z](docs/seven.md) reads single COPY streams under unencoded headers; [ar](docs/ar.md) exposes normal GNU/BSD member sources. Additional codecs remain explicit unsupported profiles.                                                                                                                                       |
+| Captures and messages      | [WARC](docs/warc.md) and [ARC](docs/arc.md) expose stored protocol blocks, retaining HTTP headers. [MIME](docs/mime.md) and [MBOX](docs/mbox.md) provide bounded attachment/mailbox previews without rendering or authenticity claims.                                                                                                                                            |
+| Preservation inventories   | [BagIt](docs/bagit.md) separates supplied inventory coverage from selected-file fixity. [OCFL](docs/ocfl.md) resolves explicit version states and distinguishes exact inventory from selected-content verification. Neither implies whole-repository validity.                                                                                                                    |
 
-For archive creation and one-shot streams, see [streaming TAR/PAX](docs/tar.md) and
-[STORED ZIP32 creation](docs/zip.md). Their writer profiles are narrower than the ZIP reader.
-[Native compression streams](docs/compression.md) compose gzip, zlib and raw DEFLATE with sequential TAR preview,
-independently checking gzip/zlib footers. Raw decoder EOF alone does not establish structural completeness.
-
-[CPIO previews](docs/cpio.md) index uncompressed newc/CRC archives and expose regular members through a read-only view.
-[TAR views](docs/tar.md#browse-an-indexed-tar-as-a-read-only-filesystem) add the same strict namespace admission while
-retaining TAR's header-only checksum scope. Both borrow their sources and refuse ambiguous paths before member reads.
-[Google Drive](docs/drive.md) operates on native IDs and resumable sessions without pretending duplicate names form a
-filesystem. [D1 bindings](docs/d1.md) store small files in a versioned SQL layout with bounded metadata-only directory
-pages. The guides distinguish protocol/SQL fixture evidence from deployed-service verification.
-
-[CAB inspection](docs/cab.md) reads uncompressed folder ranges and reports covering-block checksum scope.
-[WARC inspection](docs/warc.md) previews stored capture blocks with separate optional whole-block digest checks.
-[OneDrive](docs/onedrive.md) preserves drive/item IDs and native upload-session evidence; its capability URLs receive no
-Graph credentials. These are documented profiles, with unsupported codecs and reconstruction kept explicit.
-
-[OCI registry reads](docs/oci.md) verify complete manifest/blob bytes and distinguish server-trusted ranges from
-privately retained immutable sources. They do not reconstruct an image filesystem or verify publisher signatures.
-
-The optional [encryption profile](docs/encryption.md) authenticates selected ciphertext segments before archive access.
-See [expansion status](docs/expansion.md) for implemented capabilities and the protocols and formats still planned.
-
-MIME previews index strict CRLF message parts and decode bounded attachment ranges without rendering content. The 7z
-reader indexes unencoded headers and reads single COPY streams; encoded headers and compressed/encrypted payloads remain
-unsupported. See [MIME](docs/mime.md) and [7z](docs/seven.md) for costs and evidence.
-
-FTP and explicit FTPS use injected socket/TLS capabilities for native metadata, streaming suffix reads and bounded
-uploads. [MBOX](docs/mbox.md) exposes explicit mailbox preview conversion, and [ar](docs/ar.md) provides selected member
-sources for nested package inspection. See [FTP](docs/ftp.md) for transport ownership and uncertain-publication
-recovery.
-
-[SFTP v3](docs/sftp.md) adds bounded native file extents over a caller-supplied authenticated SSH subsystem.
-[BagIt](docs/bagit.md) inspects an explicit preservation inventory and verifies selected files without walking a host
-filesystem. [Legacy ZIP password previews](docs/password.md) accept explicit password bytes; CRC success provides no
-authentication.
-
-[OCFL](docs/ocfl.md) resolves logical version states to explicit content sources and separates inventory/content fixity.
-[WinZip AES STORED/DEFLATE](docs/aes.md) checks complete ciphertext before decrypting selected blocks; names remain
-unauthenticated. [Dropbox](docs/dropbox.md) keeps native revision and upload-offset evidence. Optional native
-Brotli/Zstandard streams use available host codecs without a fallback dependency; see
-[compression](docs/compression.md).
+[Third-party extensions](docs/extensions.md) use public driver/source contracts, read-only adapters, bridges and
+explicit codec capabilities without global registration. The [expansion status](docs/expansion.md) is the maintained
+summary of implemented profiles, proof levels and remaining groups. A container or authored protocol fixture does not
+establish live-service IAM, CORS, durability or universal format compatibility.
 
 ## Drivers are independently useful
 
@@ -502,10 +467,3 @@ core task files delegate to Deno. Task implementation files under `.mise/tasks/`
 
 Use the [Deno and Bumpy release workflow](docs/releasing.md) to author explanatory release notes, synchronize package
 versions, inspect exact artifacts, and publish with independent JSR/npm receipts and fresh public-consumer checks.
-
-[LZ4](docs/lz4.md) decodes bounded modern frames; complete content checksum evidence requires EOF. [Box](docs/box.md)
-preserves native versions and distinguishes pending upload commits from final file receipts.
-[Internet Archive ARC](docs/arc.md) exposes exact physical capture blocks with explicit producer framing.
-
-[Git loose objects](docs/git.md) verify complete SHA-1/SHA-256 object bytes before exposing private payload ranges and
-inert tree names. Packs, refs and traversal remain outside that profile.
