@@ -119,7 +119,8 @@
     "./archive/lz4": "./src/archive/lz4.ts",
     "./box": "./src/box.ts",
     "./archive/arc": "./src/archive/arc.ts",
-    "./content/git": "./src/content/git.ts"
+    "./content/git": "./src/content/git.ts",
+    "./pcloud": "./src/pcloud.ts"
   },
   "imports": {
     "@okikio/undent": "jsr:@okikio/undent@^0.3.3",
