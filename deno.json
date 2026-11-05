@@ -100,7 +100,9 @@
     "./view/tar": "./src/view/tar.ts",
     "./archive/cpio": "./src/archive/cpio.ts",
     "./view/cpio": "./src/view/cpio.ts",
-    "./drive": "./src/drive.ts"
+    "./drive": "./src/drive.ts",
+    "./driver/d1": "./src/driver/d1.ts",
+    "./adapter/d1": "./src/adapter/d1.ts"
   },
   "imports": {
     "@okikio/undent": "jsr:@okikio/undent@^0.3.3",
