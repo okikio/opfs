@@ -1,3 +1,5 @@
+import { createZipCrypto } from "./password.ts";
+import { createArchiveLedger } from "./record.ts";
 import type { ByteSourceType } from "../source.ts";
 import { close } from "../close.ts";
 import { isBytes, toRequestBytes, toView } from "../bytes.ts";
@@ -14,6 +16,8 @@ export interface ZipEntryType {
   readonly compressedSize: number;
   readonly method: number;
   readonly encrypted: boolean;
+  /** Explicit supported legacy profile; other encryption remains unreadable. */
+  readonly encryption?: "zipcrypto" | "unsupported";
   readonly directory: boolean;
   readonly kind: "file" | "directory" | "symbolic-link" | "other";
   readonly crc32: number;
@@ -40,6 +44,10 @@ export interface ZipReadOptionsType extends ArchiveLimitsType {
   readonly length?: number;
   readonly verify?: boolean;
   readonly inflate?: ZipInflateType;
+  /** Explicit opt-in to obsolete ZipCrypto. Caller bytes are copied before source I/O; never authenticated. */
+  readonly password?: Uint8Array;
+  /** Maximum password byte length. Default 1024. No text encoding is inferred. */
+  readonly maxPasswordBytes?: number;
 }
 
 /** CRC verification detects accidental corruption, not malicious modification or sender identity. */
@@ -47,6 +55,8 @@ export interface ZipReadType {
   readonly bytes: Uint8Array;
   readonly integrity: "checksum-pending" | "checksum-verified";
   readonly work: ArchiveWorkType;
+  /** Present only for password reads; CRC success never upgrades this to authentication. */
+  readonly encryption?: { readonly kind: "zipcrypto"; readonly authentication: "none" };
 }
 
 /** Deterministic admission. Local-header lengths and codec availability remain execution-time facts. */
@@ -79,6 +89,7 @@ interface EntryType {
   readonly name: Uint8Array;
   readonly flags: number;
   readonly offset: number;
+  readonly time: number;
 }
 
 /** Open a single-disk ZIP/ZIP64 directory without extracting its members. */
@@ -240,15 +251,41 @@ function parseDirectory(
       compressedSize,
       method,
       encrypted: Boolean(flags & 0x2041),
+      ...(!(flags & 0x2041) ? {} : {
+        encryption:
+          (flags & 1) && !(flags & 0x2040) && !hasExtra(extra, 0x9901) && data.getUint16(position + 6, true) >= 20 &&
+            (method === 0 || method === 8)
+            ? "zipcrypto" as const
+            : "unsupported" as const,
+      }),
       directory: kind === "directory",
       kind,
       crc32: data.getUint32(position + 16, true),
     });
-    records.push({ entry, name: rawName, flags, offset });
+    records.push({ entry, name: rawName, flags, offset, time: data.getUint16(position + 12, true) });
     position = next;
   }
   if (position !== bytes.byteLength) unsupported("Extra ZIP directory records are unsupported.");
   return records;
+}
+
+/** Central extras were already extent-validated by ZIP64 parsing; local encryption forms use the same bounded walk. */
+/** Validate the full bounded extra area: an early match must not hide trailing corruption or duplicate profiles. */
+function hasExtra(data: DataView, wanted: number): boolean {
+  let at = 0;
+  let found = false;
+  while (at < data.byteLength) {
+    if (data.byteLength - at < 4) invalid("Truncated ZIP extra field.");
+    const id = data.getUint16(at, true);
+    const size = data.getUint16(at + 2, true);
+    if (size > data.byteLength - at - 4) invalid("ZIP extra field exceeds record.");
+    if (id === wanted) {
+      if (found) invalid("Duplicate ZIP encryption extra fields are ambiguous.");
+      found = true;
+    }
+    at += 4 + size;
+  }
+  return found;
 }
 
 /** ZIP64 extra values appear only for sentinel fields and in their specified order. */
@@ -298,9 +335,15 @@ function planRead(entry: ZipEntryType, options: ZipReadOptionsType): ZipPlanType
   integer(length, "Decoded length");
   if (offset > entry.size || length > entry.size - offset) throw new RangeError("Requested range exceeds ZIP member.");
   const complete = Boolean(options.verify) || (offset === 0 && length === entry.size);
-  const decoded = complete ? entry.size : entry.method === 0 ? length : offset + length;
-  const source = entry.method === 0 ? (complete ? entry.size : length) : entry.compressedSize;
-  const reason = entry.encrypted
+  const legacy = entry.encrypted && entry.encryption === "zipcrypto" && options.password !== undefined;
+  const plaintext = complete ? entry.size : entry.method === 0 && !legacy ? length : offset + length;
+  const decoded = legacy ? plaintext + (entry.method === 0 ? 12 : entry.compressedSize) : plaintext;
+  const source = legacy && entry.method === 0
+    ? plaintext + 12
+    : entry.method === 0
+    ? (complete ? entry.size : length)
+    : entry.compressedSize;
+  const reason = entry.encrypted && !legacy
     ? "encrypted-member"
     : entry.method !== 0 && entry.method !== 8
     ? "compression-method"
@@ -311,7 +354,7 @@ function planRead(entry: ZipEntryType, options: ZipReadOptionsType): ZipPlanType
   return {
     supported: reason === undefined,
     ...(reason === undefined ? {} : { reason }),
-    access: entry.method === 0 ? "direct-range" : "decode-from-start",
+    access: entry.method === 0 && !legacy ? "direct-range" : "decode-from-start",
     outputBytes: length,
     decodedBytes: decoded,
     sourceBytes: source,
@@ -327,8 +370,20 @@ async function readMember(
   boundary: number,
   options: ZipReadOptionsType,
 ): Promise<ZipReadType> {
-  const budget = new ArchiveBudget(source, options, options.signal);
   const plan = planRead(record.entry, options);
+  const aggregate = record.entry.encrypted ? createArchiveLedger(options) : undefined;
+  const callerLedger = options.ledger;
+  const accounting = aggregate
+    ? {
+      reserve(kind: keyof ArchiveWorkType, count: number): void {
+        aggregate.reserve(kind, count);
+        callerLedger?.reserve(kind, count);
+      },
+      inspect: () => aggregate.inspect(),
+    }
+    : undefined;
+  const effective = accounting ? { ...options, ledger: accounting } : options;
+  const budget = new ArchiveBudget(source, effective, options.signal);
   if (!plan.supported) {
     if (plan.reason === "budget-exceeded") {
       throw new ArchiveError("budget-exceeded", "ZIP member exceeds the admitted work/output limits.");
@@ -340,155 +395,190 @@ async function readMember(
     );
   }
   const entry = record.entry;
-  const header = view(await budget.read(record.offset, 30));
-  if (
-    header.getUint32(0, true) !== 0x04034b50 || header.getUint16(6, true) !== record.flags ||
-    header.getUint16(8, true) !== entry.method
-  ) invalid("ZIP local header disagrees with directory.");
-  const nameSize = header.getUint16(26, true);
-  const extraSize = header.getUint16(28, true);
-  const name = await budget.read(record.offset + 30, nameSize);
-  if (name.length !== record.name.length || name.some((byte, index) => byte !== record.name[index])) {
-    invalid("ZIP local name disagrees with directory.");
-  }
-  const dataOffset = record.offset + 30 + nameSize + extraSize;
-  if (dataOffset > boundary || entry.compressedSize > boundary - dataOffset) {
-    invalid("ZIP member data overlaps directory.");
-  }
-  if (!(record.flags & 8)) {
-    const sizes = zip64(
-      view(await budget.read(record.offset + 30 + nameSize, extraSize)),
-      header.getUint32(22, true) === 0xffffffff,
-      header.getUint32(18, true) === 0xffffffff,
-      false,
-      false,
-    );
+  const cipher = entry.encryption === "zipcrypto" && options.password !== undefined
+    ? createZipCrypto(options.password, options.maxPasswordBytes)
+    : undefined;
+  const encryption = cipher ? { encryption: { kind: "zipcrypto" as const, authentication: "none" as const } } : {};
+  try {
+    const header = view(await budget.read(record.offset, 30));
     if (
-      header.getUint32(14, true) !== entry.crc32 || (sizes.size ?? header.getUint32(22, true)) !== entry.size ||
-      (sizes.compressedSize ?? header.getUint32(18, true)) !== entry.compressedSize
-    ) invalid("ZIP local sizes or checksum disagree with directory.");
-  }
-  if (entry.method === 0 && entry.size !== entry.compressedSize) invalid("Stored ZIP member sizes disagree.");
-  const offset = options.offset ?? 0;
-  const length = plan.outputBytes;
-  const complete = plan.verification === "full-member-crc";
-  if (entry.method === 0 && !complete) {
-    const bytes = await budget.read(dataOffset + offset, length);
-    budget.decoded(length);
-    budget.output(length);
-    return { bytes, integrity: "checksum-pending", work: budget.inspect() };
-  }
-  const chunks: Uint8Array[] = [];
-  let decoded = 0;
-  let state = 0xffffffff;
-  const consume = (value: Uint8Array): void => {
-    if (!isBytes(value)) invalid("ZIP decoder returned a non-byte chunk.");
-    const bytes = toView(value);
-    budget.decoded(bytes.byteLength);
-    if (bytes.byteLength > entry.size - decoded) invalid("ZIP decoded bytes exceed declared member size.");
-    if (complete) state = crc32(bytes, state);
-    const start = Math.max(0, offset - decoded);
-    const end = Math.min(bytes.byteLength, offset + length - decoded);
-    if (end > start) {
-      const selected = bytes.slice(start, end);
-      budget.output(selected.byteLength);
-      chunks.push(selected);
+      header.getUint32(0, true) !== 0x04034b50 || header.getUint16(6, true) !== record.flags ||
+      header.getUint16(8, true) !== entry.method
+    ) invalid("ZIP local header disagrees with directory.");
+    if (cipher && header.getUint16(10, true) !== record.time) {
+      invalid("ZIP encrypted local time disagrees with directory.");
     }
-    decoded += bytes.byteLength;
-  };
-  if (entry.method === 0) {
-    for (let position = 0; position < entry.size; position += 65536) {
-      consume(await budget.read(dataOffset + position, Math.min(65536, entry.size - position)));
+    const nameSize = header.getUint16(26, true);
+    const extraSize = header.getUint16(28, true);
+    const name = await budget.read(record.offset + 30, nameSize);
+    if (name.length !== record.name.length || name.some((byte, index) => byte !== record.name[index])) {
+      invalid("ZIP local name disagrees with directory.");
     }
-  } else {
-    let position = 0;
-    const abort = new AbortController();
-    const signal = options.signal ? AbortSignal.any([options.signal, abort.signal]) : abort.signal;
-    const compressedBudget = new ArchiveBudget(source, {
-      ...options,
-      maxSourceBytes: budget.limits.maxSourceBytes - budget.inspect().sourceBytes,
-      maxRequests: budget.limits.maxRequests - budget.inspect().requests,
-    }, signal);
-    const input = new ReadableStream<Uint8Array<ArrayBuffer>>({
-      async pull(controller) {
-        if (position === entry.compressedSize) {
-          controller.close();
-          return;
-        }
-        const size = Math.min(65536, entry.compressedSize - position);
-        const bytes = await compressedBudget.read(dataOffset + position, size);
-        position += size;
-        // Native codec BufferSource excludes shared backing; preserve canonical
-        // fixed buffers and snapshot foreign/shared ranges through the byte owner.
-        controller.enqueue(toRequestBytes(bytes));
-      },
-    }, { highWaterMark: 0 });
-    let transform: ReadableWritablePair<Uint8Array, Uint8Array<ArrayBuffer>>;
-    if (options.inflate) transform = options.inflate();
-    else {
-      try {
-        transform = new DecompressionStream("deflate-raw");
-      } catch {
-        unsupported("Raw-DEFLATE is unavailable; inject an explicit codec factory.");
+    const dataOffset = record.offset + 30 + nameSize + extraSize;
+    if (dataOffset > boundary || entry.compressedSize > boundary - dataOffset) {
+      invalid("ZIP member data overlaps directory.");
+    }
+    const localExtra = cipher ? view(await budget.read(record.offset + 30 + nameSize, extraSize)) : undefined;
+    if (localExtra && hasExtra(localExtra, 0x9901)) unsupported("ZIP AES extra fields cannot be read as ZipCrypto.");
+    if (!(record.flags & 8)) {
+      const sizes = zip64(
+        localExtra ?? view(await budget.read(record.offset + 30 + nameSize, extraSize)),
+        header.getUint32(22, true) === 0xffffffff,
+        header.getUint32(18, true) === 0xffffffff,
+        false,
+        false,
+      );
+      if (
+        header.getUint32(14, true) !== entry.crc32 || (sizes.size ?? header.getUint32(22, true)) !== entry.size ||
+        (sizes.compressedSize ?? header.getUint32(18, true)) !== entry.compressedSize
+      ) invalid("ZIP local sizes or checksum disagree with directory.");
+    }
+    const cipherHeader = cipher ? 12 : 0;
+    if (entry.compressedSize < cipherHeader) invalid("ZIP encryption header is truncated.");
+    const payloadSize = entry.compressedSize - cipherHeader;
+    const payloadOffset = dataOffset + cipherHeader;
+    if (entry.method === 0 && entry.size !== payloadSize) invalid("Stored ZIP member sizes disagree.");
+    if (cipher) {
+      budget.decoded(12);
+      const decodedHeader = cipher.decrypt(await budget.read(dataOffset, 12));
+      const expected = record.flags & 8 ? record.time >>> 8 : entry.crc32 >>> 24;
+      if (decodedHeader[11] !== expected) {
+        throw new ArchiveError("checksum-mismatch", "ZIP password verifier failed; wrong password or corrupt data.");
       }
     }
-    const reader = input.pipeThrough(transform).getReader();
-    let eof = false;
-    let cancellation: Promise<void> | undefined;
-    const cancel = (reason?: unknown): Promise<void> => cancellation ??= reader.cancel(reason);
-    const onAbort = (): void => {
-      abort.abort(options.signal?.reason);
-      // Observe this promise immediately; cleanup below remains its sole reporter.
-      void cancel(options.signal?.reason).catch(() => {});
+    const offset = options.offset ?? 0;
+    const length = plan.outputBytes;
+    const complete = plan.verification === "full-member-crc";
+    if (entry.method === 0 && !complete && !cipher) {
+      const bytes = await budget.read(dataOffset + offset, length);
+      budget.decoded(length);
+      budget.output(length);
+      return { bytes, integrity: "checksum-pending", work: budget.inspect() };
+    }
+    const chunks: Uint8Array[] = [];
+    let decoded = 0;
+    let state = 0xffffffff;
+    const consume = (value: Uint8Array, admitted = false): void => {
+      if (!isBytes(value)) invalid("ZIP decoder returned a non-byte chunk.");
+      const bytes = toView(value);
+      if (!admitted) budget.decoded(bytes.byteLength);
+      if (bytes.byteLength > entry.size - decoded) invalid("ZIP decoded bytes exceed declared member size.");
+      if (complete) state = crc32(bytes, state);
+      const start = Math.max(0, offset - decoded);
+      const end = Math.min(bytes.byteLength, offset + length - decoded);
+      if (end > start) {
+        budget.output(end - start);
+        const selected = bytes.slice(start, end);
+        chunks.push(selected);
+      }
+      decoded += bytes.byteLength;
     };
-    options.signal?.addEventListener("abort", onAbort, { once: true });
-    if (options.signal?.aborted) onAbort();
-    let failures: unknown[] = [];
-    try {
-      while (complete || decoded < offset + length) {
-        signal.throwIfAborted();
-        const result = await reader.read();
-        signal.throwIfAborted();
-        if (result.done) {
-          eof = true;
-          break;
+    if (entry.method === 0) {
+      const extent = complete ? entry.size : cipher ? offset + length : entry.size;
+      for (let position = 0; position < extent; position += 65536) {
+        const chunk = await budget.read(payloadOffset + position, Math.min(65536, extent - position));
+        if (cipher) budget.decoded(chunk.length);
+        consume(cipher ? cipher.decrypt(chunk) : chunk, Boolean(cipher));
+      }
+    } else {
+      let position = 0;
+      const abort = new AbortController();
+      const signal = options.signal ? AbortSignal.any([options.signal, abort.signal]) : abort.signal;
+      const compressedBudget = new ArchiveBudget(source, {
+        ...effective,
+        maxSourceBytes: budget.limits.maxSourceBytes - budget.inspect().sourceBytes,
+        maxRequests: budget.limits.maxRequests - budget.inspect().requests,
+      }, signal);
+      const input = new ReadableStream<Uint8Array<ArrayBuffer>>({
+        async pull(controller) {
+          if (position === payloadSize) {
+            controller.close();
+            return;
+          }
+          const size = Math.min(65536, payloadSize - position);
+          let bytes = await compressedBudget.read(payloadOffset + position, size);
+          if (cipher) {
+            compressedBudget.decoded(size);
+            bytes = cipher.decrypt(bytes);
+          }
+          position += size;
+          // Native codec BufferSource excludes shared backing; preserve canonical
+          // fixed buffers and snapshot foreign/shared ranges through the byte owner.
+          controller.enqueue(toRequestBytes(bytes));
+        },
+      }, { highWaterMark: 0 });
+      let transform: ReadableWritablePair<Uint8Array, Uint8Array<ArrayBuffer>>;
+      if (options.inflate) transform = options.inflate();
+      else {
+        try {
+          transform = new DecompressionStream("deflate-raw");
+        } catch {
+          unsupported("Raw-DEFLATE is unavailable; inject an explicit codec factory.");
         }
-        consume(result.value);
       }
-      if ((complete && decoded !== entry.size) || decoded < offset + length) {
-        invalid("ZIP member ended before its declared size.");
+      const reader = input.pipeThrough(transform).getReader();
+      let eof = false;
+      let cancellation: Promise<void> | undefined;
+      const cancel = (reason?: unknown): Promise<void> => cancellation ??= reader.cancel(reason);
+      const onAbort = (): void => {
+        abort.abort(options.signal?.reason);
+        // Observe this promise immediately; cleanup below remains its sole reporter.
+        void cancel(options.signal?.reason).catch(() => {});
+      };
+      options.signal?.addEventListener("abort", onAbort, { once: true });
+      if (options.signal?.aborted) onAbort();
+      let failures: unknown[] = [];
+      try {
+        while (complete || decoded < offset + length) {
+          signal.throwIfAborted();
+          const result = await reader.read();
+          signal.throwIfAborted();
+          if (result.done) {
+            eof = true;
+            break;
+          }
+          consume(result.value);
+        }
+        if ((complete && decoded !== entry.size) || decoded < offset + length) {
+          invalid("ZIP member ended before its declared size.");
+        }
+      } catch (reason) {
+        failures = [reason];
+      } finally {
+        options.signal?.removeEventListener("abort", onAbort);
+        abort.abort();
+        await close([() => cancellation ?? (eof ? undefined : cancel()), () => reader.releaseLock()], failures);
       }
-    } catch (reason) {
-      failures = [reason];
-    } finally {
-      options.signal?.removeEventListener("abort", onAbort);
-      abort.abort();
-      await close([() => cancellation ?? (eof ? undefined : cancel()), () => reader.releaseLock()], failures);
+      const compressedWork = compressedBudget.inspect();
+      const initial = budget.inspect();
+      const result = join(chunks, length);
+      if (complete && ((state ^ 0xffffffff) >>> 0) !== entry.crc32) {
+        throw new ArchiveError("checksum-mismatch", "ZIP member CRC32 failed.");
+      }
+      return {
+        bytes: result,
+        ...encryption,
+        integrity: complete ? "checksum-verified" : "checksum-pending",
+        work: {
+          ...initial,
+          sourceBytes: initial.sourceBytes + compressedWork.sourceBytes,
+          requests: initial.requests + compressedWork.requests,
+          decodedBytes: initial.decodedBytes + compressedWork.decodedBytes,
+        },
+      };
     }
-    const compressedWork = compressedBudget.inspect();
-    const initial = budget.inspect();
-    const result = join(chunks, length);
     if (complete && ((state ^ 0xffffffff) >>> 0) !== entry.crc32) {
       throw new ArchiveError("checksum-mismatch", "ZIP member CRC32 failed.");
     }
     return {
-      bytes: result,
+      bytes: join(chunks, length),
+      ...encryption,
       integrity: complete ? "checksum-verified" : "checksum-pending",
-      work: {
-        ...initial,
-        sourceBytes: initial.sourceBytes + compressedWork.sourceBytes,
-        requests: initial.requests + compressedWork.requests,
-      },
+      work: budget.inspect(),
     };
+  } finally {
+    cipher?.clear();
   }
-  if (complete && ((state ^ 0xffffffff) >>> 0) !== entry.crc32) {
-    throw new ArchiveError("checksum-mismatch", "ZIP member CRC32 failed.");
-  }
-  return {
-    bytes: join(chunks, length),
-    integrity: complete ? "checksum-verified" : "checksum-pending",
-    work: budget.inspect(),
-  };
 }
 
 function join(chunks: readonly Uint8Array[], length: number): Uint8Array {

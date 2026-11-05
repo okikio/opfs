@@ -60,11 +60,13 @@ partial interval, `verify: true` decodes the complete member and checks its CRC 
 This may exceed a preview budget and fail. CRC32 detects accidental corruption; it does not authenticate a publisher or
 protect against a maliciously constructed archive. Parsed directory fields are not authenticated.
 
-Encrypted ZIP profiles, split volumes, extra directory records/signatures and unsupported compression methods return
-`ArchiveError` with `code: "unsupported-profile"` when their operation is requested. No decrypted speculative bytes are
-emitted. ZIP64 values above `Number.MAX_SAFE_INTEGER` are refused instead of rounded. Data-descriptor members can be
-read using their central-directory sizes; descriptor bytes are not independently verified. Self-extracting or
-offset-rebased archives require an explicit supported profile rather than automatic offset guessing.
+Legacy ZipCrypto STORED and DEFLATE members accept explicit password bytes; see the complete
+[password preview guide](password.md). A partial read can return plaintext with a pending CRC, and even a verified CRC
+provides no authentication. Strong/AES encryption profiles, split volumes, extra directory records/signatures and
+unsupported compression methods return `ArchiveError` with `code: "unsupported-profile"` when requested. ZIP64 values
+above `Number.MAX_SAFE_INTEGER` are refused instead of rounded. Data-descriptor members can be read using their
+central-directory sizes; descriptor bytes are not independently verified. Self-extracting or offset-rebased archives
+require an explicit supported profile rather than automatic offset guessing.
 
 `maxDirectoryBytes` defaults to 16 MiB and `maxEntries` to 100,000. Each open/read also defaults to 64 MiB source bytes,
 4,096 source requests, 64 MiB decoded bytes and 16 MiB returned bytes. A selected output can be smaller than actual
