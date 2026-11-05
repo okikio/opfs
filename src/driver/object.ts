@@ -33,10 +33,11 @@ export const ObjectDriverCapabilitiesSchema: z.ZodType<ObjectDriverCapabilitiesT
 /** A validated native object-driver capability description. */
 export type ObjectDriverCapabilitiesType = import("../_schema_types.ts").ObjectDriverCapabilitiesType;
 
-/** Provider-specific precondition. Generations are opaque strings, never ETags or JS numbers. */
+/** Provider-specific precondition. Generations and immutable version IDs remain strings, separate from ETags. */
 export type ObjectRevisionType =
   | { readonly kind: "etag"; readonly value: string }
-  | { readonly kind: "generation"; readonly value: string };
+  | { readonly kind: "generation"; readonly value: string }
+  | { readonly kind: "version"; readonly value: string };
 
 /** Portable object metadata returned by {@link ObjectBackendType.head}. */
 export interface ObjectStatType {

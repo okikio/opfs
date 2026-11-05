@@ -38,11 +38,13 @@ separately. Do not invent size, range or reopen capabilities for an unknown-leng
 immutable Blob. Each read returns an owned array. A caller-supplied identity can support restart comparison, but it is
 not a content hash computed by the library and must change when the input changes.
 
-`openObjectSource()` performs one HEAD and binds later ranges to a native generation or strong ETag. A changed current
-object either leaves a provider-addressable old revision readable or rejects; it must not silently change the bytes
-under an existing index. GCS generations remain opaque strings, separate from ETags. S3/Azure reject GCS generation
-conditions before network work. A backend with no revision requires explicit `assumeStable: true`; its `stability` is
-`caller`, not `provider`. Weak ETags cannot establish provider-bound stability.
+`openObjectSource()` borrows only `head`, `get`, `capabilities.rangeRead` and optional `identity`; both object clients
+and object drivers fit this read-only contract without sharing their different limit metadata. It performs one HEAD and
+binds later ranges to a native generation, immutable version ID or strong ETag. A changed current object either leaves a
+provider-addressable old revision readable or rejects; it must not silently change the bytes under an existing index.
+GCS generations remain decimal strings, separate from ETags; B2 file IDs use the opaque `version` kind. S3/Azure reject
+other providers’ generation and version conditions before network work. A backend with no revision requires explicit
+`assumeStable: true`; its `stability` is `caller`, not `provider`. Weak ETags cannot establish provider-bound stability.
 
 Automatic replay identity includes the configured service and bucket/container namespace, object key, revision and size.
 A third-party backend can supply its stable `identity`, or the caller can supply an explicit `namespace` when opening
