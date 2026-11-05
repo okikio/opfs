@@ -1,0 +1,2 @@
+# Native pointer and payload oracles retain their exact bytes on every checkout.
+* -text

@@ -127,7 +127,8 @@
     "./archive/wim": "./src/archive/wim.ts",
     "./archive/lzma": "./src/archive/lzma.ts",
     "./firebase": "./src/firebase.ts",
-    "./archive/xz": "./src/archive/xz.ts"
+    "./archive/xz": "./src/archive/xz.ts",
+    "./content/lfs": "./src/content/lfs.ts"
   },
   "imports": {
     "@okikio/undent": "jsr:@okikio/undent@^0.3.3",
