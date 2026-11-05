@@ -1,0 +1,92 @@
+[
+  {
+    "path": "bench/geotiff.bench.ts",
+    "bytes": 5357,
+    "sha256": "f5757e7ee8b5c8d03c60c5e6ac5833cea3f3ce215e8f299e94d9b69fea0e55c6"
+  },
+  {
+    "path": "bench/result.ts",
+    "bytes": 2692,
+    "sha256": "1d619c1c202e4e77af8fed43fe9ccca1ad7df286aaa9dec5f49ac0a46c1f15a2"
+  },
+  {
+    "path": "docs/geotiff.md",
+    "bytes": 10425,
+    "sha256": "1dde4a87f4db07b20b78890904be4c9b662f3983a3aa73ce995ad0eb4b4f0faa"
+  },
+  {
+    "path": "src/_schema_types.ts",
+    "bytes": 9315,
+    "sha256": "b6b4c42c2e296b1fcc9a3800939aacf7c7df629a3b56e412f10be16a50036398"
+  },
+  {
+    "path": "src/abort.ts",
+    "bytes": 2174,
+    "sha256": "0f7c0b19babcb622a0c40c4632ec3ba7ceef9571a1910910beb9b13761470180"
+  },
+  {
+    "path": "src/archive/record.ts",
+    "bytes": 6848,
+    "sha256": "fc5a3a35d10aca347b86a8830682d46d8ec870c511d622ffa44cc69a73bce6b4"
+  },
+  {
+    "path": "src/bytes.ts",
+    "bytes": 5687,
+    "sha256": "2a6098dae39e46031ba8da2fd52475b361155fc7236146ce8624c4398e91894f"
+  },
+  {
+    "path": "src/close.ts",
+    "bytes": 1648,
+    "sha256": "d9d9e0dc945b87d039f0c17408de11216d10cfe53777d9390ec4a9674c876f1b"
+  },
+  {
+    "path": "src/dataset/geotiff.ts",
+    "bytes": 32210,
+    "sha256": "fa7359385a2e532c71d64c8a60814aafcedda0e6a87528520706589279bcb530"
+  },
+  {
+    "path": "src/driver/definition.ts",
+    "bytes": 19406,
+    "sha256": "a211eb3f489ddce20d28320eaa18f878d5bfb0c79a6a13a2d0cbc5d17e911cb8"
+  },
+  {
+    "path": "src/driver/object.ts",
+    "bytes": 13297,
+    "sha256": "ec5d7df1da7b385099b59751aa0409fc9b607e5c1173b03df3616e9687cd90e1"
+  },
+  {
+    "path": "src/error.ts",
+    "bytes": 7010,
+    "sha256": "c8d13be40e3a41fe387f5da5587627b5bd1eae33284939a9b345bf1e2923bf5a"
+  },
+  {
+    "path": "src/metrics.ts",
+    "bytes": 7287,
+    "sha256": "e4a3896153834c6e55e602d1c63dab2d054d905bf86ff1af318aecbff70135f5"
+  },
+  {
+    "path": "src/path.ts",
+    "bytes": 3502,
+    "sha256": "1fba703cd6f9ec5ed595deead14939e32578a1b8e0eeabb405ab065eb65425f2"
+  },
+  {
+    "path": "src/schema.ts",
+    "bytes": 23071,
+    "sha256": "fd1fde5517a3db1e8e5a3e2c4a0fd0a7f14efaae7b7682bc21c9ba0ec5798c18"
+  },
+  {
+    "path": "src/source.ts",
+    "bytes": 10421,
+    "sha256": "17b255de15bf25edfda4f6f587dc7ca390bdc4f0fa55606152351e3cd8dc4ae3"
+  },
+  {
+    "path": "tests/fixtures/geotiff/independent.json",
+    "bytes": 359325,
+    "sha256": "c06a5fa6e1dee2ea93b1cfca83d894f1e2efd960a36a2e893ecbc8371406c622"
+  },
+  {
+    "path": "tests/geotiff.test.ts",
+    "bytes": 22077,
+    "sha256": "9167b24fefbf825dc2e29484f86bd6d7409dc52ed47430f3daa7386dd583c4eb"
+  }
+]

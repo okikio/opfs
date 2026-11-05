@@ -1,0 +1,1033 @@
+{
+  "directRequests": [
+    "python3-gdal",
+    "gdal-bin",
+    "python3-tifffile",
+    "python3-numpy",
+    "libtiff-tools"
+  ],
+  "downloadBytes": 58395884,
+  "declaredInstalledBytes": 227525632,
+  "archives": [
+    {
+      "file": "fontconfig-config_2.14.1-4_arm64.deb",
+      "bytes": 314864,
+      "sha256": "297b5a63f9214ffebe08892cdf2effdaf2b408e719811d5e8e98870f710cd35c",
+      "package": "fontconfig-config",
+      "version": "2.14.1-4",
+      "architecture": "arm64",
+      "source": "fontconfig",
+      "installedBytes": 539648
+    },
+    {
+      "file": "fonts-dejavu-core_2.37-6_all.deb",
+      "bytes": 1067728,
+      "sha256": "8892669e51aab4dc56682c8e39d8ddb7d70fad83c369344e1e240bf3ca22bb76",
+      "package": "fonts-dejavu-core",
+      "version": "2.37-6",
+      "architecture": "all",
+      "source": "fonts-dejavu",
+      "installedBytes": 3031040
+    },
+    {
+      "file": "gdal-bin_3.6.2+dfsg-1+b2_arm64.deb",
+      "bytes": 522620,
+      "sha256": "6b35dd3aad1574c17618c49766434c51b81068cbab3fca746999b21819c4f85f",
+      "package": "gdal-bin",
+      "version": "3.6.2+dfsg-1+b2",
+      "architecture": "arm64",
+      "source": "gdal (3.6.2+dfsg-1)",
+      "installedBytes": 2368512
+    },
+    {
+      "file": "gdal-data_3.6.2+dfsg-1_all.deb",
+      "bytes": 517888,
+      "sha256": "43c744c5080ff25dc4f3a6bc601d30ee4febf7c77ad41858575df26d31fa423e",
+      "package": "gdal-data",
+      "version": "3.6.2+dfsg-1",
+      "architecture": "all",
+      "source": "gdal",
+      "installedBytes": 2683904
+    },
+    {
+      "file": "gdal-plugins_3.6.2+dfsg-1+b2_arm64.deb",
+      "bytes": 311864,
+      "sha256": "ada749ea232c6fcf14d6b9a183a01225163cad655a6afb6ef7be8de7ce538f09",
+      "package": "gdal-plugins",
+      "version": "3.6.2+dfsg-1+b2",
+      "architecture": "arm64",
+      "source": "gdal (3.6.2+dfsg-1)",
+      "installedBytes": 368640
+    },
+    {
+      "file": "libaec0_1.0.6-1+b1_arm64.deb",
+      "bytes": 19940,
+      "sha256": "23bea29546adff17bd8f49f99aa49e94b977bf3737be442faafda90e80318c89",
+      "package": "libaec0",
+      "version": "1.0.6-1+b1",
+      "architecture": "arm64",
+      "source": "libaec (1.0.6-1)",
+      "installedBytes": 94208
+    },
+    {
+      "file": "libaom3_3.6.0-1+deb12u3_arm64.deb",
+      "bytes": 1373556,
+      "sha256": "ddf3745b08f612ba9cc290cb874f28f756b37b56ede4b3aaee6230803dad7f29",
+      "package": "libaom3",
+      "version": "3.6.0-1+deb12u3",
+      "architecture": "arm64",
+      "source": "aom",
+      "installedBytes": 3668992
+    },
+    {
+      "file": "libarmadillo11_1%3a11.4.2+dfsg-1_arm64.deb",
+      "bytes": 98692,
+      "sha256": "702c3d1ecd1f672e0e3e3d75207eb57291fd84a405183f02b0d422336ea884cf",
+      "package": "libarmadillo11",
+      "version": "1:11.4.2+dfsg-1",
+      "architecture": "arm64",
+      "source": "armadillo",
+      "installedBytes": 735232
+    },
+    {
+      "file": "libarpack2_3.8.0-3_arm64.deb",
+      "bytes": 79488,
+      "sha256": "e16e2637ad2b47f150970e25a8f3bdb6c181cbe64b0b98889f4117f171ba18f0",
+      "package": "libarpack2",
+      "version": "3.8.0-3",
+      "architecture": "arm64",
+      "source": "arpack",
+      "installedBytes": 289792
+    },
+    {
+      "file": "libblas3_3.11.0-2_arm64.deb",
+      "bytes": 91444,
+      "sha256": "054aec63b247d157b4b475ca26763538d5dcbd32894734db6b5cae6c7aa335f2",
+      "package": "libblas3",
+      "version": "3.11.0-2",
+      "architecture": "arm64",
+      "source": "lapack",
+      "installedBytes": 421888
+    },
+    {
+      "file": "libblosc1_1.21.3+ds-1_arm64.deb",
+      "bytes": 38568,
+      "sha256": "a993c60782a648711c6e842aa91687f3d3f91ba1aba3438440e03bfb0f8580a6",
+      "package": "libblosc1",
+      "version": "1.21.3+ds-1",
+      "architecture": "arm64",
+      "source": "c-blosc",
+      "installedBytes": 107520
+    },
+    {
+      "file": "libbrotli1_1.0.9-2+deb12u1_arm64.deb",
+      "bytes": 266740,
+      "sha256": "131e62b9708da9aea88be990d275cb5c7b119e40beccf174c23ac8dc7246bb0f",
+      "package": "libbrotli1",
+      "version": "1.0.9-2+deb12u1",
+      "architecture": "arm64",
+      "source": "brotli",
+      "installedBytes": 817152
+    },
+    {
+      "file": "libcfitsio10_4.2.0-3_arm64.deb",
+      "bytes": 509824,
+      "sha256": "1b4decbc13c3a079ce302488901cfc725afa95062a74604432793bcd0110230c",
+      "package": "libcfitsio10",
+      "version": "4.2.0-3",
+      "architecture": "arm64",
+      "source": "cfitsio",
+      "installedBytes": 1657856
+    },
+    {
+      "file": "libcurl3-gnutls_7.88.1-10+deb12u15_arm64.deb",
+      "bytes": 362416,
+      "sha256": "053f0518249c0be7f476b73b28d9c9922ea5597d744e86736f89ced17e4a1ec1",
+      "package": "libcurl3-gnutls",
+      "version": "7.88.1-10+deb12u15",
+      "architecture": "arm64",
+      "source": "curl",
+      "installedBytes": 884736
+    },
+    {
+      "file": "libcurl4_7.88.1-10+deb12u15_arm64.deb",
+      "bytes": 367496,
+      "sha256": "e54bdd269c960b643ded903c3dbde36fe5d4d5f5b6389b47a0344d4a711cf70a",
+      "package": "libcurl4",
+      "version": "7.88.1-10+deb12u15",
+      "architecture": "arm64",
+      "source": "curl",
+      "installedBytes": 880640
+    },
+    {
+      "file": "libdav1d6_1.0.0-2+deb12u1_arm64.deb",
+      "bytes": 274856,
+      "sha256": "579c820b80ce3491143c411a342b3a222ce3a381c7c052e8c8501de5bace954f",
+      "package": "libdav1d6",
+      "version": "1.0.0-2+deb12u1",
+      "architecture": "arm64",
+      "source": "dav1d",
+      "installedBytes": 815104
+    },
+    {
+      "file": "libde265-0_1.0.11-1+deb12u3_arm64.deb",
+      "bytes": 149172,
+      "sha256": "8b49a68b62db516ed18f5990e192e603706f51d994ceb7bfe30080a6871e0cab",
+      "package": "libde265-0",
+      "version": "1.0.11-1+deb12u3",
+      "architecture": "arm64",
+      "source": "libde265",
+      "installedBytes": 424960
+    },
+    {
+      "file": "libdeflate0_1.14-1_arm64.deb",
+      "bytes": 54340,
+      "sha256": "32576ec45ad51662e02f5381e09cca75bc114065eaf28090f7294a4d84526451",
+      "package": "libdeflate0",
+      "version": "1.14-1",
+      "architecture": "arm64",
+      "source": "libdeflate",
+      "installedBytes": 148480
+    },
+    {
+      "file": "libexpat1_2.5.0-1+deb12u5_arm64.deb",
+      "bytes": 91748,
+      "sha256": "4a733e7f636de4a4483e3e5d7b02dc8e788b115361a04dd58df89461ce2ae65a",
+      "package": "libexpat1",
+      "version": "2.5.0-1+deb12u5",
+      "architecture": "arm64",
+      "source": "expat",
+      "installedBytes": 448512
+    },
+    {
+      "file": "libfontconfig1_2.14.1-4_arm64.deb",
+      "bytes": 381416,
+      "sha256": "4836d9deca824883f0de33d4f8f3718ba776c6e7c80cd7c418b5a0f86c009b9e",
+      "package": "libfontconfig1",
+      "version": "2.14.1-4",
+      "architecture": "arm64",
+      "source": "fontconfig",
+      "installedBytes": 617472
+    },
+    {
+      "file": "libfreetype6_2.12.1+dfsg-5+deb12u4_arm64.deb",
+      "bytes": 367860,
+      "sha256": "b8d32e54ebc9020637f8fa16b6afa64a5731e40845a6e01880d38d6f632237c9",
+      "package": "libfreetype6",
+      "version": "2.12.1+dfsg-5+deb12u4",
+      "architecture": "arm64",
+      "source": "freetype",
+      "installedBytes": 875520
+    },
+    {
+      "file": "libfreexl1_1.0.6-2_arm64.deb",
+      "bytes": 28404,
+      "sha256": "1569597cadadcc60ff9318b97391a703d6960d4e9d6a2b196732c6909d27b083",
+      "package": "libfreexl1",
+      "version": "1.0.6-2",
+      "architecture": "arm64",
+      "source": "freexl",
+      "installedBytes": 133120
+    },
+    {
+      "file": "libfyba0_4.1.1-8_arm64.deb",
+      "bytes": 105276,
+      "sha256": "29988fb283e7cf46983ad15fbd1620861e395b1bbfd7d4a6b1e51be8980b0201",
+      "package": "libfyba0",
+      "version": "4.1.1-8",
+      "architecture": "arm64",
+      "source": "fyba",
+      "installedBytes": 423936
+    },
+    {
+      "file": "libgdal32_3.6.2+dfsg-1+b2_arm64.deb",
+      "bytes": 6675952,
+      "sha256": "fb8686dbfdff0c3f6e4974229271d02678dea59aa686362ad03b8c50b4297706",
+      "package": "libgdal32",
+      "version": "3.6.2+dfsg-1+b2",
+      "architecture": "arm64",
+      "source": "gdal (3.6.2+dfsg-1)",
+      "installedBytes": 22833152
+    },
+    {
+      "file": "libgeos-c1v5_3.11.1-1_arm64.deb",
+      "bytes": 75584,
+      "sha256": "a8650adbd9acd7580f14fa9f31d565a93d622842cf3bc7282bb01d9290002c95",
+      "package": "libgeos-c1v5",
+      "version": "3.11.1-1",
+      "architecture": "arm64",
+      "source": "geos",
+      "installedBytes": 385024
+    },
+    {
+      "file": "libgeos3.11.1_3.11.1-1_arm64.deb",
+      "bytes": 682888,
+      "sha256": "2ec4186438db698f9aafa90561a336d48ba343305860554863c04c09153a9011",
+      "package": "libgeos3.11.1",
+      "version": "3.11.1-1",
+      "architecture": "arm64",
+      "source": "geos",
+      "installedBytes": 3153920
+    },
+    {
+      "file": "libgeotiff5_1.7.1-2+b1_arm64.deb",
+      "bytes": 65252,
+      "sha256": "23ca743e3d710bcb6b617d6abeb311b44bc44316ee4398710f9f0d82a8a09260",
+      "package": "libgeotiff5",
+      "version": "1.7.1-2+b1",
+      "architecture": "arm64",
+      "source": "libgeotiff (1.7.1-2)",
+      "installedBytes": 311296
+    },
+    {
+      "file": "libgfortran5_12.2.0-14+deb12u1_arm64.deb",
+      "bytes": 339792,
+      "sha256": "583497cf5a95960c11f2006586050375c4adbc4b0c569a7e7df346f2bf380cbc",
+      "package": "libgfortran5",
+      "version": "12.2.0-14+deb12u1",
+      "architecture": "arm64",
+      "source": "gcc-12",
+      "installedBytes": 1512448
+    },
+    {
+      "file": "libgif7_5.2.1-2.5+deb12u1_arm64.deb",
+      "bytes": 42572,
+      "sha256": "be2d59e3e3f630391b72fd5c4a3430dbd6eb6d98c6b6012082135aff860ae580",
+      "package": "libgif7",
+      "version": "5.2.1-2.5+deb12u1",
+      "architecture": "arm64",
+      "source": "giflib",
+      "installedBytes": 110592
+    },
+    {
+      "file": "libgssapi-krb5-2_1.20.1-2+deb12u5_arm64.deb",
+      "bytes": 124152,
+      "sha256": "a00678963f692a929312968f19b77a61a8fc0011690d7dc909a8a2c4810fc7b3",
+      "package": "libgssapi-krb5-2",
+      "version": "1.20.1-2+deb12u5",
+      "architecture": "arm64",
+      "source": "krb5",
+      "installedBytes": 432128
+    },
+    {
+      "file": "libhdf4-0-alt_4.2.15-5_arm64.deb",
+      "bytes": 237864,
+      "sha256": "693b4723a3bfd5d85cace48cb910fa887692baf52062744777b09d99b0f04ed9",
+      "package": "libhdf4-0-alt",
+      "version": "4.2.15-5",
+      "architecture": "arm64",
+      "source": "libhdf4",
+      "installedBytes": 784384
+    },
+    {
+      "file": "libhdf5-103-1_1.10.8+repack1-1_arm64.deb",
+      "bytes": 1037140,
+      "sha256": "7db9bcfeaeeb2a7ce5e98c55b6ff34d6efc0e3e6bffe61ad37a4eaea9d59c1b2",
+      "package": "libhdf5-103-1",
+      "version": "1.10.8+repack1-1",
+      "architecture": "arm64",
+      "source": "hdf5",
+      "installedBytes": 4156416
+    },
+    {
+      "file": "libhdf5-hl-100_1.10.8+repack1-1_arm64.deb",
+      "bytes": 64044,
+      "sha256": "6bfe7689d619d6d8ed2c806bcf63aff463cfa2f69a82863f5ed759e6eddedd34",
+      "package": "libhdf5-hl-100",
+      "version": "1.10.8+repack1-1",
+      "architecture": "arm64",
+      "source": "hdf5",
+      "installedBytes": 184320
+    },
+    {
+      "file": "libheif1_1.15.1-1+deb12u1_arm64.deb",
+      "bytes": 190616,
+      "sha256": "92dddfa77e4281997af385cb2bc9e8ffa13b0876f889a3d6d6ad177ac968a2bc",
+      "package": "libheif1",
+      "version": "1.15.1-1+deb12u1",
+      "architecture": "arm64",
+      "source": "libheif",
+      "installedBytes": 695296
+    },
+    {
+      "file": "libicu72_72.1-3+deb12u1_arm64.deb",
+      "bytes": 9202292,
+      "sha256": "4f5d892fd81110435e45ed0a5f1b12899d7ff989d51db283cbc043f5631646d8",
+      "package": "libicu72",
+      "version": "72.1-3+deb12u1",
+      "architecture": "arm64",
+      "source": "icu",
+      "installedBytes": 37136384
+    },
+    {
+      "file": "libjbig0_2.1-6.1_arm64.deb",
+      "bytes": 30024,
+      "sha256": "098a382f51781c149e37aa25aeacfd54f26fdadfcbe5dc3ebf8713ef72efa6bd",
+      "package": "libjbig0",
+      "version": "2.1-6.1",
+      "architecture": "arm64",
+      "source": "jbigkit",
+      "installedBytes": 98304
+    },
+    {
+      "file": "libjpeg62-turbo_1%3a2.1.5-2_arm64.deb",
+      "bytes": 171432,
+      "sha256": "de66f186f3ff3c1d10c2e75ae056b019b3f7f091f51096a06cade48b2dea875b",
+      "package": "libjpeg62-turbo",
+      "version": "1:2.1.5-2",
+      "architecture": "arm64",
+      "source": "libjpeg-turbo",
+      "installedBytes": 487424
+    },
+    {
+      "file": "libjson-c5_0.16-2_arm64.deb",
+      "bytes": 42896,
+      "sha256": "5a35fd9ca1482bb39207aaf43730e12d63ba3311b5fb3d9832243e560ca67ab5",
+      "package": "libjson-c5",
+      "version": "0.16-2",
+      "architecture": "arm64",
+      "source": "json-c",
+      "installedBytes": 173056
+    },
+    {
+      "file": "libk5crypto3_1.20.1-2+deb12u5_arm64.deb",
+      "bytes": 79880,
+      "sha256": "8ae2c31cde0b3e6f80c573a495b0f90bf6d9efb4455d900728278bb54d9092e5",
+      "package": "libk5crypto3",
+      "version": "1.20.1-2+deb12u5",
+      "architecture": "arm64",
+      "source": "krb5",
+      "installedBytes": 283648
+    },
+    {
+      "file": "libkeyutils1_1.6.3-2_arm64.deb",
+      "bytes": 8844,
+      "sha256": "aac46cb6faec4e737502b3c2290b7b02f8ba04e8accd5af7fd07934df0c867b1",
+      "package": "libkeyutils1",
+      "version": "1.6.3-2",
+      "architecture": "arm64",
+      "source": "keyutils",
+      "installedBytes": 86016
+    },
+    {
+      "file": "libkmlbase1_1.3.0-10_arm64.deb",
+      "bytes": 43588,
+      "sha256": "ca1c1c9c39bc612ac0a48c433645901a21224b12a297a1f38ba79c439671fad3",
+      "package": "libkmlbase1",
+      "version": "1.3.0-10",
+      "architecture": "arm64",
+      "source": "libkml",
+      "installedBytes": 171008
+    },
+    {
+      "file": "libkmldom1_1.3.0-10_arm64.deb",
+      "bytes": 138560,
+      "sha256": "f830a1a93a68899f6263f18c016233544766a69c701284f245ab2ff7b96672d1",
+      "package": "libkmldom1",
+      "version": "1.3.0-10",
+      "architecture": "arm64",
+      "source": "libkml",
+      "installedBytes": 799744
+    },
+    {
+      "file": "libkmlengine1_1.3.0-10_arm64.deb",
+      "bytes": 67768,
+      "sha256": "b98a2176bc1ac762be7eee65d4d423995be14078d35fa79e661fe64f246d7634",
+      "package": "libkmlengine1",
+      "version": "1.3.0-10",
+      "architecture": "arm64",
+      "source": "libkml",
+      "installedBytes": 321536
+    },
+    {
+      "file": "libkrb5-3_1.20.1-2+deb12u5_arm64.deb",
+      "bytes": 315528,
+      "sha256": "c3c7227f5db903a7a8b8936d47d1d79643edcda36365c4c992e1a96bcc2d4c7e",
+      "package": "libkrb5-3",
+      "version": "1.20.1-2+deb12u5",
+      "architecture": "arm64",
+      "source": "krb5",
+      "installedBytes": 1191936
+    },
+    {
+      "file": "libkrb5support0_1.20.1-2+deb12u5_arm64.deb",
+      "bytes": 32592,
+      "sha256": "3043fd4a54b945a1b503170749527f825dcfc7add2f8bf5abb4a329deeb48f4a",
+      "package": "libkrb5support0",
+      "version": "1.20.1-2+deb12u5",
+      "architecture": "arm64",
+      "source": "krb5",
+      "installedBytes": 153600
+    },
+    {
+      "file": "liblapack3_3.11.0-2_arm64.deb",
+      "bytes": 1664496,
+      "sha256": "7f6310fbd910326a63dedd87da046cd6eff3f644e9c00173f3afce20b7b2a93e",
+      "package": "liblapack3",
+      "version": "3.11.0-2",
+      "architecture": "arm64",
+      "source": "lapack",
+      "installedBytes": 5668864
+    },
+    {
+      "file": "liblcms2-2_2.14-2+deb12u1_arm64.deb",
+      "bytes": 143756,
+      "sha256": "753a2c7baa2d0a84b7c6ca6e80bbe37beadc2410939e5b34cbb4341234428a92",
+      "package": "liblcms2-2",
+      "version": "2.14-2+deb12u1",
+      "architecture": "arm64",
+      "source": "lcms2",
+      "installedBytes": 446464
+    },
+    {
+      "file": "libldap-2.5-0_2.5.13+dfsg-5_arm64.deb",
+      "bytes": 170832,
+      "sha256": "71e6ae4291a20db999c62cd0a4f30a92a799c46b99205d5e787d4acd7c343b91",
+      "package": "libldap-2.5-0",
+      "version": "2.5.13+dfsg-5",
+      "architecture": "arm64",
+      "source": "openldap",
+      "installedBytes": 586752
+    },
+    {
+      "file": "liblerc4_4.0.0+ds-2_arm64.deb",
+      "bytes": 137640,
+      "sha256": "c5294ed128ac375249098c43be9805c787ed1c65703fe1d877ead4213904f123",
+      "package": "liblerc4",
+      "version": "4.0.0+ds-2",
+      "architecture": "arm64",
+      "source": "lerc",
+      "installedBytes": 638976
+    },
+    {
+      "file": "libltdl7_2.4.7-7~deb12u1_arm64.deb",
+      "bytes": 392260,
+      "sha256": "01a73564c85de41aeebcc7f199171b2a207617f38642e642478967d55956884c",
+      "package": "libltdl7",
+      "version": "2.4.7-7~deb12u1",
+      "architecture": "arm64",
+      "source": "libtool",
+      "installedBytes": 459776
+    },
+    {
+      "file": "libmariadb3_1%3a10.11.19-0+deb12u1_arm64.deb",
+      "bytes": 168800,
+      "sha256": "ae0deffdd77af1b992f0f71d2605b4317291441a14392acc1e561cb32a28af52",
+      "package": "libmariadb3",
+      "version": "1:10.11.19-0+deb12u1",
+      "architecture": "arm64",
+      "source": "mariadb",
+      "installedBytes": 859136
+    },
+    {
+      "file": "libminizip1_1.1-8+deb12u1_arm64.deb",
+      "bytes": 19828,
+      "sha256": "52f966886b1794ca93748f2df1d6885abe339ea13730654f688c515a11620180",
+      "package": "libminizip1",
+      "version": "1.1-8+deb12u1",
+      "architecture": "arm64",
+      "source": "minizip",
+      "installedBytes": 84992
+    },
+    {
+      "file": "libnetcdf19_1%3a4.9.0-3+b1_arm64.deb",
+      "bytes": 448000,
+      "sha256": "229298ea615711659ac2c2de3d12e0fba46c21b9741475346769561a3c1f4efc",
+      "package": "libnetcdf19",
+      "version": "1:4.9.0-3+b1",
+      "architecture": "arm64",
+      "source": "netcdf (1:4.9.0-3)",
+      "installedBytes": 1640448
+    },
+    {
+      "file": "libnghttp2-14_1.52.0-1+deb12u3_arm64.deb",
+      "bytes": 68976,
+      "sha256": "7767833033739adb2e2e374f2c4b36134d9f36fcdfe8e2aab7029bf850146da9",
+      "package": "libnghttp2-14",
+      "version": "1.52.0-1+deb12u3",
+      "architecture": "arm64",
+      "source": "nghttp2",
+      "installedBytes": 233472
+    },
+    {
+      "file": "libnsl2_1.3.0-2_arm64.deb",
+      "bytes": 36908,
+      "sha256": "8f9ba58b219779b43c4ccc78c79b0a23f721fc96323c202abb31e02f942104b3",
+      "package": "libnsl2",
+      "version": "1.3.0-2",
+      "architecture": "arm64",
+      "source": "libnsl",
+      "installedBytes": 121856
+    },
+    {
+      "file": "libnspr4_2%3a4.35-1_arm64.deb",
+      "bytes": 105324,
+      "sha256": "3aa6bc5a1a3f83627f735b9712eed74ed2c345ae9148e9d876887a97982ae28d",
+      "package": "libnspr4",
+      "version": "2:4.35-1",
+      "architecture": "arm64",
+      "source": "nspr",
+      "installedBytes": 440320
+    },
+    {
+      "file": "libnss3_2%3a3.87.1-1+deb12u4_arm64.deb",
+      "bytes": 1215528,
+      "sha256": "aaa1b291b6330590079a0eb1404650c7c4f6c788f9213ab6911149dc22b2b6d0",
+      "package": "libnss3",
+      "version": "2:3.87.1-1+deb12u4",
+      "architecture": "arm64",
+      "source": "nss",
+      "installedBytes": 4232192
+    },
+    {
+      "file": "libnuma1_2.0.16-1_arm64.deb",
+      "bytes": 20312,
+      "sha256": "b4ed2547f387eb2e97d13c0b423b034d2a4d052b2131dfe043e45a84915452c5",
+      "package": "libnuma1",
+      "version": "2.0.16-1",
+      "architecture": "arm64",
+      "source": "numactl",
+      "installedBytes": 89088
+    },
+    {
+      "file": "libodbc2_2.3.11-2+deb12u1_arm64.deb",
+      "bytes": 132228,
+      "sha256": "0b1d4145eb34c9bec37a17b60bc4f1f78d459be61d8bbd7c4f0448939db51952",
+      "package": "libodbc2",
+      "version": "2.3.11-2+deb12u1",
+      "architecture": "arm64",
+      "source": "unixodbc",
+      "installedBytes": 447488
+    },
+    {
+      "file": "libodbcinst2_2.3.11-2+deb12u1_arm64.deb",
+      "bytes": 35248,
+      "sha256": "46ac034516d0a83ea932f5ffb996ce15b2c5c3fe4bb0e630f2c69b09e2f0131d",
+      "package": "libodbcinst2",
+      "version": "2.3.11-2+deb12u1",
+      "architecture": "arm64",
+      "source": "unixodbc",
+      "installedBytes": 155648
+    },
+    {
+      "file": "libogdi4.1_4.1.0+ds-6_arm64.deb",
+      "bytes": 188856,
+      "sha256": "51e4ee02b99cfbb5580585292962dd31ccbd3fc13bfd465f1d3a42860ab7bdcc",
+      "package": "libogdi4.1",
+      "version": "4.1.0+ds-6",
+      "architecture": "arm64",
+      "source": "ogdi-dfsg",
+      "installedBytes": 897024
+    },
+    {
+      "file": "libopenjp2-7_2.5.0-2+deb12u3_arm64.deb",
+      "bytes": 176232,
+      "sha256": "c3cfa6f3ec67bb3caa361c21034df0a5a1c8359a16e00a460f62920fc07e561a",
+      "package": "libopenjp2-7",
+      "version": "2.5.0-2+deb12u3",
+      "architecture": "arm64",
+      "source": "openjpeg2",
+      "installedBytes": 478208
+    },
+    {
+      "file": "libpng16-16_1.6.39-2+deb12u6_arm64.deb",
+      "bytes": 270552,
+      "sha256": "9fa66d01197efe73f44ed566a3bffbb476675826326e9c32ffa80b29495de482",
+      "package": "libpng16-16",
+      "version": "1.6.39-2+deb12u6",
+      "architecture": "arm64",
+      "source": "libpng1.6",
+      "installedBytes": 472064
+    },
+    {
+      "file": "libpoppler126_22.12.0-2+deb12u3_arm64.deb",
+      "bytes": 1753188,
+      "sha256": "225593ec4f2ca2de866f2148b49e514759d6e1519fd31527b61568f95a27f497",
+      "package": "libpoppler126",
+      "version": "22.12.0-2+deb12u3",
+      "architecture": "arm64",
+      "source": "poppler",
+      "installedBytes": 4616192
+    },
+    {
+      "file": "libpq5_15.19-0+deb12u1_arm64.deb",
+      "bytes": 195604,
+      "sha256": "c4be6998a78b1ff380016abe27d4f27a63763946523f9331765c822781922ea2",
+      "package": "libpq5",
+      "version": "15.19-0+deb12u1",
+      "architecture": "arm64",
+      "source": "postgresql-15",
+      "installedBytes": 942080
+    },
+    {
+      "file": "libproj25_9.1.1-1+b1_arm64.deb",
+      "bytes": 1102492,
+      "sha256": "a1bfe2ee8f76aef556bbe282472ae18532110b9c46c990581dc74eb8719f7424",
+      "package": "libproj25",
+      "version": "9.1.1-1+b1",
+      "architecture": "arm64",
+      "source": "proj (9.1.1-1)",
+      "installedBytes": 4060160
+    },
+    {
+      "file": "libpsl5_0.21.2-1_arm64.deb",
+      "bytes": 58600,
+      "sha256": "90a68e4a6d9eb95abee32595762dbf67974f13c158e4ce4a05c7c2b54440db73",
+      "package": "libpsl5",
+      "version": "0.21.2-1",
+      "architecture": "arm64",
+      "source": "libpsl",
+      "installedBytes": 155648
+    },
+    {
+      "file": "libpython3-stdlib_3.11.2-1+b1_arm64.deb",
+      "bytes": 9296,
+      "sha256": "3ceea13a9d2eff6e850d47b4f03ebd0162acb2aa5646a84ccbe77783be104302",
+      "package": "libpython3-stdlib",
+      "version": "3.11.2-1+b1",
+      "architecture": "arm64",
+      "source": "python3-defaults (3.11.2-1)",
+      "installedBytes": 27648
+    },
+    {
+      "file": "libpython3.11-minimal_3.11.2-6+deb12u9_arm64.deb",
+      "bytes": 813684,
+      "sha256": "dd9847d2f77c5a924b1d3dd953b81f161db9374c94d03b9216191925350928c3",
+      "package": "libpython3.11-minimal",
+      "version": "3.11.2-6+deb12u9",
+      "architecture": "arm64",
+      "source": "python3.11",
+      "installedBytes": 5385216
+    },
+    {
+      "file": "libpython3.11-stdlib_3.11.2-6+deb12u9_arm64.deb",
+      "bytes": 1750132,
+      "sha256": "9937cbe3f647aa89a590fec647438ce02098c113d1c6f70e4cb1230c368d42a4",
+      "package": "libpython3.11-stdlib",
+      "version": "3.11.2-6+deb12u9",
+      "architecture": "arm64",
+      "source": "python3.11",
+      "installedBytes": 10116096
+    },
+    {
+      "file": "libqhull-r8.0_2020.2-5_arm64.deb",
+      "bytes": 230312,
+      "sha256": "b9b3286548a1645f52b30e837cde8328611e549f3b38f2b278fee63af6c34fed",
+      "package": "libqhull-r8.0",
+      "version": "2020.2-5",
+      "architecture": "arm64",
+      "source": "qhull",
+      "installedBytes": 552960
+    },
+    {
+      "file": "librtmp1_2.4+20151223.gitfa8646d.1-2+b2_arm64.deb",
+      "bytes": 59364,
+      "sha256": "a3a1a6e4b02bcd3254e932b1972ed744082fd7dd5cc1545eec3dd3d539ce6c93",
+      "package": "librtmp1",
+      "version": "2.4+20151223.gitfa8646d.1-2+b2",
+      "architecture": "arm64",
+      "source": "rtmpdump (2.4+20151223.gitfa8646d.1-2)",
+      "installedBytes": 145408
+    },
+    {
+      "file": "librttopo1_1.1.0-3_arm64.deb",
+      "bytes": 161356,
+      "sha256": "b887fd86a96b8f50aaf9a72403e477afd3cd1c2b9170350d6805bb614f8dfe85",
+      "package": "librttopo1",
+      "version": "1.1.0-3",
+      "architecture": "arm64",
+      "source": "librttopo",
+      "installedBytes": 568320
+    },
+    {
+      "file": "libsasl2-2_2.1.28+dfsg-10+deb12u1_arm64.deb",
+      "bytes": 58272,
+      "sha256": "b3686e0815d99e5ca6ce9234e486ca0ecd373d491e34457c3b9cba5c6dbba287",
+      "package": "libsasl2-2",
+      "version": "2.1.28+dfsg-10+deb12u1",
+      "architecture": "arm64",
+      "source": "cyrus-sasl2",
+      "installedBytes": 191488
+    },
+    {
+      "file": "libsasl2-modules-db_2.1.28+dfsg-10+deb12u1_arm64.deb",
+      "bytes": 20992,
+      "sha256": "37d5834fa07d30275b75dc1ec2ccf43f9ce55d0885bb846db7cf04c98da30ae5",
+      "package": "libsasl2-modules-db",
+      "version": "2.1.28+dfsg-10+deb12u1",
+      "architecture": "arm64",
+      "source": "cyrus-sasl2",
+      "installedBytes": 115712
+    },
+    {
+      "file": "libsnappy1v5_1.1.9-3_arm64.deb",
+      "bytes": 25412,
+      "sha256": "7d9a01c7f175cdc6f1ac23dde7b21c0ff840f098069e95a896fda56c824a5828",
+      "package": "libsnappy1v5",
+      "version": "1.1.9-3",
+      "architecture": "arm64",
+      "source": "snappy",
+      "installedBytes": 115712
+    },
+    {
+      "file": "libspatialite7_5.0.1-3_arm64.deb",
+      "bytes": 1542428,
+      "sha256": "4c69c97db31b988508629015b1b743ebc66d3a92a3b36678ce160835737dff33",
+      "package": "libspatialite7",
+      "version": "5.0.1-3",
+      "architecture": "arm64",
+      "source": "spatialite",
+      "installedBytes": 7234560
+    },
+    {
+      "file": "libssh2-1_1.10.0-3+deb12u1_arm64.deb",
+      "bytes": 169420,
+      "sha256": "72db6dc64cb0dd4c8a6b0f1b998063338956a7b3eb8a27125beb27bee0d7cc46",
+      "package": "libssh2-1",
+      "version": "1.10.0-3+deb12u1",
+      "architecture": "arm64",
+      "source": "libssh2",
+      "installedBytes": 365568
+    },
+    {
+      "file": "libsuperlu5_5.3.0+dfsg1-2+b1_arm64.deb",
+      "bytes": 141080,
+      "sha256": "b53cebe9f64d99383f3611529e06674f40f6e2c2ba8303e6dc4d6d8a25a65e3a",
+      "package": "libsuperlu5",
+      "version": "5.3.0+dfsg1-2+b1",
+      "architecture": "arm64",
+      "source": "superlu (5.3.0+dfsg1-2)",
+      "installedBytes": 489472
+    },
+    {
+      "file": "libsz2_1.0.6-1+b1_arm64.deb",
+      "bytes": 7740,
+      "sha256": "473cf3693b311f2bee43681ac1c268981244f71b4310469424ee2aeac6a99170",
+      "package": "libsz2",
+      "version": "1.0.6-1+b1",
+      "architecture": "arm64",
+      "source": "libaec (1.0.6-1)",
+      "installedBytes": 84992
+    },
+    {
+      "file": "libtiff-tools_4.5.0-6+deb12u4_arm64.deb",
+      "bytes": 319252,
+      "sha256": "0c1fcbaa2c1c1ae19fb410ec1863f79aefc7cf705b543985f03bd5ef230078c8",
+      "package": "libtiff-tools",
+      "version": "4.5.0-6+deb12u4",
+      "architecture": "arm64",
+      "source": "tiff",
+      "installedBytes": 1565696
+    },
+    {
+      "file": "libtiff6_4.5.0-6+deb12u4_arm64.deb",
+      "bytes": 300884,
+      "sha256": "d88aa87e5e786f322048683cab56ae922448f501e9b402747d0a883738ce35ce",
+      "package": "libtiff6",
+      "version": "4.5.0-6+deb12u4",
+      "architecture": "arm64",
+      "source": "tiff",
+      "installedBytes": 752640
+    },
+    {
+      "file": "libtirpc-common_1.3.3+ds-1_all.deb",
+      "bytes": 14048,
+      "sha256": "3e3ef129b4bf61513144236e15e1b4ec57fa5ae3dc8a72137abdbefb7a63af85",
+      "package": "libtirpc-common",
+      "version": "1.3.3+ds-1",
+      "architecture": "all",
+      "source": "libtirpc",
+      "installedBytes": 35840
+    },
+    {
+      "file": "libtirpc3_1.3.3+ds-1_arm64.deb",
+      "bytes": 80940,
+      "sha256": "deaf9ea54f74cab6690b4bc0b427f05cbe62cc073580d84f5f18a8d9e2ece401",
+      "package": "libtirpc3",
+      "version": "1.3.3+ds-1",
+      "architecture": "arm64",
+      "source": "libtirpc",
+      "installedBytes": 243712
+    },
+    {
+      "file": "liburiparser1_0.9.7+dfsg-2_arm64.deb",
+      "bytes": 40372,
+      "sha256": "f3bb35f4c3b1bf26b6e3a8e9822cba8f836e7143b05be6d564c36351e3a37a2c",
+      "package": "liburiparser1",
+      "version": "0.9.7+dfsg-2",
+      "architecture": "arm64",
+      "source": "uriparser",
+      "installedBytes": 163840
+    },
+    {
+      "file": "libwebp7_1.2.4-0.2+deb12u1_arm64.deb",
+      "bytes": 259868,
+      "sha256": "7aafdb66662df9e1f68c80980fe3567bd29f93a03677d0cf408c21ce49da29ff",
+      "package": "libwebp7",
+      "version": "1.2.4-0.2+deb12u1",
+      "architecture": "arm64",
+      "source": "libwebp",
+      "installedBytes": 499712
+    },
+    {
+      "file": "libx265-199_3.5-2+b1_arm64.deb",
+      "bytes": 602616,
+      "sha256": "3142b9c9fb005013cee57abee51abbd78ca0a693fc61aa252fefd5be5d074b03",
+      "package": "libx265-199",
+      "version": "3.5-2+b1",
+      "architecture": "arm64",
+      "source": "x265 (3.5-2)",
+      "installedBytes": 3019776
+    },
+    {
+      "file": "libxerces-c3.2_3.2.4+debian-1_arm64.deb",
+      "bytes": 765956,
+      "sha256": "d94b2eae040d5ea5c29b645ee0a8c440b1383c508aedd835e7965791cdd2ff42",
+      "package": "libxerces-c3.2",
+      "version": "3.2.4+debian-1",
+      "architecture": "arm64",
+      "source": "xerces-c",
+      "installedBytes": 3702784
+    },
+    {
+      "file": "libxml2_2.9.14+dfsg-1.3~deb12u6_arm64.deb",
+      "bytes": 620500,
+      "sha256": "0bc00975e459387535a4bbabe98a398f0e77c9ab82474face18d01ae8ed0dae4",
+      "package": "libxml2",
+      "version": "2.9.14+dfsg-1.3~deb12u6",
+      "architecture": "arm64",
+      "source": "",
+      "installedBytes": 1869824
+    },
+    {
+      "file": "mariadb-common_1%3a10.11.19-0+deb12u1_all.deb",
+      "bytes": 27624,
+      "sha256": "8312a5cee61770295c48999d24ef7bb53214599eeb28db6c8c43943176be6e5b",
+      "package": "mariadb-common",
+      "version": "1:10.11.19-0+deb12u1",
+      "architecture": "all",
+      "source": "mariadb",
+      "installedBytes": 70656
+    },
+    {
+      "file": "media-types_10.0.0_all.deb",
+      "bytes": 26136,
+      "sha256": "aaa46dcb3b39948ae2e0fdb72cfcb2f48c0b59f19785a3da8045c05eb19955dd",
+      "package": "media-types",
+      "version": "10.0.0",
+      "architecture": "all",
+      "source": "",
+      "installedBytes": 94208
+    },
+    {
+      "file": "mysql-common_5.8+1.1.0_all.deb",
+      "bytes": 6636,
+      "sha256": "4ed466bda89528440ba41f46dbac4336aef2a0fcc074645c3320d82b114a2741",
+      "package": "mysql-common",
+      "version": "5.8+1.1.0",
+      "architecture": "all",
+      "source": "mysql-defaults (1.1.0)",
+      "installedBytes": 33792
+    },
+    {
+      "file": "proj-data_9.1.1-1_all.deb",
+      "bytes": 6212460,
+      "sha256": "efa6a74fba305e664ba27b81c2a5708aa59554ba41659af0e8c325e477f3d955",
+      "package": "proj-data",
+      "version": "9.1.1-1",
+      "architecture": "all",
+      "source": "proj",
+      "installedBytes": 23275520
+    },
+    {
+      "file": "python3-gdal_3.6.2+dfsg-1+b2_arm64.deb",
+      "bytes": 888132,
+      "sha256": "7b21316cee7023d2446e1ab21e387f6eb75cc28356898e7c2a513aa477c6b005",
+      "package": "python3-gdal",
+      "version": "3.6.2+dfsg-1+b2",
+      "architecture": "arm64",
+      "source": "gdal (3.6.2+dfsg-1)",
+      "installedBytes": 5015552
+    },
+    {
+      "file": "python3-minimal_3.11.2-1+b1_arm64.deb",
+      "bytes": 26296,
+      "sha256": "f01c94963ace8a6fec59300427c95fc4ac204d752567dd2e4b36ee930755110f",
+      "package": "python3-minimal",
+      "version": "3.11.2-1+b1",
+      "architecture": "arm64",
+      "source": "python3-defaults (3.11.2-1)",
+      "installedBytes": 113664
+    },
+    {
+      "file": "python3-numpy_1%3a1.24.2-1+deb12u1_arm64.deb",
+      "bytes": 4701008,
+      "sha256": "089b21eeebd9d98a5a0adc53b608c9c889e11038b6b06a3bb6778c481e12f4b7",
+      "package": "python3-numpy",
+      "version": "1:1.24.2-1+deb12u1",
+      "architecture": "arm64",
+      "source": "numpy",
+      "installedBytes": 26486784
+    },
+    {
+      "file": "python3-pkg-resources_66.1.1-1+deb12u2_all.deb",
+      "bytes": 296604,
+      "sha256": "25dfb378939ccdf27e7382adf44c168f86e22f9f1a8e6e3a2ec526431ed5e30f",
+      "package": "python3-pkg-resources",
+      "version": "66.1.1-1+deb12u2",
+      "architecture": "all",
+      "source": "setuptools",
+      "installedBytes": 1077248
+    },
+    {
+      "file": "python3-tifffile_20230203-1_all.deb",
+      "bytes": 174780,
+      "sha256": "c58c521d8384d7252fbec72a848618640fe7fe488d1746693aa2aa90aeec8b05",
+      "package": "python3-tifffile",
+      "version": "20230203-1",
+      "architecture": "all",
+      "source": "tifffile",
+      "installedBytes": 999424
+    },
+    {
+      "file": "python3.11-minimal_3.11.2-6+deb12u9_arm64.deb",
+      "bytes": 1861676,
+      "sha256": "617855dbf3299e03873926c75d61feaf3d36924586aecc1951a0b965a95bc694",
+      "package": "python3.11-minimal",
+      "version": "3.11.2-6+deb12u9",
+      "architecture": "arm64",
+      "source": "python3.11",
+      "installedBytes": 6711296
+    },
+    {
+      "file": "python3.11_3.11.2-6+deb12u9_arm64.deb",
+      "bytes": 575032,
+      "sha256": "f8d1726c2f5c61b42dbf7652cd9c01da23e55029e3c384a9f1802334fd964091",
+      "package": "python3.11",
+      "version": "3.11.2-6+deb12u9",
+      "architecture": "arm64",
+      "source": "",
+      "installedBytes": 666624
+    },
+    {
+      "file": "python3_3.11.2-1+b1_arm64.deb",
+      "bytes": 26284,
+      "sha256": "d31a6f8bdea49711f221baee0e27197c314d0cbe748c020262d32650aca5f017",
+      "package": "python3",
+      "version": "3.11.2-1+b1",
+      "architecture": "arm64",
+      "source": "python3-defaults (3.11.2-1)",
+      "installedBytes": 82944
+    },
+    {
+      "file": "unixodbc-common_2.3.11-2+deb12u1_all.deb",
+      "bytes": 8172,
+      "sha256": "3e212d254f50c0310406255dc71e038682b0a02b66aed06df323273be53d9123",
+      "package": "unixodbc-common",
+      "version": "2.3.11-2+deb12u1",
+      "architecture": "all",
+      "source": "unixodbc",
+      "installedBytes": 25600
+    }
+  ]
+}

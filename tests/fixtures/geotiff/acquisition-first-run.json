@@ -1,0 +1,10 @@
+{
+  "script": "/acquire.sh",
+  "exit": 1,
+  "reason": null,
+  "logBytes": 38829,
+  "maxLogBytes": 4194304,
+  "deadlineSeconds": 180,
+  "elapsedSeconds": 26.197189679000076,
+  "scope": "test-only signed-package acquisition; original log prefix retained on bound failure"
+}

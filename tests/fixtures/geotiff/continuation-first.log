@@ -1,0 +1,15 @@
+Reading package lists...
+Building dependency tree...
+Reading state information...
+You might want to run 'apt --fix-broken install' to correct these.
+The following packages have unmet dependencies:
+ gdal-bin : Depends: python3:any
+ python3-gdal : Depends: python3 (< 3.12) but it is not installed
+                Depends: python3 (>= 3.11~) but it is not installed
+                Depends: python3:any
+ python3-numpy : Depends: python3 (< 3.12) but it is not installed
+                 Depends: python3 (>= 3.11~) but it is not installed
+                 Depends: python3:any
+ python3-pkg-resources : Depends: python3:any
+ python3-tifffile : Depends: python3:any
+E: Unmet dependencies. Try 'apt --fix-broken install' with no packages (or specify a solution).

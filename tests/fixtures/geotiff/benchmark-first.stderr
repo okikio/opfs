@@ -1,0 +1,19 @@
+file:///work/src/archive/record.ts:57
+        throw new ArchiveError("budget-exceeded", `Aggregate ${kind} limit exceeded.`);
+              ^
+
+ArchiveError: Aggregate requests limit exceeded.
+    at Object.reserve (file:///work/src/archive/record.ts:57:15)
+    at charge (file:///work/src/dataset/geotiff.ts:202:11)
+    at reserve (file:///work/src/dataset/geotiff.ts:294:5)
+    at Object.read (file:///work/src/dataset/geotiff.ts:749:11)
+    at file:///work/bench/geotiff.bench.ts:102:43
+    at eval (eval at fn (file:///work/node_modules/.deno/mitata@1.0.34/node_modules/mitata/src/lib.mjs:195:16), <anonymous>:32:7)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async Object.fn (file:///work/node_modules/.deno/mitata@1.0.34/node_modules/mitata/src/lib.mjs:332:9)
+    at async measure (file:///work/node_modules/.deno/mitata@1.0.34/node_modules/mitata/src/lib.mjs:9:10)
+    at async B.run (file:///work/node_modules/.deno/mitata@1.0.34/node_modules/mitata/src/main.mjs:135:21) {
+  code: 'budget-exceeded'
+}
+
+Node.js v26.13.0
