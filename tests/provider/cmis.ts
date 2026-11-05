@@ -12,7 +12,7 @@ export const CMIS_IMAGE =
 const WAR_URL =
   "https://repo.maven.apache.org/maven2/org/apache/chemistry/opencmis/chemistry-opencmis-server-inmemory/1.1.0/chemistry-opencmis-server-inmemory-1.1.0.war";
 const SDK_URL =
-  "https://archive.apache.org/dist/chemistry/opencmis/1.1.0/chemistry-opencmis-client-impl-1.1.0-with-dependencies.zip";
+  "https://repo.maven.apache.org/maven2/org/apache/chemistry/opencmis/chemistry-opencmis-client-impl/1.1.0/chemistry-opencmis-client-impl-1.1.0-with-dependencies.zip";
 const WAR_SHA256 = "e64213571d416a5ff03a923693b97bb32d680b353af40d6807ce007197ae71d9";
 const SDK_SHA256 = "8ee3726aad738ac4b8866aeb9db31a56880ef44678374e1fa043213834aefd2c";
 const AUTH = `Basic ${Buffer.from("dummyuser:dummysecret").toString("base64")}`;
