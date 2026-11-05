@@ -200,7 +200,10 @@
     "./dataset/mcap": "./src/dataset/mcap.ts",
     "./archive/binhex": "./src/archive/binhex.ts",
     "./dataset/shapefile": "./src/dataset/shapefile.ts",
-    "./pubsub": "./src/pubsub.ts"
+    "./pubsub": "./src/pubsub.ts",
+    "./dataset/geotiff": "./src/dataset/geotiff.ts",
+    "./image/qcow2": "./src/image/qcow2.ts",
+    "./redis": "./src/redis.ts"
   },
   "dependencies": {
     "@okikio/undent": "^0.3.3",

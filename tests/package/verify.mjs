@@ -247,7 +247,10 @@ try {
     import { openMcap } from '@okikio/opfs/dataset/mcap';
     import { openBinHex } from '@okikio/opfs/archive/binhex';
     import { openShapefile } from '@okikio/opfs/dataset/shapefile';
+    import { openGeotiff } from '@okikio/opfs/dataset/geotiff';
+    import { openQcow2 } from '@okikio/opfs/image/qcow2';
     import { createPubsubClient, PubsubDeliverySchema } from '@okikio/opfs/pubsub';
+    import { openRedisClient, RedisExpirySchema } from '@okikio/opfs/redis';
     import { openHdf5 } from '@okikio/opfs/dataset/hdf5';
     import { createCmisClient } from '@okikio/opfs/cmis';
     import { createCouchdbClient } from '@okikio/opfs/couchdb';
@@ -832,6 +835,95 @@ try {
         assertBytes((await edited.attributes(2)).bytes,fromBase64(fixture.rawRows[2]));
       }
     }
+    // Parse original fixture JSON text: preserve negative zero and explicit special-float oracles.
+    const geotiffFixtures = JSON.parse(${
+      JSON.stringify(await readFile(new URL("../fixtures/geotiff/independent.json", import.meta.url), "utf8"))
+    }).fixtures;
+    const geotiffSameSample=(actual,expected)=>expected==='nan'?Number.isNaN(actual):expected==='-zero'?Object.is(actual,-0):expected==='+infinity'?actual===Infinity:expected==='-infinity'?actual===-Infinity:Object.is(actual,expected);
+    let geotiffImages=0;
+    for(const fixture of geotiffFixtures){
+      const input=createByteSource(fromBase64(fixture.file.base64));
+      let sourceBytes=0,requests=0;
+      const raster=await openGeotiff({...input,async read(offset,length,options){sourceBytes+=length;requests++;return await input.read(offset,length,options);}},{profile:'classic-geotiff-raw'});
+      if(raster.images.length!==fixture.pages.length||raster.cog!=='not-evaluated')throw new Error('Packed GeoTIFF main-chain or COG scope changed');
+      for(let id=0;id<fixture.pages.length;id++){
+        geotiffImages++;
+        const original=fixture.pages[id],image=raster.images[id];
+        if(image.id!==id||image.width!==original.width||image.height!==original.height||image.samplesPerPixel!==original.samples||image.blocks!==original.blocks.length||image.layout!==(original.tiled?'tiles':'strips'))throw new Error('Packed GeoTIFF geometry changed');
+        const rectangle={x:0,y:0,width:image.width,height:image.height};
+        const beforeBytes=sourceBytes,beforeRequests=requests,plan=raster.plan(id,rectangle);
+        if(sourceBytes!==beforeBytes||requests!==beforeRequests)throw new Error('Packed GeoTIFF plan performed source I/O');
+        const result=await raster.read(id,rectangle);
+        if(result.values.length!==original.originalValues.length||result.values.some((value,at)=>!geotiffSameSample(value,original.originalValues[at])))throw new Error('Packed GeoTIFF complete original samples changed');
+        if(result.integrity!=='not-provided'||result.work.sourceBytes!==plan.sourceBytes||result.work.requests!==plan.requests||sourceBytes-beforeBytes!==plan.sourceBytes||requests-beforeRequests!==plan.requests||result.work.outputBytes!==result.values.byteLength||result.work.decodedBytes!==plan.decodedBytes)throw new Error('Packed GeoTIFF plan or integrity accounting changed');
+        for(let block=0;block<original.blocks.length;block++){
+          const raw=fromBase64(original.blocks[block].raw.base64),source=raster.source(id,block);
+          if(source.size!==raw.length||source.stability!=='immutable')throw new Error('Packed GeoTIFF physical block source changed');
+          assertBytes(await source.read(0,source.size),raw);
+          const offset=Math.min(17,source.size),length=Math.min(37,source.size-offset);
+          assertBytes(await source.read(offset,length),raw.slice(offset,offset+length));
+        }
+        const edge=original.nativeEdgeWindow,edgePlan=raster.plan(id,edge),selected=await raster.read(id,edge);
+        if(selected.width!==edge.width||selected.height!==edge.height||selected.work.sourceBytes!==edgePlan.sourceBytes||selected.work.requests!==edgePlan.requests)throw new Error('Packed GeoTIFF selected geometry changed');
+        for(let y=0;y<edge.height;y++)for(let x=0;x<edge.width;x++)for(let band=0;band<image.samplesPerPixel;band++){
+          const expected=original.originalValues[((edge.y+y)*image.width+edge.x+x)*image.samplesPerPixel+band];
+          if(!geotiffSameSample(selected.values[(y*edge.width+x)*image.samplesPerPixel+band],expected))throw new Error('Packed GeoTIFF selected original sample changed');
+        }
+        const fields=original.fields,directory=fields['34735']?.values;
+        if(directory){
+          if(image.geo.scope!=='unresolved-declarations'||image.geo.keys.length!==directory[3])throw new Error('Packed GeoTIFF declared GeoKey scope changed');
+          for(let key=0;key<image.geo.keys.length;key++){
+            const actual=image.geo.keys[key],at=4+key*4;
+            if(actual.id!==directory[at]||actual.location!==directory[at+1]||actual.count!==directory[at+2]||actual.offset!==directory[at+3])throw new Error('Packed GeoTIFF GeoKey identity changed');
+          }
+          for(const [name,tag]of [['pixelScale','33550'],['tiepoints','33922']]){
+            const expected=fields[tag]?.values??[];
+            if(image.geo[name].length!==expected.length||image.geo[name].some((value,at)=>!Object.is(value,expected[at])))throw new Error('Packed GeoTIFF coordinate declaration changed');
+          }
+          assertBytes(new Uint8Array(image.geo.ascii),fields['34737']?fromBase64(fields['34737'].raw.base64):new Uint8Array());
+        }else if(image.geo.scope!=='absent-reduced-image')throw new Error('Packed GeoTIFF reduced-image metadata inheritance changed');
+      }
+    }
+    if(geotiffFixtures.length!==11||geotiffImages!==12)throw new Error('Packed GeoTIFF native fixture coverage changed');
+
+    const qcow2Fixtures=JSON.parse(${
+      JSON.stringify(await readFile(new URL("../fixtures/qcow2/independent.json", import.meta.url), "utf8"))
+    });
+    let qcow2L1Eof=false;
+    for(const fixture of qcow2Fixtures.fixtures){
+      const physical=fromBase64(fixture.image.base64),original=fromBase64(fixture.original.base64),input=createByteSource(physical);
+      let calls=0;
+      const image=await openQcow2({...input,async read(offset,length,options){calls++;return await input.read(offset,length,options);}});
+      if(image.version!==fixture.observed.version||image.headerLength!==fixture.observed.headerLength||image.clusterSize!==fixture.observed.clusterSize||image.size!==original.length||image.validation!=='active-mapping-bounds'||image.refcountValidation!=='not-checked'||image.integrity!=='none')throw new Error('Packed QCOW2 selected profile changed');
+      const whole=await image.read();assertBytes(whole.bytes,original);
+      if(whole.integrity!=='none'||whole.work.outputBytes!==original.length)throw new Error('Packed QCOW2 whole guest evidence changed');
+      const cluster=image.clusterSize,guest=image.source();
+      if(guest.size!==original.length||guest.stability!=='immutable')throw new Error('Packed QCOW2 nested guest source changed');
+      for(const offset of [0,1,cluster-1,cluster,cluster*2-7,cluster*64-1,65535,original.length-513,original.length-1,original.length].filter(value=>value>=0&&value<=original.length)){
+        const length=Math.min(37,original.length-offset),before=calls,segments=image.map(offset,length);
+        if(calls!==before||segments.reduce((sum,segment)=>sum+segment.length,0)!==length)throw new Error('Packed QCOW2 map is not a pure complete selection');
+        let next=offset;for(const segment of segments){if(segment.offset!==next)throw new Error('Packed QCOW2 map lost guest ordinal');next+=segment.length;}
+        assertBytes((await image.read({offset,length})).bytes,original.slice(offset,offset+length));
+        assertBytes(await guest.read(offset,length),original.slice(offset,offset+length));
+      }
+      const wire=new DataView(physical.buffer,physical.byteOffset,physical.byteLength);
+      const l1End=Number(wire.getBigUint64(40))+wire.getUint32(36)*8;
+      if(l1End===physical.length){qcow2L1Eof=true;assertBytes((await image.read()).bytes,original);}
+      if(fixture.case.startsWith('holes-')||fixture.case==='zero-v3'){
+        const offset=fixture.case==='zero-v3'?4096:0,expected=fixture.case==='zero-v3'?'zero':'hole';
+        if(image.map(offset,37)[0]?.kind!==expected)throw new Error('Packed QCOW2 native zero/hole distinction changed');
+        const zero=await image.read({offset,length:37,maxSourceBytes:0,maxRequests:0});
+        assertBytes(zero.bytes,new Uint8Array(37));
+        if(zero.work.sourceBytes!==0||zero.work.requests!==0)throw new Error('Packed QCOW2 zero region performed payload I/O');
+      }
+    }
+    if(qcow2Fixtures.fixtures.length!==9||!qcow2L1Eof)throw new Error('Packed QCOW2 native original or exact serialized L1 EOF coverage changed');
+    if(qcow2Fixtures.controls.map(item=>item.case).join(',')!=='compressed,backing,snapshot')throw new Error('Packed QCOW2 native control coverage changed');
+    for(const control of qcow2Fixtures.controls){
+      let refused=false;try{await openQcow2(createByteSource(fromBase64(control.image.base64)));}catch(error){if(error?.code!=='unsupported-profile')throw error;refused=true;}
+      if(!refused)throw new Error('Packed QCOW2 accepted a native unsupported control');
+    }
+
     const pubsubFixture = ${
       JSON.stringify(
         JSON.parse(await readFile(new URL("../fixtures/pubsub/independent.json", import.meta.url), "utf8")),
@@ -859,6 +951,49 @@ try {
     await pubsubClient.modifyAckDeadline(pubsubFixture.subscription,[pubsubDeliveries[0].ackId],30);
     await pubsubClient.acknowledge(pubsubFixture.subscription,[pubsubDeliveries[0].ackId]);
     if(pubsubCalls!==3)throw new Error('Packed Pub/Sub performed hidden operations');
+    const redisFixture = ${
+      JSON.stringify(JSON.parse(await readFile(new URL("../fixtures/redis/independent.json", import.meta.url), "utf8")))
+    };
+    // Replay each unchanged native response through a fresh exclusive byte channel.
+    // Request expectations use independent RESP2 framing, never the client encoder.
+    const redisText=(value)=>new TextEncoder().encode(value);
+    const redisRequest=(parts)=>{
+      const bytes=parts.map((value)=>typeof value==='string'?redisText(value):value);
+      const chunks=[redisText('*'+bytes.length+'\\r\\n')];
+      for(const value of bytes)chunks.push(redisText('$'+value.length+'\\r\\n'),value,redisText('\\r\\n'));
+      const output=new Uint8Array(chunks.reduce((total,value)=>total+value.length,0));
+      let at=0;for(const value of chunks){output.set(value,at);at+=value.length;}return output;
+    };
+    for(const fixture of redisFixture.providers){
+      const key=fromBase64(fixture.key.base64),original=fromBase64(redisFixture.oracle.base64);
+      const steps=[
+        [redisRequest(['AUTH','package-password']),fixture.auth],
+        [redisRequest(['SELECT','3']),fixture.select],
+        [fromBase64(fixture.getRequest.base64),fixture.get],
+        [redisRequest(['PTTL',key]),fixture.ttl],
+        [redisRequest(['SET',key,original,'NX']),fixture.refused],
+        [redisRequest(['SET',key,original,'XX','KEEPTTL']),fixture.stored],
+        [redisRequest(['DEL',key]),fixture.removed],
+        [redisRequest(['DEL',key]),fixture.missing],
+        [redisRequest(['PTTL',key]),fixture.missingTtl],
+      ];
+      let count=0,closed=0,controller;
+      const client=await openRedisClient({auth:{password:redisText('package-password')},database:3,openChannel:async()=>({
+        readable:new ReadableStream({start(value){controller=value;}}),
+        writable:new WritableStream({write(bytes){const step=steps[count++];if(!step)throw new Error('Packed Redis hidden command');assertBytes(bytes,step[0]);controller.enqueue(fromBase64(step[1].base64));}}),
+        async close(){closed++;controller.close();},
+      })});
+      try{
+        assertBytes(await client.get(key),original);
+        if((await client.ttl(key)).state!=='persistent')throw new Error('Packed Redis persistent TTL changed');
+        if((await client.put(key,original,{mode:'absent',expiry:{kind:'persist'}})).state!=='not-stored')throw new Error('Packed Redis NX receipt changed');
+        if((await client.put(key,original,{mode:'present',expiry:{kind:'keep'}})).state!=='stored')throw new Error('Packed Redis XX receipt changed');
+        if(!await client.remove(key)||await client.remove(key))throw new Error('Packed Redis DEL receipt changed');
+        if((await client.ttl(key)).state!=='missing')throw new Error('Packed Redis missing TTL changed');
+        RedisExpirySchema.parse({kind:'absolute',milliseconds:1});
+      }finally{if(!client.closed)await client.close();}
+      if(count!==steps.length||closed!==1)throw new Error('Packed Redis command count or owned cleanup changed');
+    }
     const memcachedFixture = ${
       JSON.stringify(
         JSON.parse(await readFile(new URL("../fixtures/memcached/independent.json", import.meta.url), "utf8")),
@@ -1640,7 +1775,10 @@ try {
     import { openMcap } from '@okikio/opfs/dataset/mcap';
     import { openBinHex } from '@okikio/opfs/archive/binhex';
     import { openShapefile } from '@okikio/opfs/dataset/shapefile';
+    import { openGeotiff } from '@okikio/opfs/dataset/geotiff';
+    import { openQcow2 } from '@okikio/opfs/image/qcow2';
     import { createPubsubClient, PubsubDeliverySchema } from '@okikio/opfs/pubsub';
+    import { openRedisClient, RedisExpirySchema } from '@okikio/opfs/redis';
     import { openHdf5 } from '@okikio/opfs/dataset/hdf5';
     import { createCmisClient } from '@okikio/opfs/cmis';
     import { createCouchdbClient } from '@okikio/opfs/couchdb';
@@ -1798,9 +1936,36 @@ try {
     const binhexReadTyped: import('@okikio/opfs/archive/binhex').BinHexReadType = await binhexTyped.read('data');
     const shapefileTyped: import('@okikio/opfs/dataset/shapefile').ShapefileType = await openShapefile({shp:createByteSource(new Uint8Array())},{profile:'shp2d-dbf3'});
     const shapefileReadTyped: import('@okikio/opfs/dataset/shapefile').ShapefileReadType = await shapefileTyped.read(0);
+    const geotiffOptionsTyped: import('@okikio/opfs/dataset/geotiff').GeotiffOpenOptionsType = {profile:'classic-geotiff-raw',maxWindowBytes:1024};
+    const geotiffTyped: import('@okikio/opfs/dataset/geotiff').GeotiffType = await openGeotiff(createByteSource(new Uint8Array()),geotiffOptionsTyped);
+    const geotiffWindowTyped: import('@okikio/opfs/dataset/geotiff').GeotiffWindowType = {x:0,y:0,width:1,height:1};
+    const geotiffPlanTyped: import('@okikio/opfs/dataset/geotiff').GeotiffPlanType = geotiffTyped.plan(0,geotiffWindowTyped);
+    const geotiffReadTyped: import('@okikio/opfs/dataset/geotiff').GeotiffReadType = await geotiffTyped.read(0,geotiffWindowTyped,{maxOutputBytes:1024});
+    const geotiffValuesTyped: import('@okikio/opfs/dataset/geotiff').GeotiffValuesType = geotiffReadTyped.values;
+    const geotiffCogTyped: 'not-evaluated' = geotiffTyped.cog;
+    const geotiffIntegrityTyped: 'not-provided' = geotiffReadTyped.integrity;
+    const geotiffImageTyped: import('@okikio/opfs/dataset/geotiff').GeotiffImageType | undefined = geotiffTyped.images[0];
+    const geotiffGeoTyped: import('@okikio/opfs/dataset/geotiff').GeotiffGeoType | undefined = geotiffImageTyped?.geo;
+    const geotiffSourceTyped: import('@okikio/opfs/source').ByteSourceType = geotiffTyped.source(0,0);
+    const qcow2OptionsTyped: import('@okikio/opfs/image/qcow2').Qcow2OpenOptionsType = {maxGuestBytes:1048576};
+    const qcow2Typed: import('@okikio/opfs/image/qcow2').Qcow2ImageType = await openQcow2(createByteSource(new Uint8Array()),qcow2OptionsTyped);
+    const qcow2MapTyped: readonly import('@okikio/opfs/image/qcow2').Qcow2SegmentType[] = qcow2Typed.map(0,1);
+    const qcow2ValidationTyped: 'active-mapping-bounds' = qcow2Typed.validation;
+    const qcow2IntegrityTyped: 'none' = qcow2Typed.integrity;
+    const qcow2ReadOptionsTyped: import('@okikio/opfs/image/qcow2').Qcow2ReadOptionsType = {offset:0,length:1};
+    const qcow2ReadTyped: import('@okikio/opfs/image/qcow2').Qcow2ReadType = await qcow2Typed.read(qcow2ReadOptionsTyped);
+    const qcow2SourceOptionsTyped: import('@okikio/opfs/image/qcow2').Qcow2SourceOptionsType = {maxRequests:64};
+    const qcow2SourceTyped: import('@okikio/opfs/source').ByteSourceType = qcow2Typed.source(qcow2SourceOptionsTyped);
+    void [geotiffPlanTyped,geotiffValuesTyped,geotiffCogTyped,geotiffIntegrityTyped,geotiffImageTyped,geotiffGeoTyped,geotiffSourceTyped,qcow2MapTyped,qcow2ValidationTyped,qcow2IntegrityTyped,qcow2ReadTyped,qcow2SourceTyped];
     const pubsubTyped: import('@okikio/opfs/pubsub').PubsubClient = createPubsubClient({endpoint:'https://pubsub.googleapis.com/',project:'type-only',fetch});
     const pubsubDeliveryTyped: readonly import('@okikio/opfs/pubsub').PubsubDeliveryType[] = await pubsubTyped.pull('subscription',{maxMessages:1});
     void [binhexReadTyped,shapefileReadTyped,pubsubDeliveryTyped,PubsubDeliverySchema];
+    const redisTyped: import('@okikio/opfs/redis').RedisClient = await openRedisClient({openChannel:async()=>{throw new Error('type-only');}});
+    const redisValueTyped: Uint8Array | null = await redisTyped.get(new Uint8Array());
+    const redisReceiptTyped: import('@okikio/opfs/redis').RedisReceiptType = await redisTyped.put(new Uint8Array(),new Uint8Array(),{mode:'absent',expiry:{kind:'persist'}});
+    const redisTtlTyped: import('@okikio/opfs/redis').RedisTtlType = await redisTyped.ttl(new Uint8Array());
+    void [redisValueTyped,redisReceiptTyped,redisTtlTyped,RedisExpirySchema];
+
 
     const hdf5Typed: import('@okikio/opfs/dataset/hdf5').Hdf5FileType = await openHdf5(createByteSource(new Uint8Array()), {profile:'classic-contiguous'});
     const hdf5Dataset: import('@okikio/opfs/dataset/hdf5').Hdf5DatasetType = await hdf5Typed.dataset('literal-name');
