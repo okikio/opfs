@@ -1,0 +1,149 @@
+{
+  "repository": "nordvec/partial-content",
+  "commit": "39a36a8970eea2652003271beb42b2d0319783b4",
+  "tree": "39a36a8970eea2652003271beb42b2d0319783b4",
+  "license": "Apache-2.0",
+  "licenseSha256": "6be2348f0d9978fc986b8d90d2b8edabc62239c9e487d502aea60459087034ca",
+  "files": [
+    {
+      "path": "LICENSE",
+      "gitBlob": "904321c2b903c45487038eaae8bbb9f8baf19d8f"
+    },
+    {
+      "path": "NOTICE",
+      "gitBlob": "14f41ea15ccdfd4e18e2c6cb6578e26b381c3f76"
+    },
+    {
+      "path": "package.json",
+      "gitBlob": "b4e4140162f995151f2d5565391584d30a66990f"
+    },
+    {
+      "path": "src/azure.ts",
+      "gitBlob": "b5a0d11b0ff27744b9833e2f07c4547849c25e98"
+    },
+    {
+      "path": "src/cache-control.ts",
+      "gitBlob": "a3c5b335ecee40c9329096ef4210df1cbf7b256c"
+    },
+    {
+      "path": "src/cas-merge.ts",
+      "gitBlob": "909f583fccb257bec027047a5fd82409c32a1f21"
+    },
+    {
+      "path": "src/conformance.ts",
+      "gitBlob": "c83c76132e777b9e3bbe5aaf7f94a6741e1d1ec4"
+    },
+    {
+      "path": "src/content-disposition.ts",
+      "gitBlob": "e9e4210ce623658dc229c3fa24895d8daa2d2697"
+    },
+    {
+      "path": "src/encoding.ts",
+      "gitBlob": "a4842a5dd94ff517a294419fc988cb402b525def"
+    },
+    {
+      "path": "src/fs.ts",
+      "gitBlob": "48287f8373ed46f2cddd69cf7253cd654c6622a8"
+    },
+    {
+      "path": "src/gcs.ts",
+      "gitBlob": "28b5fc2b9b9220fb73b90ccfe4b7d28e1aa9d874"
+    },
+    {
+      "path": "src/hono.ts",
+      "gitBlob": "882ea8bd17a58c3a6f64b9f51fb71646031a74d5"
+    },
+    {
+      "path": "src/http.ts",
+      "gitBlob": "6630d9c93135c5f23dbbe9a1e8f07f0db0bce04f"
+    },
+    {
+      "path": "src/index.ts",
+      "gitBlob": "1df5d97139ed297d61bafb8fd40332d503bac0fd"
+    },
+    {
+      "path": "src/kernel.ts",
+      "gitBlob": "1266c9867038057c048b1c0d3e63c92f09bd59af"
+    },
+    {
+      "path": "src/media-type.ts",
+      "gitBlob": "192f5de695aa3aac26112bd2d6f2ca243541bb9b"
+    },
+    {
+      "path": "src/memory.ts",
+      "gitBlob": "549fff3cb9a2ca78fc1a5def5bee4b7e7c5946b3"
+    },
+    {
+      "path": "src/mime.ts",
+      "gitBlob": "e421df81ebe6d7c062ee55b8e3d02030d87ae7e4"
+    },
+    {
+      "path": "src/node.ts",
+      "gitBlob": "30edfdf1436a96445785f411fd2484ccba97494d"
+    },
+    {
+      "path": "src/object-store.ts",
+      "gitBlob": "74e10bb128864259ceb199efaf2bf2ccaab28808"
+    },
+    {
+      "path": "src/open-retry.ts",
+      "gitBlob": "b5ac5ac8fe012a2da330976dcfff23f10c56a398"
+    },
+    {
+      "path": "src/parked-body.ts",
+      "gitBlob": "41d00f96b761ab409b3d515cb4550a5e2a056ed3"
+    },
+    {
+      "path": "src/r2.ts",
+      "gitBlob": "d74d78ab4df00b616e0f83cd90468e2d8e7c81e9"
+    },
+    {
+      "path": "src/redis-locker.ts",
+      "gitBlob": "ac70bf2f1662a7649ac9e55790923bef37717508"
+    },
+    {
+      "path": "src/s3.ts",
+      "gitBlob": "c47e938f57aa2e443264763290d5bdf55ee3254a"
+    },
+    {
+      "path": "src/sweep-each.ts",
+      "gitBlob": "f5d146b65debae256900327224097a5121f57c2f"
+    },
+    {
+      "path": "src/tus.ts",
+      "gitBlob": "ed7649f19dcb5144097a5709e5862f40db6a01d2"
+    },
+    {
+      "path": "src/upload-engine.ts",
+      "gitBlob": "d452a620a9ff6290806cef53e947877fb372ebb0"
+    },
+    {
+      "path": "src/upload-internals.ts",
+      "gitBlob": "857746f5c1690b708df395cc398b40697f54b2ed"
+    },
+    {
+      "path": "src/upload-locker.ts",
+      "gitBlob": "89e183033e601efa19ba028997d5075f4787de40"
+    },
+    {
+      "path": "src/upload-orchestrator.ts",
+      "gitBlob": "47e326a17825f3972f3540af79ee72e69430002f"
+    },
+    {
+      "path": "src/upload-shared.ts",
+      "gitBlob": "f45c787521f7b8fcd7067eb4ba5b778110a74ea1"
+    },
+    {
+      "path": "src/upload-store.ts",
+      "gitBlob": "f0e44fd720f56a8bdbd57420bc1f3075394324be"
+    },
+    {
+      "path": "src/upload.ts",
+      "gitBlob": "ac8f70ca70a3288f718f67e20353735b93a1162f"
+    },
+    {
+      "path": "src/web.ts",
+      "gitBlob": "5394add82718df465466435d0910b85bb7abdcda"
+    }
+  ]
+}

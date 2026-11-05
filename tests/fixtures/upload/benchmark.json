@@ -1,0 +1,49 @@
+{
+  "context": {
+    "now": 1793903891154,
+    "arch": "arm64-linux",
+    "version": "26.13.0",
+    "runtime": "node"
+  },
+  "resources": {
+    "Memory": 1073741824,
+    "NanoCpus": 1000000000,
+    "PidsLimit": 128,
+    "NetworkMode": "none"
+  },
+  "image": "sha256:f1d61877be7f1023016b35716b2424f3f3d77825a875853130311bdb0d9fe43e",
+  "rawBytes": 22843883,
+  "rawSha256": "ba1d744dc254d552989a7840cba62f992ec10075442ed8978bb3be043eed1c34",
+  "gzipBytes": 73782,
+  "gzipSha256": "b854d7ec4af2a5945e111dfbbb591651c670d3ad5ba18d53ec392301267ec309",
+  "losslessRoundTrip": true,
+  "inputs": {
+    "src/upload.ts": "8efc6a05d4e948dbf7ff75c9f36cfb0e8170c46adae508471ba380b79b8fa5ca",
+    "src/transfer/fields.ts": "dc7cebb17fbc16aa70695f920622ffd4fd0c6cbda52ffc6f14bb10125a03bc04",
+    "src/bytes.ts": "2a6098dae39e46031ba8da2fd52475b361155fc7236146ce8624c4398e91894f",
+    "src/close.ts": "d9d9e0dc945b87d039f0c17408de11216d10cfe53777d9390ec4a9674c876f1b",
+    "bench/upload.bench.ts": "40435887faf1abcf28abbed4e34a6154e5e13639f7bb560c8ab300126b0ce04c",
+    "bench/result.ts": "1d619c1c202e4e77af8fed43fe9ccca1ad7df286aaa9dec5f49ac0a46c1f15a2"
+  },
+  "results": [
+    {
+      "lane": "raw authored Fetch / HEAD response allocation+cancel / 1 request",
+      "p50Nanoseconds": 1214.121337890625,
+      "p99Nanoseconds": 1908.6201171875,
+      "samples": 122
+    },
+    {
+      "lane": "RFC9651 advice dictionary / 3 members / finite parser",
+      "p50Nanoseconds": 2221.537353515625,
+      "p99Nanoseconds": 4015.065673828125,
+      "samples": 63
+    },
+    {
+      "lane": "cold upload workflow creation+HEAD+copied64KiB append / 3 requests / not raw-HEAD equivalent",
+      "p50Nanoseconds": 80708,
+      "p99Nanoseconds": 720792,
+      "samples": 4612
+    }
+  ],
+  "scope": "authored in-memory Fetch; no sockets, provider storage, application publication or equivalent-operation speedup comparison"
+}
