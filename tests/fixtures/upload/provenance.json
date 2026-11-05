@@ -1,0 +1,29 @@
+{
+  "profile": "draft-ietf-httpbis-resumable-upload-15 / interop10; not finalRFC",
+  "nativeInterop": "pinned independent partial-content declares drafts13/14 with interop10; canonicalheaders only",
+  "candidateProvider": {
+    "firstRun": "provider-first.log",
+    "firstRunSha256": "ff4747b1487cfa78cc654310b190d1b3ecc93d4f5624638991e9140ed7256b2b",
+    "resourceRun": "provider-resources.log",
+    "resourceRunSha256": "b40be96309659406b7cf8099a4946444022542a7a0698038de298aa8098e6193",
+    "serverNode": "v26.13.0",
+    "actualCgroup": {
+      "memory": 1073741824,
+      "pids": 128,
+      "cpus": 1
+    },
+    "clientProcesses": 6,
+    "injectedSigkills": 4,
+    "publishedBytesPerKey": 131089,
+    "publishedKeys": 2,
+    "sourceIdentity": "recomputed SHA256 of authored input",
+    "freshProcessRecovery": true,
+    "powerLoss": false,
+    "fullDraftConformance": false
+  },
+  "snapshotPolicy": "*.snapshot retains original third-party/producer bytes; format-receipt.json relates original and formatting-only JSON copies",
+  "baselineScriptHashes": {
+    "baseline-server.mjs.snapshot": "4cb7ea3ad935c2d1b8610971c4db99fc4af72ee4c37530080d99f48c9d3690c1",
+    "baseline-producer.mjs.snapshot": "43b210bbff7ce997bbd140ef2cdeb2ff1764bca537bcb1d16265e5bb1ee1b973"
+  }
+}

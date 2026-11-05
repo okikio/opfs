@@ -1,0 +1,12 @@
+Upload native server official Node runtime: v26.13.0
+▶ draft15 client against independent canonical interop10 FS server
+  ✔ recovers lost append/final replies in separate client processes and preserves unavailable publication truth (10408.789292ms)
+✔ draft15 client against independent canonical interop10 FS server (10409.819666ms)
+ℹ tests 1
+ℹ suites 1
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10570.496666

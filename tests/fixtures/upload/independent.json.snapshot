@@ -1,0 +1,254 @@
+{
+  "upstream": "39a36a8970eea2652003271beb42b2d0319783b4",
+  "node": "v26.13.0",
+  "original": {
+    "length": 131089,
+    "sha256": "1cd2a9c83ffc497a1885bc427b89a6c30b862df32dad5a626428edb37c7e512b",
+    "formula": "(i*31+17)%251"
+  },
+  "publishedFullBytesEqual": true,
+  "checkpointBeforeKill": 0,
+  "recoveredOffset": 32768,
+  "scope": "canonical interop10; FSserver killed and checkpoint reloaded in surviving baseline process; not fresh-client-process, power-loss or complete draft15 conformance",
+  "diagnostics": [
+    [],
+    []
+  ],
+  "streams": [
+    {
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "stderr": "",
+      "stdout": ""
+    }
+  ],
+  "replayEvidence": "observed status/headers/body only; no redelivery parity claim",
+  "replayStatus": 200,
+  "unknownParametersStatus": 400,
+  "traces": [
+    {
+      "method": "POST",
+      "path": "/create?key=main.bin",
+      "requestBytes": 0,
+      "status": 201,
+      "headers": {
+        "location": "/uploads/91edc904-eb29-4e97-a516-3ea947cc1bc0",
+        "upload-complete": "?0",
+        "upload-draft-interop-version": "10",
+        "upload-limit": "max-size=2097152, min-size=0",
+        "upload-offset": "0",
+        "date": "Thu, 05 Nov 2026 18:15:05 GMT",
+        "connection": "keep-alive",
+        "keep-alive": "timeout=5",
+        "transfer-encoding": "chunked"
+      },
+      "body": ""
+    },
+    {
+      "method": "PATCH",
+      "path": "/uploads/91edc904-eb29-4e97-a516-3ea947cc1bc0",
+      "requestBytes": 1,
+      "status": 409,
+      "headers": {
+        "cache-control": "no-store",
+        "content-length": "188",
+        "content-security-policy": "default-src 'none'",
+        "content-type": "application/problem+json",
+        "upload-complete": "?0",
+        "upload-draft-interop-version": "10",
+        "upload-offset": "0",
+        "x-content-type-options": "nosniff",
+        "date": "Thu, 05 Nov 2026 18:15:05 GMT",
+        "connection": "keep-alive",
+        "keep-alive": "timeout=5"
+      },
+      "body": "eyJ0eXBlIjoiaHR0cHM6Ly9pYW5hLm9yZy9hc3NpZ25tZW50cy9odHRwLXByb2JsZW0tdHlwZXMjbWlzbWF0Y2hpbmctdXBsb2FkLW9mZnNldCIsInRpdGxlIjoib2Zmc2V0IGZyb20gcmVxdWVzdCBkb2VzIG5vdCBtYXRjaCBvZmZzZXQgb2YgcmVzb3VyY2UiLCJleHBlY3RlZC1vZmZzZXQiOjAsInByb3ZpZGVkLW9mZnNldCI6MX0="
+    },
+    {
+      "method": "PATCH",
+      "path": "/uploads/91edc904-eb29-4e97-a516-3ea947cc1bc0",
+      "requestBytes": 32768,
+      "status": 204,
+      "headers": {
+        "upload-complete": "?0",
+        "upload-draft-interop-version": "10",
+        "upload-offset": "32768",
+        "date": "Thu, 05 Nov 2026 18:15:05 GMT",
+        "connection": "keep-alive",
+        "keep-alive": "timeout=5"
+      },
+      "body": ""
+    },
+    {
+      "method": "HEAD",
+      "path": "/uploads/91edc904-eb29-4e97-a516-3ea947cc1bc0",
+      "requestBytes": 0,
+      "status": 204,
+      "headers": {
+        "cache-control": "no-store",
+        "upload-complete": "?0",
+        "upload-draft-interop-version": "10",
+        "upload-length": "131089",
+        "upload-limit": "max-size=2097152, min-size=0",
+        "upload-offset": "32768",
+        "date": "Thu, 05 Nov 2026 18:15:05 GMT",
+        "connection": "keep-alive",
+        "keep-alive": "timeout=5"
+      },
+      "body": ""
+    },
+    {
+      "method": "PATCH",
+      "path": "/uploads/91edc904-eb29-4e97-a516-3ea947cc1bc0",
+      "requestBytes": 98321,
+      "status": 204,
+      "headers": {
+        "upload-complete": "?0",
+        "upload-draft-interop-version": "10",
+        "upload-offset": "131089",
+        "date": "Thu, 05 Nov 2026 18:15:05 GMT",
+        "connection": "keep-alive",
+        "keep-alive": "timeout=5"
+      },
+      "body": ""
+    },
+    {
+      "method": "PATCH",
+      "path": "/uploads/91edc904-eb29-4e97-a516-3ea947cc1bc0",
+      "requestBytes": 0,
+      "status": 200,
+      "headers": {
+        "etag": "W/\"20011-18e538d30c529bb6\"",
+        "repr-digest": "sha-256=:HNKpyD/8SXoYhbxCe4mmwwuGLfMtrVpiZCjts3x+USs=:",
+        "upload-complete": "?1",
+        "upload-draft-interop-version": "10",
+        "upload-offset": "131089",
+        "date": "Thu, 05 Nov 2026 18:15:05 GMT",
+        "connection": "keep-alive",
+        "keep-alive": "timeout=5",
+        "transfer-encoding": "chunked"
+      },
+      "body": ""
+    },
+    {
+      "method": "PATCH",
+      "path": "/uploads/91edc904-eb29-4e97-a516-3ea947cc1bc0",
+      "requestBytes": 0,
+      "status": 200,
+      "headers": {
+        "upload-complete": "?1",
+        "upload-draft-interop-version": "10",
+        "upload-offset": "131089",
+        "date": "Thu, 05 Nov 2026 18:15:05 GMT",
+        "connection": "keep-alive",
+        "keep-alive": "timeout=5",
+        "transfer-encoding": "chunked"
+      },
+      "body": ""
+    },
+    {
+      "method": "POST",
+      "path": "/create?key=empty.bin",
+      "requestBytes": 0,
+      "status": 201,
+      "headers": {
+        "location": "/uploads/8cf1d69c-6274-4c83-b12d-39e1ec3759a8",
+        "upload-complete": "?0",
+        "upload-draft-interop-version": "10",
+        "upload-limit": "max-size=2097152, min-size=0",
+        "upload-offset": "0",
+        "date": "Thu, 05 Nov 2026 18:15:05 GMT",
+        "connection": "keep-alive",
+        "keep-alive": "timeout=5",
+        "transfer-encoding": "chunked"
+      },
+      "body": ""
+    },
+    {
+      "method": "PATCH",
+      "path": "/uploads/8cf1d69c-6274-4c83-b12d-39e1ec3759a8",
+      "requestBytes": 0,
+      "status": 200,
+      "headers": {
+        "etag": "W/\"0-18e538d30fe622b6\"",
+        "repr-digest": "sha-256=:47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=:",
+        "upload-complete": "?1",
+        "upload-draft-interop-version": "10",
+        "upload-offset": "0",
+        "date": "Thu, 05 Nov 2026 18:15:05 GMT",
+        "connection": "keep-alive",
+        "keep-alive": "timeout=5",
+        "transfer-encoding": "chunked"
+      },
+      "body": ""
+    },
+    {
+      "method": "POST",
+      "path": "/create?key=cancel.bin",
+      "requestBytes": 0,
+      "status": 201,
+      "headers": {
+        "location": "/uploads/d3c35d90-7b5e-4746-a64d-c3f6d6cedf20",
+        "upload-complete": "?0",
+        "upload-draft-interop-version": "10",
+        "upload-limit": "max-size=2097152, min-size=0",
+        "upload-offset": "0",
+        "date": "Thu, 05 Nov 2026 18:15:05 GMT",
+        "connection": "keep-alive",
+        "keep-alive": "timeout=5",
+        "transfer-encoding": "chunked"
+      },
+      "body": ""
+    },
+    {
+      "method": "DELETE",
+      "path": "/uploads/d3c35d90-7b5e-4746-a64d-c3f6d6cedf20",
+      "requestBytes": 0,
+      "status": 204,
+      "headers": {
+        "upload-draft-interop-version": "10",
+        "date": "Thu, 05 Nov 2026 18:15:05 GMT",
+        "connection": "keep-alive",
+        "keep-alive": "timeout=5"
+      },
+      "body": ""
+    },
+    {
+      "method": "HEAD",
+      "path": "/uploads/d3c35d90-7b5e-4746-a64d-c3f6d6cedf20",
+      "requestBytes": 0,
+      "status": 404,
+      "headers": {
+        "cache-control": "no-store",
+        "content-length": "0",
+        "content-security-policy": "default-src 'none'",
+        "upload-draft-interop-version": "10",
+        "x-content-type-options": "nosniff",
+        "date": "Thu, 05 Nov 2026 18:15:05 GMT",
+        "connection": "keep-alive",
+        "keep-alive": "timeout=5"
+      },
+      "body": ""
+    },
+    {
+      "method": "POST",
+      "path": "/create?key=parameter.bin",
+      "requestBytes": 0,
+      "status": 400,
+      "headers": {
+        "cache-control": "no-store",
+        "content-length": "57",
+        "content-security-policy": "default-src 'none'",
+        "content-type": "text/plain; charset=utf-8",
+        "upload-draft-interop-version": "10",
+        "x-content-type-options": "nosniff",
+        "date": "Thu, 05 Nov 2026 18:15:05 GMT",
+        "connection": "keep-alive",
+        "keep-alive": "timeout=5"
+      },
+      "body": "dXBsb2FkIGNyZWF0aW9uIHJlcXVpcmVzIHRoZSBVcGxvYWQtQ29tcGxldGUgaGVhZGVyIGZpZWxk"
+    }
+  ]
+}
