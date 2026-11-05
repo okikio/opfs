@@ -178,6 +178,6 @@ The retained test corpus comes from [zimeon/ocfl-py](https://github.com/zimeon/o
 `a480226d54cf8d03d71ab8c56eb69ae8a78e231d`, version 2.1.0. Its unmodified producer wrote SHA-512 and SHA-256 objects
 with three version states, edits, deletion, restoration, renames, aliases, empty and binary files. Its validator
 accepted both objects; its extractor independently reproduced every authored version byte for byte. The fixture retains
-full physical file bytes, hashes and extracted oracles. See [fixture provenance](../tests/fixtures/ocfl/README.md) for
-reproduction. These fixtures prove interoperability with that producer profile, not deployed storage behavior or all
-OCFL validators.
+full physical file bytes, hashes and extracted oracles. See
+[fixture provenance](https://github.com/okikio/opfs/blob/7cbf96f/tests/fixtures/ocfl/README.md) for reproduction. These
+fixtures prove interoperability with that producer profile, not deployed storage behavior or all OCFL validators.
