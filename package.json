@@ -134,7 +134,8 @@
     "./content/car": "./src/content/car.ts",
     "./ipfs": "./src/ipfs.ts",
     "./archive/compress": "./src/archive/compress.ts",
-    "./transfer/s3": "./src/transfer/s3.ts"
+    "./transfer/s3": "./src/transfer/s3.ts",
+    "./transfer/azure": "./src/transfer/azure.ts"
   },
   "dependencies": {
     "@okikio/undent": "^0.3.3",
