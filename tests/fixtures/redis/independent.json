@@ -1,0 +1,126 @@
+{
+  "profile": "Native RESP2 string values; separate server captures; SDK/CLI native qualification recorded separately",
+  "oracle": {
+    "bytes": 6,
+    "base64": "AP8NCoAJ",
+    "sha256": "fda8e9d7cfbc05c1ae041c58da4dfd6b8cc8ab9b8364a4f9f747ead091da1410"
+  },
+  "providers": [
+    {
+      "kind": "redis",
+      "key": {
+        "bytes": 4,
+        "base64": "AA0K/w==",
+        "sha256": "d0585d080e1306012af277c93878dfdff7c00b3e8602893d8361bbcc6e8a791c"
+      },
+      "getRequest": {
+        "bytes": 23,
+        "base64": "KjINCiQzDQpHRVQNCiQ0DQoADQr/DQo=",
+        "sha256": "32e5a86124919e150e7c2ffdf3d9d3b3742238c99a791227b4401b23010b3f73"
+      },
+      "auth": {
+        "bytes": 5,
+        "base64": "K09LDQo=",
+        "sha256": "4fe64db76d55e725725c37bcdb91df3266f059510ec44c342a31c426fdd01c5f"
+      },
+      "select": {
+        "bytes": 5,
+        "base64": "K09LDQo=",
+        "sha256": "4fe64db76d55e725725c37bcdb91df3266f059510ec44c342a31c426fdd01c5f"
+      },
+      "get": {
+        "bytes": 12,
+        "base64": "JDYNCgD/DQqACQ0K",
+        "sha256": "ce40f9dd8ed2b6be109fad61e77919f7cef6fce44cfa336f56505d0b52df413e"
+      },
+      "ttl": {
+        "bytes": 5,
+        "base64": "Oi0xDQo=",
+        "sha256": "8302d7e43fdb0dc1797e8e2a2ef4bd9525450fd23e88c6390af84f32dd5cdf99"
+      },
+      "refused": {
+        "bytes": 5,
+        "base64": "JC0xDQo=",
+        "sha256": "8b731f85850fac625747bb8f9e4d99f93a230f8ba98898830ade3698b666fc6b"
+      },
+      "stored": {
+        "bytes": 5,
+        "base64": "K09LDQo=",
+        "sha256": "4fe64db76d55e725725c37bcdb91df3266f059510ec44c342a31c426fdd01c5f"
+      },
+      "removed": {
+        "bytes": 4,
+        "base64": "OjENCg==",
+        "sha256": "6d7dbcb27aa6e24f40bf1f4cb2cc8a36e2f3b7f1ae87edf906578a2936b756d2"
+      },
+      "missing": {
+        "bytes": 4,
+        "base64": "OjANCg==",
+        "sha256": "f3b4cb77478ec9e7388d907937dad039f9204482b7038f21ccabce096918ea23"
+      },
+      "missingTtl": {
+        "bytes": 5,
+        "base64": "Oi0yDQo=",
+        "sha256": "b905573911645991d118a4cd4f110a3661d4574d51339a3b489eeaf7ac5383c9"
+      }
+    },
+    {
+      "kind": "valkey",
+      "key": {
+        "bytes": 4,
+        "base64": "AA0K/w==",
+        "sha256": "d0585d080e1306012af277c93878dfdff7c00b3e8602893d8361bbcc6e8a791c"
+      },
+      "getRequest": {
+        "bytes": 23,
+        "base64": "KjINCiQzDQpHRVQNCiQ0DQoADQr/DQo=",
+        "sha256": "32e5a86124919e150e7c2ffdf3d9d3b3742238c99a791227b4401b23010b3f73"
+      },
+      "auth": {
+        "bytes": 5,
+        "base64": "K09LDQo=",
+        "sha256": "4fe64db76d55e725725c37bcdb91df3266f059510ec44c342a31c426fdd01c5f"
+      },
+      "select": {
+        "bytes": 5,
+        "base64": "K09LDQo=",
+        "sha256": "4fe64db76d55e725725c37bcdb91df3266f059510ec44c342a31c426fdd01c5f"
+      },
+      "get": {
+        "bytes": 12,
+        "base64": "JDYNCgD/DQqACQ0K",
+        "sha256": "ce40f9dd8ed2b6be109fad61e77919f7cef6fce44cfa336f56505d0b52df413e"
+      },
+      "ttl": {
+        "bytes": 5,
+        "base64": "Oi0xDQo=",
+        "sha256": "8302d7e43fdb0dc1797e8e2a2ef4bd9525450fd23e88c6390af84f32dd5cdf99"
+      },
+      "refused": {
+        "bytes": 5,
+        "base64": "JC0xDQo=",
+        "sha256": "8b731f85850fac625747bb8f9e4d99f93a230f8ba98898830ade3698b666fc6b"
+      },
+      "stored": {
+        "bytes": 5,
+        "base64": "K09LDQo=",
+        "sha256": "4fe64db76d55e725725c37bcdb91df3266f059510ec44c342a31c426fdd01c5f"
+      },
+      "removed": {
+        "bytes": 4,
+        "base64": "OjENCg==",
+        "sha256": "6d7dbcb27aa6e24f40bf1f4cb2cc8a36e2f3b7f1ae87edf906578a2936b756d2"
+      },
+      "missing": {
+        "bytes": 4,
+        "base64": "OjANCg==",
+        "sha256": "f3b4cb77478ec9e7388d907937dad039f9204482b7038f21ccabce096918ea23"
+      },
+      "missingTtl": {
+        "bytes": 5,
+        "base64": "Oi0yDQo=",
+        "sha256": "b905573911645991d118a4cd4f110a3661d4574d51339a3b489eeaf7ac5383c9"
+      }
+    }
+  ]
+}
