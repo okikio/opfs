@@ -207,7 +207,9 @@ export async function openZip(source: ByteSourceType, options: ZipOpenOptionsTyp
   if (directoryOffset > directoryEnd || directorySize > directoryEnd - directoryOffset) {
     invalid("ZIP directory overlaps end records.");
   }
-  const directory = await budget.read(directoryOffset, directorySize);
+  // A legacy-name callback may initiate another borrowed read. Its scratch view
+  // must not replace directory evidence while this synchronous parser is running.
+  const directory = new Uint8Array(await budget.read(directoryOffset, directorySize));
   const records = parseDirectory(directory, count, directoryOffset, options.decodeName);
   const entries = Object.freeze(records.map((record) => record.entry));
   const select = (id: number): EntryType => {
@@ -546,7 +548,9 @@ async function readMember(
     : undefined;
   const encryption = cipher ? { encryption: { kind: "zipcrypto" as const, authentication: "none" as const } } : {};
   try {
-    const header = view(await budget.read(record.offset, 30));
+    // Exact source ranges may share scratch storage; keep this fixed header
+    // independent of the later name/extra/payload reads that reuse that storage.
+    const header = view(new Uint8Array(await budget.read(record.offset, 30)));
     if (
       header.getUint32(0, true) !== 0x04034b50 || header.getUint16(6, true) !== record.flags ||
       header.getUint16(8, true) !== entry.method
@@ -596,9 +600,9 @@ async function readMember(
     const length = plan.outputBytes;
     const complete = plan.verification === "full-member-crc";
     if (entry.method === 0 && !complete && !cipher) {
-      const bytes = await budget.read(dataOffset + offset, length);
       budget.decoded(length);
       budget.output(length);
+      const bytes = new Uint8Array(await budget.read(dataOffset + offset, length));
       return { bytes, integrity: "checksum-pending", work: budget.inspect() };
     }
     const chunks: Uint8Array[] = [];
@@ -755,7 +759,8 @@ async function readAesMember(
   let cipher: ZipAesStateType | undefined;
   let owned: Uint8Array<ArrayBuffer> | undefined;
   try {
-    const header = view(await budget.read(record.offset, 30));
+    // The local fixed fields remain evidence after subsequent borrowed reads.
+    const header = view(new Uint8Array(await budget.read(record.offset, 30)));
     if (
       header.getUint32(0, true) !== 0x04034b50 || header.getUint16(4, true) < (metadata.method === 0 ? 10 : 20) ||
       header.getUint16(6, true) !== record.flags || header.getUint16(8, true) !== 99
