@@ -174,7 +174,8 @@
     "./pocketbase": "./src/pocketbase.ts",
     "./archive/bzip": "./src/archive/bzip.ts",
     "./archive/udf": "./src/archive/udf.ts",
-    "./supabase": "./src/supabase.ts"
+    "./supabase": "./src/supabase.ts",
+    "./archive/rar": "./src/archive/rar.ts"
   },
   "dependencies": {
     "@okikio/undent": "^0.3.3",

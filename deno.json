@@ -132,7 +132,8 @@
     "./pocketbase": "./src/pocketbase.ts",
     "./archive/bzip": "./src/archive/bzip.ts",
     "./archive/udf": "./src/archive/udf.ts",
-    "./supabase": "./src/supabase.ts"
+    "./supabase": "./src/supabase.ts",
+    "./archive/rar": "./src/archive/rar.ts"
   },
   "imports": {
     "@okikio/undent": "jsr:@okikio/undent@^0.3.3",
