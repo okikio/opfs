@@ -103,6 +103,11 @@
     "./request": "./src/request.ts",
     "./source": "./src/source.ts",
     "./adapter/read": "./src/adapter/read.ts",
+    "./gcs": "./src/gcs.ts",
+    "./driver/gcs": "./src/driver/gcs.ts",
+    "./adapter/gcs": "./src/adapter/gcs.ts",
+    "./tus": "./src/tus.ts",
+    "./transfer": "./src/transfer.ts",
     "./testing/source": "./src/testing/source.ts"
   },
   "dependencies": {
