@@ -227,6 +227,9 @@ try {
     import { openFits } from '@okikio/opfs/dataset/fits';
     import { openNetcdf } from '@okikio/opfs/dataset/netcdf';
     import { openZarr, createZarrObjectLedger } from '@okikio/opfs/dataset/zarr';
+    import { openLas } from '@okikio/opfs/dataset/las';
+    import { openArfs } from '@okikio/opfs/content/arfs';
+    import { SeafileClient } from '@okikio/opfs/seafile';
     import { openUnixfs } from '@okikio/opfs/content/unixfs';
     import { openRar } from '@okikio/opfs/archive/rar';
     import { openXz } from '@okikio/opfs/archive/xz';
@@ -716,6 +719,81 @@ try {
     if (!(netcdfRaw.values instanceof Int16Array) || JSON.stringify(Array.from(netcdfRaw.values)) !== '[2,3,-777,5,6]' || JSON.stringify(Array.from(netcdfRaw.undefinedMask)) !== '[0,0,1,0,0]' || netcdfRaw.integrity !== 'not-provided') throw new Error('Packed netCDF raw record selection changed');
     const netcdfPhysical = await netcdf.read(netcdfVariable.id, { offset: 2, count: 5, scale: 'physical' });
     if (!(netcdfPhysical.values instanceof Float64Array) || JSON.stringify(Array.from(netcdfPhysical.values)) !== '[11,11.5,-378.5,12.5,13]') throw new Error('Packed netCDF physical scaling changed');
+    const arfsFixture = ${
+      JSON.stringify(JSON.parse(await readFile(new URL("../fixtures/arfs/independent.json", import.meta.url), "utf8")))
+    };
+    const arfsBytes = (value) => Uint8Array.from(atob(value), (byte) => byte.charCodeAt(0));
+    const arfsMetadata = (record) => ({ transactionId: record.transactionId, owner: record.owner, tags: record.tags, source: createByteSource(arfsBytes(record.bytesBase64), { identity: 'native-fixture:' + record.transactionId }) });
+    const arfsInventory = { drive: arfsMetadata(arfsFixture.metadata.find((record) => record.label === 'drive')), entities: arfsFixture.metadata.filter((record) => record.label !== 'drive').map(arfsMetadata) };
+    const arfs = await openArfs(arfsInventory);
+    const arfsFile = arfs.file(arfsFixture.ids.file);
+    const arfsData = { transactionId: arfsFixture.payload.transactionId, source: createByteSource(arfsBytes(arfsFixture.payload.bytesBase64), { identity: 'native-data-fixture' }) };
+    const arfsSelected = await arfsFile.read(arfsData, { offset: 6, length: 11 });
+    assertBytes(arfsSelected.bytes, arfsBytes(arfsFixture.original.range.bytesBase64));
+    assertBytes(await arfsFile.source(arfsData).read(0, arfsFile.size), arfsBytes(arfsFixture.original.bytesBase64));
+    if (arfs.scope !== 'supplied-selected-revisions' || arfs.integrity !== 'caller-supplied-metadata' || arfsSelected.integrity !== 'caller-supplied-data' || arfs.list(arfsFixture.ids.root).entries.length !== 2) throw new Error('Packed ArFS supplied-inventory evidence changed');
+    // An authored metadata revision explicitly binds independent Python ZIP bytes.
+    const arfsZip = ${
+      JSON.stringify(JSON.parse(await readFile(new URL("../fixtures/arfs/zip.json", import.meta.url), "utf8")))
+    };
+    const arfsZipBytes = arfsBytes(arfsZip.wireBase64), arfsZipTx = 'D'.repeat(42) + 'A';
+    const arfsZipRecord = arfsFixture.metadata.find((record) => record.label === 'file');
+    const arfsZipJson = { ...arfsZipRecord.expected, size: arfsZipBytes.length, dataTxId: arfsZipTx };
+    const arfsZipMetadata = { ...arfsMetadata(arfsZipRecord), transactionId: 'C'.repeat(42) + 'A', source: createByteSource(new TextEncoder().encode(JSON.stringify(arfsZipJson)), { identity: 'authored-zip-metadata' }) };
+    const arfsZipView = await openArfs({ drive: arfsInventory.drive, entities: [...arfsInventory.entities.filter((record) => record.transactionId !== arfsZipRecord.transactionId), arfsZipMetadata] });
+    const arfsZipSource = arfsZipView.file(arfsFixture.ids.file).source({ transactionId: arfsZipTx, source: createByteSource(arfsZipBytes, { identity: 'independent-python-zip' }) });
+    const arfsArchive = await openZip(arfsZipSource);
+    assertBytes((await arfsArchive.read(0)).bytes, arfsBytes(arfsZip.originalBase64));
+    const lasFixture = ${
+      JSON.stringify(
+        await (async () => {
+          const fixture = JSON.parse(
+            await readFile(new URL("../fixtures/las/independent.json", import.meta.url), "utf8"),
+          );
+          return fixture.fixtures.find((entry) =>
+            entry.producer === "struct" && entry.format === 3 && entry.count === 37 && entry.extra
+          );
+        })(),
+      )
+    };
+    const lasBytes = Uint8Array.from(atob(lasFixture.file.base64), (byte) => byte.charCodeAt(0));
+    const las = await openLas(createByteSource(lasBytes));
+    const lasRead = await las.read({ offset: 3, count: 7, scale: 'physical' });
+    const lasColumn = (name, width) => Uint8Array.from(atob(lasFixture.columns[name].base64), (byte) => byte.charCodeAt(0)).subarray(3 * width, 10 * width);
+    const lasBytesOf = (value) => new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+    assertBytes(lasBytesOf(lasRead.X), lasColumn('X', 4));
+    assertBytes(lasBytesOf(lasRead.gpsTime), lasColumn('gps_time', 8));
+    assertBytes(lasBytesOf(lasRead.red), lasColumn('red', 2));
+    assertBytes(lasBytesOf(lasRead.physical.x), lasColumn('x', 8));
+    assertBytes(lasRead.extra, new Uint8Array([3, 4, 5, 6, 7, 8, 9]));
+    if (lasRead.integrity !== 'not-provided' || las.extraBytesPerPoint !== 1 || !las.headerExtension.size) throw new Error('Packed LAS opaque/profile evidence changed');
+    assertBytes((await las.readVlr(0, { offset: 3, length: 5 })).bytes, new Uint8Array([3, 4, 5, 6, 7]));
+    const seafileLibrary = '11111111-1111-1111-1111-111111111111';
+    const seafileBody = new Uint8Array([1, 9, 255]);
+    const seafile = new SeafileClient({
+      endpoint: 'https://seafile.example/', library: seafileLibrary, token: 'private-api-token',
+      downloadGrants: [{ origin: 'https://seafile.example/', prefix: '/seafhttp/' }],
+      uploadGrants: [{ origin: 'https://seafile.example/', prefix: '/seafhttp/' }],
+      fetch: async (input, init) => {
+        const url = new URL(input), headers = new Headers(init.headers);
+        if (url.pathname.startsWith('/seafhttp/')) {
+          if (headers.has('authorization') || init.credentials !== 'omit' || init.redirect !== 'manual') throw new Error('Packed Seafile capability authority leaked');
+          if (init.method === 'POST') {
+            const file = init.body.get('file');
+            assertBytes(new Uint8Array(await file.arrayBuffer()), seafileBody);
+            return new Response(JSON.stringify([{ id: 'opaque-file-object', name: 'native (1).bin', size: 3 }]));
+          }
+          return new Response(seafileBody.slice(), { headers: { 'content-length': '3' } });
+        }
+        if (headers.get('authorization') !== 'Token private-api-token') throw new Error('Packed Seafile API authority changed');
+        if (url.pathname.endsWith('/upload-link/')) return new Response(JSON.stringify('https://seafile.example/seafhttp/upload/token'));
+        if (url.pathname.endsWith('/file/')) return new Response(JSON.stringify('https://seafile.example/seafhttp/files/token/native.bin'));
+        return new Response(JSON.stringify({ id: seafileLibrary, name: 'Native library', encrypted: false, permission: 'rw' }));
+      },
+    });
+    const seafileSaved = await seafile.upload('/', 'native.bin', seafileBody);
+    if (seafileSaved.name !== 'native (1).bin' || seafileSaved.size !== 3) throw new Error('Packed Seafile native collision receipt changed');
+    assertBytes(await seafile.read('/' + seafileSaved.name), seafileBody);
     const zarrFixtures = ${
       JSON.stringify(
         await (async () => {
@@ -1135,6 +1213,9 @@ try {
     import { openFits } from '@okikio/opfs/dataset/fits';
     import { openNetcdf } from '@okikio/opfs/dataset/netcdf';
     import { openZarr, createZarrObjectLedger } from '@okikio/opfs/dataset/zarr';
+    import { openLas } from '@okikio/opfs/dataset/las';
+    import { openArfs } from '@okikio/opfs/content/arfs';
+    import { SeafileClient } from '@okikio/opfs/seafile';
     import { openUnixfs } from '@okikio/opfs/content/unixfs';
     import { openRar } from '@okikio/opfs/archive/rar';
     import { openXz } from '@okikio/opfs/archive/xz';
@@ -1264,6 +1345,16 @@ try {
       const listing: import('@okikio/opfs/content/unixfs').UnixfsListingType = await hamt.list();
       void [listing, hamt.profile];
     }
+    const las: import('@okikio/opfs/dataset/las').LasDatasetType = await openLas(createByteSource(new Uint8Array()));
+    const lasRead: import('@okikio/opfs/dataset/las').LasReadType = await las.read({ scale: 'physical' });
+    const seafile = new SeafileClient({ endpoint: 'https://seafile.example/', library: '11111111-1111-1111-1111-111111111111', token: 'caller-token' });
+    const seafileReceipt: import('@okikio/opfs/seafile').SeafileReceiptType = await seafile.upload('/', 'file', new Uint8Array());
+    const arfsInput: import('@okikio/opfs/content/arfs').ArfsInputType = { drive: { transactionId: 'id', owner: 'owner', tags: [], source: createByteSource(new Uint8Array(), { identity: 'explicit' }) }, entities: [] };
+    const arfs: import('@okikio/opfs/content/arfs').ArfsViewType = await openArfs(arfsInput);
+    const arfsFile: import('@okikio/opfs/content/arfs').ArfsFileType = arfs.file('uuid');
+    const arfsRead: import('@okikio/opfs/content/arfs').ArfsReadType = await arfsFile.read({ transactionId: 'data', source: createByteSource(new Uint8Array(), { identity: 'explicit-data' }) });
+    void [arfsRead];
+    void [lasRead, seafileReceipt];
     void [zarrRead];
     void [fitsValues, fitsVerification, restic, resticObject, netcdfRead];
     const wimImage: import('@okikio/opfs/archive/wim').WimImageViewType = await wim.image(1);
