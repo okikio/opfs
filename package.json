@@ -171,7 +171,8 @@
     "./firebase": "./src/firebase.ts",
     "./archive/xz": "./src/archive/xz.ts",
     "./content/lfs": "./src/content/lfs.ts",
-    "./pocketbase": "./src/pocketbase.ts"
+    "./pocketbase": "./src/pocketbase.ts",
+    "./archive/bzip": "./src/archive/bzip.ts"
   },
   "dependencies": {
     "@okikio/undent": "^0.3.3",
