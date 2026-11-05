@@ -222,8 +222,11 @@ try {
     import { SupabaseClient } from '@okikio/opfs/supabase';
     import { NextcloudClient } from '@okikio/opfs/nextcloud';
     import { ResticClient } from '@okikio/opfs/restic';
+    import { LakefsClient } from '@okikio/opfs/lakefs';
     import { createGcsClient, GcsStorageClassSchema } from '@okikio/opfs/gcs';
     import { openFits } from '@okikio/opfs/dataset/fits';
+    import { openNetcdf } from '@okikio/opfs/dataset/netcdf';
+    import { openZarr, createZarrObjectLedger } from '@okikio/opfs/dataset/zarr';
     import { openUnixfs } from '@okikio/opfs/content/unixfs';
     import { openRar } from '@okikio/opfs/archive/rar';
     import { openXz } from '@okikio/opfs/archive/xz';
@@ -624,6 +627,26 @@ try {
     });
     const gcsArchiveReceipt = await gcsArchive.put('archive.bin', new Uint8Array([1, 2, 3]), { storageClass: GcsStorageClassSchema.parse('ARCHIVE') });
     if (gcsArchiveReceipt.storageClass !== 'ARCHIVE' || gcsArchiveReceipt.revision.value !== '18446744073709551614') throw new Error('Packed GCS class/generation receipt changed');
+    const lakefs = new LakefsClient({
+      endpoint: 'https://lake.example/', repository: 'installed', credentials: () => 'Bearer explicit-lake-token',
+      fetch: async (input, init) => {
+        const url = new URL(String(input));
+        if (new Headers(init?.headers).get('authorization') !== 'Bearer explicit-lake-token') throw new Error('Packed lakeFS authority changed');
+        if (url.pathname.endsWith('/branches/work/objects')) {
+          if (new Headers(init?.headers).get('if-none-match') !== '*' || url.searchParams.get('path') !== 'native.bin') throw new Error('Packed lakeFS staging intent changed');
+          assertBytes(new Uint8Array(await new Response(init.body).arrayBuffer()), new Uint8Array([1, 2, 3]));
+          return Response.json({ path: 'native.bin', path_type: 'object', size_bytes: 3, checksum: 'native-metadata-only' }, { status: 201 });
+        }
+        if (url.pathname.endsWith('/branches/work/commits')) return Response.json({ id: 'opaque-commit', parents: ['old'], message: 'Publish staged file', committer: 'fixture', creation_date: 1 }, { status: 201 });
+        if (!url.pathname.endsWith('/refs/opaque-commit/objects') || url.searchParams.get('presign') !== 'false') throw new Error('Packed lakeFS committed read changed');
+        return new Response(new Uint8Array([1, 2, 3]), { headers: { 'content-length': '3' } });
+      },
+    });
+    const lakefsStaged = await lakefs.put('work', 'native.bin', new Uint8Array([1, 2, 3]), { ifNoneMatch: '*' });
+    if (lakefsStaged.size !== 3) throw new Error('Packed lakeFS staging receipt changed');
+    const lakefsCommitted = await lakefs.commit('work', 'Publish staged file');
+    if (lakefsCommitted.id !== 'opaque-commit' || lakefsCommitted.created !== 1000) throw new Error('Packed lakeFS commit scope changed');
+    assertBytes(await lakefs.read(lakefsCommitted.id, 'native.bin'), new Uint8Array([1, 2, 3]));
     const resticBody = new TextEncoder().encode('abc');
     const resticId = 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad';
     const restic = new ResticClient({
@@ -674,6 +697,78 @@ try {
     assertBytes((await unixfsFile.read()).bytes, unixfsOriginal);
     assertBytes(await unixfsFile.source().read(173, 257), unixfsOriginal.subarray(173, 430));
     if ((await unixfsFile.verify()).scope !== 'complete-file') throw new Error('Packed UnixFS verification scope changed');
+    const netcdfFixture = ${
+      JSON.stringify(
+        await (async () => {
+          const fixture = JSON.parse(
+            await readFile(new URL("../fixtures/netcdf/independent.json", import.meta.url), "utf8"),
+          );
+          return fixture.fixtures.find((entry) =>
+            entry.producer === "netCDF-C" && entry.profile === "mixed" && entry.version === 2
+          ).file.base64;
+        })(),
+      )
+    };
+    const netcdf = await openNetcdf(createByteSource(Uint8Array.from(atob(netcdfFixture), (byte) => byte.charCodeAt(0))));
+    const netcdfVariable = netcdf.variables.find((entry) => entry.name === 'records');
+    if (!netcdfVariable || netcdf.version !== 2 || netcdf.deviations.length) throw new Error('Packed netCDF native profile changed');
+    const netcdfRaw = await netcdf.read(netcdfVariable.id, { offset: 2, count: 5 });
+    if (!(netcdfRaw.values instanceof Int16Array) || JSON.stringify(Array.from(netcdfRaw.values)) !== '[2,3,-777,5,6]' || JSON.stringify(Array.from(netcdfRaw.undefinedMask)) !== '[0,0,1,0,0]' || netcdfRaw.integrity !== 'not-provided') throw new Error('Packed netCDF raw record selection changed');
+    const netcdfPhysical = await netcdf.read(netcdfVariable.id, { offset: 2, count: 5, scale: 'physical' });
+    if (!(netcdfPhysical.values instanceof Float64Array) || JSON.stringify(Array.from(netcdfPhysical.values)) !== '[11,11.5,-378.5,12.5,13]') throw new Error('Packed netCDF physical scaling changed');
+    const zarrFixtures = ${
+      JSON.stringify(
+        await (async () => {
+          const fixture = JSON.parse(
+            await readFile(new URL("../fixtures/zarr/independent.json", import.meta.url), "utf8"),
+          );
+          return [
+            ...["C", "F"].map((order) =>
+              fixture.fixtures.find((entry) =>
+                entry.producer === "Zarr" && entry.dtype === ">i2" && entry.order === order
+              )
+            ),
+            fixture.fixtures.find((entry) => entry.profile === "boolean-noncanonical"),
+            fixture.fixtures.find((entry) => entry.profile === "missing"),
+          ];
+        })(),
+      )
+    };
+    for (const fixture of zarrFixtures) {
+      const objects = new Map(Object.entries(fixture.objects).map(([key, value]) => [key, Uint8Array.from(atob(value.base64), (byte) => byte.charCodeAt(0))]));
+      const objectLedger = createZarrObjectLedger(1024);
+      const array = await openZarr({ stability: 'immutable', async open(key) { const bytes = objects.get(key); return bytes ? createByteSource(bytes) : undefined; } }, { objectLedger });
+      const result = await array.read();
+      assertBytes(new Uint8Array(result.values.buffer, result.values.byteOffset, result.values.byteLength), Uint8Array.from(atob(fixture.original.base64), (byte) => byte.charCodeAt(0)));
+      if (result.integrity !== 'not-provided' || objectLedger.inspect() < 2 || (fixture.profile === 'missing' && !result.fillMask.some(Boolean))) throw new Error('Packed Zarr object/fill scope changed');
+    }
+    const hamtFixture = ${
+      JSON.stringify(
+        await (async () => {
+          const fixture = JSON.parse(
+            await readFile(new URL("../fixtures/unixfs/hamt/independent.json", import.meta.url), "utf8"),
+          );
+          return {
+            rootCid: fixture.rootCid,
+            blocks: fixture.blocks,
+            file: fixture.files.find((entry) => entry.path === "file-000.txt"),
+            names: fixture.listings[0].expectedNames,
+          };
+        })(),
+      )
+    };
+    const hamtBlocks = new Map(hamtFixture.blocks.map((entry) => [entry.cid, Uint8Array.from(atob(entry.base64), (byte) => byte.charCodeAt(0))]));
+    const hamtReader = async (cid) => { const bytes = hamtBlocks.get(cid); if (!bytes) throw new Error('Packed HAMT block absent'); return bytes; };
+    let hamtDefaultRefused = false;
+    try { await openUnixfs(hamtFixture.rootCid, hamtReader, { subtle: globalThis.crypto.subtle }); } catch (error) { hamtDefaultRefused = error.message.includes('hamtProfile'); }
+    if (!hamtDefaultRefused) throw new Error('Packed HAMT default admission changed');
+    const hamt = await openUnixfs(hamtFixture.rootCid, hamtReader, { subtle: globalThis.crypto.subtle, hamtProfile: 'kubo-fanout-256' });
+    if (hamt.kind !== 'hamt-directory' || hamt.profile !== 'kubo-fanout-256') throw new Error('Packed HAMT profile changed');
+    const inventory = await hamt.list();
+    if (inventory.scope !== 'complete-directory-links' || JSON.stringify(inventory.entries.map((entry) => entry.name).sort()) !== JSON.stringify(hamtFixture.names)) throw new Error('Packed HAMT listing scope changed');
+    const hamtFile = await hamt.open(hamtFixture.file.path);
+    if (hamtFile.kind !== 'file') throw new Error('Packed HAMT selected file changed');
+    assertBytes((await hamtFile.read()).bytes, Uint8Array.from(atob(hamtFixture.file.base64), (byte) => byte.charCodeAt(0)));
     const fitsFixture = ${
       JSON.stringify(
         await (async () => {
@@ -1035,8 +1130,11 @@ try {
     import { SupabaseClient } from '@okikio/opfs/supabase';
     import { NextcloudClient } from '@okikio/opfs/nextcloud';
     import { ResticClient } from '@okikio/opfs/restic';
+    import { LakefsClient } from '@okikio/opfs/lakefs';
     import { createGcsClient, GcsStorageClassSchema } from '@okikio/opfs/gcs';
     import { openFits } from '@okikio/opfs/dataset/fits';
+    import { openNetcdf } from '@okikio/opfs/dataset/netcdf';
+    import { openZarr, createZarrObjectLedger } from '@okikio/opfs/dataset/zarr';
     import { openUnixfs } from '@okikio/opfs/content/unixfs';
     import { openRar } from '@okikio/opfs/archive/rar';
     import { openXz } from '@okikio/opfs/archive/xz';
@@ -1144,6 +1242,10 @@ try {
     const gcsClass: import('@okikio/opfs/gcs').GcsStorageClassType = GcsStorageClassSchema.parse('ARCHIVE');
     const gcsReceipt: import('@okikio/opfs/gcs').GcsReceiptType = await gcsNative.put('object', new Uint8Array(), { storageClass: gcsClass });
     void gcsReceipt.storageClass;
+    const lakefs = new LakefsClient({ endpoint: 'https://lake.example/', repository: 'types' });
+    const lakefsPut: import('@okikio/opfs/lakefs').LakefsPutType = { ifNoneMatch: '*' };
+    const lakefsCommit: import('@okikio/opfs/lakefs').LakefsCommitType = await lakefs.commit('branch', 'Publish');
+    void [lakefsPut, lakefsCommit];
     const restic = new ResticClient({ endpoint: 'https://backup.example/repository/', subtle: globalThis.crypto.subtle });
     const resticObject: import('@okikio/opfs/restic').ResticObjectType = { kind: 'config' };
     const unixfs: import('@okikio/opfs/content/unixfs').UnixfsNodeType = await openUnixfs('cid', async () => new Uint8Array(), { subtle: globalThis.crypto.subtle });
@@ -1152,7 +1254,18 @@ try {
       const verification: import('@okikio/opfs/content/unixfs').UnixfsVerificationType = await unixfs.verify();
       void [range, verification, unixfs.source()];
     }
-    void [fitsValues, fitsVerification, restic, resticObject];
+    const netcdf: import('@okikio/opfs/dataset/netcdf').NetcdfDatasetType = await openNetcdf(createByteSource(new Uint8Array()), { recordVsize: 'validate' });
+    const netcdfRead: import('@okikio/opfs/dataset/netcdf').NetcdfReadType = await netcdf.read(0, { missing: 'attributes', scale: 'physical' });
+    const zarrStore: import('@okikio/opfs/dataset/zarr').ZarrStoreType = { stability: 'caller', async open() { return undefined; } };
+    const zarr: import('@okikio/opfs/dataset/zarr').ZarrArrayType = await openZarr(zarrStore, { objectLedger: createZarrObjectLedger() });
+    const zarrRead: import('@okikio/opfs/dataset/zarr').ZarrReadType = await zarr.read({ offset: 0, count: 0 });
+    if (unixfs.kind === 'hamt-directory') {
+      const hamt: import('@okikio/opfs/content/unixfs').UnixfsHamtType = unixfs;
+      const listing: import('@okikio/opfs/content/unixfs').UnixfsListingType = await hamt.list();
+      void [listing, hamt.profile];
+    }
+    void [zarrRead];
+    void [fitsValues, fitsVerification, restic, resticObject, netcdfRead];
     const wimImage: import('@okikio/opfs/archive/wim').WimImageViewType = await wim.image(1);
     void [wimProfile, wimImage];
     const xar = await openXar(createByteSource(new Uint8Array()), { verifyToc: false });
