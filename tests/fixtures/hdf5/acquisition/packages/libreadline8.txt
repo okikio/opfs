@@ -1,0 +1,18 @@
+Package: libreadline8
+Source: readline
+Version: 8.2-1.3
+Installed-Size: 555
+Maintainer: Matthias Klose <doko@debian.org>
+Architecture: arm64
+Depends: readline-common, libc6 (>= 2.33), libtinfo6 (>= 6)
+Description: GNU readline and history libraries, run-time libraries
+Description-md5: 02109af5819248ca867891090079f329
+Multi-Arch: same
+Tag: role::shared-lib
+Section: libs
+Priority: optional
+Filename: pool/main/r/readline/libreadline8_8.2-1.3_arm64.deb
+Size: 154776
+MD5sum: b4a54da96c4c0d2e0b632c92afade003
+SHA256: f3b162b7c1e05430607e792ebdbfc417cbd1f1d32cf83664133ae63d811a72d2
+

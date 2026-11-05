@@ -1,0 +1,21 @@
+Package: readline-common
+Source: readline
+Version: 8.2-1.3
+Installed-Size: 89
+Maintainer: Matthias Klose <doko@debian.org>
+Architecture: all
+Replaces: libreadline-common, libreadline4 (<< 4.3-16), libreadline5 (<< 5.0-11)
+Depends: dpkg (>= 1.15.4) | install-info
+Suggests: readline-doc
+Conflicts: libreadline-common, libreadline5 (<< 5.0-11)
+Description: GNU readline and history libraries, common files
+Description-md5: c8e28b105311ffa41fe6e8f86c041f82
+Multi-Arch: foreign
+Tag: interface::commandline, role::app-data, role::program, suite::gnu
+Section: utils
+Priority: important
+Filename: pool/main/r/readline/readline-common_8.2-1.3_all.deb
+Size: 68988
+MD5sum: ad338a71bb8d67bdbcbe411ae6f65d20
+SHA256: 69317523fe56429aa361545416ad339d138c1500e5a604856a80dd9074b4e35c
+

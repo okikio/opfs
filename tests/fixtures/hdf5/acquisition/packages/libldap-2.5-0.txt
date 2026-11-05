@@ -1,0 +1,22 @@
+Package: libldap-2.5-0
+Source: openldap
+Version: 2.5.13+dfsg-5
+Installed-Size: 573
+Maintainer: Debian OpenLDAP Maintainers <pkg-openldap-devel@lists.alioth.debian.org>
+Architecture: arm64
+Replaces: libldap-2.3-0, libldap2
+Depends: libc6 (>= 2.34), libgnutls30 (>= 3.7.5), libsasl2-2 (>= 2.1.28+dfsg)
+Recommends: libldap-common
+Conflicts: ldap-utils (<= 2.1.23-1)
+Description: OpenLDAP libraries
+Description-md5: 198db781f85a21d6d3c302c304d6e0fb
+Multi-Arch: same
+Homepage: https://www.openldap.org/
+Tag: role::shared-lib
+Section: libs
+Priority: optional
+Filename: pool/main/o/openldap/libldap-2.5-0_2.5.13+dfsg-5_arm64.deb
+Size: 170832
+MD5sum: 3350ad27a5f8a5351c51fa06972c08f5
+SHA256: 71e6ae4291a20db999c62cd0a4f30a92a799c46b99205d5e787d4acd7c343b91
+

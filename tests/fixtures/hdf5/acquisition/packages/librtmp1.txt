@@ -1,0 +1,19 @@
+Package: librtmp1
+Source: rtmpdump (2.4+20151223.gitfa8646d.1-2)
+Version: 2.4+20151223.gitfa8646d.1-2+b2
+Installed-Size: 142
+Maintainer: Debian Multimedia Maintainers <debian-multimedia@lists.debian.org>
+Architecture: arm64
+Depends: libc6 (>= 2.17), libgmp10, libgnutls30 (>= 3.6.14), libhogweed6, libnettle8, zlib1g (>= 1:1.1.4)
+Description: toolkit for RTMP streams (shared library)
+Description-md5: 2b2db094819fcb2c640b40d2367fbd10
+Multi-Arch: same
+Homepage: http://rtmpdump.mplayerhq.hu/
+Tag: role::shared-lib
+Section: libs
+Priority: optional
+Filename: pool/main/r/rtmpdump/librtmp1_2.4+20151223.gitfa8646d.1-2+b2_arm64.deb
+Size: 59364
+MD5sum: dc5dd544885fcd6ef29e945ac7fe4d1b
+SHA256: a3a1a6e4b02bcd3254e932b1972ed744082fd7dd5cc1545eec3dd3d539ce6c93
+

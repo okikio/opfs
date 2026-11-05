@@ -1,0 +1,20 @@
+Package: libtirpc3
+Source: libtirpc
+Version: 1.3.3+ds-1
+Installed-Size: 238
+Maintainer: Josue Ortega <josue@debian.org>
+Architecture: arm64
+Depends: libc6 (>= 2.34), libgssapi-krb5-2 (>= 1.17), libtirpc-common (>= 1.3.3+ds-1)
+Breaks: nfs-common (<< 1:1.2.8-7), nfs-kernel-server (<< 1:1.2.8-7)
+Description: transport-independent RPC library
+Description-md5: 604bfb6c9b5f2aed27c76dfa111bffcf
+Multi-Arch: same
+Homepage: http://sourceforge.net/projects/libtirpc
+Tag: role::shared-lib
+Section: libs
+Priority: optional
+Filename: pool/main/libt/libtirpc/libtirpc3_1.3.3+ds-1_arm64.deb
+Size: 80940
+MD5sum: 357d11e8f4e7006efc90d6aa46cee3d6
+SHA256: deaf9ea54f74cab6690b4bc0b427f05cbe62cc073580d84f5f18a8d9e2ece401
+

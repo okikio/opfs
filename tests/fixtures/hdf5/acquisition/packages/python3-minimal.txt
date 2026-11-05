@@ -1,0 +1,23 @@
+Package: python3-minimal
+Source: python3-defaults (3.11.2-1)
+Version: 3.11.2-1+b1
+Installed-Size: 111
+Maintainer: Matthias Klose <doko@debian.org>
+Architecture: arm64
+Depends: dpkg (>= 1.13.20)
+Pre-Depends: python3.11-minimal (>= 3.11.2-1~)
+Description: minimal subset of the Python language (default python3 version)
+Description-md5: 41717b1122fcd4cd4c0cdf425684f8dc
+Multi-Arch: allowed
+Homepage: https://www.python.org/
+Cnf-Visible-Pkgname: python3
+Tag: devel::interpreter, devel::lang:python, devel::library,
+ implemented-in::c, implemented-in::python, role::devel-lib,
+ role::program, role::shared-lib
+Section: python
+Priority: optional
+Filename: pool/main/p/python3-defaults/python3-minimal_3.11.2-1+b1_arm64.deb
+Size: 26296
+MD5sum: a174644fb61bfee5fa6d2152c50f7bb9
+SHA256: f01c94963ace8a6fec59300427c95fc4ac204d752567dd2e4b36ee930755110f
+

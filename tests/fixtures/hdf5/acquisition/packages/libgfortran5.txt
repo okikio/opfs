@@ -1,0 +1,20 @@
+Package: libgfortran5
+Source: gcc-12
+Version: 12.2.0-14+deb12u1
+Installed-Size: 1477
+Maintainer: Debian GCC Maintainers <debian-gcc@lists.debian.org>
+Architecture: arm64
+Depends: gcc-12-base (= 12.2.0-14+deb12u1), libc6 (>= 2.34), libgcc-s1 (>= 4.5)
+Breaks: gcc-4.3 (<< 4.3.6-1), gcc-4.4 (<< 4.4.6-4), gcc-4.5 (<< 4.5.3-2)
+Description: Runtime library for GNU Fortran applications
+Description-md5: bb4b9e7dbbaa67e95441936718b11f39
+Multi-Arch: same
+Homepage: http://gcc.gnu.org/
+Tag: role::shared-lib
+Section: libs
+Priority: optional
+Filename: pool/main/g/gcc-12/libgfortran5_12.2.0-14+deb12u1_arm64.deb
+Size: 339792
+MD5sum: ad1ff257feb0ffe428dc6fb592ec831a
+SHA256: 583497cf5a95960c11f2006586050375c4adbc4b0c569a7e7df346f2bf380cbc
+

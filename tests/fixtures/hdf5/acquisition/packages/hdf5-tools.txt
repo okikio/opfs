@@ -1,0 +1,20 @@
+Package: hdf5-tools
+Source: hdf5
+Version: 1.10.8+repack1-1
+Installed-Size: 3286
+Maintainer: Gilles Filippini <pini@debian.org>
+Architecture: arm64
+Depends: libc6 (>= 2.34), libhdf5-103-1, libhdf5-hl-100
+Description: HDF5 - Runtime tools
+Description-md5: 755d05265670495cad91ade27dcc060c
+Homepage: http://hdfgroup.org/HDF5/
+Tag: devel::lang:c, devel::library, implemented-in::c,
+ interface::commandline, role::devel-lib, role::documentation,
+ role::program, scope::utility, use::converting
+Section: science
+Priority: optional
+Filename: pool/main/h/hdf5/hdf5-tools_1.10.8+repack1-1_arm64.deb
+Size: 425568
+MD5sum: e70cddbc4a9d8496a4b9842c42a2dac9
+SHA256: 724e48c86340bed78813e4a0135fea598099c3f4ddf59741c4e2db19781fab4a
+

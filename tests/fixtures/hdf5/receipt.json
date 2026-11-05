@@ -1,0 +1,36 @@
+{
+  "primary": {
+    "commit": "7bf340440909d468dbb3cf41f0ea0d87f5050cea",
+    "tag": "hdf5_1.14.6",
+    "documents": [
+      {
+        "path": "doxygen/dox/H5.format.2.0.dox",
+        "sha256": "e13aaf8e7fe9ebbb2beb1ebfd84a5c5eb27f963bbb509d50e74b9e9162471bf5"
+      },
+      {
+        "path": "src/H5Olayout.c",
+        "sha256": "a5c68bc06df3af2e4e6016929e48287d457836f7fffe3e3801225a68a06e848e"
+      }
+    ]
+  },
+  "producer": {
+    "baseImage": "sha256:f1d61877be7f1023016b35716b2424f3f3d77825a875853130311bdb0d9fe43e",
+    "temporaryToolImage": "sha256:9bea68e2feecada0bd6376a5a349b10fa7c5d5e0ce13b46b5354e499520d6125",
+    "command": [
+      "/usr/bin/python3",
+      "/produce.py",
+      "--output",
+      "/tmp/hdf5-independent.json"
+    ],
+    "memoryBytes": 1073741824,
+    "cpus": 1,
+    "pids": 128,
+    "network": "none",
+    "exitCode": 0,
+    "oomKilled": false,
+    "rawJsonSha256": "4b38fa96e379405f48a64430d1b83fac4265a669f0367804ec2f0ccf9cdeeccb",
+    "formattedJsonSha256": "4b38fa96e379405f48a64430d1b83fac4265a669f0367804ec2f0ccf9cdeeccb",
+    "toolImageRemoved": true,
+    "baseImageRetained": true
+  }
+}

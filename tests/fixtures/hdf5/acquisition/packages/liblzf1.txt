@@ -1,0 +1,19 @@
+Package: liblzf1
+Source: liblzf
+Version: 3.6-3
+Installed-Size: 31
+Maintainer: Timo Röhling <timo@gaussglocke.de>
+Architecture: arm64
+Depends: libc6 (>= 2.17)
+Description: Very small data compression library
+Description-md5: 877aea019a6222e979f902a326f8df7a
+Multi-Arch: same
+Homepage: http://software.schmorp.de/pkg/liblzf.html
+Tag: role::shared-lib
+Section: libs
+Priority: optional
+Filename: pool/main/libl/liblzf/liblzf1_3.6-3_arm64.deb
+Size: 9860
+MD5sum: 3b990e51eb9639f8da93f07e317f09fd
+SHA256: 7bd48f5f5e3cacd0e8e46f943c6cc71bc10e2f0d62d2f5cac926dbae7d7b0beb
+
