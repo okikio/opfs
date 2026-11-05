@@ -241,6 +241,9 @@ try {
     import { createZipAdapter } from '@okikio/opfs/view/zip';
     import { verifyArweaveTransaction } from '@okikio/opfs/content/arweave';
     import { createArweaveClient } from '@okikio/opfs/arweave';
+    import { openLha } from '@okikio/opfs/archive/lha';
+    import { openHdf5 } from '@okikio/opfs/dataset/hdf5';
+    import { createCmisClient } from '@okikio/opfs/cmis';
     import { compressStream, decompressStream } from '@okikio/opfs/archive/compress';
     import { parseCid, verifyBlock } from '@okikio/opfs/content/cid';
     import { createS3Client } from '@okikio/opfs/s3';
@@ -618,6 +621,81 @@ try {
     assertBytes(Uint8Array.from(lzmaChunks), Uint8Array.from(atob(lzmaFixture.body), (byte) => byte.charCodeAt(0)));
     const lzmaEnd = await lzma.finished;
     if (lzmaEnd.status !== 'complete' || lzmaEnd.termination !== 'lzma2-end' || lzmaEnd.integrity !== 'none') throw new Error('Packed LZMA terminal scope changed');
+    const cmisFixture = ${
+      JSON.stringify(
+        await (async () => {
+          const fixture = JSON.parse(
+            await readFile(new URL("../fixtures/cmis/independent.json", import.meta.url), "utf8"),
+          );
+          return {
+            repositoryId: fixture.repositoryId,
+            objectId: fixture.objectId,
+            rootId: fixture.rootId,
+            repository: fixture.repository.text,
+            object: fixture.object.text,
+            content: fixture.content.base64,
+          };
+        })(),
+      )
+    };
+    const cmisOriginal = Uint8Array.from(atob(cmisFixture.content), (byte) => byte.charCodeAt(0));
+    const cmis = createCmisClient({
+      repository:cmisFixture.repositoryId,
+      repositoryUrl:'https://cmis.example/browser/A1', rootUrl:'https://cmis.example/browser/A1/root',
+      credentials:() => ({authorization:'Bearer installed-consumer-only'}),
+      fetch:async (input, init) => {
+        const url = new URL(String(input));
+        if (url.origin !== 'https://cmis.example' || init.redirect !== 'manual' || init.credentials !== 'omit' || new Headers(init.headers).get('authorization') !== 'Bearer installed-consumer-only') throw new Error('Packed CMIS authority changed');
+        const selector = url.searchParams.get('cmisselector');
+        if (selector === 'repositoryInfo') return new Response(cmisFixture.repository);
+        if (selector === 'object') return new Response(cmisFixture.object);
+        if (selector === 'content') return new Response(cmisOriginal, {headers:{'content-length':String(cmisOriginal.length)}});
+        throw new Error('Packed CMIS requested an uncaptured operation');
+      },
+    });
+    if ((await cmis.repository()).root !== cmisFixture.rootId || (await cmis.get(cmisFixture.objectId)).id !== cmisFixture.objectId) throw new Error('Packed CMIS native identities changed');
+    assertBytes(await cmis.read(cmisFixture.objectId), cmisOriginal);
+    const lhaFixture = ${
+      JSON.stringify(
+        await (async () => {
+          const fixture = JSON.parse(
+            await readFile(new URL("../fixtures/lha/independent.json", import.meta.url), "utf8"),
+          ).fixtures.find((row) => row.level === 2);
+          return { wire: fixture.archive.base64, original: fixture.payloads["odd.bin"].base64 };
+        })(),
+      )
+    };
+    const lha = await openLha(createByteSource(Uint8Array.from(atob(lhaFixture.wire), (byte) => byte.charCodeAt(0))));
+    const lhaEntry = lha.entries.find((entry) => entry.name === 'odd.bin');
+    const lhaRead = await lha.read(lhaEntry.id);
+    const lhaOriginal = Uint8Array.from(atob(lhaFixture.original), (byte) => byte.charCodeAt(0));
+    assertBytes(lhaRead.bytes, lhaOriginal);
+    if (lhaEntry.level !== 2 || lhaRead.integrity !== 'crc16-verified' || lhaEntry.headerIntegrity !== 'crc16-verified') throw new Error('Packed LHA scopes changed');
+    assertBytes(await lha.member(lhaEntry.id).read(3, 17), lhaOriginal.slice(3, 20));
+    const hdf5Fixture = ${
+      JSON.stringify(
+        await (async () => {
+          const fixture =
+            JSON.parse(await readFile(new URL("../fixtures/hdf5/independent.json", import.meta.url), "utf8")).files[0];
+          return {
+            wire: fixture.bytesBase64,
+            datasets: fixture.datasets.filter((row) => ["i64_be", "grid", "empty"].includes(row.name)).map((row) => ({
+              name: row.name,
+              original: row.originalBase64,
+              values: row.values.map((value) => value.integer),
+            })),
+          };
+        })(),
+      )
+    };
+    const hdf5 = await openHdf5(createByteSource(Uint8Array.from(atob(hdf5Fixture.wire), (byte) => byte.charCodeAt(0))), {profile:'classic-contiguous'});
+    if (!hdf5.list().some((link) => link.name === 'soft' && link.kind === 'soft')) throw new Error('Packed HDF5 root links changed');
+    for (const fixture of hdf5Fixture.datasets) {
+      const dataset = await hdf5.dataset(fixture.name);
+      assertBytes(await dataset.source().read(0, dataset.byteLength), Uint8Array.from(atob(fixture.original), (byte) => byte.charCodeAt(0)));
+      const result = await dataset.read();
+      if (result.integrity !== 'not-provided' || JSON.stringify(Array.from(result.values, (value) => String(value))) !== JSON.stringify(fixture.values)) throw new Error('Packed HDF5 numeric values changed');
+    }
     const zipBzipFixture = ${
       JSON.stringify(
         await (async () => {
@@ -1300,6 +1378,9 @@ try {
     import { createZipAdapter } from '@okikio/opfs/view/zip';
     import { verifyArweaveTransaction } from '@okikio/opfs/content/arweave';
     import { createArweaveClient } from '@okikio/opfs/arweave';
+    import { openLha } from '@okikio/opfs/archive/lha';
+    import { openHdf5 } from '@okikio/opfs/dataset/hdf5';
+    import { createCmisClient } from '@okikio/opfs/cmis';
     import { createByteSource } from '@okikio/opfs/source';
     import { createCompressedTar, readCompressedTar } from '@okikio/opfs/archive/compress';
     import { parseCid, verifyBlock } from '@okikio/opfs/content/cid';
@@ -1433,6 +1514,14 @@ try {
     const arweaveData: import('@okikio/opfs/content/arweave').ArweaveDataType = await arweaveTransaction.verifyData(createByteSource(new Uint8Array()), { chunkProfile: 'arweave-js-1.15.7' });
     const arweaveClient: import('@okikio/opfs/arweave').ArweaveClientType = createArweaveClient({ url: 'https://arweave.example', fetch, subtle: globalThis.crypto.subtle, profile: 'rsa4096-pss32-v2' });
     const arweaveRemote: import('@okikio/opfs/arweave').ArweaveRemoteTransactionType = await arweaveClient.open('type-only');
+    const lhaTyped: import('@okikio/opfs/archive/lha').LhaArchiveType = await openLha(createByteSource(new Uint8Array()));
+    const lhaTypedRead: import('@okikio/opfs/archive/lha').LhaReadType = await lhaTyped.read(0, {verify:false, length:1});
+    const hdf5Typed: import('@okikio/opfs/dataset/hdf5').Hdf5FileType = await openHdf5(createByteSource(new Uint8Array()), {profile:'classic-contiguous'});
+    const hdf5Dataset: import('@okikio/opfs/dataset/hdf5').Hdf5DatasetType = await hdf5Typed.dataset('literal-name');
+    const hdf5Values: import('@okikio/opfs/dataset/hdf5').Hdf5ValuesType = (await hdf5Dataset.read({offset:0,count:1})).values;
+    const cmisTyped: import('@okikio/opfs/cmis').CmisClient = createCmisClient({repository:'type-only', repositoryUrl:'https://repository.example/browser/A1', rootUrl:'https://repository.example/browser/A1/root'});
+    const cmisPage: import('@okikio/opfs/cmis').CmisPageType = await cmisTyped.list('root', {limit:1});
+    void [lhaTypedRead, hdf5Values, cmisPage];
     const zipLzmaPolicy: import('@okikio/opfs/archive/zip').ZipLzmaOptionsType = { maxDictionaryBytes: 1048576, maxSteps: 1000000 };
     const zipCodecArchive = await openZip(createByteSource(new Uint8Array()));
     const zipCodecRead = await zipCodecArchive.read(0, { lzma: zipLzmaPolicy });

@@ -276,6 +276,20 @@ jobs:
           install_args: deno node
       - run: deno task deps:ci && deno task test:ocis-provider
 
+  cmis:
+    name: CMIS native repository and SDK containers
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+        with:
+          version: "2026.8.6"
+          install_args: deno node
+      - run: deno task deps:ci && deno task test:cmis-provider
+
   gcs-archive:
     name: GCS Archive class SDK interoperability
     runs-on: ubuntu-latest
@@ -337,6 +351,9 @@ jobs:
           BENCH_JSON=1 deno task bench:zip-bzip > .tmp/reports/archive-bench/zip-bzip.json 2> .tmp/reports/archive-bench/zip-bzip-stderr.log
           BENCH_JSON=1 deno task bench:zip-lzma > .tmp/reports/archive-bench/zip-lzma.json 2> .tmp/reports/archive-bench/zip-lzma-stderr.log
           BENCH_JSON=1 deno task bench:arweave > .tmp/reports/archive-bench/arweave.json 2> .tmp/reports/archive-bench/arweave-stderr.log
+          BENCH_JSON=1 deno task bench:cmis > .tmp/reports/archive-bench/cmis.json 2> .tmp/reports/archive-bench/cmis-stderr.log
+          BENCH_JSON=1 deno task bench:lha > .tmp/reports/archive-bench/lha.json 2> .tmp/reports/archive-bench/lha-stderr.log
+          BENCH_JSON=1 deno task bench:hdf5 > .tmp/reports/archive-bench/hdf5.json 2> .tmp/reports/archive-bench/hdf5-stderr.log
           BENCH_JSON=1 deno task bench:zarr > .tmp/reports/archive-bench/zarr.json 2> .tmp/reports/archive-bench/zarr-stderr.log
           BENCH_JSON=1 deno task bench:unixfs > .tmp/reports/archive-bench/unixfs.json 2> .tmp/reports/archive-bench/unixfs-stderr.log
           BENCH_JSON=1 deno task bench:rar > .tmp/reports/archive-bench/rar.json 2> .tmp/reports/archive-bench/rar-stderr.log
