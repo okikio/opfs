@@ -246,6 +246,8 @@ try {
     import { createCmisClient } from '@okikio/opfs/cmis';
     import { createCouchdbClient } from '@okikio/opfs/couchdb';
     import { openCryptomator } from '@okikio/opfs/crypto/cryptomator';
+    import { createEtcdClient } from '@okikio/opfs/etcd';
+    import { createUploadClient, UploadSessionSchema } from '@okikio/opfs/upload';
     import { compressStream, decompressStream } from '@okikio/opfs/archive/compress';
     import { parseCid, verifyBlock } from '@okikio/opfs/content/cid';
     import { createS3Client } from '@okikio/opfs/s3';
@@ -677,6 +679,55 @@ try {
     if (couchdbDocument.id !== couchdbFixture.documentId || couchdbDocument.attachments[0].length !== couchdbOriginal.length) throw new Error('Packed CouchDB native metadata changed');
     assertBytes(await couchdb.read(couchdbFixture.documentId, couchdbFixture.attachmentName, {revision:couchdbDocument.revision}), couchdbOriginal);
     if ((await couchdb.stat(couchdbFixture.documentId, couchdbFixture.attachmentName)).etag !== couchdbFixture.content.headers.etag) throw new Error('Packed CouchDB attachment ETag changed');
+    const etcdFixture = ${
+      JSON.stringify(JSON.parse(await readFile(new URL("../fixtures/etcd/independent.json", import.meta.url), "utf8")))
+    };
+    const etcdOriginal = Uint8Array.from(atob(etcdFixture.oracle.base64), (byte)=>byte.charCodeAt(0));
+    const etcdKey = new TextEncoder().encode(etcdFixture.key);
+    const etcd = createEtcdClient({endpoint:'https://etcd.example/',fetch:async(input,init)=>{
+      if(String(input)!=='https://etcd.example/v3/kv/range' || init.method!=='POST' || init.redirect!=='manual' || init.credentials!=='omit') throw new Error('Packed etcd authority changed');
+      const request=JSON.parse(init.body);
+      if(request.key!==btoa(String.fromCharCode(...etcdKey)) || request.serializable!==false) throw new Error('Packed etcd exact key changed');
+      return new Response(Uint8Array.from(atob(etcdFixture.range.base64),(byte)=>byte.charCodeAt(0)),{status:etcdFixture.range.status,headers:etcdFixture.range.headers});
+    }});
+    const etcdResult = await etcd.get(etcdKey);
+    if(!etcdResult.entry || typeof etcdResult.header.cluster_id!=='string' || typeof etcdResult.entry.modRevision!=='string') throw new Error('Packed etcd revision evidence changed');
+    assertBytes(etcdResult.entry.key,etcdKey);
+    assertBytes(etcdResult.entry.value,etcdOriginal);
+    const uploadFixture = ${
+      JSON.stringify(
+        await (async () => {
+          const fixture = JSON.parse(
+            await readFile(new URL("../fixtures/upload/independent.json", import.meta.url), "utf8"),
+          );
+          return { original: fixture.original, traces: [0, 3, 4, 5].map((index) => fixture.traces[index]) };
+        })(),
+      )
+    };
+    const uploadOriginal=Uint8Array.from({length:uploadFixture.original.length},(_,index)=>(index*31+17)%251);
+    const uploadDigest=Array.from(new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256',uploadOriginal)),(byte)=>byte.toString(16).padStart(2,'0')).join('');
+    if(uploadDigest!==uploadFixture.original.sha256) throw new Error('Packed upload independent original differs');
+    let uploadAt=0;
+    const uploadClient=createUploadClient({profile:'draft-15',target:'https://upload.example/create?key=main.bin',fetch:async(input,init)=>{
+      const trace=uploadFixture.traces[uploadAt++], url=new URL(String(input));
+      if(!trace || url.origin!=='https://upload.example' || url.pathname+url.search!==trace.path || init.method!==trace.method || init.redirect!=='manual' || init.credentials!=='omit') throw new Error('Packed upload trace or authority changed');
+      const headers=new Headers(init.headers);
+      if(headers.get('Upload-Draft-Interop-Version')!=='10') throw new Error('Packed upload draft version changed');
+      if(trace.method==='PATCH' && trace.requestBytes>0){
+        if(headers.get('Upload-Offset')!=='32768' || headers.get('Upload-Complete')!=='?0') throw new Error('Packed upload append evidence changed');
+        assertBytes(init.body,uploadOriginal.subarray(32768));
+      } else if(init.body!==undefined) assertBytes(init.body,new Uint8Array());
+      return new Response(trace.body?Uint8Array.from(atob(trace.body),(byte)=>byte.charCodeAt(0)):null,{status:trace.status,headers:trace.headers});
+    }});
+    const uploadCreated=await uploadClient.create({method:'POST',size:uploadOriginal.length});
+    if(uploadCreated.kind!=='created') throw new Error('Packed upload creation omitted resource');
+    const uploadResource=uploadClient.open(UploadSessionSchema.parse(JSON.parse(JSON.stringify(uploadCreated.session))),{acknowledgedOffset:0});
+    const uploadStatus=await uploadResource.status();
+    if(uploadStatus.offset!==32768) throw new Error('Packed upload reconciliation changed');
+    const uploadAppend=await uploadResource.append(uploadStatus.offset,uploadOriginal.subarray(uploadStatus.offset));
+    if(uploadAppend.kind!=='ack' || uploadAppend.offset!==uploadOriginal.length) throw new Error('Packed upload acknowledgement changed');
+    const uploadReceipt=await uploadResource.finish();
+    if(uploadReceipt.terminal!==true || uploadReceipt.status!==200 || uploadAt!==uploadFixture.traces.length) throw new Error('Packed upload terminal receipt changed');
     const cryptomatorFixture = ${
       JSON.stringify(
         await (async () => {
@@ -1442,6 +1493,8 @@ try {
     import { createCmisClient } from '@okikio/opfs/cmis';
     import { createCouchdbClient } from '@okikio/opfs/couchdb';
     import { openCryptomator } from '@okikio/opfs/crypto/cryptomator';
+    import { createEtcdClient } from '@okikio/opfs/etcd';
+    import { createUploadClient, UploadSessionSchema } from '@okikio/opfs/upload';
     import { createByteSource } from '@okikio/opfs/source';
     import { createCompressedTar, readCompressedTar } from '@okikio/opfs/archive/compress';
     import { parseCid, verifyBlock } from '@okikio/opfs/content/cid';
@@ -1590,7 +1643,16 @@ try {
     const cryptomatorRead: import('@okikio/opfs/crypto/cryptomator').CryptomatorReadType = await cryptomatorSource.readVerified(0,1);
     await cryptomatorSource[Symbol.asyncDispose]();
     await cryptomatorTyped[Symbol.asyncDispose]();
-    void [lhaTypedRead, hdf5Values, cmisPage, couchdbReceipt, cryptomatorRead];
+    const etcdTyped: import('@okikio/opfs/etcd').EtcdClient = createEtcdClient({endpoint:'https://etcd.example/'});
+    const etcdGet: import('@okikio/opfs/etcd').EtcdGetType = await etcdTyped.get(new Uint8Array([1]));
+    const etcdReceipt: import('@okikio/opfs/etcd').EtcdReceiptType = await etcdTyped.put(new Uint8Array([1]),new Uint8Array(),{modRevision:'1',lease:'preserve'});
+    const uploadTyped: import('@okikio/opfs/upload').UploadClient = createUploadClient({profile:'draft-15',target:'https://upload.example/report'});
+    const uploadSession: import('@okikio/opfs/upload').UploadSessionType = UploadSessionSchema.parse({});
+    const uploadResource: import('@okikio/opfs/upload').UploadResourceType = uploadTyped.open(uploadSession,{acknowledgedOffset:0});
+    const uploadStatus: import('@okikio/opfs/upload').UploadStatusType = await uploadResource.status();
+    const uploadAppend: import('@okikio/opfs/upload').UploadAppendType = await uploadResource.append(0,new Uint8Array([1]));
+    const uploadReceipt: import('@okikio/opfs/upload').UploadReceiptType = await uploadResource.finish();
+    void [lhaTypedRead, hdf5Values, cmisPage, couchdbReceipt, cryptomatorRead, etcdGet, etcdReceipt, uploadStatus, uploadAppend, uploadReceipt];
     const zipLzmaPolicy: import('@okikio/opfs/archive/zip').ZipLzmaOptionsType = { maxDictionaryBytes: 1048576, maxSteps: 1000000 };
     const zipCodecArchive = await openZip(createByteSource(new Uint8Array()));
     const zipCodecRead = await zipCodecArchive.read(0, { lzma: zipLzmaPolicy });

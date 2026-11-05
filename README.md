@@ -140,6 +140,10 @@ or cancellation behavior.
 [CouchDB attachments](docs/couchdb.md) expose native document revisions, exact byte streams and explicit mutation
 receipts. Applications own document fields, conflict resolution and any filesystem projection.
 
+[etcd](docs/etcd.md) exposes native byte keys, revision conditions and explicit lease choices.
+[HTTP upload draft 15](docs/upload.md) preserves a resumable resource across client restarts while keeping byte
+acknowledgements separate from the target application’s final response. Neither supplies filesystem semantics.
+
 For a nested preview, first choose a revision-bound [byte source](docs/source.md), open the matching reader, inspect its
 entries and request a finite member interval. A reader may still need a full ciphertext or compressed prefix. Inspect
 its plan and returned integrity evidence before displaying or publishing bytes; an early prefix can precede a later

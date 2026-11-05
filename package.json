@@ -192,7 +192,9 @@
     "./archive/lha": "./src/archive/lha.ts",
     "./dataset/hdf5": "./src/dataset/hdf5.ts",
     "./couchdb": "./src/couchdb.ts",
-    "./crypto/cryptomator": "./src/crypto/cryptomator.ts"
+    "./crypto/cryptomator": "./src/crypto/cryptomator.ts",
+    "./etcd": "./src/etcd.ts",
+    "./upload": "./src/upload.ts"
   },
   "dependencies": {
     "@okikio/undent": "^0.3.3",
