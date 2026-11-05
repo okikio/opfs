@@ -124,7 +124,8 @@
     "./archive/iso": "./src/archive/iso.ts",
     "./archive/xar": "./src/archive/xar.ts",
     "./yandex": "./src/yandex.ts",
-    "./archive/wim": "./src/archive/wim.ts"
+    "./archive/wim": "./src/archive/wim.ts",
+    "./archive/lzma": "./src/archive/lzma.ts"
   },
   "imports": {
     "@okikio/undent": "jsr:@okikio/undent@^0.3.3",
