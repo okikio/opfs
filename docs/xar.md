@@ -119,12 +119,12 @@ Missing stability evidence requires explicit `allowUnverifiedSource: true` and d
 
 ## Independent evidence and remaining scope
 
-[Fixture production](../tests/fixtures/xar/README.md) retains seven complete unmodified archives: six produced by native
-Apple `xar 1.8dev` (stored/zlib with three SHA algorithms), plus a bsdtar-produced XAR. Python's independent
-zlib/hashlib checks every TOC/member checksum and compares each decoded file with authored bytes. Native xar extracts
-all fixtures and compares exact bytes. Installed bsdtar independently extracts the SHA-1 fixtures; it refuses Apple
-SHA-2 archives as unrecognized, and those failed receipts remain recorded. This is local tool interoperability, not a
-claim about every XAR implementation or deployed package installer.
+[Fixture production](https://github.com/okikio/opfs/blob/54971ba/tests/fixtures/xar/README.md) retains seven complete
+unmodified archives: six produced by native Apple `xar 1.8dev` (stored/zlib with three SHA algorithms), plus a
+bsdtar-produced XAR. Python's independent zlib/hashlib checks every TOC/member checksum and compares each decoded file
+with authored bytes. Native xar extracts all fixtures and compares exact bytes. Installed bsdtar independently extracts
+the SHA-1 fixtures; it refuses Apple SHA-2 archives as unrecognized, and those failed receipts remain recorded. This is
+local tool interoperability, not a claim about every XAR implementation or deployed package installer.
 
 The dialect source is Apple's immutable
 [`archive.c` revision 3efbc308e3699a4ab8258fd769f5853bae91a2dc](https://github.com/apple-oss-distributions/xar/blob/3efbc308e3699a4ab8258fd769f5853bae91a2dc/xar/lib/archive.c),

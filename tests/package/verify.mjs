@@ -209,6 +209,9 @@ try {
     import { BoxClient } from '@okikio/opfs/box';
     import { createLz4Decoder } from '@okikio/opfs/archive/lz4';
     import { openArc } from '@okikio/opfs/archive/arc';
+    import { openIso } from '@okikio/opfs/archive/iso';
+    import { openXar } from '@okikio/opfs/archive/xar';
+    import { PcloudClient } from '@okikio/opfs/pcloud';
     import { openGitObject, encodeGitTree } from '@okikio/opfs/content/git';
     import { createD1Adapter } from '@okikio/opfs/adapter/d1';
     import { createZipStream } from '@okikio/opfs/archive/write';
@@ -446,6 +449,42 @@ try {
     const git = await openGitObject(createByteSource(Uint8Array.from(atob(gitFixture.loose), (byte) => byte.charCodeAt(0))), { algorithm: 'sha256', oid: gitFixture.oid, subtle: globalThis.crypto.subtle });
     assertBytes(await git.read(), Uint8Array.from(atob(gitFixture.payload), (byte) => byte.charCodeAt(0)));
     if (encodeGitTree([], { algorithm: 'sha256' }).length !== 0) throw new Error('Packed empty Git tree failed');
+    const pcloud = new PcloudClient({ endpoint: 'https://api.pcloud.com', token: () => 'fixture-token', fetch: async () => new Response('{"result":0,"metadata":{"isfolder":false,"id":"f7","fileid":7,"parentfolderid":0,"name":"packed","size":3,"hash":18446744073709551615}}') });
+    if ((await pcloud.statFile('7')).hash !== '18446744073709551615') throw new Error('Packed pCloud uint64 was rounded');
+    const isoFixture = ${
+      JSON.stringify(
+        await (async () => {
+          const fixture =
+            JSON.parse(await readFile(new URL("../fixtures/iso/independent.json", import.meta.url), "utf8"))
+              .images["genisoimage-joliet"];
+          return {
+            archive: fixture.archive,
+            body: fixture.profiles.joliet.find((entry) => entry.name === "/hello.txt").body,
+          };
+        })(),
+      )
+    };
+    const iso = await openIso(createByteSource(Uint8Array.from(atob(isoFixture.archive), (byte) => byte.charCodeAt(0))), { namespace: 'joliet' });
+    const isoHello = iso.entries.find((entry) => entry.parentId === -1 && entry.name === 'hello.txt');
+    assertBytes((await iso.read(isoHello.id)).bytes, Uint8Array.from(atob(isoFixture.body), (byte) => byte.charCodeAt(0)));
+    const xarFixture = ${
+      JSON.stringify(
+        await (async () => {
+          const fixture = JSON.parse(
+            await readFile(new URL("../fixtures/xar/independent.json", import.meta.url), "utf8"),
+          );
+          return {
+            archive: fixture.objects.find((entry) => entry.compression === "gzip" && entry.algorithm === "sha1").base64,
+            body: fixture.records.find((entry) => entry.path === "hello.txt").base64,
+          };
+        })(),
+      )
+    };
+    const xar = await openXar(createByteSource(Uint8Array.from(atob(xarFixture.archive), (byte) => byte.charCodeAt(0))), { subtle: globalThis.crypto.subtle });
+    const xarHello = xar.entries.find((entry) => entry.path === 'hello.txt');
+    const xarRead = await xar.read(xarHello.id);
+    assertBytes(xarRead.bytes, Uint8Array.from(atob(xarFixture.body), (byte) => byte.charCodeAt(0)));
+    if (xar.toc.status !== 'verified' || xarRead.archived !== 'verified' || xarRead.extracted !== 'verified') throw new Error('Packed XAR checksum scopes changed');
     const packedOciManifest = JSON.stringify({"schemaVersion":2,"mediaType":"application/vnd.oci.image.manifest.v1+json","config":{"mediaType":"application/vnd.oci.empty.v1+json","digest":"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a","size":2},"layers":[{"mediaType":"application/octet-stream","digest":"sha256:039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81","size":3}]});
     const packedOci = new OciClient({
       registry: 'https://registry.invalid/', repository: 'packed/artifact',
@@ -635,6 +674,9 @@ try {
     import { BoxClient } from '@okikio/opfs/box';
     import { createLz4Decoder } from '@okikio/opfs/archive/lz4';
     import { openArc } from '@okikio/opfs/archive/arc';
+    import { openIso } from '@okikio/opfs/archive/iso';
+    import { openXar } from '@okikio/opfs/archive/xar';
+    import { PcloudClient } from '@okikio/opfs/pcloud';
     import { openGitObject, encodeGitTree } from '@okikio/opfs/content/git';
     import { createD1Adapter } from '@okikio/opfs/adapter/d1';
     import { createZipStream } from '@okikio/opfs/archive/write';
@@ -688,6 +730,13 @@ try {
     const gitIntegrity: import('@okikio/opfs/content/git').GitAlgorithmType = gitObject.integrity;
     const gitTree: Uint8Array = encodeGitTree([], { algorithm: 'sha256' });
     void [gitIntegrity, gitTree];
+    const pcloud = new PcloudClient({ endpoint: 'https://api.pcloud.com', token: () => 'types-only' });
+    const pcloudId: string = (await pcloud.statFile('7')).id;
+    const iso = await openIso(createByteSource(new Uint8Array()));
+    const isoParents: import('@okikio/opfs/archive/iso').IsoParentMismatchType[] = [...iso.parents.mismatches];
+    const xar = await openXar(createByteSource(new Uint8Array()), { verifyToc: false });
+    const xarStatus: import('@okikio/opfs/archive/xar').XarChecksumStatusType = xar.toc.status;
+    void [pcloudId, isoParents, xarStatus];
     const arcFormat: 'internet-archive-arc' = arc.format;
     void arcFormat;
     const passwordOptions = { password: new Uint8Array(), verify: true };
