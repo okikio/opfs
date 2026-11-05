@@ -42,6 +42,10 @@
       "size": 354364,
       "sha256": "9393a6ee36a27b4e3dfaa25a519fc59d5a330b3ebf7614b80d55ce3e5a2beb7b"
     },
+    "tests/fixtures/cryptomator/independent.json": {
+      "size": 5906802,
+      "sha256": "b3500607244be4be743616c52b943d050b00cfde5bebc6c52843441a974290a5"
+    },
     "tests/fixtures/fits/independent.json": {
       "size": 3279318,
       "sha256": "e1fd0fc980e6704c32d0d61590fcf5e955d9156ceb83dd953138822f24d7ec98"

@@ -1,0 +1,115 @@
+{
+  "profile": "Cryptomator format8 SIV_GCM selected ordinary names and content objects",
+  "scope": "19 released cryptolib-produced content/name pairs independently decrypted by PyCryptodome, and 19 reciprocal Python-produced pairs independently decrypted by cryptolib; every original byte and name compared",
+  "configuration": "Authored format8 HS256 JWT; not claimed produced by Cryptomator filesystem application",
+  "compactJsonSha256": "34cf8a831af301166e27bdf57d7f34dd3c1c01f643880ad707776ff51aee2df6",
+  "baseImage": "sha256:4e9b1d5f2972c4b3df05c5fe56f976e02b42a535e6be46bee7c46406fa28cfee",
+  "acquisitionImage": "sha256:a321baf5efa0821b027e60a9cfdbfcd5b4eb2de5c49467e93a57153b8bf1b31f",
+  "offlineToolsImage": "sha256:0e810524c96ab04e3b86dc1ffb23985b1392ced29fdd4bdce133edf84e187a09",
+  "imageMeaning": "Local verification image IDs, not publicly pullable complete producer pins. Signed apt installations mutate the base; artifact/deb hashes and recipes are retained separately.",
+  "quotas": {
+    "memoryBytes": 1073741824,
+    "cpus": 1,
+    "pids": 128,
+    "network": "none during native producer",
+    "jvmHeapMiB": 256,
+    "childTimeoutSeconds": 120,
+    "childFileBytes": 8388608,
+    "diagnosticBytes": 1048576
+  },
+  "tools": {
+    "java": "openjdk 17.0.21 2026-10-20\nOpenJDK Runtime Environment (build 17.0.21+9-1-deb12u1-Debian)\nOpenJDK 64-Bit Server VM (build 17.0.21+9-1-deb12u1-Debian, mixed mode, sharing)\n",
+    "javac": "javac 17.0.21\n",
+    "pycryptodome": "3.11.0"
+  },
+  "classpath": [
+    "cryptolib-2.4.0.jar",
+    "siv-mode-1.6.1.jar",
+    "guava-33.7.2-jre.jar",
+    "failureaccess-1.0.3.jar",
+    "gson-2.14.0.jar",
+    "slf4j-api-2.0.20.jar"
+  ],
+  "scripts": {
+    "produce.py": "cce7bfe383aa32015041b753912fb3fddcc2039102bdafc1b887211b1cd2dd69",
+    "Native.java": "4aee6e0abe802c8111565c782b59c80ea15f1a79a3758319bfeeaeb96e4f2eb4",
+    "acquire.py": "d22f849a8dac33c61d0f116ed4d1e9760a3744ca4c526b9d3be73f232d4ac4c5"
+  },
+  "signedDebSha256": "d441102f17ac45e5184aa2a8309b6d1766326036fadac5deb525bccdfcbe577a  /var/cache/apt/archives/openjdk-17-jdk-headless_17.0.21+9-1~deb12u1_arm64.deb\n",
+  "installedPackages": "7zip\t22.01+really26.02+dfsg-0+deb12u1\nadduser\t3.134\napt\t2.6.1\nbase-files\t12.4+deb12u15\nbase-passwd\t3.6.1\nbash\t5.2.15-2+b13\nbsdutils\t1:2.38.1-5+deb12u3\nca-certificates\t20250419~deb12u2\nca-certificates-java\t20230710~deb12u1\ncoreutils\t9.1-1\ndash\t0.5.12-2\ndebconf\t1.5.82\ndebian-archive-keyring\t2023.3+deb12u2\ndebianutils\t5.7-0.5~deb12u1\ndefault-jre-headless\t2:1.17-74\ndiffutils\t1:3.8-4\ndpkg\t1.21.23\ne2fsprogs\t1.47.0-2+b2\nfindutils\t4.9.0-4\nfontconfig-config\t2.14.1-4\nfonts-dejavu-core\t2.37-6\ngcc-12-base:arm64\t12.2.0-14+deb12u1\ngpgv\t2.2.40-1.1+deb12u2\ngrep\t3.8-5\ngzip\t1.12-1\nhostname\t3.23+nmu1\ninit-system-helpers\t1.65.2+deb12u1\njava-common\t0.74\njlha-utils\t0.1.6-5\nlhasa\t0.3.1-4+b1\nlibacl1:arm64\t2.3.1-3\nlibapt-pkg6.0:arm64\t2.6.1\nlibarchive-tools\t3.6.2-1+deb12u5\nlibarchive13:arm64\t3.6.2-1+deb12u5\nlibasound2:arm64\t1.2.8-1+b1\nlibasound2-data\t1.2.8-1\nlibatomic1:arm64\t12.2.0-14+deb12u1\nlibattr1:arm64\t1:2.5.1-4\nlibaudit-common\t1:3.0.9-1\nlibaudit1:arm64\t1:3.0.9-1\nlibavahi-client3:arm64\t0.8-10+deb12u1\nlibavahi-common-data:arm64\t0.8-10+deb12u1\nlibavahi-common3:arm64\t0.8-10+deb12u1\nlibblkid1:arm64\t2.38.1-5+deb12u3\nlibbrotli1:arm64\t1.0.9-2+deb12u1\nlibbz2-1.0:arm64\t1.0.8-5+b1\nlibc-bin\t2.36-9+deb12u14\nlibc6:arm64\t2.36-9+deb12u14\nlibcap-ng0:arm64\t0.8.3-1+b3\nlibcap2:arm64\t1:2.66-4+deb12u3+b1\nlibcom-err2:arm64\t1.47.0-2+b2\nlibcrypt1:arm64\t1:4.4.33-2\nlibcups2:arm64\t2.4.2-3+deb12u9\nlibdb5.3:arm64\t5.3.28+dfsg2-1\nlibdbus-1-3:arm64\t1.14.10-1~deb12u1\nlibdebconfclient0:arm64\t0.270\nlibexpat1:arm64\t2.5.0-1+deb12u5\nlibext2fs2:arm64\t1.47.0-2+b2\nlibffi8:arm64\t3.4.4-1\nlibfontconfig1:arm64\t2.14.1-4\nlibfreetype6:arm64\t2.12.1+dfsg-5+deb12u4\nlibgcc-s1:arm64\t12.2.0-14+deb12u1\nlibgcrypt20:arm64\t1.10.1-3+deb12u1\nlibglib2.0-0:arm64\t2.74.6-2+deb12u9\nlibgmp10:arm64\t2:6.2.1+dfsg1-1.1\nlibgnutls30:arm64\t3.7.9-2+deb12u7\nlibgpg-error0:arm64\t1.46-1\nlibgraphite2-3:arm64\t1.3.14-1+deb12u1\nlibgssapi-krb5-2:arm64\t1.20.1-2+deb12u5\nlibharfbuzz0b:arm64\t6.0.0+dfsg-3\nlibhogweed6:arm64\t3.8.1-2\nlibicu72:arm64\t72.1-3+deb12u1\nlibidn2-0:arm64\t2.3.3-1+b1\nlibjlha-java\t0.0.20050504-10.1\nlibjpeg62-turbo:arm64\t1:2.1.5-2\nlibk5crypto3:arm64\t1.20.1-2+deb12u5\nlibkeyutils1:arm64\t1.6.3-2\nlibkrb5-3:arm64\t1.20.1-2+deb12u5\nlibkrb5support0:arm64\t1.20.1-2+deb12u5\nliblcms2-2:arm64\t2.14-2+deb12u1\nliblhasa0:arm64\t0.3.1-4+b1\nliblz4-1:arm64\t1.9.4-1\nliblzma5:arm64\t5.4.1-1+deb12u2\nlibmd0:arm64\t1.0.4-2\nlibmount1:arm64\t2.38.1-5+deb12u3\nlibncursesw6:arm64\t6.4-4\nlibnettle8:arm64\t3.8.1-2\nlibnsl2:arm64\t1.3.0-2\nlibnspr4:arm64\t2:4.35-1\nlibnss3:arm64\t2:3.87.1-1+deb12u4\nlibp11-kit0:arm64\t0.24.1-2\nlibpam-modules:arm64\t1.5.2-6+deb12u2\nlibpam-modules-bin\t1.5.2-6+deb12u2\nlibpam-runtime\t1.5.2-6+deb12u2\nlibpam0g:arm64\t1.5.2-6+deb12u2\nlibpcre2-8-0:arm64\t10.42-1+deb12u2\nlibpcsclite1:arm64\t1.9.9-2\nlibpng16-16:arm64\t1.6.39-2+deb12u6\nlibpython3-stdlib:arm64\t3.11.2-1+b1\nlibpython3.11-minimal:arm64\t3.11.2-6+deb12u9\nlibpython3.11-stdlib:arm64\t3.11.2-6+deb12u9\nlibreadline8:arm64\t8.2-1.3\nlibseccomp2:arm64\t2.5.4-1+deb12u1\nlibselinux1:arm64\t3.4-1+b6\nlibsemanage-common\t3.4-1\nlibsemanage2:arm64\t3.4-1+b5\nlibsepol2:arm64\t3.4-2.1\nlibsmartcols1:arm64\t2.38.1-5+deb12u3\nlibsqlite3-0:arm64\t3.40.1-2+deb12u2\nlibss2:arm64\t1.47.0-2+b2\nlibssl3:arm64\t3.0.22-1~deb12u2\nlibstdc++6:arm64\t12.2.0-14+deb12u1\nlibsystemd0:arm64\t252.39-1~deb12u2\nlibtasn1-6:arm64\t4.19.0-2+deb12u1\nlibtinfo6:arm64\t6.4-4\nlibtirpc-common\t1.3.3+ds-1\nlibtirpc3:arm64\t1.3.3+ds-1\nlibudev1:arm64\t252.39-1~deb12u2\nlibunistring2:arm64\t1.0-2\nlibuuid1:arm64\t2.38.1-5+deb12u3\nlibxml2:arm64\t2.9.14+dfsg-1.3~deb12u6\nlibxxhash0:arm64\t0.8.1-1\nlibzstd1:arm64\t1.5.4+dfsg2-5\nlogin\t1:4.13+dfsg1-1+deb12u2\nlogsave\t1.47.0-2+b2\nmawk\t1.3.4.20200120-3.1\nmedia-types\t10.0.0\nmount\t2.38.1-5+deb12u3\nncurses-base\t6.4-4\nncurses-bin\t6.4-4\nopenjdk-17-jdk-headless:arm64\t17.0.21+9-1~deb12u1\nopenjdk-17-jre-headless:arm64\t17.0.21+9-1~deb12u1\nopenssl\t3.0.22-1~deb12u2\npasswd\t1:4.13+dfsg1-1+deb12u2\nperl-base\t5.36.0-7+deb12u4\npython3\t3.11.2-1+b1\npython3-minimal\t3.11.2-1+b1\npython3-pycryptodome\t3.11.0+dfsg1-4\npython3.11\t3.11.2-6+deb12u9\npython3.11-minimal\t3.11.2-6+deb12u9\nreadline-common\t8.2-1.3\nsed\t4.9-1+deb12u1\nsysvinit-utils\t3.06-4\ntar\t1.34+dfsg-1.2+deb12u1\ntzdata\t2026e-0+deb12u1\nusr-is-merged\t37~deb12u1\nutil-linux\t2.38.1-5+deb12u3\nutil-linux-extra\t2.38.1-5+deb12u3\nzlib1g:arm64\t1:1.2.13.dfsg-1\n",
+  "state": {
+    "Status": "exited",
+    "Running": false,
+    "Paused": false,
+    "Restarting": false,
+    "OOMKilled": false,
+    "Dead": false,
+    "Pid": 0,
+    "ExitCode": 0,
+    "Error": "",
+    "StartedAt": "2026-11-05T18:00:46.234135094Z",
+    "FinishedAt": "2026-11-05T18:00:55.582015126Z"
+  },
+  "acquisitionTrust": "Official Maven Central HTTPS same-origin URLs plus matching repository SHA1 sidecars; SHA256 recorded. This is not an independently verified artifact-signing chain. Signed Debian apt trust files and package licenses retained.",
+  "excludedOptionalArtifact": "bcprov-jdk18on1.80 acquired/inspected but excluded from actualclasspath: both Cryptomator jars already relocate their BC classes.",
+  "sources": [
+    {
+      "url": "https://github.com/cryptomator/docs/blob/e10cef2459fa320042ac426a9a1f4bf844648071/docs/security/vault.mdx",
+      "sha256": "179670f27c8cbf7bd6437abb19301e607b38648b0102489a96f6bc2c13d60a06"
+    },
+    {
+      "url": "https://github.com/cryptomator/docs/blob/e10cef2459fa320042ac426a9a1f4bf844648071/docs/security/architecture.mdx",
+      "sha256": "7f020a4f83d1c0173170543aecccd10120f1e00c7793f1354743c518f8404311"
+    },
+    {
+      "url": "https://github.com/cryptomator/docs/blob/e10cef2459fa320042ac426a9a1f4bf844648071/docs/security/security-target.mdx",
+      "sha256": "f7c4ba78ccaa2d7a1da85342a297e59a12ee504095941b6cee86a5b5fbf8c378"
+    }
+  ],
+  "cryptolibCommit": "e44eea62cc7ff731ce0bf76a79f2f689448c2d79",
+  "sivCommit": "6cfd03229cccd9ff119bc2cf4bf90f8b280494c0",
+  "diagnostics": [
+    {
+      "log": ".tmp/implementation/cryptomator-producer-20261105.log",
+      "result": "Authored harness compile failure: FileHeader lacks destroy; fixed by checking separate Destroyable capability. No fixture published from failure.",
+      "nativeSourceSha256": "5456def3500993092aaaa41f5867061fd462fb32327cbefcb1ea0737f029b058"
+    },
+    {
+      "log": ".tmp/implementation/cryptomator-producer-interface-20261105.log",
+      "result": "Exit0,19 reciprocal full-original-byte/name cases; no OOM"
+    },
+    {
+      "path": "LICENSE.txt",
+      "result": "Immutable SIV source path404; actual LICENSE found using immutable GitHub tree and retained"
+    }
+  ],
+  "licenses": "Actual acquired POMs retained under licenses/poms; missing embedded license text retained from pinned release sources. All native tools are test-only; no JAR or upstream production implementation is bundled.",
+  "knownAnswerScope": "Direct published RFC4493/5297 AES128 example KATs were not executed against this AES256-only public profile. Reciprocal released cryptolib/PyCryptodome AES256 full-byte/name fixtures are the independent oracle.",
+  "formattedJsonSha256": "b3500607244be4be743616c52b943d050b00cfde5bebc6c52843441a974290a5",
+  "benchmark": {
+    "rawBytes": 24997126,
+    "rawSha256": "9e38d465036ffb110c6455da1d16a1bc3a9ddda81d7e753aff382c7be3d43562",
+    "gzipBytes": 92066,
+    "gzipSha256": "9f44adcbfe12ae5480e0a4bb0d35f519381d00296a7beacd089e4703a4ef90e5",
+    "runtime": "v26.13.0",
+    "baseImage": "sha256:969e01d0cb839ffe8af9b6ddd9ee7359f95072d383aa8d1c76e5f2512c2c2a92",
+    "memoryBytes": 1073741824,
+    "cpus": 1,
+    "network": "none",
+    "inputTarSha256": "31218e5730ddca2c39b8ba658d94d9fb8ed587bd334d8aa2ab989f324300d29d",
+    "state": {
+      "Status": "exited",
+      "Running": false,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Pid": 0,
+      "ExitCode": 0,
+      "Error": "",
+      "StartedAt": "2026-11-05T18:12:08.161565465Z",
+      "FinishedAt": "2026-11-05T18:12:18.859145179Z"
+    },
+    "interpretation": "Seven fixed-workload samples, with full-original-byte preflight. Native preselected GCM omits metadata/key setup and admission; no universal speedup claim."
+  }
+}

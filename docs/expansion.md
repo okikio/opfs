@@ -38,6 +38,10 @@ standard numeric values. The profile refuses unsupported layouts and provides no
 acknowledgements. Bounded metadata and exact streamed ranges do not imply a filesystem layout, immutable history or
 physical erasure. Official server/SDK tests verify complete bytes and sibling revision conflicts.
 
+[Cryptomator previews](cryptomator.md) authenticate selected format-8 SIV_GCM names and complete covering content chunks
+using application-unlocked keys. A nested ZIP can read selected plaintext extents without decrypting unrelated chunks.
+This does not establish original EOF, freshness, directory completeness or a name-to-content binding.
+
 ## How to continue
 
 Add each protocol as an import-safe subpath: client → driver → adapter → filesystem → real consumer bridge. Keep
