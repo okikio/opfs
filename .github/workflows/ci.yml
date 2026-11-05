@@ -367,6 +367,7 @@ jobs:
           BENCH_JSON=1 deno task bench:zip-bzip > .tmp/reports/archive-bench/zip-bzip.json 2> .tmp/reports/archive-bench/zip-bzip-stderr.log
           BENCH_JSON=1 deno task bench:zip-lzma > .tmp/reports/archive-bench/zip-lzma.json 2> .tmp/reports/archive-bench/zip-lzma-stderr.log
           BENCH_JSON=1 deno task bench:arweave > .tmp/reports/archive-bench/arweave.json 2> .tmp/reports/archive-bench/arweave-stderr.log
+          BENCH_JSON=1 deno task bench:cryptomator > .tmp/reports/archive-bench/cryptomator.json 2> .tmp/reports/archive-bench/cryptomator-stderr.log
           BENCH_JSON=1 deno task bench:couchdb > .tmp/reports/archive-bench/couchdb.json 2> .tmp/reports/archive-bench/couchdb-stderr.log
           BENCH_JSON=1 deno task bench:cmis > .tmp/reports/archive-bench/cmis.json 2> .tmp/reports/archive-bench/cmis-stderr.log
           BENCH_JSON=1 deno task bench:lha > .tmp/reports/archive-bench/lha.json 2> .tmp/reports/archive-bench/lha-stderr.log

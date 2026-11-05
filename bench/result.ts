@@ -56,7 +56,7 @@ export async function report(): Promise<void> {
  * When cleanup succeeds, the caller remains responsible for rethrowing its original failure.
  */
 export async function finish(
-  cleanups: readonly (() => void | Promise<void>)[],
+  cleanups: readonly (() => void | PromiseLike<void>)[],
   primary: readonly unknown[] = [],
 ): Promise<void> {
   const failures: unknown[] = [];

@@ -5,7 +5,7 @@
  * The caller passes its original failure separately, including undefined.
  */
 export async function close(
-  releases: readonly (() => void | Promise<unknown>)[],
+  releases: readonly (() => void | PromiseLike<unknown>)[],
   primary: readonly unknown[] = [],
 ): Promise<void> {
   const failures = [...primary];
@@ -23,10 +23,10 @@ export async function close(
 }
 
 /** Protects acquisitions inside the body, then closes their owners in reverse order. */
-export async function withReleases<T>(
-  action: (releases: Array<() => void | Promise<unknown>>) => Promise<T>,
+export async function withReleases<T, Release extends void | PromiseLike<unknown> = void | Promise<unknown>>(
+  action: (releases: Array<() => Release>) => Promise<T>,
 ): Promise<T> {
-  const releases: Array<() => void | Promise<unknown>> = [];
+  const releases: Array<() => Release> = [];
   let failed = false;
   let primary: unknown;
   try {

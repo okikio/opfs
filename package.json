@@ -191,7 +191,8 @@
     "./cmis": "./src/cmis.ts",
     "./archive/lha": "./src/archive/lha.ts",
     "./dataset/hdf5": "./src/dataset/hdf5.ts",
-    "./couchdb": "./src/couchdb.ts"
+    "./couchdb": "./src/couchdb.ts",
+    "./crypto/cryptomator": "./src/crypto/cryptomator.ts"
   },
   "dependencies": {
     "@okikio/undent": "^0.3.3",
