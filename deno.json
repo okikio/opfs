@@ -76,7 +76,11 @@
     "./adapter/b2": "./src/adapter/b2.ts",
     "./swift": "./src/swift.ts",
     "./driver/swift": "./src/driver/swift.ts",
-    "./adapter/swift": "./src/adapter/swift.ts"
+    "./adapter/swift": "./src/adapter/swift.ts",
+    "./http": "./src/http.ts",
+    "./webdav": "./src/webdav.ts",
+    "./driver/webdav": "./src/driver/webdav.ts",
+    "./adapter/webdav": "./src/adapter/webdav.ts"
   },
   "imports": {
     "@okikio/undent": "jsr:@okikio/undent@^0.3.3",
