@@ -1,0 +1,33 @@
+{
+  "producer": "CPython email.message.EmailMessage SMTP / email.parser.BytesParser",
+  "python": "3.9.6",
+  "sha256": "b31d240280c9c9346c0cbb96a1723a7731e3232a4c04d4a1bc7a81800bc29c1b",
+  "base64": "RnJvbTogc2VuZGVyQGV4YW1wbGUuaW52YWxpZA0KVG86IHJlYWRlckBleGFtcGxlLmludmFsaWQNCkRhdGU6IFRodSwgMDUgTm92IDIwMjYgMDA6MDA6MDAgKzAwMDANClN1YmplY3Q6IEEgPT91dGYtOD9xP2NhZj1DMz1BOT89IG1lc3NhZ2UNCk1lc3NhZ2UtSUQ6IDxmaXh0dXJlQGV4YW1wbGUuaW52YWxpZD4NCk1JTUUtVmVyc2lvbjogMS4wDQpDb250ZW50LVR5cGU6IG11bHRpcGFydC9taXhlZDsgYm91bmRhcnk9ImluZGVwZW5kZW50LW1peGVkIg0KDQpJbmRlcGVuZGVudCBwcmVhbWJsZQ0KLS1pbmRlcGVuZGVudC1taXhlZA0KQ29udGVudC1UeXBlOiBtdWx0aXBhcnQvYWx0ZXJuYXRpdmU7IGJvdW5kYXJ5PSJpbmRlcGVuZGVudC1hbHRlcm5hdGl2ZSINCg0KLS1pbmRlcGVuZGVudC1hbHRlcm5hdGl2ZQ0KQ29udGVudC1UeXBlOiB0ZXh0L3BsYWluOyBjaGFyc2V0PSJ1dGYtOCINCkNvbnRlbnQtVHJhbnNmZXItRW5jb2Rpbmc6IHF1b3RlZC1wcmludGFibGUNCg0KUGxhaW4gY2FmPUMzPUE5IGJvZHkuDQoNCi0taW5kZXBlbmRlbnQtYWx0ZXJuYXRpdmUNCkNvbnRlbnQtVHlwZTogdGV4dC9odG1sOyBjaGFyc2V0PSJ1dGYtOCINCkNvbnRlbnQtVHJhbnNmZXItRW5jb2Rpbmc6IGJhc2U2NA0KTUlNRS1WZXJzaW9uOiAxLjANCg0KUEhBK1NGUk5UQ0J3Y21WMmFXVjNJSE4wWVhseklHbHVaWEowTGp3dmNENE5DZz09DQoNCi0taW5kZXBlbmRlbnQtYWx0ZXJuYXRpdmUtLQ0KDQotLWluZGVwZW5kZW50LW1peGVkDQpDb250ZW50LVR5cGU6IGFwcGxpY2F0aW9uL29jdGV0LXN0cmVhbQ0KQ29udGVudC1UcmFuc2Zlci1FbmNvZGluZzogYmFzZTY0DQpDb250ZW50LURpc3Bvc2l0aW9uOiBhdHRhY2htZW50OyBmaWxlbmFtZSo9dXRmLTgnJ2NhZiVDMyVBOS5iaW4NCk1JTUUtVmVyc2lvbjogMS4wDQoNCkFBRUNEUXIvWVhWMGFHOXlaV1FnWVhSMFlXTm9iV1Z1ZEE9PQ0KDQotLWluZGVwZW5kZW50LW1peGVkLS0NCkluZGVwZW5kZW50IGVwaWxvZ3VlDQo=",
+  "parts": [
+    {
+      "type": "multipart/mixed",
+      "filename": null,
+      "payloadBase64": null
+    },
+    {
+      "type": "multipart/alternative",
+      "filename": null,
+      "payloadBase64": null
+    },
+    {
+      "type": "text/plain",
+      "filename": null,
+      "payloadBase64": "UGxhaW4gY2Fmw6kgYm9keS4NCg=="
+    },
+    {
+      "type": "text/html",
+      "filename": null,
+      "payloadBase64": "PHA+SFRNTCBwcmV2aWV3IHN0YXlzIGluZXJ0LjwvcD4NCg=="
+    },
+    {
+      "type": "application/octet-stream",
+      "filename": "caf\u00e9.bin",
+      "payloadBase64": "AAECDQr/YXV0aG9yZWQgYXR0YWNobWVudA=="
+    }
+  ]
+}
