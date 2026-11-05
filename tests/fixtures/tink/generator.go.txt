@@ -1,0 +1,60 @@
+package main
+
+import (
+ "bytes"
+ "encoding/hex"
+ "encoding/json"
+ "fmt"
+ "io"
+ "runtime"
+
+ "github.com/tink-crypto/tink-go/v2/streamingaead/subtle"
+)
+
+type Vector struct {
+ Name string `json:"name"`
+ Key string `json:"key"`
+ AAD string `json:"aad"`
+ Plaintext string `json:"plaintext"`
+ Ciphertext string `json:"ciphertext"`
+ SegmentBytes int `json:"segmentBytes"`
+ DerivedKeyBytes int `json:"derivedKeyBytes"`
+}
+
+func main() {
+ var vectors []Vector
+ key := make([]byte, 32)
+ for i := range key { key[i] = byte(i) }
+ aad := []byte("opfs-tink-interop-v1")
+ for _, profile := range []struct{ derived, segment int; lengths []int }{
+  {16, 64, []int{0,1,24,25,72,73,173}},
+  {32, 128, []int{0,1,72,73,184,185,409}},
+ } {
+  for _, length := range profile.lengths {
+   pt := make([]byte, length)
+   for i := range pt { pt[i] = byte(i*13 + length) }
+   primitive, err := subtle.NewAESGCMHKDF(key, "SHA256", profile.derived, profile.segment, 0)
+   if err != nil { panic(err) }
+   var out bytes.Buffer
+   writer, err := primitive.NewEncryptingWriter(&out, aad)
+   if err != nil { panic(err) }
+   if _, err := writer.Write(pt); err != nil { panic(err) }
+   if err := writer.Close(); err != nil { panic(err) }
+   ct := out.Bytes()
+   reader, err := primitive.NewDecryptingReader(bytes.NewReader(ct), aad)
+   if err != nil { panic(err) }
+   got, err := io.ReadAll(reader)
+   if err != nil || !bytes.Equal(got, pt) { panic("official Tink roundtrip failed") }
+   vectors = append(vectors, Vector{fmt.Sprintf("aes%d-segment%d-length%d", profile.derived*8, profile.segment, length), hex.EncodeToString(key), hex.EncodeToString(aad), hex.EncodeToString(pt), hex.EncodeToString(ct), profile.segment, profile.derived})
+  }
+ }
+ result := struct{
+  Producer string `json:"producer"`
+  Go string `json:"go"`
+  Profile string `json:"profile"`
+  Vectors []Vector `json:"vectors"`
+ }{"github.com/tink-crypto/tink-go/v2 v2.9.0", runtime.Version(), "AES-GCM-HKDF SHA256, firstSegmentOffset=0, raw ciphertext", vectors}
+ encoded, err := json.MarshalIndent(result,"","  ")
+ if err != nil { panic(err) }
+ fmt.Println(string(encoded))
+}
