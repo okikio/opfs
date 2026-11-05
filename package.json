@@ -124,7 +124,12 @@
     "./driver/webdav": "./src/driver/webdav.ts",
     "./adapter/webdav": "./src/adapter/webdav.ts",
     "./archive/write": "./src/archive/write.ts",
-    "./archive/stream": "./src/archive/stream.ts"
+    "./archive/stream": "./src/archive/stream.ts",
+    "./r2": "./src/r2.ts",
+    "./driver/r2": "./src/driver/r2.ts",
+    "./adapter/r2": "./src/adapter/r2.ts",
+    "./driver/cloudflare-kv": "./src/driver/cloudflare-kv.ts",
+    "./adapter/cloudflare-kv": "./src/adapter/cloudflare-kv.ts"
   },
   "dependencies": {
     "@okikio/undent": "^0.3.3",
