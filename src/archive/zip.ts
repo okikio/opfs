@@ -1,3 +1,6 @@
+import { openZipAes } from "./aes.ts";
+import type { ZipAesOptionsType, ZipAesStateType } from "./aes.ts";
+export type { ZipAesOptionsType } from "./aes.ts";
 import { createZipCrypto } from "./password.ts";
 import { createArchiveLedger } from "./record.ts";
 import type { ByteSourceType } from "../source.ts";
@@ -16,11 +19,19 @@ export interface ZipEntryType {
   readonly compressedSize: number;
   readonly method: number;
   readonly encrypted: boolean;
-  /** Explicit supported legacy profile; other encryption remains unreadable. */
-  readonly encryption?: "zipcrypto" | "unsupported";
+  /** Exact inspected encryption profile; reading still requires explicit password/capability admission. */
+  readonly encryption?: "zipcrypto" | "winzip-aes" | "unsupported";
+  readonly aes?: ZipAesMetadataType;
   readonly directory: boolean;
   readonly kind: "file" | "directory" | "symbolic-link" | "other";
   readonly crc32: number;
+}
+
+/** Inspected WinZip AES extra-field values. Ciphertext authentication does not authenticate this metadata. */
+export interface ZipAesMetadataType {
+  readonly version: 1 | 2;
+  readonly strength: 128 | 192 | 256;
+  readonly method: number;
 }
 
 /** Directory parsing is bounded independently of selected-member reads. */
@@ -44,31 +55,38 @@ export interface ZipReadOptionsType extends ArchiveLimitsType {
   readonly length?: number;
   readonly verify?: boolean;
   readonly inflate?: ZipInflateType;
-  /** Explicit opt-in to obsolete ZipCrypto. Caller bytes are copied before source I/O; never authenticated. */
+  /** Explicit password bytes. Copied before source I/O; no password text encoding is inferred. */
   readonly password?: Uint8Array;
   /** Maximum password byte length. Default 1024. No text encoding is inferred. */
   readonly maxPasswordBytes?: number;
+  /** Explicit native capability and finite limits for the WinZip AES STORED read profile. */
+  readonly aes?: ZipAesOptionsType;
 }
 
 /** CRC verification detects accidental corruption, not malicious modification or sender identity. */
 export interface ZipReadType {
   readonly bytes: Uint8Array;
-  readonly integrity: "checksum-pending" | "checksum-verified";
+  readonly integrity: "checksum-pending" | "checksum-verified" | "not-provided";
   readonly work: ArchiveWorkType;
-  /** Present only for password reads; CRC success never upgrades this to authentication. */
-  readonly encryption?: { readonly kind: "zipcrypto"; readonly authentication: "none" };
+  /** Authentication covers ciphertext only, never names, ZIP metadata, a sender or the whole archive. */
+  readonly encryption?: { readonly kind: "zipcrypto"; readonly authentication: "none" } | {
+    readonly kind: "winzip-aes";
+    readonly authentication: "ciphertext-verified";
+  };
 }
 
 /** Deterministic admission. Local-header lengths and codec availability remain execution-time facts. */
 export interface ZipPlanType {
   readonly supported: boolean;
   readonly reason?: "encrypted-member" | "compression-method" | "budget-exceeded";
-  readonly access: "direct-range" | "decode-from-start";
+  readonly access: "direct-range" | "decode-from-start" | "authenticated-range";
   readonly outputBytes: number;
   readonly decodedBytes: number;
   readonly sourceBytes: number;
   readonly headerBytes: "unknown";
   readonly verification: "none" | "full-member-crc";
+  readonly authentication?: "full-member-hmac";
+  readonly cryptoBlocks?: number;
 }
 
 /** An opened directory borrows its source. It owns no provider or background work. */
@@ -244,6 +262,12 @@ function parseDirectory(
       : unixKind === 0 || unixKind === 0x8000
       ? "file"
       : "other";
+    const aes = readAesExtra(extra);
+    const supportedAes = aes && aes.method === 0 && method === 99 && (flags & 1) && !(flags & 0x2048) &&
+      data.getUint16(position + 6, true) >= 51;
+    if (aes?.version === 2 && data.getUint32(position + 16, true) !== 0) {
+      invalid("WinZip AE-2 requires a zero CRC field.");
+    }
     const entry = Object.freeze({
       id,
       name,
@@ -251,12 +275,14 @@ function parseDirectory(
       compressedSize,
       method,
       encrypted: Boolean(flags & 0x2041),
+      ...(aes ? { aes: Object.freeze(aes) } : {}),
       ...(!(flags & 0x2041) ? {} : {
-        encryption:
-          (flags & 1) && !(flags & 0x2040) && !hasExtra(extra, 0x9901) && data.getUint16(position + 6, true) >= 20 &&
-            (method === 0 || method === 8)
-            ? "zipcrypto" as const
-            : "unsupported" as const,
+        encryption: supportedAes
+          ? "winzip-aes" as const
+          : (flags & 1) && !(flags & 0x2040) && !hasExtra(extra, 0x9901) && data.getUint16(position + 6, true) >= 20 &&
+              (method === 0 || method === 8)
+          ? "zipcrypto" as const
+          : "unsupported" as const,
       }),
       directory: kind === "directory",
       kind,
@@ -269,11 +295,10 @@ function parseDirectory(
   return records;
 }
 
-/** Central extras were already extent-validated by ZIP64 parsing; local encryption forms use the same bounded walk. */
 /** Validate the full bounded extra area: an early match must not hide trailing corruption or duplicate profiles. */
-function hasExtra(data: DataView, wanted: number): boolean {
+function findExtra(data: DataView, wanted: number): DataView | undefined {
   let at = 0;
-  let found = false;
+  let found: DataView | undefined;
   while (at < data.byteLength) {
     if (data.byteLength - at < 4) invalid("Truncated ZIP extra field.");
     const id = data.getUint16(at, true);
@@ -281,11 +306,28 @@ function hasExtra(data: DataView, wanted: number): boolean {
     if (size > data.byteLength - at - 4) invalid("ZIP extra field exceeds record.");
     if (id === wanted) {
       if (found) invalid("Duplicate ZIP encryption extra fields are ambiguous.");
-      found = true;
+      found = new DataView(data.buffer, data.byteOffset + at + 4, size);
     }
     at += 4 + size;
   }
   return found;
+}
+
+/** Exact current AES metadata only. Unknown vendor/version/extensions remain explicitly unsupported. */
+function readAesExtra(data: DataView): ZipAesMetadataType | undefined {
+  const field = findExtra(data, 0x9901);
+  if (!field) return undefined;
+  if (field.byteLength !== 7) return undefined;
+  const version = field.getUint16(0, true);
+  const strength = field.getUint8(4);
+  if ((version !== 1 && version !== 2) || field.getUint16(2, true) !== 0x4541 || strength < 1 || strength > 3) {
+    return undefined;
+  }
+  return { version, strength: strength === 1 ? 128 : strength === 2 ? 192 : 256, method: field.getUint16(5, true) };
+}
+
+function hasExtra(data: DataView, wanted: number): boolean {
+  return findExtra(data, wanted) !== undefined;
 }
 
 /** ZIP64 extra values appear only for sentinel fields and in their specified order. */
@@ -335,6 +377,38 @@ function planRead(entry: ZipEntryType, options: ZipReadOptionsType): ZipPlanType
   integer(length, "Decoded length");
   if (offset > entry.size || length > entry.size - offset) throw new RangeError("Requested range exceeds ZIP member.");
   const complete = Boolean(options.verify) || (offset === 0 && length === entry.size);
+  if (entry.encryption === "winzip-aes" && entry.aes && options.password !== undefined && options.aes) {
+    const maximum = options.aes.maxCiphertextBytes ?? 8 * 1024 * 1024;
+    const maxBlocks = options.aes.maxBlocks ?? 8192;
+    integer(maximum, "AES ciphertext limit");
+    integer(maxBlocks, "AES block limit");
+    if (maximum > 8 * 1024 * 1024 || maxBlocks > 8192) {
+      throw new RangeError("WinZip AES implementation ceilings are 8 MiB ciphertext and 8192 native AES blocks.");
+    }
+    const crc = entry.aes.version === 1 && complete;
+    const begin = crc ? 0 : Math.floor(offset / 16) * 16;
+    const end = crc ? entry.size : length ? Math.min(entry.size, Math.ceil((offset + length) / 16) * 16) : begin;
+    const blocks = Math.ceil((end - begin) / 16);
+    const decoded = entry.size * 2 + end - begin;
+    const reason =
+      entry.size > maximum || blocks > maxBlocks || length > (options.maxOutputBytes ?? 16 * 1024 * 1024) ||
+        decoded > (options.maxDecodedBytes ?? 64 * 1024 * 1024) ||
+        entry.compressedSize > (options.maxSourceBytes ?? 64 * 1024 * 1024)
+        ? "budget-exceeded" as const
+        : undefined;
+    return {
+      supported: !reason,
+      ...(reason ? { reason } : {}),
+      access: "authenticated-range",
+      outputBytes: length,
+      decodedBytes: decoded,
+      sourceBytes: entry.compressedSize,
+      headerBytes: "unknown",
+      verification: crc ? "full-member-crc" : "none",
+      authentication: "full-member-hmac",
+      cryptoBlocks: blocks,
+    };
+  }
   const legacy = entry.encrypted && entry.encryption === "zipcrypto" && options.password !== undefined;
   const plaintext = complete ? entry.size : entry.method === 0 && !legacy ? length : offset + length;
   const decoded = legacy ? plaintext + (entry.method === 0 ? 12 : entry.compressedSize) : plaintext;
@@ -395,6 +469,7 @@ async function readMember(
     );
   }
   const entry = record.entry;
+  if (entry.encryption === "winzip-aes") return readAesMember(record, boundary, options, plan, budget);
   const cipher = entry.encryption === "zipcrypto" && options.password !== undefined
     ? createZipCrypto(options.password, options.maxPasswordBytes)
     : undefined;
@@ -578,6 +653,122 @@ async function readMember(
     };
   } finally {
     cipher?.clear();
+  }
+}
+
+/** AES owns a bounded ciphertext snapshot and key state. Authentication finishes before any plaintext native call. */
+async function readAesMember(
+  record: EntryType,
+  boundary: number,
+  options: ZipReadOptionsType,
+  plan: ZipPlanType,
+  budget: ArchiveBudget,
+): Promise<ZipReadType> {
+  const metadata = record.entry.aes!;
+  const capability = options.aes!;
+  const native = { subtle: capability.subtle };
+  const passwordLimit = options.maxPasswordBytes ?? 1024;
+  integer(passwordLimit, "maxPasswordBytes");
+  if (!isBytes(options.password)) throw new TypeError("ZIP password must be explicit byte data.");
+  const caller = toView(options.password);
+  if (caller.length > passwordLimit) {
+    throw new ArchiveError("budget-exceeded", "ZIP password exceeds maxPasswordBytes.");
+  }
+  // Snapshot before the first source await, so caller mutation cannot change the admitted password.
+  const password = new Uint8Array(caller);
+  const entry = record.entry;
+  const offset = options.offset ?? 0;
+  const length = plan.outputBytes;
+  const complete = plan.verification === "full-member-crc";
+  const signal = options.signal;
+  let cipher: ZipAesStateType | undefined;
+  let owned: Uint8Array<ArrayBuffer> | undefined;
+  try {
+    const header = view(await budget.read(record.offset, 30));
+    if (
+      header.getUint32(0, true) !== 0x04034b50 || header.getUint16(4, true) < 51 ||
+      header.getUint16(6, true) !== record.flags || header.getUint16(8, true) !== 99
+    ) {
+      invalid("WinZip AES local header disagrees with directory.");
+    }
+    const nameSize = header.getUint16(26, true);
+    const extraSize = header.getUint16(28, true);
+    const dataOffset = record.offset + 30 + nameSize + extraSize;
+    if (dataOffset > boundary || entry.compressedSize > boundary - dataOffset) {
+      invalid("WinZip AES member data overlaps directory.");
+    }
+    const name = await budget.read(record.offset + 30, nameSize);
+    if (name.length !== record.name.length || name.some((byte, index) => byte !== record.name[index])) {
+      invalid("WinZip AES local name disagrees with directory.");
+    }
+    const extra = view(await budget.read(record.offset + 30 + nameSize, extraSize));
+    const local = readAesExtra(extra);
+    if (!local || local.version !== metadata.version || local.strength !== metadata.strength || local.method !== 0) {
+      invalid("WinZip AES local profile disagrees with directory.");
+    }
+    if (!(record.flags & 8)) {
+      const sizes = zip64(
+        extra,
+        header.getUint32(22, true) === 0xffffffff,
+        header.getUint32(18, true) === 0xffffffff,
+        false,
+        false,
+      );
+      if (
+        header.getUint32(14, true) !== entry.crc32 || (sizes.size ?? header.getUint32(22, true)) !== entry.size ||
+        (sizes.compressedSize ?? header.getUint32(18, true)) !== entry.compressedSize
+      ) {
+        invalid("WinZip AES local sizes or CRC disagree with directory.");
+      }
+    }
+    const saltSize = metadata.strength / 16;
+    if (entry.compressedSize < saltSize + 12 || entry.compressedSize - saltSize - 12 !== entry.size) {
+      invalid("WinZip AES STORED ciphertext size disagrees with plaintext size.");
+    }
+    // Native sign/verify each copies and processes the complete ciphertext. Reserve both passes before acquisition/copy.
+    budget.decoded(entry.size * 2);
+    owned = new Uint8Array(await budget.read(dataOffset, entry.compressedSize));
+    const ciphertext = owned.subarray(saltSize + 2, owned.length - 10);
+    cipher = await openZipAes(
+      password,
+      owned.subarray(0, saltSize),
+      owned.subarray(saltSize, saltSize + 2),
+      ciphertext,
+      owned.subarray(owned.length - 10),
+      native,
+      signal,
+    );
+    const begin = complete ? 0 : Math.floor(offset / 16) * 16;
+    const end = complete ? entry.size : length ? Math.min(entry.size, Math.ceil((offset + length) / 16) * 16) : begin;
+    budget.output(length);
+    const selected = new Uint8Array(length);
+    let state = 0xffffffff;
+    for (let position = begin; position < end; position += 16) {
+      const blockEnd = Math.min(entry.size, position + 16);
+      budget.decoded(blockEnd - position);
+      const plain = await cipher.decryptBlock(position, ciphertext.subarray(position, blockEnd));
+      try {
+        if (complete) state = crc32(plain, state);
+        const start = Math.max(offset, position);
+        const finish = Math.min(offset + length, blockEnd);
+        if (finish > start) selected.set(plain.subarray(start - position, finish - position), start - offset);
+      } finally {
+        plain.fill(0);
+      }
+    }
+    if (complete && ((state ^ 0xffffffff) >>> 0) !== entry.crc32) {
+      throw new ArchiveError("checksum-mismatch", "WinZip AE-1 plaintext CRC32 failed.");
+    }
+    return {
+      bytes: selected,
+      integrity: metadata.version === 2 ? "not-provided" : complete ? "checksum-verified" : "checksum-pending",
+      encryption: { kind: "winzip-aes", authentication: "ciphertext-verified" },
+      work: budget.inspect(),
+    };
+  } finally {
+    cipher?.clear();
+    password.fill(0);
+    owned?.fill(0);
   }
 }
 
