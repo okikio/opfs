@@ -95,3 +95,9 @@ exclusive caller-supplied channels. Stream retention and deduplication windows r
 unacknowledged publication can have an unknown outcome. [Parquet](parquet.md) reads selected flat physical numeric
 columns with separate null masks and per-page checksum evidence. It does not provide a query engine, nested records or
 arbitrary codecs. These profiles extend their individual routes rather than completing the broader catalog groups.
+
+[age](age.md) authenticates selected covering payload chunks under a caller-unlocked file key, so an application can
+inspect a nested archive without collecting all plaintext. Whole-file verification remains explicit. [ORC](orc.md) reads
+selected uncompressed physical numeric columns with separate validity masks and no invented integrity guarantee.
+[AMQP](amqp.md) retains native publication confirmations and explicit destructive queue reads; applications own topology
+and recovery after uncertain mutations. Each module is optional and has its own limits and ownership contract.
