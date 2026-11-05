@@ -1,0 +1,43 @@
+{
+  "producerPackages": {
+    "genisoimage": "9:1.1.11-3.4",
+    "xorriso": "1.5.4-4",
+    "libarchive-tools": "3.6.2-1+deb12u5"
+  },
+  "architecture": "arm64",
+  "localBaseImage": "opfs-seven-tools:20261105",
+  "localBaseImageId": "sha256:527d62a5244f4fa71833b4a105a4906ec1c1c7708f64ea2967fa04d96c551dd5",
+  "imageLimit": "Local base; signed apt installation changes filesystem. Not a publicly pullable complete-producer pin.",
+  "files": {
+    "create.py": "3274de5a2276a0dcaad98cbccf6dd0453da4b17683bb287a287603bd99c5b9cb",
+    "independent.json": "53afc0dcb88cba82830b48f253f5a6dd3c69ee29c43029ef2b6a37b8df78c318"
+  },
+  "archives": {
+    "xorriso-primary": "697be0605acbed7e4a3c02effca4875ccbb2c5b4e5861811e13dc00652e9e21c",
+    "xorriso-joliet": "0158c82496d4dee517266e962a232ea9ad6ba69ec0407392b4d6c5b7c0e028d7",
+    "genisoimage-primary": "710a615c88d66a2d85542641d8a1a27d4d2b292dacd0852b3e71683c3c237a8c",
+    "genisoimage-joliet": "b25c6e85bb876a15692ecdca68d865225f5a88c753f76410b58ec8d4e6b51673"
+  },
+  "evidence": "Both genuine producer implementations are full-payload checked through isoinfo and independent libarchive extraction. Exact native listings are retained as bytes with explicit Latin1 display encoding; actual libarchive paths may normalize ISO versions/dots and are recorded separately.",
+  "sources": [
+    {
+      "url": "https://ecma-international.org/wp-content/uploads/ECMA-119_6th_edition_december_2025.pdf",
+      "edition": "6th edition December 2025",
+      "scope": "Selected 2048-byte-sector primary directory/volume subset; no complete standard conformance claim. Annex C faithfully reproduces Microsoft Joliet1995 specification."
+    },
+    {
+      "url": "https://ecma-international.org/wp-content/uploads/ECMA-119_2nd_edition_december_1987.pdf",
+      "edition": "2nd edition December 1987",
+      "scope": "Original ISO 9660 baseline comparison."
+    }
+  ],
+  "compatibility": {
+    "image": "xorriso-joliet",
+    "finding": "Nested Joliet folder parent record declares its own block24 instead of parent block23; requires explicit ignore-extent policy. Genuine bytes remain unmodified and strict refusal is tested.",
+    "byteOffsets": {
+      "declaredExtent": 49152,
+      "expectedExtent": 47104
+    },
+    "consumerEvidence": "isoinfo and independent libarchive both extracted and compared every complete original payload despite this deviation."
+  }
+}
