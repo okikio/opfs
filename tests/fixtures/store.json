@@ -14,6 +14,14 @@
       "size": 460235,
       "sha256": "0fbc0850cd9ab227699cdb54bdff73f7d0b39ed1e7737582bbe5d6f76c1461a2"
     },
+    "tests/fixtures/arweave/independent.json": {
+      "size": 4363735,
+      "sha256": "10a0d330a48d5c1f60ca962736cef8cab3602fb35cc1024ae28308c82ef2ea76"
+    },
+    "tests/fixtures/arweave/pss32.json": {
+      "size": 4372032,
+      "sha256": "9368e3a5f17c03a8213308f8e44e139ee9d54d29adf6e59d61e1ea9d57caedc0"
+    },
     "tests/fixtures/bzip/independent.json": {
       "size": 3329505,
       "sha256": "bbd802e7f8b091333def46ab44188f11ef74d3dc568e623fafa31acaebf83dac"

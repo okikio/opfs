@@ -1,0 +1,45 @@
+{
+  "sources": [
+    {
+      "file": "ar_tx.erl",
+      "url": "https://github.com/ArweaveTeam/arweave/blob/18d402c714132e1de3962b12ff32a420127e0c02/apps/arweave/src/ar_tx.erl",
+      "sha256": "06a0d6c59aff04b6d943ca56fb9195f244cdb0706485c622bb9f359c5443b743"
+    },
+    {
+      "file": "ar_wallet.erl",
+      "url": "https://github.com/ArweaveTeam/arweave/blob/18d402c714132e1de3962b12ff32a420127e0c02/apps/arweave/src/ar_wallet.erl",
+      "sha256": "db3cc407899d183d393c2ab60b280ae7e87181f5dc4994d8db2eccf5d19790c5"
+    },
+    {
+      "file": "ar_merkle.erl",
+      "url": "https://github.com/ArweaveTeam/arweave/blob/18d402c714132e1de3962b12ff32a420127e0c02/apps/arweave/src/ar_merkle.erl",
+      "sha256": "2ff52aa6cb22982e296a5cd52f725b45ebb106987a4ec27b7d6d9d507fbf7c26"
+    },
+    {
+      "file": "ar_deep_hash.erl",
+      "url": "https://github.com/ArweaveTeam/arweave/blob/18d402c714132e1de3962b12ff32a420127e0c02/apps/arweave/src/ar_deep_hash.erl",
+      "sha256": "b466b3f9b1ceb5a4891c2c079022982e6bb9f9fdbdc50286ba95a05d0cfa0d66"
+    },
+    {
+      "file": "src-common-lib-transaction.ts",
+      "url": "https://github.com/ArweaveTeam/arweave-js/blob/695dafc5d3bcd15aa52068e8a79b56b31d4ee262/src/common/lib/transaction.ts",
+      "sha256": "becb679736333b1d7ca5a9ef3609795d70a2a884914ee212f6dc7fbbf93d6768"
+    },
+    {
+      "file": "src-common-lib-deepHash.ts",
+      "url": "https://github.com/ArweaveTeam/arweave-js/blob/695dafc5d3bcd15aa52068e8a79b56b31d4ee262/src/common/lib/deepHash.ts",
+      "sha256": "88b58f6240f1599cca3db82e222fe177abc61d626fe3555fd2e79db628ac9146"
+    },
+    {
+      "file": "src-common-lib-merkle.ts",
+      "url": "https://github.com/ArweaveTeam/arweave-js/blob/695dafc5d3bcd15aa52068e8a79b56b31d4ee262/src/common/lib/merkle.ts",
+      "sha256": "10e77d5c4a63e145e8f102e0ba833a4bdae73ce379ea5138b5be37d878589c92"
+    },
+    {
+      "file": "src-common-lib-crypto-webcrypto-driver.ts",
+      "url": "https://github.com/ArweaveTeam/arweave-js/blob/695dafc5d3bcd15aa52068e8a79b56b31d4ee262/src/common/lib/crypto/webcrypto-driver.ts",
+      "sha256": "5bae0a25cb3119bf84879cbb18af4233e78489d6d813e51760ff9ed8273c473c"
+    }
+  ],
+  "httpApi": "https://docs.arweave.org/developers/arweave-node-server/http-api"
+}
