@@ -5,6 +5,9 @@ import { createZipCrypto } from "./password.ts";
 import { readZipBzip } from "./zip-bzip.ts";
 import type { ZipBzipOptionsType } from "./zip-bzip.ts";
 export type { ZipBzipOptionsType } from "./zip-bzip.ts";
+import { readZipLzma } from "./zip-lzma.ts";
+import type { ZipLzmaOptionsType } from "./zip-lzma.ts";
+export type { ZipLzmaOptionsType } from "./zip-lzma.ts";
 import { createArchiveLedger } from "./record.ts";
 import type { ByteSourceType } from "../source.ts";
 import { close } from "../close.ts";
@@ -60,6 +63,8 @@ export interface ZipReadOptionsType extends ArchiveLimitsType {
   readonly inflate?: ZipInflateType;
   /** Optional bounded BZip2 kernel policy for unencrypted compression method 12. */
   readonly bzip?: ZipBzipOptionsType;
+  /** Optional bounded raw-LZMA1 policy for unencrypted method 14 with its EOS flag set. */
+  readonly lzma?: ZipLzmaOptionsType;
   /** Explicit password bytes. Copied before source I/O; no password text encoding is inferred. */
   readonly password?: Uint8Array;
   /** Maximum password byte length. Default 1024. No text encoding is inferred. */
@@ -73,13 +78,20 @@ export interface ZipReadType {
   readonly bytes: Uint8Array;
   readonly integrity: "checksum-pending" | "checksum-verified" | "not-provided";
   readonly work: ArchiveWorkType;
-  /** BZip2 block/stream checks are separate from the ZIP CRC over the complete plaintext member. */
+  /** Codec framing/check evidence is separate from ZIP CRC over the complete plaintext member. */
   readonly codec?: {
     readonly kind: "bzip2";
     readonly integrity: "checksum-pending" | "checksum-verified";
     readonly verifiedBlocks: number;
     readonly steps: number;
     readonly memoryBytes: number;
+  } | {
+    readonly kind: "lzma";
+    readonly integrity: "none";
+    readonly termination: "pending" | "end-marker";
+    readonly dictionaryBytes: number;
+    readonly decisions: number;
+    readonly steps: number;
   };
   /** Authentication covers ciphertext only, never names, ZIP metadata, a sender or the whole archive. */
   readonly encryption?: { readonly kind: "zipcrypto"; readonly authentication: "none" } | {
@@ -94,7 +106,7 @@ export interface ZipPlanType {
   readonly reason?: "encrypted-member" | "compression-method" | "budget-exceeded";
   readonly access: "direct-range" | "decode-from-start" | "authenticated-range";
   readonly outputBytes: number;
-  /** Minimum plaintext work from metadata. Native chunking and BZip2 block transforms can require more. */
+  /** Minimum plaintext work from metadata. Codec chunks, transforms and verification passes can require more. */
   readonly decodedBytes: number;
   readonly sourceBytes: number;
   readonly headerBytes: "unknown";
@@ -240,6 +252,7 @@ export async function openZip(source: ByteSourceType, options: ZipOpenOptionsTyp
       ...input,
       ...(input.aes ? { aes: { ...input.aes } } : {}),
       ...(input.bzip ? { bzip: { ...input.bzip } } : {}),
+      ...(input.lzma ? { lzma: { ...input.lzma } } : {}),
     };
     const requested = limitsOf(opts), used = lifetime.inspect();
     const signal = options.signal && opts.signal
@@ -518,7 +531,8 @@ function planRead(record: EntryType, options: ZipReadOptionsType): ZipPlanType {
     : entry.compressedSize;
   const reason = entry.encrypted && !legacy
     ? "encrypted-member"
-    : entry.method !== 0 && entry.method !== 8 && !(entry.method === 12 && record.needed >= 46)
+    : entry.method !== 0 && entry.method !== 8 && !(entry.method === 12 && record.needed >= 46) &&
+        !(entry.method === 14 && record.needed >= 63 && (record.flags & 2))
     ? "compression-method"
     : length > (options.maxOutputBytes ?? 16 * 1024 * 1024) ||
         decoded > (options.maxDecodedBytes ?? 64 * 1024 * 1024) || source > (options.maxSourceBytes ?? 64 * 1024 * 1024)
@@ -547,6 +561,7 @@ async function readMember(
     ...options,
     ...(options.aes ? { aes: { ...options.aes } } : {}),
     ...(options.bzip ? { bzip: { ...options.bzip } } : {}),
+    ...(options.lzma ? { lzma: { ...options.lzma } } : {}),
   };
   const plan = planRead(record, options);
   const aggregate = record.entry.encrypted ? createArchiveLedger(options) : undefined;
@@ -588,6 +603,9 @@ async function readMember(
     ) invalid("ZIP local header disagrees with directory.");
     if (entry.method === 12 && header.getUint16(4, true) < 46) {
       unsupported("ZIP BZip2 requires local version-needed 4.6 or later.");
+    }
+    if (entry.method === 14 && header.getUint16(4, true) < 63) {
+      unsupported("ZIP LZMA requires local version-needed 6.3 or later.");
     }
     if (cipher && header.getUint16(10, true) !== record.time) {
       invalid("ZIP encrypted local time disagrees with directory.");
@@ -657,19 +675,34 @@ async function readMember(
       }
       decoded += bytes.byteLength;
     };
-    if (entry.method === 12) {
-      const terminal = await readZipBzip(
-        source,
-        payloadOffset,
-        payloadSize,
-        effective,
-        budget,
-        complete,
-        offset + length,
-        consume,
-      );
+    if (entry.method === 12 || entry.method === 14) {
+      const terminal = entry.method === 12
+        ? await readZipBzip(
+          source,
+          payloadOffset,
+          payloadSize,
+          effective,
+          budget,
+          complete,
+          offset + length,
+          consume,
+        )
+        : await readZipLzma(
+          source,
+          payloadOffset,
+          payloadSize,
+          entry.size,
+          effective,
+          budget,
+          complete,
+          offset + length,
+          consume,
+        );
       if ((complete && (terminal.status !== "complete" || decoded !== entry.size)) || decoded < offset + length) {
-        invalid("ZIP BZip2 member ended before its declared size.");
+        invalid("ZIP codec member ended before its declared size.");
+      }
+      if (complete && terminal.integrity === "none" && terminal.termination !== "end-marker") {
+        invalid("ZIP LZMA EOS-required member did not reach its end marker.");
       }
       if (complete && ((state ^ 0xffffffff) >>> 0) !== entry.crc32) {
         throw new ArchiveError("checksum-mismatch", "ZIP member CRC32 failed.");
@@ -679,13 +712,22 @@ async function readMember(
       return {
         bytes: join(chunks, length),
         integrity: complete ? "checksum-verified" : "checksum-pending",
-        codec: {
-          kind: "bzip2",
-          integrity: terminal.integrity,
-          verifiedBlocks: terminal.verifiedBlocks,
-          steps: terminal.steps,
-          memoryBytes: terminal.memoryBytes,
-        },
+        codec: terminal.integrity === "none"
+          ? {
+            kind: "lzma",
+            integrity: "none",
+            termination: terminal.termination === "end-marker" ? "end-marker" : "pending",
+            dictionaryBytes: terminal.dictionaryBytes,
+            decisions: terminal.decisions,
+            steps: terminal.steps,
+          }
+          : {
+            kind: "bzip2",
+            integrity: terminal.integrity,
+            verifiedBlocks: terminal.verifiedBlocks,
+            steps: terminal.steps,
+            memoryBytes: terminal.memoryBytes,
+          },
         work: {
           ...work,
           sourceBytes: work.sourceBytes + terminal.work.sourceBytes,

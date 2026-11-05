@@ -121,6 +121,10 @@
     "tests/fixtures/zip-bzip/independent.json": {
       "size": 2512616,
       "sha256": "2c3fde502bb8fa879a429105bbdd14bba4c79a8a456402c0eaf2ed5b250aafdc"
+    },
+    "tests/fixtures/zip-lzma/independent.json": {
+      "size": 1675075,
+      "sha256": "ec3e7153bc0aa047a9237649b1d6265dd45b2349f2a95b6e9e53a82c8d768c98"
     }
   }
 }
