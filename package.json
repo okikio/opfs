@@ -155,7 +155,8 @@
     "./archive/mbox": "./src/archive/mbox.ts",
     "./archive/ar": "./src/archive/ar.ts",
     "./archive/bagit": "./src/archive/bagit.ts",
-    "./sftp": "./src/sftp.ts"
+    "./sftp": "./src/sftp.ts",
+    "./archive/ocfl": "./src/archive/ocfl.ts"
   },
   "dependencies": {
     "@okikio/undent": "^0.3.3",
