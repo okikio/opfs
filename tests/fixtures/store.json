@@ -30,6 +30,10 @@
       "size": 354364,
       "sha256": "9393a6ee36a27b4e3dfaa25a519fc59d5a330b3ebf7614b80d55ce3e5a2beb7b"
     },
+    "tests/fixtures/fits/independent.json": {
+      "size": 3279318,
+      "sha256": "e1fd0fc980e6704c32d0d61590fcf5e955d9156ceb83dd953138822f24d7ec98"
+    },
     "tests/fixtures/iso/independent.json": {
       "size": 16005999,
       "sha256": "53afc0dcb88cba82830b48f253f5a6dd3c69ee29c43029ef2b6a37b8df78c318"
