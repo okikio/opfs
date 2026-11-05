@@ -146,7 +146,8 @@
     "./driver/d1": "./src/driver/d1.ts",
     "./adapter/d1": "./src/adapter/d1.ts",
     "./archive/cab": "./src/archive/cab.ts",
-    "./archive/warc": "./src/archive/warc.ts"
+    "./archive/warc": "./src/archive/warc.ts",
+    "./onedrive": "./src/onedrive.ts"
   },
   "dependencies": {
     "@okikio/undent": "^0.3.3",
