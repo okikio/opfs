@@ -1,0 +1,56 @@
+{
+  "originalDefaultSalt": {
+    "rawFixtureSha256": "10a0d330a48d5c1f60ca962736cef8cab3602fb35cc1024ae28308c82ef2ea76",
+    "file": "independent.json",
+    "observedSaltBytes": 478,
+    "unicodeTagBytesHex": "65cc81",
+    "baseImage": "sha256:69f266c3ec9d93ce85b5643431560e9eedefb54f252730c84453239c2e68f071",
+    "toolImageRemoved": "sha256:2cf22d7896fe4a82fb3647be922784f7ff27bc20b0e16708c0f36d1a327efa7f",
+    "exitCode": 0,
+    "oomKilled": false
+  },
+  "explicitSalt32": {
+    "rawFixtureSha256": "9368e3a5f17c03a8213308f8e44e139ee9d54d29adf6e59d61e1ea9d57caedc0",
+    "file": "pss32.json",
+    "saltBytes": 32,
+    "baseImage": "sha256:f1d61877be7f1023016b35716b2424f3f3d77825a875853130311bdb0d9fe43e",
+    "toolImageRemoved": "sha256:792b092b3eb5b4cbfb093e8d210097045d60bd59ac526f9709ebd6e477bd2882",
+    "exitCode": 0,
+    "oomKilled": false
+  },
+  "lockSha256": "749ba4a7293c485dddcb88ac3f484798f23e9acb253891354367a79bf4d2d054",
+  "resourceLimits": {
+    "memoryBytes": 2147483648,
+    "cpus": 2,
+    "pids": 256,
+    "producerNetwork": "none"
+  },
+  "failuresRetained": [
+    {
+      "kind": "selected-profile-mismatch",
+      "detail": "Native Node SDK default signatures verify PSS478, refuse selected PSS32. Candidate deep-hash bytes matched native signatureDataBase64 exactly."
+    },
+    {
+      "kind": "base-image-unavailable",
+      "detail": "First explicit32 acquisition attempt could not create container because old69f266 image was no longer local. No acquisition ran; parent approved existing f1d61877 base."
+    }
+  ],
+  "currentRecipes": {
+    "produce.cjs": "fae7770d4d23a2b956b2a7aeecab9cdfa0d46d1402f3dd092be6d2abbcecc56e",
+    "produce-pss32.cjs": "9ca924f758065814e02a068a24120fa1904a7a5c24c73470aa672ef41cdba2d0",
+    "acquire.cjs": "41e7c63e68368c72466968eb01b90458a7b5627a88f15f605294aabf5173d33f",
+    "tool-package.json": "0530e36fed910388faeed78373a3d58c1cf99e01d9ae7a710d0dbe4403949206"
+  },
+  "receiptScope": "Recipe hashes identify current formatting; original pre-format producer source hash was not captured. Raw producer JSON hashes above remain exact; formatted file hashes below distinguish repository formatting. No private wallet retained, no transaction submitted or chain confirmed.",
+  "repositoryFiles": {
+    "independent.json": "10a0d330a48d5c1f60ca962736cef8cab3602fb35cc1024ae28308c82ef2ea76",
+    "pss32.json": "9368e3a5f17c03a8213308f8e44e139ee9d54d29adf6e59d61e1ea9d57caedc0",
+    "produce.cjs": "fae7770d4d23a2b956b2a7aeecab9cdfa0d46d1402f3dd092be6d2abbcecc56e",
+    "produce-pss32.cjs": "9ca924f758065814e02a068a24120fa1904a7a5c24c73470aa672ef41cdba2d0",
+    "acquire.cjs": "41e7c63e68368c72466968eb01b90458a7b5627a88f15f605294aabf5173d33f",
+    "tool-package.json": "0530e36fed910388faeed78373a3d58c1cf99e01d9ae7a710d0dbe4403949206",
+    "tool-lock.json": "749ba4a7293c485dddcb88ac3f484798f23e9acb253891354367a79bf4d2d054",
+    "tool-lock-pss32.json": "749ba4a7293c485dddcb88ac3f484798f23e9acb253891354367a79bf4d2d054",
+    "primary.json": "935c169539df75689df541cfc1761b2a69b2bb48552b2e3fd7e60b7c6ac0d52b"
+  }
+}

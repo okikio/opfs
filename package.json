@@ -185,7 +185,9 @@
     "./dataset/zarr": "./src/dataset/zarr.ts",
     "./dataset/las": "./src/dataset/las.ts",
     "./seafile": "./src/seafile.ts",
-    "./content/arfs": "./src/content/arfs.ts"
+    "./content/arfs": "./src/content/arfs.ts",
+    "./arweave": "./src/arweave.ts",
+    "./content/arweave": "./src/content/arweave.ts"
   },
   "dependencies": {
     "@okikio/undent": "^0.3.3",
