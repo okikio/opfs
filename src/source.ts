@@ -122,6 +122,11 @@ export function createByteSource(bytes: Uint8Array, options: { readonly identity
   return createBlobSource(new Blob([new Uint8Array(bytes)]), options);
 }
 
+/** The read-only object contract needed by a source. Clients and drivers need not share limit metadata. */
+export type ObjectSourceBackendType = Pick<ObjectBackendType, "identity" | "head" | "get"> & {
+  readonly capabilities: Pick<ObjectBackendType["capabilities"], "rangeRead">;
+};
+
 /** Policy for a bounded remote object snapshot. */
 export interface ObjectSourceOptionsType extends SourceReadOptionsType {
   /** Explicit namespace identity for a backend that cannot supply one. Must distinguish services and buckets. */
@@ -191,7 +196,7 @@ async function exactBytes(
  * caller assertion is explicitly weaker and must not be used to certify it.
  */
 export async function openObjectSource(
-  backend: ObjectBackendType,
+  backend: ObjectSourceBackendType,
   key: string,
   options: ObjectSourceOptionsType = {},
 ): Promise<ByteSourceType> {
@@ -215,6 +220,7 @@ export async function openObjectSource(
     : { ...stat.revision };
   if (
     revision !== undefined && (revision.value.length === 0 ||
+      !["etag", "generation", "version"].includes(revision.kind) ||
       (revision.kind === "etag" && !strongETag(revision.value)) ||
       (revision.kind === "generation" && !/^[1-9]\d*$/.test(revision.value)))
   ) {

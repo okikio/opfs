@@ -107,6 +107,20 @@ describe("revision-bound byte sources", () => {
     expect(disposed).toBe(false);
   });
 
+  it("preserves opaque immutable versions without treating them as generations or ETags", async () => {
+    const calls: ObjectGetOptionsType[] = [];
+    const service = backend((_key, options) => {
+      calls.push(options!);
+      return Promise.resolve(new Blob([new Uint8Array([9])]).stream());
+    });
+    service.head = () => Promise.resolve({ size: 1, revision: { kind: "version", value: "4_zOpaque_+/=" } });
+    const source = await openObjectSource(service, "item");
+    expect(source.stability).toBe("provider");
+    expect(await source.read(0, 1)).toEqual(new Uint8Array([9]));
+    expect(calls[0]?.revision).toEqual({ kind: "version", value: "4_zOpaque_+/=" });
+    expect(calls[0]).not.toHaveProperty("ifMatch");
+  });
+
   it("refuses weak revisions and keeps caller assertions visibly weaker", async () => {
     for (const tag of ['W/"one"', "*", "bare", '"one", "two"']) {
       await expect(openObjectSource(backend(() => Promise.reject("must not read"), tag), "item"))
