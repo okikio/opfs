@@ -2,11 +2,13 @@ import type { StartedAzuriteContainer } from "@testcontainers/azurite";
 import type { StartedTestContainer } from "testcontainers";
 
 /** SeaweedFS image used for the S3-compatible provider fixture. */
-export const S3_IMAGE = "chrislusf/seaweedfs:4.41";
+export const S3_IMAGE =
+  "chrislusf/seaweedfs:4.41@sha256:43b768cd62b00d132439cda881b93fd1adebf1b315e996e794087743821d771d";
 /** SeaweedFS4.41 form-escapes EncodingType=url listing keys; every project client uses this explicit wire dialect. */
 export const S3_LIST_ENCODING = "form" as const;
 /** Azurite image used for the Azure Blob provider fixture. */
-export const AZURE_IMAGE = "mcr.microsoft.com/azure-storage/azurite:3.36.0";
+export const AZURE_IMAGE =
+  "mcr.microsoft.com/azure-storage/azurite:3.36.0@sha256:76b8127d608fab8287a14a4bfeb9a5502cdcffb4bf1e86f09f324ebb0e70edba";
 /** Bucket and container name shared by provider integration tests and benchmarks. */
 export const STORAGE_NAME = "opfs-test";
 /** Access key exposed by the SeaweedFS test fixture. */

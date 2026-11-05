@@ -182,6 +182,7 @@ jobs:
           mkdir -p .tmp/reports/archive-bench
           BENCH_JSON=1 deno task bench:archive > .tmp/reports/archive-bench/mitata.json 2> .tmp/reports/archive-bench/stderr.log
           BENCH_JSON=1 deno task bench:tar > .tmp/reports/archive-bench/tar.json 2> .tmp/reports/archive-bench/tar-stderr.log
+          BENCH_JSON=1 deno task bench:compress > .tmp/reports/archive-bench/compress.json 2> .tmp/reports/archive-bench/compress-stderr.log
       - run: deno task bench:upstream:verify
       - run: |
           mkdir -p .tmp/reports/upstream-bench

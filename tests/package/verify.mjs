@@ -190,6 +190,12 @@ try {
     import { createTarStream, readTarStream } from '@okikio/opfs/archive/stream';
     import { createZipStream } from '@okikio/opfs/archive/write';
     import { openZip } from '@okikio/opfs/archive/zip';
+    import { compressStream, decompressStream } from '@okikio/opfs/archive/compress';
+    import { parseCid, verifyBlock } from '@okikio/opfs/content/cid';
+    import { createS3Client } from '@okikio/opfs/s3';
+    import { createS3UploadDestination } from '@okikio/opfs/transfer/s3';
+    import { createAzureClient } from '@okikio/opfs/azure';
+    import { createAzureUploadDestination } from '@okikio/opfs/transfer/azure';
     ${finish.toString()}
     const failures = [], releases = [];
     let writer;
@@ -218,6 +224,39 @@ try {
       }
     };
     const archivePayload = bytes.slice(0, 1024);
+    const compressed = new Uint8Array(await new Response(compressStream(
+      new Blob([archivePayload]).stream(), 'gzip'
+    )).arrayBuffer());
+    assertBytes(new Uint8Array(await new Response(decompressStream(
+      new Blob([compressed]).stream(), 'gzip'
+    )).arrayBuffer()), archivePayload);
+    const helloCid = parseCid('f015512202cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824');
+    await verifyBlock(helloCid.id, new TextEncoder().encode('hello'));
+    let unexpectedS3Calls = 0;
+    const s3 = createS3Client({
+      endpoint: 'https://fixture.invalid', bucket: 'test', region: 'us-east-1',
+      credentials: { accessKeyId: 'test', secretAccessKey: 'test' },
+      fetch: async () => { unexpectedS3Calls++; throw new Error('Construction performed I/O'); },
+    });
+    const upload = createS3UploadDestination(s3, {
+      version: 1, backend: s3.identity, key: 'test', id: 'test',
+      token: 'packed_consumer_unique_session_001', size: 3, partBytes: 5 * 1024 * 1024,
+    });
+    if (unexpectedS3Calls || upload.protocol !== 's3-multipart-v1') {
+      throw new Error('Packed S3 continuation construction contract failed');
+    }
+    const azure = createAzureClient({
+      endpoint: 'https://fixture.invalid', container: 'test',
+      credential: { kind: 'sas', token: 'sv=test' },
+      fetch: async () => { throw new Error('Construction performed I/O'); },
+    });
+    const azureUpload = createAzureUploadDestination(azure, {
+      version: 1, backend: azure.identity, key: 'test', token: 'packed_consumer_azure_session_001',
+      size: 3, blockBytes: 4 * 1024 * 1024, initialETag: null,
+    });
+    if (azureUpload.protocol !== 'azure-blocks-v1' || azureUpload.terminate !== undefined) {
+      throw new Error('Packed Azure continuation construction contract failed');
+    }
     const tarName = 'caf\u00e9/' + 'long-name-'.repeat(20);
     let tarMembers = 0;
     const tarScan = await readTarStream(createTarStream([
@@ -376,6 +415,12 @@ try {
     import type { ZipWriteEntryType } from '@okikio/opfs/archive/write';
     import { openZip } from '@okikio/opfs/archive/zip';
     import { createByteSource } from '@okikio/opfs/source';
+    import { createCompressedTar, readCompressedTar } from '@okikio/opfs/archive/compress';
+    import { parseCid, verifyBlock } from '@okikio/opfs/content/cid';
+    import { S3SessionSchema } from '@okikio/opfs/transfer/s3';
+    import type { S3SessionType } from '@okikio/opfs/transfer/s3';
+    import { AzureSessionSchema } from '@okikio/opfs/transfer/azure';
+    import type { AzureSessionType } from '@okikio/opfs/transfer/azure';
     const fileSystem: FileSystemType = createFileSystem(createMemoryAdapter());
     await fileSystem.writeFile('/types.txt', 'ok', { parents: true });
     const tarEntry: TarWriteEntryType = { name: 'typed', size: 0 };
@@ -389,6 +434,14 @@ try {
     const zip = await openZip(createByteSource(zipBytes));
     const member: Uint8Array = (await zip.read(0)).bytes;
     void member;
+    const compressedTar = createCompressedTar([{ name: 'typed', size: 0 }], 'gzip');
+    const result = await readCompressedTar(compressedTar, 'gzip', () => {});
+    const integrity: string = result.compression.integrity;
+    const cid = parseCid('f015512202cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824');
+    await verifyBlock(cid.id, new TextEncoder().encode('hello'));
+    const s3: S3SessionType = S3SessionSchema.parse({});
+    const azure: AzureSessionType = AzureSessionSchema.parse({});
+    void [integrity, s3, azure];
     // @ts-expect-error Portable root declarations must not load the native Deno namespace.
     void Deno;
   `,

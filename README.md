@@ -104,9 +104,21 @@ distinct from ETags. The optional `tus` and `transfer` modules support known-len
 explicit session and source ownership. See [GCS](docs/gcs.md) and [transfer recovery](docs/transfer.md) for complete
 examples and verification limits.
 
+[S3 multipart continuation](docs/s3-transfer.md) persists an explicit session and reconciles retained parts after
+restart. It also attributes a lost final acknowledgment through caller-owned session metadata. The caller must enforce
+exclusive ownership of the key, keep the source immutable and save checkpoints atomically.
+[Azure block continuation](docs/azure-transfer.md) follows the same checkpoint model while enforcing its captured
+destination condition at publication. Azure has no safe uncommitted-block-only abort operation.
+
 Optional [HTTP](docs/http.md), [WebDAV](docs/webdav.md), [Backblaze B2](docs/b2.md) and [OpenStack Swift](docs/swift.md)
 subpaths keep authentication caller-owned and refuse unsupported protocol guarantees. WebDAV exposes a file driver; B2
-and Swift use object drivers. HTTP exposes one revision-bound byte source.
+and Swift use object drivers. HTTP exposes one revision-bound byte source. [WebHDFS](docs/webhdfs.md) adds guarded
+NameNode/DataNode file access with explicit per-target authentication and conservative filesystem primitives.
+
+[Cloudflare R2 and Workers KV bindings](docs/bindings.md) accept injected services without reading Worker globals. R2
+exposes native object conditions and ranges. KV uses a caller-reserved prefix and retains its eventual consistency.
+[IPFS gateway and CAR access](docs/ipfs.md) distinguishes gateway-trusted file bytes from complete SHA256-verified raw
+blocks; neither a CID URL nor a CAR directory index alone verifies a UnixFS file.
 
 To inspect selected archive members, compose a revision-bound [byte source](docs/source.md) with `archive/zip` or the
 range-based ustar/PAX/GNU metadata reader in `archive/tar`. `view/zip` projects an opened ZIP into a read-only
@@ -117,6 +129,8 @@ codecs without global registration.
 
 For archive creation and one-shot streams, see [streaming TAR/PAX](docs/tar.md) and
 [STORED ZIP32 creation](docs/zip.md). Their writer profiles are narrower than the ZIP reader.
+[Native compression streams](docs/compression.md) compose gzip, zlib and raw DEFLATE with sequential TAR preview,
+independently checking gzip/zlib footers. Raw decoder EOF alone does not establish structural completeness.
 
 The optional [encryption profile](docs/encryption.md) authenticates selected ciphertext segments before archive access.
 See [expansion status](docs/expansion.md) for implemented capabilities and the protocols and formats still planned.
