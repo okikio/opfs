@@ -1,0 +1,256 @@
+{
+  "producer": "xar 1.8dev",
+  "consumer": "bsdtar 3.5.3 - libarchive 3.7.4 zlib/1.2.12 liblzma/5.4.3 bz2lib/1.0.8",
+  "source": {
+    "revision": "3efbc308e3699a4ab8258fd769f5853bae91a2dc",
+    "path": "xar/lib/archive.c",
+    "sha256": "aafad8b949b2dc555f141d8c281ec675cea9485bef2bb3ddbaa5415fe0f2c6f2"
+  },
+  "records": [
+    {
+      "path": "hello.txt",
+      "base64": "YXV0aG9yZWQgWEFSIG9yYWNsZQo="
+    },
+    {
+      "path": "nested/data.bin",
+      "base64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/wABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj9AQUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVpbXF1eX2BhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5ent8fX5/gIGCg4SFhoeIiYqLjI2Oj5CRkpOUlZaXmJmam5ydnp+goaKjpKWmp6ipqqusra6vsLGys7S1tre4ubq7vL2+v8DBwsPExcbHyMnKy8zNzs/Q0dLT1NXW19jZ2tvc3d7f4OHi4+Tl5ufo6err7O3u7/Dx8vP09fb3+Pn6+/z9/v8AAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMkJSYnKCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4/QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl9gYWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXp7fH1+f4CBgoOEhYaHiImKi4yNjo+QkZKTlJWWl5iZmpucnZ6foKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr/AwcLDxMXGx8jJysvMzc7P0NHS09TV1tfY2drb3N3e3+Dh4uPk5ebn6Onq6+zt7u/w8fLz9PX29/j5+vv8/f7/"
+    },
+    {
+      "path": "empty",
+      "base64": ""
+    }
+  ],
+  "objects": [
+    {
+      "producer": "xar",
+      "compression": "none",
+      "algorithm": "sha1",
+      "base64": "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",
+      "sha256": "5f1bcd01a3f3695cea3cc165b7de5c52cb32f333491d7d581f0c85b0919a8770",
+      "oracle": {
+        "headerBytes": 28,
+        "checksumCode": 1,
+        "tocBytes": 3509
+      },
+      "bsdtar": [
+        {
+          "path": "hello.txt",
+          "exitCode": 0,
+          "stderr": "",
+          "exact": true
+        },
+        {
+          "path": "nested/data.bin",
+          "exitCode": 0,
+          "stderr": "",
+          "exact": true
+        },
+        {
+          "path": "empty",
+          "exitCode": 0,
+          "stderr": "",
+          "exact": true
+        }
+      ],
+      "nativeExtractExact": true
+    },
+    {
+      "producer": "xar",
+      "compression": "none",
+      "algorithm": "sha256",
+      "base64": "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",
+      "sha256": "afc9531adcbda39d53ad56886427f2f082471cbadbf422db648fb7b6af61bd9a",
+      "oracle": {
+        "headerBytes": 28,
+        "checksumCode": 3,
+        "tocBytes": 3771
+      },
+      "bsdtar": [
+        {
+          "path": "hello.txt",
+          "exitCode": 1,
+          "stderr": "bsdtar: Error opening archive: Unrecognized archive format\n",
+          "exact": false
+        },
+        {
+          "path": "nested/data.bin",
+          "exitCode": 1,
+          "stderr": "bsdtar: Error opening archive: Unrecognized archive format\n",
+          "exact": false
+        },
+        {
+          "path": "empty",
+          "exitCode": 1,
+          "stderr": "bsdtar: Error opening archive: Unrecognized archive format\n",
+          "exact": false
+        }
+      ],
+      "nativeExtractExact": true
+    },
+    {
+      "producer": "xar",
+      "compression": "none",
+      "algorithm": "sha512",
+      "base64": "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",
+      "sha256": "04c8b6293170bfbec15c9ee87354b871dc1e1a7fb8ba1dac18c718bd5191c406",
+      "oracle": {
+        "headerBytes": 28,
+        "checksumCode": 4,
+        "tocBytes": 4412
+      },
+      "bsdtar": [
+        {
+          "path": "hello.txt",
+          "exitCode": 1,
+          "stderr": "bsdtar: Error opening archive: Unrecognized archive format\n",
+          "exact": false
+        },
+        {
+          "path": "nested/data.bin",
+          "exitCode": 1,
+          "stderr": "bsdtar: Error opening archive: Unrecognized archive format\n",
+          "exact": false
+        },
+        {
+          "path": "empty",
+          "exitCode": 1,
+          "stderr": "bsdtar: Error opening archive: Unrecognized archive format\n",
+          "exact": false
+        }
+      ],
+      "nativeExtractExact": true
+    },
+    {
+      "producer": "xar",
+      "compression": "gzip",
+      "algorithm": "sha1",
+      "base64": "eGFyIQAcAAEAAAAAAAADSwAAAAAAAA2XAAAAAXja7JfJjptAEIbv8xQWd7v3BauHHCLlCSaX3HopxmhssIAZefL0YbONY4idTcohJ3cXRRV01f+5MB8Ou+3iDcoqK/LHiKxwtIDcFyHLnx+jz0+fljr6kDyYgy2Th4WpC9/8LIwvwdbNHcs620FCMZVLQpZYPBGyJnTNhEGXLt1NG/Av1etuUdXvW3iMqo0lUXtlYYo0raBOsEHDqrNW2dc2uEHdog2BjjG6XZptYZGFx4gPYcB2W9xvF2YL+XO9SUhs0LDs7UMSpi4TDhkJOWdsgw7HcXxsu99vM9+9Gzosn79m+wgdXQ91aX0NYTn9rrGgIjinCdMhZtJ7pnXqAWhKtKRcACOCMHAGXUcaUtjSb7K32QxOAg3AhbMqVkIwzwShscLMaRYrCIpg6lOnDboKNCTIbVMuX+xW7XvCal8Wb5Db3INB3aXuoBHYfvEpywOUH9taw9NQ6C5IXlTgizxUbVHH296hawoSY7zETd/gJyLXJG5ax6BjuzRJJoMbP9dzX5r2ON+9+4Hb7uxmf+Bmz27PZfG6T6rapqlB/aa3Z6Hr0Pa3M7xWUCbFS/aSFQZ1m97cXBe4aazXo+OuCJBgyXnzOO2yMwZ4yzzkRUKkUoq2OjqZOocsb315zARljDZl7A3dtfp9D0mrieYQ2+XDqZyw29fv5/oZ1HpdSohGoyAhK8HXRfl+FSmHqmnKcSucIrCj6oKt++44K5BqfinBkwa1vJTgoEEl9ViEP6PC2zK0nloqudfgScopo5ZjLThoymLnmZWxso4EOi/DmzpMMY5dTJ1LlWuElxKPFXjKveWcB0E8k5wwJed1iM7H+D3XZsF2OlWpJk/1kmx/9lB/n21/H2730e2Mtzm+3QbcBOHwmug1xyPCzSHuXsbdC7l7KTeLuWvOzYFugnTTqLvNuu9hp8awm6bdUN9WOSuX5Rf/WCfkTcDvOIaMJHcC18zoEE9NDuNZ5c9ODip1AcA3XALt4sA0pVZ7Cowx14gr5l4o5Qn8+uQgKWBMlZacYk1ijr2TJKWOYC6tcM5xKnhKZok1AtbPzmH0/xj2r4xh+gpS/8ewm2OYuHMM28B2W6zqQz0xijXO7beVQd2X1jcAAAD//wMALf4EcEi833GRQ8jOpDF00ozpL+MZXZ2CeNpjZGLQvpm09NErPVUAE70ELnjaSywtycgvSk1RiHAMUsgvSkzOSeUCAE6RBwh42mNkYtC+mbT00Ss9VQATvQQueNpjYGRiZmFlY+fg5OLm4eXjFxAUEhYRFROXkJSSlpGVk1dQVFJWUVVT19DU0tbR1dM3MDQyNjE1M7ewtLK2sbWzd3B0cnZxdXP38PTy9vH18w8IDAoOCQ0Lj4iMio6JjYtPSExKTklNS8/IzMrOyc3LLygsKi4pLSuvqKyqrqmtq29obGpuaW1r7+js6u7p7eufMHHS5ClTp02fMXPW7Dlz581fsHDR4iVLly1fsXLV6jVr163fsHHT5i1bt23fsXPX7j179+0/cPDQ4SNHjx0/cfLU6TNnz52/cPHS5StXr12/cfPW7Tt3791/8PDR4ydPnz1/8fLV6zdv373/8PHT5y9fv33/8fPX7z9///1nGPX/iPY/AKBifpB42mNkYtC+mbT00Ss9VQATvQQu",
+      "sha256": "8b39fd79e1634615f11d22d2e268df16e8148e5055f272f6710d82fc6b210c1c",
+      "oracle": {
+        "headerBytes": 28,
+        "checksumCode": 1,
+        "tocBytes": 3479
+      },
+      "bsdtar": [
+        {
+          "path": "hello.txt",
+          "exitCode": 0,
+          "stderr": "",
+          "exact": true
+        },
+        {
+          "path": "nested/data.bin",
+          "exitCode": 0,
+          "stderr": "",
+          "exact": true
+        },
+        {
+          "path": "empty",
+          "exitCode": 0,
+          "stderr": "",
+          "exact": true
+        }
+      ],
+      "nativeExtractExact": true
+    },
+    {
+      "producer": "xar",
+      "compression": "gzip",
+      "algorithm": "sha256",
+      "base64": "eGFyIQAcAAEAAAAAAAADqwAAAAAAAA6dAAAAA3ja7JfJbttIEIbvfgpBd4m9L0KbOQTIE3guc+ul2iIskQJJG3KePk2K2iLSVjATDAbIid3FYhXVVf+novmy325mb1A3RVU+zvESzWdQ+ioU5fPj/K+nbws1/5I/mL2t84eZaSufLjPja7BtemLRFlvICSJigfEC8SeMV5isKDfZtUv/0Br8S/O6nTXt+wYe583aEi7m3b2ZqWJsoM2RyYZVb22K75BTYrJ+0QXJjlH6XSw2MCvC45wNYcD2W3TYzswGyud2nWNtsmF5sA9JqCJXCYeMGJ8zdkGHAzm+uN3tNoXvf122Xzx/L3bz7Oi6b2vrWwiLqV8rtQyOS4tEDDJoplkUjjhNFVKgpAcsFNFSu4A5U4rQyKWgjiFKkEPYm+w2x5Dc1n5dvH2QW2CIQSBNebDMYu6o8FxRhoEycIFKRLwMBCIopJH1lnNOBNFCai0slSa7STGkLm0qsq+2y+5sYLmrqzcobenBZP2tvjgZ2MPiW1EGqL92HQJPQ3v0QcqqAV+Voeka4XJ7cOhbCWuEFih1G3rCYoV1ajiTHZssJRkNbvxUp/6dWur89PYDt+3ZzX7gZs9uz3X1usub1sZossPmYC9CejiZ0rU3vDZQ59VL8VJUJus3B3O6z1Fqxtej47YKkCPBWHqdbtkbA7wVHsoqx0JKSTr1nUy9Q1F2vizVnVBKlMkOhv5e+76DvNNROsRu+XAqJ2x37fu5fibrvK5lR+YXQUJRg2+r+v0mUglNatfLVjhFoEelBtseuuOsWqLYtWxPutXqWraDbqVQl8L9FeXeI91I09VaTa0l0TlLVJCaCMQpdy4Iy8Gh6LEnzKq0QgwwcUwxj0MEKui0dO/Qrg0WAhCPI0l9F2LiB3bAJBI0KuaopUEor61TkfvonZQAEpMQAFnLLZrWbnY++p/5OQnQUyWkHq3ENUH/7UL8Pob+lxC9j6JnjE5x9HOQjpAUrbBaMXRB0imU3svSe2F6L00ncXrL0ymgjhB1HKmfM/VnqMpLqI5Tdahvp7alK8qrf8YTWkcgiwfIXsj0BMjxsYbjsammO6HfNdUAodpr5xzmAgtGJBdWMq8ZlYoh5bHi0iMlsGfIOcIwt6kMgvkAFhFr/8lUo72LTHGqEVHSUU0cCqlqkeu0D15jprngJGXXiYuCEkK7DQfNiFWITwnyAoy/PFf+GSv/z2OluoHhn7Hy07GS3zlWrmGzqZbtvh0ZLZNz94Vpsv578wcAAAD//wMA0o5H9WAFOF0zUQ7gtR3wGeuEODl+4fbzv1hTKc3ksPope7cveNpjZGLQvpm09NErPVUAE70ELnjaSywtycgvSk1RiHAMUsgvSkzOSeUCAE6RBwh42mNkYtC+mbT00Ss9VQATvQQueNpjYGRiZmFlY+fg5OLm4eXjFxAUEhYRFROXkJSSlpGVk1dQVFJWUVVT19DU0tbR1dM3MDQyNjE1M7ewtLK2sbWzd3B0cnZxdXP38PTy9vH18w8IDAoOCQ0Lj4iMio6JjYtPSExKTklNS8/IzMrOyc3LLygsKi4pLSuvqKyqrqmtq29obGpuaW1r7+js6u7p7eufMHHS5ClTp02fMXPW7Dlz581fsHDR4iVLly1fsXLV6jVr163fsHHT5i1bt23fsXPX7j179+0/cPDQ4SNHjx0/cfLU6TNnz52/cPHS5StXr12/cfPW7Tt3791/8PDR4ydPnz1/8fLV6zdv373/8PHT5y9fv33/8fPX7z9///1nGPX/iPY/AKBifpB42mNkYtC+mbT00Ss9VQATvQQu",
+      "sha256": "fa4ea2bf62e4df6e1d409d80b2d8726b98a8d63329fdef9a4a6f456a8114a659",
+      "oracle": {
+        "headerBytes": 28,
+        "checksumCode": 3,
+        "tocBytes": 3741
+      },
+      "bsdtar": [
+        {
+          "path": "hello.txt",
+          "exitCode": 1,
+          "stderr": "bsdtar: Error opening archive: Unrecognized archive format\n",
+          "exact": false
+        },
+        {
+          "path": "nested/data.bin",
+          "exitCode": 1,
+          "stderr": "bsdtar: Error opening archive: Unrecognized archive format\n",
+          "exact": false
+        },
+        {
+          "path": "empty",
+          "exitCode": 1,
+          "stderr": "bsdtar: Error opening archive: Unrecognized archive format\n",
+          "exact": false
+        }
+      ],
+      "nativeExtractExact": true
+    },
+    {
+      "producer": "xar",
+      "compression": "gzip",
+      "algorithm": "sha512",
+      "base64": "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",
+      "sha256": "c656d5fbf32c4a3f09ce19187c31e9fd37f1c76abae6fdc8ec7d5ec55b26fca7",
+      "oracle": {
+        "headerBytes": 28,
+        "checksumCode": 4,
+        "tocBytes": 4383
+      },
+      "bsdtar": [
+        {
+          "path": "hello.txt",
+          "exitCode": 1,
+          "stderr": "bsdtar: Error opening archive: Unrecognized archive format\n",
+          "exact": false
+        },
+        {
+          "path": "nested/data.bin",
+          "exitCode": 1,
+          "stderr": "bsdtar: Error opening archive: Unrecognized archive format\n",
+          "exact": false
+        },
+        {
+          "path": "empty",
+          "exitCode": 1,
+          "stderr": "bsdtar: Error opening archive: Unrecognized archive format\n",
+          "exact": false
+        }
+      ],
+      "nativeExtractExact": true
+    },
+    {
+      "producer": "bsdtar",
+      "compression": "gzip",
+      "algorithm": "sha1",
+      "base64": "eGFyIQAcAAEAAAAAAAAC7AAAAAAAAAw6AAAAAXic7ZfNcpswEMfveQqGuw36FhmF3PoE6aU3IS02EwMeIB47T18hYxvHOHXSpqeckFarlfTf1W+EetyWq2ADTVvU1UOI5nEYQGVqW1SLh/Dn04+ZDB/TO7XVTXoXqK427hMo04Du3IxZV5SQ4hjzGUKzmD0hdI/wPWEqOnfxk5ZgntuXMmi73QoewnapUdiPBKrO8xa6NFbR0PLWtnjtg6vIN/oQ0SGG7+XFCoLCum0PYSrtllrCalXPu22nIt/3I91uDWnvryLf9Maiqi2kNCEME4LdnvcGP2ZhUxio6hRxIQTuT3Q0eYeyd405pSoqj7NeCpuyGKmob+wtLTRp/Vw8F7Wz9h1vXrjx/mSLg9+iqV/WadvpPHdW3/F2c03hX06Mg7RuN++4lSc3/Y6bPrmB9rLGe1kDtYJq0S1TlKhoaO7tQ7Lwed6GxCF0Slwfc6iqQ/b1er0qjC+RaDtbvBbrMBpcdWOWxQbsbLpiJGU5cJDCMMA0owJl3DLEmWWY6QxhLanOuXVHehvosJdt12jTXV0hcYFslklEpE0IN4ZImRsAnCPJMWVAEEMEMhVdRhqW8KVn6nLenxPm66beQKUrA+OqjEAP1aY7fa41ltNak2RK6/El+adao9hwJ6zUnCKR2ZxQHRNpUCIQ40zEPHMmHuvPay3yzAIYoTOQWWKJxC5/BgMhJHNSJ9QwIQyCq1q7izmop6L+hp+jAY/RUEHrpl9wwRYNmK5udmM4HCOQcJzSfq15VlSjINN0eYsXMcbLn/kyDZgJwlxDzCVjrkLmVsrciplbOXMBmqukOZY/F+flP8maj1yAr6fN/8DNbbw5AWdMnBFy6BXVJZ9UXXD5ZbJb4EmeUJCYUURjiikyMWEoJ3HusoE5dQjKehp+WnZtsHZxjASDcooJ1jSWrF+SJJkhmicOSsjidyh/RM+YPRMUomMKQbnudh98nMjvx8knHydEfL9O/up1cqxnV539819F/mfgNy6snRdEFrUKKlW0otgvZozRcCH+k/EaYnicY2Ri0L6ZtPTRKz1VABO9BC54nEssLcnIL0pNUYhwDFLIL0pMzknlAgBOkQcIeJxjZGLQvpm09NErPVUAE70ELnicY2BkYmZhZWPn4OTi5uHl4xcQFBIWERUTl5CUkpaRlZNXUFRSVlFVU9fQ1NLW0dXTNzA0MjYxNTO3sLSytrG1s3dwdHJ2cXVz9/D08vbx9fMPCAwKDgkNC4+IjIqOiY2LT0hMSk5JTUvPyMzKzsnNyy8oLCouKS0rr6isqq6pratvaGxqbmlta+/o7Oru6e3rnzBx0uQpU6dNnzFz1uw5c+fNX7Bw0eIlS5ctX7Fy1eo1a9et37Bx0+YtW7dt37Fz1+49e/ftP3Dw0OEjR48dP3Hy1OkzZ8+dv3Dx0uUrV69dv3Hz1u07d+/df/Dw0eMnT589f/Hy1es3b9+9//Dx0+cvX799//Hz1+8/f//9Zxj1/4j2PwCgYn6QeJxjZGLQvpm09NErPVUAE70ELnic7ZfNcpswEMfveQqGuw36FhmF",
+      "sha256": "54d81bffa7ddb84378378426a9efd04a0acd85b10f9334b8cb6e1dc5c5c97073",
+      "oracle": {
+        "headerBytes": 28,
+        "checksumCode": 1,
+        "tocBytes": 3130
+      },
+      "bsdtar": [
+        {
+          "path": "hello.txt",
+          "exitCode": 0,
+          "stderr": "",
+          "exact": true
+        },
+        {
+          "path": "nested/data.bin",
+          "exitCode": 0,
+          "stderr": "",
+          "exact": true
+        },
+        {
+          "path": "empty",
+          "exitCode": 0,
+          "stderr": "",
+          "exact": true
+        }
+      ],
+      "nativeExtractExact": true
+    }
+  ]
+}
