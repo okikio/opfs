@@ -14,6 +14,7 @@ export async function replaceCachedValue(
   bytes: Uint8Array,
 ): Promise<MemcachedReceiptType> {
   const client = await openMemcachedClient({ openChannel });
+  const failures: unknown[] = [];
   try {
     const previous = await client.get(key);
     return previous === null
@@ -28,8 +29,22 @@ export async function replaceCachedValue(
         flags: previous.flags,
         expiry: { kind: "relative", seconds: 300 },
       });
+  } catch (reason) {
+    failures.push(reason);
+    throw reason;
   } finally {
-    await client.close();
+    if (!client.closed) {
+      try {
+        await client.close();
+      } catch (reason) {
+        if (failures.length) {
+          throw new AggregateError([...failures, reason], "The operation and connection cleanup failed.", {
+            cause: failures[0],
+          });
+        }
+        throw reason;
+      }
+    }
   }
 }
 ```
@@ -49,6 +64,10 @@ The example returns the complete native receipt. An absent key can still be crea
 an existing key can expire, be evicted or change before CAS. The caller decides whether to refresh, rebuild from its
 authoritative data source or abandon the operation. Nothing retries automatically. This is a native cache client; it
 exposes no record driver, filesystem projection, prefix listing or immutable byte source.
+
+The example preserves a local input failure when closing also fails. It skips a repeated close when a command has
+already retired the connection and retained its cleanup errors. Re-awaiting that cached close rejection in an
+unconditional `finally` could otherwise hide the command's original error.
 
 ## Native keys, values and conditions
 
