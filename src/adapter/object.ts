@@ -264,12 +264,13 @@ class ObjectAdapter implements AdapterType {
   #conditions(path: PathType, previous: ObjectStatType | null): ObjectPutOptionsType {
     if (!this.driver.capabilities.conditionalWrite) return {};
     if (previous === null) return { ifNoneMatch: "*" };
+    if (previous.revision !== undefined) return { revision: { ...previous.revision } };
     if (previous.etag === undefined) {
       throw new FileSystemError(
         "unknown",
         "write",
         path,
-        `${this.driver.name} advertises conditional writes but HEAD did not return an ETag for '${path}'.`,
+        `${this.driver.name} advertises conditional writes but HEAD did not return a conditional revision for '${path}'.`,
       );
     }
     return { ifMatch: previous.etag };
@@ -490,7 +491,9 @@ class ObjectAdapter implements AdapterType {
     throwIfAborted(options.signal, "copy", destination);
     await this.driver.copy(fileKey(this.#prefix, source), fileKey(this.#prefix, destination), {
       ...(options.overwrite ? {} : { ifNoneMatch: "*" }),
-      ...(sourceStat.etag === undefined ? {} : { sourceIfMatch: sourceStat.etag }),
+      ...(sourceStat.revision === undefined
+        ? sourceStat.etag === undefined ? {} : { sourceIfMatch: sourceStat.etag }
+        : { sourceRevision: { ...sourceStat.revision } }),
       ...(options.signal === undefined ? {} : { signal: options.signal }),
     });
   }

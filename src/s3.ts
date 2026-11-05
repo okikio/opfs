@@ -1,4 +1,4 @@
-import { range } from "./range.ts";
+import { assertRangeResponse, range } from "./range.ts";
 import type { DriverPlanInputType, DriverPlanType } from "./driver/definition.ts";
 import { map } from "./pool.ts";
 import { encodeHex } from "@std/encoding/hex";
@@ -8,7 +8,12 @@ import { open } from "./chunk.ts";
 import { isBuffer, isBytes, toRequestBuffer, toRequestBytes, toView } from "./bytes.ts";
 import { assertRequestStream, isStream } from "./body.ts";
 import { close } from "./close.ts";
-import { copyOptions, putOptions, putProperties } from "./publication.ts";
+import {
+  etagCopyOptions as copyOptions,
+  etagPutOptions as putOptions,
+  objectETag,
+  putProperties,
+} from "./publication.ts";
 import type { ResponseTextType } from "./response.ts";
 import { readResponse } from "./response.ts";
 import {
@@ -33,6 +38,7 @@ import {
 import type {
   ObjectBackendType,
   ObjectCopyOptionsType,
+  ObjectDeleteOptionsType,
   ObjectEntryType,
   ObjectGetOptionsType,
   ObjectListOptionsType,
@@ -663,6 +669,8 @@ class S3Client implements S3ClientType {
   }
   /** Stable object-store name exposed to the adapter and diagnostics. */
   readonly name = "s3";
+  /** Credential-free namespace used to bind persistent source identities. */
+  readonly identity: string;
   /** Native behavior guaranteed by this configured client. */
   readonly capabilities;
   /** Portable S3 limits exposed to the filesystem planner. */
@@ -709,6 +717,7 @@ class S3Client implements S3ClientType {
   constructor(options: S3ClientOptionsType) {
     this.#endpoint = new URL(options.endpoint);
     this.#bucket = options.bucket;
+    this.identity = JSON.stringify(["s3", this.#endpoint.origin, this.#endpoint.pathname, this.#bucket]);
     this.#region = options.region;
     this.#credentials = options.credentials;
     this.#addressing = S3AddressingSchema.parse(options.addressing ?? "path");
@@ -1109,9 +1118,11 @@ class S3Client implements S3ClientType {
 
   /** Opens an S3 object or byte range as a Web `ReadableStream`. */
   async get(key: string, options: ObjectGetOptionsType = {}): Promise<ReadableStream<Uint8Array>> {
+    const ifMatch = objectETag(options.revision);
     const selected = range(options);
     if (selected.empty) return new Blob().stream();
     const headers = new Headers();
+    if (ifMatch !== undefined) headers.set("if-match", ifMatch);
     if (selected.header !== undefined) headers.set("range", selected.header);
     const response = await assertResponse(
       await this.request({
@@ -1122,6 +1133,7 @@ class S3Client implements S3ClientType {
       }),
       `GetObject ${key}`,
     );
+    await assertRangeResponse(response, selected);
     return response.body ?? new Blob().stream();
   }
 
@@ -1406,10 +1418,12 @@ class S3Client implements S3ClientType {
   }
 
   /** Removes one exact object. A missing object is treated as already removed. */
-  async delete(key: string, options?: { readonly signal?: AbortSignal }): Promise<void> {
+  async delete(key: string, options?: ObjectDeleteOptionsType): Promise<void> {
+    const ifMatch = objectETag(options?.revision);
     const response = await this.request({
       method: "DELETE",
       key,
+      ...(ifMatch === undefined ? {} : { headers: new Headers({ "if-match": ifMatch }) }),
       ...(options?.signal === undefined ? {} : { signal: options.signal }),
     });
     await readResponse(response, async (text) => {

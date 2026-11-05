@@ -100,7 +100,10 @@
     "./capability": "./src/capability.ts",
     "./metrics": "./src/metrics.ts",
     "./plan": "./src/plan.ts",
-    "./request": "./src/request.ts"
+    "./request": "./src/request.ts",
+    "./source": "./src/source.ts",
+    "./adapter/read": "./src/adapter/read.ts",
+    "./testing/source": "./src/testing/source.ts"
   },
   "dependencies": {
     "@okikio/undent": "^0.3.3",
