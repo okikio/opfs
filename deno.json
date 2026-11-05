@@ -96,7 +96,8 @@
     "./transfer/azure": "./src/transfer/azure.ts",
     "./webhdfs": "./src/webhdfs.ts",
     "./driver/webhdfs": "./src/driver/webhdfs.ts",
-    "./adapter/webhdfs": "./src/adapter/webhdfs.ts"
+    "./adapter/webhdfs": "./src/adapter/webhdfs.ts",
+    "./view/tar": "./src/view/tar.ts"
   },
   "imports": {
     "@okikio/undent": "jsr:@okikio/undent@^0.3.3",
