@@ -1,0 +1,44 @@
+{
+  "unixfs.md": {
+    "bytes": 73991,
+    "sha256": "385f09505b79b6845e274035b6175fcd4780246ec850eaf45138b4bbcce301fa"
+  },
+  "add.go": {
+    "bytes": 32115,
+    "sha256": "ae132e9634f5e2834a7168df6c33ad0d1ece163dadb17892b5b8b5ad5f4a83d4"
+  },
+  "file.go": {
+    "bytes": 2694,
+    "sha256": "4ac4964661846015a7ee2c9bed60fd6a1c5d3939d3452d63b410ae95bbfeceff"
+  },
+  "unixfsRevision": "b4ad54e3a8baa8a395c2d17b7eab123099efb228",
+  "kuboRevision": "acc53c093810a8fe9a4bc2f023f0b1e0c1d629b5",
+  "unixfsnodeRevision": "4a71cacb869d29b428bc5f817872e0c0dbeab669",
+  "archivedDagPbRevision": "2a106a9c22a570f436f92ca8aa3de85eb675e116",
+  "archivedDagPb": {
+    "bytes": 7777,
+    "sha256": "2f2d2789aa9b7a811412523d53c0fa40693f8cdba3a4e85581c873069c8356dd"
+  },
+  "dagPbRevision": "b78bf00219b6ba843223e8eb2af11a5447a9567d",
+  "dag-pb.md": {
+    "bytes": 9890,
+    "sha256": "806255813f14e22a416b079bdace9d24ef7c42a7ab84c29cfcb3fa15e16a2f81"
+  },
+  "boxoRevision": "d133242046c3fb796050017089ae581d8f54a38c",
+  "kubo-go.mod": {
+    "bytes": 13552,
+    "sha256": "510e86a9537dc3157408b29f5ca6489ba84be65955373488bfd27ded2a4e6cbb"
+  },
+  "core-unixfs.go": {
+    "bytes": 12536,
+    "sha256": "5326ea3689478e65668fb36fe4a943a29f93938cfd118dfe52d08772911c06d1"
+  },
+  "dagreader.go": {
+    "bytes": 15590,
+    "sha256": "29887a19263e9d8cba60b007fad5e0cdaf18ec22c83890180ac4c900bd01165a"
+  },
+  "shard.go": {
+    "bytes": 7554,
+    "sha256": "bab219bc2967449b49782b57be307f0ef30db4146f27c0251c56b254140a43e2"
+  }
+}

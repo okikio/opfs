@@ -66,6 +66,10 @@
       "size": 12017417,
       "sha256": "994911ed0bcf49be31e82a57127a7db2187b5e3afbbd82fb63454a05ff10081f"
     },
+    "tests/fixtures/unixfs/independent.json": {
+      "size": 1010209,
+      "sha256": "41f437d34da41a29e10d8897c93abf2b7192c4d69291df7feb1aef7d6aa8f55f"
+    },
     "tests/fixtures/wim/lzx-authored-tail.json": {
       "size": 627861,
       "sha256": "d3d9b7c1d877c07517e7c6a18586a9ededef37fbd7f0c00d35c424025dddd90d"
