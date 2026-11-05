@@ -99,34 +99,103 @@ mtime retains signed decimal seconds and optional fractional nanoseconds; absenc
 becoming the epoch. No permission, timestamp or link is applied to a host filesystem.
 
 The strict profile accepts raw-codec files, DAG-PB File, ordinary Directory and inert Symlink nodes with complete
-SHA2-256 multihashes. It refuses legacy DAG-PB Raw, reserved Metadata, HAMT shards, identity CIDs, other multihashes and
-other codecs when selected. An unopened link can declare another profile, but listing it does not claim that profile is
-supported. HAMT hashing/bitmap semantics, writers, imports, encryption and transport remain separate work.
+SHA2-256 multihashes. It refuses legacy DAG-PB Raw, reserved Metadata, identity CIDs, other multihashes and other codecs
+when selected. HAMT shards require the separate explicit native profile described below. An unopened link can declare
+another profile, but listing it does not claim that profile is supported. Other HAMT profiles, writers, imports,
+encryption and transport remain separate work.
 
 Both contiguous Links-first and Data-first PBNode encodings are accepted. PBLink fields must be known, ordered and
 unique; singular UnixFS authority fields cannot be duplicated. Expanded, packed and mixed repeated `blocksizes` are
 accepted in wire order. The decoder refuses unknown fields/wire types, malformed UTF8, non-minimal/overflowing varints,
 interleaved Links/Data/Links, named File children, unsafe logical sums, inconsistent sizes and invalid time fractions.
 This is a bounded explicit profile, not a general Protocol Buffers decoder. File-size fields on non-file nodes and
-HAMT-specific fields are outside the profile.
+HAMT-specific fields on ordinary nodes are refused.
+
+## Inspect a native HAMT directory
+
+A Hash Array Mapped Trie (HAMT) spreads a large directory across small hash-bucket nodes. The explicit
+`hamtProfile: "kubo-fanout-256"` option admits the native Kubo/Boxo interpretation. Omission continues to refuse HAMT
+nodes. The option also applies when an ordinary directory opens a child HAMT.
+
+```ts
+import { openUnixfs } from "@okikio/opfs/content/unixfs";
+import type { UnixfsBlockReaderType } from "@okikio/opfs/content/unixfs";
+
+export async function inspectHamt(
+  rootCid: string,
+  readBlock: UnixfsBlockReaderType,
+  subtle: Pick<SubtleCrypto, "digest">,
+  name: string,
+): Promise<{ names: readonly string[]; prefix: Uint8Array }> {
+  const directory = await openUnixfs(rootCid, readBlock, {
+    subtle,
+    hamtProfile: "kubo-fanout-256",
+    maxDirectoryEntries: 1000,
+  });
+  if (directory.kind !== "hamt-directory") throw new Error("Expected a native HAMT directory.");
+  const inventory = await directory.list();
+  // This proves the directory's complete link inventory. File blocks remain unopened.
+  const selected = await directory.open(name);
+  if (selected.kind !== "file") throw new Error("The selected entry is not a file.");
+  const preview = await selected.read({ length: Math.min(32, selected.size) });
+  return { names: inventory.entries.map((entry) => entry.name), prefix: preview.bytes };
+}
+```
+
+`directory.profile` and every listing identify `"kubo-fanout-256"`. Opening checks the local shard, including its leaf
+routing. `open(name)` follows only that literal name's hash route and checks every touched shard's local leaves against
+the complete consumed prefix. Missing or malformed unselected shards remain unexamined. An absent-name error concerns
+the selected route, not the validity of the entire directory. Names remain literal UTF8 metadata: no percent decoding,
+path splitting, normalization, URL fetch or symlink following occurs. Empty names are refused because a prefix-only
+native link denotes a subshard.
+
+`list()` visits every internal shard belonging to this directory and returns a bounded immutable `entries` array,
+`scope: "complete-directory-links"`, block integrity and work counts. It validates every leaf name's route and refuses
+duplicates. Entry order follows physical numeric buckets and depth-first shard traversal; it is not lexical sorting.
+Leaf targets, including nested directories, are not opened. A complete list therefore does not establish that any file,
+nested directory or complete DAG is present or internally consistent. Use a selected file's `verify()` for that file's
+complete descendant traversal.
+
+This native profile accepts only fanout 256 and Murmur3 x64-64, seed zero. Murmur3 is noncryptographic routing; SHA2-256
+still verifies every acquired CID block. The 64-bit hash is serialized big-endian, then consumed one byte per shard. A
+two-character uppercase hexadecimal prefix selects a bucket. There are at most eight routing levels; an internal edge at
+the eighth level is refused before further acquisition. A literal entry that itself names another directory starts a new
+directory hash route while retaining the opening graph-depth budget.
+
+Bitmap bucket `i` occupies bit `i % 8` in byte `31 - floor(i / 8)` after left-zero padding to 32 bytes. Native writers
+trim leading zero bytes; the reader accepts zero through 32 bytes, including explicit left-zero padding. Bitmap
+occupancy, link count, unique increasing bucket prefixes, fanout and hash authority must agree. Extra bitmap bytes,
+lowercase or malformed prefixes and inconsistent routing are refused. This exact convention differs from the pinned
+September 2026 UnixFS draft's fixed-size/little-endian and least-significant routing wording. The option selects the
+documented native convention; it does not claim universal draft conformance or autodetect another interpretation.
+
+HAMT inherits all source, decoded, graph, cache, signal and lifetime limits below. The serialized `maxNameBytes` ceiling
+includes the two prefix bytes, leaving 4094 UTF8 bytes for a literal leaf at the default 4096-byte policy. A complete
+list also admits each returned link object/name/CID against the index estimate and the separate `maxDirectoryEntries`
+policy. Routing admits encoded name input plus its eight-byte result before allocation and charges 96 work units per
+16-byte arithmetic group, at least one group, plus input-byte work. This is a finite CPU policy, not a wall-clock or
+exact instruction count. `hamtShards`, `nameHashes`, `hashBytes` and `directoryEntries` make those costs visible.
+Listing metadata consumes decoded/index work; `outputBytes` counts file buffers, so a listing can return names while
+reporting zero file-output bytes.
 
 ## Budgets, cancellation and ownership
 
-| Policy            | Default | Hard ceiling or meaning                                                          |
-| ----------------- | ------: | -------------------------------------------------------------------------------- |
-| `maxBlockBytes`   |   1 MiB | 8 MiB serialized bytes per callback result                                       |
-| `maxLinks`        |   16384 | 65536 links per node and entries per blocksizes list                             |
-| `maxDepth`        |      64 | 128 graph edges from the opening root, including later directory opens           |
-| `maxNameBytes`    |    4096 | 65536 UTF8 bytes; caller UTF16 length is checked before encoding                 |
-| `maxIndexBytes`   |   4 MiB | 16 MiB estimated node/index allocation per operation                             |
-| `maxNodes`        |    4096 | 65536 node admissions, including repeated cached references                      |
-| `maxEdges`        |  100000 | 1000000 examined directory/file edges per operation                              |
-| `maxSteps`        |   16 Mi | 64 Mi protobuf byte/field, seek and lookup work units                            |
-| `maxCacheBytes`   |   4 MiB | 16 MiB serialized block buffers retained in one operation; zero disables cache   |
-| `maxSourceBytes`  |  64 MiB | Cumulative acquired serialized bytes; foreign callback allocation remains opaque |
-| `maxRequests`     |    4096 | Cumulative callback acquisitions, admitted before invoking the callback          |
-| `maxDecodedBytes` |  64 MiB | Owned block/hash copies and index reservations                                   |
-| `maxOutputBytes`  |  16 MiB | Returned buffers; one read also has a hard 16 MiB allocation ceiling             |
+| Policy                | Default | Hard ceiling or meaning                                                          |
+| --------------------- | ------: | -------------------------------------------------------------------------------- |
+| `maxBlockBytes`       |   1 MiB | 8 MiB serialized bytes per callback result                                       |
+| `maxLinks`            |   16384 | 65536 links per node and entries per blocksizes list                             |
+| `maxDepth`            |      64 | 128 graph edges from the opening root, including later directory opens           |
+| `maxNameBytes`        |    4096 | 65536 UTF8 bytes; caller UTF16 length is checked before encoding                 |
+| `maxIndexBytes`       |   4 MiB | 16 MiB estimated node/index allocation per operation                             |
+| `maxNodes`            |    4096 | 65536 node admissions, including repeated cached references                      |
+| `maxEdges`            |  100000 | 1000000 examined directory/file edges per operation                              |
+| `maxSteps`            |   16 Mi | 64 Mi protobuf byte/field, seek, bitmap and routing-hash work units              |
+| `maxDirectoryEntries` |   16384 | 65536 returned entries in one complete HAMT list                                 |
+| `maxCacheBytes`       |   4 MiB | 16 MiB serialized block buffers retained in one operation; zero disables cache   |
+| `maxSourceBytes`      |  64 MiB | Cumulative acquired serialized bytes; foreign callback allocation remains opaque |
+| `maxRequests`         |    4096 | Cumulative callback acquisitions, admitted before invoking the callback          |
+| `maxDecodedBytes`     |  64 MiB | Owned block/hash copies and index reservations                                   |
+| `maxOutputBytes`      |  16 MiB | Returned buffers; one read also has a hard 16 MiB allocation ceiling             |
 
 Opening limits span all later child opens, reads, verifications and source reads. Limits supplied to a directory open
 also span that child handle's later operations. Source options create a separate cumulative owner for its repeated
@@ -165,7 +234,7 @@ for that combined shape; the successful packed/field-order fixtures are separate
 The selected UnixFS document declares draft status; that label is not used to resolve conflicting maturity claims
 elsewhere. It also contains contradictory duplicate-name requirements: the Directory section requires refusal, while its
 path section requires first-match behavior. This strict entry-lookup profile follows the refusal rule and makes no claim
-to implement the conflicting path resolver. Unknown/unselected descendants and deferred HAMT profiles stay explicitly
+to implement the conflicting path resolver. Unknown/unselected descendants and other HAMT profiles stay explicitly
 unverified.
 
 `bench/unixfs.bench.ts` measures cold file-header opening, selected early/late/full-length ranges, explicit
@@ -174,3 +243,15 @@ separate acquired bytes, hash/materialization work, edges, parser steps and cach
 finite 64 GiB / ten-million-request lifetime allowance at every retained handle; per-operation policies remain finite.
 The decoded Blob copy baseline supplies existing plaintext without block verification and is only a lower bound. These
 in-memory protocol workloads do not measure Kubo network transport or establish a universal cache speedup.
+
+HAMT evidence is retained [separately](../tests/fixtures/unixfs/hamt/README.md): 108 authored originals were imported by
+genuine Kubo into 126 blocks and 18 shards, including shortened native bitmaps. Native complete file reads, ranges and
+root/nested directory listings match those originals. The original public-domain C++ MurmurHash3 implementation supplies
+135 separately executed hash vectors; Kubo's four insecure-hash command refusals are retained and are not counted as
+successful hash probes. Two initial recipe failures concerned DAG-JSON bytes and CLI listing encoding; their exact
+tracebacks remain retained.
+
+Separately authored eight-shard chains match native complete/range originals for trimmed and explicit left-zero-padded
+bitmaps. A ninth-shard chain produces Kubo's retained `sharded directory too deep` refusal; the reader also rejects that
+internal edge before acquiring a ninth shard. Those boundary cases are not described as topology generated by the
+importer.
