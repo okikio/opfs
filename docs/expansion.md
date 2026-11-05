@@ -42,6 +42,12 @@ physical erasure. Official server/SDK tests verify complete bytes and sibling re
 using application-unlocked keys. A nested ZIP can read selected plaintext extents without decrypting unrelated chunks.
 This does not establish original EOF, freshness, directory completeness or a name-to-content binding.
 
+[etcd](etcd.md) retains native byte keys, exact revision strings, historical prefix cursors and explicit replacement
+lease policy. Native CLI readback verifies complete values and conflicts; a single-node fixture does not qualify
+replicated consensus or deployment durability. [HTTP upload draft 15](upload.md) supplies versioned upload descriptors
+and explicit reconciliation. Actual client process kills verify recovery after lost append/final replies, while a
+missing completed resource remains an unknown publication outcome. It is separate from tus and is not a final RFC.
+
 ## How to continue
 
 Add each protocol as an import-safe subpath: client → driver → adapter → filesystem → real consumer bridge. Keep
