@@ -162,6 +162,11 @@ MIME previews index strict CRLF message parts and decode bounded attachment rang
 reader indexes unencoded headers and reads single COPY streams; encoded headers and compressed/encrypted payloads remain
 unsupported. See [MIME](docs/mime.md) and [7z](docs/seven.md) for costs and evidence.
 
+FTP and explicit FTPS use injected socket/TLS capabilities for native metadata, streaming suffix reads and bounded
+uploads. [MBOX](docs/mbox.md) exposes explicit mailbox preview conversion, and [ar](docs/ar.md) provides selected member
+sources for nested package inspection. See [FTP](docs/ftp.md) for transport ownership and uncertain-publication
+recovery.
+
 ## Drivers are independently useful
 
 A driver is not an adapter with a new name. It owns backend mechanics that remain meaningful without `FileSystemType`.

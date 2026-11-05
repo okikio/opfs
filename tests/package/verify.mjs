@@ -199,6 +199,9 @@ try {
     import { openWarc } from '@okikio/opfs/archive/warc';
     import { openMime } from '@okikio/opfs/archive/mime';
     import { openSeven } from '@okikio/opfs/archive/seven';
+    import { openAr } from '@okikio/opfs/archive/ar';
+    import { openMbox } from '@okikio/opfs/archive/mbox';
+    import { FtpClient } from '@okikio/opfs/ftp';
     import { createD1Adapter } from '@okikio/opfs/adapter/d1';
     import { createZipStream } from '@okikio/opfs/archive/write';
     import { openZip } from '@okikio/opfs/archive/zip';
@@ -307,7 +310,8 @@ try {
     };
     const mimeArchive = await openMime(createByteSource(Uint8Array.from(atob(mimeFixture.base64), (byte) => byte.charCodeAt(0))));
     const mimeAttachment = mimeArchive.entries.find((entry) => entry.filenameStatus === 'decoded');
-    if (!mimeAttachment || !(await mimeArchive.read(mimeAttachment.id)).complete) throw new Error('Packed MIME attachment decode failed');
+    if (!mimeAttachment) throw new Error('Packed MIME attachment missing');
+    assertBytes((await mimeArchive.read(mimeAttachment.id)).bytes, Uint8Array.from(atob(mimeFixture.parts.find((part) => part.filename === mimeAttachment.filename).payloadBase64), (byte) => byte.charCodeAt(0)));
     const sevenFixture = ${
       JSON.stringify(
         JSON.parse(await readFile(new URL("../fixtures/seven/independent.json", import.meta.url), "utf8")).copy,
@@ -315,7 +319,27 @@ try {
     };
     const sevenArchive = await openSeven(createByteSource(Uint8Array.from(atob(sevenFixture.archive), (byte) => byte.charCodeAt(0))));
     const sevenFile = sevenArchive.entries.find((entry) => entry.kind === 'file' && entry.readable && entry.size > 0);
-    if (!sevenFile || (await sevenArchive.read(sevenFile.id)).bytes.length !== sevenFile.size) throw new Error('Packed 7z COPY decode failed');
+    if (!sevenFile) throw new Error('Packed 7z COPY missing');
+    assertBytes((await sevenArchive.read(sevenFile.id)).bytes, Uint8Array.from(atob(sevenFixture.entries.find((entry) => entry.name === sevenFile.name).body), (byte) => byte.charCodeAt(0)));
+    const arFixture = ${
+      JSON.stringify(
+        JSON.parse(await readFile(new URL("../fixtures/ar/independent.json", import.meta.url), "utf8")).gnu,
+      )
+    };
+    const arArchive = await openAr(createByteSource(Uint8Array.from(atob(arFixture.archive), (byte) => byte.charCodeAt(0))));
+    const arFile = arArchive.entries.find((entry) => entry.name === 'first.bin');
+    assertBytes(await arArchive.member(arFile.id).read(0, arFile.size), Uint8Array.from(atob(arFixture.entries.find((entry) => entry.name === 'first.bin').body), (byte) => byte.charCodeAt(0)));
+    const mboxFixture = ${
+      JSON.stringify(
+        JSON.parse(await readFile(new URL("../fixtures/mbox/independent.json", import.meta.url), "utf8")).mboxrd,
+      )
+    };
+    const mailbox = await openMbox(createByteSource(Uint8Array.from(atob(mboxFixture.base64), (byte) => byte.charCodeAt(0))), { dialect: 'mboxrd' });
+    const message = await mailbox.openMessage(1, { trailing: 'remove-one' });
+    const messageMime = await openMime(message.source);
+    assertBytes((await messageMime.read(0)).bytes, new Uint8Array([0,1,2,3,255]));
+    const ftp = new FtpClient({ host: 'fixture.invalid', username: 'user', password: 'password', mode: 'plain', transport: { connect() { throw new Error('FTP construction acquired a socket'); } } });
+    await ftp.close();
     const packedOciManifest = JSON.stringify({"schemaVersion":2,"mediaType":"application/vnd.oci.image.manifest.v1+json","config":{"mediaType":"application/vnd.oci.empty.v1+json","digest":"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a","size":2},"layers":[{"mediaType":"application/octet-stream","digest":"sha256:039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81","size":3}]});
     const packedOci = new OciClient({
       registry: 'https://registry.invalid/', repository: 'packed/artifact',
@@ -495,6 +519,9 @@ try {
     import { openWarc } from '@okikio/opfs/archive/warc';
     import { openMime } from '@okikio/opfs/archive/mime';
     import { openSeven } from '@okikio/opfs/archive/seven';
+    import { openAr } from '@okikio/opfs/archive/ar';
+    import { openMbox } from '@okikio/opfs/archive/mbox';
+    import { FtpClient } from '@okikio/opfs/ftp';
     import { createD1Adapter } from '@okikio/opfs/adapter/d1';
     import { createZipStream } from '@okikio/opfs/archive/write';
     import type { ZipWriteEntryType } from '@okikio/opfs/archive/write';
@@ -522,7 +549,13 @@ try {
     const mimeComplete: boolean = (await mime.prefix(0, 1)).complete;
     const seven = await openSeven(createByteSource(new Uint8Array()));
     const sevenReadable: boolean = seven.entries[0]!.readable;
-    void [onedrive, cab, readable, mimeComplete, sevenReadable];
+    const ar = await openAr(createByteSource(new Uint8Array()));
+    const arSource = ar.member(0);
+    const mbox = await openMbox(createByteSource(new Uint8Array()), { dialect: 'mboxrd' });
+    const mboxSource = (await mbox.openMessage(0, { trailing: 'preserve' })).source;
+    const ftp = new FtpClient({ host: 'types.invalid', username: 'user', password: 'password', mode: 'plain', transport: { async connect() { throw new Error('types only'); } } });
+    const ftpDone: Promise<void> = ftp.close();
+    void [onedrive, cab, readable, mimeComplete, sevenReadable, arSource, mboxSource, ftpDone];
     const registry = new OciClient({ registry: 'https://registry.invalid/', repository: 'types/content' });
     const ociDigest: string = (await registry.getManifest('release')).digest;
     void ociDigest;
