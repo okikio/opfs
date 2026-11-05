@@ -1,0 +1,49 @@
+{
+  "producerPackages": {
+    "genisoimage": "9:1.1.11-3.4 (signed Debian bookworm)",
+    "udftools": "2.3-1 (signed Debian bookworm)"
+  },
+  "architecture": "arm64",
+  "tools": {
+    "genisoimage": "genisoimage 1.1.11 (Linux)",
+    "7zip": [
+      "",
+      "7-Zip (z) 26.02 (arm64) : Copyright (c) 1999-2026 Igor Pavlov : 2026-06-25",
+      " 64-bit arm_v:8-A locale=C.UTF-8 Threads:8 OPEN_MAX:1048576",
+      "",
+      "Usage: 7zz <command> [<switches>...] <archive_name> [<file_names>...] [@listfile]"
+    ],
+    "udftoolsPackage": "2.3-1",
+    "udfinfoHelp": {
+      "exitCode": 1,
+      "stdout": "",
+      "stderr": "udfinfo from udftools 2.3\nUsage:\n\tudfinfo [--locale|--u8|--u16|--utf8] [-b|--blocksize=block-size] [--startblock=block] [--lastblock=block] [--vatblock=block] device\n"
+    }
+  },
+  "localBaseImage": "opfs-seven-tools:20261105",
+  "localBaseImageId": "sha256:527d62a5244f4fa71833b4a105a4906ec1c1c7708f64ea2967fa04d96c551dd5",
+  "imageLimit": "Local base; signed apt installation mutates the filesystem. Not a publicly pullable complete producer pin.",
+  "files": {
+    "create.py": "4b8912014c989a44e89bbff054b16152999dcab2c4fa3f51a5675696ee3fa4ff",
+    "independent.json": "994911ed0bcf49be31e82a57127a7db2187b5e3afbbd82fb63454a05ff10081f"
+  },
+  "images": {
+    "genuine": "1aeb75733cbd39ad1e66ef8277105285ebf9e1fec7806125fe99e6b4e9544f29",
+    "long": "b37cfcb817dd0b9a2730392c75ed026dd9b8785e35e1c147197d63132131cd32",
+    "split-short": "b9b61fe110a703aa941f28e025b3598cbd80c0cae8adcec5df3599dd7881d5a8",
+    "split-long": "66e184282ffe6e5ed369bb0d15449be381534efd5766ac6bf6d9f118d96f642b"
+  },
+  "specifications": {
+    "udf102": {
+      "url": "https://ecma-international.org/wp-content/uploads/ECMA_TR-112-7_1st_edition_december_2023.pdf",
+      "sha256": "95a77cf9a4b457b7258cdb73b4bd5ff17931119db3701ee9f6bdcbb675d543f6"
+    },
+    "ecma167SecondEdition": {
+      "url": "https://ecma-international.org/wp-content/uploads/ECMA-167_2nd_edition_december_1994.pdf",
+      "sha256": "8f916f9436050440993fef74233e70d5e45d35e53ee35f260de07681a05ba1d5"
+    }
+  },
+  "proof": "Every original file byte checked by forced 7-Zip -tUdf extraction for the genuine image and explicitly authored AD adaptations; udfinfo structural reports. No candidate implementation used by producer.",
+  "diagnostics": "Unsupported udfinfo --version and --help statuses retained in independent.json; successful image and payload commands required exit zero. Earlier failed producer logs remain local diagnostics.",
+  "producerLog": ".tmp/implementation/udf-producer-extents-20261105.log (ignored local receipt)"
+}
