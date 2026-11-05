@@ -221,6 +221,10 @@ try {
     import { PocketbaseClient } from '@okikio/opfs/pocketbase';
     import { SupabaseClient } from '@okikio/opfs/supabase';
     import { NextcloudClient } from '@okikio/opfs/nextcloud';
+    import { ResticClient } from '@okikio/opfs/restic';
+    import { createGcsClient, GcsStorageClassSchema } from '@okikio/opfs/gcs';
+    import { openFits } from '@okikio/opfs/dataset/fits';
+    import { openUnixfs } from '@okikio/opfs/content/unixfs';
     import { openRar } from '@okikio/opfs/archive/rar';
     import { openXz } from '@okikio/opfs/archive/xz';
     import { LfsClient, decodeLfsPointer, encodeLfsPointer, lfsPointerObject } from '@okikio/opfs/content/lfs';
@@ -605,6 +609,86 @@ try {
     assertBytes(Uint8Array.from(lzmaChunks), Uint8Array.from(atob(lzmaFixture.body), (byte) => byte.charCodeAt(0)));
     const lzmaEnd = await lzma.finished;
     if (lzmaEnd.status !== 'complete' || lzmaEnd.termination !== 'lzma2-end' || lzmaEnd.integrity !== 'none') throw new Error('Packed LZMA terminal scope changed');
+    let gcsArchiveCalls = 0;
+    const gcsArchive = createGcsClient({
+      bucket: 'installed-bucket', endpoint: 'https://storage.example', token: 'explicit-token',
+      fetch: async (input, init) => {
+        if (new Headers(init?.headers).get('authorization') !== 'Bearer explicit-token') throw new Error('Packed GCS explicit authority changed');
+        if (gcsArchiveCalls++ === 0) {
+          if (JSON.parse(String(init?.body)).storageClass !== 'ARCHIVE') throw new Error('Packed GCS class intent lost');
+          return new Response(null, { headers: { location: 'https://storage.example/upload?upload_id=installed-session' } });
+        }
+        assertBytes(new Uint8Array(await new Response(init.body).arrayBuffer()), new Uint8Array([1, 2, 3]));
+        return Response.json({ name: 'archive.bin', size: '3', generation: '18446744073709551614', storageClass: 'ARCHIVE' });
+      },
+    });
+    const gcsArchiveReceipt = await gcsArchive.put('archive.bin', new Uint8Array([1, 2, 3]), { storageClass: GcsStorageClassSchema.parse('ARCHIVE') });
+    if (gcsArchiveReceipt.storageClass !== 'ARCHIVE' || gcsArchiveReceipt.revision.value !== '18446744073709551614') throw new Error('Packed GCS class/generation receipt changed');
+    const resticBody = new TextEncoder().encode('abc');
+    const resticId = 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad';
+    const restic = new ResticClient({
+      endpoint: 'https://backup.invalid/repository/', subtle: globalThis.crypto.subtle,
+      credentials: () => 'Bearer explicit-repository-token',
+      fetch: async (input, init) => {
+        const target = new URL(input.toString());
+        if (new Headers(init?.headers).get('authorization') !== 'Bearer explicit-repository-token') throw new Error('Packed restic authority changed');
+        if (target.pathname.endsWith('/data/')) return new Response(JSON.stringify([{ name: resticId, size: 3 }]), { headers: { 'content-type': 'application/vnd.x.restic.rest.v2' } });
+        if (!target.pathname.endsWith('/data/' + resticId)) throw new Error('Packed restic hash-address route changed');
+        if (init.method === 'POST') {
+          assertBytes(new Uint8Array(await new Response(init.body).arrayBuffer()), resticBody);
+          return new Response(null, { status: 200 });
+        }
+        return new Response(resticBody.slice(), { headers: { 'content-length': '3' } });
+      },
+    });
+    const resticSaved = await restic.save('data', resticBody);
+    if (resticSaved.id !== resticId || (await restic.list('data'))[0].id !== resticId) throw new Error('Packed restic object evidence changed');
+    assertBytes(await restic.readVerified({ kind: 'data', id: resticId }), resticBody);
+    const unixfsFixture = ${
+      JSON.stringify(
+        await (async () => {
+          const fixture = JSON.parse(
+            await readFile(new URL("../fixtures/unixfs/independent.json", import.meta.url), "utf8"),
+          );
+          const profile = fixture.profiles[0];
+          return {
+            cid: profile.cid,
+            blocks: profile.blocks,
+            file: profile.files.find((entry) => entry.path === "nested/data.bin"),
+          };
+        })(),
+      )
+    };
+    const unixfsBlocks = new Map(unixfsFixture.blocks.map((entry) => [entry.cid, Uint8Array.from(atob(entry.base64), (byte) => byte.charCodeAt(0))]));
+    const unixfsRoot = await openUnixfs(unixfsFixture.cid, async (cid) => {
+      const block = unixfsBlocks.get(cid);
+      if (!block) throw new Error('Packed UnixFS selected block absent');
+      return block;
+    }, { subtle: globalThis.crypto.subtle });
+    if (unixfsRoot.kind !== 'directory') throw new Error('Packed UnixFS root kind changed');
+    const unixfsDirectory = await unixfsRoot.open('nested');
+    if (unixfsDirectory.kind !== 'directory') throw new Error('Packed UnixFS nested directory changed');
+    const unixfsFile = await unixfsDirectory.open('data.bin');
+    if (unixfsFile.kind !== 'file') throw new Error('Packed UnixFS selected file changed');
+    const unixfsOriginal = Uint8Array.from(atob(unixfsFixture.file.base64), (byte) => byte.charCodeAt(0));
+    assertBytes((await unixfsFile.read()).bytes, unixfsOriginal);
+    assertBytes(await unixfsFile.source().read(173, 257), unixfsOriginal.subarray(173, 430));
+    if ((await unixfsFile.verify()).scope !== 'complete-file') throw new Error('Packed UnixFS verification scope changed');
+    const fitsFixture = ${
+      JSON.stringify(
+        await (async () => {
+          const fixture = JSON.parse(
+            await readFile(new URL("../fixtures/fits/independent.json", import.meta.url), "utf8"),
+          );
+          return fixture.fixtures.find((entry) => entry.producer === "cfitsio").file.base64;
+        })(),
+      )
+    };
+    const fits = await openFits(createByteSource(Uint8Array.from(atob(fitsFixture), (byte) => byte.charCodeAt(0))));
+    const fitsRaw = await fits.read(1);
+    if (!(fitsRaw.values instanceof BigInt64Array) || fitsRaw.values[0] !== -9007199254740993n || fitsRaw.values[1] !== 9007199254740993n || fitsRaw.values[2] !== 9223372036854775807n || fitsRaw.integrity !== 'pending') throw new Error('Packed FITS exact raw integer scope changed');
+    const fitsVerified = await fits.verify(1);
+    if (fitsVerified.datasum !== 'verified' || fitsVerified.checksum !== 'verified' || fitsRaw.undefinedMask.some((value) => value !== 0)) throw new Error('Packed FITS padded checksum scope changed');
     const nextcloudBody = new TextEncoder().encode('native chunk bytes');
     const nextcloudMethods = [];
     const nextcloud = new NextcloudClient({
@@ -950,6 +1034,10 @@ try {
     import { PocketbaseClient } from '@okikio/opfs/pocketbase';
     import { SupabaseClient } from '@okikio/opfs/supabase';
     import { NextcloudClient } from '@okikio/opfs/nextcloud';
+    import { ResticClient } from '@okikio/opfs/restic';
+    import { createGcsClient, GcsStorageClassSchema } from '@okikio/opfs/gcs';
+    import { openFits } from '@okikio/opfs/dataset/fits';
+    import { openUnixfs } from '@okikio/opfs/content/unixfs';
     import { openRar } from '@okikio/opfs/archive/rar';
     import { openXz } from '@okikio/opfs/archive/xz';
     import { LfsClient, decodeLfsPointer, encodeLfsPointer, lfsPointerObject } from '@okikio/opfs/content/lfs';
@@ -1049,6 +1137,22 @@ try {
     const nextcloudPart: import('@okikio/opfs/nextcloud').NextcloudPartType = await nextcloud.putPart(nextcloudUpload, 1, new Uint8Array([1]));
     const nextcloudReceipt: import('@okikio/opfs/nextcloud').NextcloudReceiptType = await nextcloud.finishUpload(nextcloudUpload, [nextcloudPart]);
     void nextcloudReceipt;
+    const fits: import('@okikio/opfs/dataset/fits').FitsDatasetType = await openFits(createByteSource(new Uint8Array()));
+    const fitsValues: import('@okikio/opfs/dataset/fits').FitsValuesType = (await fits.read(0)).values;
+    const fitsVerification: import('@okikio/opfs/dataset/fits').FitsVerificationType = await fits.verify(0);
+    const gcsNative = createGcsClient({ bucket: 'types' });
+    const gcsClass: import('@okikio/opfs/gcs').GcsStorageClassType = GcsStorageClassSchema.parse('ARCHIVE');
+    const gcsReceipt: import('@okikio/opfs/gcs').GcsReceiptType = await gcsNative.put('object', new Uint8Array(), { storageClass: gcsClass });
+    void gcsReceipt.storageClass;
+    const restic = new ResticClient({ endpoint: 'https://backup.example/repository/', subtle: globalThis.crypto.subtle });
+    const resticObject: import('@okikio/opfs/restic').ResticObjectType = { kind: 'config' };
+    const unixfs: import('@okikio/opfs/content/unixfs').UnixfsNodeType = await openUnixfs('cid', async () => new Uint8Array(), { subtle: globalThis.crypto.subtle });
+    if (unixfs.kind === 'file') {
+      const range: import('@okikio/opfs/content/unixfs').UnixfsReadType = await unixfs.read({ offset: 0, length: 0 });
+      const verification: import('@okikio/opfs/content/unixfs').UnixfsVerificationType = await unixfs.verify();
+      void [range, verification, unixfs.source()];
+    }
+    void [fitsValues, fitsVerification, restic, resticObject];
     const wimImage: import('@okikio/opfs/archive/wim').WimImageViewType = await wim.image(1);
     void [wimProfile, wimImage];
     const xar = await openXar(createByteSource(new Uint8Array()), { verifyToc: false });
