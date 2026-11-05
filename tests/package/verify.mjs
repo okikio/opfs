@@ -206,6 +206,9 @@ try {
     import { openBagit } from '@okikio/opfs/archive/bagit';
     import { openOcfl } from '@okikio/opfs/archive/ocfl';
     import { DropboxClient, contentHash as dropboxContentHash } from '@okikio/opfs/dropbox';
+    import { BoxClient } from '@okikio/opfs/box';
+    import { createLz4Decoder } from '@okikio/opfs/archive/lz4';
+    import { openArc } from '@okikio/opfs/archive/arc';
     import { createD1Adapter } from '@okikio/opfs/adapter/d1';
     import { createZipStream } from '@okikio/opfs/archive/write';
     import { openZip } from '@okikio/opfs/archive/zip';
@@ -396,6 +399,25 @@ try {
       catch (reason) { if (reason.code !== 'unsupported-profile') throw reason; continue; }
       assertBytes(new Uint8Array(await new Response(decoded).arrayBuffer()), Uint8Array.from(atob(nativeCodecs.payload), (byte) => byte.charCodeAt(0)));
     }
+    const lz4Fixture = ${
+      JSON.stringify(
+        JSON.parse(await readFile(new URL("../fixtures/lz4/independent.json", import.meta.url), "utf8"))
+          .frames["no-checksum"],
+      )
+    };
+    const lz4 = createLz4Decoder(new Blob([Uint8Array.from(atob(lz4Fixture.archive), (byte) => byte.charCodeAt(0))]).stream());
+    assertBytes(new Uint8Array(await new Response(lz4.stream).arrayBuffer()), Uint8Array.from(atob(lz4Fixture.body), (byte) => byte.charCodeAt(0)));
+    if ((await lz4.finished).status !== 'complete') throw new Error('Packed LZ4 completion failed');
+    const box = new BoxClient({ token: () => 'fixture-token', fetch: async () => new Response(JSON.stringify({type:'file',name:'packed',id:'1',file_version:{id:'2'},size:3}), {headers:{'Content-Type':'application/json'}}) });
+    if ((await box.statFile('1')).versionId !== '2') throw new Error('Packed Box version metadata failed');
+    const arcFixture = ${
+      JSON.stringify(
+        JSON.parse(await readFile(new URL("../fixtures/arc/independent.json", import.meta.url), "utf8")).objects[0],
+      )
+    };
+    const arc = await openArc(createByteSource(Uint8Array.from(atob(arcFixture.base64), (byte) => byte.charCodeAt(0))));
+    const arcBlock = await arc.read(1);
+    if (arcBlock.integrity !== 'none' || !new TextDecoder().decode(arcBlock.bytes).startsWith('HTTP/1.1 200 OK')) throw new Error('Packed ARC stored block changed');
     const packedOciManifest = JSON.stringify({"schemaVersion":2,"mediaType":"application/vnd.oci.image.manifest.v1+json","config":{"mediaType":"application/vnd.oci.empty.v1+json","digest":"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a","size":2},"layers":[{"mediaType":"application/octet-stream","digest":"sha256:039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81","size":3}]});
     const packedOci = new OciClient({
       registry: 'https://registry.invalid/', repository: 'packed/artifact',
@@ -582,6 +604,9 @@ try {
     import { openBagit } from '@okikio/opfs/archive/bagit';
     import { openOcfl } from '@okikio/opfs/archive/ocfl';
     import { DropboxClient, contentHash as dropboxContentHash } from '@okikio/opfs/dropbox';
+    import { BoxClient } from '@okikio/opfs/box';
+    import { createLz4Decoder } from '@okikio/opfs/archive/lz4';
+    import { openArc } from '@okikio/opfs/archive/arc';
     import { createD1Adapter } from '@okikio/opfs/adapter/d1';
     import { createZipStream } from '@okikio/opfs/archive/write';
     import type { ZipWriteEntryType } from '@okikio/opfs/archive/write';
@@ -625,6 +650,13 @@ try {
     const dropbox = new DropboxClient({ token: () => 'types-only' });
     const dropboxHash: string = await dropboxContentHash(new Uint8Array(), { subtle: globalThis.crypto.subtle });
     void [dropbox, dropboxHash];
+    const box = new BoxClient({ token: () => 'types-only' });
+    const lz4 = createLz4Decoder(new Blob().stream());
+    const finished: Promise<import('@okikio/opfs/archive/lz4').Lz4ResultType> = lz4.finished;
+    void [box, finished];
+    const arc = await openArc(createByteSource(new Uint8Array()));
+    const arcFormat: 'internet-archive-arc' = arc.format;
+    void arcFormat;
     const passwordOptions = { password: new Uint8Array(), verify: true };
     void [sftpDone, bagProof, passwordOptions];
     void [onedrive, cab, readable, mimeComplete, sevenReadable, arSource, mboxSource, ftpDone];
