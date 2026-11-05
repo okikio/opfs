@@ -144,7 +144,8 @@
     "./view/tar": "./src/view/tar.ts",
     "./drive": "./src/drive.ts",
     "./driver/d1": "./src/driver/d1.ts",
-    "./adapter/d1": "./src/adapter/d1.ts"
+    "./adapter/d1": "./src/adapter/d1.ts",
+    "./archive/cab": "./src/archive/cab.ts"
   },
   "dependencies": {
     "@okikio/undent": "^0.3.3",
