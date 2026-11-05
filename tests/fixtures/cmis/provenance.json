@@ -13,6 +13,9 @@
     },
     {
       "name": "chemistry-opencmis-client-impl-1.1.0-with-dependencies.zip",
+      "url": "https://repo.maven.apache.org/maven2/org/apache/chemistry/opencmis/chemistry-opencmis-client-impl/1.1.0/chemistry-opencmis-client-impl-1.1.0-with-dependencies.zip",
+      "bytes": 6198654,
+      "acquisition": "Maven Central serves the exact SHA256-pinned bytes previously inspected from archive.apache.org. The fixture changed hosts after repeated archive-server connection timeouts; archive contents and native qualification are unchanged.",
       "sha256": "8ee3726aad738ac4b8866aeb9db31a56880ef44678374e1fa043213834aefd2c",
       "publisher_sha1": "b7e1e1d5cf06fb2e3283e4f3a246ca8b9ac21d3f"
     }
