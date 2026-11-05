@@ -1,0 +1,542 @@
+{
+  "url": "https://registry.npmjs.org/jose/-/jose-6.2.15.tgz",
+  "integrity": "sha512-qdF6ewcZARtef63fJ9AKKZPgxw+t7USH6HLXYcD4CrdmSvDp79rpJSPFEKc90QBeGS63u1KQtN2MZQHC0yDIzA==",
+  "bytes": 50313,
+  "sha256": "e6d47adc1d83ec95215d791e966362629e75ce1973902fd29ae4bbd468500e9c",
+  "members": [
+    {
+      "name": "package/dist/webapi/lib/asn1.js",
+      "bytes": 5872,
+      "kind": "file",
+      "sha256": "b67f65067322baf007226faf96ddba521d19558d4ec946a8d0e3399740e754ca"
+    },
+    {
+      "name": "package/dist/webapi/util/base64url.js",
+      "bytes": 490,
+      "kind": "file",
+      "sha256": "9c9c168e24c5be2db20956262065b94556de959e5dcc62430e31a0f57f821691"
+    },
+    {
+      "name": "package/dist/webapi/lib/buffer_utils.js",
+      "bytes": 2751,
+      "kind": "file",
+      "sha256": "3bfbd2a1323e8456ad87fb0479831e69a0d957b9208fb8de76d82ac56cdf42fc"
+    },
+    {
+      "name": "package/dist/webapi/lib/content_encryption.js",
+      "bytes": 4308,
+      "kind": "file",
+      "sha256": "542c666b0d9fa8f8efd3e03fe5f71c7abf74ee11e8db35a517de51353e7e317e"
+    },
+    {
+      "name": "package/dist/webapi/util/decode_jwt.js",
+      "bytes": 1145,
+      "kind": "file",
+      "sha256": "c1698d7e962f9e1c182e98241e02bce8d0b186fa5e1e3f12a80ecb9681e7125d"
+    },
+    {
+      "name": "package/dist/webapi/util/decode_protected_header.js",
+      "bytes": 771,
+      "kind": "file",
+      "sha256": "7f17b35289f4837b646edd06096edb15d1ef6ac56d300aff63a6f40a934764f5"
+    },
+    {
+      "name": "package/dist/webapi/jwe/compact/decrypt.js",
+      "bytes": 217,
+      "kind": "file",
+      "sha256": "c08202f5114caee270bcaa0ed3e119acb241f88d51c6d65a34a1fd6a3353cd2a"
+    },
+    {
+      "name": "package/dist/webapi/jwe/flattened/decrypt.js",
+      "bytes": 659,
+      "kind": "file",
+      "sha256": "4964d31fafb143a8f15cf4820214b268706dbbd569bdedaa9b24a11520f6c6b2"
+    },
+    {
+      "name": "package/dist/webapi/jwe/general/decrypt.js",
+      "bytes": 1811,
+      "kind": "file",
+      "sha256": "3a721fc3958f36c3bed7764a032238b35f9172bf95d40a7e28a4cea4d7ccd511"
+    },
+    {
+      "name": "package/dist/webapi/jwt/decrypt.js",
+      "bytes": 841,
+      "kind": "file",
+      "sha256": "233bb797f9239582ada83fac5723c818dfa0f24e9a864680759df5f2bb5b260c"
+    },
+    {
+      "name": "package/dist/webapi/lib/deflate.js",
+      "bytes": 1644,
+      "kind": "file",
+      "sha256": "d7da65e5db6a9f236d3a77d2d413e3c105f5e5fd5f4c91c7ce50b575ffa0a245"
+    },
+    {
+      "name": "package/dist/webapi/jwk/embedded.js",
+      "bytes": 1134,
+      "kind": "file",
+      "sha256": "449f2b08f47d006a4b937201692b7a830c9e9ac785e82073c1f6f9792642f91d"
+    },
+    {
+      "name": "package/dist/webapi/jwe/compact/encrypt.js",
+      "bytes": 978,
+      "kind": "file",
+      "sha256": "8db8eb9fa34a0187c0ff26e04c37024af421f2f265255d60a01c0edf416f2f85"
+    },
+    {
+      "name": "package/dist/webapi/jwe/flattened/encrypt.js",
+      "bytes": 1369,
+      "kind": "file",
+      "sha256": "e1fe288a34aae4938dbdd13b86e33e54fef9ff3f3c55a2354ab9d7b5665d1e92"
+    },
+    {
+      "name": "package/dist/webapi/jwe/general/encrypt.js",
+      "bytes": 4412,
+      "kind": "file",
+      "sha256": "539cecb9802acbc298b9f8cfe1f558d9f11a8674cbbd95b4ec662cbf94613414"
+    },
+    {
+      "name": "package/dist/webapi/jwt/encrypt.js",
+      "bytes": 1863,
+      "kind": "file",
+      "sha256": "7c5872544078cc618b8699b5518541fcd0058ee798f52955d58c58ca3de9d1eb"
+    },
+    {
+      "name": "package/dist/webapi/util/errors.js",
+      "bytes": 3305,
+      "kind": "file",
+      "sha256": "9bb7503fd84d5387677f1b917969cdf7c20482c3d86e92e64972bc83938b95f8"
+    },
+    {
+      "name": "package/dist/webapi/key/export.js",
+      "bytes": 1120,
+      "kind": "file",
+      "sha256": "634aee75fbdabbffb73d439ae63305ad043a268354ecf53426b827ba3f81cfb7"
+    },
+    {
+      "name": "package/dist/webapi/key/generate_key_pair.js",
+      "bytes": 1645,
+      "kind": "file",
+      "sha256": "97e4e5b66af75700da10fc5807471636b633d7c72c65a7fe50980c4a3a2c6c74"
+    },
+    {
+      "name": "package/dist/webapi/key/generate_secret.js",
+      "bytes": 1313,
+      "kind": "file",
+      "sha256": "eadcae7108774b03a6a9b5bb2ed22f25496dcda2e491c2fd3f8e71781f1bc260"
+    },
+    {
+      "name": "package/dist/webapi/key/import.js",
+      "bytes": 2279,
+      "kind": "file",
+      "sha256": "ab2f57a9db99e8d48451a8d0a8adf75379381f65b0e3e28ba6c02aa5bb3ee5fa"
+    },
+    {
+      "name": "package/dist/webapi/index.js",
+      "bytes": 2376,
+      "kind": "file",
+      "sha256": "f198638529597ab18dc3d2799f362106121f90cf0b0c43e75c3dffa5cc6b8590"
+    },
+    {
+      "name": "package/dist/webapi/lib/jwe_algorithms.js",
+      "bytes": 3326,
+      "kind": "file",
+      "sha256": "d41562ff2ccc3599f7189384653fbcd1ff68babd475fe99e31eccb61706abd47"
+    },
+    {
+      "name": "package/dist/webapi/lib/jwe_decrypt.js",
+      "bytes": 9047,
+      "kind": "file",
+      "sha256": "1cc343e273867870c29edf0d0bb81b96f573e705cb0441459110ebab6c30a185"
+    },
+    {
+      "name": "package/dist/webapi/lib/jwe_encrypt.js",
+      "bytes": 5967,
+      "kind": "file",
+      "sha256": "e9eb264823e89f9f5fa9a112331606644a35f0e27411363e6b852c8c48023573"
+    },
+    {
+      "name": "package/dist/webapi/lib/jws_algorithms.js",
+      "bytes": 1762,
+      "kind": "file",
+      "sha256": "51fda5def135c451b291193518157c842555c2c37a8f20c598e5cc27436ba544"
+    },
+    {
+      "name": "package/dist/webapi/lib/jws_sign.js",
+      "bytes": 2904,
+      "kind": "file",
+      "sha256": "d4daec77131ba4abacd0207377bc5de7007025028004ce5879d90162337795c0"
+    },
+    {
+      "name": "package/dist/webapi/lib/jws_verify.js",
+      "bytes": 5685,
+      "kind": "file",
+      "sha256": "8b2e83cce30134f660a1ea96cbaba78f1877477f331ff6d71518e930a2e35842"
+    },
+    {
+      "name": "package/dist/webapi/lib/jwt_claims_set.js",
+      "bytes": 7613,
+      "kind": "file",
+      "sha256": "c0c893b68c426d585f3b955b3873c715e5e15f46d62d9a67d82a5d19c12eefec"
+    },
+    {
+      "name": "package/dist/webapi/lib/key_algorithm.js",
+      "bytes": 517,
+      "kind": "file",
+      "sha256": "4ef0b80292076659b054313f70eeef81cd7df01e2ec9988c24552206bc42cc07"
+    },
+    {
+      "name": "package/dist/webapi/lib/key_descriptor.js",
+      "bytes": 167,
+      "kind": "file",
+      "sha256": "80ae05a1fc41271a29dbd5ab717255a1255ee0ac43b6820853d2f338d9e74b46"
+    },
+    {
+      "name": "package/dist/webapi/lib/key_management.js",
+      "bytes": 11071,
+      "kind": "file",
+      "sha256": "6604927b14ab576d12e9353f81df95b08aa483df368a16447e6a226ef991f343"
+    },
+    {
+      "name": "package/dist/webapi/lib/key.js",
+      "bytes": 7856,
+      "kind": "file",
+      "sha256": "03337646421f0df228c14817a802186dcdff853ef445cd585da191eef1d86813"
+    },
+    {
+      "name": "package/dist/webapi/jwks/local.js",
+      "bytes": 2855,
+      "kind": "file",
+      "sha256": "539d24547c9131739064b17c21b20d299428238127ea5c9d741ac1f6e724a64d"
+    },
+    {
+      "name": "package/dist/webapi/jwks/remote.js",
+      "bytes": 4392,
+      "kind": "file",
+      "sha256": "b49b44e5929b6236a938eb67d4380f033787fee7086f57e0140976b0e7cac149"
+    },
+    {
+      "name": "package/dist/webapi/jws/compact/sign.js",
+      "bytes": 702,
+      "kind": "file",
+      "sha256": "09450f2b3763b531d28bec9796d2f3ff0064c7b07dde15f7d1e1e7693e2ec12a"
+    },
+    {
+      "name": "package/dist/webapi/jws/flattened/sign.js",
+      "bytes": 757,
+      "kind": "file",
+      "sha256": "01cb90bcf39d8aa9bcf6d3efd36f5b80c112e547ef5448d7512b7aafa72bb6dd"
+    },
+    {
+      "name": "package/dist/webapi/jws/general/sign.js",
+      "bytes": 1943,
+      "kind": "file",
+      "sha256": "11a7de8f3359584c0c283cdedb14fb841461675b37d1ed1de810c9efc3469561"
+    },
+    {
+      "name": "package/dist/webapi/jwt/sign.js",
+      "bytes": 739,
+      "kind": "file",
+      "sha256": "31a499b2b08c4143c1747fa101936fa58ed21da6b147056ce2fce5870cb460ca"
+    },
+    {
+      "name": "package/dist/webapi/jwk/thumbprint.js",
+      "bytes": 2739,
+      "kind": "file",
+      "sha256": "c63aa916d733cee3a3c21932cd0b207e3623214c4bfe3e5a6662ed9ea6ec4b78"
+    },
+    {
+      "name": "package/dist/webapi/jwt/unsecured.js",
+      "bytes": 1646,
+      "kind": "file",
+      "sha256": "33695f71e704e945d5897a227c01d5d8f45210722650c03bf111b24ba86b6e16"
+    },
+    {
+      "name": "package/dist/webapi/lib/validate.js",
+      "bytes": 4777,
+      "kind": "file",
+      "sha256": "2bfc6cf900868bd5e53582d1ffc979959d4f73a0f0e15a91109b86d393572003"
+    },
+    {
+      "name": "package/dist/webapi/jws/compact/verify.js",
+      "bytes": 243,
+      "kind": "file",
+      "sha256": "6d1109739b895858c7006d02ef91f8b13ce5ae8c91996d1f1c0b57c1ab33c398"
+    },
+    {
+      "name": "package/dist/webapi/jws/flattened/verify.js",
+      "bytes": 538,
+      "kind": "file",
+      "sha256": "ff23003a7b0a4d8a7add2cd8b13b72393b863f6f251ddd814f08d69b35be3b2e"
+    },
+    {
+      "name": "package/dist/webapi/jws/general/verify.js",
+      "bytes": 2022,
+      "kind": "file",
+      "sha256": "9bd57db71138b871a78fd31d81732282154d91db78e318503a03c6b8ebe8c0d5"
+    },
+    {
+      "name": "package/dist/webapi/jwt/verify.js",
+      "bytes": 534,
+      "kind": "file",
+      "sha256": "e015a18744717762a1f138d0f0a88a40d3b660bc46f76ddf8309b32987175bef"
+    },
+    {
+      "name": "package/package.json",
+      "bytes": 3201,
+      "kind": "file",
+      "sha256": "a1a833459530d36e7cacbe045a461b14b2bd38fb38e595ac3ba1dcd9de37831e"
+    },
+    {
+      "name": "package/LICENSE.md",
+      "bytes": 1079,
+      "kind": "file",
+      "sha256": "8078b0829d6c3e9ecde2f003e1966e4cad3efc6e7a640efbab0313cc166b1af1"
+    },
+    {
+      "name": "package/README.md",
+      "bytes": 9257,
+      "kind": "file",
+      "sha256": "d90a64d2f0381847976e72c3b143220f329903e9cede731e21ee5b667d152d5d"
+    },
+    {
+      "name": "package/dist/types/util/base64url.d.ts",
+      "bytes": 619,
+      "kind": "file",
+      "sha256": "5191f81538f064a1a28b0b59b413f4435e71421168fea5e0afb5ebd5ed41a265"
+    },
+    {
+      "name": "package/dist/types/util/decode_jwt.d.ts",
+      "bytes": 657,
+      "kind": "file",
+      "sha256": "0e4ce4a9164bf67596140289ead94c6328839aa770d3d5fd150f555f90b3e0f8"
+    },
+    {
+      "name": "package/dist/types/util/decode_protected_header.d.ts",
+      "bytes": 532,
+      "kind": "file",
+      "sha256": "e2a3ee25f43d163379f1fb2ea7ae3bba1703c8e08f6723eb7c3ece5122de34f8"
+    },
+    {
+      "name": "package/dist/types/jwe/compact/decrypt.d.ts",
+      "bytes": 1593,
+      "kind": "file",
+      "sha256": "5ca068709e941dc06beaa00f712f43bb19e2e078d89d037a5610b031ce376a71"
+    },
+    {
+      "name": "package/dist/types/jwe/flattened/decrypt.d.ts",
+      "bytes": 1624,
+      "kind": "file",
+      "sha256": "67716f950a2aba6f3fb6942a3982c9ff549d3e07ac61d3379ff1331089c0d54c"
+    },
+    {
+      "name": "package/dist/types/jwe/general/decrypt.d.ts",
+      "bytes": 1847,
+      "kind": "file",
+      "sha256": "0a883b311f8cb604d6536cd74a25dd4de8b43f3a670e8b2cce69b6dc7c20fdc6"
+    },
+    {
+      "name": "package/dist/types/jwt/decrypt.d.ts",
+      "bytes": 3326,
+      "kind": "file",
+      "sha256": "a0ed373095c796e2bd8cece0704b2f3c2344bc5de42fc5333f92f94e9e981126"
+    },
+    {
+      "name": "package/dist/types/jwk/embedded.d.ts",
+      "bytes": 576,
+      "kind": "file",
+      "sha256": "3be6e994180df1fa1a57706eb9070f905b88a31133ad962052685c6d864f986d"
+    },
+    {
+      "name": "package/dist/types/jwe/compact/encrypt.d.ts",
+      "bytes": 1688,
+      "kind": "file",
+      "sha256": "b08c258c8c3883ebc690fb0f066a5e24fa9d36d404de110c8c6f8af209622553"
+    },
+    {
+      "name": "package/dist/types/jwe/flattened/encrypt.d.ts",
+      "bytes": 2167,
+      "kind": "file",
+      "sha256": "518e83b8718cd5514e7c1f7fb27e720e5396e383f46d3e047b2befbcc119ad21"
+    },
+    {
+      "name": "package/dist/types/jwe/general/encrypt.d.ts",
+      "bytes": 2401,
+      "kind": "file",
+      "sha256": "3f1ab87f163cb39a13aed7c93cab4dfc4ece2cbfaa8b504d7986f9b688df83b5"
+    },
+    {
+      "name": "package/dist/types/jwt/encrypt.d.ts",
+      "bytes": 2479,
+      "kind": "file",
+      "sha256": "a6e2471321693a320be475517bfe34693aee5e776623b39e2d65ad1ec61c68a3"
+    },
+    {
+      "name": "package/dist/types/util/errors.d.ts",
+      "bytes": 7916,
+      "kind": "file",
+      "sha256": "956e8af41b74a382beb0e71f43c8c0520069c52ef42b1437e8f56038ce3d29ca"
+    },
+    {
+      "name": "package/dist/types/key/export.d.ts",
+      "bytes": 661,
+      "kind": "file",
+      "sha256": "b3f84b26ba193ac2bc1c7b763fb27872d5d203a835d558208cde67111045a581"
+    },
+    {
+      "name": "package/dist/types/key/generate_key_pair.d.ts",
+      "bytes": 1668,
+      "kind": "file",
+      "sha256": "28c819853632e67bfcefaa28284cc903a097d91ac8a363e7e0130029f9652525"
+    },
+    {
+      "name": "package/dist/types/key/generate_secret.d.ts",
+      "bytes": 1785,
+      "kind": "file",
+      "sha256": "2f02419c9c770e6db38f361c0a6baeced4a84024e3c3af6ae30740c0c77e3a2a"
+    },
+    {
+      "name": "package/dist/types/key/import.d.ts",
+      "bytes": 3291,
+      "kind": "file",
+      "sha256": "628ca54de58a9b32d40fdfb0bd36055bb8ac8856d9c97b6f3e6fbd38dad69d0e"
+    },
+    {
+      "name": "package/dist/types/index.d.ts",
+      "bytes": 4196,
+      "kind": "file",
+      "sha256": "1decd2094835e939269d137c31570d789f9d190cd40d520f18df46dc98e6d474"
+    },
+    {
+      "name": "package/dist/types/jwks/local.d.ts",
+      "bytes": 816,
+      "kind": "file",
+      "sha256": "8ee019582cfb775345530144dcefa2a1b9bd3b97e24d3b031cdf199cf3d885ff"
+    },
+    {
+      "name": "package/dist/types/jwks/remote.d.ts",
+      "bytes": 3907,
+      "kind": "file",
+      "sha256": "589cce09cb9171d4291f410f6a7663958f49ed23b59e535d8723f5ee520c2992"
+    },
+    {
+      "name": "package/dist/types/jws/compact/sign.d.ts",
+      "bytes": 836,
+      "kind": "file",
+      "sha256": "1b29a0bd51632ece118e300324f40896558c4583da5c61d33a75b03a7366744c"
+    },
+    {
+      "name": "package/dist/types/jws/flattened/sign.d.ts",
+      "bytes": 1003,
+      "kind": "file",
+      "sha256": "68da9ae2195c7af081edcec6e751c1ee0ad146883ca52f1418068a4aad1a92a6"
+    },
+    {
+      "name": "package/dist/types/jws/general/sign.d.ts",
+      "bytes": 1795,
+      "kind": "file",
+      "sha256": "ae50d965910ca06f9f8f47b3b0fbf38064a0581a8263f0cbd41920544b72f93a"
+    },
+    {
+      "name": "package/dist/types/jwt/sign.d.ts",
+      "bytes": 902,
+      "kind": "file",
+      "sha256": "743f4591119ffdfa7c90297af7aa617d887b45d9d803188749b916553f16538c"
+    },
+    {
+      "name": "package/dist/types/jwk/thumbprint.d.ts",
+      "bytes": 772,
+      "kind": "file",
+      "sha256": "b53e6017f30437096813ba5b191ba8f207cc68b5c49fc7d5c373a5977eb3b227"
+    },
+    {
+      "name": "package/dist/types/types.d.ts",
+      "bytes": 27028,
+      "kind": "file",
+      "sha256": "b610c40048992e8608916a8ac30de735c514a1f9208853da89b316e386914fad"
+    },
+    {
+      "name": "package/dist/types/jwt/unsecured.d.ts",
+      "bytes": 1376,
+      "kind": "file",
+      "sha256": "49c22d8554467ebcabc59a63d6aff38cfb6f7fefae09a076d9f23669e4476131"
+    },
+    {
+      "name": "package/dist/types/jws/compact/verify.d.ts",
+      "bytes": 1700,
+      "kind": "file",
+      "sha256": "6a66de4cd57759b09ded4d711ac213e94e976ae978b57040772e870455ef6974"
+    },
+    {
+      "name": "package/dist/types/jws/flattened/verify.d.ts",
+      "bytes": 1737,
+      "kind": "file",
+      "sha256": "2aa9b75072f6458ebd66193970cf4113f0808255fd715eef43da7d7f83e1968e"
+    },
+    {
+      "name": "package/dist/types/jws/general/verify.d.ts",
+      "bytes": 2048,
+      "kind": "file",
+      "sha256": "1c72a1be65597024dc79c0e88c7bc15388abe31ee22e0a9b45bbcbd63892b52c"
+    },
+    {
+      "name": "package/dist/types/jwt/verify.d.ts",
+      "bytes": 3221,
+      "kind": "file",
+      "sha256": "7d52f8610ba3907f7c13392a1a7b0abf81c7ddc1a88b23d72c3053a21581b60d"
+    }
+  ],
+  "selected": [
+    "package/dist/webapi/lib/asn1.js",
+    "package/dist/webapi/util/base64url.js",
+    "package/dist/webapi/lib/buffer_utils.js",
+    "package/dist/webapi/lib/content_encryption.js",
+    "package/dist/webapi/util/decode_jwt.js",
+    "package/dist/webapi/util/decode_protected_header.js",
+    "package/dist/webapi/jwe/compact/decrypt.js",
+    "package/dist/webapi/jwe/flattened/decrypt.js",
+    "package/dist/webapi/jwe/general/decrypt.js",
+    "package/dist/webapi/jwt/decrypt.js",
+    "package/dist/webapi/lib/deflate.js",
+    "package/dist/webapi/jwk/embedded.js",
+    "package/dist/webapi/jwe/compact/encrypt.js",
+    "package/dist/webapi/jwe/flattened/encrypt.js",
+    "package/dist/webapi/jwe/general/encrypt.js",
+    "package/dist/webapi/jwt/encrypt.js",
+    "package/dist/webapi/util/errors.js",
+    "package/dist/webapi/key/export.js",
+    "package/dist/webapi/key/generate_key_pair.js",
+    "package/dist/webapi/key/generate_secret.js",
+    "package/dist/webapi/key/import.js",
+    "package/dist/webapi/index.js",
+    "package/dist/webapi/lib/jwe_algorithms.js",
+    "package/dist/webapi/lib/jwe_decrypt.js",
+    "package/dist/webapi/lib/jwe_encrypt.js",
+    "package/dist/webapi/lib/jws_algorithms.js",
+    "package/dist/webapi/lib/jws_sign.js",
+    "package/dist/webapi/lib/jws_verify.js",
+    "package/dist/webapi/lib/jwt_claims_set.js",
+    "package/dist/webapi/lib/key_algorithm.js",
+    "package/dist/webapi/lib/key_descriptor.js",
+    "package/dist/webapi/lib/key_management.js",
+    "package/dist/webapi/lib/key.js",
+    "package/dist/webapi/jwks/local.js",
+    "package/dist/webapi/jwks/remote.js",
+    "package/dist/webapi/jws/compact/sign.js",
+    "package/dist/webapi/jws/flattened/sign.js",
+    "package/dist/webapi/jws/general/sign.js",
+    "package/dist/webapi/jwt/sign.js",
+    "package/dist/webapi/jwk/thumbprint.js",
+    "package/dist/webapi/jwt/unsecured.js",
+    "package/dist/webapi/lib/validate.js",
+    "package/dist/webapi/jws/compact/verify.js",
+    "package/dist/webapi/jws/flattened/verify.js",
+    "package/dist/webapi/jws/general/verify.js",
+    "package/dist/webapi/jwt/verify.js",
+    "package/package.json",
+    "package/LICENSE.md",
+    "package/README.md"
+  ],
+  "declaredFileBytes": 221809,
+  "expandedTarBytes": 286208,
+  "scope": "SHA-verified inert package bytes; no import, install, build or lifecycle execution."
+}

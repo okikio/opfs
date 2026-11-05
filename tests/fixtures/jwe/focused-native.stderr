@@ -1,0 +1,47 @@
+/work/tests/fixtures/jwe/README.md
+/work/docs/jwe.md
+/work/bench/jwe.bench.ts
+/work/tests/jwe.test.ts
+Checked 15 files
+Checked 4 files
+
+tests/jwe.test.ts:
+(pass) caller-pinned compact JWE snapshots > matches the independent published RFC7520 section5.6 complete plaintext digest [53.21ms]
+(pass) caller-pinned compact JWE snapshots > authenticates owned binary ranges and empty plaintext with 128-bit keys [43.98ms]
+(pass) caller-pinned compact JWE snapshots > authenticates owned binary ranges and empty plaintext with 256-bit keys [10.06ms]
+(pass) caller-pinned compact JWE snapshots > composes an authenticated source with the independent Python ZIP producer [12.07ms]
+(pass) caller-pinned compact JWE snapshots > uses the original encoded protected header as AAD without reserialization [6.63ms]
+(pass) caller-pinned compact JWE snapshots > refuses wrong keys and every authenticated-field modification without a plaintext result [13.29ms]
+(pass) caller-pinned compact JWE snapshots > refuses every truncated compact prefix and extra trailing data [44.23ms]
+(pass) caller-pinned compact JWE snapshots > rejects canonical pad-bit violations before native cryptography [0.86ms]
+(pass) caller-pinned compact JWE snapshots > rejects duplicate escaped names, BOM, invalid UTF8 and unsupported header authority [5.18ms]
+(pass) caller-pinned compact JWE snapshots > refuses profile and key-size confusion before source acquisition [1.26ms]
+(pass) caller-pinned compact JWE snapshots > copies the key before later policy, source, subtle or ledger getters can mutate it [6.68ms]
+(pass) caller-pinned compact JWE snapshots > ignores unrelated option getters and exports a strict known-header schema [2.06ms]
+(pass) caller-pinned compact JWE snapshots > owns plaintext independently of a crypto provider that retains and mutates its result [1.65ms]
+(pass) caller-pinned compact JWE snapshots > accepts a borrowed nonextractable native AES key [1.20ms]
+(pass) caller-pinned compact JWE snapshots > uses native extents for key and source admission across realms [3.16ms]
+(pass) caller-pinned compact JWE snapshots > bounds source, decoded, plaintext, header, metadata and retained memory work [1.38ms]
+(pass) caller-pinned compact JWE snapshots > deduplicates a shared inherited ledger while retaining its opening allowance [0.68ms]
+(pass) caller-pinned compact JWE snapshots > checks abort from the final foreign requests reservation before source I/O [0.40ms]
+(pass) caller-pinned compact JWE snapshots > retains parent cancellation when a selected source read supplies a fresh signal [1.14ms]
+(pass) caller-pinned compact JWE snapshots > copies reused provider scratch and captures source/options/native methods before awaits [537.11ms]
+(pass) caller-pinned compact JWE snapshots > disposes reentrantly without exposing zeroed plaintext or revoking earlier owned copies [1.60ms]
+(pass) caller-pinned compact JWE snapshots > joins pending native decryption without publishing or erasing borrowed late plaintext [0.91ms]
+(pass) caller-pinned compact JWE snapshots > joins a canceled native key import and retains its independent failure [0.72ms]
+(pass) caller-pinned compact JWE snapshots > retains a late provider rejection beside cancellation, including undefined [0.61ms]
+(pass) caller-pinned compact JWE snapshots > refuses unverified stability by default and does not invent a plaintext identity [0.82ms]
+(pass) independent jose 6.2.15 producer and consumer > matches every native original byte for 128-empty [0.47ms]
+(pass) independent jose 6.2.15 producer and consumer > matches every native original byte for 128-binary [1.31ms]
+(pass) independent jose 6.2.15 producer and consumer > matches every native original byte for 128-unicode [0.43ms]
+(pass) independent jose 6.2.15 producer and consumer > matches every native original byte for 128-zip [1.17ms]
+(pass) independent jose 6.2.15 producer and consumer > previews the independent Python ZIP inside 128-zip [0.92ms]
+(pass) independent jose 6.2.15 producer and consumer > matches every native original byte for 256-empty [0.39ms]
+(pass) independent jose 6.2.15 producer and consumer > matches every native original byte for 256-binary [1.98ms]
+(pass) independent jose 6.2.15 producer and consumer > matches every native original byte for 256-unicode [0.50ms]
+(pass) independent jose 6.2.15 producer and consumer > matches every native original byte for 256-zip [0.80ms]
+(pass) independent jose 6.2.15 producer and consumer > previews the independent Python ZIP inside 256-zip [0.36ms]
+
+ 35 pass
+ 0 fail
+Ran 35 tests across 1 file. [2.44s]

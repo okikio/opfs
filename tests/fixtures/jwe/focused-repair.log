@@ -1,0 +1,100 @@
+[0m[38;5;245mrunning 1 test from ./tests/jwe.test.ts[0m
+caller-pinned compact JWE snapshots ...
+  matches the independent published RFC7520 section5.6 complete plaintext digest ... [0m[32mok[0m [0m[38;5;245m(5ms)[0m
+  authenticates owned binary ranges and empty plaintext with 128-bit keys ... [0m[32mok[0m [0m[38;5;245m(4ms)[0m
+  authenticates owned binary ranges and empty plaintext with 256-bit keys ... [0m[32mok[0m [0m[38;5;245m(2ms)[0m
+  composes an authenticated source with the independent Python ZIP producer ... [0m[32mok[0m [0m[38;5;245m(2ms)[0m
+  uses the original encoded protected header as AAD without reserialization ... [0m[32mok[0m [0m[38;5;245m(2ms)[0m
+  refuses wrong keys and every authenticated-field modification without a plaintext result ... [0m[32mok[0m [0m[38;5;245m(3ms)[0m
+  refuses every truncated compact prefix and extra trailing data ... [0m[32mok[0m [0m[38;5;245m(7ms)[0m
+  rejects canonical pad-bit violations before native cryptography ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+  rejects duplicate escaped names, BOM, invalid UTF8 and unsupported header authority ... [0m[32mok[0m [0m[38;5;245m(4ms)[0m
+  refuses profile and key-size confusion before source acquisition ... [0m[32mok[0m [0m[38;5;245m(1ms)[0m
+  copies the key before later policy, source, subtle or ledger getters can mutate it ... [0m[32mok[0m [0m[38;5;245m(2ms)[0m
+  ignores unrelated option getters and exports a strict known-header schema ... [0m[32mok[0m [0m[38;5;245m(1ms)[0m
+  owns plaintext independently of a crypto provider that retains and mutates its result ... [0m[32mok[0m [0m[38;5;245m(1ms)[0m
+  accepts a borrowed nonextractable native AES key ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+  uses native extents for key and source admission across realms ... [0m[32mok[0m [0m[38;5;245m(1ms)[0m
+  bounds source, decoded, plaintext, header, metadata and retained memory work ... [0m[32mok[0m [0m[38;5;245m(2ms)[0m
+  deduplicates a shared inherited ledger while retaining its opening allowance ... [0m[32mok[0m [0m[38;5;245m(1ms)[0m
+  checks abort from the final foreign requests reservation before source I/O ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+  retains parent cancellation when a selected source read supplies a fresh signal ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+  copies reused provider scratch and captures source/options/native methods before awaits ... [0m[32mok[0m [0m[38;5;245m(388ms)[0m
+  disposes reentrantly without exposing zeroed plaintext or revoking earlier owned copies ... [0m[32mok[0m [0m[38;5;245m(1ms)[0m
+  joins pending native decryption without publishing or erasing borrowed late plaintext ... [0m[32mok[0m [0m[38;5;245m(1ms)[0m
+  joins a canceled native key import and retains its independent failure ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+  retains a late provider rejection beside cancellation, including undefined ... [0m[32mok[0m [0m[38;5;245m(1ms)[0m
+  refuses unverified stability by default and does not invent a plaintext identity ... [0m[32mok[0m [0m[38;5;245m(1ms)[0m
+caller-pinned compact JWE snapshots ... [0m[32mok[0m [0m[38;5;245m(444ms)[0m
+
+[0m[32mok[0m | 1 passed (25 steps) | 0 failed [0m[38;5;245m(449ms)[0m
+
+▶ caller-pinned compact JWE snapshots
+  ✔ matches the independent published RFC7520 section5.6 complete plaintext digest (14.471375ms)
+  ✔ authenticates owned binary ranges and empty plaintext with 128-bit keys (8.882167ms)
+  ✔ authenticates owned binary ranges and empty plaintext with 256-bit keys (2.816334ms)
+  ✔ composes an authenticated source with the independent Python ZIP producer (3.281833ms)
+  ✔ uses the original encoded protected header as AAD without reserialization (1.055833ms)
+  ✔ refuses wrong keys and every authenticated-field modification without a plaintext result (2.073917ms)
+  ✔ refuses every truncated compact prefix and extra trailing data (7.416959ms)
+  ✔ rejects canonical pad-bit violations before native cryptography (0.612208ms)
+  ✔ rejects duplicate escaped names, BOM, invalid UTF8 and unsupported header authority (3.542791ms)
+  ✔ refuses profile and key-size confusion before source acquisition (0.94025ms)
+  ✔ copies the key before later policy, source, subtle or ledger getters can mutate it (2.281667ms)
+  ✔ ignores unrelated option getters and exports a strict known-header schema (1.120625ms)
+  ✔ owns plaintext independently of a crypto provider that retains and mutates its result (3.245375ms)
+  ✔ accepts a borrowed nonextractable native AES key (0.855958ms)
+  ✔ uses native extents for key and source admission across realms (1.689416ms)
+  ✔ bounds source, decoded, plaintext, header, metadata and retained memory work (1.680875ms)
+  ✔ deduplicates a shared inherited ledger while retaining its opening allowance (41.94275ms)
+  ✔ checks abort from the final foreign requests reservation before source I/O (0.73125ms)
+  ✔ retains parent cancellation when a selected source read supplies a fresh signal (0.946416ms)
+  ✔ copies reused provider scratch and captures source/options/native methods before awaits (298.836375ms)
+  ✔ disposes reentrantly without exposing zeroed plaintext or revoking earlier owned copies (2.480208ms)
+  ✔ joins pending native decryption without publishing or erasing borrowed late plaintext (3.574958ms)
+  ✔ joins a canceled native key import and retains its independent failure (0.831459ms)
+  ✔ retains a late provider rejection beside cancellation, including undefined (0.554541ms)
+  ✔ refuses unverified stability by default and does not invent a plaintext identity (0.723708ms)
+✔ caller-pinned compact JWE snapshots (409.256541ms)
+ℹ tests 25
+ℹ suites 1
+ℹ pass 25
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 722.138667
+bun test v1.4.2 (744846f84)
+
+tests/jwe.test.ts:
+(pass) caller-pinned compact JWE snapshots > matches the independent published RFC7520 section5.6 complete plaintext digest [4.20ms]
+(pass) caller-pinned compact JWE snapshots > authenticates owned binary ranges and empty plaintext with 128-bit keys [33.29ms]
+(pass) caller-pinned compact JWE snapshots > authenticates owned binary ranges and empty plaintext with 256-bit keys [2.27ms]
+(pass) caller-pinned compact JWE snapshots > composes an authenticated source with the independent Python ZIP producer [3.37ms]
+(pass) caller-pinned compact JWE snapshots > uses the original encoded protected header as AAD without reserialization [0.79ms]
+(pass) caller-pinned compact JWE snapshots > refuses wrong keys and every authenticated-field modification without a plaintext result [2.01ms]
+(pass) caller-pinned compact JWE snapshots > refuses every truncated compact prefix and extra trailing data [3.12ms]
+(pass) caller-pinned compact JWE snapshots > rejects canonical pad-bit violations before native cryptography [0.44ms]
+(pass) caller-pinned compact JWE snapshots > rejects duplicate escaped names, BOM, invalid UTF8 and unsupported header authority [1.88ms]
+(pass) caller-pinned compact JWE snapshots > refuses profile and key-size confusion before source acquisition [0.41ms]
+(pass) caller-pinned compact JWE snapshots > copies the key before later policy, source, subtle or ledger getters can mutate it [1.23ms]
+(pass) caller-pinned compact JWE snapshots > ignores unrelated option getters and exports a strict known-header schema [0.63ms]
+(pass) caller-pinned compact JWE snapshots > owns plaintext independently of a crypto provider that retains and mutates its result [0.53ms]
+(pass) caller-pinned compact JWE snapshots > accepts a borrowed nonextractable native AES key [0.37ms]
+(pass) caller-pinned compact JWE snapshots > uses native extents for key and source admission across realms [0.83ms]
+(pass) caller-pinned compact JWE snapshots > bounds source, decoded, plaintext, header, metadata and retained memory work [0.99ms]
+(pass) caller-pinned compact JWE snapshots > deduplicates a shared inherited ledger while retaining its opening allowance [0.77ms]
+(pass) caller-pinned compact JWE snapshots > checks abort from the final foreign requests reservation before source I/O [1.52ms]
+(pass) caller-pinned compact JWE snapshots > retains parent cancellation when a selected source read supplies a fresh signal [0.94ms]
+(pass) caller-pinned compact JWE snapshots > copies reused provider scratch and captures source/options/native methods before awaits [340.87ms]
+(pass) caller-pinned compact JWE snapshots > disposes reentrantly without exposing zeroed plaintext or revoking earlier owned copies [1.20ms]
+(pass) caller-pinned compact JWE snapshots > joins pending native decryption without publishing or erasing borrowed late plaintext [0.95ms]
+(pass) caller-pinned compact JWE snapshots > joins a canceled native key import and retains its independent failure [0.43ms]
+(pass) caller-pinned compact JWE snapshots > retains a late provider rejection beside cancellation, including undefined [0.40ms]
+(pass) caller-pinned compact JWE snapshots > refuses unverified stability by default and does not invent a plaintext identity [0.56ms]
+
+ 25 pass
+ 0 fail
+Ran 25 tests across 1 file. [437.00ms]
+Checked 6 files
+Checked 3 files

@@ -1,0 +1,26 @@
+[
+  {
+    "url": "https://www.rfc-editor.org/rfc/rfc7516.txt",
+    "bytes": 108322,
+    "sha256": "722cfcddc15f58e746891ba4b846853d3711153a774e4dd55ad6db100474a21f",
+    "role": "Permanent numbered primary grammar; raw text remains ignored research, not package content."
+  },
+  {
+    "url": "https://www.rfc-editor.org/rfc/rfc7518.txt",
+    "bytes": 155905,
+    "sha256": "9a9ae524b09ea700ad3f189bac115df95ba69af84b26ffdbe3cdfb8d2152b1fc",
+    "role": "Permanent numbered primary grammar; raw text remains ignored research, not package content."
+  },
+  {
+    "url": "https://www.rfc-editor.org/rfc/rfc7520.txt",
+    "bytes": 198174,
+    "sha256": "14798c3b2d72e35375d5fb86d280a1e8df6109a6ee6cbfc091a0c57a8cc076c6",
+    "role": "Permanent numbered primary grammar; raw text remains ignored research, not package content."
+  },
+  {
+    "url": "https://www.rfc-editor.org/rfc/rfc8725.txt",
+    "bytes": 30793,
+    "sha256": "737b7013a2495dcfd5481cf4c57c87e2455d537c4cec1140c9096a71fcef0812",
+    "role": "Permanent numbered primary grammar; raw text remains ignored research, not package content."
+  }
+]
