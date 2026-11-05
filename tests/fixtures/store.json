@@ -46,6 +46,10 @@
       "size": 8067679,
       "sha256": "a1c97ad4189710b5edfd72a0b8e07986d6c3f7bef2b1269dd1f8cdef97ca3029"
     },
+    "tests/fixtures/netcdf/independent.json": {
+      "size": 5401140,
+      "sha256": "001651837ccfaac094e7643e4c5ff713040e2e194094431eb05b5fad360d69eb"
+    },
     "tests/fixtures/password/independent.json": {
       "size": 531958,
       "sha256": "d4c4c383453caadd3dbb32ae4337d00e043a847c797577c329f7f3d77dbe10f9"
