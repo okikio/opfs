@@ -1,6 +1,7 @@
 /** Verified UnixFS file ranges and literal directory links, without a transport or mutable filesystem. @module */
 import { isBytes, toView } from "../bytes.ts";
 import { parseCid } from "./cid.ts";
+import { murmur } from "./murmur.ts";
 import { sourceRange } from "../source.ts";
 import type { ByteSourceType } from "../source.ts";
 import { ArchiveError, createArchiveLedger, integer } from "../archive/record.ts";
@@ -19,15 +20,23 @@ export type UnixfsBlockReaderType = (
 export interface UnixfsOptionsType extends ArchiveLimitsType {
   readonly subtle: Pick<SubtleCrypto, "digest">;
   readonly signal?: AbortSignal;
+  /** Opt in to Kubo/Boxo's fanout-256 HAMT interpretation. Omission refuses HAMT nodes.
+   * Native shortened high-bucket-byte-first bitmaps and big-endian Murmur routing differ from
+   * the pinned UnixFS draft wording. Other fanouts/hash types are refused, never autodetected.
+   */ readonly hamtProfile?: "kubo-fanout-256";
+  /** Returned HAMT list entries: default 16384, hard 65536; not a format maximum. */ readonly maxDirectoryEntries?:
+    number;
   /** Whole serialized block: default 1 MiB, hard 8 MiB. */ readonly maxBlockBytes?: number;
   /** Links per node: default 16384, hard 65536. */ readonly maxLinks?: number;
   /** Graph edges from this root: default 64, hard 128. */ readonly maxDepth?: number;
-  /** Name bytes and caller UTF16 preflight: default 4096, hard 65536. */ readonly maxNameBytes?: number;
+  /** Serialized Name bytes and caller UTF16 preflight: default 4096, hard 65536. HAMT includes its two-byte prefix. */ readonly maxNameBytes?:
+    number;
   /** Estimated node index bytes per operation: default 4 MiB, hard 16 MiB. */ readonly maxIndexBytes?: number;
   /** Node admissions per operation, including cached references: default 4096, hard 65536. */ readonly maxNodes?:
     number;
   /** Traversed edges per operation, including cache hits: default 100000, hard 1000000. */ readonly maxEdges?: number;
-  /** Protobuf byte/field work per operation: default 16 Mi, hard 64 Mi. */ readonly maxSteps?: number;
+  /** Parser, lookup, bitmap and bounded routing arithmetic work: default 16 Mi, hard 64 Mi. */ readonly maxSteps?:
+    number;
   /** Operation-local retained block cache: default 4 MiB, hard 16 MiB; zero disables it. */ readonly maxCacheBytes?:
     number;
 }
@@ -61,6 +70,11 @@ export interface UnixfsWorkType extends ArchiveWorkType {
   readonly indexBytes: number;
   readonly cacheBytes: number;
   readonly cacheHits: number;
+  /** Touched HAMT shards, including operation-cache reuse. */ readonly hamtShards: number;
+  /** Literal-name hash calls and admitted UTF8 input bytes; these are routing work only. */ readonly nameHashes:
+    number;
+  readonly hashBytes: number;
+  /** Entries materialized by a complete HAMT list, without opening their targets. */ readonly directoryEntries: number;
 }
 /** Every acquired block matched its CID. Untouched branches can still be absent or internally inconsistent. */
 export interface UnixfsReadType {
@@ -97,19 +111,37 @@ export interface UnixfsDirectoryType extends UnixfsBaseType {
   /** Exact literal Name lookup, including punctuation. This is not an IPFS path or URI resolver. */
   open(name: string, options?: UnixfsCallOptionsType): Promise<UnixfsNodeType>;
 }
+/** Complete bounded name inventory for this directory. Target file DAGs are not inspected. */
+export interface UnixfsListingType {
+  readonly entries: readonly UnixfsLinkType[];
+  readonly integrity: "sha2-256-blocks";
+  readonly scope: "complete-directory-links";
+  readonly profile: "kubo-fanout-256";
+  readonly work: UnixfsWorkType;
+}
+/** An explicitly selected native HAMT profile; opening verifies only the local shard.
+ * open() checks the selected route and its local leaf routing. list() visits all directory shards,
+ * validates every name's route, and materializes a finite link inventory; it never opens target files.
+ */
+export interface UnixfsHamtType extends UnixfsBaseType {
+  readonly kind: "hamt-directory";
+  readonly profile: "kubo-fanout-256";
+  open(name: string, options?: UnixfsCallOptionsType): Promise<UnixfsNodeType>;
+  list(options?: UnixfsCallOptionsType): Promise<UnixfsListingType>;
+}
 /** Target bytes are an owned metadata copy. They are never followed or treated as a file's contents. */
 export interface UnixfsSymlinkType extends UnixfsBaseType {
   readonly kind: "symlink";
   readonly target: Uint8Array;
 }
-export type UnixfsNodeType = UnixfsFileType | UnixfsDirectoryType | UnixfsSymlinkType;
+export type UnixfsNodeType = UnixfsFileType | UnixfsDirectoryType | UnixfsHamtType | UnixfsSymlinkType;
 interface LinkType extends UnixfsLinkType {
   readonly size?: number;
   readonly offset?: number;
 }
 interface NodeType {
   readonly cid: string;
-  readonly kind: "file" | "directory" | "symlink";
+  readonly kind: "file" | "directory" | "hamt-directory" | "symlink";
   readonly bytes: Uint8Array;
   readonly data: Uint8Array;
   readonly links: readonly LinkType[];
@@ -126,6 +158,7 @@ interface PolicyType {
   readonly edges: number;
   readonly steps: number;
   readonly cache: number;
+  readonly entries: number;
 }
 function invalid(message: string): never {
   throw new TypeError(`UnixFS: ${message}`);
@@ -163,6 +196,10 @@ class Work {
     indexBytes: 0,
     cacheBytes: 0,
     cacheHits: 0,
+    hamtShards: 0,
+    nameHashes: 0,
+    hashBytes: 0,
+    directoryEntries: 0,
   };
   constructor(ledgers: readonly ArchiveLedgerType[], policy: PolicyType, signal: AbortSignal | undefined) {
     this.ledgers = [...new Set(ledgers)];
@@ -191,6 +228,43 @@ class Work {
   }
   inspect(): UnixfsWorkType {
     return { ...this.used };
+  }
+}
+
+/** Admit UTF8 hash input before allocating it. Hash steps conservatively cover bounded BigInt arithmetic. */
+function nameHash(name: string, work: Work): Uint8Array {
+  let length = 0;
+  for (const point of name) {
+    const code = point.codePointAt(0)!;
+    length += code < 0x80 ? 1 : code < 0x800 ? 2 : code < 0x10000 ? 3 : 4;
+  }
+  work.step(length + 96 * Math.max(1, Math.ceil(length / 16)));
+  work.charge("decodedBytes", length + 8);
+  work.used.nameHashes++;
+  work.used.hashBytes += length;
+  const result = murmur(new TextEncoder().encode(name));
+  work.signal?.throwIfAborted();
+  return result;
+}
+/** Validate all leaves in each touched shard against its entire routing prefix.
+ * Other shards remain unexamined. Internal shard edges consume one of exactly eight hash bytes.
+ */
+function shard(current: NodeType, path: readonly number[], work: Work): void {
+  if (current.kind !== "hamt-directory") invalid("HAMT shard link targets a different node type");
+  if (path.length >= 8) invalid("HAMT route exceeds its 64-bit hash");
+  work.used.hamtShards++;
+  for (const entry of current.links) {
+    const bucket = Number.parseInt(entry.name.slice(0, 2), 16);
+    work.step(path.length + 1);
+    if (entry.name.length === 2) {
+      if (path.length === 7) invalid("HAMT internal link exhausts its 64-bit hash");
+      continue;
+    }
+    work.charge("decodedBytes", entry.name.length * 2);
+    const hash = nameHash(entry.name.slice(2), work);
+    if (hash[path.length] !== bucket || path.some((value, index) => value !== hash[index])) {
+      invalid("HAMT leaf name disagrees with its complete hash route");
+    }
   }
 }
 
@@ -282,7 +356,7 @@ function link(bytes: Uint8Array, work: Work): UnixfsLinkType {
   return Object.freeze({ cid, name, ...(tsize === undefined ? {} : { tsize }) });
 }
 /** Strict UnixFS data, with both expanded and packed repeated blocksizes accepted in wire order. */
-function node(cid: string, bytes: Uint8Array, codec: number, work: Work): NodeType {
+function node(cid: string, bytes: Uint8Array, codec: number, work: Work, hamt: boolean): NodeType {
   if (codec === 0x55) {
     return { cid, kind: "file", bytes, data: bytes, links: [], size: bytes.length, metadata: Object.freeze({}) };
   }
@@ -305,7 +379,10 @@ function node(cid: string, bytes: Uint8Array, codec: number, work: Work): NodeTy
   if (data === undefined) unsupported("missing UnixFS Data; legacy empty directories are not inferred");
   const inner = new Proto(data, work), seen = new Set<number>(), sizes: number[] = [];
   let type: number | undefined, body: Uint8Array = new Uint8Array(0), declared: number | undefined;
-  let mode: number | undefined, mtime: UnixfsMetadataType["mtime"];
+  let mode: number | undefined,
+    mtime: UnixfsMetadataType["mtime"],
+    hashType: number | undefined,
+    fanout: number | undefined;
   while (inner.at < data.length) {
     const { field, wire } = inner.field();
     if (field !== 4) {
@@ -326,7 +403,8 @@ function node(cid: string, bytes: Uint8Array, codec: number, work: Work): NodeTy
         const packed = new Proto(inner.data(), work);
         while (packed.at < packed.bytes.length) add(packed.uint());
       }
-    } else if ((field === 5 || field === 6) && wire === 0) unsupported("HAMT hashType/fanout metadata");
+    } else if (field === 5 && wire === 0) hashType = exact(inner.uint());
+    else if (field === 6 && wire === 0) fanout = exact(inner.uint());
     else if (field === 7 && wire === 0) {
       const raw = inner.uint();
       if (raw > 0xffffffffn) invalid("mode exceeds uint32");
@@ -338,6 +416,7 @@ function node(cid: string, bytes: Uint8Array, codec: number, work: Work): NodeTy
     ...(mode === undefined ? {} : { modeRaw: mode, mode: mode & 0xfff }),
     ...(mtime === undefined ? {} : { mtime }),
   });
+  if (type !== 5 && (hashType !== undefined || fanout !== undefined)) unsupported("HAMT fields on a non-HAMT node");
   if (type === 2) {
     if (sizes.length !== links.length) invalid("File Links and blocksizes counts disagree");
     let size = body.length;
@@ -359,8 +438,27 @@ function node(cid: string, bytes: Uint8Array, codec: number, work: Work): NodeTy
       metadata,
     };
   }
-  if (type !== 1 && type !== 4) unsupported(`node type ${type === undefined ? "missing" : type}`);
+  if (type !== 1 && type !== 4 && type !== 5) unsupported(`node type ${type === undefined ? "missing" : type}`);
   if (declared !== undefined || sizes.length) unsupported("file-size fields on a non-file node");
+  if (type === 5) {
+    if (!hamt) unsupported("HAMT requires explicit hamtProfile: kubo-fanout-256");
+    if (hashType !== 0x22 || fanout !== 256) unsupported("HAMT requires Murmur3 x64-64 and fanout 256");
+    if (body.length > 32) invalid("HAMT bitmap exceeds 256 buckets");
+    let occupied = 0, previous = -1;
+    work.step(body.length * 8);
+    for (const byte of body) for (let bit = 0; bit < 8; bit++) occupied += (byte >> bit) & 1;
+    if (occupied !== links.length) invalid("HAMT bitmap and link counts disagree");
+    for (const entry of links) {
+      work.step(entry.name.length + 1);
+      if (!/^[0-9A-F]{2}/.test(entry.name)) invalid("HAMT link requires two uppercase bucket characters");
+      const bucket = Number.parseInt(entry.name.slice(0, 2), 16), at = body.length - 1 - (bucket >> 3);
+      if (bucket <= previous || at < 0 || !(body[at]! & (1 << (bucket & 7)))) {
+        invalid("HAMT bucket order, uniqueness or occupancy disagrees");
+      }
+      previous = bucket;
+    }
+    return { cid, kind: "hamt-directory", bytes, data: body, links, size: 0, metadata };
+  }
   if (type === 4) {
     if (links.length) invalid("Symlink cannot have child links");
     work.charge("decodedBytes", body.length); // The public metadata target is one additional owned copy.
@@ -387,6 +485,10 @@ export async function openUnixfs(
   options = { ...options };
   if (typeof readBlock !== "function") throw new TypeError("UnixFS requires an explicit block reader.");
   const digest = options.subtle.digest.bind(options.subtle), openingSignal = options.signal;
+  if (options.hamtProfile !== undefined && options.hamtProfile !== "kubo-fanout-256") {
+    throw new TypeError("UnixFS requires a named supported HAMT profile.");
+  }
+  const hamt = options.hamtProfile === "kubo-fanout-256";
   const policy: PolicyType = {
     block: options.maxBlockBytes ?? 1048576,
     links: options.maxLinks ?? 16384,
@@ -397,6 +499,7 @@ export async function openUnixfs(
     edges: options.maxEdges ?? 100000,
     steps: options.maxSteps ?? 16777216,
     cache: options.maxCacheBytes ?? 4194304,
+    entries: options.maxDirectoryEntries ?? 16384,
   };
   const ceilings: PolicyType = {
     block: 8388608,
@@ -408,6 +511,7 @@ export async function openUnixfs(
     edges: 1000000,
     steps: 67108864,
     cache: 16777216,
+    entries: 65536,
   };
   for (const [key, value] of Object.entries(policy)) {
     integer(value, `UnixFS ${key}`);
@@ -458,7 +562,7 @@ export async function openUnixfs(
       invalid("CID block digest mismatch");
     }
     work.index(128);
-    const result = node(parsed.id, bytes, parsed.codec, work);
+    const result = node(parsed.id, bytes, parsed.codec, work, hamt);
     if (bytes.length <= policy.cache - work.used.cacheBytes) {
       work.cache.set(parsed.id, result);
       work.used.cacheBytes += bytes.length;
@@ -533,6 +637,74 @@ export async function openUnixfs(
     await walk(current, offset, length, false, work, depth, bytes);
     return { bytes, integrity: "sha2-256-blocks", scope: "selected-file-range", work: work.inspect() };
   }
+  /** Follow one hash route. A missing unselected shard cannot affect this selected lookup. */
+  async function lookup(
+    root: NodeType,
+    name: string,
+    depth: number,
+    work: Work,
+  ): Promise<{ node: NodeType; depth: number }> {
+    const hash = nameHash(name, work), path: number[] = [];
+    let current = root;
+    while (true) {
+      shard(current, path, work);
+      const bucket = hash[path.length]!;
+      let low = 0, high = current.links.length;
+      while (low < high) {
+        work.step();
+        const middle = low + ((high - low) >> 1);
+        if (Number.parseInt(current.links[middle]!.name.slice(0, 2), 16) < bucket) low = middle + 1;
+        else high = middle;
+      }
+      const entry = current.links[low];
+      if (!entry || Number.parseInt(entry.name.slice(0, 2), 16) !== bucket) {
+        invalid("literal HAMT name is absent on its route");
+      }
+      if (entry.name.length > 2 && entry.name.slice(2) !== name) invalid("literal HAMT name is absent on its route");
+      work.edge();
+      const child = await load(entry.cid, work, ++depth);
+      if (entry.name.length > 2) {
+        if (child.kind === "hamt-directory") shard(child, [], work);
+        return { node: child, depth };
+      }
+      path.push(bucket); // At most seven numbers: shard() refuses an eighth internal edge before I/O.
+      current = child;
+    }
+  }
+  /** Materialize only directory entries. Child file blocks are deliberately never acquired. */
+  async function listing(current: NodeType, depth: number, work: Work): Promise<UnixfsListingType> {
+    const entries: UnixfsLinkType[] = [], names = new Set<string>();
+    async function visit(current: NodeType, depth: number, path: readonly number[]): Promise<void> {
+      shard(current, path, work);
+      for (const entry of current.links) {
+        work.edge();
+        if (entry.name.length === 2) {
+          work.index(64); // Bounded path-array and recursive-frame estimate, before creating either.
+          const child = await load(entry.cid, work, depth + 1);
+          await visit(child, depth + 1, [...path, Number.parseInt(entry.name, 16)]);
+        } else {
+          cap(1, policy.entries - entries.length, "directory entries");
+          work.index(128 + entry.name.length * 2 + entry.cid.length * 2);
+          const name = entry.name.slice(2);
+          if (names.has(name)) invalid("duplicate HAMT directory name");
+          names.add(name);
+          entries.push(
+            Object.freeze({ name, cid: entry.cid, ...(entry.tsize === undefined ? {} : { tsize: entry.tsize }) }),
+          );
+          work.used.directoryEntries++;
+        }
+      }
+    }
+    await visit(current, depth, []);
+    work.signal?.throwIfAborted();
+    return Object.freeze({
+      entries: Object.freeze(entries),
+      integrity: "sha2-256-blocks",
+      scope: "complete-directory-links",
+      profile: "kubo-fanout-256",
+      work: Object.freeze(work.inspect()),
+    });
+  }
   function view(
     current: NodeType,
     depth: number,
@@ -548,6 +720,37 @@ export async function openUnixfs(
     };
     if (current.kind === "symlink") {
       return Object.freeze({ ...base, kind: "symlink", target: new Uint8Array(current.data) });
+    }
+    if (current.kind === "hamt-directory") {
+      return Object.freeze({
+        ...base,
+        kind: "hamt-directory",
+        profile: "kubo-fanout-256",
+        async open(name: string, call: UnixfsCallOptionsType = {}): Promise<UnixfsNodeType> {
+          call = { ...call };
+          if (
+            typeof name !== "string" || !name.length || name.length > policy.name - 2 ||
+            /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/u.test(name)
+          ) {
+            throw new TypeError("UnixFS HAMT lookup requires a nonempty bounded well-formed literal name.");
+          }
+          // A non-ASCII caller name can fit UTF16 admission yet exceed its serialized UTF8 ceiling.
+          let nameBytes = 0;
+          for (const point of name) {
+            const code = point.codePointAt(0)!;
+            nameBytes += code < 0x80 ? 1 : code < 0x800 ? 2 : code < 0x10000 ? 3 : 4;
+          }
+          cap(nameBytes + 2, policy.name, "HAMT lookup name bytes including prefix");
+          const childParents = [...ancestors, createArchiveLedger(call), ...(call.ledger ? [call.ledger] : [])];
+          const childSignal = signals(signal, call.signal), work = context(childParents, {}, childSignal);
+          const child = await lookup(current, name, depth, work);
+          return view(child.node, child.depth, childParents, childSignal, work.inspect());
+        },
+        list(call: UnixfsCallOptionsType = {}): Promise<UnixfsListingType> {
+          call = { ...call };
+          return listing(current, depth, context(ancestors, call, signal));
+        },
+      });
     }
     if (current.kind === "directory") {
       return Object.freeze({
@@ -580,6 +783,7 @@ export async function openUnixfs(
           }
           if (!entry) invalid("literal directory name is absent");
           const child = await load(entry.cid, work, depth + 1);
+          if (child.kind === "hamt-directory") shard(child, [], work);
           return view(child, depth + 1, childParents, childSignal, work.inspect());
         },
       });
@@ -616,5 +820,6 @@ export async function openUnixfs(
   }
   const work = new Work(parents, policy, openingSignal);
   const selected = await load(parseCid(root).id, work, 0);
+  if (selected.kind === "hamt-directory") shard(selected, [], work);
   return view(selected, 0, parents, openingSignal, work.inspect());
 }

@@ -1,0 +1,25 @@
+{
+  "receipts": [
+    {
+      "file": "independent.json",
+      "rawBytes": 160602,
+      "rawSha256": "0266207736d4bc63419f2c6b5454ce1468b5a9ae2d566bf77e8cc123460e62cc",
+      "repositoryBytes": 197743,
+      "repositorySha256": "f7f13aec2d39d98a099f5f558067669f14b3ddbe08aeb9bfe6f056da4886eb32"
+    },
+    {
+      "file": "hash-reference.json",
+      "rawBytes": 27745,
+      "rawSha256": "1d8c223e6634ea6d30ca447d604d5c3dfcdbe03f4b5110b37266bdbd31a0fd25",
+      "repositoryBytes": 27745,
+      "repositorySha256": "1d8c223e6634ea6d30ca447d604d5c3dfcdbe03f4b5110b37266bdbd31a0fd25"
+    },
+    {
+      "file": "authored.json",
+      "rawBytes": 12558,
+      "rawSha256": "b5368ec2ab861af64f0d9d4b785be1d42924e5c72283d8bd502f54a41fda8dba",
+      "repositoryBytes": 14496,
+      "repositorySha256": "b648ecb831363aa76c85cd31c83b2638d9120d3884f3bae07933aff302438aac"
+    }
+  ]
+}
