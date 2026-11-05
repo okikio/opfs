@@ -36,9 +36,14 @@ bounded allocations, cancellation and recovery. Test against an independent prod
 and interrupted operations. A fake HTTP response proves message handling; a container proves only the exercised server
 behavior. Live-service claims require separately authorized live-service evidence.
 
-The [complete group index](https://github.com/okikio/opfs/blob/5684239/planning/storage/GROUPS.md) accounts for all 45
+The [complete group index](https://github.com/okikio/opfs/blob/9c56a24/planning/storage/GROUPS.md) accounts for all 45
 proposed owners, current routes and remaining boundaries. The original research handoff counted 895 catalog records and
 136 focused archive/encryption profiles. Those are discovery inventories, not additive integration counts. The complete
 [versioned research handoff](https://github.com/okikio/opfs/blob/b3ed2f7092264e1a5d86358a10bd1f00386466bf/planning/storage/README.md)
 preserves every catalog ID, route and format record in a fresh clone. Its historical proposals remain distinct from the
 implemented capabilities on this page.
+
+[XZ](xz.md) indexes single-stream LZMA2 blocks and verifies selected complete blocks with CRC32 or CRC64; unchecked
+prefixes retain pending checks. [Git LFS](lfs.md) supports canonical pointers and native basic transfers with separate
+action grants and bounded complete SHA-256 verification. Neither checksum evidence nor a content digest establishes
+publisher identity.
