@@ -1,0 +1,201 @@
+{
+  "scope": "Native unmodified RabbitMQ binary frames; literal independent producer, Pika complete bytes before/after. Credentials are disposable fixture literals. Project ZIP/close are tooling only; src/amqp.ts has no runtime import.",
+  "oracle": {
+    "base64": "AP8NCoAJ",
+    "bytes": 6,
+    "sha256": "fda8e9d7cfbc05c1ae041c58da4dfd6b8cc8ab9b8364a4f9f747ead091da1410"
+  },
+  "take": {
+    "operation": "take",
+    "native": {
+      "declaration": "AAAAAAAAAAEABW93bmVkA2tleQAAAAA=",
+      "contentHeader": "ADwAAAAAAAAAAAAGAAA=",
+      "bodyBase64": "AP8NCoAJ",
+      "bodySha256": "fda8e9d7cfbc05c1ae041c58da4dfd6b8cc8ab9b8364a4f9f747ead091da1410"
+    },
+    "commands": [
+      {
+        "base64": "QU1RUAAACQE=",
+        "bytes": 8,
+        "sha256": "bc2f502576523902588d3c36f36ea5a1c0134eb8d55b4947d9b665e37649fff3"
+      },
+      {
+        "base64": "AQAAAAAAYwAKAAsAAAAxDGNhcGFiaWxpdGllc0YAAAAfHGF1dGhlbnRpY2F0aW9uX2ZhaWx1cmVfY2xvc2V0AQVQTEFJTgAAABoAZml4dHVyZQBmaXh0dXJlLW9ubHktYW1xcAVlbl9VU84=",
+        "bytes": 107,
+        "sha256": "c59c20e13e822ae8ce215b0242e2922ccaf665ad081805bf369bc2c9dff72c31"
+      },
+      {
+        "base64": "AQAAAAAADAAKAB8AAQABAAAAPM4=",
+        "bytes": 20,
+        "sha256": "279f7538bc3f14c9702e46222c7ce7a39e7ea04b6229530fe2b3a8d85fbbda04"
+      },
+      {
+        "base64": "AQAAAAAADQAKACgGL293bmVkAADO",
+        "bytes": 21,
+        "sha256": "19e99aefda57b9adee718640e6f5fb862956d12dee167e495fa455d29c446458"
+      },
+      {
+        "base64": "AQABAAAABQAUAAoAzg==",
+        "bytes": 13,
+        "sha256": "7b865401e36f8bccfadc9a62ce19fa731915b2d8bcd2bfa7b9d881985ee3d91a"
+      },
+      {
+        "base64": "AQABAAAADQA8AEYAAAVvd25lZAHO",
+        "bytes": 21,
+        "sha256": "3e3dfc141575457f58cfd1ba5d5940e25e2888bc89985fc93115a5548f20eb40"
+      },
+      {
+        "base64": "AQAAAAAACwAKADIAyAAAAAAAzg==",
+        "bytes": 19,
+        "sha256": "af6e043fa1d26e6228314df37fe30470398be0e5efb221fe2b6bbd8ae6661aa6"
+      }
+    ],
+    "replyFrames": [
+      {
+        "base64": "AQAAAAACJAAKAAoACQAAAfUMY2FwYWJpbGl0aWVzRgAAAOMScHVibGlzaGVyX2NvbmZpcm1zdAEaZXhjaGFuZ2VfZXhjaGFuZ2VfYmluZGluZ3N0AQpiYXNpYy5uYWNrdAEWY29uc3VtZXJfY2FuY2VsX25vdGlmeXQBEmNvbm5lY3Rpb24uYmxvY2tlZHQBE2NvbnN1bWVyX3ByaW9yaXRpZXN0ARxhdXRoZW50aWNhdGlvbl9mYWlsdXJlX2Nsb3NldAEQcGVyX2NvbnN1bWVyX3Fvc3QBD2RpcmVjdF9yZXBseV90b3QBGWFjY2VwdF9jb25zdW1lcl9jYW5jZWxfb2t0AQxjbHVzdGVyX25hbWVTAAAAE3JhYmJpdEA5MzQ0YWIzNzMwNDIJY29weXJpZ2h0UwAAADxDb3B5cmlnaHQgKGMpIDIwMDctMjAyNiBCcm9hZGNvbSBJbmMgYW5kL29yIGl0cyBzdWJzaWRpYXJpZXMLaW5mb3JtYXRpb25TAAAAOUxpY2Vuc2VkIHVuZGVyIHRoZSBNUEwgMi4wLiBXZWJzaXRlOiBodHRwczovL3JhYmJpdG1xLmNvbQhwbGF0Zm9ybVMAAAARRXJsYW5nL09UUCAyOS4xLjIHcHJvZHVjdFMAAAAIUmFiYml0TVEHdmVyc2lvblMAAAAFNC40LjAAAAAYUExBSU4gQU1RUExBSU4gQU5PTllNT1VTAAAABWVuX1VTzg==",
+        "bytes": 556,
+        "sha256": "289070591cdbe96396f76d2eea9bbe806cae9a005d6fe6facf8e76c2c1c65df5"
+      },
+      {
+        "base64": "AQAAAAAADAAKAB4AAQABAAAAPM4=",
+        "bytes": 20,
+        "sha256": "6ada3948b1a58042cd34d1c5a34bfb5fd5c356eb1dc6693c61d62080c0a2ddd8"
+      },
+      {
+        "base64": "AQAAAAAABQAKACkAzg==",
+        "bytes": 13,
+        "sha256": "59393d097f7486b1c2a9c90aa4a896a2b9d7221193c868cc250848e2830a0848"
+      },
+      {
+        "base64": "AQABAAAACAAUAAsAAAAAzg==",
+        "bytes": 16,
+        "sha256": "ec96b4d509889c8f220950db0ae561168b2aa337c27a4ac3a0d493ebeb7d80e5"
+      },
+      {
+        "base64": "AQABAAAAGwA8AEcAAAAAAAAAAQAFb3duZWQDa2V5AAAAAM4=",
+        "bytes": 35,
+        "sha256": "5997eca891d99d60a8212edb60c1ac42bd160749600b21d7c423096df7d4f1e9"
+      },
+      {
+        "base64": "AgABAAAADgA8AAAAAAAAAAAABgAAzg==",
+        "bytes": 22,
+        "sha256": "26d5ffb07b1db4c208bb5805022c6b1d5909fdc72722def296ec75779ce85015"
+      },
+      {
+        "base64": "AwABAAAABgD/DQqACc4=",
+        "bytes": 14,
+        "sha256": "22e17645997567b482b33c5f35ca12dd63961bf210af3a305b18baa6b3744562"
+      },
+      {
+        "base64": "AQAAAAAABAAKADPO",
+        "bytes": 12,
+        "sha256": "faf5632bba397a8aa603e36383cf9fc3496ad62791f4611d28b820eaf42b0059"
+      }
+    ],
+    "replyWire": {
+      "base64": "AQAAAAACJAAKAAoACQAAAfUMY2FwYWJpbGl0aWVzRgAAAOMScHVibGlzaGVyX2NvbmZpcm1zdAEaZXhjaGFuZ2VfZXhjaGFuZ2VfYmluZGluZ3N0AQpiYXNpYy5uYWNrdAEWY29uc3VtZXJfY2FuY2VsX25vdGlmeXQBEmNvbm5lY3Rpb24uYmxvY2tlZHQBE2NvbnN1bWVyX3ByaW9yaXRpZXN0ARxhdXRoZW50aWNhdGlvbl9mYWlsdXJlX2Nsb3NldAEQcGVyX2NvbnN1bWVyX3Fvc3QBD2RpcmVjdF9yZXBseV90b3QBGWFjY2VwdF9jb25zdW1lcl9jYW5jZWxfb2t0AQxjbHVzdGVyX25hbWVTAAAAE3JhYmJpdEA5MzQ0YWIzNzMwNDIJY29weXJpZ2h0UwAAADxDb3B5cmlnaHQgKGMpIDIwMDctMjAyNiBCcm9hZGNvbSBJbmMgYW5kL29yIGl0cyBzdWJzaWRpYXJpZXMLaW5mb3JtYXRpb25TAAAAOUxpY2Vuc2VkIHVuZGVyIHRoZSBNUEwgMi4wLiBXZWJzaXRlOiBodHRwczovL3JhYmJpdG1xLmNvbQhwbGF0Zm9ybVMAAAARRXJsYW5nL09UUCAyOS4xLjIHcHJvZHVjdFMAAAAIUmFiYml0TVEHdmVyc2lvblMAAAAFNC40LjAAAAAYUExBSU4gQU1RUExBSU4gQU5PTllNT1VTAAAABWVuX1VTzgEAAAAAAAwACgAeAAEAAQAAADzOAQAAAAAABQAKACkAzgEAAQAAAAgAFAALAAAAAM4BAAEAAAAbADwARwAAAAAAAAABAAVvd25lZANrZXkAAAAAzgIAAQAAAA4APAAAAAAAAAAAAAYAAM4DAAEAAAAGAP8NCoAJzgEAAAAAAAQACgAzzg==",
+      "bytes": 688,
+      "sha256": "1e6871accaa3a1ad098ff35eff6fafbd6be8796579edd3a9388f302999a1f02a"
+    }
+  },
+  "publish": {
+    "operation": "publish",
+    "native": {
+      "confirmation": "AAAAAAAAAAEA"
+    },
+    "commands": [
+      {
+        "base64": "QU1RUAAACQE=",
+        "bytes": 8,
+        "sha256": "bc2f502576523902588d3c36f36ea5a1c0134eb8d55b4947d9b665e37649fff3"
+      },
+      {
+        "base64": "AQAAAAAAYwAKAAsAAAAxDGNhcGFiaWxpdGllc0YAAAAfHGF1dGhlbnRpY2F0aW9uX2ZhaWx1cmVfY2xvc2V0AQVQTEFJTgAAABoAZml4dHVyZQBmaXh0dXJlLW9ubHktYW1xcAVlbl9VU84=",
+        "bytes": 107,
+        "sha256": "c59c20e13e822ae8ce215b0242e2922ccaf665ad081805bf369bc2c9dff72c31"
+      },
+      {
+        "base64": "AQAAAAAADAAKAB8AAQABAAAAPM4=",
+        "bytes": 20,
+        "sha256": "279f7538bc3f14c9702e46222c7ce7a39e7ea04b6229530fe2b3a8d85fbbda04"
+      },
+      {
+        "base64": "AQAAAAAADQAKACgGL293bmVkAADO",
+        "bytes": 21,
+        "sha256": "19e99aefda57b9adee718640e6f5fb862956d12dee167e495fa455d29c446458"
+      },
+      {
+        "base64": "AQABAAAABQAUAAoAzg==",
+        "bytes": 13,
+        "sha256": "7b865401e36f8bccfadc9a62ce19fa731915b2d8bcd2bfa7b9d881985ee3d91a"
+      },
+      {
+        "base64": "AQABAAAABQBVAAoAzg==",
+        "bytes": 13,
+        "sha256": "ae9af870578813ee114802a2b4dac3335a2232d306693c7acf225a84d7dc44ab"
+      },
+      {
+        "base64": "AQABAAAAEQA8ACgAAAVvd25lZANrZXkBzg==",
+        "bytes": 25,
+        "sha256": "e0cd6d2e58cec19513ed6fbbb519cc08cd0668fc2170e1b022b2cdce405425c6"
+      },
+      {
+        "base64": "AgABAAAADgA8AAAAAAAAAAAABgAAzg==",
+        "bytes": 22,
+        "sha256": "26d5ffb07b1db4c208bb5805022c6b1d5909fdc72722def296ec75779ce85015"
+      },
+      {
+        "base64": "AwABAAAABgD/DQqACc4=",
+        "bytes": 14,
+        "sha256": "22e17645997567b482b33c5f35ca12dd63961bf210af3a305b18baa6b3744562"
+      },
+      {
+        "base64": "AQAAAAAACwAKADIAyAAAAAAAzg==",
+        "bytes": 19,
+        "sha256": "af6e043fa1d26e6228314df37fe30470398be0e5efb221fe2b6bbd8ae6661aa6"
+      }
+    ],
+    "replyFrames": [
+      {
+        "base64": "AQAAAAACJAAKAAoACQAAAfUMY2FwYWJpbGl0aWVzRgAAAOMScHVibGlzaGVyX2NvbmZpcm1zdAEaZXhjaGFuZ2VfZXhjaGFuZ2VfYmluZGluZ3N0AQpiYXNpYy5uYWNrdAEWY29uc3VtZXJfY2FuY2VsX25vdGlmeXQBEmNvbm5lY3Rpb24uYmxvY2tlZHQBE2NvbnN1bWVyX3ByaW9yaXRpZXN0ARxhdXRoZW50aWNhdGlvbl9mYWlsdXJlX2Nsb3NldAEQcGVyX2NvbnN1bWVyX3Fvc3QBD2RpcmVjdF9yZXBseV90b3QBGWFjY2VwdF9jb25zdW1lcl9jYW5jZWxfb2t0AQxjbHVzdGVyX25hbWVTAAAAE3JhYmJpdEA5MzQ0YWIzNzMwNDIJY29weXJpZ2h0UwAAADxDb3B5cmlnaHQgKGMpIDIwMDctMjAyNiBCcm9hZGNvbSBJbmMgYW5kL29yIGl0cyBzdWJzaWRpYXJpZXMLaW5mb3JtYXRpb25TAAAAOUxpY2Vuc2VkIHVuZGVyIHRoZSBNUEwgMi4wLiBXZWJzaXRlOiBodHRwczovL3JhYmJpdG1xLmNvbQhwbGF0Zm9ybVMAAAARRXJsYW5nL09UUCAyOS4xLjIHcHJvZHVjdFMAAAAIUmFiYml0TVEHdmVyc2lvblMAAAAFNC40LjAAAAAYUExBSU4gQU1RUExBSU4gQU5PTllNT1VTAAAABWVuX1VTzg==",
+        "bytes": 556,
+        "sha256": "289070591cdbe96396f76d2eea9bbe806cae9a005d6fe6facf8e76c2c1c65df5"
+      },
+      {
+        "base64": "AQAAAAAADAAKAB4AAQABAAAAPM4=",
+        "bytes": 20,
+        "sha256": "6ada3948b1a58042cd34d1c5a34bfb5fd5c356eb1dc6693c61d62080c0a2ddd8"
+      },
+      {
+        "base64": "AQAAAAAABQAKACkAzg==",
+        "bytes": 13,
+        "sha256": "59393d097f7486b1c2a9c90aa4a896a2b9d7221193c868cc250848e2830a0848"
+      },
+      {
+        "base64": "AQABAAAACAAUAAsAAAAAzg==",
+        "bytes": 16,
+        "sha256": "ec96b4d509889c8f220950db0ae561168b2aa337c27a4ac3a0d493ebeb7d80e5"
+      },
+      {
+        "base64": "AQABAAAABABVAAvO",
+        "bytes": 12,
+        "sha256": "270d0478dad7d6fbbf0246bce27bfc6bc0b745eae87de558f91a5cd30c2fd0a7"
+      },
+      {
+        "base64": "AQABAAAADQA8AFAAAAAAAAAAAQDO",
+        "bytes": 21,
+        "sha256": "b5fcbfe80193bbe52a1bc318ce6c3a9e35c565ecfd23aeae1f4019d4fcfa4622"
+      },
+      {
+        "base64": "AQAAAAAABAAKADPO",
+        "bytes": 12,
+        "sha256": "faf5632bba397a8aa603e36383cf9fc3496ad62791f4611d28b820eaf42b0059"
+      }
+    ],
+    "replyWire": {
+      "base64": "AQAAAAACJAAKAAoACQAAAfUMY2FwYWJpbGl0aWVzRgAAAOMScHVibGlzaGVyX2NvbmZpcm1zdAEaZXhjaGFuZ2VfZXhjaGFuZ2VfYmluZGluZ3N0AQpiYXNpYy5uYWNrdAEWY29uc3VtZXJfY2FuY2VsX25vdGlmeXQBEmNvbm5lY3Rpb24uYmxvY2tlZHQBE2NvbnN1bWVyX3ByaW9yaXRpZXN0ARxhdXRoZW50aWNhdGlvbl9mYWlsdXJlX2Nsb3NldAEQcGVyX2NvbnN1bWVyX3Fvc3QBD2RpcmVjdF9yZXBseV90b3QBGWFjY2VwdF9jb25zdW1lcl9jYW5jZWxfb2t0AQxjbHVzdGVyX25hbWVTAAAAE3JhYmJpdEA5MzQ0YWIzNzMwNDIJY29weXJpZ2h0UwAAADxDb3B5cmlnaHQgKGMpIDIwMDctMjAyNiBCcm9hZGNvbSBJbmMgYW5kL29yIGl0cyBzdWJzaWRpYXJpZXMLaW5mb3JtYXRpb25TAAAAOUxpY2Vuc2VkIHVuZGVyIHRoZSBNUEwgMi4wLiBXZWJzaXRlOiBodHRwczovL3JhYmJpdG1xLmNvbQhwbGF0Zm9ybVMAAAARRXJsYW5nL09UUCAyOS4xLjIHcHJvZHVjdFMAAAAIUmFiYml0TVEHdmVyc2lvblMAAAAFNC40LjAAAAAYUExBSU4gQU1RUExBSU4gQU5PTllNT1VTAAAABWVuX1VTzgEAAAAAAAwACgAeAAEAAQAAADzOAQAAAAAABQAKACkAzgEAAQAAAAgAFAALAAAAAM4BAAEAAAAEAFUAC84BAAEAAAANADwAUAAAAAAAAAABAM4BAAAAAAAEAAoAM84=",
+      "bytes": 650,
+      "sha256": "e083c6938d8f853e6d5cb3881b86b85aa3b0bb627cc8473d401917527c90bf8c"
+    }
+  }
+}
