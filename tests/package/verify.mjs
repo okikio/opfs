@@ -219,6 +219,8 @@ try {
     import { openUdf } from '@okikio/opfs/archive/udf';
     import { createBzipDecoder } from '@okikio/opfs/archive/bzip';
     import { PocketbaseClient } from '@okikio/opfs/pocketbase';
+    import { SupabaseClient } from '@okikio/opfs/supabase';
+    import { openRar } from '@okikio/opfs/archive/rar';
     import { openXz } from '@okikio/opfs/archive/xz';
     import { LfsClient, decodeLfsPointer, encodeLfsPointer, lfsPointerObject } from '@okikio/opfs/content/lfs';
     import { openGitObject, encodeGitTree } from '@okikio/opfs/content/git';
@@ -602,6 +604,59 @@ try {
     assertBytes(Uint8Array.from(lzmaChunks), Uint8Array.from(atob(lzmaFixture.body), (byte) => byte.charCodeAt(0)));
     const lzmaEnd = await lzma.finished;
     if (lzmaEnd.status !== 'complete' || lzmaEnd.termination !== 'lzma2-end' || lzmaEnd.integrity !== 'none') throw new Error('Packed LZMA terminal scope changed');
+    const supabaseBody = new TextEncoder().encode('native REST bytes');
+    let supabaseAuth = 0;
+    const supabase = new SupabaseClient({
+      endpoint: 'https://storage.invalid/storage/v1/', bucket: 'notes',
+      credentials: () => { supabaseAuth++; return { accessToken: 'api-token', apiKey: 'gateway' }; },
+      signedOrigins: ['https://storage.invalid'],
+      fetch: async (input, init) => {
+        const target = new URL(input.toString()), headers = new Headers(init?.headers);
+        if (target.pathname.includes('/object/sign/') && init?.method === 'POST') {
+          if (headers.get('authorization') !== 'Bearer api-token') throw new Error('Packed Supabase API authority changed');
+          return new Response(JSON.stringify({ signedURL: '/object/sign/notes/note.txt?token=explicit-capability' }));
+        }
+        if (headers.has('authorization') || headers.has('apikey')) throw new Error('Packed Supabase media leaked API context');
+        return new Response(supabaseBody.slice());
+      },
+    });
+    assertBytes(await supabase.read('note.txt', { access: 'public' }), supabaseBody);
+    const supabaseSigned = await supabase.createSignedUrl('note.txt', { expiresIn: 60 });
+    assertBytes(await supabase.readSigned('note.txt', supabaseSigned), supabaseBody);
+    if (supabaseAuth !== 1) throw new Error('Packed Supabase public/signed credentials changed');
+    const rarFixture = ${
+      JSON.stringify(
+        await (async () => {
+          const fixture = JSON.parse(
+            await readFile(new URL("../fixtures/rar/independent.json", import.meta.url), "utf8"),
+          );
+          const native = fixture.fixtures.find((entry) => entry.profile === "stored");
+          return { archive: native.archive.base64, body: native.payloads["hello.txt"].base64 };
+        })(),
+      )
+    };
+    const rar = await openRar(createByteSource(Uint8Array.from(atob(rarFixture.archive), (byte) => byte.charCodeAt(0))));
+    const rarHello = rar.entries.find((entry) => entry.name === 'hello.txt');
+    const rarRead = await rar.read(rarHello.id);
+    assertBytes(rarRead.bytes, Uint8Array.from(atob(rarFixture.body), (byte) => byte.charCodeAt(0)));
+    if (rar.metadata !== 'header-crc32-verified' || rarRead.integrity !== 'crc32-verified') throw new Error('Packed RAR checksum scopes changed');
+    const xpressFixture = ${
+      JSON.stringify(
+        await (async () => {
+          const fixture = JSON.parse(
+            await readFile(new URL("../fixtures/wim/xpress-independent.json", import.meta.url), "utf8"),
+          );
+          const file = fixture.images[0].files.find((entry) => entry.path === "long.bin");
+          return { archive: fixture.base64, path: file.path, body: file.base64 };
+        })(),
+      )
+    };
+    const xpress = await openWim(createByteSource(Uint8Array.from(atob(xpressFixture.archive), (byte) => byte.charCodeAt(0))), { subtle: globalThis.crypto.subtle });
+    const xpressImage = await xpress.image(1);
+    const xpressEntry = xpressImage.entries.find((entry) => entry.path === xpressFixture.path);
+    const xpressRead = await xpressImage.read(xpressEntry.id);
+    assertBytes(xpressRead.bytes, Uint8Array.from(atob(xpressFixture.body), (byte) => byte.charCodeAt(0)));
+    if (xpress.profile !== 'xpress-huffman-32k-1.13' || xpressRead.integrity !== 'resource-sha1-verified' || xpressRead.xpressSteps <= 0) throw new Error('Packed WIM XPRESS evidence changed');
     const wimFixture = ${
       JSON.stringify(
         await (async () => {
@@ -838,6 +893,8 @@ try {
     import { openUdf } from '@okikio/opfs/archive/udf';
     import { createBzipDecoder } from '@okikio/opfs/archive/bzip';
     import { PocketbaseClient } from '@okikio/opfs/pocketbase';
+    import { SupabaseClient } from '@okikio/opfs/supabase';
+    import { openRar } from '@okikio/opfs/archive/rar';
     import { openXz } from '@okikio/opfs/archive/xz';
     import { LfsClient, decodeLfsPointer, encodeLfsPointer, lfsPointerObject } from '@okikio/opfs/content/lfs';
     import { openGitObject, encodeGitTree } from '@okikio/opfs/content/git';
@@ -930,7 +987,7 @@ try {
     const lzmaEnd: import('@okikio/opfs/archive/lzma').LzmaResultType = await lzma.finished;
     void lzmaEnd;
     const wim = await openWim(createByteSource(new Uint8Array()), { subtle: globalThis.crypto.subtle });
-    const wimProfile: 'uncompressed-1.13' = wim.profile;
+    const wimProfile: 'uncompressed-1.13' | 'xpress-huffman-32k-1.13' = wim.profile;
     const wimImage: import('@okikio/opfs/archive/wim').WimImageViewType = await wim.image(1);
     void [wimProfile, wimImage];
     const xar = await openXar(createByteSource(new Uint8Array()), { verifyToc: false });
