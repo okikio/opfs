@@ -122,7 +122,8 @@
     "./http": "./src/http.ts",
     "./webdav": "./src/webdav.ts",
     "./driver/webdav": "./src/driver/webdav.ts",
-    "./adapter/webdav": "./src/adapter/webdav.ts"
+    "./adapter/webdav": "./src/adapter/webdav.ts",
+    "./archive/write": "./src/archive/write.ts"
   },
   "dependencies": {
     "@okikio/undent": "^0.3.3",
