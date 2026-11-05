@@ -152,7 +152,8 @@
     "./archive/mime": "./src/archive/mime.ts",
     "./archive/seven": "./src/archive/seven.ts",
     "./ftp": "./src/ftp.ts",
-    "./archive/mbox": "./src/archive/mbox.ts"
+    "./archive/mbox": "./src/archive/mbox.ts",
+    "./archive/ar": "./src/archive/ar.ts"
   },
   "dependencies": {
     "@okikio/undent": "^0.3.3",
