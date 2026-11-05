@@ -104,8 +104,9 @@ explicit parent compatibility policy above; its strict refusal remains a regress
 dependencies. Signed Debian bookworm packages used here were `xorriso` 1.5.4-4, `genisoimage` 9:1.1.11-3.4 and
 `libarchive-tools` 3.6.2-1+deb12u5 on arm64. The producer records isoinfo's actual Latin-1 display bytes/encoding and
 libarchive's extracted-name mappings rather than assuming either tool preserves every native identifier. The complete
-image retains the original UCS-2 bytes. `provenance.json` pins producer script, fixture JSON and each image hash; its
-local base image is not a publicly pullable complete-producer pin.
+image retains the original UCS-2 bytes.
+[The fixture provenance](https://github.com/okikio/opfs/blob/1458d6d/tests/fixtures/iso/provenance.json) pins producer
+script, fixture JSON and each image hash; its local base image is not a publicly pullable complete-producer pin.
 
 The profile follows [ECMA-119](https://ecma-international.org/publications-and-standards/standards/ecma-119/), with
 explicit comparison of the 1987 baseline and sixth edition (2025). Joliet character-set selection follows the
