@@ -1,0 +1,442 @@
+{
+  "date": "2026-11-05",
+  "scope": "Native unmodified selected AMQP0-9-1 replies; independent literal framing with Pika complete bytes; not a candidate-generated round trip.",
+  "raw": {
+    "file": "independent.json",
+    "bytes": 10069,
+    "sha256": "aaafa0c0df2e25505b4f49d907adbe44a317092335a400ea1abbd2043d33a59a"
+  },
+  "versions": {
+    "RabbitMQ": "4.4.0",
+    "ErlangOTP": "29.1.2",
+    "Python": "3.13.12",
+    "Pika": "1.4.4",
+    "Testcontainers": "12.1.0",
+    "Node": "26.13.0"
+  },
+  "images": {
+    "server": {
+      "Id": "sha256:2aba0be223bfd021ffb3f6a961ee416df5df03e78d1c5efc25fb285c56196679",
+      "RepoTags": [],
+      "RepoDigests": [
+        "rabbitmq@sha256:485319d42170eab53d8a030e1cc49d95e41f5d325479fa504736db8091981eb7"
+      ],
+      "Comment": "buildkit.dockerfile.v0",
+      "Created": "2026-10-26T23:40:55.355303624Z",
+      "Config": {
+        "ExposedPorts": {
+          "15691/tcp": {},
+          "15692/tcp": {},
+          "25672/tcp": {},
+          "4369/tcp": {},
+          "5671/tcp": {},
+          "5672/tcp": {}
+        },
+        "Env": [
+          "PATH=/opt/rabbitmq/sbin:/opt/erlang/bin:/opt/openssl/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "ERLANG_INSTALL_PATH_PREFIX=/opt/erlang",
+          "OPENSSL_INSTALL_PATH_PREFIX=/opt/openssl",
+          "RABBITMQ_DATA_DIR=/var/lib/rabbitmq",
+          "RABBITMQ_VERSION=4.4.0",
+          "RABBITMQ_PGP_KEY_ID=0x0A9AF2115F4687BD29803A206B73A36E6026DFCA",
+          "RABBITMQ_HOME=/opt/rabbitmq",
+          "HOME=/var/lib/rabbitmq",
+          "LANG=C.UTF-8",
+          "LANGUAGE=C.UTF-8",
+          "LC_ALL=C.UTF-8",
+          "RUNNING_UNDER_SYSTEMD=true"
+        ],
+        "Entrypoint": [
+          "docker-entrypoint.sh"
+        ],
+        "Cmd": [
+          "rabbitmq-server"
+        ],
+        "Volumes": {
+          "/var/lib/rabbitmq": {}
+        },
+        "Labels": {
+          "org.opencontainers.image.created": "2026-10-25T10:30:32.309136+00:00",
+          "org.opencontainers.image.description": "The Ubuntu container image maintained by Canonical\n\nUbuntu is a Debian-based Linux operating system that runs from the desktop to the cloud, to all your internet connected things.\nIt is the world's most popular operating system across public clouds and OpenStack clouds.\nIt is the number one platform for containers; from Docker to Kubernetes to LXD, Ubuntu can run your containers at scale.\nFast, secure and simple, Ubuntu powers millions of PCs worldwide.\n",
+          "org.opencontainers.image.title": "ubuntu",
+          "org.opencontainers.image.version": "26.04"
+        }
+      },
+      "Architecture": "arm64",
+      "Variant": "v8",
+      "Os": "linux",
+      "Size": 283134248,
+      "GraphDriver": {
+        "Data": {
+          "LowerDir": "/var/lib/docker/overlay2/1efc7463792c203ce952b7b857dc0586d62a9dbff662ee2fdb12c1b9881fe731/diff:/var/lib/docker/overlay2/411888ba032a5e49c2074a1bb6d3a0cea3f8cd4654a01d16362b58f2f988e888/diff:/var/lib/docker/overlay2/0d6ff6806854f623fa812dea63dfe4c9d1a2211215b24ceb2719540c3009c491/diff:/var/lib/docker/overlay2/6872f27b621c76ad607da65a1c86ec7ea98f785f50c80a48b861e09bce1a5d59/diff:/var/lib/docker/overlay2/32003925aa760fcdf0da4ec5dc2eacd8a3d57b093a38cd671e53945d3ec6c492/diff:/var/lib/docker/overlay2/229f5cfa109dab3130324657cc263b75fee4930da2f7b54b1bc05fa1892fd96c/diff:/var/lib/docker/overlay2/18bea2ab44e181897162c7722cb6392cd0e10ee365463c0c9fa58926ae77dcec/diff:/var/lib/docker/overlay2/1d12fe6bfbe45c3c558fb147fed2bcdc1afd80c3979b9ddb0621f91acdcca29e/diff:/var/lib/docker/overlay2/eafea2ceaffefcd65c608c1cd1aefe982a135b3f13d7848ee4ded4bd8edf7573/diff",
+          "MergedDir": "/var/lib/docker/overlay2/012642cb6ba324033469541aa5aa9f58adfb50522276ff24bfa54bab23ec0dbe/merged",
+          "UpperDir": "/var/lib/docker/overlay2/012642cb6ba324033469541aa5aa9f58adfb50522276ff24bfa54bab23ec0dbe/diff",
+          "WorkDir": "/var/lib/docker/overlay2/012642cb6ba324033469541aa5aa9f58adfb50522276ff24bfa54bab23ec0dbe/work"
+        },
+        "Name": "overlay2"
+      },
+      "RootFS": {
+        "Type": "layers",
+        "Layers": [
+          "sha256:d0a7f257e3da49743402c9f3371e3994285b17d3546ae7464ad9ce5697e35d2b",
+          "sha256:44c7904a8b95aaf93ba3a2b2812c8b29f2f979369e47e96a82bd4d88d3e372f1",
+          "sha256:1fbdb0a568e11fd799da1e700fb3f2590a81583367b7a2cf9c8174e08b25967c",
+          "sha256:ad5dc73f29fd5d2c2c6f4d6c1e0a3b0ef62fede818fd45ec36247069121aeb68",
+          "sha256:04ef8441d7a4cc9b091ab173f20194a70e777c87466b7d51a4ff971636013c4e",
+          "sha256:f534869ab311d461d214dffb20c5478c72cec83d354256b0cb4f09580314c692",
+          "sha256:214747254273e080f3aa456f6003a2a8f30f134e058f252eff6e7d513595ef4b",
+          "sha256:373e80d201487ccd365fab659371cdc777c63b0bacc3d003c485c4d8379032d8",
+          "sha256:b0d0c045bf7ea907b86579cf8f5e18ecbdb06c2d89554cef1237e2b67d99fe49",
+          "sha256:f7cd7dfd4cf0b7a457585aba5e53b74e44dd93a03a90172298ff7f72827580ed"
+        ]
+      },
+      "Metadata": {
+        "LastTagTime": "0001-01-01T00:00:00Z"
+      }
+    },
+    "oracle": {
+      "Id": "sha256:5ae62b8a656b92aebda2441c1b4b872da0799b4deabca9f6c476f5940624ebef",
+      "RepoTags": [],
+      "RepoDigests": [
+        "python@sha256:a58daefb915e1e03ad48f3ca4df8832065412c5c35cacb9d39f4229184de12b6"
+      ],
+      "Comment": "buildkit.dockerfile.v0",
+      "Created": "2026-04-07T02:33:43.811396769Z",
+      "Config": {
+        "Env": [
+          "PATH=/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "GPG_KEY=7169605F62C751356D054A26A821E680E5FA6305",
+          "PYTHON_VERSION=3.13.12",
+          "PYTHON_SHA256=2a84cd31dd8d8ea8aaff75de66fc1b4b0127dd5799aa50a64ae9a313885b4593"
+        ],
+        "Cmd": [
+          "python3"
+        ]
+      },
+      "Architecture": "arm64",
+      "Variant": "v8",
+      "Os": "linux",
+      "Size": 146082428,
+      "GraphDriver": {
+        "Data": {
+          "LowerDir": "/var/lib/docker/overlay2/5448c02b11de51b4de56cf01e58060a0b925da12fa1867d872f0664638614ddd/diff:/var/lib/docker/overlay2/d2243d6e3cfba6e090d97aa1b0429aba456bf6dcb742e9e3adbbedf6000d5211/diff:/var/lib/docker/overlay2/9e27f8a1ed8a3c2390d929b2d67da752b41450141a649ffe22c3d76272b49d6f/diff",
+          "MergedDir": "/var/lib/docker/overlay2/e2b6865d9e460289c2629f69c4e8b59af2d73c61636ca576a76d2c4d144d3990/merged",
+          "UpperDir": "/var/lib/docker/overlay2/e2b6865d9e460289c2629f69c4e8b59af2d73c61636ca576a76d2c4d144d3990/diff",
+          "WorkDir": "/var/lib/docker/overlay2/e2b6865d9e460289c2629f69c4e8b59af2d73c61636ca576a76d2c4d144d3990/work"
+        },
+        "Name": "overlay2"
+      },
+      "RootFS": {
+        "Type": "layers",
+        "Layers": [
+          "sha256:dc784058f8e6004ced335186004e0488ff873f3aa83ca509cfd573f044d57134",
+          "sha256:e9e9d3d0eca83cec462099faa792a819112590148481f00d8c72b9ae0aa31524",
+          "sha256:746830adc8ef9800487df4c5cbd340e2c0dfafa5241921138fbb74382e390559",
+          "sha256:decd7594d6aa4c3ce2a8af9a5c1b3a8a8d7d52ede2ff865c51dfa16dea6bceef"
+        ]
+      },
+      "Metadata": {
+        "LastTagTime": "0001-01-01T00:00:00Z"
+      }
+    }
+  },
+  "sources": [
+    {
+      "path": "spec-protocol.md",
+      "url": "https://raw.githubusercontent.com/rabbitmq/amqp-0.9.1-spec/b8e975a762b8677263ebbbba1e70654b5263af81/docs/amqp-0-9-1-protocol.md",
+      "bytes": 3280,
+      "sha256": "252ba1cc3dffd0bad61a6a9a2a04cb7d6a56c51f5b6e5a48e85bad74927e4e22",
+      "headers": {
+        "Content-Length": "3280",
+        "Content-Type": "text/plain; charset=utf-8"
+      }
+    },
+    {
+      "path": "spec-reference.md",
+      "url": "https://raw.githubusercontent.com/rabbitmq/amqp-0.9.1-spec/b8e975a762b8677263ebbbba1e70654b5263af81/docs/amqp-0-9-1-reference.md",
+      "bytes": 164070,
+      "sha256": "a3ad35cdacd552356a3e547d2fbbffeab3862cf468b79d39726244effe8a4fbd",
+      "headers": {
+        "Content-Length": "164070",
+        "Content-Type": "text/plain; charset=utf-8"
+      }
+    },
+    {
+      "path": "spec-extended.xml",
+      "url": "https://raw.githubusercontent.com/rabbitmq/amqp-0.9.1-spec/b8e975a762b8677263ebbbba1e70654b5263af81/xml/amqp0-9-1.extended.xml",
+      "bytes": 136494,
+      "sha256": "3d25097e4f9031b1a2898afa44188874d89ab84d0c1718729bec920cc149fc5f",
+      "headers": {
+        "Content-Length": "136494",
+        "Content-Type": "text/plain; charset=utf-8"
+      }
+    },
+    {
+      "path": "spec-LICENSE",
+      "url": "https://raw.githubusercontent.com/rabbitmq/amqp-0.9.1-spec/b8e975a762b8677263ebbbba1e70654b5263af81/LICENSE",
+      "bytes": 16725,
+      "sha256": "1f256ecad192880510e84ad60474eab7589218784b9a50bc7ceee34c2b91f1d5",
+      "headers": {
+        "Content-Length": "16725",
+        "Content-Type": "text/plain; charset=utf-8"
+      }
+    },
+    {
+      "path": "server-LICENSE",
+      "url": "https://raw.githubusercontent.com/rabbitmq/rabbitmq-server/24d5157cd415ef396c8ecd40a2d08c4d7ad3da9f/LICENSE",
+      "bytes": 364,
+      "sha256": "02a4e44df118d5ff8cd873463f4e4828833261e5e2678b87871515286a8de0f0",
+      "headers": {
+        "Content-Length": "364",
+        "Content-Type": "text/plain; charset=utf-8"
+      }
+    },
+    {
+      "path": "server-LICENSE-MPL",
+      "url": "https://raw.githubusercontent.com/rabbitmq/rabbitmq-server/24d5157cd415ef396c8ecd40a2d08c4d7ad3da9f/LICENSE-MPL-RabbitMQ",
+      "bytes": 16726,
+      "sha256": "fab3dd6bdab226f1c08630b1dd917e11fcb4ec5e1e020e2c16f83a0a13863e85",
+      "headers": {
+        "Content-Length": "16726",
+        "Content-Type": "text/plain; charset=utf-8"
+      }
+    },
+    {
+      "path": "server-LICENSE-APACHE2",
+      "url": "https://raw.githubusercontent.com/rabbitmq/rabbitmq-server/24d5157cd415ef396c8ecd40a2d08c4d7ad3da9f/LICENSE-APACHE2",
+      "bytes": 11441,
+      "sha256": "983bf16ee19b54bef36cfd733dd2dc1b4c62441cbc435d10cf9a54e0ee68c96c",
+      "headers": {
+        "Content-Length": "11441",
+        "Content-Type": "text/plain; charset=utf-8"
+      }
+    },
+    {
+      "path": "server-rabbit_reader.erl",
+      "url": "https://raw.githubusercontent.com/rabbitmq/rabbitmq-server/24d5157cd415ef396c8ecd40a2d08c4d7ad3da9f/deps/rabbit/src/rabbit_reader.erl",
+      "bytes": 87540,
+      "sha256": "30977d649d9f19b7ca54ec5d1a193c74e56d9d51e6878ebd623aa8f79f583f41",
+      "headers": {
+        "Content-Length": "87540",
+        "Content-Type": "text/plain; charset=utf-8"
+      }
+    },
+    {
+      "path": "server-rabbit_heartbeat.erl",
+      "url": "https://raw.githubusercontent.com/rabbitmq/rabbitmq-server/24d5157cd415ef396c8ecd40a2d08c4d7ad3da9f/deps/rabbit_common/src/rabbit_heartbeat.erl",
+      "bytes": 7622,
+      "sha256": "868d49356d1ea44437f44c20d8c18ab3a5efe71ea30125729d0ec9df4f7b708e",
+      "headers": {
+        "Content-Length": "7622",
+        "Content-Type": "text/plain; charset=utf-8"
+      }
+    },
+    {
+      "path": "docs-confirms.md",
+      "url": "https://raw.githubusercontent.com/rabbitmq/rabbitmq-website/978dfbce4d6451e8bbfd3abd7142f765ca7c022f/docs/confirms.md",
+      "bytes": 31197,
+      "sha256": "861abccf819fddcdaddd661255914d867d6ed511a9ff19311bfef73d0907b127",
+      "headers": {
+        "Content-Length": "31197",
+        "Content-Type": "text/plain; charset=utf-8"
+      }
+    },
+    {
+      "path": "docs-heartbeats.md",
+      "url": "https://raw.githubusercontent.com/rabbitmq/rabbitmq-website/978dfbce4d6451e8bbfd3abd7142f765ca7c022f/docs/heartbeats.md",
+      "bytes": 10746,
+      "sha256": "58dfa6ba6726181bc9572a998eb37211b39c2b895386b6fe7bfa62d50cb507a8",
+      "headers": {
+        "Content-Length": "10746",
+        "Content-Type": "text/plain; charset=utf-8"
+      }
+    },
+    {
+      "path": "image-Dockerfile",
+      "url": "https://raw.githubusercontent.com/docker-library/rabbitmq/4ad287295317ea1d9a577396fa28466a1bbf3430/4.4/ubuntu/Dockerfile",
+      "bytes": 14965,
+      "sha256": "c89889e2ab7f8266b770a18f49f677671003044149acbb4b4266f1555de4b103",
+      "headers": {
+        "Content-Length": "14965",
+        "Content-Type": "text/plain; charset=utf-8"
+      }
+    },
+    {
+      "path": "image-entrypoint.sh",
+      "url": "https://raw.githubusercontent.com/docker-library/rabbitmq/4ad287295317ea1d9a577396fa28466a1bbf3430/4.4/ubuntu/docker-entrypoint.sh",
+      "bytes": 1365,
+      "sha256": "1dfbddd933d0b5e77ab5ecfa33706e247f36eb3f2522fe85509ff10887dab898",
+      "headers": {
+        "Content-Length": "1365",
+        "Content-Type": "text/plain; charset=utf-8"
+      }
+    }
+  ],
+  "provider": {
+    "stage": "provider",
+    "attempt": "durable-topology",
+    "exitCode": 0,
+    "seconds": 36.579768167,
+    "terminationReason": null,
+    "outerSeconds": 300,
+    "nodeHeapMiB": 256,
+    "inputManifestPath": ".tmp/amqp-research/provider-durable-topology.input.json",
+    "inputManifestSha256": "43d583f2b9372e509249fccd74c0ff2fddb8690c6c449c39bfad56c5301241b6",
+    "logBytes": 34671,
+    "logSha256": "24a46210be36d6b10bce35d208298c7068a8722badc181b20f24a6c4adb77f9b",
+    "leftoverContainersBeforeCleanup": [],
+    "remainingContainers": [],
+    "failure": null,
+    "cleanupFailures": [],
+    "scope": "Host Node runtime-only; direct configured Docker CLI/Testcontainers daemon access, no socket or host path mounts into fixtures. Heap cap is not a total host RSS cap."
+  },
+  "capture": {
+    "stage": "capture",
+    "attempt": "first",
+    "exitCode": 0,
+    "seconds": 29.965563459000002,
+    "terminationReason": null,
+    "outerSeconds": 300,
+    "nodeHeapMiB": 256,
+    "inputManifestPath": ".tmp/amqp-research/capture-first.input.json",
+    "inputManifestSha256": "cca7afaa4abcf7282b8acb3575898098df1187114250df871584407e8400bb42",
+    "logBytes": 34640,
+    "logSha256": "7c01a7696752b46bbaceac981d25dca540d30cd899a0305f5ec9ea4af4021fe1",
+    "leftoverContainersBeforeCleanup": [],
+    "remainingContainers": [],
+    "failure": null,
+    "cleanupFailures": [],
+    "scope": "Host Node runtime-only; direct configured Docker CLI/Testcontainers daemon access, no socket or host path mounts into fixtures. Heap cap is not a total host RSS cap."
+  },
+  "failures": [
+    {
+      "stage": "provider",
+      "attempt": "first",
+      "exitCode": 1,
+      "seconds": 0.9102532499999999,
+      "terminationReason": null,
+      "outerSeconds": 300,
+      "nodeHeapMiB": 256,
+      "inputManifestPath": ".tmp/amqp-research/provider-first.input.json",
+      "inputManifestSha256": "bbbaf4bc48706508fb66a4dc6fa6a9868e43ef81e5eb31c01a2b7a02106482c0",
+      "logBytes": 18230,
+      "logSha256": "a999189328b1d60532c31ae9d4a4fde9a33d39adc3367069f28d994da9b8fb2d",
+      "leftoverContainersBeforeCleanup": [],
+      "remainingContainers": [],
+      "failure": null,
+      "cleanupFailures": [],
+      "scope": "Host Node runtime-only; direct configured Docker CLI/Testcontainers daemon access, no socket or host path mounts into fixtures. Heap cap is not a total host RSS cap.",
+      "diagnostic": "Created endpoint IDs unassigned; fixed only created-state admission."
+    },
+    {
+      "stage": "provider",
+      "attempt": "network-created-repair",
+      "exitCode": 1,
+      "seconds": 48.332496625,
+      "terminationReason": null,
+      "outerSeconds": 300,
+      "nodeHeapMiB": 256,
+      "inputManifestPath": ".tmp/amqp-research/provider-network-created-repair.input.json",
+      "inputManifestSha256": "23411c9271bfabca56b3c9928d088b5230b182c86ed1dd064e3df550750b064f",
+      "logBytes": 13364,
+      "logSha256": "6e5c93553f89af7a849e26e18a3612d9d94abdee4b5719d064cc11dba20ec515",
+      "leftoverContainersBeforeCleanup": [],
+      "remainingContainers": [],
+      "failure": null,
+      "cleanupFailures": [],
+      "scope": "Host Node runtime-only; direct configured Docker CLI/Testcontainers daemon access, no socket or host path mounts into fixtures. Heap cap is not a total host RSS cap.",
+      "diagnostic": "Readiness container stopped; automatic Testcontainers removal prevented cause/OOM proof."
+    },
+    {
+      "stage": "provider",
+      "attempt": "readiness-diagnostics",
+      "exitCode": 1,
+      "seconds": 38.8289075,
+      "terminationReason": null,
+      "outerSeconds": 300,
+      "nodeHeapMiB": 256,
+      "inputManifestPath": ".tmp/amqp-research/provider-readiness-diagnostics.input.json",
+      "inputManifestSha256": "c5b384b0c1afd1efbd3f55ebc0e82b354e11bac413bb4b51e63925587b0a8acb",
+      "logBytes": 37641,
+      "logSha256": "3111d5a95a575f3164e7cffd5911e75b57ea3816afd888d30d43200d57881b43",
+      "leftoverContainersBeforeCleanup": [],
+      "remainingContainers": [],
+      "failure": null,
+      "cleanupFailures": [],
+      "scope": "Host Node runtime-only; direct configured Docker CLI/Testcontainers daemon access, no socket or host path mounts into fixtures. Heap cap is not a total host RSS cap.",
+      "diagnostic": "Captured pre-removal state: exit1/OOMfalse, Erlang cookie eacces; readiness now uses image privilege drop."
+    },
+    {
+      "stage": "provider",
+      "attempt": "readiness-user-repair",
+      "exitCode": 1,
+      "seconds": 33.029906292,
+      "terminationReason": null,
+      "outerSeconds": 300,
+      "nodeHeapMiB": 256,
+      "inputManifestPath": ".tmp/amqp-research/provider-readiness-user-repair.input.json",
+      "inputManifestSha256": "e48d2332e4b7d46362c538e8e204eb3b35ad5ec0bfbd11859c25a5f97397cd55",
+      "logBytes": 53374,
+      "logSha256": "dfc9dac972a08b007247309969a3360775a7cefa0df9b76580a1918995c961bc",
+      "leftoverContainersBeforeCleanup": [],
+      "remainingContainers": [],
+      "failure": null,
+      "cleanupFailures": [],
+      "scope": "Host Node runtime-only; direct configured Docker CLI/Testcontainers daemon access, no socket or host path mounts into fixtures. Heap cap is not a total host RSS cap.",
+      "diagnostic": "Native setup refused deprecated transient nonexclusive queue; fixture uses durable queue on owned tmpfs."
+    }
+  ],
+  "licenses": [
+    {
+      "file": "licenses/server-LICENSE-MPL",
+      "bytes": 16726,
+      "sha256": "fab3dd6bdab226f1c08630b1dd917e11fcb4ec5e1e020e2c16f83a0a13863e85"
+    },
+    {
+      "file": "licenses/server-LICENSE-APACHE2",
+      "bytes": 11441,
+      "sha256": "983bf16ee19b54bef36cfd733dd2dc1b4c62441cbc435d10cf9a54e0ee68c96c"
+    },
+    {
+      "file": "licenses/pika-LICENSE",
+      "bytes": 1552,
+      "sha256": "db51de442345dc7a36f39a987c5715831f0a7f2d2583ae6329014d0c322f62b9"
+    },
+    {
+      "file": "licenses/server-LICENSE",
+      "bytes": 364,
+      "sha256": "02a4e44df118d5ff8cd873463f4e4828833261e5e2678b87871515286a8de0f0"
+    },
+    {
+      "file": "licenses/spec-LICENSE",
+      "bytes": 16725,
+      "sha256": "1f256ecad192880510e84ad60474eab7589218784b9a50bc7ceee34c2b91f1d5"
+    },
+    {
+      "file": "licenses/spec-xml-notices.txt",
+      "bytes": 8082,
+      "sha256": "c10f1a45319b22da92b943f00780d724d4a8ee6386b529b5c4b408b2ce6adfed",
+      "source": "Original byte prefix before <amqp major in pinned spec-extended.xml; copyright, specification license and BSD stripped-spec/modification notices kept intact."
+    }
+  ],
+  "limits": {
+    "serverMemoryMiB": 512,
+    "oracleMemoryMiB": 256,
+    "swapEqualsMemory": true,
+    "cpuEach": 0.5,
+    "pidsEach": 128,
+    "dataTmpfsMiB": 64,
+    "hostHeapMiB": 256,
+    "outerSeconds": 300,
+    "logBytesMax": 2097152
+  },
+  "exclusions": [
+    "TLS and peer certificates",
+    "durable message delivery",
+    "clustering",
+    "AMQP1.0",
+    "manual ack",
+    "server throughput"
+  ],
+  "notice": "No SDK/server implementation is distributed or imported by production. Spec XML notices and BSD modifications differ from repository MPL. Pika is BSD3; RabbitMQ contains MPL2 and Apache2 components. Images retain their own complete notices."
+}
