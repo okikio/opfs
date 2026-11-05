@@ -112,7 +112,8 @@
     "./ftp": "./src/ftp.ts",
     "./archive/mbox": "./src/archive/mbox.ts",
     "./archive/ar": "./src/archive/ar.ts",
-    "./archive/bagit": "./src/archive/bagit.ts"
+    "./archive/bagit": "./src/archive/bagit.ts",
+    "./sftp": "./src/sftp.ts"
   },
   "imports": {
     "@okikio/undent": "jsr:@okikio/undent@^0.3.3",
