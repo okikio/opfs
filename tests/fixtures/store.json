@@ -30,6 +30,10 @@
       "size": 3270226,
       "sha256": "6064d6015962fb0e163f98a60ecb2ec0cd0466396ea8c15efd3df86775628e18"
     },
+    "tests/fixtures/lzma/independent.json": {
+      "size": 8067679,
+      "sha256": "a1c97ad4189710b5edfd72a0b8e07986d6c3f7bef2b1269dd1f8cdef97ca3029"
+    },
     "tests/fixtures/password/independent.json": {
       "size": 531958,
       "sha256": "d4c4c383453caadd3dbb32ae4337d00e043a847c797577c329f7f3d77dbe10f9"
