@@ -117,11 +117,12 @@ before settling. A source that ignores cancellation and never returns prevents t
 
 ## Independent evidence
 
-[`tests/fixtures/bzip/produce.py`](../tests/fixtures/bzip/produce.py) alternates genuine native bzip2 1.0.8 and Python
-`bz2` producers. Native bzip2, Python and 7zz 26.02 independently consume every complete original payload. The corpus
-covers all nine levels, empty input, binary data, multiple blocks, run boundaries and a two-million-byte expansion. The
-[fixture receipt](../tests/fixtures/bzip/README.md) pins source/tool/file evidence and the padding discrepancy. No
-expected payload is obtained from this decoder.
+[`tests/fixtures/bzip/produce.py`](https://github.com/okikio/opfs/blob/68189c7/tests/fixtures/bzip/produce.py)
+alternates genuine native bzip2 1.0.8 and Python `bz2` producers. Native bzip2, Python and 7zz 26.02 independently
+consume every complete original payload. The corpus covers all nine levels, empty input, binary data, multiple blocks,
+run boundaries and a two-million-byte expansion. The
+[fixture receipt](https://github.com/okikio/opfs/blob/68189c7/tests/fixtures/bzip/README.md) pins source/tool/file
+evidence and the padding discrepancy. No expected payload is obtained from this decoder.
 
 The format and CRC contracts were reconciled against the official
 [bzip2 1.0.8 source release](https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz) and
