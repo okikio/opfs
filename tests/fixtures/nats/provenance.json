@@ -1,0 +1,240 @@
+{
+  "asOf": "2026-11-05",
+  "status": "Fifteen authored cases passed each Deno/Node/Bun. Exact NATS2.15.2/nativeSDK2.16.0 selected single-node get/publish proof passed with full6B+128KiB crossbytes and nativeconditions; independent wire capture and timing remain pending.",
+  "server": {
+    "version": "2.15.2",
+    "commit": "5a815f11a911efa2c88fd1dbfb18ed89a449bfc1",
+    "license": "Apache-2.0",
+    "imageProposal": {
+      "index": "sha256:991242c32d2738ffd358fd6614dd96c735017b4b3b34bfdb2c52a072d66db211",
+      "arm64Child": "sha256:8a8af8197467f4c2bf1bbc990283e5abb22c753afe191bcf8a99fe34a10f778a",
+      "source": "https://hub.docker.com/v2/repositories/library/nats/tags/2.15.2",
+      "scope": "Public registry metadata only, not acquired or executed."
+    }
+  },
+  "oracle": {
+    "version": "2.16.0",
+    "commit": "3547a63b2658db4596928668d75fab7c673f6fe6",
+    "license": "Apache-2.0",
+    "productionDependency": false,
+    "metadata": {
+      "blake2b_256": "48a316cec37172144d3362d7551bb823a098b2b2903281fc095dfe4480b8c2fd",
+      "md5": "5037a02a36efef9a655a24df540a4c0c",
+      "sha256": "aeb1ff123966c05833d26c7df7e1d54c1c6d32b612428b21677a2e921f1fecae"
+    },
+    "wheelProposal": {
+      "url": "https://files.pythonhosted.org/packages/48/a3/16cec37172144d3362d7551bb823a098b2b2903281fc095dfe4480b8c2fd/nats_py-2.16.0-py3-none-any.whl",
+      "bytes": 93578,
+      "sha256": "aeb1ff123966c05833d26c7df7e1d54c1c6d32b612428b21677a2e921f1fecae",
+      "requiresPython": ">=3.7",
+      "requiresDist": [
+        "aiohttp; extra == \"aiohttp\"",
+        "fast-mail-parser; extra == \"fast-parse\"",
+        "nkeys; extra == \"nkeys\""
+      ],
+      "scope": "Official PyPI metadata only; raw wheel not acquired or imported."
+    },
+    "acquisition": {
+      "artifact": "sdk-artifact.json",
+      "bytes": 20355,
+      "sha256": "9c9978c4a134b460fcbe20e6815358f6b3935efbfa5d43ee8e31b21ca5758b4a",
+      "rawWheel": ".tmp/nats-wheel.whl",
+      "state": ".tmp/nats-acquire-offline-container.json",
+      "inputs": ".tmp/nats-acquire-offline-input.json",
+      "scope": "Offline inert archive SHA/path/member/CRC/notices inspection; project ZIP is acquisition tooling, not independent NATS protocol proof.",
+      "firstFailure": {
+        "state": ".tmp/nats-acquire-first-container.json",
+        "stderr": ".tmp/nats-acquire-first-stderr.log",
+        "scope": "Fail-closed Requires-Dist mismatch: native wheel has a space before semicolon, unlike normalized PyPI metadata. Exact3observedextra-only lines approved and admitted without normalization."
+      }
+    }
+  },
+  "primaryFiles": [
+    {
+      "name": "nats-server-LICENSE",
+      "bytes": 11357,
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "name": "nats-server-commit.json",
+      "bytes": 5310,
+      "sha256": "4699fd380f6eafa37223e6c4c60d191ba081c27e57c8510e5cf8f89a72ed2e3c"
+    },
+    {
+      "name": "nats-server-server-client.go",
+      "bytes": 212421,
+      "sha256": "d5ccb3d5a96f85f307c000fa4cf5505ca94f983ef2599a47fe5050cd68cd3d65"
+    },
+    {
+      "name": "nats-server-server-const.go",
+      "bytes": 8847,
+      "sha256": "7c9089077618057b67600d2446a4bbbded59e5b01ccf4a34688bd31fa338a388"
+    },
+    {
+      "name": "nats-server-server-jetstream_api.go",
+      "bytes": 190628,
+      "sha256": "a2426c9145174252034dbb1b370cc5a87034728f4c3b718f469ad89cc05af2ee"
+    },
+    {
+      "name": "nats-server-server-parser.go",
+      "bytes": 27640,
+      "sha256": "e357cfb9c29cef6c6c60a0fc9f64e16748da5a98e2ea363ca29eb9b948ae69f7"
+    },
+    {
+      "name": "nats-server-server-stream.go",
+      "bytes": 314073,
+      "sha256": "26f418d438cb61d1e82cd888f626a32c6c992b5a9443438d5d60c2332ed96efa"
+    },
+    {
+      "name": "nats.py-commit.json",
+      "bytes": 8038,
+      "sha256": "072d17358f517044084ad2e13235b5afdb76405daceb3a47796cbe88c29c1792"
+    },
+    {
+      "name": "nats.py-nats-LICENSE",
+      "bytes": 11357,
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "name": "nats.py-nats-pyproject.toml",
+      "bytes": 1467,
+      "sha256": "545765d2ff99897911147f277558a03b6811a1b490780c0b6ec53578a2af06b0"
+    },
+    {
+      "name": "nats.py-nats-src-nats-js-api.py",
+      "bytes": 33594,
+      "sha256": "36e0cc48e4702a05845610c9130044ccbf08f37262450695501a4f0555bfd23d"
+    },
+    {
+      "name": "nats.py-nats-src-nats-js-client.py",
+      "bytes": 57431,
+      "sha256": "b1689025f7eb573f4b8327b68b37f32108ab53bf61b53efab8b88e66ef6f27cf"
+    },
+    {
+      "name": "pypi.json",
+      "bytes": 10447,
+      "sha256": "5d727e6f28f30af02e5a1baae897a5287e1bbca08d37d822513a64fb42ad85c7"
+    }
+  ],
+  "focused": {
+    "cases": 15,
+    "runtimes": [
+      "Deno",
+      "Node",
+      "Bun"
+    ],
+    "inputs": ".tmp/nats-final-input.json",
+    "state": ".tmp/nats-final-container.json",
+    "logs": [
+      ".tmp/nats-final-deno.log",
+      ".tmp/nats-final-node.log",
+      ".tmp/nats-final-bun.log"
+    ],
+    "fmt": ".tmp/nats-final-fmt.log",
+    "lint": ".tmp/nats-final-lint.log",
+    "firstFailure": {
+      "inputs": ".tmp/nats-first-input.json",
+      "state": ".tmp/nats-first-container.json",
+      "log": ".tmp/nats-first-lint.log",
+      "scope": "Two intentional control regex lint refusals; no protocol test executed. Repaired with equivalent visible-ASCII allowlists."
+    }
+  },
+  "images": {
+    "raw": "native-images.txt",
+    "bytes": 1838,
+    "sha256": "58b0e8816eaeca63a52e2befdfa6872240b5a0bad1bbfa42655c318aa2ad4638",
+    "manifestReceipt": ".tmp/nats-research/native-image-manifests.json",
+    "scope": "Exact immutable public manifest/config inspection preceded the native execution recorded below. Both images report no license labels or declared volumes. Original server/SDK source licenses are separate from binary transitive and image OS component licenses."
+  },
+  "native": {
+    "receipt": {
+      "testcontainersVersion": "12.1.0",
+      "nodeVersion": "v26.13.0",
+      "exitCode": 0,
+      "seconds": 9.559616125,
+      "outerTimeoutSeconds": 300,
+      "nodeHeapMiB": 256,
+      "logBytes": 7479,
+      "terminationReason": null,
+      "remainingTaskContainers": [],
+      "scope": "Host Node runtime-only orchestration. Docker CLI/Testcontainers use the configured daemon directly; no Docker socket or host path mounted into fixture containers."
+    },
+    "inputHashes": ".tmp/nats-provider-first-input.json",
+    "log": {
+      "path": "native.log",
+      "bytes": 7479,
+      "sha256": "f8eae4eff69b2c7fabfccc3a8bec78928a54550e99abe1f9218abc2ded4c090c"
+    },
+    "fullIndependentBytesEachDirection": [
+      6,
+      131072
+    ],
+    "cases": [
+      "native expected-stream admission refuses other stream; independent OTHER messagecount remains0",
+      "native dedup ID returns originalsequence and duplicate=true",
+      "auth refusal",
+      "missing uint64 sequence refusal"
+    ],
+    "scope": "One disposable single-node Memory-storage JetStream profile; no TLS/cluster/replication/fsync/retention/consumer qualification. Actual prestart engine-resource admission and poststart Docker readback retained; all sockets/containers/networks awaited cleanup and exacttasklabel query empty."
+  },
+  "capture": {
+    "profile": "Candidate-independent literal wire producer, official SDK seed/read before sequence-get and after publish; no runtime production NatsClient/parser import. Project ZIP/close code participates only in test-tool acquisition/lifecycle, not independent NATS wire framing.",
+    "fixture": "independent.json",
+    "rawCaptureBytes": 8033,
+    "rawCaptureSHA256": "92b759716777136c6af052ba5d018a63bbc1fbeb227c60dbb09e6af5678afa93",
+    "source": "capture-source.txt",
+    "inputHashes": "capture-input.json",
+    "log": "capture.log",
+    "receipt": {
+      "testcontainersVersion": "12.1.0",
+      "nodeVersion": "v26.13.0",
+      "exitCode": 0,
+      "seconds": 18.248205375,
+      "outerTimeoutSeconds": 300,
+      "nodeHeapMiB": 256,
+      "logBytes": 7452,
+      "terminationReason": null,
+      "remainingTaskContainers": [],
+      "scope": "Host Node runtime-only orchestration. Docker CLI/Testcontainers use the configured daemon directly; no Docker socket or host path mounted into fixture containers."
+    },
+    "framing": "Each replyWire preserves the actual asynchronous INFO update followed by the attributed MSG frame. response preserves only MSG; body preserves exact JSON. authControls and controls retain exact response/command bytes separately. CONNECT requests containing fixture credentials are not retained in wire captures.",
+    "failedAttempts": [
+      {
+        "source": "capture-first-source.txt",
+        "inputHashes": "capture-first-input.json",
+        "receipt": "capture-first-exit.json",
+        "failure": "Capture helper incorrectly required MSG immediately after PONG/request; actual async INFO was not admitted. CRLF regex was already correct.",
+        "logLimit": "The full first log was overwritten by the diagnostic retry before a separate copy was saved. Its failure stack was observed in tool output; this is not a durable full-log preservation claim."
+      },
+      {
+        "source": "capture-diagnostic-source.txt",
+        "inputHashes": "capture-diagnostic-input.json",
+        "receipt": "capture-diagnostic-exit.json",
+        "log": "capture-diagnostic.log",
+        "failure": "Bounded raw header diagnostic identified an unmodified 487-byte native INFO before MSG. Same client/oracle, no candidate change."
+      }
+    ],
+    "repair": "Capture helper alone now retains at most32 known INFO/PING/PONG controls at both authentication and reply barriers, with bounded8192-byte lines and literal PONG commands for PING. Unknown lines still refuse. The production client and official SDK were unchanged."
+  },
+  "focusedCaptureRegression": {
+    "cases": 16,
+    "runtimes": [
+      "Deno",
+      "Node",
+      "Bun"
+    ],
+    "receipt": ".tmp/nats-captured-final-container.json",
+    "inputs": ".tmp/nats-captured-final-input.json",
+    "result": "All16 cases passed independently each runtime; owned formatting16files and lint5TSfiles passed.",
+    "firstFailure": {
+      "inputs": ".tmp/nats-captured-first-input.json",
+      "state": ".tmp/nats-captured-first-container.json",
+      "log": ".tmp/nats-captured-first-deno.log",
+      "scope": "Original15 cases passed; new authored CONNECT literal expected credential fields after tls_required instead of before. Fixed only expected literal in test/benchmark; native capture and production unchanged. Node/Bun had not run because first Deno failure propagated."
+    }
+  },
+  "benchmark": {
+    "receipt": "benchmark.json",
+    "scope": "Captured six-byte JetStream sequence-get transport/parser cost; both lanes fresh channel/handshake/cleanup per operation, not server TCP/TLS speed or equivalent validation."
+  }
+}

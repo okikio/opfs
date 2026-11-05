@@ -1,0 +1,52 @@
+{
+  "hostFreeBefore": 11895635968,
+  "hostFreeAfter": 11870269440,
+  "images": [
+    {
+      "uri": "nats:2.15.2@sha256:991242c32d2738ffd358fd6614dd96c735017b4b3b34bfdb2c52a072d66db211",
+      "image": "sha256:11d34b65f88ef1e246f2e6ff715fc57753da37e0b6fbfe6598909145f99a46d7",
+      "architecture": "arm64",
+      "os": "linux",
+      "bytes": 17454258,
+      "repoDigests": [
+        "nats@sha256:991242c32d2738ffd358fd6614dd96c735017b4b3b34bfdb2c52a072d66db211"
+      ],
+      "entrypoint": [
+        "/nats-server"
+      ],
+      "command": [
+        "--config",
+        "nats-server.conf"
+      ],
+      "volumes": null,
+      "labels": null,
+      "environment": [
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/"
+      ],
+      "scope": "Exact pinned public image acquisition/config inspection only. No container or SDK/server start."
+    },
+    {
+      "uri": "python:3.13.12-slim-bookworm@sha256:a58daefb915e1e03ad48f3ca4df8832065412c5c35cacb9d39f4229184de12b6",
+      "image": "sha256:5ae62b8a656b92aebda2441c1b4b872da0799b4deabca9f6c476f5940624ebef",
+      "architecture": "arm64",
+      "os": "linux",
+      "bytes": 146082428,
+      "repoDigests": [
+        "python@sha256:a58daefb915e1e03ad48f3ca4df8832065412c5c35cacb9d39f4229184de12b6"
+      ],
+      "entrypoint": null,
+      "command": [
+        "python3"
+      ],
+      "volumes": null,
+      "labels": null,
+      "environment": [
+        "PATH=/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "GPG_KEY=7169605F62C751356D054A26A821E680E5FA6305",
+        "PYTHON_VERSION=3.13.12",
+        "PYTHON_SHA256=2a84cd31dd8d8ea8aaff75de66fc1b4b0127dd5799aa50a64ae9a313885b4593"
+      ],
+      "scope": "Exact pinned public image acquisition/config inspection only. No container or SDK/server start."
+    }
+  ]
+}

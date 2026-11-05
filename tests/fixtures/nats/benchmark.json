@@ -1,0 +1,99 @@
+{
+  "question": "Captured six-byte JetStream sequence-get transport/parser cost; both lanes fresh channel/handshake/cleanup per operation, not server TCP/TLS speed or equivalent validation.",
+  "report": {
+    "path": "benchmark-node.json.gz",
+    "rawBytes": 12393136,
+    "rawSHA256": "055b3348deb753ae027aaf4608e92f49969711fa6418e46c654b798df3cc697e",
+    "gzipBytes": 52528,
+    "gzipSHA256": "782586eb0f25c389154e57f07abd173dd3ef732c76370281e8d65d3e284f2f7d",
+    "losslessRoundtripVerified": true
+  },
+  "runtime": {
+    "arch": "arm64-linux",
+    "version": "26.13.0",
+    "runtime": "node"
+  },
+  "image": "sha256:0d27d74b49afa69518cd96806ca02f697e377c997d889c27cf60c4ae724adc39",
+  "resources": {
+    "Memory": 1073741824,
+    "MemorySwap": 1073741824,
+    "NanoCpus": 1000000000,
+    "PidsLimit": 128,
+    "NetworkMode": "none",
+    "Binds": null
+  },
+  "mounts": [],
+  "state": {
+    "Status": "exited",
+    "Running": false,
+    "Paused": false,
+    "Restarting": false,
+    "OOMKilled": false,
+    "Dead": false,
+    "Pid": 0,
+    "ExitCode": 0,
+    "Error": "",
+    "StartedAt": "2026-11-05T21:59:04.636650215Z",
+    "FinishedAt": "2026-11-05T21:59:11.165248635Z"
+  },
+  "inputs": {
+    "bench/nats.bench.ts": {
+      "bytes": 6574,
+      "sha256": "5619fcd119a9ab957e676e2d6257b31add73f8eb19ab04d4a60d5dd2db269be3"
+    },
+    "bench/result.ts": {
+      "bytes": 2692,
+      "sha256": "1d619c1c202e4e77af8fed43fe9ccca1ad7df286aaa9dec5f49ac0a46c1f15a2"
+    },
+    "src/nats.ts": {
+      "bytes": 24523,
+      "sha256": "8b0e51f85185a925fdb83dafa68b005e936e675cb5fc58cc62b2fae52ce45722"
+    },
+    "src/bytes.ts": {
+      "bytes": 5687,
+      "sha256": "2a6098dae39e46031ba8da2fd52475b361155fc7236146ce8624c4398e91894f"
+    },
+    "src/close.ts": {
+      "bytes": 1648,
+      "sha256": "d9d9e0dc945b87d039f0c17408de11216d10cfe53777d9390ec4a9674c876f1b"
+    },
+    "tests/fixtures/nats/independent.json": {
+      "bytes": 8033,
+      "sha256": "92b759716777136c6af052ba5d018a63bbc1fbeb227c60dbb09e6af5678afa93"
+    },
+    "deno.json": {
+      "bytes": 44989,
+      "sha256": "4cb063f0657e54d0144b191f46ae17ccf49ef6b2edb9b96f400a9bb7866784da"
+    },
+    "package.json": {
+      "bytes": 9387,
+      "sha256": "77f7f93abe62f37590cf9ce0702f0ef90e60cbd9c5f5711ba16da640a94e89fa"
+    },
+    "deno.lock": {
+      "bytes": 86187,
+      "sha256": "69b8f4bcf0e8b80b338b793c5fa38a0400aac57762dc367bba9dfdda9f0f8c85"
+    }
+  },
+  "externalStart": "suspicious_agnesi Up Less than a second\nstoic_poincare Up 41 seconds\neloquent_goldstine Up 44 seconds\nmagical_mcclintock Up 55 seconds (healthy)\nflamboyant_sinoussi Up 22 minutes\nadoring_goldberg Up 22 minutes (healthy)\ntestcontainers-ryuk-c1803dbefac8 Up 35 minutes\n",
+  "externalEnd": "upbeat_sanderson Up 6 seconds\nsuspicious_agnesi Up 8 seconds\nstoic_poincare Up 49 seconds\neloquent_goldstine Up 52 seconds\nmagical_mcclintock Up About a minute (healthy)\nflamboyant_sinoussi Up 22 minutes\nadoring_goldberg Up 22 minutes (healthy)\ntestcontainers-ryuk-c1803dbefac8 Up 35 minutes\n",
+  "lanes": [
+    {
+      "name": "nats raw Webstreams reply=679B original=6B lower-bound validation=none fresh-channel",
+      "avg": 10706.210347070526,
+      "p50": 4541,
+      "p99": 46292,
+      "min": 3916,
+      "max": 40755583,
+      "ticks": 52266
+    },
+    {
+      "name": "nats client GET reply=679B original=6B validation=frames+uint64+base64+ownership fresh-channel",
+      "avg": 983221.8642972537,
+      "p50": 462708,
+      "p99": 6978125,
+      "min": 336625,
+      "max": 31349625,
+      "ticks": 619
+    }
+  ]
+}
