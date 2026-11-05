@@ -4,3 +4,8 @@ tests/upstream/original/** -text -whitespace
 
 # Historical research inputs retain their original bytes, including CSV CRLF.
 planning/storage/research/** -text -whitespace
+
+# Native Git object and payload oracles are byte-exact, including text-looking commits and tags.
+tests/fixtures/git/*.loose -text
+tests/fixtures/git/*.raw -text
+tests/fixtures/git/*.ls-tree -text
