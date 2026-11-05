@@ -40,7 +40,9 @@ The source must declare `stability: "immutable"`, `"provider"`, or `"caller"`. B
 object source should bind all reads to its provider version. A caller assertion accepts mutation risk and is weaker
 evidence than provider-bound reads. A source with no declared stability is refused before I/O unless you explicitly pass
 `allowUnverifiedSource: true`; `archive.source.stability` then remains `"unverified"`. An identity string alone does not
-prove stability or authenticity. Changing the source invalidates the directory and its offsets.
+prove stability or authenticity. The opening call captures the source size, identity, stability and bound read method
+before its first asynchronous read. Replacing properties later does not replace this snapshot; changing the underlying
+bytes still invalidates its directory and offsets.
 
 ## Read selected ZIP bytes and understand their integrity
 
@@ -69,22 +71,29 @@ requested. ZIP64 values above `Number.MAX_SAFE_INTEGER` are refused instead of r
 read using their central-directory sizes; descriptor bytes are not independently verified. Self-extracting or
 offset-rebased archives require an explicit supported profile rather than automatic offset guessing.
 
-`maxDirectoryBytes` defaults to 16 MiB and `maxEntries` to 100,000. Each open/read also defaults to 64 MiB source bytes,
-4,096 source requests, 64 MiB decoded bytes and 16 MiB returned bytes. A selected output can be smaller than actual
-decode work: a native codec may produce a whole chunk before the limit is observed. A producer or codec can allocate
-memory internally before OPFS receives that chunk; these counters do not bound arbitrary injected implementation
-internals or provide hard CPU deadlines.
+`maxDirectoryBytes` defaults to 16 MiB and `maxEntries` to 100,000. Opening limits default to 64 MiB source bytes, 4,096
+source requests, 64 MiB decoded bytes and 16 MiB returned bytes. These are cumulative allowances for directory parsing
+and every later read from that opened archive. Each read also has fresh limits with the same defaults; it can narrow the
+remaining opening allowance, but cannot raise it. Repeated previews therefore need an explicit finite opening allowance
+sized for their expected total work. A selected output can be smaller than actual decode work: a native codec may
+produce a whole chunk before the limit is observed. A producer or codec can allocate memory internally before OPFS
+receives that chunk; these counters do not bound arbitrary injected implementation internals or provide hard CPU
+deadlines.
 
-`result.work` counts one operation. Pass the same `createArchiveLedger()` value to every nested reader and read to bound
-aggregate source requests, source extents, decoded bytes and returned bytes. Archive-level source extents can include
-memory rereads; they are not necessarily wire bytes. Share a `budgetSource()` ledger at the actual transport boundary
-when physical requests must be bounded separately. Failed attempted work consumes admitted reservations; retrying does
-not restore the aggregate budget. Staging, keys, nesting depth and decoder/KDF memory need their own application policy;
-this API does not implement arbitrary nested format traversal.
+`result.work` counts one operation; `archive.work` is the directory-opening work, not a live lifetime counter. An
+opening `ledger` remains authoritative for later reads. A different per-read ledger adds another owner, while passing
+the same opening ledger again does not charge each event twice. `plan()` checks the remaining local opening allowance
+without reserving it; external ledgers may still refuse execution. Pass the same `createArchiveLedger()` value to every
+nested reader and read to bound aggregate source requests, source extents, decoded bytes and returned bytes.
+Archive-level source extents can include memory rereads; they are not necessarily wire bytes. Share a `budgetSource()`
+ledger at the actual transport boundary when physical requests must be bounded separately. Failed attempted work
+consumes admitted reservations; retrying does not restore the aggregate budget. Staging, keys, nesting depth and
+decoder/KDF memory need their own application policy; this API does not implement arbitrary nested format traversal.
 
-`AbortSignal` is cooperative. A member read retires its owned decoder reader on success, early prefix completion, abort
-and failure. Cleanup errors preserve an already observed primary failure. The source remains borrowed, and opening an
-archive starts no background worker, timer or connection. A custom codec must honor its stream lifecycle; OPFS cannot
+`AbortSignal` is cooperative. The opening signal remains active for later reads; a per-read signal adds cancellation
+authority and cannot replace it. A member read retires its owned decoder reader on success, early prefix completion,
+abort and failure. Cleanup errors preserve an already observed primary failure. The source remains borrowed, and opening
+an archive starts no background worker, timer or connection. A custom codec must honor its stream lifecycle; OPFS cannot
 preempt an indefinitely running synchronous decoder.
 
 ## Project a strict read-only filesystem
