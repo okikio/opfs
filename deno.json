@@ -114,7 +114,8 @@
     "./archive/ar": "./src/archive/ar.ts",
     "./archive/bagit": "./src/archive/bagit.ts",
     "./sftp": "./src/sftp.ts",
-    "./archive/ocfl": "./src/archive/ocfl.ts"
+    "./archive/ocfl": "./src/archive/ocfl.ts",
+    "./dropbox": "./src/dropbox.ts"
   },
   "imports": {
     "@okikio/undent": "jsr:@okikio/undent@^0.3.3",
