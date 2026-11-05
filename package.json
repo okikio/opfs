@@ -182,7 +182,8 @@
     "./content/unixfs": "./src/content/unixfs.ts",
     "./dataset/netcdf": "./src/dataset/netcdf.ts",
     "./lakefs": "./src/lakefs.ts",
-    "./dataset/zarr": "./src/dataset/zarr.ts"
+    "./dataset/zarr": "./src/dataset/zarr.ts",
+    "./dataset/las": "./src/dataset/las.ts"
   },
   "dependencies": {
     "@okikio/undent": "^0.3.3",
