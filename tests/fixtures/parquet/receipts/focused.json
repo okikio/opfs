@@ -1,0 +1,22 @@
+{
+  "container": "22183120406ef074180d0e59739e0799eaef2a631b808b62d28d4a24f90a42b2",
+  "image": "sha256:0d27d74b49afa69518cd96806ca02f697e377c997d889c27cf60c4ae724adc39",
+  "exit": 0,
+  "oom": false,
+  "memory": 1073741824,
+  "memorySwap": 1073741824,
+  "nanoCpus": 1000000000,
+  "pids": 128,
+  "network": "none",
+  "mounts": [],
+  "cases": 19,
+  "scope": "Focused runtime19eachDenoNodeBun; native20x5 fullvalues/nulls+selectedpages,2genuineunsupportedcontrols; not compiler/artifact proof",
+  "executed": {
+    "bench/parquet.bench.ts": "523fd1df1a7ed8c4c041c37f442487c1b74abf094287fb882e2cd974e865930f",
+    "tests/parquet.test.ts": "f7d8d40f57ae42ae87419384f5bc7aedc04dc06d85ed8b96e6c766a28b3d01cc",
+    "tests/fixtures/parquet/README.md": "cc3ec493e8eaeeccdaefe932bfd17804a16608cd0a9748851f8c321389e207d6",
+    "tests/fixtures/parquet/RECIPE.md": "096808190aa81572219c64c7563bf6cbab5d3a78267f276513be56feee1f2a18",
+    "docs/parquet.md": "f4bdad712b222ba991f70da26ac4b9340038845ef9a47cf287da741b992ac6fd",
+    "src/dataset/parquet.ts": "402187df42575cdf3c320157e583a8045c91623d1cca316c17515146af57160e"
+  }
+}

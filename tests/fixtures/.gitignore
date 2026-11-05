@@ -23,6 +23,7 @@
 /lz4/independent.json
 /lzma/independent.json
 /netcdf/independent.json
+/parquet/independent.json
 /password/independent.json
 /pubsub/sdk-notices.json
 /qcow2/independent.json
