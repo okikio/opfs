@@ -229,7 +229,9 @@
       "tests/fixtures/age/provenance/**/*.snapshot",
       "tests/fixtures/age/provenance/**/*.mjs",
       "tests/fixtures/age/independent.json",
-      "tests/fixtures/age/cctv.json"
+      "tests/fixtures/age/cctv.json",
+      "tests/fixtures/orc/independent.json",
+      "tests/fixtures/orc/receipts/"
     ]
   },
   "lint": {
