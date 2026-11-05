@@ -167,6 +167,11 @@ uploads. [MBOX](docs/mbox.md) exposes explicit mailbox preview conversion, and [
 sources for nested package inspection. See [FTP](docs/ftp.md) for transport ownership and uncertain-publication
 recovery.
 
+[SFTP v3](docs/sftp.md) adds bounded native file extents over a caller-supplied authenticated SSH subsystem.
+[BagIt](docs/bagit.md) inspects an explicit preservation inventory and verifies selected files without walking a host
+filesystem. [Legacy ZIP password previews](docs/password.md) accept explicit password bytes; CRC success provides no
+authentication.
+
 ## Drivers are independently useful
 
 A driver is not an adapter with a new name. It owns backend mechanics that remain meaningful without `FileSystemType`.
