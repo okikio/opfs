@@ -5,6 +5,14 @@
     "tests/fixtures/archive/preview.zip": {
       "size": 1048843,
       "sha256": "f9a09febfc9fdd377d8d35ff1a3c8b63c82b3de0d73273fa0a455d74b29bc5bb"
+    },
+    "tests/fixtures/cpio/gnu.json": {
+      "size": 709295,
+      "sha256": "1f9e8817b646fb582403e9f1af1b40feeed7e5ea99744a072bbf4085fcc5d51a"
+    },
+    "tests/fixtures/cpio/independent.json": {
+      "size": 354364,
+      "sha256": "9393a6ee36a27b4e3dfaa25a519fc59d5a330b3ebf7614b80d55ce3e5a2beb7b"
     }
   }
 }
