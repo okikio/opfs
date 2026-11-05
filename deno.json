@@ -223,7 +223,13 @@
       "tools/"
     ],
     "exclude": [
-      "tests/upstream/original/"
+      "tests/upstream/original/",
+      "tests/fixtures/age/upstream/",
+      "tests/fixtures/age/provenance/**/*.json",
+      "tests/fixtures/age/provenance/**/*.snapshot",
+      "tests/fixtures/age/provenance/**/*.mjs",
+      "tests/fixtures/age/independent.json",
+      "tests/fixtures/age/cctv.json"
     ]
   },
   "lint": {

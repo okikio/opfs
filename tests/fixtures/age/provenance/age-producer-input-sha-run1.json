@@ -1,0 +1,840 @@
+{
+  "scope": "Exact candidate-free copied input closure.",
+  "files": [
+    {
+      "path": "evidence/age-v1.3.2-linux-arm64.tar.gz.snapshot",
+      "bytes": 17771923,
+      "sha256": "6b8dc4333c53a5a57c9e5834e3a48f92605d7154014cd07269ff3327db5d37f4"
+    },
+    {
+      "path": "evidence/cli/LICENSE.snapshot",
+      "bytes": 2975,
+      "sha256": "afbdb4e07a359499db587ae632815809b1fc1670a92d5449af112ce9a67833a2"
+    },
+    {
+      "path": "evidence/cli/age-keygen.snapshot",
+      "bytes": 3854433,
+      "sha256": "00b549cebf68302893fc489830f37e706712689ca877f84d85439d700d2997c7"
+    },
+    {
+      "path": "evidence/cli/age.snapshot",
+      "bytes": 6540637,
+      "sha256": "41b072352f4561018949623c674d16ef704019b9108a9bbdbd21292efebfc94f"
+    },
+    {
+      "path": "evidence/cli-receipt.json",
+      "bytes": 3114,
+      "sha256": "4866541e5e1d8fd11e88db9abcb0e25636a000354a0fa0a903b0c4161b531f34"
+    },
+    {
+      "path": "evidence/sources/C2SP/C2SP/age.md.snapshot",
+      "bytes": 27548,
+      "sha256": "573966238133f2a3f9243c15875c4cb69015d370a67549097accbdd87283fece"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/README.md.snapshot",
+      "bytes": 6427,
+      "sha256": "fdbd4b06044f3803c72bdaf2df7681fdce3a45a326a2898e75640eae906606ad"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/LICENSE.snapshot",
+      "bytes": 1490,
+      "sha256": "33e3b8217262512de912f5151613810033cdd4f855a8c3744e7a9a0efa10f7cc"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/testkit/testkit.go.snapshot",
+      "bytes": 11546,
+      "sha256": "8d2c918c083739cefdabde63b516557af58a79c27622244e81f963e18596f1de"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/empty.go.snapshot",
+      "bytes": 339,
+      "sha256": "80e57874bc02082060d48630276ab1aecd4c9eb97a5653989f467aba2b86c7fd"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/header_crlf.go.snapshot",
+      "bytes": 651,
+      "sha256": "d25d2750e958fac46fc1d6c08c69f5de05cae2012ead7cddc25a4e1cc216230f"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/hmac_bad.go.snapshot",
+      "bytes": 485,
+      "sha256": "08c9e9a6006bc7804326296d72b22215caf192e8f78af98364403d56cc073e21"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/hmac_extra_space.go.snapshot",
+      "bytes": 509,
+      "sha256": "875b999ac0a428b45b0f22d03a0ad18eaa5a494949cac3434f32b7fdd2de7704"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/hmac_garbage.go.snapshot",
+      "bytes": 462,
+      "sha256": "a2a0938d8f2fba9de5481fa41ce711ce3041ee9a6b37bcc53270f29011c708d5"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/hmac_missing.go.snapshot",
+      "bytes": 433,
+      "sha256": "c1be891b2534900bf85dc94412b52229231fc8a87c6cba2b0b0ae15410dc6dc0"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/hmac_no_space.go.snapshot",
+      "bytes": 507,
+      "sha256": "2d98c1c3d6dd786d691e7689d041c948b425d6bc30fdbe6792493a52c095b836"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/hmac_not_canonical.go.snapshot",
+      "bytes": 545,
+      "sha256": "f822ff6d9e3e23673a0544f2106024ccfdaa90405d15f3edd5cd4f66cdfbb61d"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/hmac_trailing_space.go.snapshot",
+      "bytes": 460,
+      "sha256": "811978f7f129dc296ee508bade1e524c11c8f697941874c5917c9683f73280d9"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/hmac_truncated.go.snapshot",
+      "bytes": 472,
+      "sha256": "c16a7b0e6835a24dfc74004ba7dfa798c5f852aeab6f661c0af8659cb6f4edb2"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/stanza_bad_start.go.snapshot",
+      "bytes": 471,
+      "sha256": "f2714027101554fbd3ecbafed8521eb381bbb5889a356c3324891df3b9ae029c"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/stanza_base64_padding.go.snapshot",
+      "bytes": 536,
+      "sha256": "39d281ce6129ec4a3ef645c2b76cb6852c445f0dab5bb3e305185328161f8c70"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/stanza_empty_argument.go.snapshot",
+      "bytes": 484,
+      "sha256": "fad7dd54c809772fc6c4a003e98ded53267141d0c9cba53a2dabe9fbeef3d4cd"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/stanza_empty_body.go.snapshot",
+      "bytes": 442,
+      "sha256": "8825f00561ee15d1f6042906a44e6b07ffc9e0e89d8001e77cad9c5a6ddc8158"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/stanza_empty_last_line.go.snapshot",
+      "bytes": 479,
+      "sha256": "68b04fe83cc593b746529b7c700c2b897b467201154a557c83493d9147600d9d"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/stanza_invalid_character.go.snapshot",
+      "bytes": 474,
+      "sha256": "a1bd682b1df4a0e01b2a91ed8815d4b43276ae62782f27239c1a4f3fc4d5ae9a"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/stanza_long_line.go.snapshot",
+      "bytes": 570,
+      "sha256": "4e7e4f457dd570edda6022f7f17c8e53f9967069e09f29a8885ebc6ac5b38e83"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/stanza_missing_body.go.snapshot",
+      "bytes": 539,
+      "sha256": "6dc2e9594d4dcd7b91deefba3428c3df80eb405ce914a1e0260e8eab7239e744"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/stanza_missing_final_line.go.snapshot",
+      "bytes": 561,
+      "sha256": "73753c103397011422d0297ce870c4e8f204bc8f188676b14bde9dfa223dea52"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/stanza_multiple_short_lines.go.snapshot",
+      "bytes": 587,
+      "sha256": "b02510a6a5f80143b825aeb832b8990e1923fede9e8ad6ae06da4a16a657adc6"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/stanza_no_arguments.go.snapshot",
+      "bytes": 460,
+      "sha256": "6ea66281e1b5dec4cf58b4b2de84b5f9589a408c30360a95ca8e6fcf943d0f17"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/stanza_not_canonical.go.snapshot",
+      "bytes": 558,
+      "sha256": "8e1c77403654cd09489b99be0213c89a93e5db0a0325bcc9cfda07948f014cbf"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/stanza_spurious_cr.go.snapshot",
+      "bytes": 535,
+      "sha256": "ebe100bc071e3c86c43ace9faa26df1b97af94b404d730d140f927a1736abd15"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/stanza_valid_characters.go.snapshot",
+      "bytes": 609,
+      "sha256": "f99be6efbe0260fe57ae0ff3855186a584728f96a24a81e02a33759eeff12130"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/stream_bad_tag.go.snapshot",
+      "bytes": 518,
+      "sha256": "600d03c06fe14b8b74eb4f0e41475fa7f1a0da467ece3a67a4f8bc1d5ba3126c"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/stream_bad_tag_second_chunk.go.snapshot",
+      "bytes": 587,
+      "sha256": "f5dc9456cbf7cc86486b0ce889d867f4bc6ce5ecaba14cc2dabb267fc097d7b6"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/stream_bad_tag_second_chunk_full.go.snapshot",
+      "bytes": 603,
+      "sha256": "481f02b9ecef726919b55f4f3925976f909fd4fdcc1da5e44b528cc158113a85"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/stream_empty_payload.go.snapshot",
+      "bytes": 398,
+      "sha256": "c2069c5d3aaa385ea68bff3a9e174ae8994114dd5e88a52a7d4a84c9b2f54742"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/stream_last_chunk_empty.go.snapshot",
+      "bytes": 574,
+      "sha256": "26ba426c579ef6c7ec02de7407242cf082e9568d611ce40b154709eec368ab5c"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/stream_last_chunk_full.go.snapshot",
+      "bytes": 434,
+      "sha256": "fb3efe873447b80a354ca94b4f81989f8aa33550d82ddf0eb2b47f717f022b60"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/stream_last_chunk_full_second.go.snapshot",
+      "bytes": 469,
+      "sha256": "f42d85126b29177444d9164e2abf7ef7079f68c196095bb01577574388116ad6"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/stream_missing_tag.go.snapshot",
+      "bytes": 499,
+      "sha256": "7af13eede83d265fb5e0511ef23453c8a02b58c69706392a5557dde4ef8273a0"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/stream_no_chunks.go.snapshot",
+      "bytes": 420,
+      "sha256": "13a0bb9332fe83726465a0791e31adcc6e46fc48c4a93bd29904216656876bb0"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/stream_no_final.go.snapshot",
+      "bytes": 439,
+      "sha256": "4b5ba590838df9076fc6fa5c94f3ba87270bffb2a78a710b94be9a99c609adf6"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/stream_no_final_full.go.snapshot",
+      "bytes": 472,
+      "sha256": "100bf85851c8c1887f17d0b49cb74db787ed47ef44372d6c9b97cb216ebc5437"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/stream_no_final_two_chunks.go.snapshot",
+      "bytes": 491,
+      "sha256": "77b905a0126c64f17447a284cdb2b0ed5b32a407aff2cf236bc9127c65a44302"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/stream_no_final_two_chunks_full.go.snapshot",
+      "bytes": 511,
+      "sha256": "33952d865dff291ac774220dc6567540deb508161ab700f5c196dc16f117eee2"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/stream_no_nonce.go.snapshot",
+      "bytes": 542,
+      "sha256": "d69d298c77a7fdac6c54ba67c75acb730f01a42036280e803ae386860e87fff2"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/stream_short_chunk.go.snapshot",
+      "bytes": 487,
+      "sha256": "5a0e7ff8af7a2793aa1292d6d9edd7024e4ad8c1ecae07d812839c78138e0aa5"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/stream_short_nonce.go.snapshot",
+      "bytes": 567,
+      "sha256": "12937b022c2c12d209b36a9c17a2bea21979f6a111562b54f29e3a63fc5de164"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/stream_short_second_chunk.go.snapshot",
+      "bytes": 539,
+      "sha256": "8a59bba8696182a2236bf3faca19175ed36d0b9dea2676e273ace1961d0feaf5"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/stream_three_chunks.go.snapshot",
+      "bytes": 504,
+      "sha256": "f952723b9cb7cb50b1752ca0bd70ca2b820076e599b888b9d9adb9f08698b686"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/stream_trailing_garbage_long.go.snapshot",
+      "bytes": 502,
+      "sha256": "0e3b61935fe07a58830a731899661cc501b6630cdb3593e4460a12baed539e65"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/stream_trailing_garbage_short.go.snapshot",
+      "bytes": 502,
+      "sha256": "19b9921be83248575f2dd4cbf1459460f224fae34c2bafcd343e72905bc620ba"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/stream_two_chunks.go.snapshot",
+      "bytes": 469,
+      "sha256": "f42d85126b29177444d9164e2abf7ef7079f68c196095bb01577574388116ad6"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/stream_two_final_chunks.go.snapshot",
+      "bytes": 501,
+      "sha256": "1836511080af3b02bcd8f398a3f70122a1a1d7c15088ec742b60e133397eebfe"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/stream_two_final_chunks_full.go.snapshot",
+      "bytes": 517,
+      "sha256": "0703335d3880775bce0f80937288c63098c6106524b7c7a0675f87c273a569c4"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/stream_two_final_chunks_second.go.snapshot",
+      "bytes": 540,
+      "sha256": "e08b54002075b4c51b03171fd125614d3c145c6ee42cf7575f50bb2033e21839"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/stream_two_final_chunks_short.go.snapshot",
+      "bytes": 468,
+      "sha256": "390d046ebee980d50879ee714d9ad5d8442fb4e0263906c5443bddc8a082fff2"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/internal/tests/version_unsupported.go.snapshot",
+      "bytes": 429,
+      "sha256": "03015895b72d3bf8e654832f1537332c149a4b9b49a55058d805c144d63bcdcd"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/empty.snapshot",
+      "bytes": 67,
+      "sha256": "898891448a35f6db9b70878db483a0a1f514b98d94d881f3cce668e00a4c3de7"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/header_crlf.snapshot",
+      "bytes": 416,
+      "sha256": "a152ced12c1a52249d218b43b19d34267f9cd712113cc2e8098c92e267702c3d"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/hmac_bad.snapshot",
+      "bytes": 353,
+      "sha256": "07b287717c1cac4e99b0389d9aa7f94efddd6e3f5faa95963684f4d0abca3561"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/hmac_extra_space.snapshot",
+      "bytes": 356,
+      "sha256": "f98b62cd56628b844a46c75eac9e14aed54ab96ac37f4d273800c5ab58a18dc5"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/hmac_garbage.snapshot",
+      "bytes": 358,
+      "sha256": "0e2bcfc4d98bc286a01b9f3a69a71ed50b481f2ee0a20416ea7c1613cdaed10a"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/hmac_missing.snapshot",
+      "bytes": 312,
+      "sha256": "40503e56cf692a67c295d95e0c3f02a350c26398016e9f0d59723f7476721b13"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/hmac_no_space.snapshot",
+      "bytes": 354,
+      "sha256": "6497b5cb51a58b4382d7e9419afacfd70df82d5e1ea36564c5da0e5ccfa300ad"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/hmac_not_canonical.snapshot",
+      "bytes": 413,
+      "sha256": "215c684fb5926db5a833de5b01d6b138b58f5838378d1e2b1859c4f9c9e4c81a"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/hmac_trailing_space.snapshot",
+      "bytes": 356,
+      "sha256": "daf7151c8a5f6f48af641f4e0b3cdb41cb5876dbe0e4f6f24a3a4d0a452f7eb6"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/hmac_truncated.snapshot",
+      "bytes": 316,
+      "sha256": "574748f519eddde3f8f7fd4eef8691d393d726d63b322e8c67f2377ea39b0841"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/stanza_bad_start.snapshot",
+      "bytes": 366,
+      "sha256": "e2ba22a45e0913065e920629ba6f6a06e04169e2fe5f49579c769893e46d71de"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/stanza_base64_padding.snapshot",
+      "bytes": 435,
+      "sha256": "7bf0dbb73084606ab26cd7a06b9fccc09b6f57b9cdd4b646f8b7e00c2402334e"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/stanza_empty_argument.snapshot",
+      "bytes": 376,
+      "sha256": "89ea531b7224b5e6dac6b55cb365e990c7a8caa6bba31840a19bb2f74e078497"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/stanza_empty_body.snapshot",
+      "bytes": 432,
+      "sha256": "2c2fd1650f43d4d347bfbd729b05bff56e0ba30dfebc0625d461b42c12bb2552"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/stanza_empty_last_line.snapshot",
+      "bytes": 563,
+      "sha256": "f5760b7b3d27ac60c4390adab63f2387fec9a472dc71d68a94031e28174b6f14"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/stanza_invalid_character.snapshot",
+      "bytes": 369,
+      "sha256": "fc50cb20219d50837086cb295832a28a52feca62e142cca3b4aeda3ead50e954"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/stanza_long_line.snapshot",
+      "bytes": 482,
+      "sha256": "488be43646e7668cdc1db3260e0f84fd7b71ee40d797d22530d237b8c90d37b7"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/stanza_missing_body.snapshot",
+      "bytes": 433,
+      "sha256": "2eb67c8cb24fcbd9dc37b9853ae1ddc0dac40ac17be8f7893909921a7bfefb2c"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/stanza_missing_final_line.snapshot",
+      "bytes": 484,
+      "sha256": "4dbbba0f136f577469141a5010e8ea474c9c532ab66187e63b6aac9bd23bc52a"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/stanza_multiple_short_lines.snapshot",
+      "bytes": 474,
+      "sha256": "e5146580aadb6942543acfb975ef2964f4a8a5eb2fd770c40d7da7b4a95f8834"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/stanza_no_arguments.snapshot",
+      "bytes": 359,
+      "sha256": "730062e37e6fa0c0e1de5f8cee90662f61da99b7bb1a4996847a68afefaf8a1f"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/stanza_not_canonical.snapshot",
+      "bytes": 434,
+      "sha256": "e2516017cdfa589e9ebc18c1646664d375c56e6f594191ae814da614add0a9f4"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/stanza_spurious_cr.snapshot",
+      "bytes": 430,
+      "sha256": "0a58d23cc4398edf6a16c034c4a61da2e2006e4010377654ad50017468baa39d"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/stanza_valid_characters.snapshot",
+      "bytes": 536,
+      "sha256": "115085567f8719b20e0903973873c20acae854b48975567f73cd15d29bd93a4d"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/stream_bad_tag.snapshot",
+      "bytes": 430,
+      "sha256": "b302d219368735ca621d8237a49906831b0aa0f6116c05a1863aba18c421d9fe"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/stream_bad_tag_second_chunk.snapshot",
+      "bytes": 587,
+      "sha256": "2763f46ed2ad05eace35a23084f14493b4593e03a85f8cbe15c4e608e2aaa324"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/stream_bad_tag_second_chunk_full.snapshot",
+      "bytes": 654,
+      "sha256": "30e7a10c2725ff919e5d471be8022084485cc9eb447ab86bd7f7a6a3fb9dab08"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/stream_empty_payload.snapshot",
+      "bytes": 419,
+      "sha256": "c04491b616be7f9c72f0dfaaf2b0b7ff0a6a716d0afd37d96b1dfc1800367762"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/stream_last_chunk_empty.snapshot",
+      "bytes": 662,
+      "sha256": "4810c276566fe9977021a15b4e739bea2319ad5ddf0847f1dfba6fc1556d582a"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/stream_last_chunk_full.snapshot",
+      "bytes": 557,
+      "sha256": "2dd3be61247bc2284cdac2df1cce6a18db0e00574157f19439e3c228245bfccd"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/stream_last_chunk_full_second.snapshot",
+      "bytes": 647,
+      "sha256": "51008a18664460b97c6c621d71da607b09960141d08286a6b82e7a6818cc9efa"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/stream_missing_tag.snapshot",
+      "bytes": 414,
+      "sha256": "51f96aba6a55c0c7634490a0b76ac53cfef383c44130f01de0b20cf0cad5ffcc"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/stream_no_chunks.snapshot",
+      "bytes": 411,
+      "sha256": "506e93c795d1cab3cec64d6789f7fe45be545f10bff0b8a4d35d2472c58b5bd1"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/stream_no_final.snapshot",
+      "bytes": 428,
+      "sha256": "22221d2161e2d579479f11a02061d30fa2004c3e55f256e3e7c33c4b1b8cf4b7"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/stream_no_final_full.snapshot",
+      "bytes": 563,
+      "sha256": "23bce401fd7f428fa4b24d45c5054fef4cf3462a69047193032a17a2a043604c"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/stream_no_final_two_chunks.snapshot",
+      "bytes": 587,
+      "sha256": "0e1b1ae57c213c738f8ecb5367bd65d894e7ce78208cdee1ffef51d220d9d222"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/stream_no_final_two_chunks_full.snapshot",
+      "bytes": 656,
+      "sha256": "060b80ffaf5ae85aae6cf13cfcf0210927ab87cd63b03c20799d1c304261f27d"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/stream_no_nonce.snapshot",
+      "bytes": 320,
+      "sha256": "c849c71e932e72e87c576610ce2321ca80bd6500920c34c65230296c9fb7bcad"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/stream_short_chunk.snapshot",
+      "bytes": 423,
+      "sha256": "0c7b3c918f717c8fc047143ddcd244937a94aa3d9d81115fbb7c429991656d5b"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/stream_short_nonce.snapshot",
+      "bytes": 332,
+      "sha256": "89ac7c59680477968325e3e0ffb67973743ad63c42d601685f7d7513a6c2ff32"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/stream_short_second_chunk.snapshot",
+      "bytes": 581,
+      "sha256": "6c719858e51bb460ce192bebff1e9a60c62296976c6a616b84a8b0dd1aae951e"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/stream_three_chunks.snapshot",
+      "bytes": 737,
+      "sha256": "65228acff4093f43666daca36557be239315153dfce50730ff7a7c79fbbb7d9c"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/stream_trailing_garbage_long.snapshot",
+      "bytes": 593,
+      "sha256": "a019543f7c6d36a193e2f84ee348735e9e964f8785fdd5219e9cadef51211fc9"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/stream_trailing_garbage_short.snapshot",
+      "bytes": 582,
+      "sha256": "42ab8680743ba4bdae15a991ce53a6ecac747d269cced7ebc85f7e3ceaec5a01"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/stream_two_chunks.snapshot",
+      "bytes": 647,
+      "sha256": "51008a18664460b97c6c621d71da607b09960141d08286a6b82e7a6818cc9efa"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/stream_two_final_chunks.snapshot",
+      "bytes": 590,
+      "sha256": "f29f4769f00b3e07fdf510b15e961d45b82137e86fe0282bb5e53a82a82ee1fa"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/stream_two_final_chunks_full.snapshot",
+      "bytes": 655,
+      "sha256": "faacbff4a2d17dad128ec4f2e527411a613ed304c45798edc7d7a37b70b14306"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/stream_two_final_chunks_second.snapshot",
+      "bytes": 678,
+      "sha256": "10d2df215cb75721451d956dacd8e48aa67889dc16d651eb03fa0eee9db29ee2"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/stream_two_final_chunks_short.snapshot",
+      "bytes": 445,
+      "sha256": "481f70693cce27ae33a9ab1b5721dee652d218703efc0c37078c9e066cae24a3"
+    },
+    {
+      "path": "evidence/sources/C2SP/CCTV/age/testdata/version_unsupported.snapshot",
+      "bytes": 358,
+      "sha256": "a13d6b218009563a1190ae5a19184a7325238903ec68d4ffe8593497ef4d7523"
+    },
+    {
+      "path": "evidence/sources/FiloSottile/age/LICENSE.snapshot",
+      "bytes": 1516,
+      "sha256": "c5d65279d02955c0fc2294ae417c3add650d228f4f5c82bd6d531fc26c89cd96"
+    },
+    {
+      "path": "evidence/sources/FiloSottile/age/internal/bech32/bech32.go.snapshot",
+      "bytes": 5226,
+      "sha256": "b541ad4caca899fb3e11902aa3f478321fe9d623edbf43a76dd306433a7b0436"
+    },
+    {
+      "path": "evidence/sources/FiloSottile/age/internal/stream/stream.go.snapshot",
+      "bytes": 12332,
+      "sha256": "413d0fe48e66b7a0cc2319114a2d0a866803533de2e4348f4c26d7b8aad97798"
+    },
+    {
+      "path": "evidence/sources/FiloSottile/age/primitives.go.snapshot",
+      "bytes": 2357,
+      "sha256": "1b15827d309761e6fcbfd7dc1a8fa2e7fba8accac6f91f5ba4a2c7b3c9b2646d"
+    },
+    {
+      "path": "evidence/sources/FiloSottile/age/x25519.go.snapshot",
+      "bytes": 6376,
+      "sha256": "796cdf9cc507e334beb550f2241b1b9cf1b514517f0885c962e414607ed2decb"
+    },
+    {
+      "path": "evidence/vectors/empty.age.snapshot",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "evidence/vectors/header_crlf.age.snapshot",
+      "bytes": 207,
+      "sha256": "b0a8b9340991d8fb83e8b21f7e252ee18cbea9e8f9b585def4fe088c978f09f0"
+    },
+    {
+      "path": "evidence/vectors/hmac_bad.age.snapshot",
+      "bytes": 203,
+      "sha256": "2f2ec4b40aeb375694d9928f032481d1f10f0c84d4452eac35047ee833f95951"
+    },
+    {
+      "path": "evidence/vectors/hmac_extra_space.age.snapshot",
+      "bytes": 204,
+      "sha256": "986a820385ea5d0b50b858b3ee04fdf13ebb9e11dd7708b1f51ebe843686a6e1"
+    },
+    {
+      "path": "evidence/vectors/hmac_garbage.age.snapshot",
+      "bytes": 206,
+      "sha256": "08b3634da11ad16e9c59a6eaaece6d6d3e1f556d506864314e86fba691d9cbca"
+    },
+    {
+      "path": "evidence/vectors/hmac_missing.age.snapshot",
+      "bytes": 160,
+      "sha256": "ae3a4d32dc5e5310e9df3bdfe84c119d8e55caceaf444c40a2baff9a1515bb8d"
+    },
+    {
+      "path": "evidence/vectors/hmac_no_space.age.snapshot",
+      "bytes": 202,
+      "sha256": "2b669c3fa41d4c6e3e28eadf8507aa71faf0f71e018c99ba2f5532a0b27e5a70"
+    },
+    {
+      "path": "evidence/vectors/hmac_not_canonical.age.snapshot",
+      "bytes": 203,
+      "sha256": "ef12234c070a29355af038ec4876aecb06c49c39fcb21313df52b20c0276e6f5"
+    },
+    {
+      "path": "evidence/vectors/hmac_trailing_space.age.snapshot",
+      "bytes": 204,
+      "sha256": "880981e4e9bf9a87a92092d41e2c1c1b4c304ef25f1888a83165620297fdf8ed"
+    },
+    {
+      "path": "evidence/vectors/hmac_truncated.age.snapshot",
+      "bytes": 164,
+      "sha256": "e02eccef04a7b58befa7c3e036273e63dc6d754066de190aa9cbcf563dd57552"
+    },
+    {
+      "path": "evidence/vectors/stanza_bad_start.age.snapshot",
+      "bytes": 214,
+      "sha256": "0c861303690c5157ec042c898dc049e981c4f598435ca775e7d3053a97b3c911"
+    },
+    {
+      "path": "evidence/vectors/stanza_base64_padding.age.snapshot",
+      "bytes": 283,
+      "sha256": "fa1bd4d899b89339a116127746093139e3420c1a88aa7ca319c4026c6cfca28b"
+    },
+    {
+      "path": "evidence/vectors/stanza_empty_argument.age.snapshot",
+      "bytes": 224,
+      "sha256": "25aaafb84a6e5145ac408ba918a28c9ed2cdabe80a7531fc27b75def8756f72b"
+    },
+    {
+      "path": "evidence/vectors/stanza_empty_body.age.snapshot",
+      "bytes": 213,
+      "sha256": "0073369bde87ddc2e62f9052a76555848787e04a22c81f1152dd843ba9f7a1ea"
+    },
+    {
+      "path": "evidence/vectors/stanza_empty_last_line.age.snapshot",
+      "bytes": 344,
+      "sha256": "356349b551f7fe56b07073884a9599b044195802fb995355ca4b3c025fce2449"
+    },
+    {
+      "path": "evidence/vectors/stanza_invalid_character.age.snapshot",
+      "bytes": 217,
+      "sha256": "c03e7e370ff54c9e2779cb47d50a864bc195c20732fcb816a680bfc9c0bde462"
+    },
+    {
+      "path": "evidence/vectors/stanza_long_line.age.snapshot",
+      "bytes": 283,
+      "sha256": "d6431a1561a9b2ba16941676245a4548cff31176bbb303f2d31546d620cf8e60"
+    },
+    {
+      "path": "evidence/vectors/stanza_missing_body.age.snapshot",
+      "bytes": 212,
+      "sha256": "5ec2e5c5f0d14951200ce93bfb9ee8521e7ebb09c74ecf8fbcb4999adf3d881b"
+    },
+    {
+      "path": "evidence/vectors/stanza_missing_final_line.age.snapshot",
+      "bytes": 278,
+      "sha256": "5a4a5ac752c83049ed5e54d0b31cc17fc1367a64d80c70406a6560f5384a8b7c"
+    },
+    {
+      "path": "evidence/vectors/stanza_multiple_short_lines.age.snapshot",
+      "bytes": 279,
+      "sha256": "086fa917ed9f654ab46bb39818fd517ca524dda40f2655e2696e7146d8b70b2a"
+    },
+    {
+      "path": "evidence/vectors/stanza_no_arguments.age.snapshot",
+      "bytes": 207,
+      "sha256": "9fa223896edd249313568b137c92990521db4ec6394954fdfe3ee6c51cb886ef"
+    },
+    {
+      "path": "evidence/vectors/stanza_not_canonical.age.snapshot",
+      "bytes": 282,
+      "sha256": "fd70fadd11bfaabd198d1f25b7a3018ca416371c2bf6568b749e4b120b2da256"
+    },
+    {
+      "path": "evidence/vectors/stanza_spurious_cr.age.snapshot",
+      "bytes": 278,
+      "sha256": "9e9cb988df036395a30765c8fde1c3996359a5b63baca6604571a2d9007ede58"
+    },
+    {
+      "path": "evidence/vectors/stanza_valid_characters.age.snapshot",
+      "bytes": 317,
+      "sha256": "ab182b114ec1e2b7fe840491e28c2f4b0ed1bf4a73ba7f7acfbe907f0962fbce"
+    },
+    {
+      "path": "evidence/vectors/stream_bad_tag.age.snapshot",
+      "bytes": 203,
+      "sha256": "6206ba0028a69ecee08bf38936d22e00303ca0e231d2fcfd311ffb9c08aa39e2"
+    },
+    {
+      "path": "evidence/vectors/stream_bad_tag_second_chunk.age.snapshot",
+      "bytes": 65753,
+      "sha256": "835a752891734594978eabc88d5792735844a928e92a85669f3c8d698342177f"
+    },
+    {
+      "path": "evidence/vectors/stream_bad_tag_second_chunk_full.age.snapshot",
+      "bytes": 131288,
+      "sha256": "fffc16e458b5c1322553ca4f87709be4a67fa408dade51805cff55683c5b9ddf"
+    },
+    {
+      "path": "evidence/vectors/stream_empty_payload.age.snapshot",
+      "bytes": 200,
+      "sha256": "3145e2396062932b6e04d1c19e28dc3365658ce8d7fe73da536bbb5d42b0cbbb"
+    },
+    {
+      "path": "evidence/vectors/stream_last_chunk_empty.age.snapshot",
+      "bytes": 65752,
+      "sha256": "1f98652cc1e111823aa2c0e4ea2352e62e6716620cc7da2443356af0222d9aa8"
+    },
+    {
+      "path": "evidence/vectors/stream_last_chunk_full.age.snapshot",
+      "bytes": 65736,
+      "sha256": "506c0deadb7a57383ae096a883bea2464752b73a61525bccefb40bc6de468e09"
+    },
+    {
+      "path": "evidence/vectors/stream_last_chunk_full_second.age.snapshot",
+      "bytes": 131288,
+      "sha256": "86483fdf50635ff4cb1dc3f36dbe714906100869b09b7f1fde4a56b9e67b6b3d"
+    },
+    {
+      "path": "evidence/vectors/stream_missing_tag.age.snapshot",
+      "bytes": 187,
+      "sha256": "27756cc3b26f50bff75bbc97fa140af7f864cc0ef39a2a9df441cf0153ff4f58"
+    },
+    {
+      "path": "evidence/vectors/stream_no_chunks.age.snapshot",
+      "bytes": 184,
+      "sha256": "db18ed8f4a19052bde547d627c5415e40ffbe142421e05d53f61373a03360b0c"
+    },
+    {
+      "path": "evidence/vectors/stream_no_final.age.snapshot",
+      "bytes": 201,
+      "sha256": "943d14ef9f6bc1d6aac2f2c228a8e82a7c16dea557f27c2a8c13377d5f8136d1"
+    },
+    {
+      "path": "evidence/vectors/stream_no_final_full.age.snapshot",
+      "bytes": 65736,
+      "sha256": "39e925c736804fe32bf14a73d9ae9b88068149c9f7d5ff7a44b044e805003d96"
+    },
+    {
+      "path": "evidence/vectors/stream_no_final_two_chunks.age.snapshot",
+      "bytes": 65753,
+      "sha256": "97e32b931ab5225f7b1d40c6f18ec2ae7e43fbeba84c7c402e1d9a9c0456d124"
+    },
+    {
+      "path": "evidence/vectors/stream_no_final_two_chunks_full.age.snapshot",
+      "bytes": 131288,
+      "sha256": "0aaf14be946f48979f92d3863420927801bd75b847d4bfc6fed3df7689b398e5"
+    },
+    {
+      "path": "evidence/vectors/stream_no_nonce.age.snapshot",
+      "bytes": 168,
+      "sha256": "21fce190e581f7d67e5bc3bbc9ac8d155f627e81ee743349b4671b8fe0831cd3"
+    },
+    {
+      "path": "evidence/vectors/stream_short_chunk.age.snapshot",
+      "bytes": 196,
+      "sha256": "1e6e41309c74434979681e24a2c809832feb729befc2d39cf88e72d15442c10f"
+    },
+    {
+      "path": "evidence/vectors/stream_short_nonce.age.snapshot",
+      "bytes": 180,
+      "sha256": "8e8df2627053c53f56758de14e3025056e1fc952428ecdba3421222099b5a536"
+    },
+    {
+      "path": "evidence/vectors/stream_short_second_chunk.age.snapshot",
+      "bytes": 65748,
+      "sha256": "70874e5a3a9e6bf5135c09734a6131c11e9006e5c75d807158ad3b8f5706c066"
+    },
+    {
+      "path": "evidence/vectors/stream_three_chunks.age.snapshot",
+      "bytes": 196840,
+      "sha256": "6aa4208daef65083050368dd3ee5600138477aa8cc2476fafce592e6b2885dc8"
+    },
+    {
+      "path": "evidence/vectors/stream_trailing_garbage_long.age.snapshot",
+      "bytes": 65756,
+      "sha256": "6ce4fa71769543f8eff14645efb98bb1dc75dbbe7543a152967e50eb9807409d"
+    },
+    {
+      "path": "evidence/vectors/stream_trailing_garbage_short.age.snapshot",
+      "bytes": 65748,
+      "sha256": "bec138863dd2a0026053d8c81e62db3c45404aabb6085bf127dd62819ee4616a"
+    },
+    {
+      "path": "evidence/vectors/stream_two_chunks.age.snapshot",
+      "bytes": 131288,
+      "sha256": "86483fdf50635ff4cb1dc3f36dbe714906100869b09b7f1fde4a56b9e67b6b3d"
+    },
+    {
+      "path": "evidence/vectors/stream_two_final_chunks.age.snapshot",
+      "bytes": 65753,
+      "sha256": "9ba49613fa33b8ca5595d4a9c5a78ab39f537caefeaee6c048db0d575a9f85a4"
+    },
+    {
+      "path": "evidence/vectors/stream_two_final_chunks_full.age.snapshot",
+      "bytes": 131288,
+      "sha256": "5891fd0dd3988c52186231a7c0c4cf223bf5b9af93158d309d185024001090ad"
+    },
+    {
+      "path": "evidence/vectors/stream_two_final_chunks_second.age.snapshot",
+      "bytes": 131305,
+      "sha256": "7996d48b5c39d269b6beae4ff9eb80a970edc8bc16771931358824340c587dde"
+    },
+    {
+      "path": "evidence/vectors/stream_two_final_chunks_short.age.snapshot",
+      "bytes": 218,
+      "sha256": "44f92bb1c183c0b92a4f3c785169edbe59cea844b07f32dbebb3ee5d0ec80ef6"
+    },
+    {
+      "path": "evidence/vectors/version_unsupported.age.snapshot",
+      "bytes": 206,
+      "sha256": "ca73e6f7ea90d01cb50adc0ffc9345a2cb149bb44ba5e2897319150da8e67345"
+    },
+    {
+      "path": "evidence/vectors-receipt.json",
+      "bytes": 63327,
+      "sha256": "c77af71ae5cb6645b2839f0c8b115cc415dcd3c0de9903f6a1115145012ffba8"
+    },
+    {
+      "path": "produce.mjs",
+      "bytes": 11315,
+      "sha256": "4079ea121305c450f8c4f45ab4eabb4865e9e4c229aec754a6b93d87dc984d4a"
+    },
+    {
+      "path": "zip.json",
+      "bytes": 541,
+      "sha256": "ffc47f0fc7ff99ed86e85e004e8cbcc44657320906b585d9ef4b7817f3e1aba9"
+    }
+  ]
+}

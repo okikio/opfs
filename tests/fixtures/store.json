@@ -2,6 +2,14 @@
   "version": 1,
   "limit": 262144,
   "files": {
+    "tests/fixtures/age/cctv.json": {
+      "size": 2157031,
+      "sha256": "2b03cebedd5f43a08447876377924ced57e127b6c209eba786afdd4fdf0fe348"
+    },
+    "tests/fixtures/age/independent.json": {
+      "size": 2645064,
+      "sha256": "8b28b2fc60c175c506c0e970e2a1685556be26464da801487313416a06996dbf"
+    },
     "tests/fixtures/ar/independent.json": {
       "size": 705941,
       "sha256": "094869d0495772e41191a97b026013efcb484abb23f0d3a15458136580010f77"
