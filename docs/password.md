@@ -26,8 +26,9 @@ export async function preview(archiveBytes: ArrayBuffer, password: Uint8Array): 
 
 This is read-only compatibility with traditional ZipCrypto, an obsolete cipher. It is not authenticated encryption and
 is unsuitable for protecting newly created sensitive data. The API does not create encrypted archives. It supports
-encrypted STORED and raw-DEFLATE members, while strong PKWARE encryption, central-directory encryption, WinZip AES and
-other methods remain explicitly unsupported in this profile. Unencrypted reads retain their existing behavior.
+encrypted STORED and raw-DEFLATE members, while strong PKWARE encryption, central-directory encryption,
+[WinZip AES](aes.md) uses a separate explicit native capability; other methods remain explicitly unsupported in this
+legacy profile. Unencrypted reads retain their existing behavior.
 
 Encryption is opt-in per read through explicit password bytes. `entry.encrypted` continues to describe directory
 metadata; optional `entry.encryption` distinguishes `"zipcrypto"` from `"unsupported"`. Opening and planning require no
@@ -91,5 +92,5 @@ original payload oracle stays fixed.
 
 The implementation follows the traditional encryption section of the primary
 [PKWARE ZIP format specification](https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT). It does not copy
-third-party cipher source. [WinZip AES](https://www.winzip.com/en/support/aes-encryption/) is a different profile and
-cannot be inferred from the existence of password support.
+third-party cipher source. [WinZip AES](aes.md) is a separate profile with whole-ciphertext authentication and explicit
+native capability admission.

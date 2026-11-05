@@ -1,0 +1,24 @@
+{
+  "producerPackages": {
+    "7zip": "22.01+really26.02+dfsg-0+deb12u1",
+    "libarchive-tools": "3.6.2-1+deb12u5"
+  },
+  "architecture": "arm64",
+  "localBaseImage": "opfs-seven-tools:20261105",
+  "localBaseImageId": "sha256:527d62a5244f4fa71833b4a105a4906ec1c1c7708f64ea2967fa04d96c551dd5",
+  "imageLimit": "Local base; signed apt installation changes filesystem. Not a publicly pullable complete-producer pin.",
+  "ae1Origin": "Metadata/CRC adaptation of genuine AE-2 ciphertext, independently full-byte checked by libarchive. Not direct AE-1 producer output.",
+  "files": {
+    "create.py": "19ada08d66b5fb8b20ad312a83d9c1e4307f49e1e501481fa3cd0ed1b6e5228d",
+    "independent.json": "5fe88cc90d51354cc246812c13f8b82c1d6a398371574d1026bc56700d23f0d9"
+  },
+  "archives": {
+    "aes128-ae2": "3e04c685b812e3977b1b5e60bec58cb9625e097df8fe8da9ee4651815fec50e2",
+    "aes128-ae1": "5b669198e7244911c7a18e7b3d867c676b2bba71516399ed65564608b7727c78",
+    "aes192-ae2": "ce2ecbf351df2e03f0a0f6af180fd2a3be263c0241ad6c0588039c9c53bc37c0",
+    "aes192-ae1": "e4b6abe6c37bccb85a08de8254614d064c6955deb72fa1ada5ca5a7fe2d884e0",
+    "aes256-ae2": "5cf1d5cfb715d5ae51aad8b5675fa01f0c54db4f1420a50d9db39c3bc4b0716f",
+    "aes256-ae1": "dfbebf7e121027f36001eace2fa353a4cc8f85be711868347ba61dcd891ddf34",
+    "deflate": "f40cf42c254a003737cd7929ff11494a55bfffa55a34652aea899815df53835f"
+  }
+}

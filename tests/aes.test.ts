@@ -1,0 +1,294 @@
+import { describe, it } from "node:test";
+import { expect } from "@std/expect";
+import { decodeBase64 } from "@std/encoding/base64";
+import { createBlobSource } from "../src/source.ts";
+import { createArchiveLedger, openZip } from "../src/archive/zip.ts";
+import fixtures from "./fixtures/aes/independent.json" with { type: "json" };
+
+const source = (bytes: Uint8Array) => createBlobSource(new Blob([new Uint8Array(bytes).buffer]));
+const password = decodeBase64(fixtures["aes256-ae2"].password);
+const aes = { subtle: crypto.subtle };
+/** Navigate independent ZIP fixed fields without consulting candidate private metadata. */
+function positions(bytes: Uint8Array, name = "first.bin") {
+  const data = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let central = data.getUint32(bytes.length - 6, true);
+  while (
+    new TextDecoder().decode(bytes.subarray(central + 46, central + 46 + data.getUint16(central + 28, true))) !== name
+  ) {
+    central += 46 + data.getUint16(central + 28, true) + data.getUint16(central + 30, true) +
+      data.getUint16(central + 32, true);
+  }
+  const local = data.getUint32(central + 42, true);
+  const localExtra = local + 30 + data.getUint16(local + 26, true);
+  const centralExtra = central + 46 + data.getUint16(central + 28, true);
+  const payload = localExtra + data.getUint16(local + 28, true);
+  const find = (offset: number, length: number): number => {
+    const end = offset + length;
+    while (offset < end) {
+      if (data.getUint16(offset, true) === 0x9901) return offset + 4;
+      offset += 4 + data.getUint16(offset + 2, true);
+    }
+    throw new Error("Independent fixture has no AES extra.");
+  };
+  return {
+    data,
+    central,
+    local,
+    payload,
+    localAes: find(localExtra, data.getUint16(local + 28, true)),
+    centralAes: find(centralExtra, data.getUint16(central + 30, true)),
+  };
+}
+/** Keep real native method receivers while counting when plaintext operations become reachable. */
+function observe(callback: (method: string) => void): SubtleCrypto {
+  return new Proxy(crypto.subtle, {
+    get(target, property) {
+      const value: unknown = Reflect.get(target, property, target);
+      if (typeof value !== "function") return value;
+      return (...args: unknown[]) => {
+        callback(String(property));
+        return Reflect.apply(value, target, args);
+      };
+    },
+  });
+}
+
+describe("bounded WinZip AES STORED authentication", () => {
+  for (const profile of ["aes128-ae2", "aes192-ae2", "aes256-ae2", "aes128-ae1", "aes192-ae1", "aes256-ae1"] as const) {
+    it(`reads ${profile} with independent libarchive full-payload evidence`, async () => {
+      const fixture = fixtures[profile];
+      expect(fixture.independentPayloadVerified).toBe(true);
+      const bytes = decodeBase64(fixture.archive);
+      const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new Uint8Array(bytes)));
+      expect(Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("")).toBe(fixture.sha256);
+      const archive = await openZip(source(bytes));
+      for (const expected of fixture.entries) {
+        const entry = archive.entries.find((entry) => entry.name === expected.name)!;
+        expect(entry.encryption).toBe("winzip-aes");
+        const result = await archive.read(entry.id, { password, aes, verify: true });
+        expect(result.bytes).toEqual(decodeBase64(expected.body));
+        expect(result.integrity).toBe(profile.endsWith("ae2") ? "not-provided" : "checksum-verified");
+        expect(result.encryption).toEqual({ kind: "winzip-aes", authentication: "ciphertext-verified" });
+      }
+    });
+  }
+  it("authenticates a whole member then decrypts only covering blocks, including little-endian counter carry", async () => {
+    const archive = await openZip(source(decodeBase64(fixtures["aes256-ae2"].archive)));
+    const entry = archive.entries.find((entry) => entry.name === "large.bin")!;
+    const body = decodeBase64(fixtures["aes256-ae2"].entries.find((entry) => entry.name === "large.bin")!.body);
+    const calls: string[] = [];
+    const options = { password, aes: { subtle: observe((method) => calls.push(method)) }, offset: 4079, length: 38 };
+    const plan = archive.plan(entry.id, options);
+    expect(plan).toMatchObject({
+      supported: true,
+      access: "authenticated-range",
+      authentication: "full-member-hmac",
+      cryptoBlocks: 4,
+      sourceBytes: entry.compressedSize,
+      decodedBytes: entry.size * 2 + 64,
+    });
+    const result = await archive.read(entry.id, options);
+    expect(result.bytes).toEqual(body.slice(4079, 4117));
+    expect(result.work.decodedBytes).toBe(plan.decodedBytes);
+    expect(calls.filter((method) => method === "sign").length).toBe(1);
+    expect(calls.filter((method) => method === "verify").length).toBe(1);
+    expect(calls.filter((method) => method === "decrypt").length).toBe(4);
+    expect(calls.indexOf("verify")).toBeLessThan(calls.indexOf("decrypt"));
+  });
+  it("refuses wrong passwords and tampered salt, verifier, ciphertext or tag before any plaintext native call", async () => {
+    const original = decodeBase64(fixtures["aes256-ae2"].archive);
+    for (const location of ["salt", "verifier", "ciphertext", "tag", "password"] as const) {
+      const bytes = original.slice();
+      const { data, central, payload } = positions(bytes);
+      const size = data.getUint32(central + 20, true);
+      const at = location === "salt"
+        ? payload
+        : location === "verifier"
+        ? payload + 16
+        : location === "ciphertext"
+        ? payload + 18 + 50
+        : payload + size - 1;
+      if (location !== "password") bytes[at] = bytes[at]! ^ 1;
+      let decrypts = 0;
+      const archive = await openZip(source(bytes));
+      await expect(
+        archive.read(archive.entries.find((entry) => entry.name === "first.bin")!.id, {
+          password: location === "password" ? new Uint8Array([1, 2]) : password,
+          aes: {
+            subtle: observe((method) => {
+              if (method === "decrypt") decrypts++;
+            }),
+          },
+          length: 1,
+        }),
+      ).rejects.toMatchObject({ code: "checksum-mismatch" });
+      expect(decrypts).toBe(0);
+    }
+  });
+  it("separates AE-1 CRC from authenticated ciphertext and refuses disagreeing local metadata", async () => {
+    const bytes = decodeBase64(fixtures["aes256-ae1"].archive);
+    const { data, local, central } = positions(bytes);
+    data.setUint32(local + 14, 0x12345678, true);
+    data.setUint32(central + 16, 0x12345678, true);
+    const archive = await openZip(source(bytes));
+    const prefix = await archive.read(archive.entries.find((entry) => entry.name === "first.bin")!.id, {
+      password,
+      aes,
+      length: 3,
+    });
+    expect(prefix.integrity).toBe("checksum-pending");
+    expect(prefix.encryption?.authentication).toBe("ciphertext-verified");
+    await expect(
+      archive.read(archive.entries.find((entry) => entry.name === "first.bin")!.id, {
+        password,
+        aes,
+        length: 3,
+        verify: true,
+      }),
+    ).rejects.toMatchObject({
+      code: "checksum-mismatch",
+    });
+    for (const displacement of [0, 2, 4, 5]) {
+      const changed = decodeBase64(fixtures["aes256-ae2"].archive);
+      const at = positions(changed).localAes + displacement;
+      changed[at] = changed[at]! ^ 1;
+      const opened = await openZip(source(changed));
+      await expect(opened.read(opened.entries.find((entry) => entry.name === "first.bin")!.id, { password, aes }))
+        .rejects.toMatchObject({ code: "invalid-archive" });
+    }
+  });
+  it("refuses unsupported AES codecs and missing capability without source reads; budgets admit before native calls", async () => {
+    const bytes = decodeBase64(fixtures["aes256-ae2"].archive);
+    let reads = 0;
+    const archive = await openZip({
+      size: bytes.length,
+      stability: "immutable",
+      async read(offset, length) {
+        reads++;
+        return bytes.slice(offset, offset + length);
+      },
+    });
+    const entry = archive.entries.find((entry) => entry.name === "large.bin")!;
+    const before = reads;
+    await expect(archive.read(entry.id, { password })).rejects.toMatchObject({ code: "unsupported-profile" });
+    await expect(archive.read(entry.id, { aes })).rejects.toMatchObject({ code: "unsupported-profile" });
+    expect(reads).toBe(before);
+    let native = 0;
+    const capability = { subtle: observe(() => native++) };
+    for (
+      const options of [
+        { aes: { ...capability, maxBlocks: 1 } },
+        { aes: { ...capability, maxCiphertextBytes: 1 } },
+        { maxDecodedBytes: 1 },
+        { maxOutputBytes: 0 },
+        { maxRequests: 0 },
+        { maxSourceBytes: 0 },
+      ]
+    ) {
+      await expect(archive.read(entry.id, { password, aes: capability, length: 33, ...options })).rejects.toMatchObject(
+        { code: "budget-exceeded" },
+      );
+    }
+    expect(native).toBe(0);
+    expect(() => archive.plan(entry.id, { password, aes: { ...aes, maxBlocks: 8193 } })).toThrow(RangeError);
+    const deflate = await openZip(source(decodeBase64(fixtures.deflate.archive)));
+    expect(deflate.entries[0]!.encryption).toBe("unsupported");
+    await expect(deflate.read(0, { password, aes })).rejects.toMatchObject({ code: "unsupported-profile" });
+    const ledger = createArchiveLedger({ maxDecodedBytes: entry.size * 4 + 16 });
+    await archive.read(entry.id, { password, aes, length: 1, ledger });
+    await expect(archive.read(entry.id, { password, aes, length: 1, ledger })).rejects.toMatchObject({
+      code: "budget-exceeded",
+    });
+  });
+  it("keeps AE-2 verify:true range-only and refuses aggregate output before any additional decrypt call", async () => {
+    const archive = await openZip(source(decodeBase64(fixtures["aes256-ae2"].archive)));
+    const entry = archive.entries.find((entry) => entry.name === "large.bin")!;
+    let decrypts = 0;
+    const native = {
+      subtle: observe((method) => {
+        if (method === "decrypt") decrypts++;
+      }),
+    };
+    const ledger = createArchiveLedger({ maxOutputBytes: 1 });
+    const result = await archive.read(entry.id, { password, aes: native, length: 1, verify: true, ledger });
+    expect(result.integrity).toBe("not-provided");
+    expect(decrypts).toBe(1);
+    await expect(archive.read(entry.id, { password, aes: native, length: 1, ledger })).rejects.toMatchObject({
+      code: "budget-exceeded",
+    });
+    expect(decrypts).toBe(1);
+    const changed = decodeBase64(fixtures["aes256-ae2"].archive);
+    const { data, local, central } = positions(changed);
+    data.setUint16(local + 6, data.getUint16(local + 6, true) | 8, true);
+    data.setUint16(central + 8, data.getUint16(central + 8, true) | 8, true);
+    const descriptor = await openZip(source(changed));
+    expect(descriptor.entries.find((entry) => entry.name === "first.bin")!.encryption).toBe("unsupported");
+    const malformed = decodeBase64(fixtures["aes256-ae2"].archive);
+    const control = positions(malformed);
+    control.data.setUint32(control.local + 18, control.data.getUint32(control.local + 18, true) - 1, true);
+    control.data.setUint32(control.central + 20, control.data.getUint32(control.central + 20, true) - 1, true);
+    const truncated = await openZip(source(malformed));
+    await expect(truncated.read(truncated.entries.find((entry) => entry.name === "first.bin")!.id, { password, aes }))
+      .rejects.toMatchObject({ code: "invalid-archive" });
+  });
+  it("copies passwords before source await and waits for an in-flight nonabortable native operation", async () => {
+    const bytes = decodeBase64(fixtures["aes256-ae2"].archive);
+    const caller = password.slice();
+    let mutate = false;
+    const archive = await openZip({
+      size: bytes.length,
+      stability: "immutable",
+      async read(offset, length) {
+        if (mutate) caller.fill(0);
+        return bytes.slice(offset, offset + length);
+      },
+    });
+    mutate = true;
+    expect(
+      (await archive.read(archive.entries.find((entry) => entry.name === "first.bin")!.id, {
+        password: caller,
+        aes,
+        length: 1,
+      })).bytes.length,
+    ).toBe(1);
+    const abort = new AbortController();
+    let reached!: () => void;
+    const started = new Promise<void>((resolve) => reached = resolve);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => release = resolve);
+    const native = new Proxy(crypto.subtle, {
+      get(target, property) {
+        if (property === "deriveBits") {
+          return async (...args: Parameters<SubtleCrypto["deriveBits"]>) => {
+            const result = await target.deriveBits(...args);
+            reached();
+            await gate;
+            return result;
+          };
+        }
+        const value: unknown = Reflect.get(target, property, target);
+        return typeof value === "function" ? value.bind(target) : value;
+      },
+    });
+    let settled = false;
+    const pending = archive.read(archive.entries.find((entry) => entry.name === "first.bin")!.id, {
+      password,
+      aes: { subtle: native },
+      signal: abort.signal,
+    });
+    const observed = pending.then(() => {
+      settled = true;
+    }, () => {
+      settled = true;
+    });
+    await started;
+    abort.abort(new Error("stop-native"));
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    release();
+    await expect(pending).rejects.toThrow("stop-native");
+    await observed;
+    const truncated = bytes.slice(0, -1);
+    await expect(openZip(source(truncated))).rejects.toMatchObject({ code: "invalid-archive" });
+  });
+});
