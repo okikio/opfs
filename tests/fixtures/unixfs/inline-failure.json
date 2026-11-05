@@ -1,0 +1,28 @@
+{
+  "evidenceProfile": "retained independently observed native mismatch, not a successful interoperability fixture",
+  "cid": "bafybeihi2epnlfwmxahvzzz53wfsnpbvqsqwlt3fd54hyc4t3er6r2yhha",
+  "car": "OqJlcm9vdHOB2CpYJQABcBIg6NEe1ZbMuA9c5z3diya8NYShZc9lH3h8C5PZI+jrBzhndmVyc2lvbgG9AQFwEiDo0R7Vlsy4D1znPd2LJrw1hKFlz2UfeHwLk9kj6OsHOBIqCiQBVRIgI2mtS0NQj0272H4RUsO8T3qpkcSUueMhP7+wC+lnvCwYv4Q9EioKJAFVEiAjaa1LQ1CPTbvYfhFSw7xPeqmRxJS54yE/v7AL6We8LBi/hD0SKgokAVUSIOOwxEKY/BwUmvv0yJlvuSQnrkHkZJuTTKSVmRt4UrhVGL+EPQoTCAISB2lubGluZXwYGSAJIAkgAC0BVRIgI2mtS0NQj0272H4RUsO8T3qpkcSUueMhP7+wC+lnvCxsZWFmLWRhdGEkAVUSIOOwxEKY/BwUmvv0yJlvuSQnrkHkZJuTTKSVmRt4UrhV",
+  "expectedPrimaryBase64": "aW5saW5lfGxlYWYtZGF0YWxlYWYtZGF0YQ==",
+  "nativeActualBase64": "bGVhZi1kYXRhbGVhZi1kYXRh",
+  "expectedBytes": 25,
+  "nativeActualBytes": 18,
+  "initialScriptSha256": "2f5680610afce4a1c517afe72835624024f9300a8fc8262691862d5c42df93d4",
+  "diagnosticScriptSha256": "f1b2263ecf6cec7a1b3e7015abde0d681f07d3d4ca3d82e1873d3275efee213d",
+  "nativeVersion": "Kubo0.43.1-acc53c093 arm64/linux",
+  "boxoRevision": "d133242046c3fb796050017089ae581d8f54a38c",
+  "nativeReason": "ipld/unixfs/io/dagreader.go CtxReadFull and WriteTo skip nodes with Links, assuming no internal file data",
+  "blocks": [
+    {
+      "cid": "bafybeihi2epnlfwmxahvzzz53wfsnpbvqsqwlt3fd54hyc4t3er6r2yhha",
+      "base64": "EioKJAFVEiAjaa1LQ1CPTbvYfhFSw7xPeqmRxJS54yE/v7AL6We8LBi/hD0SKgokAVUSICNprUtDUI9Nu9h+EVLDvE96qZHElLnjIT+/sAvpZ7wsGL+EPRIqCiQBVRIg47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFUYv4Q9ChMIAhIHaW5saW5lfBgZIAkgCSAA"
+    },
+    {
+      "cid": "bafkreibdngwuwq2qr5g3xwd6cfjmhpcppkuzdreuxhrscp57waf6sz54fq",
+      "base64": "bGVhZi1kYXRh"
+    },
+    {
+      "cid": "bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku",
+      "base64": ""
+    }
+  ]
+}
