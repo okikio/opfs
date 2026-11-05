@@ -6,6 +6,10 @@
       "size": 1048843,
       "sha256": "f9a09febfc9fdd377d8d35ff1a3c8b63c82b3de0d73273fa0a455d74b29bc5bb"
     },
+    "tests/fixtures/cab/independent.json": {
+      "size": 529730,
+      "sha256": "0d4b787d50404d3fbfc233e8302440520627df8cffb9595360b6a710a5202975"
+    },
     "tests/fixtures/cpio/gnu.json": {
       "size": 709295,
       "sha256": "1f9e8817b646fb582403e9f1af1b40feeed7e5ea99744a072bbf4085fcc5d51a"
