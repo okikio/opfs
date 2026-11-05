@@ -320,6 +320,7 @@ jobs:
           BENCH_JSON=1 deno task bench:netcdf > .tmp/reports/archive-bench/netcdf.json 2> .tmp/reports/archive-bench/netcdf-stderr.log
           BENCH_JSON=1 deno task bench:arfs > .tmp/reports/archive-bench/arfs.json 2> .tmp/reports/archive-bench/arfs-stderr.log
           BENCH_JSON=1 deno task bench:las > .tmp/reports/archive-bench/las.json 2> .tmp/reports/archive-bench/las-stderr.log
+          BENCH_JSON=1 deno task bench:zip-bzip > .tmp/reports/archive-bench/zip-bzip.json 2> .tmp/reports/archive-bench/zip-bzip-stderr.log
           BENCH_JSON=1 deno task bench:zarr > .tmp/reports/archive-bench/zarr.json 2> .tmp/reports/archive-bench/zarr-stderr.log
           BENCH_JSON=1 deno task bench:unixfs > .tmp/reports/archive-bench/unixfs.json 2> .tmp/reports/archive-bench/unixfs-stderr.log
           BENCH_JSON=1 deno task bench:rar > .tmp/reports/archive-bench/rar.json 2> .tmp/reports/archive-bench/rar-stderr.log
