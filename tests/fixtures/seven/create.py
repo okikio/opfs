@@ -2,7 +2,7 @@
 
 python3 tests/fixtures/seven/create.py --seven /usr/bin/7zz --bsdtar /usr/bin/bsdtar
 Original inputs supply full payload oracles. Passwords below are public test data.
-No OPFS code is imported. Encoded/encrypted profiles are rejection fixtures.
+No OPFS code is imported. Encrypted profiles are rejection fixtures; encoded headers are independently extracted.
 """
 import argparse
 import base64
@@ -31,6 +31,8 @@ producer = command([args.seven]).stdout.decode(errors='replace').splitlines()[:5
 consumer = command([args.bsdtar, '--version']).stdout.decode().strip()
 profiles = {
     'copy': ['-m0=Copy', '-ms=off', '-mhc=off'],
+    'lzma1': ['-m0=LZMA:d64k', '-ms=off', '-mhc=off'],
+    'encoded-lzma1': ['-m0=LZMA:d64k', '-ms=off', '-mhc=on'],
     'lzma2': ['-m0=LZMA2', '-ms=off', '-mhc=off'],
     'solid': ['-m0=LZMA2', '-ms=on', '-mhc=off'],
     'encoded': ['-m0=Copy', '-ms=off', '-mhc=on'],

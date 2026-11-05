@@ -43,8 +43,8 @@
       "sha256": "d4c4c383453caadd3dbb32ae4337d00e043a847c797577c329f7f3d77dbe10f9"
     },
     "tests/fixtures/seven/independent.json": {
-      "size": 1770290,
-      "sha256": "46feab7366b3c3c6078a260bf35455e7d4891bc253e0771c8a9cd19c8a948f96"
+      "size": 2127666,
+      "sha256": "f21a4da1c9dcbabda3fb5b40b6f706cd4410172d0eba4816ab8db2861584acf6"
     }
   }
 }

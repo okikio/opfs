@@ -7,15 +7,30 @@
   "localBaseImage": "sha256:205a6b2ff80a9c72b8d3df0e9abc98970fde7edbbfcca91967bcf9a153e3bc79",
   "imageLimit": "Local base only; apt mutates filesystem, not a public full-producer pin.",
   "files": {
-    "create.py": "7ed226cbf0f5222843d191e8dd0b9ceb5959708eb335d3faa9915f665514ddbe",
-    "independent.json": "46feab7366b3c3c6078a260bf35455e7d4891bc253e0771c8a9cd19c8a948f96"
+    "create.py": "c350246ab7cb5d3d367b12c109920e297456e07a50ee00de2b6125ae904fc990",
+    "independent.json": "f21a4da1c9dcbabda3fb5b40b6f706cd4410172d0eba4816ab8db2861584acf6"
   },
   "archives": {
     "copy": "6a70beaae516e8c79fd1475911ef3b5bb5eb460a6cfd666e06dafa09af4abd41",
+    "lzma1": "3491840c0929419f430a79f10391c795d66c3497e141b1f5a259bf85d1f46c5a",
+    "encoded-lzma1": "fe800225a8a6e244924616499cf1aee8cd946c25b377a884d4288cae6f119fde",
     "lzma2": "340149b76991d0b7684e8b592daf2454a48faaef83bdd62c86a70770b0483442",
     "solid": "7cadd5ed5f395a7a3f88fd6995c9bc0240dccb1dcff4f581901a9c3b8c8030db",
     "encoded": "c1a548afcd2b4bb76ce0fc9c2548c3b5add34b8438a5de026f03d715d0e1863f",
-    "encrypted": "41b72b11eb12cfaef5d0e833a840d2c3e29b427bd9cba972082516d40b2f37fd",
-    "encrypted-header": "9a5488413be00bef13491b89a333294407f84eb10e25338d79154e62980a9e60"
-  }
+    "encrypted": "9098aa7eba8194581a26cfea5ebe5307f9c0e5d84d02c2b9115e4c42d86589c9",
+    "encrypted-header": "b9901473363e7d70e8dc28ad1dd0eb4800f4bbbd92db44911ec2fb9f6d3e9e6b"
+  },
+  "specifications": {
+    "commit": "e5431fa6f5505e385c6f9367260717e9c47dc2ee",
+    "format": {
+      "path": "DOC/7zFormat.txt",
+      "sha256": "5462d6c988d9c945fac46b0fac9ae4eaddd71bd863188bda84cf3b0c61b8ab23"
+    },
+    "methods": {
+      "path": "DOC/Methods.txt",
+      "sha256": "aee9f24203d3faec63b8815cc53177291471c69028831e745664b06c8e2ae6a3"
+    },
+    "scope": "Primary format grammar and method identifiers reviewed; no SDK implementation copied."
+  },
+  "profileScope": "LZMA1/LZMA2 single-substream payloads and genuine encoded headers are positive full-byte fixtures; solid/encrypted remain refusal controls. encoded-lzma1 names its payload method, not an assertion about its header coder."
 }
