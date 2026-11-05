@@ -138,7 +138,8 @@
     "./restic": "./src/restic.ts",
     "./dataset/fits": "./src/dataset/fits.ts",
     "./content/unixfs": "./src/content/unixfs.ts",
-    "./dataset/netcdf": "./src/dataset/netcdf.ts"
+    "./dataset/netcdf": "./src/dataset/netcdf.ts",
+    "./lakefs": "./src/lakefs.ts"
   },
   "imports": {
     "@okikio/undent": "jsr:@okikio/undent@^0.3.3",
