@@ -220,6 +220,7 @@ try {
     import { createBzipDecoder } from '@okikio/opfs/archive/bzip';
     import { PocketbaseClient } from '@okikio/opfs/pocketbase';
     import { SupabaseClient } from '@okikio/opfs/supabase';
+    import { NextcloudClient } from '@okikio/opfs/nextcloud';
     import { openRar } from '@okikio/opfs/archive/rar';
     import { openXz } from '@okikio/opfs/archive/xz';
     import { LfsClient, decodeLfsPointer, encodeLfsPointer, lfsPointerObject } from '@okikio/opfs/content/lfs';
@@ -604,6 +605,60 @@ try {
     assertBytes(Uint8Array.from(lzmaChunks), Uint8Array.from(atob(lzmaFixture.body), (byte) => byte.charCodeAt(0)));
     const lzmaEnd = await lzma.finished;
     if (lzmaEnd.status !== 'complete' || lzmaEnd.termination !== 'lzma2-end' || lzmaEnd.integrity !== 'none') throw new Error('Packed LZMA terminal scope changed');
+    const nextcloudBody = new TextEncoder().encode('native chunk bytes');
+    const nextcloudMethods = [];
+    const nextcloud = new NextcloudClient({
+      endpoint: 'https://cloud.invalid/', user: 'caller', credentials: () => 'Bearer explicit-token',
+      fetch: async (input, init) => {
+        const target = new URL(input.toString()), headers = new Headers(init?.headers);
+        if (headers.get('authorization') !== 'Bearer explicit-token' || target.origin !== 'https://cloud.invalid') throw new Error('Packed Nextcloud authority changed');
+        nextcloudMethods.push(init.method);
+        if (init.method === 'PUT') assertBytes(new Uint8Array(await new Response(init.body).arrayBuffer()), nextcloudBody);
+        if (init.method === 'MOVE' && (headers.get('overwrite') !== 'F' || !headers.get('destination').endsWith('/remote.php/dav/files/caller/note.txt'))) throw new Error('Packed Nextcloud publication scope changed');
+        return new Response(null, { status: 201 });
+      },
+    });
+    const nextcloudUpload = await nextcloud.createUpload('installed-fixture', 'note.txt', nextcloudBody.length);
+    const nextcloudPart = await nextcloud.putPart(nextcloudUpload, 1, nextcloudBody);
+    const nextcloudReceipt = await nextcloud.finishUpload(nextcloud.openUpload(JSON.parse(JSON.stringify(nextcloudUpload))), [nextcloudPart]);
+    if (nextcloudReceipt.status !== 201 || nextcloudMethods.join(',') !== 'MKCOL,PUT,MOVE') throw new Error('Packed Nextcloud upload receipts changed');
+    const sparseFixture = ${
+      JSON.stringify(
+        await (async () => {
+          const fixture = JSON.parse(
+            await readFile(new URL("../fixtures/tar-sparse/independent.json", import.meta.url), "utf8"),
+          );
+          const native = fixture.fixtures.find((entry) => entry.profile === "1.0");
+          return { archive: native.archive.base64, body: native.payloads["many.bin"].base64 };
+        })(),
+      )
+    };
+    const sparseTar = await openTar(createByteSource(Uint8Array.from(atob(sparseFixture.archive), (byte) => byte.charCodeAt(0))));
+    const sparseEntry = sparseTar.entries.find((entry) => entry.name === 'many.bin');
+    const sparseRead = await sparseTar.read(sparseEntry.id);
+    const sparseHole = sparseTar.entries.find((entry) => entry.name === 'all-hole.bin');
+    const sparseHoleRead = await sparseTar.read(sparseHole.id, { length: 37, maxSourceBytes: 0, maxRequests: 0 });
+    assertBytes(sparseHoleRead.bytes, new Uint8Array(37));
+    if (sparseHoleRead.work.sourceBytes !== 0 || sparseHoleRead.work.requests !== 0 || sparseHoleRead.work.decodedBytes !== 37 || sparseHoleRead.work.outputBytes !== 37) throw new Error('Packed sparse TAR hole accounting changed');
+    assertBytes(sparseRead.bytes, Uint8Array.from(atob(sparseFixture.body), (byte) => byte.charCodeAt(0)));
+    if (sparseEntry.sparse.profile !== 'gnu-pax-1.0' || sparseEntry.sparse.mapBytes <= 512 || sparseRead.integrity !== 'header-checksum-only') throw new Error('Packed sparse TAR physical/logical evidence changed');
+    const lzxFixture = ${
+      JSON.stringify(
+        await (async () => {
+          const fixture = JSON.parse(
+            await readFile(new URL("../fixtures/wim/lzx-independent.json", import.meta.url), "utf8"),
+          );
+          const file = fixture.images[0].files.find((entry) => entry.path === "calls.bin");
+          return { archive: fixture.base64, path: file.path, body: file.base64 };
+        })(),
+      )
+    };
+    const lzx = await openWim(createByteSource(Uint8Array.from(atob(lzxFixture.archive), (byte) => byte.charCodeAt(0))), { subtle: globalThis.crypto.subtle });
+    const lzxImage = await lzx.image(1);
+    const lzxEntry = lzxImage.entries.find((entry) => entry.path === lzxFixture.path);
+    const lzxRead = await lzxImage.read(lzxEntry.id);
+    assertBytes(lzxRead.bytes, Uint8Array.from(atob(lzxFixture.body), (byte) => byte.charCodeAt(0)));
+    if (lzx.profile !== 'lzx-32k-1.13' || lzxRead.integrity !== 'resource-sha1-verified' || lzxRead.lzxSteps <= 0 || lzxRead.lzxBlocks <= 0 || lzxRead.xpressSteps !== 0) throw new Error('Packed WIM LZX evidence changed');
     const supabaseBody = new TextEncoder().encode('native REST bytes');
     let supabaseAuth = 0;
     const supabase = new SupabaseClient({
@@ -894,6 +949,7 @@ try {
     import { createBzipDecoder } from '@okikio/opfs/archive/bzip';
     import { PocketbaseClient } from '@okikio/opfs/pocketbase';
     import { SupabaseClient } from '@okikio/opfs/supabase';
+    import { NextcloudClient } from '@okikio/opfs/nextcloud';
     import { openRar } from '@okikio/opfs/archive/rar';
     import { openXz } from '@okikio/opfs/archive/xz';
     import { LfsClient, decodeLfsPointer, encodeLfsPointer, lfsPointerObject } from '@okikio/opfs/content/lfs';
@@ -987,7 +1043,12 @@ try {
     const lzmaEnd: import('@okikio/opfs/archive/lzma').LzmaResultType = await lzma.finished;
     void lzmaEnd;
     const wim = await openWim(createByteSource(new Uint8Array()), { subtle: globalThis.crypto.subtle });
-    const wimProfile: 'uncompressed-1.13' | 'xpress-huffman-32k-1.13' = wim.profile;
+    const wimProfile: 'uncompressed-1.13' | 'xpress-huffman-32k-1.13' | 'lzx-32k-1.13' = wim.profile;
+    const nextcloud = new NextcloudClient({ endpoint: 'https://cloud.example/', user: 'caller', credentials: () => 'Bearer caller-token' });
+    const nextcloudUpload: import('@okikio/opfs/nextcloud').NextcloudUploadType = await nextcloud.createUpload('types', 'note.bin', 1);
+    const nextcloudPart: import('@okikio/opfs/nextcloud').NextcloudPartType = await nextcloud.putPart(nextcloudUpload, 1, new Uint8Array([1]));
+    const nextcloudReceipt: import('@okikio/opfs/nextcloud').NextcloudReceiptType = await nextcloud.finishUpload(nextcloudUpload, [nextcloudPart]);
+    void nextcloudReceipt;
     const wimImage: import('@okikio/opfs/archive/wim').WimImageViewType = await wim.image(1);
     void [wimProfile, wimImage];
     const xar = await openXar(createByteSource(new Uint8Array()), { verifyToc: false });
