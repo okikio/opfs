@@ -73,7 +73,10 @@
     "./crypto/tink": "./src/crypto/tink.ts",
     "./b2": "./src/b2.ts",
     "./driver/b2": "./src/driver/b2.ts",
-    "./adapter/b2": "./src/adapter/b2.ts"
+    "./adapter/b2": "./src/adapter/b2.ts",
+    "./swift": "./src/swift.ts",
+    "./driver/swift": "./src/driver/swift.ts",
+    "./adapter/swift": "./src/adapter/swift.ts"
   },
   "imports": {
     "@okikio/undent": "jsr:@okikio/undent@^0.3.3",
