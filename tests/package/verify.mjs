@@ -188,6 +188,12 @@ try {
     import { testByteSource } from '@okikio/opfs/testing/source';
     import { createNativeTink } from '@okikio/opfs/crypto/tink';
     import { createTarStream, readTarStream } from '@okikio/opfs/archive/stream';
+    import { openTar } from '@okikio/opfs/archive/tar';
+    import { createTarAdapter } from '@okikio/opfs/view/tar';
+    import { openCpio } from '@okikio/opfs/archive/cpio';
+    import { createCpioAdapter } from '@okikio/opfs/view/cpio';
+    import { DriveClient } from '@okikio/opfs/drive';
+    import { createD1Adapter } from '@okikio/opfs/adapter/d1';
     import { createZipStream } from '@okikio/opfs/archive/write';
     import { openZip } from '@okikio/opfs/archive/zip';
     import { compressStream, decompressStream } from '@okikio/opfs/archive/compress';
@@ -257,6 +263,24 @@ try {
     if (azureUpload.protocol !== 'azure-blocks-v1' || azureUpload.terminate !== undefined) {
       throw new Error('Packed Azure continuation construction contract failed');
     }
+    new DriveClient({ token: () => { throw new Error('Construction obtained credentials'); } });
+    const tarViewBytes = new Uint8Array(await new Response(createTarStream([
+      { name: 'notes/hello.txt', size: 3, body: new Blob([new Uint8Array([1,2,3])]).stream() }
+    ])).arrayBuffer());
+    const tarView = createFileSystem(createTarAdapter(await openTar(createByteSource(tarViewBytes))));
+    releases.push(() => tarView.close());
+    assertBytes(await tarView.readFile('/notes/hello.txt', { at: 1, length: 2 }), new Uint8Array([2,3]));
+    // CPIO fixture bytes come from the independent GNU producer retained by the repository.
+    const cpioFixture = ${
+      JSON.stringify(JSON.parse(await readFile(new URL("../fixtures/cpio/gnu.json", import.meta.url), "utf8")).crc)
+    };
+    const cpioBytes = Uint8Array.from(atob(cpioFixture.archive), (byte) => byte.charCodeAt(0));
+    const cpioArchive = await openCpio(createByteSource(cpioBytes));
+    const cpioView = createFileSystem(createCpioAdapter({ ...cpioArchive, entries: cpioArchive.entries.filter((entry) => entry.kind === 'file' || entry.kind === 'directory') }));
+    releases.push(() => cpioView.close());
+    const cpioExpected = Uint8Array.from(atob(cpioFixture.entries.find((entry) => entry.name === 'folder/data.bin').body), (byte) => byte.charCodeAt(0));
+    assertBytes(await cpioView.readFile('/folder/data.bin', { length: 7 }), cpioExpected.slice(0,7));
+    void createD1Adapter;
     const tarName = 'caf\u00e9/' + 'long-name-'.repeat(20);
     let tarMembers = 0;
     const tarScan = await readTarStream(createTarStream([
@@ -411,6 +435,12 @@ try {
     import { createMemoryAdapter } from '@okikio/opfs/adapter/memory';
     import { createTarStream, readTarStream } from '@okikio/opfs/archive/stream';
     import type { TarWriteEntryType } from '@okikio/opfs/archive/stream';
+    import { openTar } from '@okikio/opfs/archive/tar';
+    import { createTarAdapter } from '@okikio/opfs/view/tar';
+    import { openCpio } from '@okikio/opfs/archive/cpio';
+    import { createCpioAdapter } from '@okikio/opfs/view/cpio';
+    import { DriveClient } from '@okikio/opfs/drive';
+    import { createD1Adapter } from '@okikio/opfs/adapter/d1';
     import { createZipStream } from '@okikio/opfs/archive/write';
     import type { ZipWriteEntryType } from '@okikio/opfs/archive/write';
     import { openZip } from '@okikio/opfs/archive/zip';
@@ -421,6 +451,14 @@ try {
     import type { S3SessionType } from '@okikio/opfs/transfer/s3';
     import { AzureSessionSchema } from '@okikio/opfs/transfer/azure';
     import type { AzureSessionType } from '@okikio/opfs/transfer/azure';
+    import type { D1BindingType } from '@okikio/opfs/driver/d1';
+    declare const binding: D1BindingType;
+    const d1: FileSystemType = createFileSystem(await createD1Adapter(binding));
+    const drive = new DriveClient({ token: () => 'type-only' });
+    const driveFile: string = (await drive.stat('file')).id;
+    const tarView = createTarAdapter(await openTar(createByteSource(new Uint8Array())));
+    const cpioView = createCpioAdapter(await openCpio(createByteSource(new Uint8Array())));
+    void [d1, driveFile, tarView, cpioView];
     const fileSystem: FileSystemType = createFileSystem(createMemoryAdapter());
     await fileSystem.writeFile('/types.txt', 'ok', { parents: true });
     const tarEntry: TarWriteEntryType = { name: 'typed', size: 0 };
