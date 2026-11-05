@@ -34,6 +34,10 @@ explicit change-token mutations. Native Apache SDK readback verifies complete by
 not enforce HTTP authentication. [Classic HDF5](hdf5.md) adds literal root-link indexing and selected contiguous
 standard numeric values. The profile refuses unsupported layouts and provides no checksum or netCDF-4 interpretation.
 
+[CouchDB attachments](couchdb.md) preserve literal document/attachment IDs, whole-document revisions and native
+acknowledgements. Bounded metadata and exact streamed ranges do not imply a filesystem layout, immutable history or
+physical erasure. Official server/SDK tests verify complete bytes and sibling revision conflicts.
+
 ## How to continue
 
 Add each protocol as an import-safe subpath: client → driver → adapter → filesystem → real consumer bridge. Keep

@@ -244,6 +244,7 @@ try {
     import { openLha } from '@okikio/opfs/archive/lha';
     import { openHdf5 } from '@okikio/opfs/dataset/hdf5';
     import { createCmisClient } from '@okikio/opfs/cmis';
+    import { createCouchdbClient } from '@okikio/opfs/couchdb';
     import { compressStream, decompressStream } from '@okikio/opfs/archive/compress';
     import { parseCid, verifyBlock } from '@okikio/opfs/content/cid';
     import { createS3Client } from '@okikio/opfs/s3';
@@ -655,6 +656,26 @@ try {
     });
     if ((await cmis.repository()).root !== cmisFixture.rootId || (await cmis.get(cmisFixture.objectId)).id !== cmisFixture.objectId) throw new Error('Packed CMIS native identities changed');
     assertBytes(await cmis.read(cmisFixture.objectId), cmisOriginal);
+    const couchdbFixture = ${
+      JSON.stringify(
+        JSON.parse(await readFile(new URL("../fixtures/couchdb/independent.json", import.meta.url), "utf8")),
+      )
+    };
+    const couchdbOriginal = Uint8Array.from(atob(couchdbFixture.oracle.base64), (byte) => byte.charCodeAt(0));
+    const couchdb = createCouchdbClient({
+      endpoint:'https://couchdb.example/', database:couchdbFixture.database,
+      credentials:() => ({authorization:'Bearer installed-consumer-only'}),
+      fetch:async (input, init) => {
+        const url = new URL(String(input));
+        if (url.origin !== 'https://couchdb.example' || init.redirect !== 'manual' || init.credentials !== 'omit') throw new Error('Packed CouchDB authority changed');
+        const captured = url.searchParams.has('attachments') ? couchdbFixture.document : init.method === 'HEAD' ? couchdbFixture.head : couchdbFixture.content;
+        return new Response(init.method === 'HEAD' ? null : Uint8Array.from(atob(captured.base64), (byte) => byte.charCodeAt(0)), {status:captured.status,headers:captured.headers});
+      },
+    });
+    const couchdbDocument = await couchdb.document(couchdbFixture.documentId);
+    if (couchdbDocument.id !== couchdbFixture.documentId || couchdbDocument.attachments[0].length !== couchdbOriginal.length) throw new Error('Packed CouchDB native metadata changed');
+    assertBytes(await couchdb.read(couchdbFixture.documentId, couchdbFixture.attachmentName, {revision:couchdbDocument.revision}), couchdbOriginal);
+    if ((await couchdb.stat(couchdbFixture.documentId, couchdbFixture.attachmentName)).etag !== couchdbFixture.content.headers.etag) throw new Error('Packed CouchDB attachment ETag changed');
     const lhaFixture = ${
       JSON.stringify(
         await (async () => {
@@ -1381,6 +1402,7 @@ try {
     import { openLha } from '@okikio/opfs/archive/lha';
     import { openHdf5 } from '@okikio/opfs/dataset/hdf5';
     import { createCmisClient } from '@okikio/opfs/cmis';
+    import { createCouchdbClient } from '@okikio/opfs/couchdb';
     import { createByteSource } from '@okikio/opfs/source';
     import { createCompressedTar, readCompressedTar } from '@okikio/opfs/archive/compress';
     import { parseCid, verifyBlock } from '@okikio/opfs/content/cid';
@@ -1521,7 +1543,10 @@ try {
     const hdf5Values: import('@okikio/opfs/dataset/hdf5').Hdf5ValuesType = (await hdf5Dataset.read({offset:0,count:1})).values;
     const cmisTyped: import('@okikio/opfs/cmis').CmisClient = createCmisClient({repository:'type-only', repositoryUrl:'https://repository.example/browser/A1', rootUrl:'https://repository.example/browser/A1/root'});
     const cmisPage: import('@okikio/opfs/cmis').CmisPageType = await cmisTyped.list('root', {limit:1});
-    void [lhaTypedRead, hdf5Values, cmisPage];
+    const couchdbTyped: import('@okikio/opfs/couchdb').CouchdbClient = createCouchdbClient({endpoint:'https://couchdb.example/',database:'type-only'});
+    const couchdbDocument: import('@okikio/opfs/couchdb').CouchdbDocumentType = await couchdbTyped.document('doc');
+    const couchdbReceipt: import('@okikio/opfs/couchdb').CouchdbReceiptType = await couchdbTyped.put('doc','file',new Uint8Array(),{revision:couchdbDocument.revision});
+    void [lhaTypedRead, hdf5Values, cmisPage, couchdbReceipt];
     const zipLzmaPolicy: import('@okikio/opfs/archive/zip').ZipLzmaOptionsType = { maxDictionaryBytes: 1048576, maxSteps: 1000000 };
     const zipCodecArchive = await openZip(createByteSource(new Uint8Array()));
     const zipCodecRead = await zipCodecArchive.read(0, { lzma: zipLzmaPolicy });

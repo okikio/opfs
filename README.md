@@ -137,6 +137,9 @@ or cancellation behavior.
 | Restartable uploads       | [tus and transfers](docs/transfer.md), [S3 multipart](docs/s3-transfer.md) and [Azure block continuation](docs/azure-transfer.md) use explicit checkpoints and reconciliation. Keep sources immutable, save checkpoints atomically and enforce exclusive destination ownership. Azure has no uncommitted-block-only abort operation.                                                                                                                                             |
 | Content-addressed bytes   | [IPFS/CID/CAR](docs/ipfs.md) separates gateway trust from verified complete raw blocks. [OCI](docs/oci.md) verifies bounded complete manifests/blobs, without merging image layers. [Git](docs/git.md) verifies loose objects; [Git LFS](docs/lfs.md) separates native transfers from bounded whole-object SHA-256 verification. Neither resolves refs or publishes a repository. None establishes publisher identity.                                                           |
 
+[CouchDB attachments](docs/couchdb.md) expose native document revisions, exact byte streams and explicit mutation
+receipts. Applications own document fields, conflict resolution and any filesystem projection.
+
 For a nested preview, first choose a revision-bound [byte source](docs/source.md), open the matching reader, inspect its
 entries and request a finite member interval. A reader may still need a full ciphertext or compressed prefix. Inspect
 its plan and returned integrity evidence before displaying or publishing bytes; an early prefix can precede a later
