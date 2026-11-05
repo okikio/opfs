@@ -170,7 +170,8 @@
     "./archive/lzma": "./src/archive/lzma.ts",
     "./firebase": "./src/firebase.ts",
     "./archive/xz": "./src/archive/xz.ts",
-    "./content/lfs": "./src/content/lfs.ts"
+    "./content/lfs": "./src/content/lfs.ts",
+    "./pocketbase": "./src/pocketbase.ts"
   },
   "dependencies": {
     "@okikio/undent": "^0.3.3",
