@@ -128,8 +128,9 @@ The retained fixture was generated and validated by an immutable Library of Cong
 BagIt 1.0. It includes SHA256/SHA512 payload and tag manifests, empty/binary data and Unicode/space/newline names.
 Independent Python validation rejects tampering, missing files and extra payload files. Every retained digest is also
 checked against Python hashlib and this reader's explicit verifier. The
-[fixture record](../tests/fixtures/bagit/README.md) records the commit, source SHA256, runtime, commands and known
-producer limitation. Bagit-python 1.8 emits 0.97 and was not silently rewritten into 1.0 evidence.
+[fixture record](https://github.com/okikio/opfs/blob/df13e87/tests/fixtures/bagit/README.md) records the commit, source
+SHA256, runtime, commands and known producer limitation. Bagit-python 1.8 emits 0.97 and was not silently rewritten into
+1.0 evidence.
 
 The pinned producer does not escape literal percent signs in names. Its own validator rejects its generated
 `literal%0A.txt` bag by confusing it with a newline filename. That failure is retained separately; the genuine validated

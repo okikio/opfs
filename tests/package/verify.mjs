@@ -202,6 +202,8 @@ try {
     import { openAr } from '@okikio/opfs/archive/ar';
     import { openMbox } from '@okikio/opfs/archive/mbox';
     import { FtpClient } from '@okikio/opfs/ftp';
+    import { SftpClient } from '@okikio/opfs/sftp';
+    import { openBagit } from '@okikio/opfs/archive/bagit';
     import { createD1Adapter } from '@okikio/opfs/adapter/d1';
     import { createZipStream } from '@okikio/opfs/archive/write';
     import { openZip } from '@okikio/opfs/archive/zip';
@@ -340,6 +342,26 @@ try {
     assertBytes((await messageMime.read(0)).bytes, new Uint8Array([0,1,2,3,255]));
     const ftp = new FtpClient({ host: 'fixture.invalid', username: 'user', password: 'password', mode: 'plain', transport: { connect() { throw new Error('FTP construction acquired a socket'); } } });
     await ftp.close();
+    const bagitFixture = ${
+      JSON.stringify(JSON.parse(await readFile(new URL("../fixtures/bagit/independent.json", import.meta.url), "utf8")))
+    };
+    const bag = await openBagit([{ kind: 'directory', path: 'data' }, ...bagitFixture.files.map((entry) => ({ kind: 'file', path: entry.path, source: createByteSource(Uint8Array.from(atob(entry.base64), (byte) => byte.charCodeAt(0))) }))]);
+    if (bag.coverage.issues.length) throw new Error('Packed BagIt coverage differs from independent inventory');
+    const bagManifest = bag.manifests.find((manifest) => manifest.kind === 'payload' && manifest.algorithm === 'sha512');
+    if ((await bag.verify(bagManifest.id, 'data/binary.bin', { subtle: globalThis.crypto.subtle })).integrity !== 'manifest-digest') throw new Error('Packed BagIt digest failed');
+    assertBytes(await bag.source('data/binary.bin').read(0, 5), new Uint8Array([0,1,2,3,255]));
+    const passwordFixture = ${
+      JSON.stringify(
+        JSON.parse(await readFile(new URL("../fixtures/password/independent.json", import.meta.url), "utf8")).stored,
+      )
+    };
+    const passwordZip = await openZip(createByteSource(Uint8Array.from(atob(passwordFixture.archive), (byte) => byte.charCodeAt(0))));
+    const passwordEntry = passwordZip.entries.find((entry) => entry.name === 'first.bin');
+    const passwordRead = await passwordZip.read(passwordEntry.id, { password: Uint8Array.from(atob(passwordFixture.password), (byte) => byte.charCodeAt(0)) });
+    assertBytes(passwordRead.bytes, Uint8Array.from(atob(passwordFixture.entries.find((entry) => entry.name === 'first.bin').body), (byte) => byte.charCodeAt(0)));
+    if (passwordRead.encryption.authentication !== 'none' || passwordRead.integrity !== 'checksum-verified') throw new Error('Packed ZipCrypto evidence changed');
+    const sftp = new SftpClient({ openChannel() { throw new Error('SFTP construction acquired a channel'); } });
+    await sftp.close();
     const packedOciManifest = JSON.stringify({"schemaVersion":2,"mediaType":"application/vnd.oci.image.manifest.v1+json","config":{"mediaType":"application/vnd.oci.empty.v1+json","digest":"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a","size":2},"layers":[{"mediaType":"application/octet-stream","digest":"sha256:039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81","size":3}]});
     const packedOci = new OciClient({
       registry: 'https://registry.invalid/', repository: 'packed/artifact',
@@ -522,6 +544,8 @@ try {
     import { openAr } from '@okikio/opfs/archive/ar';
     import { openMbox } from '@okikio/opfs/archive/mbox';
     import { FtpClient } from '@okikio/opfs/ftp';
+    import { SftpClient } from '@okikio/opfs/sftp';
+    import { openBagit } from '@okikio/opfs/archive/bagit';
     import { createD1Adapter } from '@okikio/opfs/adapter/d1';
     import { createZipStream } from '@okikio/opfs/archive/write';
     import type { ZipWriteEntryType } from '@okikio/opfs/archive/write';
@@ -555,6 +579,12 @@ try {
     const mboxSource = (await mbox.openMessage(0, { trailing: 'preserve' })).source;
     const ftp = new FtpClient({ host: 'types.invalid', username: 'user', password: 'password', mode: 'plain', transport: { async connect() { throw new Error('types only'); } } });
     const ftpDone: Promise<void> = ftp.close();
+    const sftp = new SftpClient({ async openChannel() { throw new Error('types only'); } });
+    const sftpDone: Promise<void> = sftp.close();
+    const bag = await openBagit([]);
+    const bagProof: 'supplied-inventory' = bag.coverage.scope;
+    const passwordOptions = { password: new Uint8Array(), verify: true };
+    void [sftpDone, bagProof, passwordOptions];
     void [onedrive, cab, readable, mimeComplete, sevenReadable, arSource, mboxSource, ftpDone];
     const registry = new OciClient({ registry: 'https://registry.invalid/', repository: 'types/content' });
     const ociDigest: string = (await registry.getManifest('release')).digest;
