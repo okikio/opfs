@@ -243,6 +243,8 @@ try {
     import { createArweaveClient } from '@okikio/opfs/arweave';
     import { openLha } from '@okikio/opfs/archive/lha';
     import { openArj } from '@okikio/opfs/archive/arj';
+    import { openMemcachedClient, MemcachedExpirySchema } from '@okikio/opfs/memcached';
+    import { openMcap } from '@okikio/opfs/dataset/mcap';
     import { openHdf5 } from '@okikio/opfs/dataset/hdf5';
     import { createCmisClient } from '@okikio/opfs/cmis';
     import { createCouchdbClient } from '@okikio/opfs/couchdb';
@@ -783,6 +785,48 @@ try {
     assertBytes(lhaRead.bytes, lhaOriginal);
     if (lhaEntry.level !== 2 || lhaRead.integrity !== 'crc16-verified' || lhaEntry.headerIntegrity !== 'crc16-verified') throw new Error('Packed LHA scopes changed');
     assertBytes(await lha.member(lhaEntry.id).read(3, 17), lhaOriginal.slice(3, 20));
+    const memcachedFixture = ${
+      JSON.stringify(
+        JSON.parse(await readFile(new URL("../fixtures/memcached/independent.json", import.meta.url), "utf8")),
+      )
+    };
+    const memcachedWire=Uint8Array.from(atob(memcachedFixture.get.base64),(byte)=>byte.charCodeAt(0));
+    const memcachedOriginal=Uint8Array.from(atob(memcachedFixture.oracle.base64),(byte)=>byte.charCodeAt(0));
+    let memcachedController,memcachedClosed=0,memcachedWrites=0;
+    const memcached=await openMemcachedClient({openChannel:async()=>({
+      readable:new ReadableStream({start(controller){memcachedController=controller;}}),
+      writable:new WritableStream({write(bytes){assertBytes(bytes,new TextEncoder().encode('gets '+memcachedFixture.key+'\\r\\n'));memcachedWrites++;memcachedController.enqueue(memcachedWire);}}),
+      close:async()=>{memcachedClosed++;memcachedController.close();}
+    })});
+    try {
+      const item=await memcached.get(memcachedFixture.key);
+      if(!item || item.cas!==memcachedFixture.cas || item.flags!==memcachedFixture.flags) throw new Error('Packed Memcached native identity changed');
+      assertBytes(item.bytes,memcachedOriginal);
+      if(!MemcachedExpirySchema.safeParse({kind:'absolute',seconds:2147483647}).success || MemcachedExpirySchema.safeParse({kind:'absolute',seconds:2147483648}).success) throw new Error('Packed Memcached expiry boundary changed');
+    } finally {await memcached.close();}
+    if(memcachedWrites!==1 || memcachedClosed!==1) throw new Error('Packed Memcached channel ownership changed');
+    const mcapFixture = ${
+      JSON.stringify(
+        JSON.parse(await readFile(new URL("../fixtures/mcap/independent.json", import.meta.url), "utf8")).fixtures.find(
+          (row) => row.name === "chunked",
+        ),
+      )
+    };
+    const mcap=await openMcap(createByteSource(Uint8Array.from(atob(mcapFixture.data),(byte)=>byte.charCodeAt(0))),{profile:'mcap0-uncompressed'});
+    const mcapPage=mcap.messages({limit:64,maxScanned:64});
+    if(mcapPage.messages.length!==mcapFixture.messages.length || mcap.integrity.scope!=='summary' || mcap.integrity.status!=='verified') throw new Error('Packed MCAP physical enumeration changed');
+    for(let id=0;id<mcapFixture.messages.length;id++){
+      const original=mcapFixture.messages[id], descriptor=mcapPage.messages[id], result=await mcap.read(id);
+      assertBytes(result.bytes,Uint8Array.from(atob(original.data),(byte)=>byte.charCodeAt(0)));
+      if(descriptor.logTime!==BigInt(original.logTime) || descriptor.publishTime!==BigInt(original.publishTime) || result.integrity.scope!=='chunk' || result.integrity.status!=='verified') throw new Error('Packed MCAP exact time or CRC scope changed');
+    }
+    const mcapSparse=mcap.messages({channelId:65535,limit:2,maxScanned:3});
+    if(mcapSparse.messages.length!==0 || mcapSparse.scanned!==3 || mcapSparse.cursor!==3) throw new Error('Packed MCAP empty sparse continuation changed');
+    const mcapUnchecked=await mcap.read(0,{length:3,verify:false});
+    if(mcapUnchecked.integrity.status!=='pending') throw new Error('Packed MCAP pending evidence changed');
+    assertBytes(await mcap.source(0).read(0,3),Uint8Array.from(atob(mcapFixture.messages[0].data),(byte)=>byte.charCodeAt(0)).slice(0,3));
+    assertBytes((await mcap.readAttachment(0)).bytes,new Uint8Array([0,...new TextEncoder().encode('native attachment'),255]));
+    if((await mcap.verify({scope:'data'})).integrity.status!=='verified') throw new Error('Packed MCAP whole data check changed');
     const arjFixture = ${
       JSON.stringify(
         await (async () => {
@@ -1518,6 +1562,8 @@ try {
     import { createArweaveClient } from '@okikio/opfs/arweave';
     import { openLha } from '@okikio/opfs/archive/lha';
     import { openArj } from '@okikio/opfs/archive/arj';
+    import { openMemcachedClient, MemcachedExpirySchema } from '@okikio/opfs/memcached';
+    import { openMcap } from '@okikio/opfs/dataset/mcap';
     import { openHdf5 } from '@okikio/opfs/dataset/hdf5';
     import { createCmisClient } from '@okikio/opfs/cmis';
     import { createCouchdbClient } from '@okikio/opfs/couchdb';
@@ -1663,6 +1709,14 @@ try {
     const arjTypedRead: import('@okikio/opfs/archive/arj').ArjReadType = await arjTyped.read(0,{verify:false,length:1});
     const arjTypedSource: import('@okikio/opfs/source').ByteSourceType = arjTyped.member(0);
     void [arjTypedRead,arjTypedSource];
+    const memcachedTyped: import('@okikio/opfs/memcached').MemcachedClient = await openMemcachedClient({openChannel:async()=>{throw new Error('type-only');}});
+    const memcachedValue: import('@okikio/opfs/memcached').MemcachedEntryType | null = await memcachedTyped.get('key');
+    const memcachedExpiry: import('@okikio/opfs/memcached').MemcachedExpiryType = MemcachedExpirySchema.parse({kind:'relative',seconds:0});
+    const memcachedReceipt: import('@okikio/opfs/memcached').MemcachedReceiptType = await memcachedTyped.put('key',new Uint8Array(),{mode:'add',flags:0,expiry:memcachedExpiry});
+    const mcapTyped: import('@okikio/opfs/dataset/mcap').McapFileType = await openMcap(createByteSource(new Uint8Array()),{profile:'mcap0-uncompressed'});
+    const mcapPageTyped: import('@okikio/opfs/dataset/mcap').McapPageType = mcapTyped.messages({startLogTime:9007199254740993n});
+    const mcapReadTyped: import('@okikio/opfs/dataset/mcap').McapReadType = await mcapTyped.read(0,{length:3});
+    void [memcachedValue,memcachedReceipt,mcapPageTyped,mcapReadTyped];
     const hdf5Typed: import('@okikio/opfs/dataset/hdf5').Hdf5FileType = await openHdf5(createByteSource(new Uint8Array()), {profile:'classic-contiguous'});
     const hdf5Dataset: import('@okikio/opfs/dataset/hdf5').Hdf5DatasetType = await hdf5Typed.dataset('literal-name');
     const hdf5Values: import('@okikio/opfs/dataset/hdf5').Hdf5ValuesType = (await hdf5Dataset.read({offset:0,count:1})).values;

@@ -66,3 +66,8 @@ profiles. Those are discovery inventories, not additive integration counts. The 
 [versioned research handoff](https://github.com/okikio/opfs/blob/b3ed2f7092264e1a5d86358a10bd1f00386466bf/planning/storage/README.md)
 preserves every catalog ID, route and format record in a fresh clone. Its historical proposals remain distinct from the
 implemented capabilities on this page.
+
+[Memcached](memcached.md) adds classic ASCII cache byte commands, lossless CAS tokens and explicit expiry without a
+filesystem projection or persistence claim. [MCAP](mcap.md) adds physical major-0 uncompressed recording inspection,
+bounded sparse pages and selected payload/attachment previews. CRC scopes and replay costs remain explicit; compressed
+chunks and application payload decoding remain separate work.
