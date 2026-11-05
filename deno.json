@@ -155,7 +155,10 @@
     "./upload": "./src/upload.ts",
     "./archive/arj": "./src/archive/arj.ts",
     "./memcached": "./src/memcached.ts",
-    "./dataset/mcap": "./src/dataset/mcap.ts"
+    "./dataset/mcap": "./src/dataset/mcap.ts",
+    "./archive/binhex": "./src/archive/binhex.ts",
+    "./dataset/shapefile": "./src/dataset/shapefile.ts",
+    "./pubsub": "./src/pubsub.ts"
   },
   "imports": {
     "@okikio/undent": "jsr:@okikio/undent@^0.3.3",
