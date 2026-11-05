@@ -216,6 +216,8 @@ try {
     import { PcloudClient } from '@okikio/opfs/pcloud';
     import { YandexClient } from '@okikio/opfs/yandex';
     import { FirebaseClient } from '@okikio/opfs/firebase';
+    import { openXz } from '@okikio/opfs/archive/xz';
+    import { LfsClient, decodeLfsPointer, encodeLfsPointer, lfsPointerObject } from '@okikio/opfs/content/lfs';
     import { openGitObject, encodeGitTree } from '@okikio/opfs/content/git';
     import { createD1Adapter } from '@okikio/opfs/adapter/d1';
     import { createZipStream } from '@okikio/opfs/archive/write';
@@ -489,6 +491,34 @@ try {
       return Response.json({ bucket: 'demo-opfs.appspot.com', name: 'packed', size: '3', generation: '9007199254740993', metageneration: '1' });
     } });
     if ((await firebase.stat('packed')).generation !== '9007199254740993') throw new Error('Packed Firebase generation was rounded');
+    const xzFixture = ${
+      JSON.stringify(
+        JSON.parse(await readFile(new URL("../fixtures/xz/independent.json", import.meta.url), "utf8")).cases.find((
+          entry,
+        ) => entry.name === "crc64-vector"),
+      )
+    };
+    const xz = await openXz(createByteSource(Uint8Array.from(atob(xzFixture.archive), (byte) => byte.charCodeAt(0))));
+    const xzRead = await xz.read();
+    assertBytes(xzRead.bytes, Uint8Array.from(atob(xzFixture.body), (byte) => byte.charCodeAt(0)));
+    if (xz.check !== 'crc64' || xzRead.checks[0].integrity !== 'crc64-verified' || xzRead.checks[0].crc64 !== '995dc9bbdf1939fa') throw new Error('Packed XZ CRC64 evidence changed');
+    const lfsPointerBytes = Uint8Array.from(atob(${
+      JSON.stringify((await readFile(new URL("../fixtures/lfs/hello.pointer", import.meta.url))).toString("base64"))
+    }), (byte) => byte.charCodeAt(0));
+    const lfsPointer = decodeLfsPointer(lfsPointerBytes);
+    assertBytes(encodeLfsPointer(lfsPointer), lfsPointerBytes);
+    const lfsObject = lfsPointerObject(lfsPointer);
+    const lfs = new LfsClient({ endpoint: 'https://repo.example/lfs/', downloadOrigins: ['https://objects.example'], subtle: globalThis.crypto.subtle, credentials: () => ({ Authorization: 'Bearer repository-only' }), fetch: async (input, init) => {
+      const url = new URL(String(input));
+      if (url.origin === 'https://repo.example') {
+        if (new Headers(init.headers).get('Authorization') !== 'Bearer repository-only') throw new Error('Packed LFS repository auth changed');
+        return Response.json({ objects: [{ ...lfsObject, actions: { download: { href: 'https://objects.example/body' } } }] });
+      }
+      if (new Headers(init.headers).has('Authorization')) throw new Error('Packed LFS leaked repository auth');
+      return new Response('hello\\n');
+    } });
+    const lfsSource = await lfs.openVerified(lfsObject);
+    assertBytes(await lfsSource.read(1, 3), new TextEncoder().encode('ell'));
     const yandex = new YandexClient({ token: () => 'fixture-token', fetch: async () => Response.json({ path: 'disk:/packed', name: 'packed', type: 'file', size: 3 }) });
     if ((await yandex.stat('disk:/packed')).size !== 3) throw new Error('Packed Yandex native resource failed');
     const pcloud = new PcloudClient({ endpoint: 'https://api.pcloud.com', token: () => 'fixture-token', fetch: async () => new Response('{"result":0,"metadata":{"isfolder":false,"id":"f7","fileid":7,"parentfolderid":0,"name":"packed","size":3,"hash":18446744073709551615}}') });
@@ -758,6 +788,8 @@ try {
     import { PcloudClient } from '@okikio/opfs/pcloud';
     import { YandexClient } from '@okikio/opfs/yandex';
     import { FirebaseClient } from '@okikio/opfs/firebase';
+    import { openXz } from '@okikio/opfs/archive/xz';
+    import { LfsClient, decodeLfsPointer, encodeLfsPointer, lfsPointerObject } from '@okikio/opfs/content/lfs';
     import { openGitObject, encodeGitTree } from '@okikio/opfs/content/git';
     import { createD1Adapter } from '@okikio/opfs/adapter/d1';
     import { createZipStream } from '@okikio/opfs/archive/write';
@@ -822,6 +854,12 @@ try {
     const firebaseMetadata: import('@okikio/opfs/firebase').FirebaseMetadataType = await firebase.stat('packed');
     const firebaseStatus: import('@okikio/opfs/firebase').FirebaseStatusType = await firebase.statusUpload({ url: 'https://firebasestorage.googleapis.com/v0/b/demo-opfs.appspot.com/o?name=packed&upload_id=types', bucket: 'demo-opfs.appspot.com', name: 'packed', size: 3 });
     void [firebaseMetadata, firebaseStatus];
+    const xz: import('@okikio/opfs/archive/xz').XzArchiveType = await openXz(createByteSource(new Uint8Array()));
+    const xzRead: import('@okikio/opfs/archive/xz').XzReadType = await xz.read({ length: 1 });
+    const lfs = new LfsClient({ endpoint: 'https://repo.example/lfs/', subtle: globalThis.crypto.subtle });
+    const pointer: import('@okikio/opfs/content/lfs').LfsPointerType = decodeLfsPointer(new Uint8Array());
+    const lfsReady: readonly import('@okikio/opfs/content/lfs').LfsResultType[] = await lfs.batch('download', [{ oid: '0'.repeat(64), size: 1 }]);
+    void [xzRead, pointer, lfsReady];
     const yandex = new YandexClient({ token: () => 'types-only' });
     const yandexPath: string = (await yandex.stat('disk:/packed')).path;
     void yandexPath;
