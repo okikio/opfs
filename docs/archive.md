@@ -62,7 +62,7 @@ protect against a maliciously constructed archive. Parsed directory fields are n
 
 Legacy ZipCrypto STORED and DEFLATE members accept explicit password bytes; see the complete
 [password preview guide](password.md). A partial read can return plaintext with a pending CRC, and even a verified CRC
-provides no authentication. The optional [WinZip AES STORED profile](aes.md) authenticates the complete bounded
+provides no authentication. The optional [WinZip AES STORED/DEFLATE profile](aes.md) authenticates the complete bounded
 ciphertext before decrypting selected blocks. Other strong encryption profiles, split volumes, extra directory
 records/signatures and unsupported compression methods return `ArchiveError` with `code: "unsupported-profile"` when
 requested. ZIP64 values above `Number.MAX_SAFE_INTEGER` are refused instead of rounded. Data-descriptor members can be

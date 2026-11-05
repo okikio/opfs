@@ -75,7 +75,31 @@ with tempfile.TemporaryDirectory() as temporary:
     command([args.bsdtar,'--passphrase',password,'-xf',str(archive),'-C',str(destination)])
     assert (destination/'large.bin').read_bytes()==bodies['large.bin']
     data=archive.read_bytes()
-    result['deflate']={'producer':producer,'consumer':consumer,'origin':'genuine 7-Zip AES DEFLATE rejection control','independentPayloadVerified':True,
+    result['deflate']={'producer':producer,'consumer':consumer,'origin':'genuine 7-Zip AES DEFLATE','independentPayloadVerified':True,
         'password':base64.b64encode(password.encode()).decode(),'sha256':hashlib.sha256(data).hexdigest(),'archive':base64.b64encode(data).decode(),
         'entries':[{'name':'large.bin','body':base64.b64encode(bodies['large.bin']).decode()}]}
+    # Lower ordinary version-needed fields and AE-1 DEFLATE controls retain genuine encrypted bytes.
+    for key,base_key,version,needed in [('stored-needed10','aes256-ae2',2,10),('deflate-needed20','deflate',2,20),('deflate-ae1','deflate',1,20)]:
+        fixture=result[base_key];data=bytearray(base64.b64decode(fixture['archive']))
+        originals={entry['name']:base64.b64decode(entry['body']) for entry in fixture['entries']}
+        at=struct.unpack_from('<I',data,len(data)-6)[0]
+        while data[at:at+4]==b'PK\x01\x02':
+            name_size,extra_size,comment_size=struct.unpack_from('<HHH',data,at+28)
+            name=bytes(data[at+46:at+46+name_size]).decode();local=struct.unpack_from('<I',data,at+42)[0]
+            struct.pack_into('<H',data,at+6,needed);struct.pack_into('<H',data,local+4,needed)
+            if version==1:
+                crc=zlib.crc32(originals[name]);struct.pack_into('<I',data,at+16,crc);struct.pack_into('<I',data,local+14,crc)
+                for extra,size in [(at+46+name_size,extra_size),(local+30+struct.unpack_from('<H',data,local+26)[0],struct.unpack_from('<H',data,local+28)[0])]:
+                    end=extra+size
+                    while extra<end:
+                        tag,length=struct.unpack_from('<HH',data,extra)
+                        if tag==0x9901:struct.pack_into('<H',data,extra+4,1)
+                        extra+=4+length
+            at+=46+name_size+extra_size+comment_size
+        archive=root/(key+'.zip');archive.write_bytes(data);destination=root/('out-'+key);destination.mkdir()
+        command([args.bsdtar,'--passphrase',password,'-xf',str(archive),'-C',str(destination)])
+        for name,body in originals.items():assert (destination/name).read_bytes()==body,(key,name)
+        result[key]={'producer':producer,'consumer':consumer,'origin':'Version-needed/AE-version/CRC metadata adaptation over genuine 7-Zip ciphertext',
+            'independentPayloadVerified':True,'password':fixture['password'],'sha256':hashlib.sha256(data).hexdigest(),
+            'archive':base64.b64encode(data).decode(),'entries':fixture['entries']}
 pathlib.Path(args.output).write_text(json.dumps(result,indent=2)+'\n')

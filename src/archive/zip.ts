@@ -84,7 +84,7 @@ export interface ZipPlanType {
   readonly decodedBytes: number;
   readonly sourceBytes: number;
   readonly headerBytes: "unknown";
-  readonly verification: "none" | "full-member-crc";
+  readonly verification: "none" | "full-member-crc" | "full-member-decode";
   readonly authentication?: "full-member-hmac";
   readonly cryptoBlocks?: number;
 }
@@ -263,8 +263,9 @@ function parseDirectory(
       ? "file"
       : "other";
     const aes = readAesExtra(extra);
-    const supportedAes = aes && aes.method === 0 && method === 99 && (flags & 1) && !(flags & 0x2048) &&
-      data.getUint16(position + 6, true) >= 51;
+    const supportedAes = aes && (aes.method === 0 || aes.method === 8) && method === 99 && (flags & 1) &&
+      !(flags & 0x2048) &&
+      data.getUint16(position + 6, true) >= (aes.method === 0 ? 10 : 20);
     if (aes?.version === 2 && data.getUint32(position + 16, true) !== 0) {
       invalid("WinZip AE-2 requires a zero CRC field.");
     }
@@ -385,13 +386,19 @@ function planRead(entry: ZipEntryType, options: ZipReadOptionsType): ZipPlanType
     if (maximum > 8 * 1024 * 1024 || maxBlocks > 8192) {
       throw new RangeError("WinZip AES implementation ceilings are 8 MiB ciphertext and 8192 native AES blocks.");
     }
+    const ciphertext = entry.compressedSize - entry.aes.strength / 16 - 12;
+    if (ciphertext < 0 || (entry.aes.method === 0 && ciphertext !== entry.size)) {
+      invalid("WinZip AES ciphertext framing disagrees with member sizes.");
+    }
+    const deflate = entry.aes.method === 8;
     const crc = entry.aes.version === 1 && complete;
     const begin = crc ? 0 : Math.floor(offset / 16) * 16;
     const end = crc ? entry.size : length ? Math.min(entry.size, Math.ceil((offset + length) / 16) * 16) : begin;
-    const blocks = Math.ceil((end - begin) / 16);
-    const decoded = entry.size * 2 + end - begin;
+    const decrypt = deflate ? (complete || length ? ciphertext : 0) : end - begin;
+    const blocks = Math.ceil(decrypt / 16);
+    const decoded = ciphertext * 2 + decrypt + (deflate ? complete ? entry.size : length ? offset + length : 0 : 0);
     const reason =
-      entry.size > maximum || blocks > maxBlocks || length > (options.maxOutputBytes ?? 16 * 1024 * 1024) ||
+      ciphertext > maximum || blocks > maxBlocks || length > (options.maxOutputBytes ?? 16 * 1024 * 1024) ||
         decoded > (options.maxDecodedBytes ?? 64 * 1024 * 1024) ||
         entry.compressedSize > (options.maxSourceBytes ?? 64 * 1024 * 1024)
         ? "budget-exceeded" as const
@@ -399,12 +406,12 @@ function planRead(entry: ZipEntryType, options: ZipReadOptionsType): ZipPlanType
     return {
       supported: !reason,
       ...(reason ? { reason } : {}),
-      access: "authenticated-range",
+      access: deflate ? "decode-from-start" : "authenticated-range",
       outputBytes: length,
       decodedBytes: decoded,
       sourceBytes: entry.compressedSize,
       headerBytes: "unknown",
-      verification: crc ? "full-member-crc" : "none",
+      verification: crc ? "full-member-crc" : deflate && complete ? "full-member-decode" : "none",
       authentication: "full-member-hmac",
       cryptoBlocks: blocks,
     };
@@ -444,6 +451,7 @@ async function readMember(
   boundary: number,
   options: ZipReadOptionsType,
 ): Promise<ZipReadType> {
+  options = { ...options, ...(options.aes ? { aes: { ...options.aes } } : {}) };
   const plan = planRead(record.entry, options);
   const aggregate = record.entry.encrypted ? createArchiveLedger(options) : undefined;
   const callerLedger = options.ledger;
@@ -686,7 +694,7 @@ async function readAesMember(
   try {
     const header = view(await budget.read(record.offset, 30));
     if (
-      header.getUint32(0, true) !== 0x04034b50 || header.getUint16(4, true) < 51 ||
+      header.getUint32(0, true) !== 0x04034b50 || header.getUint16(4, true) < (metadata.method === 0 ? 10 : 20) ||
       header.getUint16(6, true) !== record.flags || header.getUint16(8, true) !== 99
     ) {
       invalid("WinZip AES local header disagrees with directory.");
@@ -703,7 +711,10 @@ async function readAesMember(
     }
     const extra = view(await budget.read(record.offset + 30 + nameSize, extraSize));
     const local = readAesExtra(extra);
-    if (!local || local.version !== metadata.version || local.strength !== metadata.strength || local.method !== 0) {
+    if (
+      !local || local.version !== metadata.version || local.strength !== metadata.strength ||
+      local.method !== metadata.method
+    ) {
       invalid("WinZip AES local profile disagrees with directory.");
     }
     if (!(record.flags & 8)) {
@@ -722,11 +733,14 @@ async function readAesMember(
       }
     }
     const saltSize = metadata.strength / 16;
-    if (entry.compressedSize < saltSize + 12 || entry.compressedSize - saltSize - 12 !== entry.size) {
+    if (
+      entry.compressedSize < saltSize + 12 ||
+      (metadata.method === 0 && entry.compressedSize - saltSize - 12 !== entry.size)
+    ) {
       invalid("WinZip AES STORED ciphertext size disagrees with plaintext size.");
     }
     // Native sign/verify each copies and processes the complete ciphertext. Reserve both passes before acquisition/copy.
-    budget.decoded(entry.size * 2);
+    budget.decoded((entry.compressedSize - saltSize - 12) * 2);
     owned = new Uint8Array(await budget.read(dataOffset, entry.compressedSize));
     const ciphertext = owned.subarray(saltSize + 2, owned.length - 10);
     cipher = await openZipAes(
@@ -738,6 +752,7 @@ async function readAesMember(
       native,
       signal,
     );
+    if (metadata.method === 8) return await readAesDeflate(entry, options, plan, budget, cipher, ciphertext);
     const begin = complete ? 0 : Math.floor(offset / 16) * 16;
     const end = complete ? entry.size : length ? Math.min(entry.size, Math.ceil((offset + length) / 16) * 16) : begin;
     budget.output(length);
@@ -769,6 +784,154 @@ async function readAesMember(
     cipher?.clear();
     password.fill(0);
     owned?.fill(0);
+  }
+}
+
+/**
+ * Authenticate first (in the caller), then decrypt all bounded compressed bytes, then inflate.
+ * Native AES calls settle serially before any decoder exists. The compressed plaintext buffer
+ * stays owned until the explicit pipeTo promise and decoder reader have both retired.
+ */
+async function readAesDeflate(
+  entry: ZipEntryType,
+  options: ZipReadOptionsType,
+  plan: ZipPlanType,
+  budget: ArchiveBudget,
+  cipher: ZipAesStateType,
+  ciphertext: Uint8Array<ArrayBuffer>,
+): Promise<ZipReadType> {
+  const offset = options.offset ?? 0;
+  const length = plan.outputBytes;
+  const full = plan.verification !== "none";
+  const crc = plan.verification === "full-member-crc";
+  const authentication = { kind: "winzip-aes" as const, authentication: "ciphertext-verified" as const };
+  if (!length && !full) {
+    return {
+      bytes: new Uint8Array(),
+      encryption: authentication,
+      integrity: entry.aes!.version === 2 ? "not-provided" : "checksum-pending",
+      work: budget.inspect(),
+    };
+  }
+  budget.decoded(ciphertext.length);
+  const compressed = new Uint8Array(ciphertext.length);
+  try {
+    for (let position = 0; position < ciphertext.length; position += 16) {
+      const plain = await cipher.decryptBlock(
+        position,
+        ciphertext.subarray(position, Math.min(position + 16, ciphertext.length)),
+      );
+      try {
+        compressed.set(plain, position);
+      } finally {
+        plain.fill(0);
+      }
+    }
+    options.signal?.throwIfAborted();
+    budget.output(length);
+    const selected = new Uint8Array(length);
+    let transform: ReadableWritablePair<Uint8Array, Uint8Array<ArrayBuffer>>;
+    if (options.inflate) transform = options.inflate();
+    else {
+      try {
+        transform = new DecompressionStream("deflate-raw");
+      } catch {
+        unsupported("Raw-DEFLATE is unavailable; inject an explicit codec factory.");
+      }
+    }
+    let position = 0;
+    const abort = new AbortController();
+    const signal = options.signal ? AbortSignal.any([options.signal, abort.signal]) : abort.signal;
+    const input = new ReadableStream<Uint8Array<ArrayBuffer>>({
+      pull(controller) {
+        signal.throwIfAborted();
+        if (position === compressed.length) {
+          controller.close();
+          return;
+        }
+        const end = Math.min(position + 1024, compressed.length);
+        controller.enqueue(compressed.slice(position, end));
+        position = end;
+      },
+    }, { highWaterMark: 0 });
+    if (transform.readable.locked || transform.writable.locked) {
+      throw new TypeError("ZIP AES codec factory must return independently owned unlocked streams.");
+    }
+    const reader = transform.readable.getReader();
+    const writing = input.pipeTo(transform.writable, { signal });
+    // The hidden pipeThrough promise would not provide a settlement barrier before compressed-buffer retirement.
+    void writing.catch(() => {});
+    let cancellation: Promise<void> | undefined;
+    const cancel = (reason?: unknown): Promise<void> => cancellation ??= reader.cancel(reason);
+    const onAbort = (): void => {
+      abort.abort(options.signal?.reason);
+      void cancel(options.signal?.reason).catch(() => {});
+    };
+    options.signal?.addEventListener("abort", onAbort, { once: true });
+    if (options.signal?.aborted) onAbort();
+    let eof = false;
+    let readFailed = false;
+    let decoded = 0;
+    let state = 0xffffffff;
+    const failures: unknown[] = [];
+    try {
+      while (full || decoded < offset + length) {
+        signal.throwIfAborted();
+        let next: Awaited<ReturnType<typeof reader.read>>;
+        try {
+          next = await reader.read();
+        } catch (reason) {
+          readFailed = true;
+          throw reason;
+        }
+        signal.throwIfAborted();
+        if (next.done) {
+          eof = true;
+          break;
+        }
+        if (!isBytes(next.value)) invalid("ZIP AES decoder returned a non-byte chunk.");
+        const bytes = toView(next.value);
+        budget.decoded(bytes.length);
+        if (bytes.length > entry.size - decoded) invalid("ZIP AES decoded bytes exceed declared member size.");
+        if (crc) state = crc32(bytes, state);
+        const start = Math.max(offset, decoded);
+        const end = Math.min(offset + length, decoded + bytes.length);
+        if (end > start) selected.set(bytes.subarray(start - decoded, end - decoded), start - offset);
+        decoded += bytes.length;
+      }
+      if ((full && decoded !== entry.size) || decoded < offset + length) {
+        invalid("ZIP AES decoded member ended before declared size.");
+      }
+    } catch (reason) {
+      failures.push(reason);
+    } finally {
+      options.signal?.removeEventListener("abort", onAbort);
+      const stop = failures.length ? failures[0] : new Error("ZIP AES prefix decoding is complete.");
+      if (!eof) abort.abort(stop);
+      await close([
+        () => cancellation ?? (!eof && !readFailed ? cancel(stop) : undefined),
+        async () => {
+          try {
+            await writing;
+          } catch (reason) {
+            // pipeTo and reader.read can report the same pipeline failure. This is one event observed twice.
+            if (reason !== stop && !(failures.length && reason === failures[0])) throw reason;
+          }
+        },
+        () => reader.releaseLock(),
+      ], failures);
+    }
+    if (crc && ((state ^ 0xffffffff) >>> 0) !== entry.crc32) {
+      throw new ArchiveError("checksum-mismatch", "WinZip AE-1 plaintext CRC32 failed.");
+    }
+    return {
+      bytes: selected,
+      encryption: authentication,
+      integrity: entry.aes!.version === 2 ? "not-provided" : crc ? "checksum-verified" : "checksum-pending",
+      work: budget.inspect(),
+    };
+  } finally {
+    compressed.fill(0);
   }
 }
 
