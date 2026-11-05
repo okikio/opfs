@@ -1,0 +1,26 @@
+{
+  "scope": "First candidate native run; retained before zero-length sentinel repair",
+  "container": "7ef628fb6ee7a152191deb08eea97a22aa6cc1b765e8fbe7c3d880b374bdcd79",
+  "exit": 1,
+  "oom": false,
+  "node": {
+    "pass": 17,
+    "fail": 1,
+    "failure": "Native Arrow empty column data_page_offset0 incorrectly refused by nonempty extent validation"
+  },
+  "bun": {
+    "pass": 17,
+    "fail": 1
+  },
+  "deno": {
+    "fmt": 153,
+    "lint": 153,
+    "tests": 153,
+    "failure": "Global2MiB file limit blocked runtime cache writes; not a candidate test result"
+  },
+  "repairs": [
+    "Zero physical extent only when values/stored/uncompressed0 and no dictionary",
+    "Remove global file limit; use finite streamed diagnostics and stage/outer deadlines"
+  ],
+  "originalSourceSha256": "35e2e2934a051f21ecee8d9ffd4c3ebf382d3a59f83e925f88c829bb32d7ffad"
+}

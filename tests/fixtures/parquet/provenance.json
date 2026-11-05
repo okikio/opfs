@@ -1,0 +1,116 @@
+{
+  "profile": "Flat physical numeric PLAIN/UNCOMPRESSED Parquet; identity signed INT32/INT64 annotations only",
+  "primary": {
+    "parquetCommit": "b9c4fa81c3be13dc98760c92b037fa4dd465cef8",
+    "thriftCommit": "af9ac170f4de895266de4b6f9f3e68a58f113760",
+    "parquetThriftSha256": "f3152ab8a2574c96f4b0ea3df7694f9170e6a6c18eb9888505115f9acd5e54ce",
+    "compactGrammarSha256": "a8b78a102c618215dd006dd484f38bc99f5e723bb86ab96615792c5407789bd5",
+    "logicalTypesSha256": "56c94d0dc7b16e8d4fda9e9c140e8b734148cb5961d504bf7ebf7e51136ed1f1"
+  },
+  "native": {
+    "fixtures": 22,
+    "positiveProfiles": 20,
+    "unsupportedControls": [
+      "dictionary",
+      "snappy"
+    ],
+    "candidateImported": false,
+    "pyarrow": "20.0.0",
+    "duckdb": "1.3.2",
+    "python": "3.13.12",
+    "rawJsonBytes": 1388965,
+    "rawJsonSha256": "86a16246d99ee9c500d1ea0e9ec7fa8e90b2a22bcc759c7ed70a16bdb368596c",
+    "base": "python:3.13.12-slim-bookworm@sha256:a58daefb915e1e03ad48f3ca4df8832065412c5c35cacb9d39f4229184de12b6",
+    "actualBaseImage": "sha256:5ae62b8a656b92aebda2441c1b4b872da0799b4deabca9f6c476f5940624ebef",
+    "localToolsImage": "sha256:1c979d456e5c9ee0974cfb569d30286d19edf89089fc7c43bdadd8a65ab4de72",
+    "localImageQualification": "Local execution receipt, not a publicly pullable full producer pin",
+    "container": "677a0d8c230b325103e4417e4bd4155b1f7aeafcc332df24d8bdd70b6fc70622",
+    "exit": 0,
+    "oom": false,
+    "memory": 1073741824,
+    "memorySwap": 1073741824,
+    "cpus": 1,
+    "pids": 128,
+    "network": "none",
+    "mounts": [],
+    "repositoryJsonSha256": "fcd431fbf4f2ed29c0cedbc1c9f479d3fa4a23b4e4bcd265d9f6a1714115b1c2",
+    "repositoryJsonBytes": 1448407
+  },
+  "notices": {
+    "duckdbEngineSource": "https://raw.githubusercontent.com/duckdb/duckdb/0b83e5d2f68bc02dfefde74b846bd039f078affa/LICENSE",
+    "duckdbSparkQualification": "Actual embedded experimental Spark Apache notice; does not cover engine MIT license",
+    "pythonPath": "/usr/local/lib/python3.13/LICENSE.txt"
+  },
+  "files": {
+    "create.py": {
+      "bytes": 8727,
+      "sha256": "43d027a8834512d37095ac99291d5a7b146af3466e01b3bafba9ea8748047ecd"
+    },
+    "acquire.py": {
+      "bytes": 6886,
+      "sha256": "0f36eab4a01f5e598618bef9db8058f2896f9cac7f34518ff5c9f52c437a1285"
+    },
+    "install.py": {
+      "bytes": 2579,
+      "sha256": "fb93c33ea67370cddcdf7d22830ed7ba47e21ef2277e1d4eea1052ca1c90ed84"
+    },
+    "producer-run.py": {
+      "bytes": 1822,
+      "sha256": "57b3280bffdcff144a44cd0d3ec76df4ca171ff76a59d48141546c60e2b4c189"
+    },
+    "receipts/pyarrow-20.0.0-cp313-cp313-manylinux_2_28_aarch64-METADATA": {
+      "bytes": 3303,
+      "sha256": "efc7951a4d6c7f08e6b898fb5661668ca7fcc47046d5c9ae033b4699271b3ddf"
+    },
+    "receipts/pyarrow-20.0.0-cp313-cp313-manylinux_2_28_aarch64-WHEEL": {
+      "bytes": 114,
+      "sha256": "06009970915ea2bdcd21b3a0d2b60de6b7d1b67cbd8d77735d4083c6b1880b19"
+    },
+    "receipts/duckdb-1.3.2-cp313-cp313-manylinux_2_27_aarch64.manylinux_2_28_aarch64-METADATA": {
+      "bytes": 7039,
+      "sha256": "2878265079d992d71e5c6910a6e962b11c54f392200a64e8de1d5f3013cf721d"
+    },
+    "receipts/duckdb-1.3.2-cp313-cp313-manylinux_2_27_aarch64.manylinux_2_28_aarch64-WHEEL": {
+      "bytes": 154,
+      "sha256": "15cf0a2e160d56463ff3cc36c27f429d341da688b58e3ad8a63a81c7c7e6144d"
+    },
+    "licenses/pyarrow-LICENSE.txt": {
+      "bytes": 111773,
+      "sha256": "36f65c663f1c9c910af64c73cb4302667d6513c3f0a617e42bd896d767ff4604"
+    },
+    "licenses/pyarrow-NOTICE.txt": {
+      "bytes": 3032,
+      "sha256": "b62ea242642d3a18f1e29b0c1fe082415a6943fe158ee22b48cff3762f354009"
+    },
+    "licenses/duckdb-LICENSE": {
+      "bytes": 1072,
+      "sha256": "7e17fd31249fa875cb3b1c5e05c6c3e99b75509f6a2804ca176c217834de1dcb"
+    },
+    "licenses/python-LICENSE": {
+      "bytes": 13809,
+      "sha256": "78b12c3a81360b357002334f0e70ea0e92eebf7a9b358805c03c48484945f3bb"
+    },
+    "licenses/duckdb-spark-LICENSE.txt": {
+      "bytes": 13387,
+      "sha256": "ff5aa49c52e9830627582e9854fa76827d19c3b040b856162d172d72a9e95067"
+    }
+  },
+  "proof": {
+    "focused": {
+      "casesPerRuntime": 19,
+      "runtimes": {
+        "Deno": "2.9.8",
+        "Node": "26.13.0",
+        "Bun": "1.4.2"
+      },
+      "status": "pass",
+      "scope": "Native20x5 original arrays/masks/fullandselected,2genuineunsupportedcontrols,authoredgrammar/authority/limits",
+      "staticOrInstalledArtifactProof": false
+    },
+    "benchmark": {
+      "lanes": 7,
+      "status": "pass",
+      "qualification": "Active external containers at opening resource sample; post-window sample collected after releasing reservation. No isolated latency or universal speedup claim."
+    }
+  }
+}
