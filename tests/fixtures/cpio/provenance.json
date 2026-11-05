@@ -1,0 +1,22 @@
+{
+  "producer": "GNU cpio 2.13",
+  "package": {
+    "distribution": "Debian bookworm",
+    "name": "cpio",
+    "version": "2.13+dfsg-7.1",
+    "architecture": "arm64",
+    "installation": "Debian apt repositories; disposable runner"
+  },
+  "runner": {
+    "baseImageId": "sha256:a6838f3c21f47c91a20fbcab624c5370a7aea7c25f88912588cc4c5312564cce",
+    "scope": "Local verification image, not publicly pullable. apt installs modified its filesystem; this ID does not pin the complete producer environment."
+  },
+  "command": "python3 tests/fixtures/cpio/create.py --cpio /usr/bin/cpio --formats newc crc --output tests/fixtures/cpio/gnu.json",
+  "fixtureFileSha256": "1f9e8817b646fb582403e9f1af1b40feeed7e5ea99744a072bbf4085fcc5d51a",
+  "archiveSha256": {
+    "newc": "93898c55a3055ebe922c8a2a87ac0c03828c0209beed5cd84be022f301dff03d",
+    "crc": "71bfe57ecc34a7ce71ff213e07498e0894ec37df3e17c6d8c48443d388835e3b"
+  },
+  "producerScriptSha256": "ea11fdfe1d703928641f727f8855d370ac615ed31d0b92ce918bc9615cec7800",
+  "inputProvenance": "Original deterministic binary inputs from create.py; output archives produced by GNU cpio, not candidate code. Inode/device identifiers and symlink mtime may vary across hosts; byte digests identify this exact receipt, not a reproducible-byte guarantee."
+}

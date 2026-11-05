@@ -139,7 +139,9 @@
     "./webhdfs": "./src/webhdfs.ts",
     "./driver/webhdfs": "./src/driver/webhdfs.ts",
     "./adapter/webhdfs": "./src/adapter/webhdfs.ts",
-    "./view/tar": "./src/view/tar.ts"
+    "./view/tar": "./src/view/tar.ts",
+    "./archive/cpio": "./src/archive/cpio.ts",
+    "./view/cpio": "./src/view/cpio.ts"
   },
   "dependencies": {
     "@okikio/undent": "^0.3.3",
