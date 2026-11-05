@@ -1,0 +1,16 @@
+{
+  "serverVersion": "1.6.45",
+  "key": "capture",
+  "flags": 4294967295,
+  "cas": "2",
+  "get": {
+    "bytes": 43,
+    "base64": "VkFMVUUgY2FwdHVyZSA0Mjk0OTY3Mjk1IDYgMg0KAP8RKoAJDQpFTkQNCg==",
+    "sha256": "c9724ff4979e88a6016d40c8ca7f0548e51dc0cfb51efb4483bd94eeeefb1c7a"
+  },
+  "oracle": {
+    "bytes": 6,
+    "base64": "AP8RKoAJ",
+    "sha256": "a09e9c5394946ab8fc1b54a0c55618a96f2057e98e89cfdc36bb4d26ed0a1708"
+  }
+}

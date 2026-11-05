@@ -1,0 +1,254 @@
+{
+  "record": "db-memcached",
+  "profile": "Bounded native classic ASCII cache byte client with injected owned channel, no record/filesystem projection",
+  "sourceCommit": "2d51e364799bc9698bd4b11728ea978cea12da6e",
+  "sourceSha256": {
+    "memcached-protocol.txt": "fbd6f3ac15f418c0850c64dc0cadea1c542047681b01284d674a654e5b265063",
+    "memcached-COPYING": "bc887c4ad8051fe690ace9528fe37a2e0bb362e6d963331d82e845ca9b585a0c",
+    "pymemcache-base.py": "f792401fbba9087a0c3bb6f4624385d353b95ed6f60c1d86259b1448f495c1dc",
+    "pymemcache-LICENSE.txt": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "memcached-proto_parser.c": "ae34f5fe401696e4ce66fa541a546ec1aab728b7cbf59f22e063e87834537f80"
+  },
+  "sourceLicense": "Memcached BSD-3-Clause; independent pymemcache Apache-2.0, test-only",
+  "oracleCommit": "4e5db4bb6e6f6810fbb8e7c3e6624deb6f6ac0da",
+  "wheel": {
+    "name": "pymemcache-4.0.0-py2.py3-none-any.whl",
+    "bytes": 60772,
+    "sha256": "f507bc20e0dc8d562f8df9d872107a278df049fa496805c1431b926f3ddd0eab",
+    "metadataDeclaredDependencies": null,
+    "acquisition": "Historical acquisition-only stage: exact raw wheel and inert full-member inspection passed before installation/import/execution.",
+    "manifest": {
+      "wheelBytes": 60772,
+      "wheelSha256": "f507bc20e0dc8d562f8df9d872107a278df049fa496805c1431b926f3ddd0eab",
+      "members": [
+        {
+          "name": "pymemcache/__init__.py",
+          "size": 693,
+          "sha256": "3c767f9661f7b9edd1ed02893fef4e32e4e5d7d3156200c5a29305b524023499"
+        },
+        {
+          "name": "pymemcache/exceptions.py",
+          "size": 1252,
+          "sha256": "b2ad5ed0df1093bf5e4d05a5ffcaf10c11d681a483d66ce46d2f78883bfafb0f"
+        },
+        {
+          "name": "pymemcache/fallback.py",
+          "size": 4186,
+          "sha256": "83b1e567f04d682f51dbe941c54600d85d21aa115ca6f58cb6d12c0d350ecd2a"
+        },
+        {
+          "name": "pymemcache/pool.py",
+          "size": 4384,
+          "sha256": "ad238364e64a6fb9f6f52c8d8c1d058ed1cb9049a9448d3fdfc35fcf532faf8c"
+        },
+        {
+          "name": "pymemcache/serde.py",
+          "size": 6042,
+          "sha256": "d5182ba1bacfaeffec498da2f34a13316f798dca5e62c3075eca714b36fbc4a2"
+        },
+        {
+          "name": "pymemcache/client/__init__.py",
+          "size": 706,
+          "sha256": "8b02885240faee2cbdde0421862443843d5b2fe6ca54d30a9dc83ca44ee27b4e"
+        },
+        {
+          "name": "pymemcache/client/base.py",
+          "size": 61383,
+          "sha256": "f792401fbba9087a0c3bb6f4624385d353b95ed6f60c1d86259b1448f495c1dc"
+        },
+        {
+          "name": "pymemcache/client/hash.py",
+          "size": 16047,
+          "sha256": "e6ffee30616ec7cc5deff6b0e4feeee864166fbee0aacb232766ebb8cc6bdd07"
+        },
+        {
+          "name": "pymemcache/client/murmur3.py",
+          "size": 1465,
+          "sha256": "1da3772f0ce5d5ef209fe6bcfe54e088439d7c3d1c2673d1d0539a4adea20520"
+        },
+        {
+          "name": "pymemcache/client/rendezvous.py",
+          "size": 1273,
+          "sha256": "6e594a1135c101e99a1d65c6f67bf479a6949f3cda71ffb585271453cb074e69"
+        },
+        {
+          "name": "pymemcache/client/retrying.py",
+          "size": 6443,
+          "sha256": "34b3149befa17c16c4950de8e4b2bda6e6c5307f0a949883adc4ab4abbd6889f"
+        },
+        {
+          "name": "pymemcache/test/__init__.py",
+          "size": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "pymemcache/test/conftest.py",
+          "size": 3018,
+          "sha256": "f49c129d983ed80e5c78ad607ad35ebcfba3a8f7a67b177f30ec93488b2cc34d"
+        },
+        {
+          "name": "pymemcache/test/test_benchmark.py",
+          "size": 2963,
+          "sha256": "dddf714fc5b23add6955c17f64e9e546ff7cfd4bec71a2fef2b9d02fbbf20e03"
+        },
+        {
+          "name": "pymemcache/test/test_client.py",
+          "size": 56913,
+          "sha256": "6fd0b5e2212ae3b646f25c90d86f6615a2e8ebb7c719dee3cd4d2a00b1404b37"
+        },
+        {
+          "name": "pymemcache/test/test_client_hash.py",
+          "size": 17202,
+          "sha256": "1b0456350433bb60c009026796df4c111c41f134d3e300678afcc60eb134ea14"
+        },
+        {
+          "name": "pymemcache/test/test_client_retry.py",
+          "size": 10361,
+          "sha256": "02196883401110a20b4e5811c9307f4a6b33b4f31b448d7528956868970a3ea7"
+        },
+        {
+          "name": "pymemcache/test/test_compression.py",
+          "size": 5638,
+          "sha256": "acbea9bd7178114f5e6f70450759b627bbdc8776b8dfe95a13a92d5f1607eed9"
+        },
+        {
+          "name": "pymemcache/test/test_integration.py",
+          "size": 12263,
+          "sha256": "5b745ce2c8e76f754fa2866b85253d17e57e8449b22ef77ac313cbf2bf6e1d52"
+        },
+        {
+          "name": "pymemcache/test/test_rendezvous.py",
+          "size": 5188,
+          "sha256": "802973c42369978a94a2d95e3acbc44b9c2eb68d46538fce3965cfd82eaa101c"
+        },
+        {
+          "name": "pymemcache/test/test_serde.py",
+          "size": 3843,
+          "sha256": "3aee491824577ef0df9eae0b4ed0008e018472c1d75d7092d71f5468fdc8270c"
+        },
+        {
+          "name": "pymemcache/test/test_utils.py",
+          "size": 2576,
+          "sha256": "b9a235b1c4a07d5e4b313b2db5ede20aec53999dfe5e195993b42e1d1b81154e"
+        },
+        {
+          "name": "pymemcache/test/utils.py",
+          "size": 6870,
+          "sha256": "7f92429187d0fca2c1c6bc73807a7e723a29f8b79783022cbc1115f95a83d831"
+        },
+        {
+          "name": "pymemcache-4.0.0.dist-info/LICENSE.txt",
+          "size": 11358,
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "name": "pymemcache-4.0.0.dist-info/METADATA",
+          "size": 14360,
+          "sha256": "68985a9e9a4efb17dd52c686c4f368b73d4fc8aa48400ac5c410f301f7f8d284"
+        },
+        {
+          "name": "pymemcache-4.0.0.dist-info/WHEEL",
+          "size": 110,
+          "sha256": "cfd8f4c406bf26650a3299b3ef62b464600b48cfe7fb04159866e5797c765478"
+        },
+        {
+          "name": "pymemcache-4.0.0.dist-info/top_level.txt",
+          "size": 11,
+          "sha256": "03ba39c2864ff4c1ffd4eac86f0408b09b01f147085f829c8f82017ae61a931d"
+        },
+        {
+          "name": "pymemcache-4.0.0.dist-info/RECORD",
+          "size": 2366,
+          "sha256": "dee54e6004da1f7f800e98d9fcc3d2a9cac41a5c19df3c146ec54fa5e5e40825"
+        }
+      ]
+    }
+  },
+  "proof": "Twelve authored protocol cases passed separately on Deno/Node/Bun. Pinned Memcached 1.6.45 and independent pymemcache 4.0.0 native test passed with complete 128 KiB cross-client bytes, uint32 flags, real CAS/add outcomes and unconditional deletion. A separate raw native gets capture agrees with all six independent SDK bytes.",
+  "exclusions": [
+    "No filesystem/record layout, enumeration or immutable byte-source projection",
+    "No protocol SASL/text authentication, TLS implementation, endpoint or credential discovery",
+    "No meta/binary protocol, UDP, pipelining, automatic reconnect or retry",
+    "No expiry preservation, touch, flush, lease or cache durability guarantee",
+    "No native CAS on delete; remove is explicitly unconditional",
+    "No production cache capacity, expiry timing, eviction order or authentication qualification"
+  ],
+  "acquisition": {
+    "log": ".tmp/memcached-acquire-first.log",
+    "exitCode": 0,
+    "oomKilled": false,
+    "image": "sha256:969e01d0cb839ffe8af9b6ddd9ee7359f95072d383aa8d1c76e5f2512c2c2a92",
+    "memoryBytes": 1073741824,
+    "nanoCpus": 1000000000,
+    "pidsLimit": 128,
+    "mounts": [],
+    "rawWheel": ".tmp/pymemcache-4.0.0-py2.py3-none-any.whl",
+    "noExecution": "Existing project ZIP/native zlib inspected inert bytes only; this is acquisition tooling, not an independent wire-protocol oracle."
+  },
+  "sourceReviewRepair": "Pinned process_update_cmd_start uses int32_t exptime_int/safe_strtol: absolute expiry is capped at 2147483647, distinct from uint32 flags. Boundary rejection occurs before dispatch.",
+  "native": {
+    "log": ".tmp/memcached-provider-first.log",
+    "exitCode": 0,
+    "serverVersion": "1.6.45",
+    "serverImage": "memcached:1.6.45-alpine@sha256:6a089e37cbb8acd75c80c6c0667fe57ec54db68782fb1b3afb1d0eb265e50070",
+    "oracleImage": "python:3.13.12-slim-bookworm@sha256:a58daefb915e1e03ad48f3ca4df8832065412c5c35cacb9d39f4229184de12b6",
+    "actualServer": {
+      "memoryBytes": 134217728,
+      "nanoCpus": 500000000,
+      "pidsLimit": 128
+    },
+    "actualOracle": {
+      "memoryBytes": 536870912,
+      "nanoCpus": 500000000,
+      "pidsLimit": 128
+    },
+    "cleanup": "Awaited owned sockets, containers and private network cleanup before successful return; no host mounts or ambient cache credentials."
+  },
+  "capture": {
+    "log": ".tmp/memcached-capture.log",
+    "exitCode": 0,
+    "fixture": "independent.json",
+    "replySha256": "c9724ff4979e88a6016d40c8ca7f0548e51dc0cfb51efb4483bd94eeeefb1c7a",
+    "oracleSha256": "a09e9c5394946ab8fc1b54a0c55618a96f2057e98e89cfdc36bb4d26ed0a1708",
+    "method": "Raw gets command/reply bytes were collected separately from the candidate parser; complete value equals independent pymemcache gets. No wire response rewriting."
+  },
+  "benchmark": {
+    "receipt": ".tmp/memcached-bench-node.receipt.json",
+    "rawGzip": ".tmp/memcached-bench-node.json.gz",
+    "rawSha256": "7af731beb2d5181377da6455e1e042e60d308deee17454afb199aab957e37984",
+    "gzipSha256": "58cd2c9268041d08fe83b471ed17f95e5834598fcf6e9df2885169ccf5251d31",
+    "runtime": {
+      "now": 1793906079633,
+      "arch": "arm64-linux",
+      "version": "26.13.0",
+      "runtime": "node"
+    },
+    "resources": {
+      "memoryBytes": 1073741824,
+      "memorySwapBytes": 1073741824,
+      "nanoCpus": 1000000000,
+      "pidsLimit": 128,
+      "networkMode": "none",
+      "mounts": []
+    },
+    "statistics": [
+      {
+        "name": "memcached raw Webstreams envelope=43B original=6B lower-bound validation=none warm-channel",
+        "meanNs": 570.7991097764398,
+        "p50Ns": 500,
+        "p99Ns": 875,
+        "samples": 786544
+      },
+      {
+        "name": "memcached client gets envelope=43B original=6B validation=framing+key+CAS+ownership warm-client",
+        "meanNs": 28802.71942275846,
+        "p50Ns": 15584,
+        "p99Ns": 74084,
+        "samples": 21135
+      }
+    ],
+    "scope": "One quiet Node run over captured43B reply/six original bytes, warm exclusive in-memory channels. Raw lane omits validation/ownership/deadlines and is a lower bound, not equivalent conformance, deployed speed or durability.",
+    "exitCode": 0,
+    "oomKilled": false
+  }
+}
