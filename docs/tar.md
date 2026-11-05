@@ -70,6 +70,71 @@ is not an extractor.
 identity string alone does not prove a snapshot. Indexed reads return `integrity: "header-checksum-only"`: TAR checksums
 protect headers, not payload content or authenticity. A selected range has no content checksum to verify.
 
+## Preview logical ranges in GNU sparse files
+
+A sparse file stores selected recorded intervals and omits zero-filled holes. `openTar()` recognizes GNU PAX sparse 1.0
+using all four explicit version, name and real-size attributes. It consumes the decimal sparse map and its zero padding
+before indexing file data. `entry.size` is the logical file length. Optional `entry.sparse` describes the exact
+`gnu-pax-1.0` profile, physical `storedSize` including map padding, `mapBytes`, and ordered `extents`. Each extent has a
+logical `offset`, a `length` and a `storedOffset` relative to the physical data after the map. Zero-length terminal
+records are retained. Ordinary entries have no `sparse` property.
+
+```ts
+import { createBlobSource } from "@okikio/opfs/source";
+import { openTar } from "@okikio/opfs/archive/tar";
+
+export async function sparsePreview(blob: Blob): Promise<Uint8Array | undefined> {
+  const archive = await openTar(createBlobSource(blob), {
+    maxSparseBytes: 64 * 1024 * 1024,
+    maxSparseExtents: 4096,
+    maxMetadataBytes: 1024 * 1024,
+  });
+  const entry = archive.entries.find((item) => item.sparse);
+  if (!entry) return undefined;
+  return (await archive.read(entry.id, {
+    offset: Math.min(4096, entry.size),
+    length: Math.min(37, Math.max(0, entry.size - 4096)),
+    maxSourceBytes: 37,
+    maxOutputBytes: 37,
+    maxDecodedBytes: 37,
+  })).bytes;
+}
+```
+
+The selected result is a zero-filled owned buffer. The reader requests only the physical extents intersecting that
+logical interval; a selection inside a hole makes zero source requests. Logical selected bytes count against decoded and
+output policies even when no payload was stored. Header checksums do not protect the sparse map or file data, so the
+result remains `integrity: "header-checksum-only"`. The existing read-only TAR filesystem view reads these same logical
+ranges after its normal namespace admission.
+
+`maxSparseBytes` limits the sum of logical lengths declared by sparse members (default 64 MiB); it does not impose a new
+logical-size cap on ordinary members. `maxSparseExtents` limits all declared sparse records, including empty records
+(default 100,000). `maxMetadataBytes` includes padded sparse maps and PAX/GNU extension payloads. Map bytes and a
+logical 24-byte charge for each retained extent also count as decoded work. These charges bound admission, not exact
+JavaScript heap use. The parser rejects unsafe integers, overlaps, out-of-order extents, extents beyond logical EOF,
+nonzero map padding and a recorded-data sum different from the physical payload. A map may span several 512-byte blocks.
+Decimal map fields are limited to 20 digits, including leading zeros. An entire archive or logical member is never
+materialized during indexing.
+
+The shared one-shot reader deliberately rejects sparse metadata before visiting the member; compressed-TAR helpers
+inherit that refusal. The writer has no sparse-map input contract. These paths do not silently expose the condensed
+physical member as if it were the logical file. GNU sparse 0.0/0.1, old GNU `S`, and other vendor layouts need separate
+implementations.
+
+Indexed TAR captures source capabilities and options before the first await. Stability must be exactly `immutable`,
+`provider` or `caller` unless explicit unverified acceptance is enabled. Opening limits and any opening ledger remain
+aggregate lifetime limits for subsequent reads. Additional read ledgers join that owner; the same opening ledger is not
+charged twice. Opening and read abort signals are combined, including zero-length and hole-only selections. Known source
+byte/request costs are admitted before selected allocation, and reservations are not refunded if a later admission
+dimension or source operation fails. The borrowed source is never closed or cancelled.
+
+Genuine GNU tar 1.34 `--format=pax --sparse-version=1.0 --sparse` fixtures include all-hole, leading/trailing-hole,
+multi-block-map, empty and ordinary members. Python `tarfile` and libarchive 3.6.2 independently reconstruct every
+original byte. 7zz 26.02 returns success with different bytes for sparse members; the producer receipt records that
+behavior explicitly rather than counting it as interoperability evidence. Genuine 0.0/0.1 fixtures are refusal controls.
+[The primary GNU manual](https://www.gnu.org/software/tar/manual/html_section/Sparse-Formats.html) describes the map
+grammar; [fixture provenance](../tests/fixtures/tar-sparse/provenance.json) pins its hash and tool receipts.
+
 ## Supported records and limits
 
 The reader accepts POSIX ustar headers and PAX `x`/`g` extended headers, plus GNU header magic and `L`/`K` long-name and
@@ -80,11 +145,11 @@ that member. Metadata records have byte-counted UTF-8 lengths and strict newline
 owner, times, ACLs and xattrs are not returned or applied. Supported UTF-8 `hdrcharset` is recognized; binary/other
 encodings are refused.
 
-Sparse formats are refused, including GNU `S` and sparse PAX attributes. Devices, FIFOs, non-file payloads/linkdata,
-base-256 sizes without a PAX size override, split volumes, legacy/non-UTF-8 names, compression and encryption are
-unsupported profiles. No sparse extent reconstruction or link resolution is attempted. Unknown ordinary PAX attributes
-are ignored; their presence is not evidence that this library interprets that extension. Exact sizes must fit a
-JavaScript safe integer.
+Indexed reads also support the exact GNU PAX sparse 1.0 profile described below. One-shot streams and writers still
+refuse sparse records. GNU `S`, sparse PAX 0.0/0.1 and other sparse profiles are refused. Devices, FIFOs, non-file
+payloads/linkdata, base-256 sizes without a PAX size override, split volumes, legacy/non-UTF-8 names, compression and
+encryption are unsupported profiles. No link resolution is attempted. Unknown ordinary PAX attributes are ignored; their
+presence is not evidence that this library interprets that extension. Exact sizes must fit a JavaScript safe integer.
 
 Two zero blocks are required. A pending local extension without a following member is invalid. Trailing record padding
 or bytes after the valid end marker are ignored; `complete: true` means this archive's member sequence ended, not that
@@ -101,11 +166,11 @@ the entire underlying response was authenticated or consumed. Stream completion 
 | `maxChunkBytes`    | 64 KiB  | Stream-only producer chunk admission. Oversized chunks are rejected after receipt; the producer controls its own allocation.                                  |
 | `bodyChunkBytes`   | 64 KiB  | Stream-only body delivery view size, independent of producer chunk admission.                                                                                 |
 
-Limits are finite per operation. Share a caller-owned `ledger` to enforce aggregate source/decoded/output/request
-budgets across scans, reads and nested operations. Reservations are not refunded after failure. Stream listing returns
-`outputBytes: 0` if no body is consumed; it still pays to read/discard payloads. Metadata and payload copies are
-bounded, but there is no hard wall-clock or CPU-time guarantee. A producer can stall or allocate before the library
-receives data.
+Limits are finite per operation; indexed readers additionally retain their opening limits as aggregate lifetime limits.
+Share a caller-owned `ledger` to join source/decoded/output/request budgets across separate scans, reads and nested
+operations. Reservations are not refunded after failure. Stream listing returns `outputBytes: 0` if no body is consumed;
+it still pays to read/discard payloads. Metadata and payload copies are bounded, but there is no hard wall-clock or
+CPU-time guarantee. A producer can stall or allocate before the library receives data.
 
 The stream reader owns the reader it acquires: it cancels it and releases its lock on completion, callback `false`,
 abort and failure. `signal` cancels a pending source read. Callback errors retain their identity when cleanup also
@@ -186,7 +251,7 @@ Implicit parent directories are synthesized. No entry is extracted to the host, 
 Each selected read uses the archive's exact payload extent and clamps filesystem reads at EOF. The adapter buffers that
 selected result; it does not advertise streaming or payload verification. TAR header checksums never authenticate file
 content, and the filesystem's byte result does not add integrity evidence. Use the direct reader when that evidence must
-travel alongside bytes. Per-read budgets remain independent unless a caller-owned ledger joins them. Closing the
-filesystem leaves the archive and source usable. Mutations are refused before acquiring producer bytes. Cancellation
+travel alongside bytes. Per-read budgets join the archive's retained opening limits and any caller-owned ledger. Closing
+the filesystem leaves the archive and source usable. Mutations are refused before acquiring producer bytes. Cancellation
 follows the filesystem's `FileSystemError` with `code: "aborted"` and the original cause; direct adapter reads retain
 the original abort reason.

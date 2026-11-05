@@ -1,0 +1,28 @@
+{
+  "profile": "Indexed GNU PAX sparse 1.0 only; genuine 0.0/0.1 archives are refusal controls.",
+  "primary": {
+    "url": "https://www.gnu.org/software/tar/manual/html_section/Sparse-Formats.html",
+    "sha256": "a939a71d596bb835aff4142c07464558deb53dde287e176c6afacb15d94fa854",
+    "section": "E.0.3 PAX Format, Version 1.0"
+  },
+  "producer": "GNU tar 1.34, Debian bookworm executable; original payload bytes were authored independently before archiving.",
+  "consumers": "Python tarfile and libarchive 3.6.2 reconstruct every original byte in all three fixtures. 7zz 26.02 exits 0 but returns condensed/different bytes for sparse files. Status, byte equality and output SHA are retained, never counted as support.",
+  "command": "python3 /produce.py --tar /usr/bin/tar --bsdtar /usr/bin/bsdtar --seven /usr/bin/7zz --output /tmp/independent.json",
+  "container": {
+    "name": "opfs-tar-sparse-producer-20261105",
+    "memory": "1GiB",
+    "cpus": 1,
+    "pids": 128,
+    "base": "opfs-seven-tools:20261105",
+    "baseImageSha256": "527d62a5244f4fa71833b4a105a4906ec1c1c7708f64ea2967fa04d96c551dd5",
+    "limitation": "Local image is not a publicly pullable complete producer pin. Tool version output and source script retained; no runtime dependency."
+  },
+  "scriptSha256": "06e674408e4b4c1876e6cfe23e92e275b40af69078c887c7d3fef33cedd1f6a4",
+  "fixtureSha256": "7c3f1eba675757ba5f243934a8e032c6c6ac46f889afa9f92f624477812467bc",
+  "archives": {
+    "1.0": "0126b6dacb0b8006127d9460174bcc039918a513df751f656a90ae1fee73a793",
+    "0.1": "74465d802632f710166b14bc7a5a5a2954b05bbb0d7835ef3ee36b06b812c79b",
+    "0.0": "7373dde39a3c4379f74f4f27d6c054e9df823ba1c765f092f42f90b199e66fb1"
+  },
+  "proofLimits": "Filesystem hole detection can vary. The genuine 1.0 map spans several 512-byte blocks; tests assert that fact. Authored malformed maps are parser controls. Timestamp-bearing archives need not reproduce identical bytes."
+}
