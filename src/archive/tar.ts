@@ -4,7 +4,7 @@ import type { ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
 export { ArchiveError, createArchiveLedger } from "./record.ts";
 export type { ArchiveErrorCodeType, ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
 
-/** One ustar entry. Names and links are metadata, never automatically host paths. */
+/** One TAR entry. Names and links are metadata, never automatically host paths. */
 export interface TarEntryType {
   readonly id: number;
   readonly name: string;
@@ -16,7 +16,10 @@ export interface TarEntryType {
 /** Header scanning is sequential; a random-access source can skip padded payload extents. */
 export interface TarOpenOptionsType extends ArchiveLimitsType {
   readonly signal?: AbortSignal;
+  /** Total nonzero headers, including extensions. Default 100,000. */
   readonly maxEntries?: number;
+  /** Cumulative extension payload bytes; bounds persistent and pending metadata too. Default 1 MiB. */
+  readonly maxMetadataBytes?: number;
   /** Explicitly accepts mutation risk for a source without declared snapshot stability. */
   readonly allowUnverifiedSource?: boolean;
 }
@@ -27,7 +30,7 @@ export interface TarReadOptionsType extends ArchiveLimitsType {
   readonly length?: number;
 }
 
-/** ustar has header checksums, not content checksums or authentication. */
+/** TAR has header checksums, not content checksums or authentication. */
 export interface TarReadType {
   readonly bytes: Uint8Array;
   readonly integrity: "header-checksum-only";
@@ -45,60 +48,31 @@ export interface TarArchiveType {
   read(id: number, options?: TarReadOptionsType): Promise<TarReadType>;
 }
 
-/** Open uncompressed POSIX ustar, refusing dialect extensions instead of misreading them. */
+/** Open uncompressed ustar, PAX, or GNU long-name TAR without following links. */
 export async function openTar(source: ByteSourceType, options: TarOpenOptionsType = {}): Promise<TarArchiveType> {
   if (!source.stability && !options.allowUnverifiedSource) {
     unsupported("TAR index reads require declared source stability or explicit unverified-source acceptance.");
   }
   const budget = new ArchiveBudget(source, options, options.signal);
-  const maximum = options.maxEntries ?? 100_000;
-  integer(maximum, "Entry limit");
+  const parser = new TarHeaders(options);
   const entries: TarEntryType[] = [];
   const offsets: number[] = [];
   let offset = 0;
-  let terminated = false;
-  while (offset < source.size) {
-    const header = await budget.read(offset, 512);
-    if (header.every((byte) => byte === 0)) {
-      const second = await budget.read(offset + 512, 512);
-      if (second.some((byte) => byte !== 0)) invalid("TAR end marker requires two zero blocks.");
-      terminated = true;
-      break;
-    }
-    if (entries.length >= maximum) throw new ArchiveError("budget-exceeded", "TAR entry limit exceeded.");
-    let checksum = 0;
-    for (let index = 0; index < header.length; index++) checksum += index >= 148 && index < 156 ? 32 : header[index]!;
-    if (octal(header.subarray(148, 156)) !== checksum) {
-      throw new ArchiveError("checksum-mismatch", "TAR header checksum failed.");
-    }
-    if (text(header.subarray(257, 263)) !== "ustar" || text(header.subarray(263, 265)) !== "00") {
-      unsupported("Only POSIX ustar headers are supported.");
-    }
-    const type = header[156];
-    const kind = type === 0 || type === 48
-      ? "file"
-      : type === 53
-      ? "directory"
-      : type === 50
-      ? "symbolic-link"
-      : type === 49
-      ? "hard-link"
-      : undefined;
-    if (!kind) unsupported("TAR PAX/GNU/sparse/special records require an explicit supported profile.");
-    const size = octal(header.subarray(124, 136));
-    if (kind !== "file" && size !== 0) unsupported("Non-file ustar payloads are unsupported.");
-    const prefix = text(header.subarray(345, 500));
-    const name = text(header.subarray(0, 100));
-    const link = text(header.subarray(157, 257));
-    const paddedSize = Math.ceil(size / 512) * 512;
-    if (!Number.isSafeInteger(paddedSize) || paddedSize > source.size - offset - 512) {
+  while (true) {
+    const entry = await parser.next(async (length) => {
+      const bytes = await budget.read(offset, length);
+      offset += length;
+      return bytes;
+    }, (length) => budget.decoded(length));
+    if (!entry) break;
+    const paddedSize = tarPadding(entry.size) + entry.size;
+    if (!Number.isSafeInteger(paddedSize) || paddedSize > source.size - offset) {
       invalid("TAR member exceeds source extent.");
     }
-    entries.push(Object.freeze({ id: entries.length, name: prefix ? `${prefix}/${name}` : name, size, kind, link }));
-    offsets.push(offset + 512);
-    offset += 512 + paddedSize;
+    entries.push(entry);
+    offsets.push(offset);
+    offset += paddedSize;
   }
-  if (!terminated) invalid("TAR end marker is missing.");
   return Object.freeze({
     entries: Object.freeze(entries),
     work: budget.inspect(),
@@ -111,7 +85,7 @@ export async function openTar(source: ByteSourceType, options: TarOpenOptionsTyp
       const entry = entries[id];
       if (!entry) throw new RangeError("TAR entry ID does not exist.");
       if (entry.kind !== "file") {
-        unsupported("Only regular ustar member payloads can be read; links are never followed.");
+        unsupported("Only regular TAR member payloads can be read; links are never followed.");
       }
       const start = readOptions.offset ?? 0;
       const length = readOptions.length ?? entry.size - start;
@@ -127,6 +101,155 @@ export async function openTar(source: ByteSourceType, options: TarOpenOptionsTyp
       return { bytes, integrity: "header-checksum-only", work: readBudget.inspect() };
     },
   });
+}
+
+/** @internal Shared framing state for indexed and one-shot readers; not a filesystem projection. */
+export class TarHeaders {
+  readonly #maximum: number;
+  readonly #metadataMaximum: number;
+  #headers = 0;
+  #entries = 0;
+  #metadata = 0;
+  #global = new Map<string, string>();
+  #local = new Map<string, string>();
+  #pending = false;
+
+  constructor(options: Pick<TarOpenOptionsType, "maxEntries" | "maxMetadataBytes"> = {}) {
+    this.#maximum = options.maxEntries ?? 100_000;
+    this.#metadataMaximum = options.maxMetadataBytes ?? 1024 * 1024;
+    integer(this.#maximum, "Header limit");
+    integer(this.#metadataMaximum, "Metadata byte limit");
+  }
+
+  /** The caller consumes each returned payload and its padding before requesting another header. */
+  async next(
+    read: (length: number) => Promise<Uint8Array>,
+    decoded: (length: number) => void,
+  ): Promise<TarEntryType | null> {
+    while (true) {
+      const header = await read(512);
+      if (header.every((byte) => byte === 0)) {
+        const second = await read(512);
+        if (second.some((byte) => byte !== 0)) invalid("TAR end marker requires two zero blocks.");
+        if (this.#pending) invalid("TAR extension has no following member.");
+        return null;
+      }
+      if (this.#headers++ >= this.#maximum) throw new ArchiveError("budget-exceeded", "TAR header limit exceeded.");
+      let checksum = 0;
+      for (let index = 0; index < 512; index++) checksum += index >= 148 && index < 156 ? 32 : header[index]!;
+      if (octal(header.subarray(148, 156)) !== checksum) {
+        throw new ArchiveError("checksum-mismatch", "TAR header checksum failed.");
+      }
+      const magic = header.subarray(257, 265);
+      const posix = magic.every((byte, index) => byte === [117, 115, 116, 97, 114, 0, 48, 48][index]);
+      const gnu = magic.every((byte, index) => byte === [117, 115, 116, 97, 114, 32, 32, 0][index]);
+      if (!posix && !gnu) unsupported("Only POSIX ustar/PAX and GNU TAR headers are supported.");
+      const type = header[156];
+      if (type === 120 || type === 103 || type === 76 || type === 75) {
+        const rawSize = octal(header.subarray(124, 136));
+        if (rawSize > this.#metadataMaximum - this.#metadata) {
+          throw new ArchiveError("budget-exceeded", "TAR metadata byte limit exceeded.");
+        }
+        this.#metadata += rawSize;
+        decoded(rawSize);
+        const payload = await read(rawSize);
+        await read(tarPadding(rawSize));
+        if (type === 120 || type === 103) {
+          const values = pax(payload);
+          const target = type === 103 ? this.#global : this.#local;
+          for (const [key, value] of values) {
+            if (type === 103 && value === "") target.delete(key);
+            else target.set(key, value);
+          }
+          if (type === 120) this.#pending = true;
+        } else {
+          if (payload.length === 0 || payload[payload.length - 1] !== 0) invalid("GNU long metadata must end in NUL.");
+          const value = text(payload.subarray(0, -1));
+          if (payload.subarray(0, -1).includes(0)) invalid("GNU long metadata contains an embedded NUL.");
+          this.#local.set(type === 76 ? "path" : "linkpath", value);
+          this.#pending = true;
+        }
+        continue;
+      }
+      const kind = type === 0 || type === 48
+        ? "file"
+        : type === 53
+        ? "directory"
+        : type === 50
+        ? "symbolic-link"
+        : type === 49
+        ? "hard-link"
+        : undefined;
+      if (!kind) unsupported("TAR sparse, device, FIFO, and other special members are unsupported.");
+      const values = new Map(this.#global);
+      for (const [key, value] of this.#local) {
+        if (value === "") values.delete(key);
+        else values.set(key, value);
+      }
+      this.#local.clear();
+      this.#pending = false;
+      const charset = values.get("hdrcharset");
+      if (charset && charset !== "ISO-IR 10646 2000 UTF-8") unsupported("Non-UTF-8 PAX metadata is unsupported.");
+      let name = values.get("path");
+      if (name === undefined) {
+        const prefix = posix ? text(header.subarray(345, 500)) : "";
+        const suffix = text(header.subarray(0, 100));
+        name = prefix ? `${prefix}/${suffix}` : suffix;
+      }
+      const link = values.get("linkpath") ?? text(header.subarray(157, 257));
+      const sizeText = values.get("size");
+      if (sizeText !== undefined && !/^[0-9]+$/.test(sizeText)) invalid("PAX size is not an unsigned decimal integer.");
+      const size = sizeText === undefined ? octal(header.subarray(124, 136)) : Number(sizeText);
+      if (!Number.isSafeInteger(size)) unsupported("PAX size exceeds exact JavaScript integers.");
+      if (kind !== "file" && size !== 0) unsupported("Non-file TAR payloads, including linkdata, are unsupported.");
+      if (!name || name.includes("\0") || link.includes("\0")) {
+        invalid("TAR member metadata contains an empty name or NUL.");
+      }
+      return Object.freeze({ id: this.#entries++, name, size, kind, link });
+    }
+  }
+}
+
+/** TAR payloads align to 512-byte blocks without unsafe ceil/multiply arithmetic. @internal */
+export function tarPadding(size: number): number {
+  return (512 - size % 512) % 512;
+}
+
+/** Length prefixes count UTF-8 octets, not JavaScript characters. Unknown attributes are not filesystem authority. */
+function pax(bytes: Uint8Array): Map<string, string> {
+  const values = new Map<string, string>();
+  let offset = 0;
+  while (offset < bytes.length) {
+    const space = bytes.indexOf(32, offset);
+    if (space < 0 || space - offset > 16) invalid("PAX record length is missing or too large.");
+    const digits = text(bytes.subarray(offset, space));
+    if (!/^[1-9][0-9]*$/.test(digits)) invalid("PAX record length is invalid.");
+    const length = Number(digits);
+    if (!Number.isSafeInteger(length) || length > bytes.length - offset || length < space - offset + 4) {
+      invalid("PAX record exceeds its payload.");
+    }
+    const end = offset + length;
+    if (bytes[end - 1] !== 10) invalid("PAX record must end in newline.");
+    const equal = bytes.indexOf(61, space + 1);
+    if (equal <= space + 1 || equal >= end - 1) invalid("PAX record requires a key and equals sign.");
+    const key = utf8(bytes.subarray(space + 1, equal));
+    const value = utf8(bytes.subarray(equal + 1, end - 1));
+    if (key.includes("\0") || value.includes("\0")) invalid("PAX metadata contains NUL.");
+    if (/sparse/i.test(key) || key === "SCHILY.filetype" || key === "SCHILY.realsize") {
+      unsupported("Sparse and special-file PAX profiles are unsupported.");
+    }
+    values.set(key, value);
+    offset = end;
+  }
+  return values;
+}
+
+function utf8(bytes: Uint8Array): string {
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    unsupported("Non-UTF-8 TAR metadata is unsupported.");
+  }
 }
 
 /** NUL-terminated metadata is decoded without normalizing or projecting path components. */

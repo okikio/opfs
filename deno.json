@@ -81,7 +81,8 @@
     "./webdav": "./src/webdav.ts",
     "./driver/webdav": "./src/driver/webdav.ts",
     "./adapter/webdav": "./src/adapter/webdav.ts",
-    "./archive/write": "./src/archive/write.ts"
+    "./archive/write": "./src/archive/write.ts",
+    "./archive/stream": "./src/archive/stream.ts"
   },
   "imports": {
     "@okikio/undent": "jsr:@okikio/undent@^0.3.3",
