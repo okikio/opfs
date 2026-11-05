@@ -156,7 +156,8 @@
     "@aws-sdk/lib-storage": "npm:@aws-sdk/lib-storage@^3.1100.0",
     "@azure/storage-blob": "npm:@azure/storage-blob@^12.33.0",
     "testcontainers": "npm:testcontainers@^12.0.4",
-    "@testcontainers/azurite": "npm:@testcontainers/azurite@^12.0.4"
+    "@testcontainers/azurite": "npm:@testcontainers/azurite@^12.0.4",
+    "@google-cloud/storage": "npm:@google-cloud/storage@7.19.0"
   },
   "nodeModulesDir": "auto",
   "compilerOptions": {

@@ -26,6 +26,37 @@ export const GCS_CHUNK_BYTES = 256 * 1024;
 /** Maximum object size supported by the JSON API, in bytes. */
 export const GCS_MAX_BYTES = 5 * 1024 ** 4;
 
+/** Object classes accepted by this upload profile; bucket-only classes are excluded. */
+export const GcsStorageClassSchema: z.ZodEnum<{
+  STANDARD: "STANDARD";
+  NEARLINE: "NEARLINE";
+  COLDLINE: "COLDLINE";
+  ARCHIVE: "ARCHIVE";
+}> = z.enum(["STANDARD", "NEARLINE", "COLDLINE", "ARCHIVE"]);
+
+/** An explicitly requested native object storage class. */
+export type GcsStorageClassType = z.infer<typeof GcsStorageClassSchema>;
+
+/** Native class metadata remains separate from caller-defined object metadata. */
+export interface GcsStatType extends ObjectStatType {
+  /** Provider-reported class, including unknown or legacy values. */
+  readonly storageClass?: string;
+}
+
+/** Attributable upload or copy receipt with native storage class when reported. */
+export interface GcsReceiptType extends ObjectReceiptType, GcsStatType {}
+
+/** One native object-list page, retaining each object's reported class. */
+export interface GcsListType extends ObjectListType {
+  readonly objects: readonly (GcsStatType & { readonly key: string })[];
+}
+
+/** Provider upload intent. Omitting the class retains the bucket's native default. */
+export interface GcsPutOptionsType extends ObjectPutOptionsType {
+  /** Requested class must be confirmed by the final publication acknowledgement. */
+  readonly storageClass?: GcsStorageClassType;
+}
+
 /** Explicit configuration; the application owns token acquisition and refresh. */
 export interface GcsClientOptionsType {
   /** Bucket name; each client addresses one bucket. */
@@ -52,12 +83,14 @@ export interface GcsUploadType {
   readonly key: string;
   /** Expected complete encoded length, when known. */
   readonly size?: number;
+  /** Expected final native class; preserve this intent when persisting the session. */
+  readonly storageClass?: GcsStorageClassType;
 }
 
 /** Server-confirmed continuation or attributable final publication. */
 export type GcsUploadStatusType =
   | Readonly<{ complete: false; offset: number }>
-  | Readonly<{ complete: true; offset: number; receipt: ObjectReceiptType }>;
+  | Readonly<{ complete: true; offset: number; receipt: GcsReceiptType }>;
 
 /** One bounded upload extent. Nonfinal extents must follow GCS alignment rules. */
 export interface GcsUploadWriteOptionsType {
@@ -73,7 +106,10 @@ export interface GcsUploadWriteOptionsType {
 /** GCS-native operations remain usable without a filesystem adapter. */
 export interface GcsClientType extends ObjectBackendType {
   getMetrics(): RequestMetricsType;
-  createUpload(key: string, options?: ObjectPutOptionsType): Promise<GcsUploadType>;
+  head(key: string, options?: { readonly signal?: AbortSignal }): Promise<GcsStatType | null>;
+  list(options: ObjectListOptionsType): Promise<GcsListType>;
+  put(key: string, body: Uint8Array | ReadableStream<Uint8Array>, options?: GcsPutOptionsType): Promise<GcsReceiptType>;
+  createUpload(key: string, options?: GcsPutOptionsType): Promise<GcsUploadType>;
   queryUpload(upload: GcsUploadType, signal?: AbortSignal): Promise<GcsUploadStatusType>;
   writeUpload(
     upload: GcsUploadType,
@@ -81,7 +117,7 @@ export interface GcsClientType extends ObjectBackendType {
     options: GcsUploadWriteOptionsType,
   ): Promise<GcsUploadStatusType>;
   cancelUpload(upload: GcsUploadType, signal?: AbortSignal): Promise<void>;
-  copy(source: string, destination: string, options?: ObjectCopyOptionsType): Promise<ObjectReceiptType>;
+  copy(source: string, destination: string, options?: ObjectCopyOptionsType): Promise<GcsReceiptType>;
 }
 
 /** Provider HTTP failure without credential-bearing URLs in its message. */
@@ -115,6 +151,7 @@ const GcsMetadataSchema = z.object({
   contentType: z.string().optional(),
   updated: z.string().optional(),
   metadata: z.record(z.string(), z.string()).optional(),
+  storageClass: z.string().min(1).max(128).optional(),
 }).passthrough();
 
 /** Admission uses encoded-byte safe integers before acquiring credentials or sources. */
@@ -145,7 +182,7 @@ function condition(options: Pick<ObjectPutOptionsType, "revision" | "ifMatch" | 
 }
 
 /** Attribute only the completely validated operation response, not a later current HEAD. */
-function metadata(value: unknown, key?: string): ObjectReceiptType & { readonly key: string } {
+function metadata(value: unknown, key?: string): GcsReceiptType & { readonly key: string } {
   const data = GcsMetadataSchema.parse(value);
   if (key !== undefined && data.name !== key) throw new TypeError("GCS acknowledgement names a different object.");
   const size = Number(data.size);
@@ -157,6 +194,7 @@ function metadata(value: unknown, key?: string): ObjectReceiptType & { readonly 
     size,
     version: data.generation,
     revision: { kind: "generation", value: data.generation },
+    ...(data.storageClass === undefined ? {} : { storageClass: data.storageClass }),
     ...(data.etag === undefined ? {} : { etag: data.etag }),
     ...(data.contentType === undefined ? {} : { mediaType: data.contentType }),
     ...(modified === undefined ? {} : { lastModified: modified }),
@@ -233,6 +271,7 @@ class GcsClient implements GcsClientType {
       throw new TypeError("GCS session is outside the configured origin.");
     }
     if (upload.size !== undefined) integer(upload.size, "Upload total", GCS_MAX_BYTES);
+    if (upload.storageClass !== undefined) GcsStorageClassSchema.parse(upload.storageClass);
     return url;
   }
 
@@ -292,7 +331,7 @@ class GcsClient implements GcsClientType {
     });
   }
 
-  async head(key: string, options: { readonly signal?: AbortSignal } = {}): Promise<ObjectStatType | null> {
+  async head(key: string, options: { readonly signal?: AbortSignal } = {}): Promise<GcsStatType | null> {
     const response = await this.#send(this.#path(key), "GET", options);
     if (response.status === 404) return await readResponse(response, () => null);
     return metadata(await this.#json(response), key);
@@ -372,7 +411,7 @@ class GcsClient implements GcsClientType {
     }
   }
 
-  async list(options: ObjectListOptionsType): Promise<ObjectListType> {
+  async list(options: ObjectListOptionsType): Promise<GcsListType> {
     if (options.limit !== undefined && (integer(options.limit, "List limit", 1000) === 0)) {
       throw new RangeError("List limit must be positive.");
     }
@@ -414,8 +453,11 @@ class GcsClient implements GcsClientType {
     });
   }
 
-  async createUpload(key: string, options: ObjectPutOptionsType = {}): Promise<GcsUploadType> {
+  async createUpload(key: string, options: GcsPutOptionsType = {}): Promise<GcsUploadType> {
     options = { ...options, ...(options.metadata === undefined ? {} : { metadata: { ...options.metadata } }) };
+    const storageClass = options.storageClass === undefined
+      ? undefined
+      : GcsStorageClassSchema.parse(options.storageClass);
     const match = condition(options);
     if (options.size !== undefined) integer(options.size, "Upload size", GCS_MAX_BYTES);
     const response = await this.#send(this.#path(undefined, true), "POST", {
@@ -425,6 +467,7 @@ class GcsClient implements GcsClientType {
         ...(options.size === undefined ? {} : { "x-upload-content-length": String(options.size) }),
       },
       body: JSON.stringify({
+        ...(storageClass === undefined ? {} : { storageClass }),
         ...(options.mediaType === undefined ? {} : { contentType: options.mediaType }),
         ...(options.metadata === undefined ? {} : { metadata: options.metadata }),
       }),
@@ -437,6 +480,7 @@ class GcsClient implements GcsClientType {
       const session = {
         url: new URL(location, this.#origin).href,
         key,
+        ...(storageClass === undefined ? {} : { storageClass }),
         ...(options.size === undefined ? {} : { size: options.size }),
       };
       this.#session(session);
@@ -460,6 +504,9 @@ class GcsClient implements GcsClientType {
       if (!response.ok) throw new GcsError(response);
       try {
         const receipt = metadata(JSON.parse(await text()) as unknown, upload.key);
+        if (upload.storageClass !== undefined && receipt.storageClass !== upload.storageClass) {
+          throw new TypeError("GCS publication did not confirm the requested storage class.");
+        }
         if (upload.size !== undefined && receipt.size !== upload.size) {
           throw new TypeError("GCS completed with an unexpected object size.");
         }
@@ -541,8 +588,8 @@ class GcsClient implements GcsClientType {
   async put(
     key: string,
     body: Uint8Array | ReadableStream<Uint8Array>,
-    options: ObjectPutOptionsType = {},
-  ): Promise<ObjectReceiptType> {
+    options: GcsPutOptionsType = {},
+  ): Promise<GcsReceiptType> {
     options = {
       ...options,
       ...(options.revision === undefined ? {} : { revision: { ...options.revision } }),
@@ -605,7 +652,7 @@ class GcsClient implements GcsClientType {
     }
   }
 
-  async copy(source: string, destination: string, options: ObjectCopyOptionsType = {}): Promise<ObjectReceiptType> {
+  async copy(source: string, destination: string, options: ObjectCopyOptionsType = {}): Promise<GcsReceiptType> {
     options = { ...options };
     const match = condition(options);
     const sourceMatch = generation(options.sourceRevision);

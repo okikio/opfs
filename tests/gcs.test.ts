@@ -7,6 +7,7 @@ import {
   GCS_CHUNK_BYTES,
   GcsError,
   GcsPublicationError,
+  GcsStorageClassSchema,
 } from "../src/gcs.ts";
 import { createGcsDriverFromClient } from "../src/driver/gcs.ts";
 import { createGcsAdapter } from "../src/adapter/gcs.ts";
@@ -382,6 +383,83 @@ describe("Google Cloud Storage JSON client", () => {
         expect(failure).toBeInstanceOf(FileSystemError);
         expect(failure).toMatchObject({ code, cause: expect.any(GcsError) });
       }
+    }
+  });
+});
+
+describe("GCS native storage-class intent", () => {
+  it("captures class before credentials and confirms it in the exact final receipt", async () => {
+    const options = { storageClass: "ARCHIVE" as const };
+    let calls = 0;
+    const client = createGcsClient({
+      bucket: "test",
+      endpoint: origin,
+      token: async () => {
+        Object.assign(options, { storageClass: "STANDARD" });
+        return "token";
+      },
+      fetch: async (_input, init) => {
+        if (calls++ === 0) {
+          expect(JSON.parse(String(init?.body))).toEqual({ storageClass: "ARCHIVE" });
+          return new Response(null, { headers: { location: session.url } });
+        }
+        return Response.json({ ...object, storageClass: "ARCHIVE", metadata: { storageClass: "user-field" } });
+      },
+    });
+    expect(await client.put(key, new Uint8Array([1, 2, 3]), options)).toMatchObject({
+      storageClass: "ARCHIVE",
+      metadata: { storageClass: "user-field" },
+    });
+    expect(calls).toBe(2);
+  });
+
+  it("retains native unknown classes in head and list without treating them as upload selectors", async () => {
+    const client = createGcsClient({
+      bucket: "test",
+      endpoint: origin,
+      fetch: async (input) =>
+        Response.json(
+          new URL(String(input)).pathname.endsWith("/o")
+            ? { items: [{ ...object, storageClass: "FUTURE_NATIVE_CLASS" }] }
+            : { ...object, storageClass: "FUTURE_NATIVE_CLASS" },
+        ),
+    });
+    expect((await client.head(key))?.storageClass).toBe("FUTURE_NATIVE_CLASS");
+    expect((await client.list({ prefix: "" })).objects[0]?.storageClass).toBe("FUTURE_NATIVE_CLASS");
+    expect(GcsStorageClassSchema.safeParse("FUTURE_NATIVE_CLASS").success).toBe(false);
+  });
+
+  it("admits only the explicit upload class profile before token acquisition", async () => {
+    let tokens = 0;
+    const client = createGcsClient({
+      bucket: "test",
+      token: () => {
+        tokens++;
+        return "token";
+      },
+    });
+    await expect(client.createUpload(key, { storageClass: "RAPID" as "ARCHIVE" })).rejects.toThrow();
+    await expect(client.queryUpload({ ...session, storageClass: "invalid" as "ARCHIVE" })).rejects.toThrow();
+    expect(tokens).toBe(0);
+  });
+
+  it("keeps expected class in the session and refuses omitted or mismatched final class as unknown publication", async () => {
+    for (const storageClass of [undefined, "STANDARD"]) {
+      let calls = 0;
+      const client = createGcsClient({
+        bucket: "test",
+        endpoint: origin,
+        fetch: async () => {
+          if (calls++ === 0) return new Response(null, { headers: { location: session.url } });
+          return Response.json({ ...object, ...(storageClass === undefined ? {} : { storageClass }) });
+        },
+      });
+      const upload = await client.createUpload(key, { size: 3, storageClass: "ARCHIVE" });
+      expect(upload.storageClass).toBe("ARCHIVE");
+      expect(Object.isFrozen(upload)).toBe(true);
+      await expect(client.writeUpload(upload, new Uint8Array([1, 2, 3]), { offset: 0, total: 3, final: true }))
+        .rejects.toBeInstanceOf(GcsPublicationError);
+      await expect(client.queryUpload(upload)).rejects.toBeInstanceOf(GcsPublicationError);
     }
   });
 });
