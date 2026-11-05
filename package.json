@@ -167,7 +167,8 @@
     "./archive/xar": "./src/archive/xar.ts",
     "./yandex": "./src/yandex.ts",
     "./archive/wim": "./src/archive/wim.ts",
-    "./archive/lzma": "./src/archive/lzma.ts"
+    "./archive/lzma": "./src/archive/lzma.ts",
+    "./firebase": "./src/firebase.ts"
   },
   "dependencies": {
     "@okikio/undent": "^0.3.3",
