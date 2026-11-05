@@ -195,7 +195,9 @@
     "./crypto/cryptomator": "./src/crypto/cryptomator.ts",
     "./etcd": "./src/etcd.ts",
     "./upload": "./src/upload.ts",
-    "./archive/arj": "./src/archive/arj.ts"
+    "./archive/arj": "./src/archive/arj.ts",
+    "./memcached": "./src/memcached.ts",
+    "./dataset/mcap": "./src/dataset/mcap.ts"
   },
   "dependencies": {
     "@okikio/undent": "^0.3.3",

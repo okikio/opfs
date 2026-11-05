@@ -91,3 +91,10 @@ ARJ now indexes selected single-volume headers and previews STORED members. Nati
 byte and the complete file set, including explicit directories and comments. Default prefix reads scan the whole member
 for CRC32; unchecked partial reads retain pending integrity. Compressed decoding, encryption, multivolume archives and
 nonzero extended headers remain unsupported. See [the ARJ guide](../../docs/arj.md).
+
+The `db-memcached` record now has a [native classic ASCII client](../../docs/memcached.md), qualified against the
+official server and independent pymemcache full-byte/CAS operations. A cache miss, eviction and unconditional deletion
+do not supply filesystem semantics. The `format-mcap` record now has an
+[uncompressed recording view](../../docs/mcap.md): physical enumeration, exact timestamps and separate
+summary/data/chunk/attachment CRC evidence. Compressed chunks, optional-index semantics and application message decoders
+remain unsupported.
