@@ -173,7 +173,7 @@ filesystem. [Legacy ZIP password previews](docs/password.md) accept explicit pas
 authentication.
 
 [OCFL](docs/ocfl.md) resolves logical version states to explicit content sources and separates inventory/content fixity.
-[WinZip AES STORED](docs/aes.md) checks complete ciphertext before decrypting selected blocks; names remain
+[WinZip AES STORED/DEFLATE](docs/aes.md) checks complete ciphertext before decrypting selected blocks; names remain
 unauthenticated. [Dropbox](docs/dropbox.md) keeps native revision and upload-offset evidence. Optional native
 Brotli/Zstandard streams use available host codecs without a fallback dependency; see
 [compression](docs/compression.md).
@@ -506,3 +506,6 @@ versions, inspect exact artifacts, and publish with independent JSR/npm receipts
 [LZ4](docs/lz4.md) decodes bounded modern frames; complete content checksum evidence requires EOF. [Box](docs/box.md)
 preserves native versions and distinguishes pending upload commits from final file receipts.
 [Internet Archive ARC](docs/arc.md) exposes exact physical capture blocks with explicit producer framing.
+
+[Git loose objects](docs/git.md) verify complete SHA-1/SHA-256 object bytes before exposing private payload ranges and
+inert tree names. Packs, refs and traversal remain outside that profile.

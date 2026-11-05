@@ -870,11 +870,14 @@ sources for nested previews without host extraction.
 [Legacy ZIP password previews](password.md) describe explicit password bytes and unauthenticated ZipCrypto evidence.
 
 [OCFL](ocfl.md) separates exact inventory verification from selected physical-content verification.
-[WinZip AES STORED](aes.md) authenticates bounded ciphertext before selected-block decryption. [Dropbox](dropbox.md)
-exposes native revisions and upload-session offset evidence.
+[WinZip AES STORED/DEFLATE](aes.md) authenticates bounded ciphertext before selected-block decryption.
+[Dropbox](dropbox.md) exposes native revisions and upload-session offset evidence.
 [Optional native codecs](compression.md#optional-brotli-and-zstandard) depend on the host constructor and add no
 independent checksum claim.
 
 [LZ4](lz4.md) decodes bounded modern frames; complete content checksum evidence requires EOF. [Box](box.md) preserves
 native versions and distinguishes pending upload commits from final file receipts. [Internet Archive ARC](arc.md)
 exposes exact physical capture blocks with explicit producer framing.
+
+[Git loose objects](git.md) verify complete SHA-1/SHA-256 object bytes before exposing private payload ranges and inert
+tree names. Packs, refs and traversal remain outside that profile.
