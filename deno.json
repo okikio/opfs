@@ -152,7 +152,8 @@
     "./couchdb": "./src/couchdb.ts",
     "./crypto/cryptomator": "./src/crypto/cryptomator.ts",
     "./etcd": "./src/etcd.ts",
-    "./upload": "./src/upload.ts"
+    "./upload": "./src/upload.ts",
+    "./archive/arj": "./src/archive/arj.ts"
   },
   "imports": {
     "@okikio/undent": "jsr:@okikio/undent@^0.3.3",

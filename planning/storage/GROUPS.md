@@ -86,3 +86,8 @@ LHA now indexes header levels 0–2 and previews ordinary stored members, with s
 JLHA/Lhasa/7-Zip/libarchive fixtures compare complete bytes. Compressed methods, extraction and non-ASCII encoding
 inference remain unsupported; the observed JLHA level-0 header ceiling is a writer constraint, not a universal format
 limit.
+
+ARJ now indexes selected single-volume headers and previews STORED members. Native ARJ and 7-Zip compare every original
+byte and the complete file set, including explicit directories and comments. Default prefix reads scan the whole member
+for CRC32; unchecked partial reads retain pending integrity. Compressed decoding, encryption, multivolume archives and
+nonzero extended headers remain unsupported. See [the ARJ guide](../../docs/arj.md).
