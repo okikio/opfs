@@ -132,7 +132,8 @@
     "./adapter/cloudflare-kv": "./src/adapter/cloudflare-kv.ts",
     "./content/cid": "./src/content/cid.ts",
     "./content/car": "./src/content/car.ts",
-    "./ipfs": "./src/ipfs.ts"
+    "./ipfs": "./src/ipfs.ts",
+    "./archive/compress": "./src/archive/compress.ts"
   },
   "dependencies": {
     "@okikio/undent": "^0.3.3",
