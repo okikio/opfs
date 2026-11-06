@@ -148,13 +148,18 @@ reconciliation. Applications own cost approval, polling and durable receipts. SD
 provider-native behavior and eligible-account proof remain separate qualifications; this profile supplies no OPFS
 adapter, automatic transfer checkpoint, Select initiation or S3 Glacier storage-class support.
 
-The per-record source audit still finds eleven native contracts without provider-specific implementations:
-`akamai-netstorage`, `upyun`, `rados`, `ibm-classic-swift`, `memset-memstore`, `netlify-blobs`, `qingstor`,
-`rackspace-cloud-files`, `vercel-blob`, `volcengine-tos` and `cdmi`. Each needs its own authentication, limits,
-operation outcomes and independent fixture. Generic S3 or Swift support does not qualify a branded service; Glacier
-vault jobs are distinct from S3 Glacier storage classes. Historical service names also need current availability
-research before implementation. Across this group and existing-driver, 23 of 34 records have selected implemented
-profiles; this count is not complete provider certification.
+[Netlify Blobs](../../docs/netlify.md) adds a bounded first-party client for the SDK 11.1.7 API exchange. Account and
+capability credentials remain separate, full objects are copied under explicit budgets, and uncertain writes require
+reconciliation. Local SDK reciprocity qualifies this profile; the local server's prefix-list defect, production
+consistency, remote ranges, metadata writes and filesystem semantics remain separate boundaries.
+
+The per-record source audit still finds ten native contracts without provider-specific implementations:
+`akamai-netstorage`, `upyun`, `rados`, `ibm-classic-swift`, `memset-memstore`, `qingstor`, `rackspace-cloud-files`,
+`vercel-blob`, `volcengine-tos` and `cdmi`. Each needs its own authentication, limits, operation outcomes and
+independent fixture. Generic S3 or Swift support does not qualify a branded service; Glacier vault jobs are distinct
+from S3 Glacier storage classes. Historical service names also need current availability research before implementation.
+Across this group and existing-driver, 24 of 34 records have selected implemented profiles; this count is not complete
+provider certification.
 
 ### s3-profile
 

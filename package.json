@@ -213,7 +213,8 @@
     "./dataset/orc": "./src/dataset/orc.ts",
     "./dataset/arrow": "./src/dataset/arrow.ts",
     "./amqp": "./src/amqp.ts",
-    "./kafka": "./src/kafka.ts"
+    "./kafka": "./src/kafka.ts",
+    "./netlify": "./src/netlify.ts"
   },
   "dependencies": {
     "@okikio/undent": "^0.3.3",

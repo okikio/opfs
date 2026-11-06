@@ -329,6 +329,36 @@ jobs:
           install_args: deno node
       - run: deno task deps:ci && deno task test:etcd-provider
 
+  netlify:
+    name: Netlify native capability and SDK containers
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+        with:
+          version: "2026.8.6"
+          install_args: deno node
+      - run: deno task deps:ci
+      - name: Acquire the frozen inert test-only SDK closure
+        run: deno task fixtures:netlify --output .tmp/netlify-inert
+      - name: Bundle the candidate in the CI compiler lane
+        env:
+          DENO_V8_FLAGS: --max-old-space-size=1536
+        run: deno task bundle:netlify --output .tmp/netlify-candidate.ts
+      - name: Compare reciprocal bytes and mutation outcomes
+        env:
+          DENO_V8_FLAGS: --max-old-space-size=256
+          OPFS_NETLIFY_ARTIFACTS: .tmp/netlify-inert
+          OPFS_NETLIFY_EXECUTION_REVIEWED: 11.1.7-test-only
+          OPFS_NETLIFY_CANDIDATE: .tmp/netlify-candidate.ts
+        run: |
+          export OPFS_NETLIFY_CLOSURE_SHA256=$(node --input-type=module -e 'import{readFileSync}from"node:fs";import{createHash}from"node:crypto";console.log(createHash("sha256").update(readFileSync(".tmp/netlify-inert/closure.json")).digest("hex"))')
+          export OPFS_NETLIFY_CANDIDATE_SHA256=$(node --input-type=module -e 'import{readFileSync}from"node:fs";import{createHash}from"node:crypto";console.log(createHash("sha256").update(readFileSync(".tmp/netlify-candidate.ts")).digest("hex"))')
+          deno task test:netlify-provider
+
   pubsub:
     name: Pub/Sub native message and SDK containers
     runs-on: ubuntu-latest
