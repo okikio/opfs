@@ -97,12 +97,13 @@ try {
     throw new Error(`Unexpected npm package name: ${manifest.name}`);
   }
   if (
-    Object.keys(manifest.exports ?? {}).length !== 170 || !("./glacier" in (manifest.exports ?? {})) ||
+    Object.keys(manifest.exports ?? {}).length !== 171 || !("./glacier" in (manifest.exports ?? {})) ||
+    !("./netlify" in (manifest.exports ?? {})) ||
     !("./kafka" in (manifest.exports ?? {})) || !("./dataset/arrow" in (manifest.exports ?? {})) ||
     "./aws" in (manifest.exports ?? {})
   ) {
     throw new Error(
-      "Packed public surface must contain 170 explicit entries, including Arrow, Kafka and Glacier and excluding internal AWS signing.",
+      "Packed public surface must contain 171 explicit entries, including Netlify, Arrow, Kafka and Glacier and excluding internal AWS signing.",
     );
   }
   if (manifest.dependencies?.["drizzle-orm"]) {
@@ -306,6 +307,7 @@ try {
     import { openJwe, JweProtectedSchema } from '@okikio/opfs/crypto/jwe';
     import { NatsClient } from '@okikio/opfs/nats';
     import { KafkaClient, createKafkaClient, KafkaError, KafkaOutcomeError, KafkaCompletionError } from '@okikio/opfs/kafka';
+    import { NetlifyClient, createNetlifyClient, NETLIFY_PROFILE, NetlifyError, NetlifyPublicationError, NetlifyCompletionError } from '@okikio/opfs/netlify';
     import { AmqpClient } from '@okikio/opfs/amqp';
     import { openParquet } from '@okikio/opfs/dataset/parquet';
     import { openOrc } from '@okikio/opfs/dataset/orc';
@@ -1085,6 +1087,74 @@ try {
     }
     const kafkaRefusal=new KafkaError('append',20,{baseOffset:23n});
     if(kafkaRefusal.operation!=='append'||kafkaRefusal.code!==20)throw new Error('Packed Kafka native error identity changed');
+
+    // This independent injected peer proves installed client behavior, not live Netlify service semantics.
+    const netlifyObjects=new Map(),netlifyResponses=[],netlifyRequests=[],netlifyApprovals=[];
+    const netlifyMetadata={label:'café / 雪',source:'packed-peer'};
+    const netlifyEncodedMetadata='b64;'+btoa(Array.from(new TextEncoder().encode(JSON.stringify(netlifyMetadata)),value=>String.fromCharCode(value)).join(''));
+    netlifyObjects.set('seed',{bytes:new Uint8Array([0,255,17]),etag:'"seed-1"'});
+    let netlifyVersion=1,netlifyLost=false,netlifyBadCapability=false,netlifyLostAttempts=0;
+    const netlifyReply=response=>{netlifyResponses.push(response);return response;};
+    const netlifyFetch=async(input,init)=>{
+      const request=new Request(input,init),url=new URL(request.url),headers=request.headers;
+      const api=url.origin==='https://netlify-api.example';
+      if(!api&&url.origin!=='https://netlify-data.example')throw new Error('Packed Netlify dispatched an unapproved authority');
+      if(api&&headers.get('authorization')!=='Bearer packed-only')throw new Error('Packed Netlify account credential missing');
+      if(!api&&headers.has('authorization'))throw new Error('Packed Netlify leaked account bearer to capability');
+      if(init.redirect!=='error'||init.credentials!=='omit'||!init.signal)throw new Error('Packed Netlify must reject redirects, omit ambient credentials and supply cancellation');
+      netlifyRequests.push({api,method:request.method,path:url.pathname});
+      const parts=url.pathname.split('/').filter(Boolean).map(decodeURIComponent);
+      if(api&&(parts[0]!=='api'||parts[1]!=='v1'||parts[2]!=='blobs'||parts[3]!=='packed-site'||parts[4]!=='site:fixture'))throw new Error('Packed Netlify API namespace changed');
+      const name=api?parts[5]:parts[1],entry=netlifyObjects.get(name);
+      if(api&&headers.get('accept')==='application/json;type=signed-url'){
+        if(headers.has('if-match')||headers.has('if-none-match')||(await request.arrayBuffer()).byteLength!==0)throw new Error('Packed Netlify sent final conditions or bytes during negotiation');
+        const origin=netlifyBadCapability?'https://refused.example':'https://netlify-data.example';netlifyBadCapability=false;
+        return netlifyReply(Response.json({url:origin+'/objects/'+name+'?signature=packed'}));
+      }
+      if(api&&request.method==='HEAD')return netlifyReply(entry?new Response(null,{headers:{'content-length':String(entry.bytes.length),'x-amz-meta-user':netlifyEncodedMetadata}}):new Response(null,{status:404}));
+      if(api&&request.method==='DELETE'){netlifyObjects.delete(name);return netlifyReply(new Response(null,{status:204}));}
+      if(api&&request.method==='GET'&&name===undefined)return netlifyReply(Response.json({blobs:Array.from(netlifyObjects,([key,value])=>({key,etag:value.etag})),directories:[]}));
+      if(!api&&request.method==='GET')return netlifyReply(entry?new Response(entry.bytes.slice(),{headers:{etag:entry.etag,'x-amz-meta-user':netlifyEncodedMetadata}}):new Response(null,{status:404}));
+      if(!api&&request.method==='PUT'){
+        const payload=new Uint8Array(await request.arrayBuffer());
+        if(headers.get('if-none-match')==='*'&&entry||headers.has('if-match')&&headers.get('if-match')!==entry?.etag)return netlifyReply(new Response(null,{status:412}));
+        const etag='"packed-'+(++netlifyVersion)+'"';netlifyObjects.set(name,{bytes:payload.slice(),etag});
+        if(name==='uncertain'){netlifyLostAttempts++;if(netlifyLost){netlifyLost=false;throw new Error('Authored reply lost after publication');}}
+        return netlifyReply(new Response(null,{headers:{etag}}));
+      }
+      throw new Error('Packed Netlify peer received an unexpected request');
+    };
+    const netlifyOptions={profile:NETLIFY_PROFILE,api:'https://netlify-api.example',site:'packed-site',store:'fixture',token:'packed-only',fetch:netlifyFetch,
+      authorizeDataURL:(url,request)=>{netlifyApprovals.push({method:request.method,key:request.key});return new URL(url).origin==='https://netlify-data.example';}};
+    new NetlifyClient(netlifyOptions);const netlify=createNetlifyClient(netlifyOptions);
+    if(netlifyRequests.length||netlifyApprovals.length)throw new Error('Packed Netlify construction performed I/O');
+    const netlifySeed=await netlify.get('seed');
+    if(netlifySeed.state!=='present'||netlifySeed.metadata.label!==netlifyMetadata.label)throw new Error('Packed Netlify GET metadata changed');
+    assertBytes(netlifySeed.bytes,new Uint8Array([0,255,17]));
+    const netlifyHead=await netlify.head('seed');
+    if(netlifyHead.state!=='present'||netlifyHead.etag!==undefined||netlifyHead.size!==3||netlifyHead.metadata.source!=='packed-peer')throw new Error('Packed Netlify HEAD invented an ETag or lost declared metadata');
+    const netlifyOriginal=Uint8Array.from({length:257},(_,index)=>(index*19)&255);
+    const netlifyWritten=await netlify.put('created',netlifyOriginal,{condition:{kind:'new'}});
+    if(!netlifyWritten.modified||netlifyWritten.size!==257||!netlifyWritten.etag)throw new Error('Packed Netlify PUT acknowledgement changed');
+    assertBytes(netlifyObjects.get('created').bytes,netlifyOriginal);
+    if((await netlify.put('created',new Uint8Array([9]),{condition:{kind:'new'}})).modified)throw new Error('Packed Netlify create-only refusal changed');
+    if((await netlify.put('created',new Uint8Array([8]),{condition:{kind:'match',etag:'"stale"'}})).modified)throw new Error('Packed Netlify stale-match refusal changed');
+    assertBytes(netlifyObjects.get('created').bytes,netlifyOriginal);
+    if(!(await netlify.put('created',new Uint8Array([1,2]),{condition:{kind:'match',etag:netlifyWritten.etag}})).modified)throw new Error('Packed Netlify current match did not publish');
+    const netlifyPage=await netlify.list();
+    if(netlifyPage.state!=='page'||netlifyPage.blobs.map(item=>item.key).sort().join(',')!=='created,seed'||netlifyPage.directories.length)throw new Error('Packed Netlify native page changed');
+    netlifyBadCapability=true;const netlifyBefore=netlifyRequests.length;let netlifyRefused=false;
+    try{await netlify.get('seed');}catch(error){netlifyRefused=error instanceof NetlifyError&&error.code==='capability-refused';}
+    if(!netlifyRefused||netlifyRequests.length!==netlifyBefore+1)throw new Error('Packed Netlify capability refusal happened after data dispatch');
+    netlifyLost=true;let netlifyUnknown=false;
+    try{await netlify.put('uncertain',new Uint8Array([7,0,255]));}catch(error){netlifyUnknown=error instanceof NetlifyPublicationError&&error.outcome==='unknown'&&error.key==='uncertain';}
+    if(!netlifyUnknown||netlifyLostAttempts!==1)throw new Error('Packed Netlify lost unknown outcome or retried publication');
+    assertBytes(netlifyObjects.get('uncertain').bytes,new Uint8Array([7,0,255]));
+    const netlifyDeleted=await netlify.delete('created');
+    if(netlifyDeleted.operation!=='delete'||netlifyDeleted.status!==204||(await netlify.get('created')).state!=='absent')throw new Error('Packed Netlify deletion or absence changed');
+    if(netlifyResponses.some(response=>response.body?.locked))throw new Error('Packed Netlify retained an owned response reader');
+    const netlifyKnown=new NetlifyCompletionError(netlifyWritten,new Error('Authored later retirement failure'));
+    if(netlifyKnown.receipt!==netlifyWritten)throw new Error('Packed Netlify completion error lost its receipt');
     const amqpNative = ${
       JSON.stringify(JSON.parse(await readFile(new URL("../fixtures/amqp/independent.json", import.meta.url), "utf8")))
     };
@@ -2297,6 +2367,7 @@ try {
     import { NatsClient } from '@okikio/opfs/nats';
     import { KafkaClient, createKafkaClient, KafkaError, KafkaOutcomeError, KafkaCompletionError } from '@okikio/opfs/kafka';
     import { openParquet } from '@okikio/opfs/dataset/parquet';
+    import { NetlifyClient, createNetlifyClient, NETLIFY_PROFILE, NetlifyError, NetlifyPublicationError, NetlifyCompletionError } from '@okikio/opfs/netlify';
     import { openOrc } from '@okikio/opfs/dataset/orc';
     import { openArrow, readArrow } from '@okikio/opfs/dataset/arrow';
     import { openAge } from '@okikio/opfs/crypto/age';
@@ -2536,6 +2607,34 @@ try {
     const kafkaHeaderTyped: import('@okikio/opfs/kafka').KafkaHeaderType = {name:'dup',value:null};
     const kafkaErrorsTyped: readonly Error[] = [new KafkaError('append',20),new KafkaOutcomeError(new Error('type-only')),new KafkaCompletionError(kafkaReceiptTyped,new Error('type-only'))];
     void [kafkaMetadataTyped,kafkaOffsetTyped,kafkaFetchedTyped,kafkaHeaderTyped,kafkaErrorsTyped];
+    const netlifyOptionsTyped: import('@okikio/opfs/netlify').NetlifyOptionsType = {
+      profile:NETLIFY_PROFILE,api:'https://netlify-api.example',site:'site',store:'store',token:'type-only',
+      fetch:async()=>{throw new Error('type-only');},authorizeDataURL:(_url,request:Readonly<import('@okikio/opfs/netlify').NetlifyDataType>)=>request.method==='GET'
+    };
+    const netlifyTyped: NetlifyClient = createNetlifyClient(netlifyOptionsTyped);
+    const netlifyOperationTyped: import('@okikio/opfs/netlify').NetlifyOperationType = {signal:new AbortController().signal};
+    const netlifyGetOptionsTyped: import('@okikio/opfs/netlify').NetlifyGetOptionsType = {...netlifyOperationTyped,etag:'"cache"'};
+    const netlifyHeadTyped: import('@okikio/opfs/netlify').NetlifyHeadType = await netlifyTyped.head('key',netlifyOperationTyped);
+    const netlifyGetTyped: import('@okikio/opfs/netlify').NetlifyGetType = await netlifyTyped.get('key',netlifyGetOptionsTyped);
+    const netlifyListOptionsTyped: import('@okikio/opfs/netlify').NetlifyListOptionsType = {prefix:'prefix',directories:true,cursor:'opaque'};
+    const netlifyPageTyped: import('@okikio/opfs/netlify').NetlifyPageType = await netlifyTyped.list(netlifyListOptionsTyped);
+    const netlifyConditionTyped: import('@okikio/opfs/netlify').NetlifyConditionType = {kind:'match',etag:'"opaque"'};
+    const netlifyPutOptionsTyped: import('@okikio/opfs/netlify').NetlifyPutOptionsType = {condition:netlifyConditionTyped};
+    const netlifyPutTyped: import('@okikio/opfs/netlify').NetlifyPutType = await netlifyTyped.put('key',new Uint8Array([1]),netlifyPutOptionsTyped);
+    const netlifyDeleteTyped: import('@okikio/opfs/netlify').NetlifyDeleteType = await netlifyTyped.delete('key');
+    const netlifyReceiptTyped: import('@okikio/opfs/netlify').NetlifyReceiptType = netlifyPutTyped;
+    const netlifyWorkTyped: import('@okikio/opfs/netlify').NetlifyWorkType = netlifyPutTyped.work;
+    if(netlifyGetTyped.state==='present'){
+      const observation: import('@okikio/opfs/netlify').NetlifyObservationType = netlifyGetTyped;
+      const bytes: Uint8Array = netlifyGetTyped.bytes;
+      void [observation.metadata,bytes];
+    }
+    const netlifyErrorsTyped: readonly Error[] = [new NetlifyError('http','api',403),new NetlifyPublicationError('put','key',undefined),new NetlifyCompletionError(netlifyReceiptTyped,undefined)];
+    // @ts-expect-error The literal compatibility profile is mandatory; arbitrary SDK versions are not admitted.
+    const netlifyProfileWrong: import('@okikio/opfs/netlify').NetlifyOptionsType['profile'] = 'latest';
+    // @ts-expect-error Capability authorization must settle synchronously to literal boolean.
+    const netlifyApprovalWrong: import('@okikio/opfs/netlify').NetlifyOptionsType['authorizeDataURL'] = async()=>true;
+    void [netlifyHeadTyped,netlifyPageTyped,netlifyDeleteTyped,netlifyWorkTyped,netlifyErrorsTyped,netlifyProfileWrong,netlifyApprovalWrong];
     const natsReceiptTyped: import('@okikio/opfs/nats').NatsReceiptType = await natsTyped.publish('OWNED','owned.data',new Uint8Array(),{inbox:'_INBOX.package.publish'});
     const natsMessageTyped: import('@okikio/opfs/nats').NatsMessageType = await natsTyped.get('OWNED',natsReceiptTyped.sequence,{inbox:'_INBOX.package.read'});
     const orcTyped: import('@okikio/opfs/dataset/orc').OrcDatasetType = await openOrc(createByteSource(new Uint8Array()),{maxRows:16});
@@ -2756,6 +2855,7 @@ try {
       export { openJwe } from '@okikio/opfs/crypto/jwe';
       export { NatsClient } from '@okikio/opfs/nats';
       export { KafkaClient, createKafkaClient } from '@okikio/opfs/kafka';
+      export { NetlifyClient, createNetlifyClient, NETLIFY_PROFILE } from '@okikio/opfs/netlify';
       export { openParquet } from '@okikio/opfs/dataset/parquet';
       export { openOrc } from '@okikio/opfs/dataset/orc';
       export { openArrow, readArrow } from '@okikio/opfs/dataset/arrow';
@@ -2776,7 +2876,13 @@ try {
     ], { cwd: consumer });
     const browserBundle = await readFile(join(consumer, "browser-bundle.js"), "utf8");
     for (
-      const marker of ["jwe-compact-dir-a128gcm", "Nats-Expected-Stream", "Parquet Compact", "x-amz-glacier-version"]
+      const marker of [
+        "jwe-compact-dir-a128gcm",
+        "Nats-Expected-Stream",
+        "Parquet Compact",
+        "x-amz-glacier-version",
+        "netlify-blobs-11.1.7-api-v1",
+      ]
     ) {
       if (browserBundle.includes(marker)) throw new Error("Memory-only bundle retained optional protocol: " + marker);
     }
@@ -2838,7 +2944,7 @@ try {
           throw new Error('Optional import discovered ambient capability: ' + name);
         }});
       }
-      for (const spec of ['crypto/jwe', 'nats', 'kafka', 'dataset/parquet', 'crypto/age', 'crypto/age-node', 'dataset/orc', 'dataset/arrow', 'amqp', 'glacier']) await import('@okikio/opfs/' + spec);
+      for (const spec of ['crypto/jwe', 'nats', 'kafka', 'netlify', 'dataset/parquet', 'crypto/age', 'crypto/age-node', 'dataset/orc', 'dataset/arrow', 'amqp', 'glacier']) await import('@okikio/opfs/' + spec);
       if (touched.length) throw new Error('Optional import touched ambient capabilities: ' + touched.join(','));
     } finally {
       for (const [name, descriptor] of descriptors) {
@@ -2846,7 +2952,7 @@ try {
         else delete globalThis[name];
       }
     }
-    console.log('Imported nine optional capabilities without ambient crypto, fetch or sockets');
+    console.log('Imported eleven optional capabilities without ambient crypto, fetch or sockets');
   `,
   );
   await command("node", ["optional-imports.mjs"], { cwd: consumer });
@@ -2858,7 +2964,7 @@ try {
   const specs = Object.keys(manifest.exports ?? {}).map((key) =>
     key === "." ? "@okikio/opfs" : `@okikio/opfs/${key.slice(2)}`
   );
-  if (specs.length !== 170) throw new Error("Expected all 170 public packed entrypoints.");
+  if (specs.length !== 171) throw new Error("Expected all 171 public packed entrypoints.");
   if (Object.keys(manifest.exports ?? {}).some((key) => key === "./aws" || key.includes("*"))) {
     throw new Error("Internal AWS signing must remain outside the explicit public export map.");
   }
