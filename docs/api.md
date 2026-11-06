@@ -248,6 +248,57 @@ should therefore prefer `writeFile()` because that path can select a native stre
 
 `openWritableFile()` exposes a direct asynchronous positional resource only when the adapter reports that capability.
 
+### Resize a file without confusing size with the write cursor
+
+Truncating means setting the logical length in bytes. A smaller size discards the tail. A larger size adds zero bytes;
+it does not move existing bytes or fill the extension with the last byte. Seeking changes where the next write starts,
+without changing the length until a write occurs. Shrinking a staged writable also clamps its cursor to the new end.
+
+This complete memory example makes the gap visible. It starts with six ASCII bytes, keeps three, seeks past their end,
+and writes one byte. No credentials or host files are required.
+
+```ts
+import { createFileSystem } from "@okikio/opfs";
+import { createMemoryAdapter } from "@okikio/opfs/adapter/memory";
+
+await using files = createFileSystem(createMemoryAdapter(), { disposeAdapter: true });
+await files.writeFile("/note.bin", "abcdef");
+const handle = await files.root.getFileHandle("note.bin");
+const writable = await handle.createWritable({ keepExistingData: true });
+try {
+  await writable.truncate(3);
+  await writable.seek(5);
+  await writable.write(new Uint8Array([88]));
+  await writable.close();
+} catch (error) {
+  await writable.abort(error);
+  throw error;
+}
+console.log([...await files.readFile("/note.bin")]); // [97, 98, 99, 0, 0, 88]
+```
+
+The following state diagram follows this staged image. The existing file remains unchanged until publication on close.
+It omits path locks and backend-specific publication failures; a rejected close does not establish successful
+persistence.
+
+```mermaid
+stateDiagram-v2
+  [*] --> Copied: keepExistingData
+  Copied --> Shortened: truncate to 3 bytes
+  Shortened --> Positioned: seek to byte 5
+  Positioned --> Extended: write X, zero-fill gap
+  Extended --> Published: close succeeds
+  Copied --> Discarded: abort
+  Shortened --> Discarded: abort
+  Positioned --> Discarded: abort
+  Extended --> Discarded: abort
+```
+
+This staged API retains the complete image in memory. Truncating a large file to a small result does not avoid the
+initial full read requested by `keepExistingData`. A direct positional resource uses backend operations instead and can
+leave changes visible before close; abort is not a rollback promise. Resuming an upload is a different operation: its
+checkpoint records acknowledged progress for an identified upload, rather than resizing an unrelated destination.
+
 ## Synchronous files
 
 `openSyncFile(path, options?)` returns `SyncFileType` only when the selected adapter exposes native synchronous random

@@ -4,6 +4,22 @@ Use an addressable byte source to inspect an archive without extracting it into 
 selected members. Uncompressed TAR scanning reads headers in order and skips payload extents through the source's range
 capability. These APIs return data and bytes; your application owns text, image or media rendering.
 
+An archive combines a directory of members with their encoded payloads. A preview needs enough information to locate a
+member, enough encoded bytes to decode the selected interval, and enough verification work for the evidence your
+application requires. These are three different costs. Showing a filename can need only metadata. Showing the first page
+of a document needs payload bytes. Claiming that the complete member passed its checksum may require reading the rest
+even when the screen shows only its first page.
+
+| Reader's task                                    | Useful API                             | Work that can still be necessary                                                             |
+| ------------------------------------------------ | -------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Show member names and sizes                      | `openZip()` and `archive.entries`      | Read the end records and central directory; payloads remain unread                           |
+| Show the first 4 KiB                             | `archive.read(id, { length: 4096 })`   | Decode from the member's beginning; verify or authenticate according to the selected profile |
+| Show a late interval                             | `archive.read(id, { offset, length })` | A sequential codec may need to decode every preceding byte in that member                    |
+| Present safe file paths to a filesystem consumer | `createZipAdapter(archive)`            | Validate the complete namespace before exposing paths; verify full members by default        |
+
+Lengths in a call must fit the selected member. The example below clamps its 4 KiB preview to the actual member size. It
+keeps a single ledger across opening and reading so repeated previews cannot each claim a fresh total budget.
+
 ```ts
 import { createBlobSource } from "@okikio/opfs/source";
 import { createArchiveLedger, openZip } from "@okikio/opfs/archive/zip";
@@ -35,6 +51,30 @@ export async function preview(blob: Blob) {
   return result.bytes;
 }
 ```
+
+Read this flow from top to bottom. Locating a member avoids unrelated payloads when the container and source permit
+ranges. Decoding and authentication can widen the required work after location. The result carries the evidence that was
+actually established; the application decides whether that evidence is sufficient to display the preview.
+
+```mermaid
+flowchart TD
+  Open["Open a stable byte source"] --> Index["Read bounded archive metadata"]
+  Index --> Choose["Choose one member and interval"]
+  Choose --> Plan["Check source, decode and output budgets"]
+  Plan --> Fetch["Read required encoded extents"]
+  Fetch --> Decode["Decode or authenticate required units"]
+  Decode --> Result["Return selected bytes plus integrity and work"]
+  Result --> Render["Application renders permitted content"]
+```
+
+Any stage can reject because of malformed input, an unsupported profile, a failed integrity check, an exhausted budget
+or cancellation. No arrow promises that all formats support random access. In particular, putting a TAR inside gzip
+normally removes direct correspondence between the TAR offsets and remote compressed-file ranges. A streaming decoder
+can keep memory bounded while still reading and decoding the entire compressed prefix before the wanted member.
+
+Preview does not extract entries onto disk. Names in the raw directory can duplicate or contain unsafe path components;
+they remain data until the application deliberately selects a projection or extraction policy. Rendering HTML, scripts
+or active documents is also an application security decision, separate from a correct archive parser.
 
 The source must declare `stability: "immutable"`, `"provider"`, or `"caller"`. Blob sources are immutable; a remote
 object source should bind all reads to its provider version. A caller assertion accepts mutation risk and is weaker

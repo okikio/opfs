@@ -181,7 +181,11 @@ export interface FileDriverWritableFileType {
   inspect?(): WritableInspectionType;
   /** Writes one chunk at a specific byte offset. */
   write(buffer: ArrayBufferView, options: { readonly at: number }): Promise<void>;
-  /** Shrinks or expands the file to one exact size. */
+  /**
+   * Sets the backend file length in bytes. Shrinking discards the tail and
+   * growing makes the new interval read as zero bytes. This direct operation
+   * can become visible before close; abort does not promise to restore its tail.
+   */
   truncate(size: number): Promise<void>;
   /** Flushes buffered writes to the backend when that concept exists. */
   flush(): Promise<void>;
