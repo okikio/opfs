@@ -1,5 +1,6 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
+import { expectBytes } from "./bytes.ts";
 import { decodeBase64 } from "@std/encoding/base64";
 import { createArchiveLedger, createLz4Decoder } from "../src/archive/lz4.ts";
 import fixtures from "./fixtures/lz4/independent.json" with { type: "json" };
@@ -72,14 +73,16 @@ describe("bounded LZ4 frame streaming", () => {
       const hash = new Uint8Array(await crypto.subtle.digest("SHA-256", new Uint8Array(bytes)));
       expect(Array.from(hash, (byte) => byte.toString(16).padStart(2, "0")).join("")).toBe(fixture.sha256);
       const decoder = createLz4Decoder(chunks(bytes, 117), { outputChunkBytes: 257 });
-      expect(await collect(decoder.stream)).toEqual(decodeBase64(fixture.body));
+      const actual = await collect(decoder.stream);
+      const expected = decodeBase64(fixture.body);
+      expectBytes(actual, expected, profile);
       const result = await decoder.finished;
       expect(result.status).toBe("complete");
       if (profile === "block5") expect(result.header?.blockBytes).toBe(262144);
       if (profile === "block6") expect(result.header?.blockBytes).toBe(1048576);
       if (profile === "block7") expect(result.header?.blockBytes).toBe(4194304);
       expect(result.integrity).toBe(layout(bytes).flags & 4 ? "checksum-verified" : "not-provided");
-      expect(result.work.decodedBytes).toBe(decodeBase64(fixture.body).length);
+      expect(result.work.decodedBytes).toBe(expected.length);
       expect(result.work.outputBytes).toBe(result.work.decodedBytes);
       expect(result.work.sourceBytes).toBe(bytes.length);
       expect(result.verifiedBlocks).toBe(layout(bytes).flags & 16 ? result.blocks : 0);
