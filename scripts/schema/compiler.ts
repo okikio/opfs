@@ -36,11 +36,6 @@ function literal(value: unknown): string {
   throw new TypeError(`Unsupported Zod literal value: ${String(value)}`);
 }
 
-/** Indents a multiline type expression by one generated object level. */
-function indent(value: string): string {
-  return value.split("\n").map((line) => `  ${line}`).join("\n");
-}
-
 /** Returns whether a child schema makes an object property optional. */
 function optional(schema: z.ZodType): boolean {
   const type = definition(schema).type;
@@ -82,7 +77,9 @@ function compileType(
     case "enum": {
       const values = Object.values(def.entries ?? {});
       if (values.length === 0) throw new TypeError("Zod enum has no entries.");
-      return values.map(literal).join(" | ");
+      const members = values.map(literal);
+      const union = members.join(" | ");
+      return union.length > 100 ? `\n  | ${members.join("\n  | ")}` : union;
     }
     case "optional":
     case "default": {
@@ -129,7 +126,8 @@ export function compileSchemas(entries: readonly SchemaEntryType[]): string {
 
   const declarations = entries.map((entry) => {
     const type = compileType(entry.schema, names, true);
-    return `export type ${entry.name} = ${type};`;
+    const separator = type.startsWith("\n") ? "" : " ";
+    return `/** Structural output compiled from the runtime schema for \`${entry.name}\`. */\nexport type ${entry.name} =${separator}${type};`;
   });
 
   return [

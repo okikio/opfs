@@ -1,0 +1,398 @@
+[
+  {
+    "executable": "/tmp/age-native/age",
+    "args": [
+      "--version"
+    ],
+    "status": 0,
+    "signal": null,
+    "stdoutBytes": 7,
+    "stdoutSha256": "a934c1143c788f915bc859df1c72790712bf1d44c348a580602dd0939b0ab270",
+    "stderrBytes": 0,
+    "stderr": ""
+  },
+  {
+    "executable": "/tmp/age-native/age",
+    "args": [
+      "-r",
+      "age1qy90uq2458zexrwa5qgz49dp95xqfhc84tfnfr5v9a6wlwyaz5ys0ypxe6",
+      "-o",
+      "/tmp/age-native/cipher-0",
+      "/tmp/age-native/original-0"
+    ],
+    "status": 0,
+    "signal": null,
+    "stdoutBytes": 0,
+    "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stderrBytes": 0,
+    "stderr": ""
+  },
+  {
+    "executable": "/tmp/age-native/age",
+    "args": [
+      "-d",
+      "-i",
+      "/tmp/age-native/identity.txt",
+      "-o",
+      "/tmp/age-native/decoded-0",
+      "/tmp/age-native/cipher-0"
+    ],
+    "status": 0,
+    "signal": null,
+    "stdoutBytes": 0,
+    "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stderrBytes": 0,
+    "stderr": ""
+  },
+  {
+    "executable": "/tmp/age-native/age",
+    "args": [
+      "-r",
+      "age1qy90uq2458zexrwa5qgz49dp95xqfhc84tfnfr5v9a6wlwyaz5ys0ypxe6",
+      "-o",
+      "/tmp/age-native/cipher-1",
+      "/tmp/age-native/original-1"
+    ],
+    "status": 0,
+    "signal": null,
+    "stdoutBytes": 0,
+    "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stderrBytes": 0,
+    "stderr": ""
+  },
+  {
+    "executable": "/tmp/age-native/age",
+    "args": [
+      "-d",
+      "-i",
+      "/tmp/age-native/identity.txt",
+      "-o",
+      "/tmp/age-native/decoded-1",
+      "/tmp/age-native/cipher-1"
+    ],
+    "status": 0,
+    "signal": null,
+    "stdoutBytes": 0,
+    "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stderrBytes": 0,
+    "stderr": ""
+  },
+  {
+    "executable": "/tmp/age-native/age",
+    "args": [
+      "-r",
+      "age1qy90uq2458zexrwa5qgz49dp95xqfhc84tfnfr5v9a6wlwyaz5ys0ypxe6",
+      "-o",
+      "/tmp/age-native/cipher-2",
+      "/tmp/age-native/original-2"
+    ],
+    "status": 0,
+    "signal": null,
+    "stdoutBytes": 0,
+    "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stderrBytes": 0,
+    "stderr": ""
+  },
+  {
+    "executable": "/tmp/age-native/age",
+    "args": [
+      "-d",
+      "-i",
+      "/tmp/age-native/identity.txt",
+      "-o",
+      "/tmp/age-native/decoded-2",
+      "/tmp/age-native/cipher-2"
+    ],
+    "status": 0,
+    "signal": null,
+    "stdoutBytes": 0,
+    "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stderrBytes": 0,
+    "stderr": ""
+  },
+  {
+    "executable": "/tmp/age-native/age",
+    "args": [
+      "-r",
+      "age1qy90uq2458zexrwa5qgz49dp95xqfhc84tfnfr5v9a6wlwyaz5ys0ypxe6",
+      "-o",
+      "/tmp/age-native/cipher-3",
+      "/tmp/age-native/original-3"
+    ],
+    "status": 0,
+    "signal": null,
+    "stdoutBytes": 0,
+    "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stderrBytes": 0,
+    "stderr": ""
+  },
+  {
+    "executable": "/tmp/age-native/age",
+    "args": [
+      "-d",
+      "-i",
+      "/tmp/age-native/identity.txt",
+      "-o",
+      "/tmp/age-native/decoded-3",
+      "/tmp/age-native/cipher-3"
+    ],
+    "status": 0,
+    "signal": null,
+    "stdoutBytes": 0,
+    "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stderrBytes": 0,
+    "stderr": ""
+  },
+  {
+    "executable": "/tmp/age-native/age",
+    "args": [
+      "-r",
+      "age1qy90uq2458zexrwa5qgz49dp95xqfhc84tfnfr5v9a6wlwyaz5ys0ypxe6",
+      "-o",
+      "/tmp/age-native/cipher-4",
+      "/tmp/age-native/original-4"
+    ],
+    "status": 0,
+    "signal": null,
+    "stdoutBytes": 0,
+    "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stderrBytes": 0,
+    "stderr": ""
+  },
+  {
+    "executable": "/tmp/age-native/age",
+    "args": [
+      "-d",
+      "-i",
+      "/tmp/age-native/identity.txt",
+      "-o",
+      "/tmp/age-native/decoded-4",
+      "/tmp/age-native/cipher-4"
+    ],
+    "status": 0,
+    "signal": null,
+    "stdoutBytes": 0,
+    "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stderrBytes": 0,
+    "stderr": ""
+  },
+  {
+    "executable": "/tmp/age-native/age",
+    "args": [
+      "-r",
+      "age1qy90uq2458zexrwa5qgz49dp95xqfhc84tfnfr5v9a6wlwyaz5ys0ypxe6",
+      "-o",
+      "/tmp/age-native/cipher-5",
+      "/tmp/age-native/original-5"
+    ],
+    "status": 0,
+    "signal": null,
+    "stdoutBytes": 0,
+    "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stderrBytes": 0,
+    "stderr": ""
+  },
+  {
+    "executable": "/tmp/age-native/age",
+    "args": [
+      "-d",
+      "-i",
+      "/tmp/age-native/identity.txt",
+      "-o",
+      "/tmp/age-native/decoded-5",
+      "/tmp/age-native/cipher-5"
+    ],
+    "status": 0,
+    "signal": null,
+    "stdoutBytes": 0,
+    "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stderrBytes": 0,
+    "stderr": ""
+  },
+  {
+    "executable": "/tmp/age-native/age",
+    "args": [
+      "-r",
+      "age1qy90uq2458zexrwa5qgz49dp95xqfhc84tfnfr5v9a6wlwyaz5ys0ypxe6",
+      "-o",
+      "/tmp/age-native/cipher-6",
+      "/tmp/age-native/original-6"
+    ],
+    "status": 0,
+    "signal": null,
+    "stdoutBytes": 0,
+    "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stderrBytes": 0,
+    "stderr": ""
+  },
+  {
+    "executable": "/tmp/age-native/age",
+    "args": [
+      "-d",
+      "-i",
+      "/tmp/age-native/identity.txt",
+      "-o",
+      "/tmp/age-native/decoded-6",
+      "/tmp/age-native/cipher-6"
+    ],
+    "status": 0,
+    "signal": null,
+    "stdoutBytes": 0,
+    "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stderrBytes": 0,
+    "stderr": ""
+  },
+  {
+    "executable": "/tmp/age-native/age",
+    "args": [
+      "-r",
+      "age1qy90uq2458zexrwa5qgz49dp95xqfhc84tfnfr5v9a6wlwyaz5ys0ypxe6",
+      "-o",
+      "/tmp/age-native/cipher-7",
+      "/tmp/age-native/original-7"
+    ],
+    "status": 0,
+    "signal": null,
+    "stdoutBytes": 0,
+    "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stderrBytes": 0,
+    "stderr": ""
+  },
+  {
+    "executable": "/tmp/age-native/age",
+    "args": [
+      "-d",
+      "-i",
+      "/tmp/age-native/identity.txt",
+      "-o",
+      "/tmp/age-native/decoded-7",
+      "/tmp/age-native/cipher-7"
+    ],
+    "status": 0,
+    "signal": null,
+    "stdoutBytes": 0,
+    "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stderrBytes": 0,
+    "stderr": ""
+  },
+  {
+    "executable": "/tmp/age-native/age",
+    "args": [
+      "-d",
+      "-i",
+      "/tmp/age-native/corpus-identity",
+      "/tmp/age-native/corpus-input"
+    ],
+    "status": 0,
+    "signal": null,
+    "stdoutBytes": 3,
+    "stdoutSha256": "013f54400c82da08037759ada907a8b864e97de81c088a182062c4b5622fd2ab",
+    "stderrBytes": 0,
+    "stderr": ""
+  },
+  {
+    "executable": "/tmp/age-native/age",
+    "args": [
+      "-d",
+      "-i",
+      "/tmp/age-native/corpus-identity",
+      "/tmp/age-native/corpus-input"
+    ],
+    "status": 0,
+    "signal": null,
+    "stdoutBytes": 3,
+    "stdoutSha256": "013f54400c82da08037759ada907a8b864e97de81c088a182062c4b5622fd2ab",
+    "stderrBytes": 0,
+    "stderr": ""
+  },
+  {
+    "executable": "/tmp/age-native/age",
+    "args": [
+      "-d",
+      "-i",
+      "/tmp/age-native/corpus-identity",
+      "/tmp/age-native/corpus-input"
+    ],
+    "status": 0,
+    "signal": null,
+    "stdoutBytes": 3,
+    "stdoutSha256": "013f54400c82da08037759ada907a8b864e97de81c088a182062c4b5622fd2ab",
+    "stderrBytes": 0,
+    "stderr": ""
+  },
+  {
+    "executable": "/tmp/age-native/age",
+    "args": [
+      "-d",
+      "-i",
+      "/tmp/age-native/corpus-identity",
+      "/tmp/age-native/corpus-input"
+    ],
+    "status": 0,
+    "signal": null,
+    "stdoutBytes": 0,
+    "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stderrBytes": 0,
+    "stderr": ""
+  },
+  {
+    "executable": "/tmp/age-native/age",
+    "args": [
+      "-d",
+      "-i",
+      "/tmp/age-native/corpus-identity",
+      "/tmp/age-native/corpus-input"
+    ],
+    "status": 0,
+    "signal": null,
+    "stdoutBytes": 65536,
+    "stdoutSha256": "ef179a156754d0f05daeef54ee027d6ac1cd29bb319b438f795c66dc28703603",
+    "stderrBytes": 0,
+    "stderr": ""
+  },
+  {
+    "executable": "/tmp/age-native/age",
+    "args": [
+      "-d",
+      "-i",
+      "/tmp/age-native/corpus-identity",
+      "/tmp/age-native/corpus-input"
+    ],
+    "status": 0,
+    "signal": null,
+    "stdoutBytes": 131072,
+    "stdoutSha256": "8dac04a865d04089ed7af2e0012c0e2395be14932cb2c8bf7b070da18768fad9",
+    "stderrBytes": 0,
+    "stderr": ""
+  },
+  {
+    "executable": "/tmp/age-native/age",
+    "args": [
+      "-d",
+      "-i",
+      "/tmp/age-native/corpus-identity",
+      "/tmp/age-native/corpus-input"
+    ],
+    "status": 0,
+    "signal": null,
+    "stdoutBytes": 196608,
+    "stdoutSha256": "82a4963a84d8982b7a70871897b4b3d00c17fbd9db9484afd767e94c50ee1e0f",
+    "stderrBytes": 0,
+    "stderr": ""
+  },
+  {
+    "executable": "/tmp/age-native/age",
+    "args": [
+      "-d",
+      "-i",
+      "/tmp/age-native/corpus-identity",
+      "/tmp/age-native/corpus-input"
+    ],
+    "status": 0,
+    "signal": null,
+    "stdoutBytes": 131072,
+    "stdoutSha256": "8dac04a865d04089ed7af2e0012c0e2395be14932cb2c8bf7b070da18768fad9",
+    "stderrBytes": 0,
+    "stderr": ""
+  }
+]

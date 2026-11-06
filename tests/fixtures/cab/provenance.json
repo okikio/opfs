@@ -1,0 +1,36 @@
+{
+  "packages": {
+    "distribution": "Debian bookworm",
+    "architecture": "arm64",
+    "gcab": "1.5-1",
+    "cabextract": "1.9-3"
+  },
+  "producer": "gcab v1.5",
+  "consumer": "cabextract version 1.9",
+  "commands": [
+    "python3 tests/fixtures/cab/create.py --gcab /usr/bin/gcab --cabextract /usr/bin/cabextract",
+    "python3 tests/fixtures/cab/vectors.py --cabextract /usr/bin/cabextract"
+  ],
+  "baseImage": {
+    "id": "sha256:a6838f3c21f47c91a20fbcab624c5370a7aea7c25f88912588cc4c5312564cce",
+    "scope": "Local image, not publicly pullable; apt modifies the filesystem, so this does not pin the full producer environment."
+  },
+  "fileSha256": {
+    "create.py": "7100c75b80bb8f455d4eb5172aab3863ab5222c8f372b11d4399f1d2bde64bb2",
+    "vectors.py": "1ea2c04ae024ecadf3db56fa525864575a1d4a8b0d6c856c7e278ca2fde66e2e",
+    "independent.json": "0d4b787d50404d3fbfc233e8302440520627df8cffb9595360b6a710a5202975",
+    "vectors.json": "22eee574695e74780d034ea5e87924f51c0b1b54337b69f947b9cab1c28a12cc"
+  },
+  "archiveSha256": {
+    "stored": "f223dbce3853e97ac24c0e5f20623ca94a4b650bbe101405a199043236db1f32",
+    "mszip": "1ea27f40a97f9a446c1577b68c27dbb9c2a9132322d4cd6b6efff66db40814a2"
+  },
+  "ordinaryVectors": 4,
+  "reservedDiagnostics": {
+    "count": 24,
+    "consumerAccepted": 12,
+    "consumerRefused": 12,
+    "scope": "Diagnostic evidence only, not a universal checksum rule or supported payload profile."
+  },
+  "inputProvenance": "Original binary inputs from create.py; candidate code never produces the archives or expected payloads. vectors.py is original specification-math construction, separately consumed with cabextract. Mutable tool/host metadata may change regenerated archive bytes."
+}

@@ -2,20 +2,4 @@
 #MISE description="Build the npm tarball with dnt and preserve Drizzle as an optional peer."
 set -euo pipefail
 
-VERSION="${RELEASE_VERSION:-}"
-if [[ -z "$VERSION" ]]; then
-  VERSION="$(node -p "JSON.parse(require('node:fs').readFileSync('deno.json', 'utf8')).version")"
-fi
-
-OUT="${RELEASE_DIR:-.release/npm}"
-rm -rf "$OUT"
-mkdir -p "$OUT"
-
-deno run --config scripts/deno.json --no-lock -A scripts/npm.ts "$VERSION" "$OUT/package"
-npm pack "$OUT/package" --pack-destination "$OUT" --json > "$OUT/pack.json"
-node --input-type=module - "$OUT/pack.json" <<'NODE'
-import { readFile } from 'node:fs/promises';
-const [result] = JSON.parse(await readFile(process.argv[2], 'utf8'));
-if (!result?.filename) throw new Error('npm pack did not report a tarball filename.');
-console.log(new URL(result.filename, `file://${process.cwd()}/${process.argv[2].replace(/pack\.json$/, '')}`).pathname);
-NODE
+deno task pack:npm "$@"

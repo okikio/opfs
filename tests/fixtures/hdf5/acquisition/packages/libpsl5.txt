@@ -1,0 +1,20 @@
+Package: libpsl5
+Source: libpsl
+Version: 0.21.2-1
+Installed-Size: 152
+Maintainer: Tim Rühsen <tim.ruehsen@gmx.de>
+Architecture: arm64
+Depends: libidn2-0 (>= 0.16), libc6 (>= 2.33), libunistring2 (>= 0.9.7)
+Recommends: publicsuffix (>= 20150507)
+Description: Library for Public Suffix List (shared libraries)
+Description-md5: 737acdacc0f014d042db24cf175d47b8
+Multi-Arch: same
+Homepage: https://github.com/rockdaboot/libpsl
+Tag: role::shared-lib
+Section: libs
+Priority: optional
+Filename: pool/main/libp/libpsl/libpsl5_0.21.2-1_arm64.deb
+Size: 58600
+MD5sum: 04b520a58484299c870805248de377d7
+SHA256: 90a68e4a6d9eb95abee32595762dbf67974f13c158e4ce4a05c7c2b54440db73
+

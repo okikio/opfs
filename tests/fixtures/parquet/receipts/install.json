@@ -1,0 +1,12 @@
+{
+  "exit": 0,
+  "failure": null,
+  "seconds": 6.674969877999956,
+  "diagnosticBytes": 648,
+  "python": "3.13.12 (main, Apr  7 2026, 02:30:31) [GCC 12.2.0]",
+  "scriptSha256": "fb93c33ea67370cddcdf7d22830ed7ba47e21ef2277e1d4eea1052ca1c90ed84",
+  "installedMetadata": {
+    "pyarrow": "20.0.0",
+    "duckdb": "1.3.2"
+  }
+}

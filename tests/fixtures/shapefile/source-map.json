@@ -1,0 +1,22 @@
+{
+  "purpose": "Historical independent SDK evidence stays frozen; current TypeScript controls are explicitly authored, not a new native SDK run.",
+  "historical": [
+    {
+      "path": "acquire.py",
+      "snapshot": "acquire.py.snapshot",
+      "bytes": 2168,
+      "sha256": "3a9bacf02c1edb766a3efd189be7311b7b3c7a4292ae8c84dc253c600caaaf3b"
+    },
+    {
+      "path": "produce.py",
+      "snapshot": "produce.py.snapshot",
+      "bytes": 6058,
+      "sha256": "cf147a197f6b05e5de70f043a55e88be2b57ea49d673a7d76a5a4fad9fbc5226"
+    }
+  ],
+  "current": {
+    "path": "produce.ts",
+    "independentNativeRerun": false
+  },
+  "retired": "acquire.py acquired only the Python wheel used by the historical harness; current authored controls acquire no package."
+}

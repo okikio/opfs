@@ -1,0 +1,23 @@
+{
+  "image": "sha256:6e19aff0fb8859a5426c813de2bf5c66866c6c4cb96d1f48fdac5c086d5d07c1",
+  "state": {
+    "Status": "exited",
+    "Running": false,
+    "Paused": false,
+    "Restarting": false,
+    "OOMKilled": false,
+    "Dead": false,
+    "Pid": 0,
+    "ExitCode": 0,
+    "Error": "",
+    "StartedAt": "2026-11-05T19:42:35.097251966Z",
+    "FinishedAt": "2026-11-05T19:42:35.2918908Z"
+  },
+  "memory": 1073741824,
+  "memorySwap": 1073741824,
+  "nanoCpus": 1000000000,
+  "pids": 128,
+  "network": "none",
+  "mounts": [],
+  "ports": {}
+}

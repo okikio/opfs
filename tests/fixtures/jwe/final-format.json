@@ -1,0 +1,30 @@
+{
+  "scope": "Final owned formatting/lint-only pass; only consumer README/guide prose formatting changed. Source, tests, benchmark implementation and all 49 upstream originals retain executed hashes. No timing/test rerun was required for prose receipts.",
+  "state": {
+    "Status": "exited",
+    "Running": false,
+    "Paused": false,
+    "Restarting": false,
+    "OOMKilled": false,
+    "Dead": false,
+    "Pid": 0,
+    "ExitCode": 0,
+    "Error": "",
+    "StartedAt": "2026-11-05T21:40:12.113811803Z",
+    "FinishedAt": "2026-11-05T21:40:12.485876137Z"
+  },
+  "image": "sha256:b97211e26cc9baba8599d969bccd03c350886bd33a2031035a78d690d4dbeb84",
+  "launch": {
+    "container": "opfs-jwe-final-format-20261105",
+    "exitCode": 0,
+    "failures": [],
+    "elapsedSeconds": 0.568828917,
+    "deadlineSeconds": 60,
+    "counts": {
+      "stdout": 0,
+      "stderr": 86
+    },
+    "stdoutLimit": 4194304,
+    "stderrLimit": 1048576
+  }
+}

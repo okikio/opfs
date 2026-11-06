@@ -1,0 +1,17 @@
+Package: libssh2-1
+Source: libssh2
+Version: 1.10.0-3+deb12u1
+Installed-Size: 357
+Maintainer: Nicolas Mora <babelouest@debian.org>
+Architecture: arm64
+Depends: libc6 (>= 2.17), libssl3 (>= 3.0.0), zlib1g (>= 1:1.1.4)
+Description: SSH2 client-side library
+Description-md5: a72806365acab9f7b0057c7e13cb7b14
+Homepage: https://libssh2.org/
+Multi-Arch: same
+Section: libs
+Priority: optional
+Filename: pool/updates/main/libs/libssh2/libssh2-1_1.10.0-3+deb12u1_arm64.deb
+Size: 169420
+SHA256: 72db6dc64cb0dd4c8a6b0f1b998063338956a7b3eb8a27125beb27bee0d7cc46
+

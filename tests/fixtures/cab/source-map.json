@@ -1,0 +1,21 @@
+{
+  "authority": "Byte-identical historical producer sources. Existing CAB JSON and native receipts remain unchanged.",
+  "files": [
+    {
+      "historicalPath": "tests/fixtures/cab/vectors.py",
+      "snapshotPath": "tests/fixtures/cab/vectors.py.snapshot",
+      "bytes": 3740,
+      "sha256": "1ea2c04ae024ecadf3db56fa525864575a1d4a8b0d6c856c7e278ca2fde66e2e",
+      "replacementPath": "tests/fixtures/cab/vectors.ts",
+      "replacementStatus": "authored TypeScript port; no new native run claimed"
+    },
+    {
+      "historicalPath": "tests/fixtures/cab/mszip.py",
+      "snapshotPath": "tests/fixtures/cab/mszip.py.snapshot",
+      "bytes": 4913,
+      "sha256": "ee86172dc66e731d1ee6add50ba40ac94c5d3422ee963872803cc02093f9224b",
+      "replacementPath": "tests/fixtures/cab/mszip.ts",
+      "replacementStatus": "authored TypeScript port; no new native run claimed"
+    }
+  ]
+}

@@ -1,0 +1,794 @@
+{
+  "records": [
+    "db-redis",
+    "db-valkey"
+  ],
+  "profile": "One bounded native RESP2 binary string client; no filesystem, record-driver, immutable source or CAS claim. Redis and Valkey qualifications remain separate.",
+  "primary": {
+    "redis-redis": {
+      "commit": "1a2574ce1551d3de6e0b4a56756c0fdbc6659e4f",
+      "commands": {
+        "src/commands/set.json": {
+          "bytes": 5641,
+          "sha256": "b19afa626d559fd9d02850189aa6d7e9e9c8482597b4b27864827b2e021514aa"
+        },
+        "src/commands/get.json": {
+          "bytes": 1366,
+          "sha256": "7a0db1d578a81fc5a2176f2a4bbce45d73ffe1964418f8540ce1c0478c7b37f2"
+        },
+        "src/commands/auth.json": {
+          "bytes": 1040,
+          "sha256": "41afc0dd25fcb1fb794f4875cd0b6b311b1eaf2999f7ba10d0fff215c25053e2"
+        },
+        "src/commands/pttl.json": {
+          "bytes": 1775,
+          "sha256": "8f3aff22b4d534d2b1a1e83fca50ce9bc893b34bca45d9b27b39c00143c496fd"
+        },
+        "src/commands/del.json": {
+          "bytes": 1597,
+          "sha256": "e916ca80473d3c9d580192ff9c564c097fda216367418cf207070d3df0a63d78"
+        }
+      }
+    },
+    "valkey-io-valkey": {
+      "commit": "29173b67508b2de4c0f0ed551f3b47cf19fc3ca8",
+      "commands": {
+        "src/commands/set.json": {
+          "bytes": 5155,
+          "sha256": "5f4a8bf63c964217a5e3f6fbed6300a429d25a3f8475e92812787e1c34b2dbbd"
+        },
+        "src/commands/get.json": {
+          "bytes": 1406,
+          "sha256": "181c929ad25b2ad9e3479a5f3b672b0e142bff94ae8057e094d49bca7f6ae5ba"
+        },
+        "src/commands/auth.json": {
+          "bytes": 1060,
+          "sha256": "b34e8cadee3362561ef5969f28c2496bec3240829eba78d3e983fab996385995"
+        },
+        "src/commands/pttl.json": {
+          "bytes": 1815,
+          "sha256": "7dbfcc9a9f713d0777eedb4a1a26673bdb49ab92b44d118d76995ee9f076d929"
+        },
+        "src/commands/del.json": {
+          "bytes": 1639,
+          "sha256": "fa6265b4508ffdecd5e65663dc6f1b31071b7363d5a4047199451095aa1808e4"
+        }
+      }
+    }
+  },
+  "licenses": "licenses.json",
+  "metadataResearch": {
+    "unavailableTags": [
+      "redis:8.10.3-bookworm",
+      "valkey/valkey:9.1.3-bookworm"
+    ],
+    "actualPublishedImages": [
+      "redis:8.10.3@sha256:f245f4c83b84a9e9a0588da1c9456e579455310f0945d5db52cd2ba27f2000cc",
+      "valkey/valkey:9.1.3@sha256:3add1a336a920ea54770a001ab6feb3da5fceea96a40373a3a2cd469b815f0b7"
+    ],
+    "stage": "Exact published image indices acquired without execution; OS/architecture/imageIDs/configuration inspected separately."
+  },
+  "sdk": {
+    "name": "redis",
+    "version": "8.1.0",
+    "license": "MIT",
+    "wheelBytes": 560618,
+    "wheelSha256": "a4fe1aac3d3b3cc791d4b3d5931c5a956045dc951ee74d1c913ee3ac4d2ee9fb",
+    "stage": "Exact inert wheel admitted first; redis-py8.1.0 then independently executed only in disposable Python3.13.12 oracle containers with no extras/dependencies.",
+    "runtimeProfile": "Python3.13.12, no extras/dependencies, protocol2, Retry(NoBackoff(),0).",
+    "artifact": {
+      "path": "sdk-artifact.json",
+      "bytes": 22255,
+      "sha256": "afaab3cf558266970a528c67c000ff7f4501b31b53e7bc4164d0206494a75d61",
+      "members": 125,
+      "expandedBytes": 2599760,
+      "largestMemberBytes": 420195,
+      "noticeFiles": 1,
+      "scope": "Per-member original bytes SHA/CRC and original MIT license bytes; project ZIP is acquisition tooling only, not an independent RESP oracle."
+    },
+    "firstFailures": [
+      {
+        "log": ".tmp/redis-acquire-first.log",
+        "exitCode": 1,
+        "reason": "Guard expected PyPI-normalized double quotes in an inactive dependency marker; raw immutable wheel uses single quotes."
+      },
+      {
+        "log": ".tmp/redis-acquire-diagnostic.log",
+        "exitCode": 1,
+        "reason": "Diagnostic-only retry retained exact public Requires-Dist list and SHA-verified wheel; guard still refused."
+      }
+    ],
+    "inspection": {
+      "log": ".tmp/redis-acquire-offline.log",
+      "exitCode": 0,
+      "state": ".tmp/redis-acquire-offline-container.json",
+      "inputHashes": ".tmp/redis-acquire-offline-input.json",
+      "memoryBytes": 1073741824,
+      "memorySwapBytes": 1073741824,
+      "nanoCpus": 1000000000,
+      "pidsLimit": 128,
+      "network": "none",
+      "mounts": [],
+      "scope": "Exact11literal dependency list admitted after primary marker review. At this inert inspection stage, Python3.13.12/no-extras native execution remained separately gated; subsequent approval and proof are recorded under native."
+    }
+  },
+  "focused": {
+    "firstCases": 12,
+    "exits": {
+      "deno": 0,
+      "node": 0,
+      "bun": 0
+    },
+    "logs": [
+      ".tmp/redis-focused-deno-first.log",
+      ".tmp/redis-focused-node-first.log",
+      ".tmp/redis-focused-bun-first.log"
+    ],
+    "inputs": ".tmp/redis-focused-input.json",
+    "state": ".tmp/redis-focused-container.json",
+    "followup": "Final initialization signal check and getter-abort regression passed all3runtimes.",
+    "finalCases": 13,
+    "finalExits": {
+      "fmt": 0,
+      "fixtureFmt": 0,
+      "lint": 0,
+      "deno": 0,
+      "node": 0,
+      "bun": 0
+    },
+    "postformatHashes": ".tmp/redis-focused-postformat.json",
+    "captureReplay": {
+      "cases": 14,
+      "deno": "2 top-level tests including 13 suite steps passed",
+      "node": "14 passed",
+      "bun": "14 passed",
+      "state": ".tmp/redis-final-container.json",
+      "inputs": ".tmp/redis-final-input.json",
+      "logs": [
+        ".tmp/redis-final-deno.log",
+        ".tmp/redis-final-node.log",
+        ".tmp/redis-final-bun.log"
+      ],
+      "fmt": ".tmp/redis-final-fmt.log",
+      "lint": ".tmp/redis-final-lint.log"
+    }
+  },
+  "native": {
+    "exit": {
+      "exitCode": 0,
+      "seconds": 15.008463144302368,
+      "nodeHeapMiB": 512,
+      "outerTimeoutSeconds": 600,
+      "command": [
+        "node",
+        "--test",
+        "tests/redis-provider.test.ts"
+      ]
+    },
+    "log": {
+      "path": "native.log",
+      "bytes": 7684,
+      "sha256": "eaa3b60725679e73023b1ec65a1a8065cecac2872a48e285a02a00d9f4411d90"
+    },
+    "versions": [
+      {
+        "kind": "redis",
+        "version": "Redis server v=8.10.3 sha=00000000:1 malloc=jemalloc-5.3.0 bits=64 build=418e78fb81cd4847",
+        "oracle": {
+          "sdk": "8.1.0",
+          "python": "3.13.12",
+          "ping": true
+        }
+      },
+      {
+        "kind": "valkey",
+        "version": "Valkey server v=9.1.3 sha=00000000:0 malloc=jemalloc-5.3.0 bits=64 build=997db1043466666d",
+        "oracle": {
+          "sdk": "8.1.0",
+          "python": "3.13.12",
+          "ping": true
+        }
+      }
+    ],
+    "resources": [
+      {
+        "fixtureResource": "da25b12e3edd34bcafe2a4d45b6e434921160eb8be60f818c768f7775a3b77ac",
+        "host": {
+          "Binds": null,
+          "ContainerIDFile": "",
+          "LogConfig": {
+            "Type": "local",
+            "Config": {}
+          },
+          "NetworkMode": "bridge",
+          "PortBindings": {
+            "6379/tcp": [
+              {
+                "HostIp": "",
+                "HostPort": "0"
+              }
+            ]
+          },
+          "RestartPolicy": {
+            "Name": "no",
+            "MaximumRetryCount": 0
+          },
+          "AutoRemove": false,
+          "VolumeDriver": "",
+          "VolumesFrom": null,
+          "ConsoleSize": [
+            0,
+            0
+          ],
+          "CapAdd": null,
+          "CapDrop": null,
+          "CgroupnsMode": "private",
+          "Dns": null,
+          "DnsOptions": null,
+          "DnsSearch": null,
+          "ExtraHosts": null,
+          "GroupAdd": null,
+          "IpcMode": "private",
+          "Cgroup": "",
+          "Links": null,
+          "OomScoreAdj": 0,
+          "PidMode": "",
+          "Privileged": false,
+          "PublishAllPorts": false,
+          "ReadonlyRootfs": false,
+          "SecurityOpt": null,
+          "Tmpfs": {
+            "/data": "rw,noexec,nosuid,size=16m,mode=0777"
+          },
+          "UTSMode": "",
+          "UsernsMode": "",
+          "ShmSize": 67108864,
+          "Runtime": "runc",
+          "Isolation": "",
+          "CpuShares": 0,
+          "Memory": 268435456,
+          "NanoCpus": 500000000,
+          "CgroupParent": "",
+          "BlkioWeight": 0,
+          "BlkioWeightDevice": null,
+          "BlkioDeviceReadBps": null,
+          "BlkioDeviceWriteBps": null,
+          "BlkioDeviceReadIOps": null,
+          "BlkioDeviceWriteIOps": null,
+          "CpuPeriod": 0,
+          "CpuQuota": 0,
+          "CpuRealtimePeriod": 0,
+          "CpuRealtimeRuntime": 0,
+          "CpusetCpus": "",
+          "CpusetMems": "",
+          "Devices": null,
+          "DeviceCgroupRules": null,
+          "DeviceRequests": null,
+          "MemoryReservation": 0,
+          "MemorySwap": 268435456,
+          "MemorySwappiness": null,
+          "OomKillDisable": null,
+          "PidsLimit": 128,
+          "Ulimits": null,
+          "CpuCount": 0,
+          "CpuPercent": 0,
+          "IOMaximumIOps": 0,
+          "IOMaximumBandwidth": 0,
+          "MaskedPaths": [
+            "/proc/acpi",
+            "/proc/asound",
+            "/proc/interrupts",
+            "/proc/kcore",
+            "/proc/keys",
+            "/proc/latency_stats",
+            "/proc/sched_debug",
+            "/proc/scsi",
+            "/proc/timer_list",
+            "/proc/timer_stats",
+            "/sys/devices/virtual/powercap",
+            "/sys/firmware"
+          ],
+          "ReadonlyPaths": [
+            "/proc/bus",
+            "/proc/fs",
+            "/proc/irq",
+            "/proc/sys",
+            "/proc/sysrq-trigger"
+          ]
+        },
+        "mounts": []
+      },
+      {
+        "fixtureResource": "3569230faf17af8b762eb46b29c1cc10fea06db6da4e9041a6422ee3aa623489",
+        "host": {
+          "Binds": null,
+          "ContainerIDFile": "",
+          "LogConfig": {
+            "Type": "local",
+            "Config": {}
+          },
+          "NetworkMode": "891cda6e79c1",
+          "PortBindings": {},
+          "RestartPolicy": {
+            "Name": "no",
+            "MaximumRetryCount": 0
+          },
+          "AutoRemove": false,
+          "VolumeDriver": "",
+          "VolumesFrom": null,
+          "ConsoleSize": [
+            0,
+            0
+          ],
+          "CapAdd": null,
+          "CapDrop": null,
+          "CgroupnsMode": "private",
+          "Dns": null,
+          "DnsOptions": null,
+          "DnsSearch": null,
+          "ExtraHosts": null,
+          "GroupAdd": null,
+          "IpcMode": "private",
+          "Cgroup": "",
+          "Links": null,
+          "OomScoreAdj": 0,
+          "PidMode": "",
+          "Privileged": false,
+          "PublishAllPorts": false,
+          "ReadonlyRootfs": false,
+          "SecurityOpt": null,
+          "UTSMode": "",
+          "UsernsMode": "",
+          "ShmSize": 67108864,
+          "Runtime": "runc",
+          "Isolation": "",
+          "CpuShares": 0,
+          "Memory": 268435456,
+          "NanoCpus": 500000000,
+          "CgroupParent": "",
+          "BlkioWeight": 0,
+          "BlkioWeightDevice": null,
+          "BlkioDeviceReadBps": null,
+          "BlkioDeviceWriteBps": null,
+          "BlkioDeviceReadIOps": null,
+          "BlkioDeviceWriteIOps": null,
+          "CpuPeriod": 0,
+          "CpuQuota": 0,
+          "CpuRealtimePeriod": 0,
+          "CpuRealtimeRuntime": 0,
+          "CpusetCpus": "",
+          "CpusetMems": "",
+          "Devices": null,
+          "DeviceCgroupRules": null,
+          "DeviceRequests": null,
+          "MemoryReservation": 0,
+          "MemorySwap": 268435456,
+          "MemorySwappiness": null,
+          "OomKillDisable": null,
+          "PidsLimit": 128,
+          "Ulimits": null,
+          "CpuCount": 0,
+          "CpuPercent": 0,
+          "IOMaximumIOps": 0,
+          "IOMaximumBandwidth": 0,
+          "MaskedPaths": [
+            "/proc/acpi",
+            "/proc/asound",
+            "/proc/interrupts",
+            "/proc/kcore",
+            "/proc/keys",
+            "/proc/latency_stats",
+            "/proc/sched_debug",
+            "/proc/scsi",
+            "/proc/timer_list",
+            "/proc/timer_stats",
+            "/sys/devices/virtual/powercap",
+            "/sys/firmware"
+          ],
+          "ReadonlyPaths": [
+            "/proc/bus",
+            "/proc/fs",
+            "/proc/irq",
+            "/proc/sys",
+            "/proc/sysrq-trigger"
+          ]
+        },
+        "mounts": []
+      },
+      {
+        "fixtureResource": "8dab9d223c782755c6bc00a96f66f044d8f27ddfefce667e84be5a5deddb22b3",
+        "host": {
+          "Binds": null,
+          "ContainerIDFile": "",
+          "LogConfig": {
+            "Type": "local",
+            "Config": {}
+          },
+          "NetworkMode": "bridge",
+          "PortBindings": {
+            "6379/tcp": [
+              {
+                "HostIp": "",
+                "HostPort": "0"
+              }
+            ]
+          },
+          "RestartPolicy": {
+            "Name": "no",
+            "MaximumRetryCount": 0
+          },
+          "AutoRemove": false,
+          "VolumeDriver": "",
+          "VolumesFrom": null,
+          "ConsoleSize": [
+            0,
+            0
+          ],
+          "CapAdd": null,
+          "CapDrop": null,
+          "CgroupnsMode": "private",
+          "Dns": null,
+          "DnsOptions": null,
+          "DnsSearch": null,
+          "ExtraHosts": null,
+          "GroupAdd": null,
+          "IpcMode": "private",
+          "Cgroup": "",
+          "Links": null,
+          "OomScoreAdj": 0,
+          "PidMode": "",
+          "Privileged": false,
+          "PublishAllPorts": false,
+          "ReadonlyRootfs": false,
+          "SecurityOpt": null,
+          "Tmpfs": {
+            "/data": "rw,noexec,nosuid,size=16m,mode=0777"
+          },
+          "UTSMode": "",
+          "UsernsMode": "",
+          "ShmSize": 67108864,
+          "Runtime": "runc",
+          "Isolation": "",
+          "CpuShares": 0,
+          "Memory": 268435456,
+          "NanoCpus": 500000000,
+          "CgroupParent": "",
+          "BlkioWeight": 0,
+          "BlkioWeightDevice": null,
+          "BlkioDeviceReadBps": null,
+          "BlkioDeviceWriteBps": null,
+          "BlkioDeviceReadIOps": null,
+          "BlkioDeviceWriteIOps": null,
+          "CpuPeriod": 0,
+          "CpuQuota": 0,
+          "CpuRealtimePeriod": 0,
+          "CpuRealtimeRuntime": 0,
+          "CpusetCpus": "",
+          "CpusetMems": "",
+          "Devices": null,
+          "DeviceCgroupRules": null,
+          "DeviceRequests": null,
+          "MemoryReservation": 0,
+          "MemorySwap": 268435456,
+          "MemorySwappiness": null,
+          "OomKillDisable": null,
+          "PidsLimit": 128,
+          "Ulimits": null,
+          "CpuCount": 0,
+          "CpuPercent": 0,
+          "IOMaximumIOps": 0,
+          "IOMaximumBandwidth": 0,
+          "MaskedPaths": [
+            "/proc/acpi",
+            "/proc/asound",
+            "/proc/interrupts",
+            "/proc/kcore",
+            "/proc/keys",
+            "/proc/latency_stats",
+            "/proc/sched_debug",
+            "/proc/scsi",
+            "/proc/timer_list",
+            "/proc/timer_stats",
+            "/sys/devices/virtual/powercap",
+            "/sys/firmware"
+          ],
+          "ReadonlyPaths": [
+            "/proc/bus",
+            "/proc/fs",
+            "/proc/irq",
+            "/proc/sys",
+            "/proc/sysrq-trigger"
+          ]
+        },
+        "mounts": []
+      },
+      {
+        "fixtureResource": "35a35bcf3a30a66d28a033fb6a6fc24a5ba1e2a88814c560c489a24ee8d75d18",
+        "host": {
+          "Binds": null,
+          "ContainerIDFile": "",
+          "LogConfig": {
+            "Type": "local",
+            "Config": {}
+          },
+          "NetworkMode": "079a0692271f",
+          "PortBindings": {},
+          "RestartPolicy": {
+            "Name": "no",
+            "MaximumRetryCount": 0
+          },
+          "AutoRemove": false,
+          "VolumeDriver": "",
+          "VolumesFrom": null,
+          "ConsoleSize": [
+            0,
+            0
+          ],
+          "CapAdd": null,
+          "CapDrop": null,
+          "CgroupnsMode": "private",
+          "Dns": null,
+          "DnsOptions": null,
+          "DnsSearch": null,
+          "ExtraHosts": null,
+          "GroupAdd": null,
+          "IpcMode": "private",
+          "Cgroup": "",
+          "Links": null,
+          "OomScoreAdj": 0,
+          "PidMode": "",
+          "Privileged": false,
+          "PublishAllPorts": false,
+          "ReadonlyRootfs": false,
+          "SecurityOpt": null,
+          "UTSMode": "",
+          "UsernsMode": "",
+          "ShmSize": 67108864,
+          "Runtime": "runc",
+          "Isolation": "",
+          "CpuShares": 0,
+          "Memory": 268435456,
+          "NanoCpus": 500000000,
+          "CgroupParent": "",
+          "BlkioWeight": 0,
+          "BlkioWeightDevice": null,
+          "BlkioDeviceReadBps": null,
+          "BlkioDeviceWriteBps": null,
+          "BlkioDeviceReadIOps": null,
+          "BlkioDeviceWriteIOps": null,
+          "CpuPeriod": 0,
+          "CpuQuota": 0,
+          "CpuRealtimePeriod": 0,
+          "CpuRealtimeRuntime": 0,
+          "CpusetCpus": "",
+          "CpusetMems": "",
+          "Devices": null,
+          "DeviceCgroupRules": null,
+          "DeviceRequests": null,
+          "MemoryReservation": 0,
+          "MemorySwap": 268435456,
+          "MemorySwappiness": null,
+          "OomKillDisable": null,
+          "PidsLimit": 128,
+          "Ulimits": null,
+          "CpuCount": 0,
+          "CpuPercent": 0,
+          "IOMaximumIOps": 0,
+          "IOMaximumBandwidth": 0,
+          "MaskedPaths": [
+            "/proc/acpi",
+            "/proc/asound",
+            "/proc/interrupts",
+            "/proc/kcore",
+            "/proc/keys",
+            "/proc/latency_stats",
+            "/proc/sched_debug",
+            "/proc/scsi",
+            "/proc/timer_list",
+            "/proc/timer_stats",
+            "/sys/devices/virtual/powercap",
+            "/sys/firmware"
+          ],
+          "ReadonlyPaths": [
+            "/proc/bus",
+            "/proc/fs",
+            "/proc/irq",
+            "/proc/sys",
+            "/proc/sysrq-trigger"
+          ]
+        },
+        "mounts": []
+      }
+    ],
+    "remainingTaskLabelContainers": "",
+    "fullIndependentBytesEachDirection": 131072,
+    "scope": "Separately tested single-node native Redis and Valkey. SDK full-byte producer/consumer and nativeCLI producer, auth denial, NX/XX, explicitTTL policies and unconditional single-keyDEL. No TLS/persistence/replication/cluster/eviction qualification.",
+    "cleanup": "All owned sockets, containers and private networks closed before successful test return; exact task-label query afterward returned no containers."
+  },
+  "benchmark": {
+    "source": "bench/redis.bench.ts",
+    "receipt": ".tmp/redis-bench-receipt.json",
+    "inputs": ".tmp/redis-bench-input.json",
+    "raw": ".tmp/redis-bench-node.json",
+    "gzip": ".tmp/redis-bench-node.json.gz",
+    "scope": "Two warm in-memory channels replay the exact native GET. Raw fixed-offset copy is a lower bound, not equivalent protocol conformance or deployed server performance.",
+    "result": {
+      "image": "sha256:0d27d74b49afa69518cd96806ca02f697e377c997d889c27cf60c4ae724adc39",
+      "runtimeContext": {
+        "now": 1793912229330,
+        "arch": "arm64-linux",
+        "version": "26.13.0",
+        "runtime": "node"
+      },
+      "state": {
+        "Status": "exited",
+        "Running": false,
+        "Paused": false,
+        "Restarting": false,
+        "OOMKilled": false,
+        "Dead": false,
+        "Pid": 0,
+        "ExitCode": 0,
+        "Error": "",
+        "StartedAt": "2026-11-05T20:57:09.062765966Z",
+        "FinishedAt": "2026-11-05T20:57:15.838882053Z"
+      },
+      "resources": {
+        "Memory": 1073741824,
+        "MemorySwap": 1073741824,
+        "NanoCpus": 1000000000,
+        "PidsLimit": 128,
+        "NetworkMode": "none"
+      },
+      "mounts": [],
+      "raw": {
+        "path": ".tmp/redis-bench-node.json",
+        "bytes": 28032032,
+        "sha256": "d6add875da11864cf0a3eb04a2bd1c010cb6ace4cbc0dc12651fd932bf338579"
+      },
+      "gzip": {
+        "path": ".tmp/redis-bench-node.json.gz",
+        "bytes": 81704,
+        "sha256": "778baba42b65ec62a326e31ea2fa7b2979cde061a9c8f2b47735a67c538fc6cd",
+        "roundTripVerified": true
+      },
+      "inputs": ".tmp/redis-bench-input.json",
+      "firstFailure": {
+        "state": ".tmp/redis-bench-first-container.json",
+        "reason": "Explicit sh command duplicated the inspected image sh entrypoint; no TypeScript ran. Retry explicitly selects sh entrypoint."
+      },
+      "externalObservation": {
+        "start": "",
+        "end": ""
+      },
+      "lanes": [
+        {
+          "name": "redis raw Webstreams envelope=12B original=6B lower-bound validation=none warm-channel",
+          "nanoseconds": {
+            "avg": 735.4350470617055,
+            "p50": 583,
+            "p99": 1125,
+            "ticks": 663388
+          }
+        },
+        {
+          "name": "redis client GET envelope=12B original=6B validation=framing+length+ownership warm-client",
+          "nanoseconds": {
+            "avg": 23146.73233387358,
+            "p50": 11000,
+            "p99": 60958,
+            "ticks": 24680
+          }
+        }
+      ],
+      "postTimingFormat": "Executed bench source/input SHA remains in redis-bench-input.json; final frozen benchmark differs only by deno fmt layout."
+    }
+  },
+  "images": [
+    {
+      "id": "sha256:fc0fbb165f9c939f1c614aca89b907933787be8350c266b5df335a72ea270a1c",
+      "architecture": "arm64",
+      "os": "linux",
+      "bytes": 166986662,
+      "repoDigests": [
+        "redis@sha256:f245f4c83b84a9e9a0588da1c9456e579455310f0945d5db52cd2ba27f2000cc"
+      ],
+      "entrypoint": [
+        "docker-entrypoint.sh"
+      ],
+      "command": [
+        "redis-server"
+      ],
+      "environment": [
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "REDIS_VERSION=8.10.3"
+      ],
+      "volumes": null,
+      "user": null,
+      "labels": null
+    },
+    {
+      "id": "sha256:96ccabd3ec8da92416cb90d103212d043c5d831aa54674758fe25ae76d7a9129",
+      "architecture": "arm64",
+      "os": "linux",
+      "bytes": 139392156,
+      "repoDigests": [
+        "valkey/valkey@sha256:3add1a336a920ea54770a001ab6feb3da5fceea96a40373a3a2cd469b815f0b7"
+      ],
+      "entrypoint": [
+        "tini",
+        "--",
+        "docker-entrypoint.sh"
+      ],
+      "command": [
+        "valkey-server"
+      ],
+      "environment": [
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "VALKEY_VERSION=9.1.3"
+      ],
+      "volumes": null,
+      "user": null,
+      "labels": {
+        "org.opencontainers.image.source": "https://github.com/valkey-io/valkey"
+      }
+    },
+    {
+      "id": "sha256:5ae62b8a656b92aebda2441c1b4b872da0799b4deabca9f6c476f5940624ebef",
+      "architecture": "arm64",
+      "os": "linux",
+      "bytes": 146082428,
+      "repoDigests": [
+        "python@sha256:a58daefb915e1e03ad48f3ca4df8832065412c5c35cacb9d39f4229184de12b6"
+      ],
+      "entrypoint": null,
+      "command": [
+        "python3"
+      ],
+      "environment": [
+        "PATH=/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "GPG_KEY=7169605F62C751356D054A26A821E680E5FA6305",
+        "PYTHON_VERSION=3.13.12",
+        "PYTHON_SHA256=2a84cd31dd8d8ea8aaff75de66fc1b4b0127dd5799aa50a64ae9a313885b4593"
+      ],
+      "volumes": null,
+      "user": null,
+      "labels": null
+    }
+  ],
+  "imageAcquisition": {
+    "scope": "Public immutable image acquisition/metadata inspection only; no container start or native SDK/server execution. Missing configuration fields are recorded as null.",
+    "rawPath": "native-images.txt",
+    "rawBytes": 8054,
+    "rawSha256": "0f2ef37bec8070c6f3bf589fdd6977de25a3d2c7cd633c7d2db20df58863f509",
+    "pullLogs": [
+      ".tmp/redis-image-pull.log",
+      ".tmp/valkey-image-pull.log"
+    ],
+    "pullExitCodes": [
+      0,
+      0
+    ],
+    "initialHostAvailableKiB": 15002752,
+    "finalHostCapacityReceipt": ".tmp/redis-image-capacity-after.txt",
+    "platformChildren": {
+      "redis:8.10.3": "sha256:3c67554ed679f7e95de0c538d2726edf184d26228455fbae76514f9976f0ee3d",
+      "valkey/valkey:9.1.3": "sha256:6aeb94ca4820db2ef741da9486a9f95c165520cf709978260909dd18032c31c3",
+      "python:3.13.12-slim-bookworm": "sha256:34b27ac66ecf318887b55ea3c71f0db9307895efe631210231a66cc3fa130cf9"
+    }
+  },
+  "capture": {
+    "path": "independent.json",
+    "bytes": 3988,
+    "sha256": "e88a13bdd46f764da49aaf19ff33763c3ca2fadcc7cb063eb4d85bf2087c3a8e",
+    "log": ".tmp/redis-capture.log",
+    "exit": {
+      "exitCode": 0,
+      "seconds": 15.885782957077026,
+      "nodeHeapMiB": 512,
+      "outerTimeoutSeconds": 600
+    },
+    "inputHashes": ".tmp/redis-capture-input.json",
+    "scope": "Separate unchanged native Redis/Valkey responses from an independent literal RESP producer and bounded byte-extent reader; no candidate client/parser. All six SDK-original bytes were verified before and after conditional writes, and SDK absence after deletion. AUTH requests/passwords are not retained."
+  }
+}

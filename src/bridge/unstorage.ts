@@ -53,19 +53,24 @@ export interface UnstorageBridgeType {
   /** Returns filesystem-backed metadata for one exact value. */
   getMeta(key: string, options: UnstorageBridgeTransactionOptionsType): Promise<UnstorageBridgeMetaType | null>;
   /** Lists colon-delimited descendant keys below one base prefix. */
-  getKeys(base: string, options: UnstorageBridgeTransactionOptionsType): Promise<string[]>;
+  getKeys(base?: string, options?: UnstorageBridgeTransactionOptionsType): Promise<string[]>;
   /** Removes descendants below one base prefix according to unstorage clear semantics. */
-  clear(base: string, options: UnstorageBridgeTransactionOptionsType): Promise<void>;
+  clear(base?: string, options?: UnstorageBridgeTransactionOptionsType): Promise<void>;
   /** Releases filesystem ownership only when creation explicitly transferred it. */
   dispose(): Promise<void>;
 }
 
 /** Options for the reverse unstorage bridge. */
 export interface UnstorageBridgeOptionsType {
-  /** Virtual directory that contains unstorage keys. Defaults to `/`. */
+  /** Virtual directory that contains unstorage keys. Defaults to `/.opfs-kv`. */
   readonly root?: string;
   /** Closes the injected filesystem when unstorage disposes the driver. */
   readonly disposeFileSystem?: boolean;
+}
+
+/** Canonicalization belongs to unstorage, never the generic exact-key codec. */
+function normalizeKey(key: string): string {
+  return key.split("?")[0]!.replace(/[\\/]/g, ":").replace(/:+/g, ":").replace(/^:|:$/g, "");
 }
 
 /**
@@ -105,22 +110,22 @@ class UnstorageBridgeImpl implements UnstorageBridgeType {
 
   /** Tests one exact unstorage key. */
   async hasItem(key: string, _options: UnstorageBridgeTransactionOptionsType): Promise<boolean> {
-    return await this.#driver.has(key);
+    return await this.#driver.has(normalizeKey(key));
   }
 
   /** Reads one UTF-8 unstorage value or `null` when absent. */
   async getItem(key: string, _options?: UnstorageBridgeTransactionOptionsType): Promise<string | null> {
-    return await this.#driver.get(key);
+    return await this.#driver.get(normalizeKey(key));
   }
 
   /** Replaces one UTF-8 unstorage value. */
   async setItem(key: string, value: string, _options: UnstorageBridgeTransactionOptionsType): Promise<void> {
-    await this.#driver.set(key, value);
+    await this.#driver.set(normalizeKey(key), value);
   }
 
   /** Reads one raw unstorage value without text transcoding. */
   async getItemRaw(key: string, _options: UnstorageBridgeTransactionOptionsType): Promise<Uint8Array | null> {
-    return await this.#driver.getRaw(key);
+    return await this.#driver.getRaw(normalizeKey(key));
   }
 
   /** Replaces one raw unstorage value. */
@@ -129,17 +134,17 @@ class UnstorageBridgeImpl implements UnstorageBridgeType {
     value: string | Blob | ArrayBuffer | ArrayBufferView,
     _options: UnstorageBridgeTransactionOptionsType,
   ): Promise<void> {
-    await this.#driver.setRaw(key, value);
+    await this.#driver.setRaw(normalizeKey(key), value);
   }
 
   /** Removes only the exact unstorage key. */
   async removeItem(key: string, _options: UnstorageBridgeTransactionOptionsType): Promise<void> {
-    await this.#driver.remove(key);
+    await this.#driver.remove(normalizeKey(key));
   }
 
   /** Projects filesystem modification time into unstorage metadata. */
   async getMeta(key: string, _options: UnstorageBridgeTransactionOptionsType): Promise<UnstorageBridgeMetaType | null> {
-    const meta = await this.#driver.meta(key);
+    const meta = await this.#driver.meta(normalizeKey(key));
     return meta === null || meta.modified === undefined ? null : { mtime: meta.modified };
   }
 
@@ -150,19 +155,21 @@ class UnstorageBridgeImpl implements UnstorageBridgeType {
    * descendants. The generic KV layer deliberately does not own that
    * unstorage-specific rule.
    */
-  async getKeys(base: string, options: UnstorageBridgeTransactionOptionsType): Promise<string[]> {
-    const exactBase = base.replace(/:+$/g, "");
+  async getKeys(base = "", options: UnstorageBridgeTransactionOptionsType = {}): Promise<string[]> {
+    const exactBase = normalizeKey(base);
     const excludesExactBase = base.endsWith(":") && exactBase.length > 0;
     const values = await this.#driver.keys(
-      base,
+      exactBase === "" ? undefined : exactBase,
       options.maxDepth === undefined ? undefined : { maxDepth: options.maxDepth },
     );
     return excludesExactBase ? values.filter((key) => key !== exactBase) : values;
   }
 
   /** Removes a key subtree while preserving the exact base for trailing-colon calls. */
-  async clear(base: string, _options: UnstorageBridgeTransactionOptionsType): Promise<void> {
-    await this.#driver.clear(base, { preserveExact: base.endsWith(":") && base.replace(/:+$/g, "").length > 0 });
+  async clear(base = "", _options: UnstorageBridgeTransactionOptionsType = {}): Promise<void> {
+    await this.#driver.clear(normalizeKey(base) === "" ? undefined : normalizeKey(base), {
+      preserveExact: base.endsWith(":") && normalizeKey(base).length > 0,
+    });
   }
 
   /** Releases optional filesystem ownership through the generic bridge. */
@@ -182,5 +189,24 @@ export function createUnstorageBridge(
   fileSystem: FileSystemType,
   options: UnstorageBridgeOptionsType = {},
 ): UnstorageBridgeType {
-  return new UnstorageBridgeImpl(fileSystem, options);
+  const bridge = new UnstorageBridgeImpl(fileSystem, options);
+  // Upstream unstorage invokes driver callbacks as standalone functions.
+  // Binding keeps private state available through that public calling contract.
+  return {
+    name: bridge.name,
+    flags: bridge.flags,
+    inspect: bridge.inspect.bind(bridge),
+    plan: bridge.plan.bind(bridge),
+    getMetrics: bridge.getMetrics.bind(bridge),
+    hasItem: bridge.hasItem.bind(bridge),
+    getItem: bridge.getItem.bind(bridge),
+    setItem: bridge.setItem.bind(bridge),
+    getItemRaw: bridge.getItemRaw.bind(bridge),
+    setItemRaw: bridge.setItemRaw.bind(bridge),
+    removeItem: bridge.removeItem.bind(bridge),
+    getMeta: bridge.getMeta.bind(bridge),
+    getKeys: bridge.getKeys.bind(bridge),
+    clear: bridge.clear.bind(bridge),
+    dispose: bridge.dispose.bind(bridge),
+  };
 }

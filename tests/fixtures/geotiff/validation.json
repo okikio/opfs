@@ -1,0 +1,21 @@
+{
+  "casesPerRuntime": 36,
+  "authoredCases": 25,
+  "nativeFileCases": 11,
+  "nativeImages": 12,
+  "results": {
+    "deno": "pass",
+    "node": "pass",
+    "bun": "pass",
+    "fmt": "pass",
+    "lint": "pass"
+  },
+  "runtime": "final-repair-runtime.txt",
+  "input": "final-repair-input.json",
+  "state": "final-repair-state.json",
+  "exitCode": 0,
+  "oomKilled": false,
+  "firstFailure": "final-lint.log records three no-inner-declarations findings; final-repair reran every runtime after converting only those declarations to const async expressions.",
+  "afterRuntimeChanges": "Only option TSDoc clarifying raw interval ceilings and documentation/provenance changed after the passing runtime rerun. Benchmark input manifest records the measured bytes.",
+  "scope": "Focused runtime proof, not a compiler, package artifact, CRS, COG or full TIFF conformance gate."
+}

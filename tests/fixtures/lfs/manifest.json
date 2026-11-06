@@ -1,0 +1,31 @@
+{
+  "producer": "git-lfs/3.8.1 (GitHub; darwin arm64; go 1.27.3; git a662a6db)",
+  "commands": [
+    "git lfs pointer --file=hello.bin",
+    "git lfs clean -- empty.bin < empty.bin",
+    "git lfs pointer --check --strict --file=<pointer>"
+  ],
+  "context": "Disposable Git repository; native pointer --file=empty.bin returns clean:pointer error in3.8.1, so clean supplies the independently produced empty pass-through fixture.",
+  "files": [
+    {
+      "file": "hello.bin",
+      "bytes": 6,
+      "sha256": "5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03"
+    },
+    {
+      "file": "hello.pointer",
+      "bytes": 126,
+      "sha256": "94cb9a4fb124ed218aeeaefa7927680d5a261652f400f9d4f6a4e729c995d088"
+    },
+    {
+      "file": "empty.bin",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "empty.pointer",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ]
+}

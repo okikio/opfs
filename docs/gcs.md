@@ -1,0 +1,289 @@
+# Google Cloud Storage
+
+Use the native GCS JSON API client when the application owns a bucket and an access-token policy. The protocol client
+works independently; its driver adds inspection and limits, and the object adapter supplies filesystem paths.
+
+This complete Deno application reads an explicitly supplied short-lived token. The library never discovers credentials
+or reads the environment itself. Run it only against a bucket and prefix you own; the example creates a file.
+
+```ts
+import { createFileSystem } from "@okikio/opfs";
+import { createGcsClient } from "@okikio/opfs/gcs";
+import { createGcsAdapter } from "@okikio/opfs/adapter/gcs";
+
+const bucket = Deno.env.get("GCS_BUCKET");
+const token = Deno.env.get("GCS_TOKEN");
+if (!bucket || !token) throw new Error("Set GCS_BUCKET and GCS_TOKEN explicitly.");
+
+const client = createGcsClient({ bucket, token });
+const filesystem = createFileSystem(createGcsAdapter(client, { prefix: "opfs-example/" }));
+try {
+  await filesystem.writeFile("/notes.txt", "Archive inspection starts here.");
+  console.log(await filesystem.readText("/notes.txt"));
+} finally {
+  await filesystem[Symbol.asyncDispose]();
+}
+```
+
+Supply `token: async () => refreshedToken` through your authentication integration when refresh is needed. The callback
+runs immediately before each request attempt. The application owns ADC, federation, service-account signing and token
+caching. An omitted token supports public access or a controlled emulator; it does not discover a local Google account.
+Browser use also needs bucket CORS policy for the actual operations and response headers.
+
+## Archive and other native object classes
+
+Select a class on the native client when publishing an object. This complete function accepts caller-owned credentials,
+uploads one new object, and returns this upload's confirmed receipt:
+
+```ts
+import { createGcsClient } from "@okikio/opfs/gcs";
+import type { GcsReceiptType } from "@okikio/opfs/gcs";
+
+export async function saveArchive(
+  bucket: string,
+  token: string,
+  key: string,
+  bytes: Uint8Array,
+): Promise<GcsReceiptType> {
+  const client = createGcsClient({ bucket, token });
+  return await client.put(key, bytes, {
+    storageClass: "ARCHIVE",
+    ifNoneMatch: "*",
+    mediaType: "application/octet-stream",
+  });
+}
+```
+
+`GcsStorageClassSchema` admits `STANDARD`, `NEARLINE`, `COLDLINE` and `ARCHIVE` as explicit upload choices. Omission
+leaves class selection to the bucket's native configuration. This profile does not select bucket-only classes. The
+native `storageClass` field is separate from user-defined `metadata.storageClass`. `head()`, `list()`, upload receipts
+and copy receipts preserve reported classes, including unknown or legacy strings; response class names have an
+implementation safety limit of 128 code units. Reading a class does not make it an admitted upload choice.
+
+`createUpload()` also accepts `storageClass` and captures it in the frozen session descriptor before credential awaits.
+Retain that field with the secret session URI when saving recovery state. Each final `writeUpload()` or `queryUpload()`
+acknowledgement must confirm the requested class as well as the existing key and size checks. A missing or different
+class raises `GcsPublicationError`: publication may have occurred, so do not blindly repeat the upload. The error does
+not establish that the object is absent or unchanged. Prefer the explicit session API when the application must retain
+reconciliation authority after a lost or invalid acknowledgement. A later `head()` observes current state and cannot
+prove attribution to this attempt.
+
+Google's [Archive storage class](https://docs.cloud.google.com/storage/docs/storage-classes) remains online with
+low-latency object reads; it does not require an offline restore or thaw step. Its 365-day minimum storage duration is a
+billing rule, with retrieval and possible early-deletion charges. It does not prevent deletion, overwriting or movement,
+and is not a retention lock. This client does not calculate fees or manage lifecycle, Autoclass, retention policies or
+legal holds. It does not yet offer same-object class transitions or a rewrite class override. The filesystem adapter
+does not select a class on individual writes; use the native client for this upload intent.
+
+## Native metadata observations and metadata conditions
+
+`head()`, `list()`, final upload/status-query receipts and copy receipts retain optional `metageneration` and `crc32c`
+fields. The native driver constructors return `GcsDriverType`, so these facts and native conditions remain visible to
+TypeScript callers as well as at runtime. The filesystem adapter still returns portable file metadata.
+
+This complete function reads a small preview while requiring the same observed generation and metadata version. The
+application supplies credentials and chooses how to recover when metadata is unavailable or the service refuses a stale
+observation:
+
+```ts
+import { createGcsClient } from "@okikio/opfs/gcs";
+
+export async function readPreview(bucket: string, token: string, key: string) {
+  const client = createGcsClient({ bucket, token });
+  const observed = await client.head(key);
+  if (observed === null) throw new Error("Object does not exist.");
+  if (observed.revision === undefined || observed.metageneration === undefined) {
+    throw new Error("The provider did not report the versions needed for this guarded preview.");
+  }
+  const stream = await client.get(key, {
+    revision: observed.revision,
+    ifMetagenerationMatch: observed.metageneration,
+    at: 0,
+    length: Math.min(64, observed.size),
+  });
+  // This function consumes its stream; callers receiving a stream directly must consume or cancel it.
+  return { observed, bytes: new Uint8Array(await new Response(stream).arrayBuffer()) };
+}
+```
+
+Generation identifies the object's bytes. Metageneration identifies mutable metadata for that particular key and
+generation; it is neither an ETag nor an independent byte revision. Decimal tokens are preserved exactly as strings,
+including values beyond JavaScript's safe integer range. Response metageneration and metadata conditions must be
+positive decimal strings without leading zeroes. No numeric range is inferred from their text representation.
+
+An omitted native field remains absent, while JSON `null`, numeric tokens and malformed strings are rejected. `crc32c`
+must be canonical standard Base64 for four big-endian bytes, including valid zero checksum `AAAAAA==`. It is a
+provider-reported checksum of the whole stored object. Retaining it does not calculate a checksum or validate
+downloaded/uploaded bytes. Whole-object CRC32C cannot validate this example's partial HTTP range. Caller-defined
+`metadata.metageneration` and `metadata.crc32c` remain separate user metadata. These facts follow the
+[Objects resource](https://docs.cloud.google.com/storage/docs/json_api/v1/objects) and Google's
+[data-validation contract](https://docs.cloud.google.com/storage/docs/data-validation).
+
+The native `head`, `get`, `delete`, `put` and `createUpload` options accept `ifMetagenerationMatch` together with a
+positive generation `revision`. Copy/rewrite accepts the same destination pair, plus `ifSourceMetagenerationMatch`
+paired with `sourceRevision`. Missing, ETag, zero or conflicting create-only generation conditions are refused before
+credentials, transport or upload source acquisition. Each rewrite continuation retains both pairs.
+`head(key, { revision })` also selects that exact metadata generation and refuses a conflicting returned generation.
+Empty local reads still do no I/O, so they do not evaluate a server condition.
+
+Google recommends
+[pairing metadata and generation conditions](https://docs.cloud.google.com/storage/docs/request-preconditions) to avoid
+accidentally matching another generation's metadata version. An HTTP 412 raises `GcsError`; deliberately reopen and
+reconcile state rather than silently discarding the condition. Upload metadata conditions are sent in the
+[resumable Objects.insert initiation request](https://docs.cloud.google.com/storage/docs/json_api/v1/objects/insert).
+This profile does not establish whether a service rechecks concurrent metadata changes at final publication. Extent
+writes and status queries retain session authority without adding a new metadata condition. The new object's reported
+metageneration is independent of the previous object's guard and is not compared with it.
+
+Malformed final upload/status-query or rewrite metadata raises `GcsPublicationError`. The object may already have been
+published; the failure does not prove absence or justify replay. Retain the session when available and reconcile its
+outcome. A later current HEAD cannot replace this attempt's attributable receipt.
+
+## Revisions and byte ranges
+
+`head()` returns `revision: { kind: "generation", value }` and `version` as opaque decimal strings. The ETag stays in
+`etag`; it is not a substitute generation. A replacement uses the admitted generation through `ifGenerationMatch`.
+`ifNoneMatch: "*"` selects `ifGenerationMatch=0` for create-only publication. Other ETag write conditions are refused
+before transport. The object adapter uses the generation for read-modify-write replacement, preserving competing writers
+rather than blindly overwriting them.
+
+For a stable range, obtain metadata and pass its generation explicitly:
+
+```ts
+const stat = await client.head("opfs-example/notes.txt");
+if (stat === null || stat.revision === undefined) throw new Error("Object revision unavailable.");
+const bytes = await client.get("opfs-example/notes.txt", {
+  at: 0,
+  length: Math.min(8, stat.size),
+  revision: stat.revision,
+});
+console.log(new Uint8Array(await new Response(bytes).arrayBuffer()));
+```
+
+The generation selects the exact object version. A provider may no longer retain an old generation; reopen metadata
+deliberately rather than silently switching versions. Ranges validate HTTP 206, Content-Range, reported generation and
+body extent. Ignored ranges reject and cancel their response instead of downloading the complete object. A zero-length
+range returns an empty stream without checking object existence.
+
+Objects served with `Content-Encoding` or `x-goog-stored-content-encoding` other than identity are refused: Fetch can
+transparently decode them and break stored-byte identity. Store compressed archive bytes with an appropriate content
+type and without HTTP content encoding when exact archive offsets are needed. The returned stream is caller-owned;
+consume or cancel it. Plain reads do not certify payload checksum or publisher identity.
+
+## Upload sessions and recovery
+
+`put()` uses a resumable session for both bytes and streams. Stream buffers default to 8 MiB and use bounded lookahead
+to identify the final chunk. `chunkSize` must be a positive multiple of the provider's 256 KiB nonfinal-chunk rule.
+Upstream producers can allocate larger chunks before the library sees them. The provider object limit is 5 TiB, distinct
+from this buffering choice.
+
+Ordinary `put()` is one attempt and does not persist recovery state. For recoverable uploads, create the session
+explicitly and protect its URI as a bearer credential:
+
+```ts
+const payload = new Uint8Array([1, 2, 3]);
+const session = await client.createUpload("opfs-example/recovered.bin", {
+  size: payload.byteLength,
+  ifNoneMatch: "*",
+});
+// Persist session, payload identity and exact replay bytes atomically in protected storage.
+const remote = await client.queryUpload(session);
+if (!remote.complete) {
+  const result = await client.writeUpload(session, payload.subarray(remote.offset), {
+    offset: remote.offset,
+    total: payload.byteLength,
+    final: true,
+  });
+  if (!result.complete) throw new Error("Upload remains incomplete; reconcile before continuing.");
+  console.log(result.receipt.version);
+}
+```
+
+Persist checkpoints only after acknowledged extents. A lost acknowledgement requires `queryUpload()` before
+continuation; bytes sent are not bytes retained. The query returns either an incomplete confirmed offset or a complete
+receipt parsed from that operation's response. Never substitute a later HEAD for attributable completion. Source
+identity and bytes must remain unchanged, and only one writer may own a session. This low-level API does not supply
+persistence, leases or process recovery by itself.
+
+Nonfinal extent lengths must be 256 KiB multiples. The confirmed resume offset itself may be unaligned after
+interruption. Final extents carry the complete total and may be shorter. Mutating operations are not blindly retried;
+GET and explicit status queries can use the shared retry policy. A `GcsPublicationError` identifies an unknown
+acknowledgement outcome, with its original cause preserved. An ordinary `GcsError` retains HTTP status and response.
+Session URLs can remain in rich response/cause data, so do not dump error objects into public logs.
+
+`cancelUpload()` explicitly discards the incomplete remote session. Aborting a current request or a failed convenience
+`put()` does not imply cancellation of the provider session; abandoned state can remain until provider expiry.
+Applications needing explicit cleanup or pause/resume must retain the session through the low-level API. Disposing a
+filesystem releases its own resources and does not erase an uploaded object or revoke the borrowed token supplier.
+
+For the [checkpoint transfer coordinator](transfer.md), `createGcsUploadDestination(client, session)` wraps a known-size
+session without I/O. The application still supplies a stable replay source, protected atomic checkpoint storage and
+exclusive session ownership. `complete` requires a GCS publication receipt; a full retained byte offset alone is not
+completion. Configure transfer chunks as 256 KiB multiples except for the final chunk. Unknown-size streams remain on
+the direct client route.
+
+`copy()` implements the same-bucket rewrite protocol with bounded continuation requests and generation conditions.
+`maxRewriteRequests` defaults to 1024; exceeding it does not prove publication. Cross-bucket copy, compose,
+customer-supplied encryption keys, IAM management and signed URL generation are not implemented. TLS/provider encryption
+is separate from client-side payload encryption.
+
+The adapter maps HTTP absence, permission denial, contention and quota failures into the existing filesystem categories,
+preserving the provider error as `cause`. HTTP 409/412 becomes `locked`; it does not automatically retry an append
+against a changed object. Unknown publication remains distinguishable through the retained `GcsPublicationError` cause
+instead of being reclassified as a safe contention retry.
+
+## Verification and limits
+
+`tests/gcs.test.ts` exercises deterministic wire behavior, malformed acknowledgements, revisions, range refusal, token
+refresh, session offsets, streaming and response cleanup. `tests/gcs-provider.test.ts` runs actual HTTP against a
+digest-pinned fake-gcs-server owned by Testcontainers with ephemeral ports and disposal. It covers basic CRUD, ranges,
+generation conflicts, adapter append, empty markers and continuation from an acknowledged extent.
+
+The pinned emulator incorrectly turns a status query into partial publication; that specific interoperability case is
+explicitly skipped there. Deterministic tests retain the documented 308/Range status contract. No emulator result proves
+Google IAM, CORS, durability, retention, expiration or actual process-loss recovery against GCS. A controlled
+live-service lane remains required before advertising those claims. No performance result is asserted by this guide.
+
+References: [GCS JSON objects](https://docs.cloud.google.com/storage/docs/json_api/v1/objects),
+[resumable upload protocol](https://docs.cloud.google.com/storage/docs/performing-resumable-uploads),
+[preconditions](https://docs.cloud.google.com/storage/docs/request-preconditions),
+[rewrite](https://docs.cloud.google.com/storage/docs/json_api/v1/objects/rewrite), and
+[fake-gcs-server](https://github.com/fsouza/fake-gcs-server/tree/v1.56.1).
+
+### Archive protocol evidence
+
+`tests/gcs-archive-provider.test.ts` uses the existing digest-pinned fake-gcs-server 1.56.1 fixture and the official
+`@google-cloud/storage@7.19.0` SDK as a test-only independent producer and reader. It compares complete bytes in both
+directions, checks a generation-selected range, and verifies Archive metadata after a two-extent native upload. SDK
+checksum validation is disabled in this emulator lane; full-byte comparisons are the oracle. The test refuses the SDK's
+ambient `STORAGE_EMULATOR_HOST` override and supplies a custom endpoint with authentication explicitly disabled. It
+acquires no Google account. These results establish emulator interoperability, not live GCS billing, IAM, retention,
+durability or class-transition behavior. The pinned emulator's rewrite path drops a requested class and does not justify
+transition support.
+
+Protocol evidence inspected on 2026-11-05:
+
+| Source                                                                                                                                                              | Immutable revision                         | File SHA-256                                                       |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------ |
+| [Google discovery Object model](https://github.com/googleapis/discovery-artifact-manager/blob/a05b1692d322b4a6147390f61124fe28e937cb0c/discoveries/storage.v1.json) | `a05b1692d322b4a6147390f61124fe28e937cb0c` | `29a43bad9086086cef7da19b7fad6f26afda3d1cb1e3c72c5ba263c0726609c7` |
+| [fake-gcs-server resumable upload](https://github.com/fsouza/fake-gcs-server/blob/896ece51e49eed0946089f3089f6343855c0d106/fakestorage/upload.go)                   | `896ece51e49eed0946089f3089f6343855c0d106` | `8713b9787c5cf48b22700f332efc847658e3200d6d74e3fd081b7761783e424c` |
+| [Official SDK File implementation](https://github.com/googleapis/nodejs-storage/blob/95a2af4cc8222b23ff178454ad99b8fba972b257/src/file.ts)                          | `95a2af4cc8222b23ff178454ad99b8fba972b257` | `b1e4156f79d92a00d33b1e408cff2b76effc549a440ecfeb0f79fba3030facbf` |
+
+The [insert contract](https://docs.cloud.google.com/storage/docs/json_api/v1/objects/insert) places `storageClass` in
+native Object metadata. The SDK is not imported by production code and adds no runtime dependency to this client.
+
+### Metadata interoperability limits
+
+The pinned emulator's `newObjectResponse` reports the constant metageneration `"1"`; its upload condition parser tracks
+generation conditions only, and its object handlers do not enforce metageneration matches. The SDK interoperability
+fixture therefore compares reported metadata and complete bytes, not metadata-version evolution or stale-guard refusal.
+Authored Fetch tests cover exact paired query construction, early refusal and 412 handling. Native Google
+metadata-condition enforcement remains unverified. See the immutable emulator
+[response mapping](https://github.com/fsouza/fake-gcs-server/blob/896ece51e49eed0946089f3089f6343855c0d106/fakestorage/response.go#L169),
+[upload conditions](https://github.com/fsouza/fake-gcs-server/blob/896ece51e49eed0946089f3089f6343855c0d106/fakestorage/upload.go#L389)
+and
+[object handlers](https://github.com/fsouza/fake-gcs-server/blob/896ece51e49eed0946089f3089f6343855c0d106/fakestorage/object.go#L707).
+The pinned SDK converts generation options through `Number`; the fixture refuses any token that cannot round-trip as a
+safe integer before using that SDK's generation selection. Candidate precision above that range is checked separately
+with authored raw decimal fixtures. SDK checksum validation remains disabled; metadata equality is not checksum
+verification.

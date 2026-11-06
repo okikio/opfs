@@ -1,0 +1,10 @@
+{
+  "script": "/continue.sh",
+  "exit": 100,
+  "reason": null,
+  "logBytes": 758,
+  "maxLogBytes": 4194304,
+  "deadlineSeconds": 180,
+  "elapsedSeconds": 0.3308722919999809,
+  "scope": "test-only signed-package acquisition; original log prefix retained on bound failure"
+}

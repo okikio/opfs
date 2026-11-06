@@ -1,0 +1,41 @@
+{
+  "project": "opfs-pubsub",
+  "topic": "events",
+  "subscription": "events-sub",
+  "messageId": "1",
+  "pull": {
+    "status": 200,
+    "headers": {
+      "content-length": "274",
+      "content-type": "application/json"
+    },
+    "bytes": 274,
+    "base64": "ewogICJyZWNlaXZlZE1lc3NhZ2VzIjogW3sKICAgICJhY2tJZCI6ICJwcm9qZWN0cy9vcGZzLXB1YnN1Yi9zdWJzY3JpcHRpb25zL2V2ZW50cy1zdWI6MSIsCiAgICAibWVzc2FnZSI6IHsKICAgICAgImRhdGEiOiAiQVA4UktvQUoiLAogICAgICAiYXR0cmlidXRlcyI6IHsKICAgICAgICAib3JhY2xlIjogInNkayIKICAgICAgfSwKICAgICAgIm1lc3NhZ2VJZCI6ICIxIiwKICAgICAgInB1Ymxpc2hUaW1lIjogIjIwMjYtMTEtMDVUMTk6NDU6NTMuODMwWiIKICAgIH0KICB9XQp9Cg==",
+    "sha256": "4dbac690c5dad672052928bf018a31fd48d452735d2d9f7d445b5bf5bd69c8ec"
+  },
+  "deadline": {
+    "status": 200,
+    "headers": {
+      "content-length": "4",
+      "content-type": "application/json"
+    },
+    "bytes": 4,
+    "base64": "ewp9Cg==",
+    "sha256": "d914176fd50bd7f565700006a31aa97b79d3ad17cee20c8e5ff2061d5cb74817"
+  },
+  "acknowledge": {
+    "status": 200,
+    "headers": {
+      "content-length": "4",
+      "content-type": "application/json"
+    },
+    "bytes": 4,
+    "base64": "ewp9Cg==",
+    "sha256": "d914176fd50bd7f565700006a31aa97b79d3ad17cee20c8e5ff2061d5cb74817"
+  },
+  "oracle": {
+    "bytes": 6,
+    "base64": "AP8RKoAJ",
+    "sha256": "a09e9c5394946ab8fc1b54a0c55618a96f2057e98e89cfdc36bb4d26ed0a1708"
+  }
+}

@@ -1,0 +1,42 @@
+{
+  ".tmp/nats-capture.ts": {
+    "bytes": 7165,
+    "sha256": "8b70125e43e3dbb95f4342d43dbaa1a9742e0a11bbfcfe0d13fd17f33e67776c"
+  },
+  "src/nats.ts": {
+    "bytes": 24523,
+    "sha256": "8b0e51f85185a925fdb83dafa68b005e936e675cb5fc58cc62b2fae52ce45722"
+  },
+  "src/bytes.ts": {
+    "bytes": 5687,
+    "sha256": "2a6098dae39e46031ba8da2fd52475b361155fc7236146ce8624c4398e91894f"
+  },
+  "src/close.ts": {
+    "bytes": 1648,
+    "sha256": "d9d9e0dc945b87d039f0c17408de11216d10cfe53777d9390ec4a9674c876f1b"
+  },
+  "tests/provider/nats.ts": {
+    "bytes": 22163,
+    "sha256": "9b9a48b70e19638e0f7ffdf639b126a1794feecf5aa6d48b93281a9d042b561c"
+  },
+  "tests/nats-provider.test.ts": {
+    "bytes": 2597,
+    "sha256": "3fe085edc4c447038b5596f12fd89b615ef8c3e5bd3ec577f7d4b5a2faf3657a"
+  },
+  "tests/reliability.ts": {
+    "bytes": 7123,
+    "sha256": "a7f757d4adff3ea615288f65bcd618273d756aa86e271bbe3e04ae9b6928dad9"
+  },
+  ".tmp/nats-wheel.whl": {
+    "bytes": 93578,
+    "sha256": "aeb1ff123966c05833d26c7df7e1d54c1c6d32b612428b21677a2e921f1fecae"
+  },
+  "package.json": {
+    "bytes": 9387,
+    "sha256": "77f7f93abe62f37590cf9ce0702f0ef90e60cbd9c5f5711ba16da640a94e89fa"
+  },
+  "deno.lock": {
+    "bytes": 86187,
+    "sha256": "69b8f4bcf0e8b80b338b793c5fa38a0400aac57762dc367bba9dfdda9f0f8c85"
+  }
+}

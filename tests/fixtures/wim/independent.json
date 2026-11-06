@@ -1,0 +1,154 @@
+{
+  "producer": "wimlib-imagex 1.13.5 (using wimlib 1.13.5)\nCopyright (C) 2012-2021 Eric Biggers\nLicense GPLv3+; GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>.\nThis is free software: you are free to change and redistribute it.\nThere is NO WARRANTY, to the extent permitted by law.\n\nReport bugs to https://wimlib.net/forums/.\n",
+  "consumer": "\n7-Zip (z) 26.02 (arm64) : Copyright (c) 1999-2026 Igor Pavlov : 2026-06-25\n 64-bit arm_v:8-A locale=C.UTF-8 Threads:8 OPEN_MAX:1048576\n\n\nFormats:\n   C...F..........c.a.m+..  7z       7z            7 z BC AF ' 1C\n    ......................  APFS     apfs img      offset=32 N X S B 00\n    ......................  APM      apm           E R\n    ......................  Ar       ar a deb udeb lib ! < a r c h > 0A\n    ......................  Arj      arj           ` EA\n    K.....O.....X.........  Base64   b64           \n    ......O...............  COFF     obj           \n    ...F..................  Cab      cab           M S C F 00 00 00 00\n    ......................  Chm      chm chi chq chw I T S F 03 00 00 00 ` 00 00 00\n    ......................  Compound msi msp msm doc xls ppt aaf D0 CF 11 E0 A1 B1 1A E1\n    ....M.................  Cpio     cpio          0 7 0 7 0  ||  C7 q  ||  q C7\n    ......................  CramFS   cramfs        offset=16 C o m p r e s s e d 20 R O M F S\n    .....G..B.............  Dmg      dmg           k o l y 00 00 00 04 00 00 02 00\n    .........E............  ELF      elf           \u007f E L F\n    ......................  Ext      ext ext2 ext3 ext4 img offset=1080 S EF\n    ......................  FAT      fat img       offset=510 U AA\n    ......................  FLV      flv           F L V 01\n    ......................  GPT      gpt mbr       offset=512 E F I 20 P A R T 00 00 01 00\n    ....M.................  HFS      hfs hfsx      offset=1024 B D  ||  H + 00 04  ||  H X 00 05\n    ...F..................  Hxs      hxs hxi hxr hxq hxw lit I T O L I T L S 01 00 00 00 ( 00 00 00\n    ......O...............  IHex     ihex          \n    ......................  Iso      iso img       offset=32769 C D 0 0 1\n    ......................  LP       lpimg img     offset=4096 g D l a 4 00 00 00\n    ......................  Lzh      lzh lha       offset=2 - l h\n    .......P..............  MBR      mbr           \n    ....M....E............  MachO    macho         CE FA ED FE  ||  CF FA ED FE  ||  FE ED FA CE  ||  FE ED FA CF\n    ......................  MsLZ     mslz          S Z D D 88 F0 ' 3 A\n    ....M.................  Mub      mub           CA FE BA BE 00 00 00  ||  B9 FA F1 0E\n    ......................  NTFS     ntfs img      offset=3 N T F S 20 20 20 20 00\n    ...F.G................  Nsis     nsis          offset=4 EF BE AD DE N u l l s o f t I n s t\n    .........E............  PE       exe dll sys   M Z\n    ......................  Ppmd     pmd           8F AF AC 84\n    ......................  QCOW     qcow qcow2 qcow2c Q F I FB 00 00 00\n    ......................  Rpm      rpm           ED AB EE DB\n    K.....................  SWF      swf           F W S\n    ....M.................  SWFc     swf (~.swf)   C W S  ||  Z W S\n    ......................  Sparse   simg img      : FF & ED 01 00\n    ......................  Split    001           \n    ....M.................  SquashFS squashfs      h s q s  ||  s q s h  ||  s h s q  ||  q s h s\n    .........E............  TE       te            V Z\n    ...FM.................  UEFIc    scap          BD 86 f ; v 0D 0 @ B7 0E B5 Q 9E / C5 A0  ||  8B A6 < J # w FB H 80 = W 8C C1 FE C4 M  ||  B9 82 91 S B5 AB 91 C B6 9A E3 A9 C F7 / CC\n    ...FM.................  UEFIf    uefif         offset=16 D9 T 93 z h 04 J D 81 CE 0B F6 17 D8 90 DF  ||  x E5 8C 8C = 8A 1C O 99 5 89 a 85 C3 - D3\n    ....M.O...............  Udf      udf iso img   offset=32768 00 B E A 0 1 01 00  ||  01 C D 0 0 1\n    ......................  VDI      vdi           offset=64 \u007f 10 DA BE\n    .....G................  VHD      vhd           c o n e c t i x 00 00\n    ......................  VHDX     vhdx avhdx    v h d x f i l e\n    ......................  VMDK     vmdk          K D M V\n    ......................  Xar      xar pkg xip   x a r ! 00\n    ......................  Z        z taz (.tar)  1F 9D\n   CK.....................  bzip2    bz2 bzip2 tbz2 (.tar) tbz (.tar) B Z h\n   CK.................m+..  gzip     gz gzip tgz (.tar) tpz (.tar) apk (.tar) 1F 8B 08\n    K.....O...............  lzma     lzma          \n    K.....................  lzma86   lzma86        \n   C......O...LH......m+..  tar      tar ova       offset=257 u s t a r\n   C.SN.......LH..c.a.m+..  wim      wim swm esd ppkg M S W I M 00 00 00\n   CK.....................  xz       xz txz (.tar) FD 7 z X Z 00\n   C...FMG........c.a.m+..  zip      zip z01 zipx jar xpi odt ods docx xlsx epub ipa apk appx P K 03 04  ||  P K 05 06  ||  P K 06 06  ||  P K 07 08 P K  ||  P K 0 0 P K\n    K.....................  zstd     zst tzst (.tar) ( B5 / FD\n   CK.....O.....XC........  Hash     sha256 sha512 sha384 sha224 sha512-224 sha512-256 sha3-224 sha3-256 sha3-384 sha3-512 sha1 sha2 sha3 sha md5 blake2s blake2b blake2sp xxh64 crc32 crc64 cksum asc \n\nCodecs:\n   4ED   303011B BCJ2\n    EDF  3030103 BCJ\n    EDF  3030205 PPC\n    EDF  3030401 IA64\n    EDF  3030501 ARM\n    EDF  3030701 ARMT\n    EDF  3030805 SPARC\n    EDF        A ARM64\n    EDF        B RISCV\n    EDF    20302 Swap2\n    EDF    20304 Swap4\n    ED     40202 BZip2\n    ED         0 Copy\n    ED     40109 Deflate64\n    ED     40108 Deflate\n    EDF        3 Delta\n    ED        21 LZMA2\n    ED     30101 LZMA\n    ED     30401 PPMD\n    EDF  6F10701 7zAES\n    EDF  6F00181 AES256CBC\n\nHashers:\n      4        1 CRC32\n     16      208 MD5\n     20      201 SHA1\n     32        A SHA256\n     32      231 SHA3-256\n     48      222 SHA384\n     64      223 SHA512\n      8      211 XXH64\n      8        4 CRC64\n",
+  "source": {
+    "wimlibRevision": "cd5e231c348c255ae5088873b5a66ee0eb96fa07",
+    "microsoftRtfSha256": "397772cca016508194d13ac860633b56b4f2f94cbf7476e2112f557ad61cfe0c"
+  },
+  "base64": "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TwBOAFQASQBNAEUAPgA8AEwAQQBTAFQATQBPAEQASQBGAEkAQwBBAFQASQBPAE4AVABJAE0ARQA+ADwASABJAEcASABQAEEAUgBUAD4AMAB4ADAAMQBEAEQANgBEADEANwA8AC8ASABJAEcASABQAEEAUgBUAD4APABMAE8AVwBQAEEAUgBUAD4AMAB4AEMANAAwADcANgBBADYANgA8AC8ATABPAFcAUABBAFIAVAA+ADwALwBMAEEAUwBUAE0ATwBEAEkARgBJAEMAQQBUAEkATwBOAFQASQBNAEUAPgA8AC8ASQBNAEEARwBFAD4APABJAE0AQQBHAEUAIABJAE4ARABFAFgAPQAiADIAIgA+ADwATgBBAE0ARQA+AEkAbQBhAGcAZQAyADwALwBOAEEATQBFAD4APABEAEkAUgBDAE8AVQBOAFQAPgAxADwALwBEAEkAUgBDAE8AVQBOAFQAPgA8AEYASQBMAEUAQwBPAFUATgBUAD4ANAA8AC8ARgBJAEwARQBDAE8AVQBOAFQAPgA8AFQATwBUAEEATABCAFkAVABFAFMAPgA4ADEAMQA8AC8AVABPAFQAQQBMAEIAWQBUAEUAUwA+ADwASABBAFIARABMAEkATgBLAEIAWQBUAEUAUwA+ADAAPAAvAEgAQQBSAEQATABJAE4ASwBCAFkAVABFAFMAPgA8AEMAUgBFAEEAVABJAE8ATgBUAEkATQBFAD4APABIAEkARwBIAFAAQQBSAFQAPgAwAHgAMAAxAEQARAA2AEQAMQA3ADwALwBIAEkARwBIAFAAQQBSAFQAPgA8AEwATwBXAFAAQQBSAFQAPgAwAHgAQwA0ADAANwBEADkARAA4ADwALwBMAE8AVwBQAEEAUgBUAD4APAAvAEMAUgBFAEEAVABJAE8ATgBUAEkATQBFAD4APABMAEEAUwBUAE0ATwBEAEkARgBJAEMAQQBUAEkATwBOAFQASQBNAEUAPgA8AEgASQBHAEgAUABBAFIAVAA+ADAAeAAwADEARABEADYARAAxADcAPAAvAEgASQBHAEgAUABBAFIAVAA+ADwATABPAFcAUABBAFIAVAA+ADAAeABDADQAMAA3AEQARgBGADAAPAAvAEwATwBXAFAAQQBSAFQAPgA8AC8ATABBAFMAVABNAE8ARABJAEYASQBDAEEAVABJAE8ATgBUAEkATQBFAD4APAAvAEkATQBBAEcARQA+ADwAVABPAFQAQQBMAEIAWQBUAEUAUwA+ADQAMAAzADgAPAAvAFQATwBUAEEATABCAFkAVABFAFMAPgA8AC8AVwBJAE0APgAKAA==",
+  "sha256": "9bde2d300d53b650536312a317ba4a6e4bd5065fd8fea15fee004b4a913f8fcd",
+  "capture": [
+    {
+      "operation": "capture",
+      "exitCode": 0,
+      "stdout": "Scanning \"/tmp/opfs-wim-fixture-lt_hyl2v/1\"\n\r0 bytes scanned (1 files, 0 directories)    \r1583 bytes scanned (5 files, 3 directories)    \n\rArchiving file data: 0 bytes of 1583 bytes (0%) done\rArchiving file data: 768 bytes of 1583 bytes (48%) done\rArchiving file data: 793 bytes of 1583 bytes (50%) done\rArchiving file data: 815 bytes of 815 bytes (100%) done\n",
+      "stderr": ""
+    },
+    {
+      "operation": "append",
+      "exitCode": 0,
+      "stdout": "Scanning \"/tmp/opfs-wim-fixture-lt_hyl2v/2\"\n\r0 bytes scanned (1 files, 0 directories)    \r811 bytes scanned (4 files, 1 directories)    \n\rArchiving file data: 0 bytes of 811 bytes (0%) done\rArchiving file data: 17 bytes of 811 bytes (2%) done\rArchiving file data: 43 bytes of 811 bytes (5%) done\rArchiving file data: 43 bytes of 43 bytes (100%) done\n",
+      "stderr": ""
+    }
+  ],
+  "verify": {
+    "exitCode": 0,
+    "stdout": "Verifying metadata for image 1 of 2\nVerifying metadata for image 2 of 2\n\rVerifying file data: 0 bytes of 858 bytes (0%) done\rVerifying file data: 768 bytes of 858 bytes (89%) done\rVerifying file data: 793 bytes of 858 bytes (92%) done\rVerifying file data: 815 bytes of 858 bytes (94%) done\rVerifying file data: 832 bytes of 858 bytes (96%) done\rVerifying file data: 858 bytes of 858 bytes (100%) done\n\n\"/tmp/opfs-wim-fixture-lt_hyl2v/two-images.wim\" was successfully verified.\n",
+    "stderr": "\r[WARNING] \"/tmp/opfs-wim-fixture-lt_hyl2v/two-images.wim\" does not contain integrity information.  Skipping integrity check.\n"
+  },
+  "listing": "\n7-Zip (z) 26.02 (arm64) : Copyright (c) 1999-2026 Igor Pavlov : 2026-06-25\n 64-bit arm_v:8-A locale=C.UTF-8 Threads:8 OPEN_MAX:1048576\n\nScanning the drive for archives:\n1 file, 5500 bytes (6 KiB)\n\nListing archive: /tmp/opfs-wim-fixture-lt_hyl2v/two-images.wim\n\n--\nPath = /tmp/opfs-wim-fixture-lt_hyl2v/two-images.wim\nType = wim\nPhysical Size = 5500\nSize = 858\nPacked Size = 858\nMethod = Copy:15\nCluster Size = 32768\nCreated = 2026-11-05 11:21:13.1477790\nModified = 2026-11-05 11:21:13.1508720\nVersion = 1.13\nMultivolume = -\nVolume = 1\nVolumes = 1\nImages = 2\n\n----------\nPath = 1\nFolder = +\nSize = \nPacked Size = \nModified = 2026-11-05 11:21:13.1455878\nCreated = 2026-11-05 11:21:13.1455878\nAccessed = 2026-11-05 11:21:13.1445030\nAttributes = D\nMethod = \nSolid = \nShort Name = \niNode = \nLinks = \nAlternate Stream = -\nAlternate Streams = \nSHA-1 = \nLink = \nNT Security = \n\nPath = 1/nested\nFolder = +\nSize = \nPacked Size = \nModified = 2026-11-05 11:21:13.1454391\nCreated = 2026-11-05 11:21:13.1454391\nAccessed = 2026-11-05 11:21:13.1454391\nAttributes = D\nMethod = \nSolid = \nShort Name = \niNode = \nLinks = \nAlternate Stream = -\nAlternate Streams = \nSHA-1 = \nLink = \nNT Security = \n\nPath = 1/unicode\nFolder = +\nSize = \nPacked Size = \nModified = 2026-11-05 11:21:13.1455878\nCreated = 2026-11-05 11:21:13.1455878\nAccessed = 2026-11-05 11:21:13.1455878\nAttributes = D\nMethod = \nSolid = \nShort Name = \niNode = \nLinks = \nAlternate Stream = -\nAlternate Streams = \nSHA-1 = \nLink = \nNT Security = \n\nPath = 2\nFolder = +\nSize = \nPacked Size = \nModified = 2026-11-05 11:21:13.1487117\nCreated = 2026-11-05 11:21:13.1487117\nAccessed = 2026-11-05 11:21:13.1475030\nAttributes = D\nMethod = \nSolid = \nShort Name = \niNode = \nLinks = \nAlternate Stream = -\nAlternate Streams = \nSHA-1 = \nLink = \nNT Security = \n\nPath = 1/empty\nFolder = -\nSize = 0\nPacked Size = 0\nModified = 2026-11-05 11:21:13.1455878\nCreated = 2026-11-05 11:21:13.1455878\nAccessed = 2026-11-05 11:21:13.1455878\nAttributes = N\nMethod = \nSolid = \nShort Name = \niNode = \nLinks = \nAlternate Stream = -\nAlternate Streams = \nSHA-1 = \nLink = \nNT Security = \n\nPath = 2/empty\nFolder = -\nSize = 0\nPacked Size = 0\nModified = 2026-11-05 11:21:13.1485992\nCreated = 2026-11-05 11:21:13.1485992\nAccessed = 2026-11-05 11:21:13.1485992\nAttributes = N\nMethod = \nSolid = \nShort Name = \niNode = \nLinks = \nAlternate Stream = -\nAlternate Streams = \nSHA-1 = \nLink = \nNT Security = \n\nPath = 1/duplicate.bin\nFolder = -\nSize = 768\nPacked Size = 768\nModified = 2026-11-05 11:21:13.1455878\nCreated = 2026-11-05 11:21:13.1455878\nAccessed = 2026-11-05 11:21:13.1455330\nAttributes = N\nMethod = Copy\nSolid = -\nShort Name = \niNode = \nLinks = 3\nAlternate Stream = -\nAlternate Streams = \nSHA-1 = ac2a264c8ec1f4232a40854e8239bc3a697ab1d2\nLink = \nNT Security = \n\nPath = 1/nested/data.bin\nFolder = -\nSize = 768\nPacked Size = 768\nModified = 2026-11-05 11:21:13.1455330\nCreated = 2026-11-05 11:21:13.1455330\nAccessed = 2026-11-05 11:21:13.1454391\nAttributes = N\nMethod = Copy\nSolid = -\nShort Name = \niNode = \nLinks = 3\nAlternate Stream = -\nAlternate Streams = \nSHA-1 = ac2a264c8ec1f4232a40854e8239bc3a697ab1d2\nLink = \nNT Security = \n\nPath = 2/shared.bin\nFolder = -\nSize = 768\nPacked Size = 768\nModified = 2026-11-05 11:21:13.1485992\nCreated = 2026-11-05 11:21:13.1485992\nAccessed = 2026-11-05 11:21:13.1485520\nAttributes = N\nMethod = Copy\nSolid = -\nShort Name = \niNode = \nLinks = 3\nAlternate Stream = -\nAlternate Streams = \nSHA-1 = ac2a264c8ec1f4232a40854e8239bc3a697ab1d2\nLink = \nNT Security = \n\nPath = 1/hello.txt\nFolder = -\nSize = 25\nPacked Size = 25\nModified = 2026-11-05 11:21:13.1454391\nCreated = 2026-11-05 11:21:13.1454391\nAccessed = 2026-11-05 11:21:13.1445030\nAttributes = N\nMethod = Copy\nSolid = -\nShort Name = \niNode = \nLinks = 1\nAlternate Stream = -\nAlternate Streams = \nSHA-1 = b87b157cb99c6583ad31d1a8542b3e7f69a7f3f7\nLink = \nNT Security = \n\nPath = 1/unicode/caf\u00e9.txt\nFolder = -\nSize = 22\nPacked Size = 22\nModified = 2026-11-05 11:21:13.1457075\nCreated = 2026-11-05 11:21:13.1457075\nAccessed = 2026-11-05 11:21:13.1455878\nAttributes = N\nMethod = Copy\nSolid = -\nShort Name = \niNode = \nLinks = 1\nAlternate Stream = -\nAlternate Streams = \nSHA-1 = 89548b8eb85686e33ed52e3b65dda13f97910d2d\nLink = \nNT Security = \n\nPath = 2/different.txt\nFolder = -\nSize = 17\nPacked Size = 17\nModified = 2026-11-05 11:21:13.1487117\nCreated = 2026-11-05 11:21:13.1487117\nAccessed = 2026-11-05 11:21:13.1486601\nAttributes = N\nMethod = Copy\nSolid = -\nShort Name = \niNode = \nLinks = 1\nAlternate Stream = -\nAlternate Streams = \nSHA-1 = 290f48dc55e716d6d84f0bd6d81e4c8b7d5f5ac0\nLink = \nNT Security = \n\nPath = 2/hello.txt\nFolder = -\nSize = 26\nPacked Size = 26\nModified = 2026-11-05 11:21:13.1485520\nCreated = 2026-11-05 11:21:13.1485520\nAccessed = 2026-11-05 11:21:13.1475030\nAttributes = N\nMethod = Copy\nSolid = -\nShort Name = \niNode = \nLinks = 1\nAlternate Stream = -\nAlternate Streams = \nSHA-1 = c87d5aac5457a3be5dd2265fefd6102998562218\nLink = \nNT Security = \n\nPath = [1].xml\nFolder = -\nSize = 1462\nPacked Size = 1462\nModified = \nCreated = \nAccessed = \nAttributes = \nMethod = \nSolid = \nShort Name = \niNode = \nLinks = \nAlternate Stream = \nAlternate Streams = \nSHA-1 = \nLink = \nNT Security = \n\n",
+  "consumers": [
+    {
+      "image": 1,
+      "path": "hello.txt",
+      "sevenPath": "1/hello.txt",
+      "exitCode": 0,
+      "exact": true
+    },
+    {
+      "image": 1,
+      "path": "nested/data.bin",
+      "sevenPath": "1/nested/data.bin",
+      "exitCode": 0,
+      "exact": true
+    },
+    {
+      "image": 1,
+      "path": "duplicate.bin",
+      "sevenPath": "1/duplicate.bin",
+      "exitCode": 0,
+      "exact": true
+    },
+    {
+      "image": 1,
+      "path": "empty",
+      "sevenPath": "1/empty",
+      "exitCode": 0,
+      "exact": true
+    },
+    {
+      "image": 1,
+      "path": "unicode/caf\u00e9.txt",
+      "sevenPath": "1/unicode/caf\u00e9.txt",
+      "exitCode": 0,
+      "exact": true
+    },
+    {
+      "image": 2,
+      "path": "hello.txt",
+      "sevenPath": "2/hello.txt",
+      "exitCode": 0,
+      "exact": true
+    },
+    {
+      "image": 2,
+      "path": "shared.bin",
+      "sevenPath": "2/shared.bin",
+      "exitCode": 0,
+      "exact": true
+    },
+    {
+      "image": 2,
+      "path": "empty",
+      "sevenPath": "2/empty",
+      "exitCode": 0,
+      "exact": true
+    },
+    {
+      "image": 2,
+      "path": "different.txt",
+      "sevenPath": "2/different.txt",
+      "exitCode": 0,
+      "exact": true
+    }
+  ],
+  "images": [
+    {
+      "index": 1,
+      "name": "Image1",
+      "files": [
+        {
+          "path": "hello.txt",
+          "base64": "YXV0aG9yZWQgV0lNIGZpcnN0IGltYWdlCg==",
+          "sha1": "b87b157cb99c6583ad31d1a8542b3e7f69a7f3f7"
+        },
+        {
+          "path": "nested/data.bin",
+          "base64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/wABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj9AQUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVpbXF1eX2BhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5ent8fX5/gIGCg4SFhoeIiYqLjI2Oj5CRkpOUlZaXmJmam5ydnp+goaKjpKWmp6ipqqusra6vsLGys7S1tre4ubq7vL2+v8DBwsPExcbHyMnKy8zNzs/Q0dLT1NXW19jZ2tvc3d7f4OHi4+Tl5ufo6err7O3u7/Dx8vP09fb3+Pn6+/z9/v8AAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMkJSYnKCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4/QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl9gYWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXp7fH1+f4CBgoOEhYaHiImKi4yNjo+QkZKTlJWWl5iZmpucnZ6foKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr/AwcLDxMXGx8jJysvMzc7P0NHS09TV1tfY2drb3N3e3+Dh4uPk5ebn6Onq6+zt7u/w8fLz9PX29/j5+vv8/f7/",
+          "sha1": "ac2a264c8ec1f4232a40854e8239bc3a697ab1d2"
+        },
+        {
+          "path": "duplicate.bin",
+          "base64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/wABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj9AQUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVpbXF1eX2BhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5ent8fX5/gIGCg4SFhoeIiYqLjI2Oj5CRkpOUlZaXmJmam5ydnp+goaKjpKWmp6ipqqusra6vsLGys7S1tre4ubq7vL2+v8DBwsPExcbHyMnKy8zNzs/Q0dLT1NXW19jZ2tvc3d7f4OHi4+Tl5ufo6err7O3u7/Dx8vP09fb3+Pn6+/z9/v8AAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMkJSYnKCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4/QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl9gYWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXp7fH1+f4CBgoOEhYaHiImKi4yNjo+QkZKTlJWWl5iZmpucnZ6foKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr/AwcLDxMXGx8jJysvMzc7P0NHS09TV1tfY2drb3N3e3+Dh4uPk5ebn6Onq6+zt7u/w8fLz9PX29/j5+vv8/f7/",
+          "sha1": "ac2a264c8ec1f4232a40854e8239bc3a697ab1d2"
+        },
+        {
+          "path": "empty",
+          "base64": "",
+          "sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709"
+        },
+        {
+          "path": "unicode/caf\u00e9.txt",
+          "base64": "VVRGMTYgZmlsZW5hbWUgb3JhY2xlCg==",
+          "sha1": "89548b8eb85686e33ed52e3b65dda13f97910d2d"
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "name": "Image2",
+      "files": [
+        {
+          "path": "hello.txt",
+          "base64": "YXV0aG9yZWQgV0lNIHNlY29uZCBpbWFnZQo=",
+          "sha1": "c87d5aac5457a3be5dd2265fefd6102998562218"
+        },
+        {
+          "path": "shared.bin",
+          "base64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/wABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj9AQUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVpbXF1eX2BhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5ent8fX5/gIGCg4SFhoeIiYqLjI2Oj5CRkpOUlZaXmJmam5ydnp+goaKjpKWmp6ipqqusra6vsLGys7S1tre4ubq7vL2+v8DBwsPExcbHyMnKy8zNzs/Q0dLT1NXW19jZ2tvc3d7f4OHi4+Tl5ufo6err7O3u7/Dx8vP09fb3+Pn6+/z9/v8AAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMkJSYnKCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4/QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl9gYWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXp7fH1+f4CBgoOEhYaHiImKi4yNjo+QkZKTlJWWl5iZmpucnZ6foKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr/AwcLDxMXGx8jJysvMzc7P0NHS09TV1tfY2drb3N3e3+Dh4uPk5ebn6Onq6+zt7u/w8fLz9PX29/j5+vv8/f7/",
+          "sha1": "ac2a264c8ec1f4232a40854e8239bc3a697ab1d2"
+        },
+        {
+          "path": "empty",
+          "base64": "",
+          "sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709"
+        },
+        {
+          "path": "different.txt",
+          "base64": "bmV3IGltYWdlIG1lbWJlcgo=",
+          "sha1": "290f48dc55e716d6d84f0bd6d81e4c8b7d5f5ac0"
+        }
+      ]
+    }
+  ]
+}

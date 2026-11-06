@@ -1,0 +1,35 @@
+{
+  "rawBytes": 3563345,
+  "rawSha256": "8fcf1e93cc61e6b456b39701779348b3b296c9d88f639ac5b3a9bb7aecf98e70",
+  "gzipBytes": 36779,
+  "gzipSha256": "4897d399349c2d2b7fad1eb2a3fdc1c4dff4a114ae4372e6d9b13aec32de3fc2",
+  "losslessRoundtrip": true,
+  "runtime": "v26.13.0\nmitata=1.0.34\nLinux aarch64\n",
+  "state": {
+    "id": "fac8c86a4f4bb23b2ba26150bf0a69e254ae55864c1acff1f8ea11a565960929",
+    "image": "sha256:0d27d74b49afa69518cd96806ca02f697e377c997d889c27cf60c4ae724adc39",
+    "state": {
+      "Status": "exited",
+      "Running": false,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Pid": 0,
+      "ExitCode": 0,
+      "Error": "",
+      "StartedAt": "2026-11-05T21:57:11.305981094Z",
+      "FinishedAt": "2026-11-05T21:57:26.30274367Z"
+    },
+    "memory": 1073741824,
+    "memorySwap": 1073741824,
+    "nanoCpus": 1000000000,
+    "pids": 128,
+    "network": "none",
+    "mounts": []
+  },
+  "executed": "402187df42575cdf3c320157e583a8045c91623d1cca316c17515146af57160e  src/dataset/parquet.ts\n523fd1df1a7ed8c4c041c37f442487c1b74abf094287fb882e2cd974e865930f  bench/parquet.bench.ts\n1d619c1c202e4e77af8fed43fe9ccca1ad7df286aaa9dec5f49ac0a46c1f15a2  bench/result.ts\nfc5a3a35d10aca347b86a8830682d46d8ec870c511d622ffa44cc69a73bce6b4  src/archive/record.ts\n2a6098dae39e46031ba8da2fd52475b361155fc7236146ce8624c4398e91894f  src/bytes.ts\n17b255de15bf25edfda4f6f587dc7ca390bdc4f0fa55606152351e3cd8dc4ae3  src/source.ts\nd9d9e0dc945b87d039f0c17408de11216d10cfe53777d9390ec4a9674c876f1b  src/close.ts\n86a16246d99ee9c500d1ea0e9ec7fa8e90b2a22bcc759c7ed70a16bdb368596c  tests/fixtures/parquet/independent.json\n",
+  "neighborsStart": "reverent_blackburn 179.06% 71.89MiB / 7.651GiB\ntrusting_babbage 93.45% 66.91MiB / 7.651GiB\nfriendly_tharp 63.47% 76.31MiB / 7.651GiB\nflamboyant_sinoussi 4.75% 43.8MiB / 7.651GiB\nadoring_goldberg 79.49% 65.84MiB / 7.651GiB\ntestcontainers-ryuk-c1803dbefac8 0.00% 13.17MiB / 7.651GiB\n",
+  "neighborsEnd": "flamboyant_sinoussi 1.58% 44.16MiB / 7.651GiB\nadoring_goldberg 72.02% 62.46MiB / 7.651GiB\ntestcontainers-ryuk-c1803dbefac8 0.00% 13.16MiB / 7.651GiB\nopfs-nats-focused-captured16-20261105 110.67% 114.1MiB / 1GiB\n",
+  "qualification": "One serial bounded run; endpoint contention samples cannot exclude concurrent host activity; no universal speed claim"
+}

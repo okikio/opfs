@@ -1,0 +1,103 @@
+{
+  "evidenceProfile": "authored wire variants imported and consumed by native Kubo; not genuine importer-produced topology",
+  "version": "Kubo version: 0.43.1-acc53c093\nRepo version: 18\nSystem version: arm64/linux\nGolang version: go1.26.5\n",
+  "variants": [
+    {
+      "name": "links-first-expanded-no-inline",
+      "cid": "bafybeihtvll7gsjureoobzavkmvzdkkawlzbvx6yiliitdroh3qenywx7y",
+      "base64": "EioKJAFVEiAjaa1LQ1CPTbvYfhFSw7xPeqmRxJS54yE/v7AL6We8LBi/hD0SKgokAVUSICNprUtDUI9Nu9h+EVLDvE96qZHElLnjIT+/sAvpZ7wsGL+EPRIqCiQBVRIg47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFUYv4Q9CgwIAhIAGBIgCSAJIAA=",
+      "car": "OqJlcm9vdHOB2CpYJQABcBIg86rX80k0iRzg5BVTK5GpQLLyGt/YQtCJji4+4Ebi1/5ndmVyc2lvbgG2AQFwEiDzqtfzSTSJHODkFVMrkalAsvIa39hC0ImOLj7gRuLX/hIqCiQBVRIgI2mtS0NQj0272H4RUsO8T3qpkcSUueMhP7+wC+lnvCwYv4Q9EioKJAFVEiAjaa1LQ1CPTbvYfhFSw7xPeqmRxJS54yE/v7AL6We8LBi/hD0SKgokAVUSIOOwxEKY/BwUmvv0yJlvuSQnrkHkZJuTTKSVmRt4UrhVGL+EPQoMCAISABgSIAkgCSAALQFVEiAjaa1LQ1CPTbvYfhFSw7xPeqmRxJS54yE/v7AL6We8LGxlYWYtZGF0YSQBVRIg47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=",
+      "original": "bGVhZi1kYXRhbGVhZi1kYXRh",
+      "blocks": [
+        {
+          "cid": "bafybeihtvll7gsjureoobzavkmvzdkkawlzbvx6yiliitdroh3qenywx7y",
+          "base64": "EioKJAFVEiAjaa1LQ1CPTbvYfhFSw7xPeqmRxJS54yE/v7AL6We8LBi/hD0SKgokAVUSICNprUtDUI9Nu9h+EVLDvE96qZHElLnjIT+/sAvpZ7wsGL+EPRIqCiQBVRIg47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFUYv4Q9CgwIAhIAGBIgCSAJIAA="
+        },
+        { "cid": "bafkreibdngwuwq2qr5g3xwd6cfjmhpcppkuzdreuxhrscp57waf6sz54fq", "base64": "bGVhZi1kYXRh" },
+        { "cid": "bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku", "base64": "" }
+      ],
+      "nativeCompleteExact": true,
+      "nativeRangeExact": true
+    },
+    {
+      "name": "data-first-packed-no-inline",
+      "cid": "bafybeibqucrlj5yj4cpuwnlc4pnkp4tbcuzpujwrgfjsubw3wetbjmdmby",
+      "base64": "CgsIAhIAGBIiAwkJABIqCiQBVRIgI2mtS0NQj0272H4RUsO8T3qpkcSUueMhP7+wC+lnvCwYv4Q9EioKJAFVEiAjaa1LQ1CPTbvYfhFSw7xPeqmRxJS54yE/v7AL6We8LBi/hD0SKgokAVUSIOOwxEKY/BwUmvv0yJlvuSQnrkHkZJuTTKSVmRt4UrhVGL+EPQ==",
+      "car": "OqJlcm9vdHOB2CpYJQABcBIgMKCitPcJ4J9LNWLj2qfyYRUy+ibRMVMqBtuxJhSwbA5ndmVyc2lvbgG1AQFwEiAwoKK09wngn0s1YuPap/JhFTL6JtExUyoG27EmFLBsDgoLCAISABgSIgMJCQASKgokAVUSICNprUtDUI9Nu9h+EVLDvE96qZHElLnjIT+/sAvpZ7wsGL+EPRIqCiQBVRIgI2mtS0NQj0272H4RUsO8T3qpkcSUueMhP7+wC+lnvCwYv4Q9EioKJAFVEiDjsMRCmPwcFJr79MiZb7kkJ65B5GSbk0yklZkbeFK4VRi/hD0tAVUSICNprUtDUI9Nu9h+EVLDvE96qZHElLnjIT+/sAvpZ7wsbGVhZi1kYXRhJAFVEiDjsMRCmPwcFJr79MiZb7kkJ65B5GSbk0yklZkbeFK4VQ==",
+      "original": "bGVhZi1kYXRhbGVhZi1kYXRh",
+      "blocks": [
+        {
+          "cid": "bafybeibqucrlj5yj4cpuwnlc4pnkp4tbcuzpujwrgfjsubw3wetbjmdmby",
+          "base64": "CgsIAhIAGBIiAwkJABIqCiQBVRIgI2mtS0NQj0272H4RUsO8T3qpkcSUueMhP7+wC+lnvCwYv4Q9EioKJAFVEiAjaa1LQ1CPTbvYfhFSw7xPeqmRxJS54yE/v7AL6We8LBi/hD0SKgokAVUSIOOwxEKY/BwUmvv0yJlvuSQnrkHkZJuTTKSVmRt4UrhVGL+EPQ=="
+        },
+        { "cid": "bafkreibdngwuwq2qr5g3xwd6cfjmhpcppkuzdreuxhrscp57waf6sz54fq", "base64": "bGVhZi1kYXRh" },
+        { "cid": "bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku", "base64": "" }
+      ],
+      "nativeCompleteExact": true,
+      "nativeRangeExact": true
+    },
+    {
+      "name": "data-first-mixed-no-inline",
+      "cid": "bafybeic7ochuz526nhxhrr2xxr2qxwonbbp5tvhejagdovyld32ao3fv2y",
+      "base64": "CgwIAhIAGBIgCSICCQASKgokAVUSICNprUtDUI9Nu9h+EVLDvE96qZHElLnjIT+/sAvpZ7wsGL+EPRIqCiQBVRIgI2mtS0NQj0272H4RUsO8T3qpkcSUueMhP7+wC+lnvCwYv4Q9EioKJAFVEiDjsMRCmPwcFJr79MiZb7kkJ65B5GSbk0yklZkbeFK4VRi/hD0=",
+      "car": "OqJlcm9vdHOB2CpYJQABcBIgX3CPTPdeae54x1e8dQvZzQhf2dTkSAw3Vwse9AdstdZndmVyc2lvbgG2AQFwEiBfcI9M915p7njHV7x1C9nNCF/Z1ORIDDdXCx70B2y11goMCAISABgSIAkiAgkAEioKJAFVEiAjaa1LQ1CPTbvYfhFSw7xPeqmRxJS54yE/v7AL6We8LBi/hD0SKgokAVUSICNprUtDUI9Nu9h+EVLDvE96qZHElLnjIT+/sAvpZ7wsGL+EPRIqCiQBVRIg47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFUYv4Q9LQFVEiAjaa1LQ1CPTbvYfhFSw7xPeqmRxJS54yE/v7AL6We8LGxlYWYtZGF0YSQBVRIg47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=",
+      "original": "bGVhZi1kYXRhbGVhZi1kYXRh",
+      "blocks": [
+        {
+          "cid": "bafybeic7ochuz526nhxhrr2xxr2qxwonbbp5tvhejagdovyld32ao3fv2y",
+          "base64": "CgwIAhIAGBIgCSICCQASKgokAVUSICNprUtDUI9Nu9h+EVLDvE96qZHElLnjIT+/sAvpZ7wsGL+EPRIqCiQBVRIgI2mtS0NQj0272H4RUsO8T3qpkcSUueMhP7+wC+lnvCwYv4Q9EioKJAFVEiDjsMRCmPwcFJr79MiZb7kkJ65B5GSbk0yklZkbeFK4VRi/hD0="
+        },
+        { "cid": "bafkreibdngwuwq2qr5g3xwd6cfjmhpcppkuzdreuxhrscp57waf6sz54fq", "base64": "bGVhZi1kYXRh" },
+        { "cid": "bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku", "base64": "" }
+      ],
+      "nativeCompleteExact": true,
+      "nativeRangeExact": true
+    }
+  ],
+  "commands": [
+    { "arguments": ["init", "--profile=test"], "stderr": "" },
+    {
+      "arguments": [
+        "dag",
+        "import",
+        "--pin-roots=false",
+        "/tmp/unixfs-authored-hntuqr3h/links-first-expanded-no-inline.car"
+      ],
+      "stderr": ""
+    },
+    { "arguments": ["cat", "bafybeihtvll7gsjureoobzavkmvzdkkawlzbvx6yiliitdroh3qenywx7y"], "stderr": "" },
+    {
+      "arguments": ["cat", "--offset=5", "--length=13", "bafybeihtvll7gsjureoobzavkmvzdkkawlzbvx6yiliitdroh3qenywx7y"],
+      "stderr": ""
+    },
+    {
+      "arguments": [
+        "dag",
+        "import",
+        "--pin-roots=false",
+        "/tmp/unixfs-authored-hntuqr3h/data-first-packed-no-inline.car"
+      ],
+      "stderr": ""
+    },
+    { "arguments": ["cat", "bafybeibqucrlj5yj4cpuwnlc4pnkp4tbcuzpujwrgfjsubw3wetbjmdmby"], "stderr": "" },
+    {
+      "arguments": ["cat", "--offset=5", "--length=13", "bafybeibqucrlj5yj4cpuwnlc4pnkp4tbcuzpujwrgfjsubw3wetbjmdmby"],
+      "stderr": ""
+    },
+    {
+      "arguments": [
+        "dag",
+        "import",
+        "--pin-roots=false",
+        "/tmp/unixfs-authored-hntuqr3h/data-first-mixed-no-inline.car"
+      ],
+      "stderr": ""
+    },
+    { "arguments": ["cat", "bafybeic7ochuz526nhxhrr2xxr2qxwonbbp5tvhejagdovyld32ao3fv2y"], "stderr": "" },
+    {
+      "arguments": ["cat", "--offset=5", "--length=13", "bafybeic7ochuz526nhxhrr2xxr2qxwonbbp5tvhejagdovyld32ao3fv2y"],
+      "stderr": ""
+    },
+    { "arguments": ["version", "--all"], "stderr": "" }
+  ]
+}

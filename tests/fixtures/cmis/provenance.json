@@ -1,0 +1,37 @@
+{
+  "kind": "native-protocol-output",
+  "captured": "2026-11-05",
+  "producer": "Official Apache OpenCMIS InMemory1.1.0, independent official Java SDK1.1.0",
+  "source_commit": "d29990d9eb952c155776611f870d58904c04d977",
+  "fixture": "tests/provider/cmis.ts",
+  "image": "tomcat:9.0-jdk8-temurin@sha256:340be5aeee31d66d3b0ea39263737e2066f98b96e2832fd85eb58da41c0ce0da",
+  "artifacts": [
+    {
+      "name": "chemistry-opencmis-server-inmemory-1.1.0.war",
+      "sha256": "e64213571d416a5ff03a923693b97bb32d680b353af40d6807ce007197ae71d9",
+      "publisher_sha1": "a3571ac1c5ffb712a0d61fdbad76282adfb08bb2"
+    },
+    {
+      "name": "chemistry-opencmis-client-impl-1.1.0-with-dependencies.zip",
+      "url": "https://repo.maven.apache.org/maven2/org/apache/chemistry/opencmis/chemistry-opencmis-client-impl/1.1.0/chemistry-opencmis-client-impl-1.1.0-with-dependencies.zip",
+      "bytes": 6198654,
+      "acquisition": "Maven Central serves the exact SHA256-pinned bytes previously inspected from archive.apache.org. The fixture changed hosts after repeated archive-server connection timeouts; archive contents and native qualification are unchanged.",
+      "sha256": "8ee3726aad738ac4b8866aeb9db31a56880ef44678374e1fa043213834aefd2c",
+      "publisher_sha1": "b7e1e1d5cf06fb2e3283e4f3a246ca8b9ac21d3f"
+    }
+  ],
+  "capture": [
+    "Open the disposable Testcontainers fixture, seed oracle.bin through its SDK with bytes[0,255,17,42,128,9], and independently reread all SDK bytes.",
+    "GET repositoryInfo at the explicit repository URL, object and content at the explicit root URL plus the returned opaque objectId; send succinct=false and fixture-only credentials. Require nativeHTTP200 and bound each complete body to1MiB.",
+    "Hash original response bytes before fatal UTF8 decoding control bodies; retain their text unchanged. Encode content bytes as base64 and require full equality with the independent SDK original.",
+    "Close SDK/server/network through the fixture owner. Regeneration changes random IDs, native timestamps and mapped URLs; retain the new raw-byte hashes rather than normalizing native bodies."
+  ],
+  "byte_authority": "independent.json repository/object.text retain exact native UTF8 bodies. SHA256 applies to UTF8 bytes of those strings, not pretty-printed JSON envelope bytes. content.base64 decodes to exact SDK-verified native content.",
+  "benchmark": "bench/cmis.bench.ts replays captures with in-memory Fetch. Construction, import, decoding, hashing and complete result preflight are outside sampling. Raw cached-URL Fetch+JSON/arrayBuffer lanes are lower bounds without client request preparation, lossless validation, freezing or extent checks. No live network, deployed provider, SDK speed, throughput or equivalent conformance claim.",
+  "response_framing": "Only native body/status bytes were captured. The benchmark reconstructs Content-Length from the verified content size; it does not claim original native header or packet timing.",
+  "limits": [
+    "One ordinary6-byte original, one repository-info map, one object envelope; no broad property-size or bulk transfer performance claim.",
+    "The archival WAR accepts invalid Basic credentials because no HTTP authentication filter is installed; no native authentication qualification.",
+    "Apache Chemistry is retired. Its Apache-2.0 server/SDK and historical dependency graph are isolated test-only artifacts, not production dependencies or an audit."
+  ]
+}

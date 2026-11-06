@@ -12,6 +12,12 @@ export interface RealmResultType {
   readonly syncOpened?: boolean;
   /** Native error name reported when synchronous access was exposed but could not open. */
   readonly syncError?: string;
+  /** Bytes preserved after positioned writes, flush, truncate, close and reopen. */
+  readonly syncBytes?: readonly number[];
+  /** Stable error returned by an operation after closing a synchronous file. */
+  readonly syncClosedCode?: string;
+  /** Whether closing a synchronous file released its lock for a second handle. */
+  readonly syncReopened?: boolean;
 }
 
 /** Browser record adapters exercised against their actual platform storage APIs. */
@@ -25,16 +31,103 @@ export interface AbortResultType {
   readonly name?: string;
   /** Stable package error code observed by the caller. */
   readonly code?: string;
+  /** Committed bytes read after an already-cancelled replacement. */
+  readonly preserved?: string;
+  /** Whether an already-cancelled creation published a new path. */
+  readonly published?: boolean;
 }
 
 /** Timing result shared by browser fixture benchmarks and their Playwright callers. */
 export interface BenchmarkResultType {
   /** Elapsed milliseconds for direct platform storage operations. */
   readonly rawMs: number;
+  /** Elapsed milliseconds for the direct file or record driver path. */
+  readonly driverMs: number;
   /** Elapsed milliseconds for the direct `AdapterType` path. */
   readonly adapterMs: number;
   /** Elapsed milliseconds for the complete `FileSystemType` path. */
   readonly facadeMs: number;
+  /** Elapsed milliseconds for the facade with basic metrics enabled. */
+  readonly measuredMs: number;
+  /** Normalized milliseconds per requested batch, preserving repeated samples for each layer. */
+  readonly samples: {
+    readonly rawMs: readonly number[];
+    readonly driverMs: readonly number[];
+    readonly adapterMs: readonly number[];
+    readonly facadeMs: readonly number[];
+    readonly measuredMs: readonly number[];
+  };
+}
+
+/** Inputs for actual iframe-realm bodies sent through the parent provider clients. */
+export interface ProviderBodyOptionsType {
+  /** REST provider whose transmission boundary owns the body. */
+  readonly provider: "s3" | "azure";
+  /** Direct request versus the public upload planner. */
+  readonly route: "request" | "put";
+  /** Genuine foreign-realm byte view, native stream, or raw ArrayBuffer. */
+  readonly body: "bytes" | "stream" | "buffer";
+  /** Uses actual iframe resizable ArrayBuffer storage for a direct raw body. */
+  readonly resizable?: boolean;
+  /** Empty input versus two payload bytes; byte views also exclude sentinel bytes. */
+  readonly empty: boolean;
+  /** Enables S3 delayed multipart or Azure staged block upload for public put. */
+  readonly mode: boolean;
+  /** Provides the Shared Key stream length for a direct Azure request. */
+  readonly length: boolean;
+  /** Omission uses a capable injected transport; default selects native admission and Request consumption. */
+  readonly transport?: "custom" | "default";
+}
+
+/** Browser-observed transmission and ownership, without network or provider claims. */
+export interface ProviderBodyResultType {
+  /** Parent instanceof fails for the genuine iframe object. */
+  readonly foreign: boolean;
+  /** Parent native locked getter accepted the iframe stream and found it unlocked. */
+  readonly intrinsicUnlocked: boolean;
+  /** Each prepared protocol stage and its actual consumed body. */
+  readonly requests: readonly {
+    readonly stage: string;
+    readonly bytes: readonly number[];
+    readonly duplex: boolean;
+    /** Prepared Content-Length before the browser Request header guard. */
+    readonly length: string | null;
+  }[];
+  /** Direct request response status. */
+  readonly status?: number;
+  /** Acknowledged public put size. */
+  readonly size?: number;
+  /** Error class at an intentionally refused admission boundary. */
+  readonly error?: string;
+  /** Input lock state after settlement; dispatched raw requests transfer ownership to Fetch. */
+  readonly locked: boolean;
+  /** Producer cancellations, separate from ordinary EOF. */
+  readonly cancellations: number;
+  /** Actual native Request construction admits a stream instead of stringifying it. */
+  readonly nativeRequestStreams: boolean;
+  /** Actual source pulls; default refusal must leave input unacquired. */
+  readonly pulls: number;
+  /** Credential callbacks admitted after local default-transport capability checks. */
+  readonly credentialCalls: number;
+  /** Native raw-buffer admission and transmission observations, only for raw bodies. */
+  readonly buffer?: {
+    /** An independent iframe probe actually resized native resizable storage. */
+    readonly resizableSupported: boolean;
+    /** The caller's admitted buffer has native resizable storage. */
+    readonly resizable: boolean;
+    /** Initial caller bytes before provider preparation. */
+    readonly lengthBefore: number;
+    /** Caller length after dispatch-time resizing. */
+    readonly lengthAfter: number;
+    /** Independent Web Crypto hash of the expected payload. */
+    readonly expectedSha256: string;
+    /** Prepared S3 payload hashes, before native Request construction. */
+    readonly hashes: readonly (string | null)[];
+    /** Each dispatched raw body has fixed ordinary storage. */
+    readonly wireFixed: readonly boolean[];
+    /** Foreign caller backing receives a clean local snapshot before host extraction. */
+    readonly borrowed: readonly boolean[];
+  };
 }
 
 /** Browser fixture API consumed by Playwright from the containing page. */
@@ -65,6 +158,8 @@ export interface BrowserTestApiType {
   adapter(kind: BrowserAdapterType): Promise<string>;
   /** Races two independent IndexedDB filesystem owners through atomic append transactions. */
   indexedDbAppend(): Promise<string>;
+  /** Exercises real iframe-realm bodies through native Request or capable custom consumption. */
+  providerBody(options: ProviderBodyOptionsType): Promise<ProviderBodyResultType>;
 }
 
 /**

@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#MISE description="Record serial native, layer, lifecycle, and live provider benchmarks as immutable native JSON."
+set -euo pipefail
+
+deno task deps:ci
+deno task bench:report "$@"

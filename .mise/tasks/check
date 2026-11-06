@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 #MISE description="Install the frozen graph and run strict TypeScript checks."
 set -euo pipefail
-deno ci
-deno task check
+
+deno task check:ci "$@"

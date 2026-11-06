@@ -1,0 +1,130 @@
+{
+  "status": "source-only-frozen-for-parent-review-not-executed",
+  "purpose": "Small existing-package independent Glacier signing and tree oracle; no candidate imports or production dependency",
+  "originalVectors": 13,
+  "signingVectors": 11,
+  "futureOriginalBytes": 58720207,
+  "botocoreCommit": "a3bbf61a0a3548c6bc7b68dd0a23bb6242a8e630",
+  "botocoreFragmentSha256": "3df5e68cee20bbe60753d3a57dd25182ee7efed201f25d22b147cc9ae8b36eef",
+  "selectedExistingPackages": [
+    "@smithy/signature-v4@5.7.2",
+    "@smithy/core@3.33.2",
+    "@smithy/types@4.17.2",
+    "tslib@2.8.1"
+  ],
+  "reviewFindings": [
+    "General Smithy URI preparation double-encodes existing path escapes; explicit S3 controls retain single encoding. Fixed canonical literals are checked against public request/string signer outputs at future execution.",
+    "Exact immutable botocore function lines are 1116-1163; older tagged web-rendered line numbers are not byte authority.",
+    "Full botocore utils imports unadmitted dependencies; unchanged selected functions receive only reviewed stdlib bindings.",
+    "Original byte files and complete expected canonical/Authorization/header bytes must be generated and frozen before candidate comparisons; source-only files are not executed golden evidence."
+  ],
+  "missingAdmissionSteps": [
+    "Root review exact source hash set and unchanged slice/license identities.",
+    "Freeze exact existing runtime image and snapshot preserving public S3-anchor module resolution and the reviewed installed package bytes.",
+    "Admit one serial offline launcher with no credentials/home/network/mounts, memory/CPU/PID caps, hard watchdog, artifact cap and actual terminal receipts.",
+    "Run original writer, official tree wrapper and public Smithy signer; inspect complete outputs and then freeze expected-byte hashes.",
+    "Separate candidate source/runtime/artifact behavior, emulator limitations and eligible live AWS vault proof."
+  ],
+  "executionLimits": [
+    "No harness script, package import, tree computation, syntax/type/compiler check or test was run.",
+    "No executable package downloaded/installed; root acquired only inert immutable raw botocore source/legal data.",
+    "No production/Git files changed, no runtime dependency added, no native-service or performance claim."
+  ],
+  "files": [
+    {
+      "file": "README.md",
+      "bytes": 9509,
+      "sha256": "be5f7c11d3fc540c17b1c8418f2925a8b5635e0563cddb7c5e56f756663fd8fc"
+    },
+    {
+      "file": "botocore-LICENSE.txt",
+      "bytes": 10174,
+      "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594"
+    },
+    {
+      "file": "botocore-NOTICE.txt",
+      "bytes": 2467,
+      "sha256": "1d1c5a6f3d68cb11f4fad1afa86a7450d0286f15c176ef0ea048f255b46d95b0"
+    },
+    {
+      "file": "botocore-acquisition.json",
+      "bytes": 1095,
+      "sha256": "bfaba19d23edfae3b683073f4ff43c386469f6c8d1eb447052ff8b3f770bd813"
+    },
+    {
+      "file": "botocore-extraction.json",
+      "bytes": 1175,
+      "sha256": "666331a651b21a2074844303f0ef789ecc5440ea1fcc64634c1a78de6fb33e73"
+    },
+    {
+      "file": "botocore-tree-functions.py.snapshot",
+      "bytes": 1553,
+      "sha256": "3df5e68cee20bbe60753d3a57dd25182ee7efed201f25d22b147cc9ae8b36eef"
+    },
+    {
+      "file": "botocore-utils.py.snapshot",
+      "bytes": 136532,
+      "sha256": "41ec2d50f8b471bb9a186562f38ac8c0b872fc7676abb2625a0f8a5c3844dedf"
+    },
+    {
+      "file": "installed-provenance.json",
+      "bytes": 296648,
+      "sha256": "064a7c92118f91f93bfcf8723e9c2f231bcfb39820c6870818ca6109cfe150e8"
+    },
+    {
+      "file": "legal/smithy-core-LICENSE",
+      "bytes": 11385,
+      "sha256": "07364a5f7d0177a59a05a0002187431f8f899320983c0dc049d72df015e8064c"
+    },
+    {
+      "file": "legal/smithy-signature-v4-LICENSE",
+      "bytes": 11357,
+      "sha256": "d82ceb8cbd004a2d4834085c557d55459f528e30268d95159ee1e4030a693a6e"
+    },
+    {
+      "file": "legal/smithy-types-LICENSE",
+      "bytes": 11385,
+      "sha256": "07364a5f7d0177a59a05a0002187431f8f899320983c0dc049d72df015e8064c"
+    },
+    {
+      "file": "legal/tslib-CopyrightNotice.txt",
+      "bytes": 822,
+      "sha256": "da16ddb65f8ca390998fb99223d0112498b56b45784d00afd77ff8ce1ac4de8b"
+    },
+    {
+      "file": "legal/tslib-LICENSE.txt",
+      "bytes": 655,
+      "sha256": "210b19e543130388c68654b7497e967119ce17145f66ab7d85688fbd70f08751"
+    },
+    {
+      "file": "legal-copies.json",
+      "bytes": 821,
+      "sha256": "32430eef36308a54acf4ab53a676b90d38e2630957123d6eddb1f5ffb837026d"
+    },
+    {
+      "file": "originals.mjs",
+      "bytes": 1446,
+      "sha256": "7c119d1f61788d3f16082acdf8ae03f56761eae9edd66ebd03386d4c2dba22b6"
+    },
+    {
+      "file": "signing-vectors.json",
+      "bytes": 9315,
+      "sha256": "3621d86cc9745c32d25b29fe8bd0760c1d0c1d0b85c1c2a034c6784302a1b1e8"
+    },
+    {
+      "file": "signing.mjs",
+      "bytes": 7376,
+      "sha256": "e76ab1255e4753d159fa60ff14741705e69676a58c42ed225aacc32f40d10f26"
+    },
+    {
+      "file": "tree_oracle.py",
+      "bytes": 3577,
+      "sha256": "2ee48e0a55d9edb360de83d88ed4daef2330f6eaf0b69abb90c02ebb438fafed"
+    },
+    {
+      "file": "vectors.json",
+      "bytes": 1810,
+      "sha256": "e5fd009baf8e0ec1211bece3d14d3e146898ab2108a5b54f4a2e95f147003cec"
+    }
+  ]
+}

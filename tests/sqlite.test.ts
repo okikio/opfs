@@ -1,3 +1,4 @@
+import { withFileSystem } from "./reliability.ts";
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 
@@ -12,14 +13,11 @@ import { createSqliteAdapter, type SqliteStatementType } from "../src/adapter/sq
 class MemorySqlite {
   /** Logical SQLite rows keyed by the adapter record identity. */
   readonly rows = new Map<string, Record<string, unknown>>();
-  /** Prepared SQL retained so tests can verify schema/upsert decisions. */
-  readonly sql: string[] = [];
   /** Records whether adapter-owned disposal closed the database. */
   closed = false;
 
   /** Implements the small prepared-statement surface consumed by `createSqliteAdapter()`. */
   prepare(sql: string): SqliteStatementType {
-    this.sql.push(sql);
     if (sql.startsWith("CREATE TABLE")) return { all: () => [], get: () => undefined, run: () => undefined };
     if (sql.startsWith("SELECT") && sql.includes("WHERE id")) {
       return { all: () => [], get: (id) => this.rows.get(String(id)), run: () => undefined };
@@ -70,24 +68,30 @@ class MemorySqlite {
 
 describe("direct SQLite adapter", () => {
   it("reports an injected SQLite database as borrowed unless disposal is transferred", async () => {
-    const borrowed = await createSqliteAdapter(new MemorySqlite());
-    const owned = await createSqliteAdapter(new MemorySqlite(), { disposeDatabase: true });
-
+    const borrowedDatabase = new MemorySqlite();
+    const ownedDatabase = new MemorySqlite();
+    const borrowed = await createSqliteAdapter(borrowedDatabase);
+    const owned = await createSqliteAdapter(ownedDatabase, { disposeDatabase: true });
     expect(borrowed.driver.inspect().ownership).toBe("borrowed");
     expect(owned.driver.inspect().ownership).toBe("owned");
+    await borrowed.dispose?.();
+    await owned.dispose?.();
+    expect(borrowedDatabase.closed).toBe(false);
+    expect(ownedDatabase.closed).toBe(true);
   });
 
   it("reuses the SQLite db0 record contract and explicit ownership", async () => {
     const database = new MemorySqlite();
     const adapter = await createSqliteAdapter(database, { disposeDatabase: true });
     const fileSystem = createFileSystem(adapter, { coordination: "none", disposeAdapter: true });
+    await withFileSystem(fileSystem, async () => {
+      await fileSystem.writeFile("/db/value.txt", "value", { parents: true });
+      expect(await fileSystem.readText("/db/value.txt")).toBe("value");
+      await fileSystem.writeFile("/db/value.txt", "replacement");
+      expect(await fileSystem.readText("/db/value.txt")).toBe("replacement");
 
-    await fileSystem.writeFile("/db/value.txt", "value", { parents: true });
-    expect(await fileSystem.readText("/db/value.txt")).toBe("value");
-    expect(database.sql.some((sql) => sql.startsWith("CREATE TABLE"))).toBe(true);
-    expect(database.sql.some((sql) => sql.includes("ON CONFLICT"))).toBe(true);
-
-    await fileSystem.close();
-    expect(database.closed).toBe(true);
+      await fileSystem.close();
+      expect(database.closed).toBe(true);
+    });
   });
 });

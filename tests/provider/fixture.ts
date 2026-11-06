@@ -1,10 +1,14 @@
-import { AzuriteContainer, type StartedAzuriteContainer } from "@testcontainers/azurite";
-import { GenericContainer, type StartedTestContainer, Wait } from "testcontainers";
+import type { StartedAzuriteContainer } from "@testcontainers/azurite";
+import type { StartedTestContainer } from "testcontainers";
 
 /** SeaweedFS image used for the S3-compatible provider fixture. */
-export const S3_IMAGE = "chrislusf/seaweedfs:4.41";
+export const S3_IMAGE =
+  "chrislusf/seaweedfs:4.41@sha256:43b768cd62b00d132439cda881b93fd1adebf1b315e996e794087743821d771d";
+/** SeaweedFS4.41 form-escapes EncodingType=url listing keys; every project client uses this explicit wire dialect. */
+export const S3_LIST_ENCODING = "form" as const;
 /** Azurite image used for the Azure Blob provider fixture. */
-export const AZURE_IMAGE = "mcr.microsoft.com/azure-storage/azurite:3.36.0";
+export const AZURE_IMAGE =
+  "mcr.microsoft.com/azure-storage/azurite:3.36.0@sha256:76b8127d608fab8287a14a4bfeb9a5502cdcffb4bf1e86f09f324ebb0e70edba";
 /** Bucket and container name shared by provider integration tests and benchmarks. */
 export const STORAGE_NAME = "opfs-test";
 /** Access key exposed by the SeaweedFS test fixture. */
@@ -17,6 +21,42 @@ export const AZURE_ACCOUNT = "devstoreaccount1";
 export const AZURE_KEY = "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==";
 /** S3 API port inside the SeaweedFS container. */
 const S3_PORT = 8333;
+
+/** Only the SDK resource retirement capability used by this fixture. */
+export interface ProviderResourceType {
+  /** Stops an acquired container; its SDK result is not fixture authority. */
+  stop(): Promise<unknown>;
+}
+
+/** S3 container observations used to build the Testcontainers-selected endpoint. */
+export interface S3ProviderType extends ProviderResourceType {
+  /** Host selected by Testcontainers, which can be a gateway inside a Docker runner. */
+  getHost(): string;
+  /** Host port selected by Testcontainers for one exposed service port. */
+  getMappedPort(port: number): number;
+}
+
+/** Azure container observation used after the resource owner has been recorded. */
+export interface AzureProviderType extends ProviderResourceType {
+  /** HTTP Blob endpoint including its development account pathname. */
+  getBlobEndpoint(): string;
+}
+
+/** Attempts all acquired retirements, preserving the original failure independently. */
+async function stop(containers: readonly ProviderResourceType[], primary: readonly unknown[] = []): Promise<void> {
+  const failures = [...primary];
+  for (const container of containers) {
+    try {
+      await container.stop();
+    } catch (reason) {
+      failures.push(reason);
+    }
+  }
+  if (failures.length === 1) throw failures[0];
+  if (failures.length > 1) {
+    throw new AggregateError(failures, "Provider fixture retirement failed.", { cause: failures[0] });
+  }
+}
 
 /**
  * Owns one S3-compatible service and one Azure Blob emulator for a test run.
@@ -31,14 +71,14 @@ export class ProviderFixture implements AsyncDisposable {
   /** Host endpoint for the Azurite Blob service, including the account path. */
   readonly azureEndpoint: string;
   /** Containers are retained only so this fixture can release what it started. */
-  readonly #containers: readonly StartedTestContainer[];
-  /** Prevents a second close from asking Testcontainers to stop resources twice. */
-  #closed = false;
+  readonly #containers: readonly ProviderResourceType[];
+  /** Every close observes the same pending or failed terminal retirement. */
+  #closure: Promise<void> | undefined;
 
   /** Creates an owned fixture from already-started provider containers. */
   constructor(
-    s3: StartedTestContainer,
-    azure: StartedAzuriteContainer,
+    s3: S3ProviderType,
+    azure: ProviderResourceType,
     azureEndpoint: string,
   ) {
     this.s3Endpoint = `http://${s3.getHost()}:${s3.getMappedPort(S3_PORT)}`;
@@ -46,23 +86,10 @@ export class ProviderFixture implements AsyncDisposable {
     this.#containers = [azure, s3];
   }
 
-  /** Stops and removes both provider containers in reverse acquisition order. */
-  async close(): Promise<void> {
-    if (this.#closed) return;
-    this.#closed = true;
-
-    const failures: unknown[] = [];
-    for (const container of this.#containers) {
-      try {
-        await container.stop();
-      } catch (error) {
-        failures.push(error);
-      }
-    }
-
-    if (failures.length > 0) {
-      throw new AggregateError(failures, "One or more provider test containers could not be stopped.");
-    }
+  /** Stops both acquired resources once; concurrent closes share completion and failure. */
+  close(): Promise<void> {
+    // Assign before invoking SDK stop, including a synchronously reentrant caller.
+    return this.#closure ??= Promise.resolve().then(() => stop(this.#containers));
   }
 
   /** Releases the provider containers when used with `await using`. */
@@ -73,6 +100,8 @@ export class ProviderFixture implements AsyncDisposable {
 
 /** Starts the SeaweedFS S3-compatible fixture and waits for its HTTP surface. */
 async function openS3(): Promise<StartedTestContainer> {
+  // SDK import inspects its host environment. Only actual acquisition owns that effect.
+  const { GenericContainer, Wait } = await import("testcontainers");
   return await new GenericContainer(S3_IMAGE)
     .withCommand(["mini", "-dir=/data"])
     .withEnvironment({
@@ -91,17 +120,16 @@ async function openS3(): Promise<StartedTestContainer> {
     .start();
 }
 
-/** Starts the official Azurite Testcontainers module with isolated in-memory state. */
-async function openAzure(): Promise<{ container: StartedAzuriteContainer; endpoint: string }> {
-  const container = await new AzuriteContainer(AZURE_IMAGE)
+/** Starts the official Azurite module; the caller records ownership before reading its endpoint. */
+async function openAzure(): Promise<StartedAzuriteContainer> {
+  const { AzuriteContainer } = await import("@testcontainers/azurite");
+  return await new AzuriteContainer(AZURE_IMAGE)
     .withSkipApiVersionCheck()
     .withInMemoryPersistence()
     .withAccountName(AZURE_ACCOUNT)
     .withAccountKey(AZURE_KEY)
     .withStartupTimeout(90_000)
     .start();
-
-  return { container, endpoint: container.getBlobEndpoint() };
 }
 
 /**
@@ -109,15 +137,27 @@ async function openAzure(): Promise<{ container: StartedAzuriteContainer; endpoi
  *
  * Startup is deliberately sequential. A provider failure therefore has one
  * unambiguous owner to stop, and diagnostics remain easier to attribute than a
- * partially successful parallel startup race.
+ * partially successful parallel startup race. SDK value imports occur only in
+ * these actual acquisitions: reading fixture constants or injecting controlled
+ * resources does not inspect the host or discover Docker configuration.
  */
-export async function openProviders(): Promise<ProviderFixture> {
-  const s3 = await openS3();
+export async function openProviders(
+  acquire: {
+    /** Benchmark-fixture acquisition seam; normal callers use the actual S3 Testcontainers factory. */
+    readonly s3?: () => Promise<S3ProviderType>;
+    /** Benchmark-fixture acquisition seam; normal callers use the actual Azurite factory. */
+    readonly azure?: () => Promise<AzureProviderType>;
+  } = {},
+): Promise<ProviderFixture> {
+  const s3 = await (acquire.s3 ?? openS3)();
+  let azure: AzureProviderType | undefined;
   try {
-    const azure = await openAzure();
-    return new ProviderFixture(s3, azure.container, azure.endpoint);
+    azure = await (acquire.azure ?? openAzure)();
+    return new ProviderFixture(s3, azure, azure.getBlobEndpoint());
   } catch (error) {
-    await s3.stop().catch(() => undefined);
+    // Endpoint reads and construction can fail after Azure acquisition. Both
+    // recorded resources must retire even when either stop independently fails.
+    await stop(azure === undefined ? [s3] : [azure, s3], [error]);
     throw error;
   }
 }

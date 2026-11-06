@@ -1,0 +1,70 @@
+{
+  "context": {
+    "now": 1793905960973,
+    "arch": "arm64-linux",
+    "version": "26.13.0",
+    "runtime": "node"
+  },
+  "resources": {
+    "Memory": 1073741824,
+    "MemorySwap": 1073741824,
+    "NanoCpus": 1000000000,
+    "PidsLimit": 128,
+    "NetworkMode": "none"
+  },
+  "image": "sha256:f1d61877be7f1023016b35716b2424f3f3d77825a875853130311bdb0d9fe43e",
+  "rawBytes": 19766657,
+  "rawSha256": "be6375ad76f14f5756fc99a0156226d7c4728e16fd807e59351a936b452c0a7a",
+  "gzipBytes": 62316,
+  "gzipSha256": "f0ec8714d41f363a217f540ed0230c17b37f312976f65be99615af82bc28f3b1",
+  "losslessRoundTrip": true,
+  "inputs": {
+    "src/dataset/mcap.ts": "e00fb95795974520f2a59fb5c409a08f47c7aa18cf4ca97b36c4b15849eff77b",
+    "src/archive/record.ts": "fc5a3a35d10aca347b86a8830682d46d8ec870c511d622ffa44cc69a73bce6b4",
+    "src/bytes.ts": "2a6098dae39e46031ba8da2fd52475b361155fc7236146ce8624c4398e91894f",
+    "src/source.ts": "17b255de15bf25edfda4f6f587dc7ca390bdc4f0fa55606152351e3cd8dc4ae3",
+    "src/close.ts": "d9d9e0dc945b87d039f0c17408de11216d10cfe53777d9390ec4a9674c876f1b",
+    "bench/mcap.bench.ts": "52ab03a4ace2aabec39c9b559728810ff67910cb58a39c85cb038506f7d27cdb",
+    "bench/result.ts": "1d619c1c202e4e77af8fed43fe9ccca1ad7df286aaa9dec5f49ac0a46c1f15a2",
+    "tests/fixtures/mcap/independent.json": "2606def430cd78c19ac9098b0fd8f294cabd0b52b004a3bf2fb9668ff2c6eb8d"
+  },
+  "results": [
+    {
+      "lane": "mcap borrowed-range lower-bound selected=32B validation=none",
+      "p50Nanoseconds": 4999.623779296875,
+      "p99Nanoseconds": 9471.49658203125,
+      "samples": 24
+    },
+    {
+      "lane": "mcap cold-physical-index file=2689B messages=7 chunks=5 source=2089B requests=145 metadata=13258B summary=verified",
+      "p50Nanoseconds": 685708,
+      "p99Nanoseconds": 18197916,
+      "samples": 472
+    },
+    {
+      "lane": "mcap warm-empty-sparse-page descriptors=7 limit=2 actual=0 scanned=3 cursor=3 no-payload-IO",
+      "p50Nanoseconds": 677.32763671875,
+      "p99Nanoseconds": 3612.335205078125,
+      "samples": 196
+    },
+    {
+      "lane": "mcap selected-verified-chunk output=32B source=331B requests=2 decoded=331B scope=whole-containing-chunk",
+      "p50Nanoseconds": 22445.932861328125,
+      "p99Nanoseconds": 26129.10986328125,
+      "samples": 12
+    },
+    {
+      "lane": "mcap selected-pending output=32B source=32B requests=1 decoded=32B crc=unchecked",
+      "p50Nanoseconds": 8106.38427734375,
+      "p99Nanoseconds": 11293.162109375,
+      "samples": 14
+    },
+    {
+      "lane": "mcap verify-whole-data source=1730B requests=1 decoded=1730B output=0B scope=data",
+      "p50Nanoseconds": 37221.364501953125,
+      "p99Nanoseconds": 48076.436279296875,
+      "samples": 12
+    }
+  ],
+  "scope": "supplied immutable native MCAP NONE fixture; in-memory source. Different operation contracts, no SDK throughput or equal-operation speedup claim."
+}

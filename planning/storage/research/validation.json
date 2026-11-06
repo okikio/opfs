@@ -1,0 +1,43 @@
+{
+  "scope": "Planning artifact only; no implementation, interoperability, CI, security or benchmark certification",
+  "passed": true,
+  "catalog_records": 895,
+  "focused_records": 136,
+  "implementation_comparisons": 14,
+  "parent_catalog_sha256": "7fc1fefdfea648cfab176f38b6351b8b5c4d547b5a259ef103861aef8b6851b5",
+  "source_records_and_crosswalk_preserved": true,
+  "all_routes_proposed_not_implemented": true,
+  "local_markdown_links_checked": 35,
+  "original_files_compared": [
+    "formats.json",
+    "implementations.json",
+    "crosswalk.json",
+    "archive-research.md",
+    "catalog.json",
+    "routing.json",
+    "routing.csv",
+    "catalog-research.md",
+    "protocol-research.md"
+  ],
+  "file_sha256": {
+    "ENGINEERING.md": "e544a1bf06559fdbd3ed9db5f00cc99b2d5d37c4147cf9fa86e0becef5718d06",
+    "EXTENSIONS.md": "c762dd9e11d163f2f1b4686f0a6716028ae09e0536cf3f13521c856294c4c9b2",
+    "PLAN.md": "b3cb9252d99bbfb34347fdce27a592d4c3119f36302c810a5a670c9a1875dfb3",
+    "PREVIEW.md": "23f2548ff6ab1ff9d1371c7179b403aba1cf9c3ce5a71cf2a33e3fda610925f8",
+    "README.md": "563eb9ed052180831babe373e06454fba7267e6d41b552e517a50d9cb2c93572",
+    "RESEARCH.md": "449caef63d205756cdfff4e18a85baab8b828e7c4e70b96570866991e6aa3936",
+    "archive-research.md": "75effadb6dd03266016b9392af9c9aae2f2db7d70cf1b1c569ad5904ed45ca07",
+    "bundlejs-research.md": "253b0b7b6aa932cc452aa346778694ae948285d4189a707a8ff75cf3f6d37202",
+    "catalog-research.md": "7cc1075f0a5150ac28a92b0e534dab85acc8d03a4c05465174d4f427689b2b64",
+    "catalog.json": "7fc1fefdfea648cfab176f38b6351b8b5c4d547b5a259ef103861aef8b6851b5",
+    "crosswalk.json": "05f553d2b0339ea35cad9f8e71a01fdc4dc48cc1e7d7d762373904ff1a2fad47",
+    "formats.json": "08b17dcf6c235d13d5f093cdde8d2e3e939e559bd046594b3c4987281865cb79",
+    "implementations.json": "b87a14c0f17a2f442cae0b8df6b5f9938774f58fd86bd680b298c8ee4c8cb8b4",
+    "preview-research.md": "739b0f7a6c7c1e206087892433361ddde3b487001afd9db5db5b7ea552f5f523",
+    "preview-routing.json": "d1ca2097c98c1e5ff0f66f0c2f8406316b70f461270fdcbdf49a3722ecdeb0a0",
+    "protocol-research.md": "8433725ab266c920497fcce51dd2adb8abbee9891310ab028875f7d66f741784",
+    "routing.csv": "db877e4d40f6d9ed26d0d8cb47b4e343e517e648349fb3784d4769209d54eace",
+    "routing.json": "874f260b453a7968487c132aba2c83c6198bec01f9a34c6563dc4a73a2d4cb90",
+    "validate.py": "1c7b8d8a60a220dfd2fcc24ec0ba11bbeac22f4430323b1a06da3098109d94ca"
+  }
+}

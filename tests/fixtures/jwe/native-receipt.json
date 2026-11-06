@@ -1,0 +1,351 @@
+{
+  "scope": "First candidate-free offline native SDK producer passed; no candidate imports, installation, network or host mounts. Both SDK paths share native WebCrypto AES.",
+  "rawProducerBytes": 10773,
+  "rawProducerSha256": "2bca2d084b765b48ff5c3024ca42c3a09f957ad7720796a4f5e2ab9570ed5a2e",
+  "image": "sha256:b97211e26cc9baba8599d969bccd03c350886bd33a2031035a78d690d4dbeb84",
+  "state": {
+    "Status": "exited",
+    "Running": false,
+    "Paused": false,
+    "Restarting": false,
+    "OOMKilled": false,
+    "Dead": false,
+    "Pid": 0,
+    "ExitCode": 0,
+    "Error": "",
+    "StartedAt": "2026-11-05T21:28:30.326615964Z",
+    "FinishedAt": "2026-11-05T21:28:30.561006506Z"
+  },
+  "resources": {
+    "Memory": 1073741824,
+    "MemorySwap": 1073741824,
+    "NanoCpus": 1000000000,
+    "PidsLimit": 128,
+    "NetworkMode": "none",
+    "Binds": null
+  },
+  "inputs": [
+    {
+      "path": "tests/fixtures/jwe/produce.mjs",
+      "target": "produce.mjs",
+      "bytes": 4460,
+      "sha256": "65495d4da525ff334f138d3ccc9dfd2b62dae1c378d1d0bbc393017b39232fc5"
+    },
+    {
+      "path": "tests/fixtures/arfs/zip.json",
+      "target": "zip.json",
+      "bytes": 541,
+      "sha256": "ffc47f0fc7ff99ed86e85e004e8cbcc44657320906b585d9ef4b7817f3e1aba9"
+    },
+    {
+      "path": "tests/fixtures/jwe/acquisition.json",
+      "target": "evidence/acquisition.json",
+      "bytes": 18230,
+      "sha256": "3b46fb115f0d6ded59639043d442e96fb78461e3254488c7554ea41dff6b67da"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/lib/asn1.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/lib/asn1.js.snapshot",
+      "bytes": 5872,
+      "sha256": "b67f65067322baf007226faf96ddba521d19558d4ec946a8d0e3399740e754ca"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/util/base64url.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/util/base64url.js.snapshot",
+      "bytes": 490,
+      "sha256": "9c9c168e24c5be2db20956262065b94556de959e5dcc62430e31a0f57f821691"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/lib/buffer_utils.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/lib/buffer_utils.js.snapshot",
+      "bytes": 2751,
+      "sha256": "3bfbd2a1323e8456ad87fb0479831e69a0d957b9208fb8de76d82ac56cdf42fc"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/lib/content_encryption.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/lib/content_encryption.js.snapshot",
+      "bytes": 4308,
+      "sha256": "542c666b0d9fa8f8efd3e03fe5f71c7abf74ee11e8db35a517de51353e7e317e"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/util/decode_jwt.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/util/decode_jwt.js.snapshot",
+      "bytes": 1145,
+      "sha256": "c1698d7e962f9e1c182e98241e02bce8d0b186fa5e1e3f12a80ecb9681e7125d"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/util/decode_protected_header.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/util/decode_protected_header.js.snapshot",
+      "bytes": 771,
+      "sha256": "7f17b35289f4837b646edd06096edb15d1ef6ac56d300aff63a6f40a934764f5"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/jwe/compact/decrypt.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/jwe/compact/decrypt.js.snapshot",
+      "bytes": 217,
+      "sha256": "c08202f5114caee270bcaa0ed3e119acb241f88d51c6d65a34a1fd6a3353cd2a"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/jwe/flattened/decrypt.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/jwe/flattened/decrypt.js.snapshot",
+      "bytes": 659,
+      "sha256": "4964d31fafb143a8f15cf4820214b268706dbbd569bdedaa9b24a11520f6c6b2"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/jwe/general/decrypt.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/jwe/general/decrypt.js.snapshot",
+      "bytes": 1811,
+      "sha256": "3a721fc3958f36c3bed7764a032238b35f9172bf95d40a7e28a4cea4d7ccd511"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/jwt/decrypt.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/jwt/decrypt.js.snapshot",
+      "bytes": 841,
+      "sha256": "233bb797f9239582ada83fac5723c818dfa0f24e9a864680759df5f2bb5b260c"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/lib/deflate.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/lib/deflate.js.snapshot",
+      "bytes": 1644,
+      "sha256": "d7da65e5db6a9f236d3a77d2d413e3c105f5e5fd5f4c91c7ce50b575ffa0a245"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/jwk/embedded.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/jwk/embedded.js.snapshot",
+      "bytes": 1134,
+      "sha256": "449f2b08f47d006a4b937201692b7a830c9e9ac785e82073c1f6f9792642f91d"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/jwe/compact/encrypt.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/jwe/compact/encrypt.js.snapshot",
+      "bytes": 978,
+      "sha256": "8db8eb9fa34a0187c0ff26e04c37024af421f2f265255d60a01c0edf416f2f85"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/jwe/flattened/encrypt.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/jwe/flattened/encrypt.js.snapshot",
+      "bytes": 1369,
+      "sha256": "e1fe288a34aae4938dbdd13b86e33e54fef9ff3f3c55a2354ab9d7b5665d1e92"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/jwe/general/encrypt.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/jwe/general/encrypt.js.snapshot",
+      "bytes": 4412,
+      "sha256": "539cecb9802acbc298b9f8cfe1f558d9f11a8674cbbd95b4ec662cbf94613414"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/jwt/encrypt.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/jwt/encrypt.js.snapshot",
+      "bytes": 1863,
+      "sha256": "7c5872544078cc618b8699b5518541fcd0058ee798f52955d58c58ca3de9d1eb"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/util/errors.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/util/errors.js.snapshot",
+      "bytes": 3305,
+      "sha256": "9bb7503fd84d5387677f1b917969cdf7c20482c3d86e92e64972bc83938b95f8"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/key/export.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/key/export.js.snapshot",
+      "bytes": 1120,
+      "sha256": "634aee75fbdabbffb73d439ae63305ad043a268354ecf53426b827ba3f81cfb7"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/key/generate_key_pair.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/key/generate_key_pair.js.snapshot",
+      "bytes": 1645,
+      "sha256": "97e4e5b66af75700da10fc5807471636b633d7c72c65a7fe50980c4a3a2c6c74"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/key/generate_secret.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/key/generate_secret.js.snapshot",
+      "bytes": 1313,
+      "sha256": "eadcae7108774b03a6a9b5bb2ed22f25496dcda2e491c2fd3f8e71781f1bc260"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/key/import.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/key/import.js.snapshot",
+      "bytes": 2279,
+      "sha256": "ab2f57a9db99e8d48451a8d0a8adf75379381f65b0e3e28ba6c02aa5bb3ee5fa"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/index.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/index.js.snapshot",
+      "bytes": 2376,
+      "sha256": "f198638529597ab18dc3d2799f362106121f90cf0b0c43e75c3dffa5cc6b8590"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/lib/jwe_algorithms.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/lib/jwe_algorithms.js.snapshot",
+      "bytes": 3326,
+      "sha256": "d41562ff2ccc3599f7189384653fbcd1ff68babd475fe99e31eccb61706abd47"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/lib/jwe_decrypt.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/lib/jwe_decrypt.js.snapshot",
+      "bytes": 9047,
+      "sha256": "1cc343e273867870c29edf0d0bb81b96f573e705cb0441459110ebab6c30a185"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/lib/jwe_encrypt.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/lib/jwe_encrypt.js.snapshot",
+      "bytes": 5967,
+      "sha256": "e9eb264823e89f9f5fa9a112331606644a35f0e27411363e6b852c8c48023573"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/lib/jws_algorithms.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/lib/jws_algorithms.js.snapshot",
+      "bytes": 1762,
+      "sha256": "51fda5def135c451b291193518157c842555c2c37a8f20c598e5cc27436ba544"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/lib/jws_sign.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/lib/jws_sign.js.snapshot",
+      "bytes": 2904,
+      "sha256": "d4daec77131ba4abacd0207377bc5de7007025028004ce5879d90162337795c0"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/lib/jws_verify.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/lib/jws_verify.js.snapshot",
+      "bytes": 5685,
+      "sha256": "8b2e83cce30134f660a1ea96cbaba78f1877477f331ff6d71518e930a2e35842"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/lib/jwt_claims_set.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/lib/jwt_claims_set.js.snapshot",
+      "bytes": 7613,
+      "sha256": "c0c893b68c426d585f3b955b3873c715e5e15f46d62d9a67d82a5d19c12eefec"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/lib/key_algorithm.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/lib/key_algorithm.js.snapshot",
+      "bytes": 517,
+      "sha256": "4ef0b80292076659b054313f70eeef81cd7df01e2ec9988c24552206bc42cc07"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/lib/key_descriptor.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/lib/key_descriptor.js.snapshot",
+      "bytes": 167,
+      "sha256": "80ae05a1fc41271a29dbd5ab717255a1255ee0ac43b6820853d2f338d9e74b46"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/lib/key_management.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/lib/key_management.js.snapshot",
+      "bytes": 11071,
+      "sha256": "6604927b14ab576d12e9353f81df95b08aa483df368a16447e6a226ef991f343"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/lib/key.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/lib/key.js.snapshot",
+      "bytes": 7856,
+      "sha256": "03337646421f0df228c14817a802186dcdff853ef445cd585da191eef1d86813"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/jwks/local.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/jwks/local.js.snapshot",
+      "bytes": 2855,
+      "sha256": "539d24547c9131739064b17c21b20d299428238127ea5c9d741ac1f6e724a64d"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/jwks/remote.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/jwks/remote.js.snapshot",
+      "bytes": 4392,
+      "sha256": "b49b44e5929b6236a938eb67d4380f033787fee7086f57e0140976b0e7cac149"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/jws/compact/sign.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/jws/compact/sign.js.snapshot",
+      "bytes": 702,
+      "sha256": "09450f2b3763b531d28bec9796d2f3ff0064c7b07dde15f7d1e1e7693e2ec12a"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/jws/flattened/sign.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/jws/flattened/sign.js.snapshot",
+      "bytes": 757,
+      "sha256": "01cb90bcf39d8aa9bcf6d3efd36f5b80c112e547ef5448d7512b7aafa72bb6dd"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/jws/general/sign.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/jws/general/sign.js.snapshot",
+      "bytes": 1943,
+      "sha256": "11a7de8f3359584c0c283cdedb14fb841461675b37d1ed1de810c9efc3469561"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/jwt/sign.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/jwt/sign.js.snapshot",
+      "bytes": 739,
+      "sha256": "31a499b2b08c4143c1747fa101936fa58ed21da6b147056ce2fce5870cb460ca"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/jwk/thumbprint.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/jwk/thumbprint.js.snapshot",
+      "bytes": 2739,
+      "sha256": "c63aa916d733cee3a3c21932cd0b207e3623214c4bfe3e5a6662ed9ea6ec4b78"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/jwt/unsecured.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/jwt/unsecured.js.snapshot",
+      "bytes": 1646,
+      "sha256": "33695f71e704e945d5897a227c01d5d8f45210722650c03bf111b24ba86b6e16"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/lib/validate.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/lib/validate.js.snapshot",
+      "bytes": 4777,
+      "sha256": "2bfc6cf900868bd5e53582d1ffc979959d4f73a0f0e15a91109b86d393572003"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/jws/compact/verify.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/jws/compact/verify.js.snapshot",
+      "bytes": 243,
+      "sha256": "6d1109739b895858c7006d02ef91f8b13ce5ae8c91996d1f1c0b57c1ab33c398"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/jws/flattened/verify.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/jws/flattened/verify.js.snapshot",
+      "bytes": 538,
+      "sha256": "ff23003a7b0a4d8a7add2cd8b13b72393b863f6f251ddd814f08d69b35be3b2e"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/jws/general/verify.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/jws/general/verify.js.snapshot",
+      "bytes": 2022,
+      "sha256": "9bd57db71138b871a78fd31d81732282154d91db78e318503a03c6b8ebe8c0d5"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/dist/webapi/jwt/verify.js.snapshot",
+      "target": "evidence/sdk/dist/webapi/jwt/verify.js.snapshot",
+      "bytes": 534,
+      "sha256": "e015a18744717762a1f138d0f0a88a40d3b660bc46f76ddf8309b32987175bef"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/package.json.snapshot",
+      "target": "evidence/sdk/package.json.snapshot",
+      "bytes": 3201,
+      "sha256": "a1a833459530d36e7cacbe045a461b14b2bd38fb38e595ac3ba1dcd9de37831e"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/LICENSE.md.snapshot",
+      "target": "evidence/sdk/LICENSE.md.snapshot",
+      "bytes": 1079,
+      "sha256": "8078b0829d6c3e9ecde2f003e1966e4cad3efc6e7a640efbab0313cc166b1af1"
+    },
+    {
+      "path": "tests/fixtures/jwe/sdk/README.md.snapshot",
+      "target": "evidence/sdk/README.md.snapshot",
+      "bytes": 9257,
+      "sha256": "d90a64d2f0381847976e72c3b143220f329903e9cede731e21ee5b667d152d5d"
+    }
+  ],
+  "launch": {
+    "container": "opfs-jwe-producer-20261105",
+    "exitCode": 0,
+    "failures": [],
+    "elapsedSeconds": 0.34444975,
+    "logBytes": 0,
+    "deadlineSeconds": 90,
+    "maxLogBytes": 1048576
+  },
+  "logBytes": 0
+}

@@ -1,0 +1,48 @@
+def calculate_tree_hash(body):
+    """Calculate a tree hash checksum.
+
+    For more information see:
+
+    http://docs.aws.amazon.com/amazonglacier/latest/dev/checksum-calculations.html
+
+    :param body: Any file like object.  This has the same constraints as
+        the ``body`` param in calculate_sha256
+
+    :rtype: str
+    :returns: The hex version of the calculated tree hash
+
+    """
+    chunks = []
+    required_chunk_size = 1024 * 1024
+    sha256 = hashlib.sha256
+    for chunk in iter(lambda: body.read(required_chunk_size), b''):
+        chunks.append(sha256(chunk).digest())
+    if not chunks:
+        return sha256(b'').hexdigest()
+    while len(chunks) > 1:
+        new_chunks = []
+        for first, second in _in_pairs(chunks):
+            if second is not None:
+                new_chunks.append(sha256(first + second).digest())
+            else:
+                # We're at the end of the list and there's no pair left.
+                new_chunks.append(first)
+        chunks = new_chunks
+    return binascii.hexlify(chunks[0]).decode('ascii')
+
+
+def _in_pairs(iterable):
+    # Creates iterator that iterates over the list in pairs:
+    # for a, b in _in_pairs([0, 1, 2, 3, 4]):
+    #     print(a, b)
+    #
+    # will print:
+    # 0, 1
+    # 2, 3
+    # 4, None
+    shared_iter = iter(iterable)
+    # Note that zip_longest is a compat import that uses
+    # the itertools izip_longest.  This creates an iterator,
+    # this call below does _not_ immediately create the list
+    # of pairs.
+    return zip_longest(shared_iter, shared_iter)

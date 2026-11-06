@@ -1,0 +1,20 @@
+{
+  "producerPackages": {
+    "7zip": "22.01+really26.02+dfsg-0+deb12u1",
+    "zip": "3.0-13+deb12u1"
+  },
+  "architecture": "arm64",
+  "consumer": "Python standard library zipfile; full original payload comparisons",
+  "localBaseImage": "opfs-seven-tools:20261105",
+  "localBaseImageId": "sha256:527d62a5244f4fa71833b4a105a4906ec1c1c7708f64ea2967fa04d96c551dd5",
+  "imageLimit": "Local base snapshot; signed Debian apt installation changes its filesystem. Not a publicly pullable complete-producer pin.",
+  "files": {
+    "create.py": "6fa1b3d6e11422f31ca9d360a3a5b1814806134b2907fe5402ebeb9780d3b462",
+    "independent.json": "d4c4c383453caadd3dbb32ae4337d00e043a847c797577c329f7f3d77dbe10f9"
+  },
+  "archives": {
+    "stored": "e0bd0a33933756779c8a9c6da72c60feb2959762bf69811cd9fbfc4666295f87",
+    "deflate": "4c208a06afacc536f461cb1cda2e514890bcbf5f6a5a89c4475519aa9b8e87ba",
+    "descriptor": "a3303b98728e6099762725bdd678bea0f20444e44ced50046a94b3dbe9c074b4"
+  }
+}

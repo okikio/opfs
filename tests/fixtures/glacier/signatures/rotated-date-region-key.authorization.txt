@@ -1,0 +1,1 @@
+AWS4-HMAC-SHA256 Credential=AKIDROTATED/20150831/eu-west-1/glacier/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date;x-amz-glacier-version, Signature=44ee3eaee5cb07721fa4a7df9381d62039aa29a742d2f0fbbb72f7e8e2a80e2f

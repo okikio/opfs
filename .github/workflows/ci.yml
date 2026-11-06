@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [main]
+  workflow_dispatch:
   pull_request:
 
 permissions:
@@ -23,13 +24,13 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
         with:
-          version: '2026.8.6'
-          install_args: node
+          version: "2026.8.6"
+          install_args: deno node
       - name: Lint commit messages
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: mise run commits
+        run: deno task commits
 
   quality:
     name: Deno quality and package dry-runs
@@ -41,9 +42,9 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
         with:
-          version: '2026.8.6'
-          install_args: deno
-      - run: mise run quality
+          version: "2026.8.6"
+          install_args: deno node npm:npm
+      - run: deno task quality
 
   deno:
     name: Deno ${{ matrix.os }}
@@ -59,9 +60,9 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
         with:
-          version: '2026.8.6'
-          install_args: deno
-      - run: mise run test-deno
+          version: "2026.8.6"
+          install_args: deno node
+      - run: deno task deps:ci && deno task test
 
   node:
     name: Node ${{ matrix.node }} / ${{ matrix.os }}
@@ -70,15 +71,15 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            node: '22'
+            node: "22"
           - os: ubuntu-latest
-            node: '24'
+            node: "24"
           - os: ubuntu-latest
-            node: '26'
+            node: "26"
           - os: macos-latest
-            node: '26'
+            node: "26"
           - os: windows-latest
-            node: '26'
+            node: "26"
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     env:
@@ -89,10 +90,10 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
         with:
-          version: '2026.8.6'
+          version: "2026.8.6"
           install_args: deno node
           cache_key_prefix: mise-node-${{ matrix.node }}
-      - run: mise run test-node
+      - run: deno task deps:ci && deno task test:node
 
   bun:
     name: Bun / ${{ matrix.os }}
@@ -108,9 +109,9 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
         with:
-          version: '2026.8.6'
+          version: "2026.8.6"
           install_args: deno bun
-      - run: mise run test-bun
+      - run: deno task deps:ci && deno task test:bun
 
   browser:
     name: Playwright browser matrix
@@ -122,12 +123,26 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
         with:
-          version: '2026.8.6'
+          version: "2026.8.6"
           install_args: deno
-      - run: mise run test-browser
+      - name: Use Ubuntu's primary archive for browser dependencies
+        run: |
+          for source in /etc/apt/sources.list.d/ubuntu.sources /etc/apt/apt-mirrors.txt; do
+            if [ -f "$source" ]; then
+              sudo sed -i 's|http://azure\.archive\.ubuntu\.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' "$source"
+            fi
+          done
+      - run: deno task deps:ci && deno task test:browser:install && deno task test:browser
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: browser-evidence
+          if-no-files-found: error
+          path: .tmp/reports/browser
+          include-hidden-files: true
 
   providers:
-    name: S3 and Azure provider containers
+    name: Storage provider containers and archive preview
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -136,9 +151,313 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
         with:
-          version: '2026.8.6'
+          version: "2026.8.6"
           install_args: deno node
-      - run: mise run test-providers
+      - run: deno task deps:ci && deno task test:providers
+      - run: deno task test:expansion:providers
+      - name: Install independent archive consumers
+        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends 7zip libarchive-tools
+      - run: deno task test:archive:interop
+        env:
+          OPFS_SEVEN: /usr/bin/7z
+
+  firebase:
+    name: Firebase Rules and native upload containers
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+        with:
+          version: "2026.8.6"
+          install_args: deno node
+      - run: deno task deps:ci && deno task test:firebase-provider
+
+  lfs:
+    name: Git LFS native repository containers
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+        with:
+          version: "2026.8.6"
+          install_args: deno node
+      - run: deno task deps:ci && deno task test:lfs-provider
+
+  pocketbase:
+    name: PocketBase native record-file containers
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+        with:
+          version: "2026.8.6"
+          install_args: deno node
+      - run: deno task deps:ci && deno task test:pocketbase-provider
+
+  supabase:
+    name: Supabase native REST and RLS containers
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+        with:
+          version: "2026.8.6"
+          install_args: deno node
+      - run: deno task deps:ci && deno task test:supabase-provider
+
+  nextcloud:
+    name: Nextcloud native chunk-upload containers
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+        with:
+          version: "2026.8.6"
+          install_args: deno node
+      - run: deno task deps:ci && deno task test:nextcloud-provider
+
+  restic:
+    name: Restic native repository object containers
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+        with:
+          version: "2026.8.6"
+          install_args: deno node
+      - run: deno task deps:ci && deno task test:restic-provider
+
+  lakefs:
+    name: lakeFS native staging and committed object containers
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+        with:
+          version: "2026.8.6"
+          install_args: deno node
+      - run: deno task deps:ci && deno task test:lakefs-provider
+
+  seafile:
+    name: Seafile native library and capability containers
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+        with:
+          version: "2026.8.6"
+          install_args: deno node
+      - run: deno task deps:ci && deno task test:seafile-provider
+
+  ocis:
+    name: ownCloud Infinite Scale native compatibility containers
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+        with:
+          version: "2026.8.6"
+          install_args: deno node
+      - run: deno task deps:ci && deno task test:ocis-provider
+
+  cmis:
+    name: CMIS native repository and SDK containers
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+        with:
+          version: "2026.8.6"
+          install_args: deno node
+      - run: deno task deps:ci && deno task test:cmis-provider
+
+  couchdb:
+    name: CouchDB attachment MVCC and SDK containers
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+        with:
+          version: "2026.8.6"
+          install_args: deno node
+      - run: deno task deps:ci && deno task test:couchdb-provider
+
+  etcd:
+    name: etcd native revision and lease containers
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+        with:
+          version: "2026.8.6"
+          install_args: deno node
+      - run: deno task deps:ci && deno task test:etcd-provider
+
+  netlify:
+    name: Netlify native capability and SDK containers
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+        with:
+          version: "2026.8.6"
+          install_args: deno node
+      - run: deno task deps:ci
+      - name: Acquire the frozen inert test-only SDK closure
+        run: deno task fixtures:netlify --output .tmp/netlify-inert
+      - name: Bundle the candidate in the CI compiler lane
+        env:
+          DENO_V8_FLAGS: --max-old-space-size=1536
+        run: deno task bundle:netlify --output .tmp/netlify-candidate.ts
+      - name: Compare reciprocal bytes and mutation outcomes
+        env:
+          DENO_V8_FLAGS: --max-old-space-size=256
+          OPFS_NETLIFY_ARTIFACTS: .tmp/netlify-inert
+          OPFS_NETLIFY_EXECUTION_REVIEWED: 11.1.7-test-only
+          OPFS_NETLIFY_CANDIDATE: .tmp/netlify-candidate.ts
+        run: |
+          export OPFS_NETLIFY_CLOSURE_SHA256=$(node --input-type=module -e 'import{readFileSync}from"node:fs";import{createHash}from"node:crypto";console.log(createHash("sha256").update(readFileSync(".tmp/netlify-inert/closure.json")).digest("hex"))')
+          export OPFS_NETLIFY_CANDIDATE_SHA256=$(node --input-type=module -e 'import{readFileSync}from"node:fs";import{createHash}from"node:crypto";console.log(createHash("sha256").update(readFileSync(".tmp/netlify-candidate.ts")).digest("hex"))')
+          deno task test:netlify-provider
+
+  pubsub:
+    name: Pub/Sub native message and SDK containers
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+        with:
+          version: "2026.8.6"
+          install_args: deno node
+      - run: deno task deps:ci && deno task test:pubsub-provider
+
+  redis:
+    name: Redis and Valkey native byte and SDK containers
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+        with:
+          version: "2026.8.6"
+          install_args: deno node
+      - run: deno task deps:ci && deno task test:redis-provider
+
+  nats:
+    name: NATS JetStream native byte and SDK containers
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+        with:
+          version: "2026.8.6"
+          install_args: deno node
+      - run: deno task deps:ci && deno task test:nats-provider
+
+  amqp:
+    name: AMQP native confirmations and queue SDK containers
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      TESTCONTAINERS_RYUK_DISABLED: "true"
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+        with:
+          version: "2026.8.6"
+          install_args: deno node
+      - run: deno task deps:ci && deno task test:amqp-provider
+
+  memcached:
+    name: Memcached native byte and CAS containers
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+        with:
+          version: "2026.8.6"
+          install_args: deno node
+      - run: deno task deps:ci && deno task test:memcached-provider
+
+  upload:
+    name: HTTP upload fresh-process recovery containers
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+        with:
+          version: "2026.8.6"
+          install_args: deno node
+      - run: deno task deps:ci && deno task test:upload-provider
+
+  gcs-archive:
+    name: GCS Archive class SDK interoperability
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+        with:
+          version: "2026.8.6"
+          install_args: deno node
+      - run: deno task deps:ci && deno task test:gcs-archive-provider
 
   npm-package:
     name: npm tarball consumers
@@ -151,9 +470,9 @@ jobs:
           fetch-depth: 0
       - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
         with:
-          version: '2026.8.6'
+          version: "2026.8.6"
           install_args: deno node bun
-      - run: mise run verify-npm
+      - run: deno task verify:npm
 
   bench:
     name: Server benchmark smoke
@@ -165,9 +484,73 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
         with:
-          version: '2026.8.6'
+          version: "2026.8.6"
           install_args: deno node bun
-      - run: mise run bench
+      - run: deno task bench:all
+      - run: |
+          mkdir -p .tmp/reports/archive-bench
+          BENCH_JSON=1 deno task bench:archive > .tmp/reports/archive-bench/mitata.json 2> .tmp/reports/archive-bench/stderr.log
+          BENCH_JSON=1 deno task bench:bam > .tmp/reports/archive-bench/bam.json 2> .tmp/reports/archive-bench/bam-stderr.log
+          BENCH_JSON=1 deno task bench:tar > .tmp/reports/archive-bench/tar.json 2> .tmp/reports/archive-bench/tar-stderr.log
+          BENCH_JSON=1 deno task bench:compress > .tmp/reports/archive-bench/compress.json 2> .tmp/reports/archive-bench/compress-stderr.log
+          BENCH_JSON=1 deno task bench:cpio > .tmp/reports/archive-bench/cpio.json 2> .tmp/reports/archive-bench/cpio-stderr.log
+          BENCH_JSON=1 deno task bench:cab > .tmp/reports/archive-bench/cab.json 2> .tmp/reports/archive-bench/cab-stderr.log
+          BENCH_JSON=1 deno task bench:seven > .tmp/reports/archive-bench/seven.json 2> .tmp/reports/archive-bench/seven-stderr.log
+          BENCH_JSON=1 deno task bench:xz > .tmp/reports/archive-bench/xz.json 2> .tmp/reports/archive-bench/xz-stderr.log
+          BENCH_JSON=1 deno task bench:bzip > .tmp/reports/archive-bench/bzip.json 2> .tmp/reports/archive-bench/bzip-stderr.log
+          BENCH_JSON=1 deno task bench:udf > .tmp/reports/archive-bench/udf.json 2> .tmp/reports/archive-bench/udf-stderr.log
+          BENCH_JSON=1 deno task bench:wim > .tmp/reports/archive-bench/wim.json 2> .tmp/reports/archive-bench/wim-stderr.log
+          BENCH_JSON=1 deno task bench:fits > .tmp/reports/archive-bench/fits.json 2> .tmp/reports/archive-bench/fits-stderr.log
+          BENCH_JSON=1 deno task bench:netcdf > .tmp/reports/archive-bench/netcdf.json 2> .tmp/reports/archive-bench/netcdf-stderr.log
+          BENCH_JSON=1 deno task bench:arfs > .tmp/reports/archive-bench/arfs.json 2> .tmp/reports/archive-bench/arfs-stderr.log
+          BENCH_JSON=1 deno task bench:las > .tmp/reports/archive-bench/las.json 2> .tmp/reports/archive-bench/las-stderr.log
+          BENCH_JSON=1 deno task bench:zip-bzip > .tmp/reports/archive-bench/zip-bzip.json 2> .tmp/reports/archive-bench/zip-bzip-stderr.log
+          BENCH_JSON=1 deno task bench:zip-lzma > .tmp/reports/archive-bench/zip-lzma.json 2> .tmp/reports/archive-bench/zip-lzma-stderr.log
+          BENCH_JSON=1 deno task bench:arweave > .tmp/reports/archive-bench/arweave.json 2> .tmp/reports/archive-bench/arweave-stderr.log
+          BENCH_JSON=1 deno task bench:cryptomator > .tmp/reports/archive-bench/cryptomator.json 2> .tmp/reports/archive-bench/cryptomator-stderr.log
+          BENCH_JSON=1 deno task bench:etcd > .tmp/reports/archive-bench/etcd.json 2> .tmp/reports/archive-bench/etcd-stderr.log
+          BENCH_JSON=1 deno task bench:upload > .tmp/reports/archive-bench/upload.json 2> .tmp/reports/archive-bench/upload-stderr.log
+          BENCH_JSON=1 deno task bench:couchdb > .tmp/reports/archive-bench/couchdb.json 2> .tmp/reports/archive-bench/couchdb-stderr.log
+          BENCH_JSON=1 deno task bench:cmis > .tmp/reports/archive-bench/cmis.json 2> .tmp/reports/archive-bench/cmis-stderr.log
+          BENCH_JSON=1 deno task bench:lha > .tmp/reports/archive-bench/lha.json 2> .tmp/reports/archive-bench/lha-stderr.log
+          BENCH_JSON=1 deno task bench:arj > .tmp/reports/archive-bench/arj.json 2> .tmp/reports/archive-bench/arj-stderr.log
+          BENCH_JSON=1 deno task bench:memcached > .tmp/reports/archive-bench/memcached.json 2> .tmp/reports/archive-bench/memcached-stderr.log
+          BENCH_JSON=1 deno task bench:mcap > .tmp/reports/archive-bench/mcap.json 2> .tmp/reports/archive-bench/mcap-stderr.log
+          BENCH_JSON=1 deno task bench:binhex > .tmp/reports/archive-bench/binhex.json 2> .tmp/reports/archive-bench/binhex-stderr.log
+          BENCH_JSON=1 deno task bench:shapefile > .tmp/reports/archive-bench/shapefile.json 2> .tmp/reports/archive-bench/shapefile-stderr.log
+          BENCH_JSON=1 deno task bench:pubsub > .tmp/reports/archive-bench/pubsub.json 2> .tmp/reports/archive-bench/pubsub-stderr.log
+          BENCH_JSON=1 deno task bench:geotiff > .tmp/reports/archive-bench/geotiff.json 2> .tmp/reports/archive-bench/geotiff-stderr.log
+          BENCH_JSON=1 deno task bench:qcow2 > .tmp/reports/archive-bench/qcow2.json 2> .tmp/reports/archive-bench/qcow2-stderr.log
+          BENCH_JSON=1 deno task bench:redis > .tmp/reports/archive-bench/redis.json 2> .tmp/reports/archive-bench/redis-stderr.log
+          BENCH_JSON=1 deno task bench:jwe > .tmp/reports/archive-bench/jwe.json 2> .tmp/reports/archive-bench/jwe-stderr.log
+          BENCH_JSON=1 deno task bench:nats > .tmp/reports/archive-bench/nats.json 2> .tmp/reports/archive-bench/nats-stderr.log
+          BENCH_JSON=1 deno task bench:parquet > .tmp/reports/archive-bench/parquet.json 2> .tmp/reports/archive-bench/parquet-stderr.log
+          BENCH_JSON=1 deno task bench:age > .tmp/reports/archive-bench/age.json 2> .tmp/reports/archive-bench/age-stderr.log
+          BENCH_JSON=1 deno task bench:orc > .tmp/reports/archive-bench/orc.json 2> .tmp/reports/archive-bench/orc-stderr.log
+          BENCH_JSON=1 deno task bench:amqp > .tmp/reports/archive-bench/amqp.json 2> .tmp/reports/archive-bench/amqp-stderr.log
+          BENCH_JSON=1 deno task bench:glacier > .tmp/reports/archive-bench/glacier.json 2> .tmp/reports/archive-bench/glacier-stderr.log
+          BENCH_JSON=1 deno task bench:hdf5 > .tmp/reports/archive-bench/hdf5.json 2> .tmp/reports/archive-bench/hdf5-stderr.log
+          BENCH_JSON=1 deno task bench:zarr > .tmp/reports/archive-bench/zarr.json 2> .tmp/reports/archive-bench/zarr-stderr.log
+          BENCH_JSON=1 deno task bench:unixfs > .tmp/reports/archive-bench/unixfs.json 2> .tmp/reports/archive-bench/unixfs-stderr.log
+          BENCH_JSON=1 deno task bench:rar > .tmp/reports/archive-bench/rar.json 2> .tmp/reports/archive-bench/rar-stderr.log
+          BENCH_JSON=1 deno task bench:ar > .tmp/reports/archive-bench/ar.json 2> .tmp/reports/archive-bench/ar-stderr.log
+          BENCH_JSON=1 deno task bench:lz4 > .tmp/reports/archive-bench/lz4.json 2> .tmp/reports/archive-bench/lz4-stderr.log
+      - run: deno task bench:upstream:verify
+      - run: |
+          mkdir -p .tmp/reports/upstream-bench
+          BENCH_JSON=1 deno task bench:upstream > .tmp/reports/upstream-bench/mitata.json 2> .tmp/reports/upstream-bench/stderr.log
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: upstream-truncate-benchmark-evidence
+          if-no-files-found: error
+          path: .tmp/reports/upstream-bench
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: archive-benchmark-evidence
+          if-no-files-found: error
+          path: .tmp/reports/archive-bench
 
   provider-bench:
     name: Provider baseline benchmark smoke
@@ -179,9 +562,9 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
         with:
-          version: '2026.8.6'
+          version: "2026.8.6"
           install_args: deno node bun
-      - run: mise run bench-providers
+      - run: deno task deps:ci && deno task bench:providers
 
   browser-bench:
     name: Browser OPFS benchmark smoke
@@ -193,6 +576,34 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
         with:
-          version: '2026.8.6'
+          version: "2026.8.6"
           install_args: deno
-      - run: mise run bench-browser
+      - name: Use Ubuntu's primary archive for browser dependencies
+        run: |
+          for source in /etc/apt/sources.list.d/ubuntu.sources /etc/apt/apt-mirrors.txt; do
+            if [ -f "$source" ]; then
+              sudo sed -i 's|http://azure\.archive\.ubuntu\.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' "$source"
+            fi
+          done
+      - run: deno task deps:ci && deno task test:browser:install && deno task bench:browser
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: browser-benchmark-evidence
+          if-no-files-found: error
+          path: .tmp/reports/browser-bench
+          include-hidden-files: true
+
+  ecosystems:
+    name: Installed ecosystem contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+        with:
+          version: "2026.8.6"
+          install_args: deno node npm:npm
+      - run: deno task deps:ci && deno task test:ecosystems

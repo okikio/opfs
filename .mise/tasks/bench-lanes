@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#MISE description="Compare exact-byte memory and native filesystem layers with each metrics mode."
+set -euo pipefail
+
+deno task deps:ci
+deno task bench:lanes "$@"

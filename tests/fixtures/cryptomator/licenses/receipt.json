@@ -1,0 +1,20 @@
+[
+  {
+    "path": "gson-LICENSE",
+    "url": "https://raw.githubusercontent.com/google/gson/3ff35d6269894901ab8006258395aafc4b9765cd/LICENSE",
+    "bytes": 11358,
+    "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+  },
+  {
+    "path": "bc-LICENSE.html.txt",
+    "url": "https://raw.githubusercontent.com/bcgit/bc-java/5ce0d4d4536bcb622c1077a6b9157b02ad8adcc5/LICENSE.html",
+    "bytes": 1175,
+    "sha256": "edbbb10380b1271998b867a2e36b1cbee226e03d438726e1a91f80c5dde11849"
+  },
+  {
+    "path": "siv-mode-LICENSE",
+    "url": "https://raw.githubusercontent.com/cryptomator/siv-mode/6cfd03229cccd9ff119bc2cf4bf90f8b280494c0/LICENSE",
+    "bytes": 1073,
+    "sha256": "191fa097ee56fedc21a399f57607f2a7b6eafae71fb6ae575d1748580ad257ad"
+  }
+]

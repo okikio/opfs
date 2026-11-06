@@ -1,0 +1,172 @@
+# Inspect Kafka/JDK artifacts as data before compilation
+
+This handoff gives the maintainer a bounded way to inspect the five
+proposed test classpath JARs and their embedded version/legal text. It does not
+approve them for execution. Root has now run ten unit tests and the bounded
+offline JAR data inspection successfully. No compiler or acquired Java code has
+run. The current findings, attribution gap and next execution gates are in
+`kafka-artifact-verdict.md`. The original acquisition remains `complete:false`; the
+separate legal-alias supplement resolves references only.
+
+The actual fifth acquisition retained these final regular artifacts, with exact
+paths, sizes and hashes in the original inventory. `jars.py` pins all five hashes.
+The version labels below now agree with the actual embedded manifests/properties
+as detailed in that verdict; source-to-binary equivalence remains unproven.
+
+| Image path under opt/kafka/libs | Bytes | SHA-256 |
+| --- | ---: | --- |
+| kafka-clients-4.4.0.jar | 10925782 | 9e4514622675f9b24c83373d0d5b35dd7a4dba34bad69762fe90a9e54cfb71de |
+| lz4-java-1.11.2.jar | 897831 | 8a7458657938e9b692224db83aac458c13abd7a59ab75c3d3b08bd2233a646a2 |
+| slf4j-api-1.7.36.jar | 41125 | d3ef575e3e4979678dc01bf1dcce51021493b4d11fb7f1be8ad982877c16a1c0 |
+| snappy-java-1.1.10.7.jar | 2338496 | 4c766cb3f855415ee734b2392949a0b6f12a60879334a74518deaf6270d32e36 |
+| zstd-jni-1.5.7-17.jar | 6323239 | c9043e2da8a16c13b6cd7661a5cb56685a573c3546ef4bd0ead67b0b67c2e107 |
+
+## Actual retained image text and source relationships
+
+Read-only inspection of the retained regular text established these facts:
+
+- Kafka `opt/kafka/LICENSE` (`kafka-6-2409.data`, SHA
+  `aaa8c150285f6e9921b2115858cd9631b52c31a18f4376750b80c6f80d605da7`)
+  starts with Apache License2.0 and then inventories distribution components.
+  Its list places lz4-java1.11.2 and snappy-java1.1.10.7 in the Apache section,
+  slf4j-api1.7.36 in its MIT section, and zstd-jni1.5.7-17 in its BSD2-clause
+  section. The separate retained SLF4J and Zstd license files contain those
+  respective notices. These are distribution statements, to compare against
+  the embedded JAR texts rather than replace them.
+- Kafka `NOTICE` (`kafka-6-2410.data`, SHA
+  `685a40de2dc7aab6c5a67d16b1363a7dbe7301b40e7ad604e1495b0fde5a8b93`)
+  identifies Apache Kafka/ASF2026 and also describes broad distribution
+  dependencies such as Jersey/CDDL. That does not establish that Jersey belongs
+  to this five-JAR client classpath. No additional library is admitted from a
+  distribution notice alone.
+- The Kafka JRE and compiler JDK retain identical base LICENSE, additional
+  licensing clarification and assembly-exception bytes. The base LICENSE hash
+  is `4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726`;
+  the clarification hash is
+  `a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916`;
+  the assembly-exception hash is
+  `75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33`.
+  These texts describe GPL2 and the Classpath/assembly exceptions. This records
+  their identity; it does not provide a new legal interpretation or approve
+  redistribution of modified/copied JDK source.
+- The actual Kafka image release text identifies Eclipse Adoptium Temurin
+  JRE25.0.4.1+1, musl/aarch64, source repository
+  `https://github.com/adoptium/jdk25u.git`, source revision `520406d87195`, and
+  temurin-build revision `e6ba7dec3d07654074559310376a3ae89da5f4ac`.
+  Its release-file hash is
+  `68501bd21039d015b44daedf18854126d7237042603957e933ec40aab6061aab`.
+  The actual compiler release identifies Temurin JDK25.0.5+8, glibc/aarch64,
+  the same source repository, source revision `7ec19fb1eda7` and build revision
+  `1cf43d7a3e77886bfea7d550a902e151a87d724d`. Its release-file hash is
+  `08286c7d3e96769e411e4b56233478ce86f01f0e96803fb6af8f307e2b2527cb`.
+  Those are retained artifact statements; this step has not fetched or rebuilt
+  the named source revisions. Matching Java major versions supports the planned
+  `--release 17` compiler/runtime split, with native compatibility still unproven.
+
+The root's legal-alias supplement is separately pinned as SHA
+`df10c6a7bbd7ec88da09dc7d40baf95364ebc998cc193a7390f15716d7b7b1a6`.
+Neither it nor the image notices proves final-release source-to-binary equality.
+The prior RC4-promotion/provenance limitation still needs a decision.
+
+## Bounded ZIP data inspection
+
+The independent parser in `kafka-admission/jars.py` reads fixed ZIP headers rather
+than constructing `ZipFile`, which could allocate central-directory metadata
+before admission. Its classic single-disk profile follows
+[PKWARE APPNOTE6.3.10](https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT).
+It validates EOCD extent, then checks central/local header lengths and fields,
+data descriptors, paths, duplicate names, physical overlap and unindexed gaps. Metadata lengths
+are admitted before variable slices. ZIP64, encryption, alternate Unicode-path
+metadata, special members, unsupported flags/methods and unparsed central bytes
+refuse. Other bounded extra fields remain inert hashes; they never change layout.
+
+Each JAR is capped32MiB; central metadata2MiB/JAR; metadata8MiB across five JARs;
+members20000/JAR and100000 total. Summed declared uncompressed sizes are capped
+256MiB, without decompressing class/native members. Selected text is capped512KiB
+per member and8MiB total, with a16MiB report. Selection covers manifests,
+licenses/notices/dependencies, Maven POM/properties, service descriptors, signature
+manifest text (.SF) and version.properties. Maven XML remains raw text; it is not parsed, resolved or
+executed. Nothing invokes Java service discovery or loads a codec/native library.
+
+Only selected text members are decompressed. Stored and raw DEFLATE are the only
+methods admitted. [Python3.13 zlib](https://docs.python.org/3.13/library/zlib.html)
+provides bounded `decompress(..., max_length)`; the script loops over at most64KiB
+outputs, checks unconsumed/trailing bytes, EOF, exact extent and CRC32. It never
+uses unbounded decompress/flush. CRC32 detects corruption; the immutable whole
+JAR SHA-256 anchors input identity. No signature-verification claim is made.
+
+Selected bytes are saved as flat generated `.text` filenames with their original
+member name, extent, SHA and CRC evidence in `report.json`. A failure keeps a
+scoped incomplete report and static failure code; it never admits execution.
+The parser's10 source fixture methods cover stored/DEFLATE/descriptor originals,
+expansion bombs, CRC corruption, encryption/method/ZIP64/multidisk/metadata caps,
+paths/local mismatch, extras, selected/aggregate caps and truncation. They are
+hand-authored fixtures and passed in root's isolated unit-second stage.
+
+## Reviewed launcher and retained execution evidence
+
+The new `kafka-artifact-launch.py` beside this note owns these stages and leaves the qualified
+acquisition and legal launchers unchanged. It imports their exact hash-frozen
+command, identity and regular-file copy functions. First copy frozen `jars.py` and
+`jars_test.py` with their real names into a stopped admitted Python container;
+run `python3 -I -B /work/jars_test.py -v`. After a clean matching receipt, copy
+`jars.py`, hash-frozen `legal.py`, the original fifth inventory, every retained
+`.data` payload and the exact legal supplement into another stopped container.
+Freeze all source/input hashes before start; preserve copied readonly ownership.
+Use network=none, memory=swap1GiB, CPU1/PID128, cap-dropALL/no-new-privileges,
+no mounts, no ports, no host credentials and a hard external60s watchdog each.
+
+The container data command is `python3 -I -B /work/jars.py --retained /work/retained
+--supplement /work/legal-supplement.json --output /tmp/artifact-review`.
+It verifies original inventory, every export, exact legal supplement and all five
+final-path JAR identities before inspecting members. No network or compilation
+is part of either stage. Preserve created/prestop/stopped/terminal state, logs,
+exit/noOOM/resources and exact owned cleanup through the existing watchdog owner.
+
+Copy outputs only from the stopped container. Admit a bounded flat archive with
+at most100001 members, no extension headers/links/ancestors, exact generated
+text/report basenames, selected-text sum8MiB, report16MiB, archive32MiB and a
+separate finite copy timeout. Keep failed reports and original input identities.
+The input snapshot is under49MiB; outputs under24MiB; an optional bounded output
+archive adds at most32MiB. Count these copies against the existing128MiB research
+reserve and1500MiB disk envelope, and check fresh disk before GO. No filesystem
+quota or sufficiency claim is made. Do not keep parallel duplicate snapshots
+once their exact provenance and root-authorized removal have been reviewed.
+
+After reviewing and freezing the launcher itself, the root agent can run these
+two host commands serially from the repository. The data command refuses a unit
+receipt unless its source and owner hashes match, its started stage exited zero
+without OOM or primary/cleanup faults, and exact owned retirement was confirmed.
+Root ran unit-second and data-first successfully; exact receipt/report hashes
+and the remaining no-execution boundary are in `kafka-artifact-verdict.md`.
+
+```sh
+python3 .tmp/implementation/kafka-artifact-launch.py unit first
+python3 .tmp/implementation/kafka-artifact-launch.py data first .tmp/implementation/opfs-kafka-artifact-unit-first/terminal.json
+```
+
+Each attempt retains its source/input identities and bounded console log. A
+hard watchdog stops the Docker CLI at60s; the outer owner then inspects and kills
+only its exact labelled container if still running. It retains stopped state
+before output copying and removal, confirms removal, and writes a terminal
+receipt even after failure. Malformed create output is recovered using the exact
+attempt name and label. The log sink stays open through the borrowed command's
+failure cleanup so a secondary closed-stream error cannot hide the first fault.
+The output parser checks physical tar headers before payload allocation and
+rejects extension headers, links, duplicate/path tricks, unattributed text,
+hash/size mismatches and nonzero appended data. It never extracts arbitrary tar
+paths. An incomplete data report remains incomplete and makes the stage fail.
+
+Parent must inspect the actual report, selected text, embedded versions/source
+coordinates, any signature/service declarations and all retained image legal
+references before choosing the precise test-only classpath. Codec JARs bundle
+native binaries; they remain inert during this step. Runtime production SDK
+approval is a separate decision. No compiler or broker GO follows automatically.
+
+Source freeze: `jars.py`14544B SHA
+`c3343d0f915eb11dcdbe5058a7876ff49a9395c4a91fc1b32aa2d1f941cce4bb`;
+`jars_test.py`5251B SHA
+`5b488544cdc249847d6fcb763a5d4a5af59af2ddb01f8ac9754f141ec370eb64`.
+First-reader review keeps image distribution notices, the five-JAR client closure,
+logical legal references and executable admission as distinct evidence. Embedded
+JAR facts now have bounded offline data evidence; Java execution remains pending.

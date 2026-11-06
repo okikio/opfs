@@ -1,0 +1,148 @@
+{
+  "profile": "Native CouchDB attachment client, no canonical record/filesystem layout",
+  "nativeExecution": {
+    "status": "passed",
+    "log": ".tmp/couchdb-provider-native-second.log",
+    "exitCode": 0,
+    "durationMs": 5981.54275,
+    "serverVersion": "3.5.3",
+    "oracle": "Nano11.0.8 isolated Node22.22.0",
+    "fullByteProof": [
+      "official SDK seed → candidate full/range reads",
+      "candidate replacement → official SDK full read",
+      "zero-byte candidate creation → official SDK read"
+    ],
+    "nativeEvidence": [
+      "invalid credentials401",
+      "stale sibling whole-document revision409",
+      "existing-document createDocument409",
+      "attachment DELETE retains document and sibling"
+    ],
+    "firstFailures": [
+      {
+        "log": ".tmp/couchdb-provider-first.log",
+        "cause": "Node strip-only parameter-property syntax; corrected explicit readonly field before native bootstrap"
+      },
+      {
+        "log": ".tmp/couchdb-provider-native-first.log",
+        "cause": "Official SDK appends attachment name unencoded; fixture now calls encodeURIComponent on Nano attachment argument as required by native URL-encoded-name contract"
+      }
+    ],
+    "adaptations": [
+      "Pinned Nano lib/nano.js335-336 appends attName literally; SDK-only encodeURIComponent attachment argument. Candidate receives literal ID/name, no production URL/response rewriting."
+    ],
+    "cleanup": "Native server/oracle/private network awaited teardown; no provider containers remain"
+  },
+  "license": "Apache-2.0 server and Nano test-only SDK",
+  "sources": {
+    "couchdbCommit": "7a1f97558cea50d7e79604c3f0707d4adfad3708",
+    "dockerCommit": "a61e7b8f4bbe5f0aa4bf1e2a53514989792b463c",
+    "nanoCommit": "d0471d8d821432100b5ec51e4b8f00029e0b6110",
+    "inspectedBytesSha256": {
+      "couchdb-attachments.rst": "59e95e0d42d6740d3f18ba3727bb1b1e2c954e4c0047098fe46a264c337a0d49",
+      "couchdb-document.rst": "a0973f052e558483361691a8fc23ea9718faa7146bb419384fe42d0871c3a66c",
+      "couchdb-single-node.rst": "6a6c3e2bc21a32063dbc5cbf9d5fe4cf8ec0ce54c5bcee18bbff5f13567a909b",
+      "couchdb-auth.rst": "32558b224d05bd275c97fc823f15d93a7b8958cc4627137cae966cd66419cd06",
+      "couchdb-docker-entrypoint.sh": "d3042b6e100bfe2b9f124f654afc6bdbcad9e9e870511c60e9010da759b60962",
+      "couchdb-nano.js": "c9821925276f91e16bd77bea2d3b991b92c272026a72108714de5ba5a50d233e",
+      "couchdb-nano-readme.md": "5ce19158c1bd3f5aa4bc446958860b4e5f3f1e3deb9b5feba0f53bda176c6209"
+    }
+  },
+  "server": {
+    "image": "couchdb:3.5.3@sha256:907eab5b7e55ab7cfd241d39b90b2a335ea40bef82acee5a37388c08bf201dda",
+    "memoryGiB": 1,
+    "cpu": 1
+  },
+  "oracle": {
+    "image": "node:22.22.0-bookworm-slim@sha256:dd9d21971ec4395903fa6143c2b9267d048ae01ca6d3ea96f16cb30df6187d94",
+    "sdk": "nano@11.0.8",
+    "sdkIntegrity": "sha512-sOm7K74erwg4Vti32zdvz6YCg2aW9bfuL7BMQhPInARp2QEQroo+DXpC5dBLHKuBMjbfHPcyinX2fk/6RMBShg==",
+    "sdkDependencies": {},
+    "memoryGiB": 0.5,
+    "cpu": 0.5,
+    "install": "npm ci --ignore-scripts --no-audit --no-fund --fetch-retries=0 --fetch-timeout=60000"
+  },
+  "limits": [
+    "No production SDK dependency",
+    "No record/filesystem adapter",
+    "No physical-erasure, revision-retention, replication or cross-cluster durability qualification",
+    "Authored protocol tests do not independently qualify a service"
+  ],
+  "nativeEncodingObservation": {
+    "metadata": {
+      "id": "encoding",
+      "revision": "1-18f77345f56bf8f473025387404f92bd",
+      "attachments": [
+        {
+          "name": "text.txt",
+          "mediaType": "text/plain",
+          "length": 7936,
+          "digest": "md5-TbOBcsnu0hZNtJw+ok9Ldw==",
+          "revisionPosition": 1,
+          "encoding": "gzip",
+          "encodedLength": 85
+        }
+      ]
+    },
+    "stat": {
+      "size": 7936,
+      "etag": "\"TbOBcsnu0hZNtJw+ok9Ldw==\"",
+      "mediaType": "text/plain",
+      "acceptsRanges": false
+    },
+    "read": {
+      "status": "full-byte-match",
+      "bytes": 7936
+    }
+  },
+  "capture": {
+    "log": ".tmp/couchdb-capture.log",
+    "exitCode": 0,
+    "fixture": "tests/fixtures/couchdb/independent.json",
+    "representation": "base64 preserves exact native body bytes; outer formatted JSON is not the native body",
+    "metadataSha256": "1f391afc1126b0c438c4c4996ffe93440fa462a3a5f825c6d0c2a3ae7d41f628",
+    "sdkOriginalSha256": "a09e9c5394946ab8fc1b54a0c55618a96f2057e98e89cfdc36bb4d26ed0a1708"
+  },
+  "benchmark": {
+    "execution": "PASS exit0 noOOM",
+    "runtime": "Node26.13.0 arm64-linux",
+    "memoryGiB": 1,
+    "cpu": 1,
+    "network": "none",
+    "hostMounts": [],
+    "question": "Fixed in-memory request/control/byte-owner costs; raw Fetch/JSON/arrayBuffer lanes are lower bounds without equivalent validation, not deployed service speed",
+    "metadataBytes": 214,
+    "contentBytes": 6,
+    "rawBytes": 24412756,
+    "rawSha256": "89921d2c652a5783ee58432033113aad610797dcd22e34356b00b00bef22c735",
+    "gzipBytes": 85520,
+    "gzipSha256": "588b9bfa1029cfc739cfb83ae0453132ada995b95e998d8e62f45026be09ea75",
+    "rawPreservation": "Verified exact decompression before removing owned uncompressed JSON",
+    "observationsNs": [
+      {
+        "case": "couchdb raw Fetch+JSON metadata=214B lower-bound validation=none transport=in-memory cached-URL",
+        "avg": 12478.929399280052,
+        "p50": 8458,
+        "p99": 39083
+      },
+      {
+        "case": "couchdb client document metadata=214B validation=lossless-ID-stubs-frozen transport=in-memory warm-client",
+        "avg": 40473.15520550665,
+        "p50": 29583,
+        "p99": 106500
+      },
+      {
+        "case": "couchdb raw Fetch+arrayBuffer original=6B lower-bound extent-validation=none transport=in-memory cached-URL",
+        "avg": 8989.11065204327,
+        "p50": 8076.690673828125,
+        "p99": 12065.561767578125
+      },
+      {
+        "case": "couchdb client read original=6B validation=owned-complete+extent transport=in-memory warm-client",
+        "avg": 68318.25107685332,
+        "p50": 37292,
+        "p99": 312834
+      }
+    ]
+  }
+}

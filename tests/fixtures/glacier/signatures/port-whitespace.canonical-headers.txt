@@ -1,0 +1,5 @@
+host:glacier.fixture.invalid:8443
+x-amz-content-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+x-amz-date:20150830T123600Z
+x-amz-glacier-version:2012-06-01
+x-amz-meta-fixture:first second

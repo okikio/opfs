@@ -1,0 +1,105 @@
+{
+  "stage": "cli",
+  "python": "3.13.18 (main, Nov  5 2026, 08:07:50) [GCC 12.2.0]",
+  "architecture": "aarch64",
+  "scope": "Inert acquisition only",
+  "result": {
+    "url": "https://github.com/FiloSottile/age/releases/download/v1.3.2/age-v1.3.2-linux-arm64.tar.gz",
+    "bytes": 17771923,
+    "sha256": "6b8dc4333c53a5a57c9e5834e3a48f92605d7154014cd07269ff3327db5d37f4",
+    "expandedTarBytes": 30668800,
+    "members": [
+      {
+        "path": "age",
+        "identity": "age",
+        "bytes": 0,
+        "mode": 493,
+        "kind": "directory"
+      },
+      {
+        "path": "age/age-keygen",
+        "identity": "age/age-keygen",
+        "bytes": 3854433,
+        "mode": 493,
+        "kind": "file",
+        "sha256": "00b549cebf68302893fc489830f37e706712689ca877f84d85439d700d2997c7",
+        "elf": {
+          "class": 64,
+          "byteOrder": "little",
+          "machine": "AArch64",
+          "machineId": 183,
+          "originalExecutableMode": 493
+        }
+      },
+      {
+        "path": "age/age-plugin-tag",
+        "identity": "age/age-plugin-tag",
+        "bytes": 3964437,
+        "mode": 493,
+        "kind": "file",
+        "sha256": "064cb187f26294c1c54bda041282d91c8d5c62809c7ac52ac5b0b10b543079c4"
+      },
+      {
+        "path": "age/age-plugin-batchpass",
+        "identity": "age/age-plugin-batchpass",
+        "bytes": 3962700,
+        "mode": 493,
+        "kind": "file",
+        "sha256": "7ee41f30cc91f8f0d068195cc5e04ad7e6f66c7dc6d73f636cad43f7120b77ee"
+      },
+      {
+        "path": "age/age-plugin-pq",
+        "identity": "age/age-plugin-pq",
+        "bytes": 4067535,
+        "mode": 493,
+        "kind": "file",
+        "sha256": "a5a934c164a40a1a5f06976e53acbce63967717c9c9aee26072e26140a027fed"
+      },
+      {
+        "path": "age/age-plugin-tagpq",
+        "identity": "age/age-plugin-tagpq",
+        "bytes": 4032579,
+        "mode": 493,
+        "kind": "file",
+        "sha256": "7c8638e9108ec31e2aad0e9e75ed0c9f9c522f72680e7fbf90d2ed564089bf35"
+      },
+      {
+        "path": "age/age",
+        "identity": "age/age",
+        "bytes": 6540637,
+        "mode": 493,
+        "kind": "file",
+        "sha256": "41b072352f4561018949623c674d16ef704019b9108a9bbdbd21292efebfc94f",
+        "elf": {
+          "class": 64,
+          "byteOrder": "little",
+          "machine": "AArch64",
+          "machineId": 183,
+          "originalExecutableMode": 493
+        }
+      },
+      {
+        "path": "age/LICENSE",
+        "identity": "age/LICENSE",
+        "bytes": 2975,
+        "mode": 420,
+        "kind": "file",
+        "sha256": "afbdb4e07a359499db587ae632815809b1fc1670a92d5449af112ce9a67833a2"
+      },
+      {
+        "path": "age/age-inspect",
+        "identity": "age/age-inspect",
+        "bytes": 4227161,
+        "mode": 493,
+        "kind": "file",
+        "sha256": "ffcc7d4d3928b28869693af50af04d2c8cc5166769dfb4a243f0a4e8a71818a8"
+      }
+    ],
+    "selected": [
+      "age/age-keygen",
+      "age/age",
+      "age/LICENSE"
+    ],
+    "scope": "Inert only; no archived executable run. License is separately pinned in source stage."
+  }
+}

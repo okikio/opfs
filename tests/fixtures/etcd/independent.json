@@ -1,0 +1,24 @@
+{
+  "version": "3.7.3",
+  "key": "capture/%?#雪",
+  "range": {
+    "bytes": 247,
+    "base64": "eyJoZWFkZXIiOnsiY2x1c3Rlcl9pZCI6IjIwMzcyMTA3ODMzNzQ0OTc2ODYiLCAibWVtYmVyX2lkIjoiMTMxOTUzOTQyOTEwNTgzNzExODAiLCAicmV2aXNpb24iOiIyIiwgInJhZnRfdGVybSI6IjIifSwgImt2cyI6W3sia2V5IjoiWTJGd2RIVnlaUzhsUHlQcG02bz0iLCAiY3JlYXRlX3JldmlzaW9uIjoiMiIsICJtb2RfcmV2aXNpb24iOiIyIiwgInZlcnNpb24iOiIxIiwgInZhbHVlIjoiQVA4UktvQUoifV0sICJjb3VudCI6IjEifQ==",
+    "sha256": "ff002f79e28a8499caf55103be6b4b14bbbf11bb118c2616b78852d9b895510c",
+    "status": 200,
+    "headers": {
+      "access-control-allow-headers": "accept, content-type, authorization",
+      "access-control-allow-methods": "POST, GET, OPTIONS, PUT, DELETE",
+      "access-control-allow-origin": "*",
+      "content-length": "247",
+      "content-type": "application/json",
+      "date": "Thu, 05 Nov 2026 18:34:48 GMT",
+      "grpc-metadata-content-type": "application/grpc"
+    }
+  },
+  "oracle": {
+    "bytes": 6,
+    "base64": "AP8RKoAJ",
+    "sha256": "a09e9c5394946ab8fc1b54a0c55618a96f2057e98e89cfdc36bb4d26ed0a1708"
+  }
+}

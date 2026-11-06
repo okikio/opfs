@@ -2,9 +2,4 @@
 #MISE description="Run the portable suite and each available first-party server runtime."
 set -euo pipefail
 
-deno ci
-deno task test:portable
-deno task test:deno
-deno task test:deno-kv
-deno task test:node
-deno task test:bun
+deno task test:all "$@"

@@ -1,0 +1,218 @@
+{
+  "evidenceProfile": "authored degenerate shard topology and bitmap padding; native Kubo full/range reads and hash-exhaustion refusal; not genuine importer output",
+  "version": "Kubo version: 0.43.1-acc53c093\nRepo version: 18\nSystem version: arm64/linux\nGolang version: go1.26.5\n",
+  "hashReferenceSha256": "1d8c223e6634ea6d30ca447d604d5c3dfcdbe03f4b5110b37266bdbd31a0fd25",
+  "variants": [
+    {
+      "name": "depth-eight-trimmed",
+      "levels": 8,
+      "padded": false,
+      "rootCid": "bafybeid6q2yes5mqufnj3htdwepzngvbocmos4xvnyoqfnna3x3dorecge",
+      "lookupName": "file-000.txt",
+      "route": "539537b0d9fd3a6d",
+      "original": "QXV0aG9yZWQgSEFNVCBkZXB0aCBib3VuZGFyeSBvcmlnaW5hbCBieXRlcy4K",
+      "car": "OqJlcm9vdHOB2CpYJQABcBIgfoawSXWQoVqdnmOxH5aaoXCY6XL1bh0CtaDd9jdEgjFndmVyc2lvbgFqAXASIH6GsEl1kKFanZ5jsR+WmqFwmOly9W4dArWg3fY3RIIxEi4KJAFwEiAQsW8C3iXD2g9Q8WdkBrUbxpsewxEUjyHBneScrviJ1RICNTMYv4Q9ChQIBRILCAAAAAAAAAAAAAAoIjCAAnIBcBIgELFvAt4lw9oPUPFnZAa1G8abHsMRFI8hwZ3knK74idUSLgokAXASIIXHE8P/r+VquG6nNkgfUe3f9s0fXoYYztMn39+83hmKEgI5NRi/hD0KHAgFEhMgAAAAAAAAAAAAAAAAAAAAAAAAKCIwgAJmAXASIIXHE8P/r+VquG6nNkgfUe3f9s0fXoYYztMn39+83hmKEi4KJAFwEiDSEwJJZCscvPBP0X/HkYp3VhIqeSVHR7kmeKRNztsf9xICMzcYv4Q9ChAIBRIHgAAAAAAAACgiMIACdgFwEiDSEwJJZCscvPBP0X/HkYp3VhIqeSVHR7kmeKRNztsf9xIuCiQBcBIgFVXXj8HAM9lSG2kvdv2crMfWW/5VHHs70nwGHwXn64QSAkIwGL+EPQogCAUSFwEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKCIwgAJ7AXASIBVV14/BwDPZUhtpL3b9nKzH1lv+VRx7O9J8Bh8F5+uEEi4KJAFwEiATvUxqkD1ETSafAw3AZCJER5RzH4+waigyflZ99hkjrxICRDkYv4Q9CiUIBRIcAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACgiMIACfwFwEiATvUxqkD1ETSafAw3AZCJER5RzH4+waigyflZ99hkjrxIuCiQBcBIgsqgp4QYfPZLFy2cpQPO4tCwTCdqzJzdFrE8xHkZvXfgSAkZEGL+EPQopCAUSICAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKCIwgAJnAXASILKoKeEGHz2SxctnKUDzuLQsEwnasyc3RaxPMR5Gb134Ei4KJAFwEiA5jbALUUsskEqFztECJxEaPZSxQrlayU0Zk7iwGqjmkxICM0EYv4Q9ChEIBRIIBAAAAAAAAAAoIjCAAnkBcBIgOY2wC1FLLJBKhc7RAicRGj2UsUK5WslNGZO4sBqo5pMSOgokAVUSIOWp894SrDQlkkwvsUrdZ0hQhCUCKl5DqrBdZgHHn4vfEg42RGZpbGUtMDAwLnR4dBi/hD0KFwgFEg4gAAAAAAAAAAAAAAAAACgiMIACUQFVEiDlqfPeEqw0JZJML7FK3WdIUIQlAipeQ6qwXWYBx5+L30F1dGhvcmVkIEhBTVQgZGVwdGggYm91bmRhcnkgb3JpZ2luYWwgYnl0ZXMuCg==",
+      "nativeExitCode": 0,
+      "nativeStdout": "QXV0aG9yZWQgSEFNVCBkZXB0aCBib3VuZGFyeSBvcmlnaW5hbCBieXRlcy4K",
+      "nativeStderr": "",
+      "blocks": [
+        {
+          "cid": "bafkreihfvhz54evmgqszetbpwffn2z2ikccckarklzb2vmc5mya4ph4l34",
+          "base64": "QXV0aG9yZWQgSEFNVCBkZXB0aCBib3VuZGFyeSBvcmlnaW5hbCBieXRlcy4K"
+        },
+        {
+          "cid": "bafybeibzrwyawuklfsievboo2ebcoei2hwklcqvzlleu2gmtxcybvkhgsm",
+          "base64": "EjoKJAFVEiDlqfPeEqw0JZJML7FK3WdIUIQlAipeQ6qwXWYBx5+L3xIONkRmaWxlLTAwMC50eHQYv4Q9ChcIBRIOIAAAAAAAAAAAAAAAAAAoIjCAAg=="
+        },
+        {
+          "cid": "bafybeifsvau6cbq7hwjmls3hffaphofufqjqtwvte43ullcpgepem3257a",
+          "base64": "Ei4KJAFwEiA5jbALUUsskEqFztECJxEaPZSxQrlayU0Zk7iwGqjmkxICM0EYv4Q9ChEIBRIIBAAAAAAAAAAoIjCAAg=="
+        },
+        {
+          "cid": "bafybeiatxvggveb5irgsnhydbxagiisei6khgh4pwbvcqmt6kz67mgjdv4",
+          "base64": "Ei4KJAFwEiCyqCnhBh89ksXLZylA87i0LBMJ2rMnN0WsTzEeRm9d+BICRkQYv4Q9CikIBRIgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAoIjCAAg=="
+        },
+        {
+          "cid": "bafybeiavkxly7qoagpmveg3jf53p3hfmy7lfx7svdr5txut4aypqlz7lqq",
+          "base64": "Ei4KJAFwEiATvUxqkD1ETSafAw3AZCJER5RzH4+waigyflZ99hkjrxICRDkYv4Q9CiUIBRIcAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACgiMIAC"
+        },
+        {
+          "cid": "bafybeigscmbeszblds6pat6rp7dzdctxkyjcu6jfi5d3sjtyurg45wy764",
+          "base64": "Ei4KJAFwEiAVVdePwcAz2VIbaS92/Zysx9Zb/lUcezvSfAYfBefrhBICQjAYv4Q9CiAIBRIXAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAoIjCAAg=="
+        },
+        {
+          "cid": "bafybeiefy4j4h75p4vvlq3vhgzeb6upn373m2h26qymm5uzh37p3zxqzri",
+          "base64": "Ei4KJAFwEiDSEwJJZCscvPBP0X/HkYp3VhIqeSVHR7kmeKRNztsf9xICMzcYv4Q9ChAIBRIHgAAAAAAAACgiMIAC"
+        },
+        {
+          "cid": "bafybeiaqwfxqfxrfypna6uhrm5sanni3y2nr5qyrcshsdqm54sok56ej2u",
+          "base64": "Ei4KJAFwEiCFxxPD/6/larhupzZIH1Ht3/bNH16GGM7TJ9/fvN4ZihICOTUYv4Q9ChwIBRITIAAAAAAAAAAAAAAAAAAAAAAAACgiMIAC"
+        },
+        {
+          "cid": "bafybeid6q2yes5mqufnj3htdwepzngvbocmos4xvnyoqfnna3x3dorecge",
+          "base64": "Ei4KJAFwEiAQsW8C3iXD2g9Q8WdkBrUbxpsewxEUjyHBneScrviJ1RICNTMYv4Q9ChQIBRILCAAAAAAAAAAAAAAoIjCAAg=="
+        }
+      ]
+    },
+    {
+      "name": "depth-eight-padded",
+      "levels": 8,
+      "padded": true,
+      "rootCid": "bafybeiekx2cpjoijgv33algh6fszcf6aiahwrumflfsn7iyiewbnbdnr2i",
+      "lookupName": "file-000.txt",
+      "route": "539537b0d9fd3a6d",
+      "original": "QXV0aG9yZWQgSEFNVCBkZXB0aCBib3VuZGFyeSBvcmlnaW5hbCBieXRlcy4K",
+      "car": "OqJlcm9vdHOB2CpYJQABcBIgir6E9LkJNXewLMfxZZEXwEAPaNGFWWTfowglgtCNsdJndmVyc2lvbgF/AXASIIq+hPS5CTV3sCzH8WWRF8BAD2jRhVlk36MIJYLQjbHSEi4KJAFwEiDzRgFsOocgU7cLnmqwjJijpljbzZ0nKAflH64AXGpsCBICNTMYv4Q9CikIBRIgAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAoIjCAAn8BcBIg80YBbDqHIFO3C55qsIyYo6ZY282dJygH5R+uAFxqbAgSLgokAXASIBSx5etvKswjWGKovQBuvhTJ9yyteVjW89LrRsNd137oEgI5NRi/hD0KKQgFEiAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAACgiMIACfwFwEiAUseXrbyrMI1hiqL0Abr4UyfcsrXlY1vPS60bDXdd+6BIuCiQBcBIgeA9liYNn/SMd/53FV5aX/qNdV213Crw/qhqIdDE6zzoSAjM3GL+EPQopCAUSIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAKCIwgAJ/AXASIHgPZYmDZ/0jHf+dxVeWl/6jXVdtdwq8P6oaiHQxOs86Ei4KJAFwEiDo5J1FUAvdcKKCglyvyvl2UV542MUnReNSyI0PnxkhuxICQjAYv4Q9CikIBRIgAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAoIjCAAn8BcBIg6OSdRVAL3XCigoJcr8r5dlFeeNjFJ0XjUsiND58ZIbsSLgokAXASIPiIsjUlmDa2CveDDvfSNjL6KcUiDqLuDBNKXlxd141jEgJEORi/hD0KKQgFEiAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACgiMIACfwFwEiD4iLI1JZg2tgr3gw730jYy+inFIg6i7gwTSl5cXdeNYxIuCiQBcBIg8nSGq0AkSBBUJ0yl2V+AiW9ueiQQ9xzSRwICrampCKISAkZEGL+EPQopCAUSICAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKCIwgAJ/AXASIPJ0hqtAJEgQVCdMpdlfgIlvbnokEPcc0kcCAq2pqQiiEi4KJAFwEiA2mjICZXG5CvIHJiJACmG9b8iTbwnAE0JgaYGWDSabQhICM0EYv4Q9CikIBRIgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAoIjCAAosBAXASIDaaMgJlcbkK8gcmIkAKYb1vyJNvCcATQmBpgZYNJptCEjoKJAFVEiDlqfPeEqw0JZJML7FK3WdIUIQlAipeQ6qwXWYBx5+L3xIONkRmaWxlLTAwMC50eHQYv4Q9CikIBRIgAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAoIjCAAlEBVRIg5anz3hKsNCWSTC+xSt1nSFCEJQIqXkOqsF1mAcefi99BdXRob3JlZCBIQU1UIGRlcHRoIGJvdW5kYXJ5IG9yaWdpbmFsIGJ5dGVzLgo=",
+      "nativeExitCode": 0,
+      "nativeStdout": "QXV0aG9yZWQgSEFNVCBkZXB0aCBib3VuZGFyeSBvcmlnaW5hbCBieXRlcy4K",
+      "nativeStderr": "",
+      "blocks": [
+        {
+          "cid": "bafkreihfvhz54evmgqszetbpwffn2z2ikccckarklzb2vmc5mya4ph4l34",
+          "base64": "QXV0aG9yZWQgSEFNVCBkZXB0aCBib3VuZGFyeSBvcmlnaW5hbCBieXRlcy4K"
+        },
+        {
+          "cid": "bafybeibwtizaezlrxefpebzgejaauyn5n7ejg3yjyajueydjqgla2ju3ii",
+          "base64": "EjoKJAFVEiDlqfPeEqw0JZJML7FK3WdIUIQlAipeQ6qwXWYBx5+L3xIONkRmaWxlLTAwMC50eHQYv4Q9CikIBRIgAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAoIjCAAg=="
+        },
+        {
+          "cid": "bafybeihsosdkwqbejaifij2muxmv7aejn5xhujaq64onerycakw2tkiiui",
+          "base64": "Ei4KJAFwEiA2mjICZXG5CvIHJiJACmG9b8iTbwnAE0JgaYGWDSabQhICM0EYv4Q9CikIBRIgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAoIjCAAg=="
+        },
+        {
+          "cid": "bafybeihyrczdkjmyg23av54db335enrs7iu4kiqoulxaye2klzof3v4nmm",
+          "base64": "Ei4KJAFwEiDydIarQCRIEFQnTKXZX4CJb256JBD3HNJHAgKtqakIohICRkQYv4Q9CikIBRIgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAoIjCAAg=="
+        },
+        {
+          "cid": "bafybeihi4soukual3vykfauclsx4v6lwkfphrwgfe5c6guwiruhz6gjbxm",
+          "base64": "Ei4KJAFwEiD4iLI1JZg2tgr3gw730jYy+inFIg6i7gwTSl5cXdeNYxICRDkYv4Q9CikIBRIgAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAoIjCAAg=="
+        },
+        {
+          "cid": "bafybeidyb5syta3h7urr3745yvlznf76unovo3lxbk6d7kq2rb2dcowphi",
+          "base64": "Ei4KJAFwEiDo5J1FUAvdcKKCglyvyvl2UV542MUnReNSyI0PnxkhuxICQjAYv4Q9CikIBRIgAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAoIjCAAg=="
+        },
+        {
+          "cid": "bafybeiauwhs6w3zkzqrvqyvixuag5pquzh3szllzldlphuxli3bv3v365a",
+          "base64": "Ei4KJAFwEiB4D2WJg2f9Ix3/ncVXlpf+o11XbXcKvD+qGoh0MTrPOhICMzcYv4Q9CikIBRIgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAoIjCAAg=="
+        },
+        {
+          "cid": "bafybeihtiyawyouhebj3oc46nkyizgfduzmnxtm5e4uapzi7vyafy2tmba",
+          "base64": "Ei4KJAFwEiAUseXrbyrMI1hiqL0Abr4UyfcsrXlY1vPS60bDXdd+6BICOTUYv4Q9CikIBRIgAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAAAAAAAAAAAAoIjCAAg=="
+        },
+        {
+          "cid": "bafybeiekx2cpjoijgv33algh6fszcf6aiahwrumflfsn7iyiewbnbdnr2i",
+          "base64": "Ei4KJAFwEiDzRgFsOocgU7cLnmqwjJijpljbzZ0nKAflH64AXGpsCBICNTMYv4Q9CikIBRIgAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAoIjCAAg=="
+        }
+      ]
+    },
+    {
+      "name": "depth-nine-refused",
+      "levels": 9,
+      "padded": false,
+      "rootCid": "bafybeihhtpnqjq2fvnx7elqiymk47apnauyg5svmokmoxmiunc5llgdnbu",
+      "lookupName": "file-000.txt",
+      "route": "539537b0d9fd3a6d",
+      "original": "QXV0aG9yZWQgSEFNVCBkZXB0aCBib3VuZGFyeSBvcmlnaW5hbCBieXRlcy4K",
+      "car": "OqJlcm9vdHOB2CpYJQABcBIg55vbBMNFq2/yLgjDFc+B7QUwbsqscpjrsRRourWYbQ1ndmVyc2lvbgFqAXASIOeb2wTDRatv8i4IwxXPge0FMG7KrHKY67EUaLq1mG0NEi4KJAFwEiBG8gsMcvDK7J4uVvroLtg5IvK3FbmjrG2natntMrbTpRICNTMYv4Q9ChQIBRILCAAAAAAAAAAAAAAoIjCAAnIBcBIgRvILDHLwyuyeLlb66C7YOSLytxW5o6xtp2rZ7TK206USLgokAXASIHw168uZnSUDkvzEKbKwoxtdqsD0kCvYhZsTP6BFkaXTEgI5NRi/hD0KHAgFEhMgAAAAAAAAAAAAAAAAAAAAAAAAKCIwgAJmAXASIHw168uZnSUDkvzEKbKwoxtdqsD0kCvYhZsTP6BFkaXTEi4KJAFwEiDlk+5hEDvbtUxHOUhTciUSuxBXmslvDLbuswcbmpSC8hICMzcYv4Q9ChAIBRIHgAAAAAAAACgiMIACdgFwEiDlk+5hEDvbtUxHOUhTciUSuxBXmslvDLbuswcbmpSC8hIuCiQBcBIg0aBaabxXCoJD61Nat13TCtoKNe1O3KfCcwvfaSV1hgQSAkIwGL+EPQogCAUSFwEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKCIwgAJ7AXASINGgWmm8VwqCQ+tTWrdd0wraCjXtTtynwnML32kldYYEEi4KJAFwEiBKd3DWLp1gG39MAgtJlGnYdt1vdQ33/c4foBgdx2jwzxICRDkYv4Q9CiUIBRIcAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACgiMIACfwFwEiBKd3DWLp1gG39MAgtJlGnYdt1vdQ33/c4foBgdx2jwzxIuCiQBcBIg/4JV0CmpZbIcIzGErsp7+hDHuLe0mMhbRxkADNwtxIoSAkZEGL+EPQopCAUSICAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKCIwgAJnAXASIP+CVdApqWWyHCMxhK7Ke/oQx7i3tJjIW0cZAAzcLcSKEi4KJAFwEiCH+MtBCmwioz72sShUqplNx3h+IA+5SK/ApQx5nVZ1QxICM0EYv4Q9ChEIBRIIBAAAAAAAAAAoIjCAAm0BcBIgh/jLQQpsIqM+9rEoVKqZTcd4fiAPuUivwKUMeZ1WdUMSLgokAXASIMwbRqqmr47+m8JEM4Cat2wi78WAeCCdFL23bZXKxOuQEgI2RBi/hD0KFwgFEg4gAAAAAAAAAAAAAAAAACgiMIACbAFwEiDMG0aqpq+O/pvCRDOAmrdsIu/FgHggnRS9t22VysTrkBI6CiQBVRIg5anz3hKsNCWSTC+xSt1nSFCEJQIqXkOqsF1mAcefi98SDjAwZmlsZS0wMDAudHh0GL+EPQoKCAUSAQEoIjCAAlEBVRIg5anz3hKsNCWSTC+xSt1nSFCEJQIqXkOqsF1mAcefi99BdXRob3JlZCBIQU1UIGRlcHRoIGJvdW5kYXJ5IG9yaWdpbmFsIGJ5dGVzLgo=",
+      "nativeExitCode": 1,
+      "nativeStdout": "",
+      "nativeStderr": "Error: sharded directory too deep\n",
+      "blocks": [
+        {
+          "cid": "bafkreihfvhz54evmgqszetbpwffn2z2ikccckarklzb2vmc5mya4ph4l34",
+          "base64": "QXV0aG9yZWQgSEFNVCBkZXB0aCBib3VuZGFyeSBvcmlnaW5hbCBieXRlcy4K"
+        },
+        {
+          "cid": "bafybeigmdndkvjvpr37jxqsegoajvn3melx4ladyecorjpnxnwk4vrhlsa",
+          "base64": "EjoKJAFVEiDlqfPeEqw0JZJML7FK3WdIUIQlAipeQ6qwXWYBx5+L3xIOMDBmaWxlLTAwMC50eHQYv4Q9CgoIBRIBASgiMIAC"
+        },
+        {
+          "cid": "bafybeieh7dfucctmekrt55vrfbkkvgkny54h4iapxfek7qffbr4z2vtvim",
+          "base64": "Ei4KJAFwEiDMG0aqpq+O/pvCRDOAmrdsIu/FgHggnRS9t22VysTrkBICNkQYv4Q9ChcIBRIOIAAAAAAAAAAAAAAAAAAoIjCAAg=="
+        },
+        {
+          "cid": "bafybeih7qjk5aknjmwzbyizrqsxmu672cdd3rn5utdefwryzaagnyloeri",
+          "base64": "Ei4KJAFwEiCH+MtBCmwioz72sShUqplNx3h+IA+5SK/ApQx5nVZ1QxICM0EYv4Q9ChEIBRIIBAAAAAAAAAAoIjCAAg=="
+        },
+        {
+          "cid": "bafybeicko5ynmlu5manx6tacbnezi2oyo3ow65in67644h5adao4o2hqz4",
+          "base64": "Ei4KJAFwEiD/glXQKallshwjMYSuynv6EMe4t7SYyFtHGQAM3C3EihICRkQYv4Q9CikIBRIgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAoIjCAAg=="
+        },
+        {
+          "cid": "bafybeigrubngtpcxbkbeh22tlk3v3uyk3ifdl3ko3st4e4yl35usk5mgaq",
+          "base64": "Ei4KJAFwEiBKd3DWLp1gG39MAgtJlGnYdt1vdQ33/c4foBgdx2jwzxICRDkYv4Q9CiUIBRIcAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACgiMIAC"
+        },
+        {
+          "cid": "bafybeihfspxgceb33o2uyrzzjbjxejisxmifpgwjn4gln3vta4nzvfec6i",
+          "base64": "Ei4KJAFwEiDRoFppvFcKgkPrU1q3XdMK2go17U7cp8JzC99pJXWGBBICQjAYv4Q9CiAIBRIXAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAoIjCAAg=="
+        },
+        {
+          "cid": "bafybeid4gxv4xgm5eubzf7gefgzlbiy3lwvmb5eqfpmilgyth6qelenf2m",
+          "base64": "Ei4KJAFwEiDlk+5hEDvbtUxHOUhTciUSuxBXmslvDLbuswcbmpSC8hICMzcYv4Q9ChAIBRIHgAAAAAAAACgiMIAC"
+        },
+        {
+          "cid": "bafybeicg6ifqy4xqzlwj4lsw7luc5wbzelzlofnzuowg3j3k3hwtfnwtuu",
+          "base64": "Ei4KJAFwEiB8NevLmZ0lA5L8xCmysKMbXarA9JAr2IWbEz+gRZGl0xICOTUYv4Q9ChwIBRITIAAAAAAAAAAAAAAAAAAAAAAAACgiMIAC"
+        },
+        {
+          "cid": "bafybeihhtpnqjq2fvnx7elqiymk47apnauyg5svmokmoxmiunc5llgdnbu",
+          "base64": "Ei4KJAFwEiBG8gsMcvDK7J4uVvroLtg5IvK3FbmjrG2natntMrbTpRICNTMYv4Q9ChQIBRILCAAAAAAAAAAAAAAoIjCAAg=="
+        }
+      ]
+    }
+  ],
+  "commands": [
+    { "arguments": ["init", "--profile=test"], "exitCode": 0, "stderr": "" },
+    {
+      "arguments": ["dag", "import", "--pin-roots=false", "/tmp/hamt-authored-v13rg4ss/depth-eight-trimmed.car"],
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "arguments": ["cat", "bafybeid6q2yes5mqufnj3htdwepzngvbocmos4xvnyoqfnna3x3dorecge/file-000.txt"],
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "arguments": [
+        "cat",
+        "--offset=5",
+        "--length=13",
+        "bafybeid6q2yes5mqufnj3htdwepzngvbocmos4xvnyoqfnna3x3dorecge/file-000.txt"
+      ],
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "arguments": ["dag", "import", "--pin-roots=false", "/tmp/hamt-authored-v13rg4ss/depth-eight-padded.car"],
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "arguments": ["cat", "bafybeiekx2cpjoijgv33algh6fszcf6aiahwrumflfsn7iyiewbnbdnr2i/file-000.txt"],
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "arguments": [
+        "cat",
+        "--offset=5",
+        "--length=13",
+        "bafybeiekx2cpjoijgv33algh6fszcf6aiahwrumflfsn7iyiewbnbdnr2i/file-000.txt"
+      ],
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "arguments": ["dag", "import", "--pin-roots=false", "/tmp/hamt-authored-v13rg4ss/depth-nine-refused.car"],
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "arguments": ["cat", "bafybeihhtpnqjq2fvnx7elqiymk47apnauyg5svmokmoxmiunc5llgdnbu/file-000.txt"],
+      "exitCode": 1,
+      "stderr": "Error: sharded directory too deep\n"
+    },
+    { "arguments": ["version", "--all"], "exitCode": 0, "stderr": "" }
+  ]
+}

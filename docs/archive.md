@@ -1,0 +1,212 @@
+# Inspect an archive and preview one member
+
+Use an addressable byte source to inspect an archive without extracting it into a filesystem. A ZIP directory can locate
+selected members. Uncompressed TAR scanning reads headers in order and skips payload extents through the source's range
+capability. These APIs return data and bytes; your application owns text, image or media rendering.
+
+An archive combines a directory of members with their encoded payloads. A preview needs enough information to locate a
+member, enough encoded bytes to decode the selected interval, and enough verification work for the evidence your
+application requires. These are three different costs. Showing a filename can need only metadata. Showing the first page
+of a document needs payload bytes. Claiming that the complete member passed its checksum may require reading the rest
+even when the screen shows only its first page.
+
+| Reader's task                                    | Useful API                             | Work that can still be necessary                                                             |
+| ------------------------------------------------ | -------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Show member names and sizes                      | `openZip()` and `archive.entries`      | Read the end records and central directory; payloads remain unread                           |
+| Show the first 4 KiB                             | `archive.read(id, { length: 4096 })`   | Decode from the member's beginning; verify or authenticate according to the selected profile |
+| Show a late interval                             | `archive.read(id, { offset, length })` | A sequential codec may need to decode every preceding byte in that member                    |
+| Present safe file paths to a filesystem consumer | `createZipAdapter(archive)`            | Validate the complete namespace before exposing paths; verify full members by default        |
+
+Lengths in a call must fit the selected member. The example below clamps its 4 KiB preview to the actual member size. It
+keeps a single ledger across opening and reading so repeated previews cannot each claim a fresh total budget.
+
+```ts
+import { createBlobSource } from "@okikio/opfs/source";
+import { createArchiveLedger, openZip } from "@okikio/opfs/archive/zip";
+
+// The application supplies the selected File/Blob. It remains application-owned.
+export async function preview(blob: Blob, signal?: AbortSignal) {
+  const request = signal === undefined ? {} : { signal };
+  const ledger = createArchiveLedger({
+    maxSourceBytes: 8 * 1024 * 1024,
+    maxDecodedBytes: 32 * 1024 * 1024,
+    maxOutputBytes: 64 * 1024,
+    maxRequests: 128,
+  });
+  const archive = await openZip(createBlobSource(blob), {
+    ...request,
+    ledger,
+    maxEntries: 10_000,
+    maxDirectoryBytes: 2 * 1024 * 1024,
+  });
+  console.table(archive.entries);
+  const entry = archive.entries.find((entry) => entry.kind === "file" && !entry.encrypted);
+  if (!entry) return;
+
+  // Planning is deterministic. It does not read bytes or construct a codec.
+  console.log(archive.plan(entry.id, { length: Math.min(4096, entry.size) }));
+  const result = await archive.read(entry.id, {
+    ...request,
+    length: Math.min(4096, entry.size),
+    ledger,
+  });
+  console.log(result.integrity, result.work, ledger.inspect());
+  return result.bytes;
+}
+```
+
+Read this flow from top to bottom. Locating a member avoids unrelated payloads when the container and source permit
+ranges. Decoding and authentication can widen the required work after location. The result carries the evidence that was
+actually established; the application decides whether that evidence is sufficient to display the preview.
+
+```mermaid
+flowchart TD
+  Open["Open a stable byte source"] --> Index["Read bounded archive metadata"]
+  Index --> Choose["Choose one member and interval"]
+  Choose --> Plan["Check source, decode and output budgets"]
+  Plan --> Fetch["Read required encoded extents"]
+  Fetch --> Decode["Decode or authenticate required units"]
+  Decode --> Result["Return selected bytes plus integrity and work"]
+  Result --> Render["Application renders permitted content"]
+```
+
+Any stage can reject because of malformed input, an unsupported profile, a failed integrity check, an exhausted budget
+or cancellation. No arrow promises that all formats support random access. In particular, putting a TAR inside gzip
+normally removes direct correspondence between the TAR offsets and remote compressed-file ranges. A streaming decoder
+can keep memory bounded while still reading and decoding the entire compressed prefix before the wanted member.
+
+The caller can abort the example's signal when the preview is no longer wanted. ZIP retains its opening signal for later
+reads; the explicit read option also makes that operation's authority visible. The Blob remains borrowed and usable
+after cancellation. Start a new preview call to retry with a fresh reader and budget. Treat malformed or
+integrity-failing input as a rejected preview; do not silently remove verification. A larger work allowance or another
+codec is an explicit application choice, rather than an automatic retry.
+
+Preview does not extract entries onto disk. Names in the raw directory can duplicate or contain unsafe path components;
+they remain data until the application deliberately selects a projection or extraction policy. Rendering HTML, scripts
+or active documents is also an application security decision, separate from a correct archive parser.
+
+The source must declare `stability: "immutable"`, `"provider"`, or `"caller"`. Blob sources are immutable; a remote
+object source should bind all reads to its provider version. A caller assertion accepts mutation risk and is weaker
+evidence than provider-bound reads. A source with no declared stability is refused before I/O unless you explicitly pass
+`allowUnverifiedSource: true`; `archive.source.stability` then remains `"unverified"`. An identity string alone does not
+prove stability or authenticity. The opening call captures the source size, identity, stability and bound read method
+before its first asynchronous read. Replacing properties later does not replace this snapshot; changing the underlying
+bytes still invalidates its directory and offsets.
+
+## Read selected ZIP bytes and understand their integrity
+
+`openZip()` supports single-disk ZIP and ZIP64 end/directory size metadata with exact integer bounds. Directory entries
+retain unique numeric IDs even when names duplicate. UTF-8 names are validated; legacy non-ASCII names need an explicit
+`decodeName(bytes)` callback. The parser does not normalize names or extract paths. Directory, codec, encryption and
+Unix entry kind are separate facts. Listing an encrypted entry does not mean its payload is readable.
+
+`archive.read(id, { offset, length })` returns a decoded interval. Returned bytes are owned copies: a later source read
+cannot overwrite a prior preview. The reader also keeps bounded local-header and directory copies across borrowed reads
+and name callbacks. Stored members can map directly to source ranges. Raw-DEFLATE members decode from their beginning,
+so a late interval can cost much more than its returned bytes. The default native codec is feature-tested at execution.
+A runtime without raw-DEFLATE must receive an explicit `inflate()` factory returning an independently owned
+`TransformStream<Uint8Array, Uint8Array>`; no codec is downloaded or silently substituted. An injected factory failure
+remains the original error.
+
+Read results distinguish `checksum-pending` from `checksum-verified`. Complete member reads check size and CRC32. For a
+partial interval, `verify: true` decodes the complete member and checks its CRC before returning the selected bytes.
+This may exceed a preview budget and fail. CRC32 detects accidental corruption; it does not authenticate a publisher or
+protect against a maliciously constructed archive. Parsed directory fields are not authenticated.
+
+Legacy ZipCrypto STORED and DEFLATE members accept explicit password bytes; see the complete
+[password preview guide](password.md). A partial read can return plaintext with a pending CRC, and even a verified CRC
+provides no authentication. The optional [WinZip AES STORED/DEFLATE profile](aes.md) authenticates the complete bounded
+ciphertext before decrypting selected blocks. Unencrypted BZip2 method 12 and EOS-marked LZMA1 method 14 have explicit
+bounded policies; see [ZIP BZip2](zip-bzip.md) and [ZIP LZMA](zip-lzma.md) for their work and integrity boundaries.
+These codecs do not extend password support to those methods. Other strong encryption profiles, split volumes, extra
+directory records/signatures and unsupported compression methods return `ArchiveError` with
+`code: "unsupported-profile"` when requested. ZIP64 values above `Number.MAX_SAFE_INTEGER` are refused instead of
+rounded. Data-descriptor members can be read using their central-directory sizes; descriptor bytes are not independently
+verified. Self-extracting or offset-rebased archives require an explicit supported profile rather than automatic offset
+guessing.
+
+`maxDirectoryBytes` defaults to 16 MiB and `maxEntries` to 100,000. Opening limits default to 64 MiB source bytes, 4,096
+source requests, 64 MiB decoded bytes and 16 MiB returned bytes. These are cumulative allowances for directory parsing
+and every later read from that opened archive. Each read also has fresh limits with the same defaults; it can narrow the
+remaining opening allowance, but cannot raise it. Repeated previews therefore need an explicit finite opening allowance
+sized for their expected total work. A selected output can be smaller than actual decode work: a native codec may
+produce a whole chunk before the limit is observed. A producer or codec can allocate memory internally before OPFS
+receives that chunk; these counters do not bound arbitrary injected implementation internals or provide hard CPU
+deadlines.
+
+`result.work` counts one operation; `archive.work` is the directory-opening work, not a live lifetime counter. An
+opening `ledger` remains authoritative for later reads. A different per-read ledger adds another owner, while passing
+the same opening ledger again does not charge each event twice. `plan()` checks the remaining local opening allowance
+without reserving it; external ledgers may still refuse execution. Pass the same `createArchiveLedger()` value to every
+nested reader and read to bound aggregate source requests, source extents, decoded bytes and returned bytes.
+Archive-level source extents can include memory rereads; they are not necessarily wire bytes. Share a `budgetSource()`
+ledger at the actual transport boundary when physical requests must be bounded separately. Failed attempted work
+consumes admitted reservations; retrying does not restore the aggregate budget. Staging, keys, nesting depth and
+decoder/KDF memory need their own application policy; this API does not implement arbitrary nested format traversal.
+
+`AbortSignal` is cooperative. The opening signal remains active for later reads; a per-read signal adds cancellation
+authority and cannot replace it. A member read retires its owned decoder reader on success, early prefix completion,
+abort and failure. Cleanup errors preserve an already observed primary failure. The source remains borrowed, and opening
+an archive starts no background worker, timer or connection. A custom codec must honor its stream lifecycle; OPFS cannot
+preempt an indefinitely running synchronous decoder.
+
+## Project a strict read-only filesystem
+
+```ts
+import { createFileSystem } from "@okikio/opfs";
+import { createBlobSource } from "@okikio/opfs/source";
+import { openZip } from "@okikio/opfs/archive/zip";
+import { createZipAdapter } from "@okikio/opfs/view/zip";
+
+export async function readFromZip(blob: Blob, path: string) {
+  const archive = await openZip(createBlobSource(blob));
+  await using filesystem = createFileSystem(createZipAdapter(archive));
+  return await filesystem.readFile(path);
+}
+```
+
+Construction validates the full projection before any member content is read. Duplicate paths, file/directory
+collisions, empty or dot components, absolute paths, backslashes, links and special Unix entries are refused. Implicit
+parents become synthetic directories. Exact case and Unicode code points remain distinct. This strict view deliberately
+rejects archives that the raw archive API can still inspect. Recognized symbolic links are never followed.
+
+The view verifies full-member CRC by default, including when the filesystem asks for a range. This preserves the
+available checksum evidence because `readFile()` returns bytes without an integrity envelope. If the application
+explicitly accepts unchecked partial content, `createZipAdapter(archive, { verify: false })` allows that policy; use the
+raw archive API when you need per-result integrity status. File modification time is currently unknown and represented
+as `0`; media type is empty. Streaming read is not advertised: member output is bounded and materialized. Write, remove
+and directory-creation admission fails before producer consumption. Closing the filesystem leaves the borrowed
+archive/source live.
+
+## Inspect uncompressed TAR
+
+```ts
+import { createBlobSource } from "@okikio/opfs/source";
+import { openTar } from "@okikio/opfs/archive/tar";
+
+export async function readTarMember(blob: Blob) {
+  const archive = await openTar(createBlobSource(blob), { maxEntries: 10_000 });
+  const member = archive.entries.find((entry) => entry.kind === "file");
+  return member ? await archive.read(member.id, { length: Math.min(1024, member.size) }) : undefined;
+}
+```
+
+`openTar()` scans a known-size random-access source. It supports POSIX ustar headers, bounded PAX local/global metadata
+and GNU long-name/long-link records. Header checksums and two terminating zero blocks are checked. Payloads are skipped
+using offsets and selected regular-file bytes use ranges. It never follows links. Results say `header-checksum-only`:
+TAR supplies no payload checksum or authentication.
+
+For a one-shot `ReadableStream`, use `readTarStream()`; entry bodies are single-use within the visitor callback and
+unconsumed payloads are drained under the same budget. `createTarStream()` writes deterministic ustar/PAX streams. See
+the [TAR guide](tar.md) for complete examples, metadata precedence, resource ownership and exact limits. Indexed reads
+additionally reconstruct the exact GNU PAX sparse 1.0 profile: recorded extents supply data and omitted holes supply
+zeros. The one-shot stream reader and writer still refuse sparse records. Other sparse layouts, base-256 sizes without a
+PAX size override and unsupported special records remain refused. Compressed TAR needs an explicitly bounded
+decompression strategy. The [ZIP writer](zip.md) creates a narrower STORED ZIP32 profile than `openZip()` reads.
+
+Focused checks are in `tests/archive.test.ts` and `tests/view.test.ts`. Fixtures were produced with Python 3.9
+`zipfile`/`tarfile` plus explicit ZIP64 record assembly; expected content is independent of the parser. Tests cover
+selected ranges, duplicates, UTF-8, ZIP64, CRC/header corruption, limits, cancellation and read-only projection.
+`bench/archive.bench.ts` compares native byte slicing with cold ZIP open/preview, warm preview and complete CRC reads.
+Benchmark timings are workload observations, not security or interoperability certification. Broad format corpora,
+browser/Worker execution and exact packed-consumer checks remain separate verification gates.

@@ -1,0 +1,11 @@
+{
+  "providerMigration": {
+    "historical": {
+      "path": "tests/provider/supabase.ts",
+      "snapshot": "provider.ts.snapshot",
+      "bytes": 10964,
+      "sha256": "6b4903b67ff7ad0e7b0d1476f1e300c411e53f67aec98fe747a532c6dc577df7"
+    },
+    "current": "Owned runner code is maintained as TypeScript; original SDK/artifact pins and proof remain historical rather than relabeled."
+  }
+}

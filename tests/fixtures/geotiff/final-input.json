@@ -1,0 +1,27 @@
+[
+  {
+    "path": "src/dataset/geotiff.ts",
+    "bytes": 32176,
+    "sha256": "287a8dde484e92dd84b0e349f671eba97ce3e3e4830b182fff2dffe92d1a61f0"
+  },
+  {
+    "path": "tests/geotiff.test.ts",
+    "bytes": 22077,
+    "sha256": "9167b24fefbf825dc2e29484f86bd6d7409dc52ed47430f3daa7386dd583c4eb"
+  },
+  {
+    "path": "tests/fixtures/geotiff/independent.json",
+    "bytes": 359325,
+    "sha256": "c06a5fa6e1dee2ea93b1cfca83d894f1e2efd960a36a2e893ecbc8371406c622"
+  },
+  {
+    "path": "bench/geotiff.bench.ts",
+    "bytes": 5346,
+    "sha256": "f5d74e030ddd388089bb4845a84a1d3b64d97e3bdb48710f3b730b0adbb81b7e"
+  },
+  {
+    "path": "docs/geotiff.md",
+    "bytes": 9773,
+    "sha256": "37598f93edea709284e3363bb29379b6c9a6586ef6c6419720359570f28e7546"
+  }
+]

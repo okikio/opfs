@@ -1,0 +1,23 @@
+[
+  {
+    "file": "botocore-utils.py.snapshot",
+    "bytes": 136532,
+    "sha256": "41ec2d50f8b471bb9a186562f38ac8c0b872fc7676abb2625a0f8a5c3844dedf",
+    "url": "https://raw.githubusercontent.com/boto/botocore/a3bbf61a0a3548c6bc7b68dd0a23bb6242a8e630/botocore/utils.py",
+    "acquisition": "curl HTTPS only; no redirect following; bounded size and20s; exit0; inert only"
+  },
+  {
+    "file": "botocore-LICENSE.txt",
+    "bytes": 10174,
+    "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
+    "url": "https://raw.githubusercontent.com/boto/botocore/a3bbf61a0a3548c6bc7b68dd0a23bb6242a8e630/LICENSE.txt",
+    "acquisition": "curl HTTPS only; no redirect following; bounded size and20s; exit0; inert only"
+  },
+  {
+    "file": "botocore-NOTICE.txt",
+    "bytes": 2467,
+    "sha256": "1d1c5a6f3d68cb11f4fad1afa86a7450d0286f15c176ef0ea048f255b46d95b0",
+    "url": "https://raw.githubusercontent.com/boto/botocore/a3bbf61a0a3548c6bc7b68dd0a23bb6242a8e630/NOTICE",
+    "acquisition": "curl HTTPS only; no redirect following; bounded size and20s; exit0; inert only"
+  }
+]

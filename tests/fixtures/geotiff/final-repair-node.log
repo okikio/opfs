@@ -1,0 +1,48 @@
+▶ classic GeoTIFF authored grammar
+  ✔ reads exact II tile edge windows (9.029ms)
+  ✔ reads exact II strip edge windows (1.1425ms)
+  ✔ reads exact MM tile edge windows (1.896166ms)
+  ✔ reads exact MM strip edge windows (1.936791ms)
+  ✔ retains three raw RGB bands without color conversion (0.85375ms)
+  ✔ retains WhiteIsZero without inversion (0.579ms)
+  ✔ preserves f32 NaN and negative-zero semantics and raw block bits (0.503667ms)
+  ✔ preserves f64 NaN and negative-zero semantics and raw block bits (0.410292ms)
+  ✔ freezes public metadata independently of the internal index (0.616416ms)
+  ✔ returns zero-work empty windows and refuses rectangles beyond the image (0.802417ms)
+  ✔ rejects BigTIFF, compression, separate planes and missing geospatial authority (1.233959ms)
+  ✔ rejects unsorted/duplicate tags, cycles, unsafe field extents and short block tables (0.956208ms)
+  ✔ rejects payload extents overlapping metadata (0.451584ms)
+  ✔ admits all selected work before provider I/O (0.661583ms)
+  ✔ retains opening quotas and deduplicates repeated external ledger identity (0.689667ms)
+  ✔ does no I/O when a final foreign reservation aborts, including derived block reads (0.597125ms)
+  ✔ preserves parent cancellation through fresh child signals and source creation (0.945709ms)
+  ✔ captures source methods and options before asynchronous callbacks (2.062541ms)
+  ✔ copies reused borrowed scratch and admits cross-realm byte views (55.088875ms)
+  ✔ rejects spoofed byte extents and overlong identities before provider I/O (0.621666ms)
+  ✔ bounds composed source identities at source creation without truncation (1.127708ms)
+  ✔ rejects malformed GeoKey references and present empty coordinate authority tags (0.639083ms)
+  ✔ does not return a pure plan after a caller window getter aborts its parent (0.366375ms)
+  ✔ enforces the local output ceiling on raw block ranges before source I/O (0.397208ms)
+  ✔ charges each retained GeoKey parameter copy before metadata amplification (13.937417ms)
+✔ classic GeoTIFF authored grammar (99.861792ms)
+▶ genuine GDAL and independent tifffile GeoTIFF profiles
+  ✔ reads every native sample and physical block from u16-strips-le (3.513584ms)
+  ✔ reads every native sample and physical block from u16-tiles-be (5.943ms)
+  ✔ reads every native sample and physical block from rgb-u8-tiles (5.002042ms)
+  ✔ reads every native sample and physical block from i16-strips (1.8145ms)
+  ✔ reads every native sample and physical block from u32-strips (2.063916ms)
+  ✔ reads every native sample and physical block from i32-strips (2.174125ms)
+  ✔ reads every native sample and physical block from f32-tiles (3.381833ms)
+  ✔ reads every native sample and physical block from f64-strips-be (2.742584ms)
+  ✔ reads every native sample and physical block from u16-main-chain-overview (73.585042ms)
+  ✔ reads every native sample and physical block from tifffile-strips (3.087458ms)
+  ✔ reads every native sample and physical block from tifffile-tiles (5.076375ms)
+✔ genuine GDAL and independent tifffile GeoTIFF profiles (108.999958ms)
+ℹ tests 36
+ℹ suites 2
+ℹ pass 36
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 538.194458

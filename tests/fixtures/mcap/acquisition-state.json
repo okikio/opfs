@@ -1,0 +1,23 @@
+{
+  "baseImage": "sha256:4e9b1d5f2972c4b3df05c5fe56f976e02b42a535e6be46bee7c46406fa28cfee",
+  "container": "/opfs-mcap-acquire-20261105",
+  "state": {
+    "Status": "exited",
+    "Running": false,
+    "Paused": false,
+    "Restarting": false,
+    "OOMKilled": false,
+    "Dead": false,
+    "Pid": 0,
+    "ExitCode": 0,
+    "Error": "",
+    "StartedAt": "2026-11-05T19:03:25.751283292Z",
+    "FinishedAt": "2026-11-05T19:03:26.038654376Z"
+  },
+  "memory": 1073741824,
+  "nanoCpus": 1000000000,
+  "pids": 128,
+  "mounts": [],
+  "ports": {},
+  "sdkExecuted": false
+}

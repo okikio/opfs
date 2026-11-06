@@ -1,0 +1,36 @@
+{
+  "focused": {
+    "cases": 25,
+    "deno": "2.9.8 --no-check",
+    "node": "26.13.0 --test",
+    "bun": "1.4.2 test",
+    "platform": "aarch64-apple-darwin",
+    "allPassed": true
+  },
+  "quality": {
+    "fmtFiles": 14,
+    "lintFiles": 3,
+    "passed": true
+  },
+  "static": "Not run locally; parent owns isolated compiler/artifact gates.",
+  "review": {
+    "skills": [
+      "deliver-software",
+      "build-libraries",
+      "deno-software"
+    ],
+    "beforeAndAfter": true,
+    "readerFinding": "Guide distinguishes physical record enumeration, whole-unit CRC verification and unchecked payload sources. Opening and derived sources preserve ancestor abort and ledger authority; callbacks that abort on reservation cause zero payload I/O.",
+    "limits": "No full MCAP conformance, extra codecs, application serialization decoding or cross-vendor claim."
+  },
+  "cleanup": {
+    "removedStoppedContainers": [
+      "opfs-mcap-acquire-20261105",
+      "opfs-mcap-producer-20261105",
+      "opfs-mcap-benchmark-20261105"
+    ],
+    "removedOnlyOwnToolImage": "sha256:477646de1150726fc3301fe3d9136f5e42f68ee1a6597eae767cbd74b6cfdcc5",
+    "baseAndBenchmarkImagesRetained": true,
+    "toolImageStillLocal": false
+  }
+}

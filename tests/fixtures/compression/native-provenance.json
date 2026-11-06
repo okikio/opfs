@@ -1,0 +1,10 @@
+{
+  "scope": "independent CLI interoperability, not universal codec conformance",
+  "baseImage": "opfs-seven-tools:20261105",
+  "baseImageId": "sha256:527d62a5244f4fa71833b4a105a4906ec1c1c7708f64ea2967fa04d96c551dd5",
+  "acquisition": "signed Debian repositories via apt-get; local image not public reproducible complete producer pin",
+  "files": {
+    "tests/fixtures/compression/produce.py": "2ee734a3acb1f603c52265e71c9e396e55839dc5d0717ecf6d9471ddbd0fd96e",
+    "tests/fixtures/compression/native.json": "09ca1460616185c631a3013496728113078f4df5bbc288a090af37cd06eec239"
+  }
+}

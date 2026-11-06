@@ -2,5 +2,5 @@
 #MISE description="Benchmark provider SDKs, direct clients, adapters, and facades through Testcontainers."
 set -euo pipefail
 
-deno ci
-deno task bench:providers
+deno task deps:ci
+deno task bench:providers "$@"

@@ -1,0 +1,11 @@
+{
+  "release": "v0.43.1",
+  "sourceCommit": "acc53c093810a8fe9a4bc2f023f0b1e0c1d629b5",
+  "publishedAt": "2026-09-15T00:52:17Z",
+  "asset": {
+    "name": "kubo_v0.43.1_linux-arm64.tar.gz",
+    "size": 39040966,
+    "digest": "sha256:e09237abadd9578d7a73dd2e2b718848b78437cb56e48cc9742b23ce9ebac829",
+    "browser_download_url": "https://github.com/ipfs/kubo/releases/download/v0.43.1/kubo_v0.43.1_linux-arm64.tar.gz"
+  }
+}

@@ -1,0 +1,2 @@
+{"BlockIO":"0B / 97.9MB","CPUPerc":"19.10%","Container":"40b4f69d209ff393977b929ab21996032383d91048e1e185bccdfa63e7caeb81","ID":"40b4f69d209f","MemPerc":"0.52%","MemUsage":"41MiB / 7.651GiB","Name":"great_banach","NetIO":"37.8MB / 2.91MB","PIDs":"12"}
+{"BlockIO":"1.9MB / 0B","CPUPerc":"0.00%","Container":"a38439754142fe4a00bfd5a8b5fb344f085f4fa2be46bdba7e80bd39476e7f8f","ID":"a38439754142","MemPerc":"0.17%","MemUsage":"13.42MiB / 7.651GiB","Name":"testcontainers-ryuk-c1803dbefac8","NetIO":"26.6kB / 13kB","PIDs":"8"}

@@ -1,0 +1,65 @@
+{
+  "serverVersion": "3.5.3",
+  "sdk": "Nano11.0.8",
+  "database": "fixture",
+  "documentId": "benchmark",
+  "attachmentName": "original.bin",
+  "document": {
+    "status": 200,
+    "headers": {
+      "cache-control": "must-revalidate",
+      "content-length": "214",
+      "content-type": "application/json",
+      "date": "Thu, 05 Nov 2026 17:46:54 GMT",
+      "etag": "\"1-89bde066c39defbc62d2a3f85abaafc0\"",
+      "server": "CouchDB/3.5.3 (Erlang OTP/27)",
+      "x-couch-request-id": "847dce61f4",
+      "x-couchdb-body-time": "0"
+    },
+    "bytes": 214,
+    "sha256": "1f391afc1126b0c438c4c4996ffe93440fa462a3a5f825c6d0c2a3ae7d41f628",
+    "base64": "eyJfaWQiOiJiZW5jaG1hcmsiLCJfcmV2IjoiMS04OWJkZTA2NmMzOWRlZmJjNjJkMmEzZjg1YWJhYWZjMCIsIl9hdHRhY2htZW50cyI6eyJvcmlnaW5hbC5iaW4iOnsiY29udGVudF90eXBlIjoiYXBwbGljYXRpb24vb2N0ZXQtc3RyZWFtIiwicmV2cG9zIjoxLCJkaWdlc3QiOiJtZDUtdkY0aDFkMjQrV3ZMRUlsTmV1WC9kUT09IiwibGVuZ3RoIjo2LCJzdHViIjp0cnVlfX19Cg=="
+  },
+  "content": {
+    "status": 200,
+    "headers": {
+      "accept-ranges": "bytes",
+      "cache-control": "must-revalidate",
+      "content-length": "6",
+      "content-security-policy": "sandbox",
+      "content-type": "application/octet-stream",
+      "date": "Thu, 05 Nov 2026 17:46:54 GMT",
+      "etag": "\"vF4h1d24+WvLEIlNeuX/dQ==\"",
+      "server": "CouchDB/3.5.3 (Erlang OTP/27)",
+      "x-couch-request-id": "a187740853",
+      "x-couchdb-body-time": "0"
+    },
+    "bytes": 6,
+    "sha256": "a09e9c5394946ab8fc1b54a0c55618a96f2057e98e89cfdc36bb4d26ed0a1708",
+    "base64": "AP8RKoAJ"
+  },
+  "head": {
+    "status": 200,
+    "headers": {
+      "accept-ranges": "bytes",
+      "cache-control": "must-revalidate",
+      "connection": "close",
+      "content-length": "6",
+      "content-security-policy": "sandbox",
+      "content-type": "application/octet-stream",
+      "date": "Thu, 05 Nov 2026 17:46:54 GMT",
+      "etag": "\"vF4h1d24+WvLEIlNeuX/dQ==\"",
+      "server": "CouchDB/3.5.3 (Erlang OTP/27)",
+      "x-couch-request-id": "6a7916983f",
+      "x-couchdb-body-time": "0"
+    },
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "base64": ""
+  },
+  "oracle": {
+    "bytes": 6,
+    "sha256": "a09e9c5394946ab8fc1b54a0c55618a96f2057e98e89cfdc36bb4d26ed0a1708",
+    "base64": "AP8RKoAJ"
+  }
+}

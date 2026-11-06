@@ -1,0 +1,7 @@
+{
+  "host": "glacier.us-west-2.amazonaws.com",
+  "x-amz-glacier-version": "2012-06-01",
+  "x-amz-date": "20150830T123600Z",
+  "x-amz-content-sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "authorization": "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20150830/us-west-2/glacier/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date;x-amz-glacier-version, Signature=801c4f17c23c3cba86a52d3779831c5a4b6102bd0b6d60d400a5a332fd3f83a5"
+}

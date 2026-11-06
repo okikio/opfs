@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#MISE description="Test pinned upstream unstorage, db0, Drizzle and RxDB consumers against actual storage engines."
+set -euo pipefail
+
+deno task deps:ci
+deno task test:ecosystems "$@"

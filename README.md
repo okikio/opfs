@@ -1,37 +1,33 @@
 # @okikio/opfs
 
-`@okikio/opfs` is an OPFS-shaped storage programming model for browser OPFS, host filesystems, object stores, key-value
-stores, browser storage, document databases, and SQL databases.
+Read and write files through one TypeScript API, with storage supplied by browser OPFS, a host filesystem, an object
+store, or a database. OPFS means Origin Private File System, the browser storage API that this package uses as its
+file-and-directory model.
 
-The package does not pretend those systems are identical. It separates protocol behavior, backend storage mechanics,
-OPFS translation, portable filesystem semantics, and reverse ecosystem projections so applications can inspect the real
-route and its limits before work starts.
+Each backend retains its own limits and guarantees. Before a write, use `inspect()` to see available capabilities and
+`plan()` to check known constraints. These operations help the application choose a supported route; they do not make
+every backend behave like a local disk.
 
-```text
-ecosystem / native API
-        |
-        v
-      client                 protocol client when a wire protocol exists
-        |
-        v
-      driver                 backend-native storage contract
-        |                    requirements / limits / optimizations / physical metrics
-        v
-      adapter                driver -> canonical OPFS primitives
-        |
-        v
-   FileSystemType            paths / handles / locks / fallbacks / logical metrics
-        |
-        v
-      bridge                 FileSystemType -> real ecosystem contract
-```
+## Follow a file operation
 
-A client is optional. Node, Deno, Bun, browser OPFS, IndexedDB, and SQLite can start at the driver layer. S3 and Azure
-Blob have explicit protocol clients because their wire contracts are independently useful.
+Application code normally calls `FileSystemType`, the filesystem returned by `openFileSystem()` or `createFileSystem()`.
+It owns virtual paths, handles, cancellation, and the available fallbacks. The lower layers translate that request into
+the selected backend's operations:
 
-The filesystem facade owns the behavior application code should not rebuild for every backend: canonical virtual paths,
-OPFS-shaped handles, recursive work, cancellation, staged writable files, bounded stream fallbacks, coordination,
-normalized failures, resource ownership, and deterministic preflight planning.
+| Component           | Responsibility                                                                                                           |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Client, when needed | Implements a wire protocol, such as S3 or Azure Blob REST.                                                               |
+| Driver              | Implements backend operations and reports limits, requirements, optimizations, physical metrics, and resource ownership. |
+| Adapter             | Translates the driver into the OPFS primitives required by `FileSystemType`.                                             |
+| `FileSystemType`    | Provides the application's file API, including paths, handles, coordination, failure mapping, and planning.              |
+| Optional bridge     | Lets another ecosystem use an existing `FileSystemType`, for example through an unstorage driver.                        |
+
+A filesystem call travels through the adapter to the driver and, when needed, the protocol client. A bridge is a
+separate consumer of the filesystem. Node, Deno, Bun, browser OPFS, IndexedDB, and SQLite do not need a separate
+protocol client.
+
+Start with [choosing a storage layer](docs/model.md) for a complete save/read example, an executable key-value bridge
+example, and diagrams that explain why an adapter brings storage in while a bridge exposes a filesystem outward.
 
 ## Start with the storage you own
 
@@ -76,35 +72,127 @@ The root entrypoint remains import-safe in Window, Worker, Deno, Bun, and Node c
 explicit subpaths. Importing the root package does not connect to a provider, read credentials, start workers, or
 configure application logging.
 
-For host filesystem drivers, `root` is a lexical virtual-path mapping rather than a security sandbox. Node, Deno, and Bun
-native file operations can follow symbolic links already present below that directory. Use a trusted host root when an
-independent process or untrusted user can mutate the host filesystem.
+For host filesystem drivers, `root` is a lexical virtual-path mapping rather than a security sandbox. Node, Deno, and
+Bun native file operations can follow symbolic links already present below that directory. Use a trusted host root when
+an independent process or untrusted user can mutate the host filesystem.
 
 ## Layer inventory
 
 The first-party integration set is broad, but each layer has one job.
 
-| Family          | Client                | Driver                | Adapter                | Reverse bridge                          |
-| --------------- | --------------------- | --------------------- | ---------------------- | --------------------------------------- |
-| browser OPFS    | n/a                   | `driver/opfs`         | `adapter/opfs`         | filesystem itself                       |
-| Node filesystem | n/a                   | `driver/node`         | `adapter/node`         | ecosystem-specific                      |
-| Deno filesystem | n/a                   | `driver/deno`         | `adapter/deno`         | ecosystem-specific                      |
-| Bun filesystem  | n/a                   | `driver/bun`          | `adapter/bun`          | ecosystem-specific                      |
-| memory          | n/a                   | `driver/memory`       | `adapter/memory`       | generic KV bridge possible              |
-| Deno KV         | n/a                   | `driver/deno-kv`      | `adapter/deno-kv`      | generic KV bridge possible              |
-| localStorage    | n/a                   | `driver/localstorage` | `adapter/localstorage` | generic KV bridge possible              |
-| IndexedDB       | n/a                   | `driver/indexeddb`    | `adapter/indexeddb`    | generic KV bridge possible              |
-| Cache Storage   | n/a                   | `driver/cache`        | `adapter/cache`        | cache-specific bridge not yet provided  |
-| SQLite rows     | engine-owned          | `driver/sqlite`       | `adapter/sqlite`       | see database direction below            |
-| db0             | connector-owned       | `driver/db0`          | `adapter/db0`          | no fake SQL projection                  |
-| Drizzle         | dialect/driver-owned  | `driver/drizzle`      | `adapter/drizzle`      | no fake SQL projection                  |
-| RxDB            | RxStorage-owned       | `driver/rxdb`         | `adapter/rxdb`         | full RxStorage bridge not yet provided  |
-| unstorage       | upstream driver-owned | `driver/unstorage`    | `adapter/unstorage`    | `bridge/unstorage`                      |
-| S3              | `s3`                  | `driver/s3`           | `adapter/s3`           | object-specific bridge not yet provided |
-| Azure Blob      | `azure`               | `driver/azure`        | `adapter/azure`        | object-specific bridge not yet provided |
+| Family          | Client                | Driver                 | Adapter                 | Reverse bridge                          |
+| --------------- | --------------------- | ---------------------- | ----------------------- | --------------------------------------- |
+| browser OPFS    | n/a                   | `driver/opfs`          | `adapter/opfs`          | filesystem itself                       |
+| Node filesystem | n/a                   | `driver/node`          | `adapter/node`          | ecosystem-specific                      |
+| Deno filesystem | n/a                   | `driver/deno`          | `adapter/deno`          | ecosystem-specific                      |
+| Bun filesystem  | n/a                   | `driver/bun`           | `adapter/bun`           | ecosystem-specific                      |
+| memory          | n/a                   | `driver/memory`        | `adapter/memory`        | generic KV bridge possible              |
+| Deno KV         | n/a                   | `driver/deno-kv`       | `adapter/deno-kv`       | generic KV bridge possible              |
+| localStorage    | n/a                   | `driver/localstorage`  | `adapter/localstorage`  | generic KV bridge possible              |
+| IndexedDB       | n/a                   | `driver/indexeddb`     | `adapter/indexeddb`     | generic KV bridge possible              |
+| Cache Storage   | n/a                   | `driver/cache`         | `adapter/cache`         | cache-specific bridge not yet provided  |
+| SQLite rows     | engine-owned          | `driver/sqlite`        | `adapter/sqlite`        | see database direction below            |
+| db0             | connector-owned       | `driver/db0`           | `adapter/db0`           | no fake SQL projection                  |
+| Drizzle         | dialect/driver-owned  | `driver/drizzle`       | `adapter/drizzle`       | no fake SQL projection                  |
+| RxDB            | RxStorage-owned       | `driver/rxdb`          | `adapter/rxdb`          | full RxStorage bridge not yet provided  |
+| unstorage       | upstream driver-owned | `driver/unstorage`     | `adapter/unstorage`     | `bridge/unstorage`                      |
+| S3              | `s3`                  | `driver/s3`            | `adapter/s3`            | object-specific bridge not yet provided |
+| Azure Blob      | `azure`               | `driver/azure`         | `adapter/azure`         | object-specific bridge not yet provided |
+| GCS             | `gcs`                 | `driver/gcs`           | `adapter/gcs`           | object-specific bridge not yet provided |
+| B2              | `b2`                  | `driver/b2`            | `adapter/b2`            | object-specific bridge not yet provided |
+| Swift           | `swift`               | `driver/swift`         | `adapter/swift`         | object-specific bridge not yet provided |
+| WebDAV          | `webdav`              | `driver/webdav`        | `adapter/webdav`        | file contract                           |
+| WebHDFS         | `webhdfs`             | `driver/webhdfs`       | `adapter/webhdfs`       | file contract                           |
+| R2 binding      | `r2`                  | `driver/r2`            | `adapter/r2`            | object-specific bridge not yet provided |
+| Workers KV      | binding-owned         | `driver/cloudflare-kv` | `adapter/cloudflare-kv` | generic KV bridge possible              |
+| D1              | binding-owned         | `driver/d1`            | `adapter/d1`            | generic KV bridge possible              |
 
 `adapter/file`, `adapter/record`, and `adapter/object` are reusable translators for third-party drivers. `driver/file`,
 `driver/record`, and `driver/object` are the corresponding backend-native contracts.
+
+## Select a native client or preview
+
+A native client preserves provider IDs, revisions and publication rules. It becomes a filesystem only when a driver and
+adapter define that translation. For example, duplicate Drive names do not silently become unique paths. Credentials,
+injected services and transport resources remain caller-owned. See the capability guide before choosing retry, overwrite
+or cancellation behavior.
+
+| Task                      | Guides and boundaries                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cloud object access       | [GCS](docs/gcs.md), [B2](docs/b2.md), [Swift](docs/swift.md) and [R2 bindings](docs/bindings.md) expose native conditions and ranges. GCS generations remain distinct from ETags.                                                                                                                                                                                                                                                                                                |
+| Record file fields        | [PocketBase](docs/pocketbase.md) preserves collection/record IDs, server-returned names and separate protected-file tokens. File-field updates and whole-record deletion retain different permissions.                                                                                                                                                                                                                                                                           |
+| Supabase REST files       | [Supabase](docs/supabase.md) separates API credentials, public downloads and signed capabilities. Native RLS deletion omissions remain unresolved; this client is separate from the S3 profile.                                                                                                                                                                                                                                                                                  |
+| Nextcloud uploads         | [Nextcloud](docs/nextcloud.md) writes native chunk sessions with explicit caller-held acknowledgments and final MOVE receipts. Generic file access remains WebDAV; backend offload and verified resume are separate.                                                                                                                                                                                                                                                             |
+| Seafile                   | [Seafile](docs/seafile.md) separates user-token API requests from scoped data capabilities and preserves native collision names.                                                                                                                                                                                                                                                                                                                                                 |
+| lakeFS                    | [lakeFS](docs/lakefs.md) separates native branch staging from branch-wide commits; caller-owned writer coordination and uncertain publication remain explicit.                                                                                                                                                                                                                                                                                                                   |
+| Restic REST               | [Restic](docs/restic.md) reads and transfers bounded opaque repository objects, with complete SHA-256 verification separate from backup decryption, locks and restore.                                                                                                                                                                                                                                                                                                           |
+| Scientific images         | [FITS](docs/fits.md) previews typed image values with separate whole-HDU checksums. [netCDF classic](docs/netcdf.md) reads selected typed variables across interleaved records; checksum-free data and explicit producer compatibility stay visible. [Zarr v2](docs/zarr.md) selects uncompressed numeric chunk ranges through a caller-owned snapshot store. [LAS 1.2](docs/las.md) previews uncompressed point columns with explicit coordinate scaling and opaque extensions. |
+| HDF5 previews             | [Classic HDF5](docs/hdf5.md) lists direct root links and reads selected contiguous standard numeric values; chunking, filters and netCDF-4 interpretation remain separate.                                                                                                                                                                                                                                                                                                       |
+| ArFS                      | [Public ArFS 0.15](docs/arfs.md) inspects caller-selected metadata revisions and binds explicit file sources for archive previews; IDs remain assertions.                                                                                                                                                                                                                                                                                                                        |
+| Arweave verification      | [Selected RSA format-2 transactions](docs/arweave.md) verify signatures and complete bounded payload roots before returning owned sources; chain inclusion remains unexamined.                                                                                                                                                                                                                                                                                                   |
+| UnixFS                    | [UnixFS](docs/unixfs.md) verifies acquired blocks and reconstructs selected file ranges through an injected reader; unselected descendants remain unexamined. Opt-in native Kubo HAMT lookup and bounded complete directory-link listing preserve that distinction.                                                                                                                                                                                                              |
+| Firebase Storage          | [Firebase](docs/firebase.md) uses explicit Rules authentication and native resumable commands, separate from GCS IAM. Final session status and object metadata publication receipts remain distinct.                                                                                                                                                                                                                                                                             |
+| HTTP and remote files     | [HTTP](docs/http.md) exposes one revision-bound source. [WebDAV](docs/webdav.md), with a [scoped Infinite Scale profile](docs/ocis.md), and [WebHDFS](docs/webhdfs.md) expose documented file profiles; [FTP/explicit FTPS](docs/ftp.md) and [SFTP v3](docs/sftp.md) require injected transports.                                                                                                                                                                                |
+| Content repositories      | [CMIS](docs/cmis.md) preserves native document IDs, typed properties, versions and change-token receipts without filesystem projection.                                                                                                                                                                                                                                                                                                                                          |
+| Native drive IDs          | [Drive](docs/drive.md), [OneDrive](docs/onedrive.md), [Dropbox](docs/dropbox.md), [Box](docs/box.md) and [pCloud](docs/pcloud.md) preserve provider-specific identity/version/session evidence. Signed download capabilities receive no provider authorization.                                                                                                                                                                                                                  |
+| Native drive paths        | [Yandex Disk](docs/yandex.md) preserves mutable `disk:/` paths, explicit initial-download OAuth grants and asynchronous mutation receipts. It supplies no immutable source or canonical recursive-delete projection.                                                                                                                                                                                                                                                             |
+| Runtime database bindings | [Workers KV](docs/bindings.md) retains eventual consistency. [D1](docs/d1.md) uses a caller-owned versioned small-file SQL layout with bounded metadata pages.                                                                                                                                                                                                                                                                                                                   |
+| Restartable uploads       | [tus and transfers](docs/transfer.md), [S3 multipart](docs/s3-transfer.md) and [Azure block continuation](docs/azure-transfer.md) use explicit checkpoints and reconciliation. Keep sources immutable, save checkpoints atomically and enforce exclusive destination ownership. Azure has no uncommitted-block-only abort operation.                                                                                                                                             |
+| Content-addressed bytes   | [IPFS/CID/CAR](docs/ipfs.md) separates gateway trust from verified complete raw blocks. [OCI](docs/oci.md) verifies bounded complete manifests/blobs, without merging image layers. [Git](docs/git.md) verifies loose objects; [Git LFS](docs/lfs.md) separates native transfers from bounded whole-object SHA-256 verification. Neither resolves refs or publishes a repository. None establishes publisher identity.                                                           |
+
+[CouchDB attachments](docs/couchdb.md) expose native document revisions, exact byte streams and explicit mutation
+receipts. Applications own document fields, conflict resolution and any filesystem projection.
+
+[etcd](docs/etcd.md) exposes native byte keys, revision conditions and explicit lease choices.
+[HTTP upload draft 15](docs/upload.md) preserves a resumable resource across client restarts while keeping byte
+acknowledgements separate from the target application’s final response. Neither supplies filesystem semantics.
+
+For a nested preview, first choose a revision-bound [byte source](docs/source.md), open the matching reader, inspect its
+entries and request a finite member interval. A reader may still need a full ciphertext or compressed prefix. Inspect
+its plan and returned integrity evidence before displaying or publishing bytes; an early prefix can precede a later
+checksum failure. The application owns rendering, extraction policy and recovery.
+
+| Preview task               | Guides and boundaries                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| ZIP, TAR and CPIO members  | [ZIP/ZIP64](docs/archive.md), including [unencrypted BZip2](docs/zip-bzip.md) and [EOS-required LZMA](docs/zip-lzma.md) members, [TAR](docs/tar.md) and [CPIO newc/CRC](docs/cpio.md) support their documented readers and read-only views. Views refuse ambiguous names and links before member acquisition.                                                                                                                                                                                                                                                            |
+| LHA previews               | [LHA](docs/lha.md) indexes header levels 0–2 and reads stored members with separate header and whole-file CRC scopes; names remain inert.                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ARJ previews               | [ARJ](docs/arj.md) indexes single-volume headers and previews stored files with mandatory header CRCs and explicit whole-member verification costs.                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Memcached values           | [Memcached](docs/memcached.md) preserves opaque cache bytes, native CAS, explicit flags/expiry and uncertain mutation outcomes over a caller-supplied channel.                                                                                                                                                                                                                                                                                                                                                                                                           |
+| MCAP recordings            | [MCAP](docs/mcap.md) pages physical messages with exact timestamps and previews opaque payloads or attachments with explicit CRC scopes.                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| BinHex attachments         | [BinHex](docs/binhex.md) preserves data and resource forks, with replay costs and separate header, fork and terminal checks.                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Shapefile geometry         | [Shapefile](docs/shapefile.md) previews supplied 2D geometry and raw DBF rows without guessing CRS, encoding or sibling files.                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| Pub/Sub messages           | [Pub/Sub](docs/pubsub.md) publishes bytes and explicitly settles deliveries; message acknowledgements are separate from file semantics.                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| GeoTIFF rasters            | [GeoTIFF](docs/geotiff.md) plans raw uncompressed windows while keeping geospatial declarations and physical tile bytes distinct.                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| QCOW2 guest bytes          | [QCOW2](docs/qcow2.md) resolves selected standalone disk bytes and zero regions without mounting guest filesystems.                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Redis and Valkey values    | [Redis/Valkey](docs/redis.md) preserves binary keys, explicit expiry and native conditional replies over caller-supplied connections.                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Authenticated JWE previews | [JWE](docs/jwe.md) authenticates whole bounded compact messages before exposing a disposable plaintext source for nested archive previews.                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| JetStream messages         | [NATS](docs/nats.md) publishes native byte messages and reads explicit stream sequences through caller-supplied exclusive channels.                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Parquet numeric columns    | [Parquet](docs/parquet.md) reads selected flat physical numeric rows with separate null masks and page checksum evidence.                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Archive creation           | [Streaming TAR/PAX](docs/tar.md) and [STORED ZIP32](docs/zip.md) have narrower writer profiles than the readers.                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Sequential compression     | [Native streams](docs/compression.md) support gzip/zlib/raw DEFLATE and available host Brotli/Zstandard codecs. Independent footer checks apply to gzip/zlib; raw native EOF alone does not prove structural completeness. [LZ4](docs/lz4.md) independently decodes modern frames; full content checksum evidence requires EOF.                                                                                                                                                                                                                                          |
+| Password-protected content | [Legacy ZipCrypto](docs/password.md) supplies no authentication. [WinZip AES](docs/aes.md) authenticates complete member ciphertext first: STORED decrypts covering blocks, while DEFLATE decrypts all bounded compressed bytes before interval inflation. Names remain unauthenticated. The separate [Tink payload profile](docs/encryption.md) authenticates selected segments. [Cryptomator](docs/cryptomator.md) authenticates selected format-8 content chunks and ordinary names with caller-unlocked keys; original EOF and name/content binding remain separate. |
+| Other archive containers   | [CAB](docs/cab.md) reads NONE/MSZIP ranges with explicit history-replay costs; [7z](docs/seven.md) reads single COPY/LZMA1/LZMA2 streams and bounded encoded headers with separate CRC scopes; [ar](docs/ar.md) exposes normal GNU/BSD member sources. [XAR](docs/xar.md) indexes Apple-profile stored/zlib members with separate checksums. Additional codecs remain explicit unsupported profiles.                                                                                                                                                                     |
+| XZ compressed streams      | [XZ](docs/xz.md) indexes single-stream LZMA2 blocks and verifies selected complete blocks with CRC32/CRC64. Prefix reads can leave checks pending; checksums do not authenticate content.                                                                                                                                                                                                                                                                                                                                                                                |
+| BZip2 streams              | [BZip2](docs/bzip.md) verifies complete blocks before streaming their output. Prefix cancellation leaves the combined stream checksum pending; transformed block memory and expanded output have separate limits.                                                                                                                                                                                                                                                                                                                                                        |
+| Raw LZMA streams           | [LZMA](docs/lzma.md) incrementally decodes explicit Alone/raw LZMA1/raw LZMA2 profiles with finite dictionary, CPU and byte budgets. Raw codec termination supplies no checksum or authentication and does not imply 7z/XZ container support.                                                                                                                                                                                                                                                                                                                            |
+| RAR5 members               | [RAR5](docs/rar.md) indexes original physical headers and previews STORED members. CRC-present previews verify the whole member by default; deferred ranges leave CRC pending.                                                                                                                                                                                                                                                                                                                                                                                           |
+| Disk-image members         | [ISO9660/Joliet](docs/iso.md) and [UDF 1.02](docs/udf.md) index their selected image profiles and read exact file extents without mounts. [WIM](docs/wim.md) exposes ordinary stored/32 KiB XPRESS-Huffman/LZX image metadata and selected resources with separate SHA-1 evidence. Rock Ridge, additional UDF layouts and other WIM codecs are separate.                                                                                                                                                                                                                 |
+| Captures and messages      | [WARC](docs/warc.md) and [ARC](docs/arc.md) expose stored protocol blocks, retaining HTTP headers. [MIME](docs/mime.md) and [MBOX](docs/mbox.md) provide bounded attachment/mailbox previews without rendering or authenticity claims.                                                                                                                                                                                                                                                                                                                                   |
+| Preservation inventories   | [BagIt](docs/bagit.md) separates supplied inventory coverage from selected-file fixity. [OCFL](docs/ocfl.md) resolves explicit version states and distinguishes exact inventory from selected-content verification. Neither implies whole-repository validity.                                                                                                                                                                                                                                                                                                           |
+
+[Third-party extensions](docs/extensions.md) use public driver/source contracts, read-only adapters, bridges and
+explicit codec capabilities without global registration. The [expansion status](docs/expansion.md) is the maintained
+summary of implemented profiles, proof levels and remaining groups. A container or authored protocol fixture does not
+establish live-service IAM, CORS, durability or universal format compatibility.
+
+[Netlify Blobs](docs/netlify.md) has a first-party client for bounded complete objects, metadata observations, one
+listing page and conditional writes. The account API negotiates data URLs that the application must approve; account
+credentials stay off those data requests. The versioned SDK-wire profile does not supply a filesystem adapter or
+resumable upload.
+
+For a retained log rather than files, [Kafka](docs/kafka.md) appends binary records and reads explicit offsets in one
+selected partition. The application supplies authenticated exclusive channels and retains acknowledgments or reconciles
+unknown append outcomes. It does not create a filesystem projection or manage consumer-group offsets.
 
 ## Drivers are independently useful
 
@@ -225,6 +313,10 @@ choose an honest fallback when one can preserve the requested semantics.
 
 See [docs/s3.md](./docs/s3.md) and [docs/azure.md](./docs/azure.md) for the protocol contracts.
 
+Streamed uploads preserve the producer's failure or cancellation reason after admitted requests settle. When a provider
+request also fails independently, the client reports both reasons in an `AggregateError`, with the producer's reason as
+the cause. This lets callers distinguish a failed source from a failed provider without losing either error.
+
 ## Deno KV is the reference partitioned record driver
 
 Deno KV demonstrates why one flat `maxFileBytes` number is insufficient. The driver separates:
@@ -247,27 +339,42 @@ write new part 0..N
 atomic check old version
         |
         v
-commit retirement marker + new manifest
+CAS publish new generation + retire old generation
                   visibility point
         |
         v
-old readers keep using immutable old parts
+pinned readers keep using immutable old parts
         |
         v
-collect after retirement grace
+claim after retirement grace and reader release
 ```
 
-The metadata visibility commit uses Deno KV optimistic version checks, so an independent stale writer cannot publish over a
-newer logical entry. A failed write does not publish a partial logical file. A reader that already resolved the previous manifest can finish against its immutable generation after an overwrite commits
-while that generation remains inside the configured retirement grace. `collect()` measures a published generation's grace
-period
-from retirement, not from its potentially much older creation time. Unpublished crash leftovers have no retirement marker,
-so collection uses their generation creation time. Unknown-length streamed replacement uses the partitioned lane when
-partitioning is enabled. `partition: "never"` disables that behavior and makes oversized/streaming requests fail or use a
-bounded facade fallback instead of changing durable layout silently.
+Deno KV v3 checks writer ownership and part identity in each physical transaction. Publication atomically checks the old
+logical entry, publishes the new generation and retires its predecessor. Readers acquire bounded renewable pins before
+reading parts. Collection requires a versioned ownership claim and zero present pins; age alone never authorizes
+removal. A reader paused beyond its default 60-second lease can fail with `locked` and must reopen. The one-hour default
+grace starts at retirement; unpublished crash work becomes eligible after writer lease expiry. Per-pass scan/deletion
+bounds and continuation cursors keep maintenance explicit. Optional `maxRetainedBytes`/`maxGenerations` reject partition
+admission when aggregate retained bodies fill the namespace policy. They exclude inline records and provider overhead.
+
+The convenience adapter keeps its concrete driver: `adapter.driver.collect()`, `adapter.driver.maintenance`, and
+`await adapter.driver.probe()` expose maintenance, configured leases and live retention. No background timer starts.
+Legacy logical entries require a quiescent export/import to a fresh prefix; there is no automatic destructive migration.
+Unknown-length streamed replacement uses the partitioned lane when enabled. `partition: "never"` selects the bounded
+inline/facade path. See [storage ownership](docs/storage.md) for the complete state and lifetime contract.
 
 The preflight planner also evaluates the concrete virtual path. Deno KV limits serialized keys, so file size alone is
 not enough to decide whether an operation is admissible.
+
+Host drivers accept an explicit root-scoped `profile`; the ordinary native default stays convenient, while known
+Mountpoint/BlobFuse modes reject unsupported strong publication before I/O. See [host profiles](docs/host.md) for
+complete examples, advanced declarations, and the explicit best-effort alternative.
+
+Existing file destinations survive prepublication copy failures by default. Host copy stages into an exclusively owned
+sibling; tree replacement requires explicit `preserve: false`. Positional resources order accepted work, bound pending
+buffers and reserve a winning close/abort slot. Reverse bridges use a marked dedicated `/.opfs-kv` area and preserve
+exact JS-string keys; clear retains unrelated files. [Storage ownership and publication](docs/storage.md) teaches these
+contracts, advanced guarantee controls, recovery, migration and provider/runtime limits.
 
 ## Database direction matters
 
@@ -345,6 +452,9 @@ Third-party packages can use `defineIntegration()` and the driver/adapter primit
 
 ## Testing and benchmarks follow the layers
 
+The [validation guide](./docs/validation.md) explains the permanent suites, runtime lanes, correctness oracles, and
+benchmark comparisons. Local execution logs and investigation reports stay in ignored `.tmp/reports/` directories.
+
 Deno is the primary runtime and release authority. Portable behavior uses `node:test` with `@std/expect` because Deno
 can run those contracts directly. Node and Bun run the same portable tests as compatibility lanes, plus their
 runtime-specific filesystem tests. Their ambient type extensions must not redefine the Deno-checked public core.
@@ -368,29 +478,32 @@ facade metrics:basic
 ```
 
 `bench/filesystem-provider.bench.ts` adds the same staircase above already-mounted AWS Mountpoint and Azure BlobFuse
-filesystems. Set `OPFS_MOUNTPOINT_S3_ROOT` and/or `OPFS_BLOBFUSE_ROOT` before `mise run bench-filesystem-clients`. The
+filesystems. Set `OPFS_MOUNTPOINT_S3_ROOT` and/or `OPFS_BLOBFUSE_ROOT` before `deno task bench:filesystem-clients`. The
 benchmark uses only file operations that can be compared through the mounted filesystem contract. It does not count an
 unsupported filesystem operation as a performance failure.
 
-Mise is the repository command authority:
+Deno tasks are the repository command authority:
 
 ```sh
-mise install
-mise run check
-mise run test
-mise run test-browser
-mise run test-providers
-mise run bench
-mise run bench-providers
-mise run bench-browser
-mise run bench-filesystem-clients   # requires external mounts
+deno task deps:ci
+deno task check:ci
+deno task test:all
+deno task test:browser:install && deno task test:browser
+deno task test:providers
+deno task bench:all
+deno task bench:providers
+deno task test:browser:install && deno task bench:browser
+deno task bench:filesystem-clients   # requires external mounts
 ```
 
-GitHub Actions owns triggers, permissions, matrices, outputs, and secrets. It then invokes the same mise tasks. Release
-and publish commands also live under `.mise/tasks/` rather than becoming a second command layer in workflow YAML.
+Deno tasks in `deno.json` own checks, runtime suites, package builds and benchmarks. GitHub Actions owns triggers,
+permissions, matrices, outputs and secrets, then calls those same tasks. Mise remains an optional runtime installer; its
+core task files delegate to Deno. Task implementation files under `.mise/tasks/` can be run without installing Mise.
 
 ## Read next
 
+- [Choose a storage layer](./docs/model.md) builds the client/driver/adapter/filesystem/bridge mental model with
+  complete examples and operation diagrams.
 - [Public API](./docs/api.md) explains filesystem, inspection, planning, driver, adapter, and bridge entrypoints.
 - [Architecture](./docs/design.md) explains layer ownership, invariants, partitioning, metrics, and lifecycle.
 - [Adapters and drivers](./docs/adapters.md) explains the first-party translation/backend matrix and extension
@@ -401,4 +514,37 @@ and publish commands also live under `.mise/tasks/` rather than becoming a secon
 - [Providers](./docs/providers.md) explains Testcontainers and provider/filesystem baseline benchmarks.
 - [Validation](./docs/validation.md) defines the release gates and this repository's test matrix.
 - [Sources](./docs/sources.md) records the standards and upstream contracts used by the implementation.
-- [Releasing](./docs/releasing.md) explains mise-owned release and registry publication.
+- [Releasing](./docs/releasing.md) explains release and registry publication.
+
+## Releases
+
+Use the [Deno and Bumpy release workflow](docs/releasing.md) to author explanatory release notes, synchronize package
+versions, inspect exact artifacts, and publish with independent JSR/npm receipts and fresh public-consumer checks.
+
+[age](docs/age.md) authenticates selected covering payload chunks under a caller-unlocked file key, so an application
+can inspect a nested archive without collecting all plaintext. Whole-file verification remains explicit.
+[ORC](docs/orc.md) reads selected uncompressed physical numeric columns with separate validity masks and no invented
+integrity guarantee. [AMQP](docs/amqp.md) retains native publication confirmations and explicit destructive queue reads;
+applications own topology and recovery after uncertain mutations. Each module is optional and has its own limits and
+ownership contract.
+
+[BAM](docs/bam.md) adds a bounded sequential alignment preview over checked BGZF blocks, with a separate preview count
+and lifetime safety limits. Records may cross blocks; returned pages distinguish deliberate stops from observed EOF. The
+first profile requires a canonical physical final marker and supports ordered scalar auxiliary values. Focused candidate
+tests passed on Deno, Node and Bun; installed-package and CI gates remain pending. Regional BAI/CSI queries, CRAM and
+writing remain separate.
+
+[Arrow IPC](docs/arrow.md) reads selected columns from indexed files or yields bounded batches from forward streams. Its
+six-type uncompressed V5 profile preserves validity masks, exact int64 values and opaque metadata. Indexed reads can
+skip excluded payloads; stream reads consume bodies in order. Both report their selected validation scope and
+`integrity: "none"`. Dictionary, nested, compressed and other physical profiles remain unsupported.
+
+[Kafka](docs/kafka.md) adds one explicit-partition log client with bounded magic-2 records and bigint offsets. Fresh
+Java/candidate full-byte comparisons passed both append/read directions on one plaintext broker; independent Metadata4
+success evidence and authored outcome/cleanup controls are separate. TLS/SASL, multiple brokers and the current
+release's package/CI checks are not implied by that result. The client never reconnects or retries an uncertain append.
+
+[Glacier vaults](docs/glacier.md) provide explicit native archive uploads, asynchronous retrieval jobs, bounded
+completed-output sources, and multipart receipts. Applications retain IDs, approve retrieval costs, schedule polling,
+and reconcile unknown publication outcomes. This optional client does not implement S3 Glacier storage classes or a
+filesystem projection; source tests and independent service qualification remain separate evidence.

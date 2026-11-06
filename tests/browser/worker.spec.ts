@@ -1,23 +1,12 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { test } from "./ready.ts";
 
 import type { BrowserTestGlobalType } from "./fixtures/api.ts";
 
 /** File-local global shape after the fixture page installs its Playwright API. */
 type InstalledFixtureGlobalType = typeof globalThis & BrowserTestGlobalType;
-/** File-local global shape while the fixture module may still be initializing. */
-type PendingFixtureGlobalType = typeof globalThis & Partial<BrowserTestGlobalType>;
 
-/** Same-origin fixture page that creates real DedicatedWorker and SharedWorker instances. */
-const APP_URL = "http://127.0.0.1:4173/tests/browser/fixtures/index.html";
-
-/** Opens the fixture page and waits for its OPFS test API. */
-async function ready(page: import("@playwright/test").Page): Promise<void> {
-  await page.goto(APP_URL);
-  await page.waitForFunction(() => Boolean((globalThis as PendingFixtureGlobalType).opfsTest?.ready));
-}
-
-test("DedicatedWorker uses real OPFS and probes synchronous access", async ({ page }) => {
-  await ready(page);
+test("DedicatedWorker uses real OPFS and probes synchronous access", async ({ ready: page }) => {
   const result = await page.evaluate(async () =>
     await (globalThis as InstalledFixtureGlobalType).opfsTest.dedicated(
       `/dedicated/${crypto.randomUUID()}.txt`,
@@ -28,14 +17,19 @@ test("DedicatedWorker uses real OPFS and probes synchronous access", async ({ pa
   expect(result.probe?.context).toBe("dedicated-worker");
   if (result.probe?.rootAvailable) {
     expect(result.value).toBe("dedicated");
-    if (result.probe.syncAccessHandleExposed && !result.syncOpened) expect(result.syncError).toBeDefined();
+    if (result.probe.syncAccessHandleExposed) {
+      expect(result.syncError).toBeUndefined();
+      expect(result.syncOpened).toBe(true);
+      expect(result.syncBytes).toEqual([0, 9, 127, 255, 0, 0]);
+      expect(result.syncClosedCode).toBe("invalid-operation");
+      expect(result.syncReopened).toBe(true);
+    }
   } else {
     expect(result.probe?.rootError).toBeDefined();
   }
 });
 
-test("SharedWorker uses the browser's actual storage capability", async ({ page }) => {
-  await ready(page);
+test("SharedWorker uses the browser's actual storage capability", async ({ ready: page }) => {
   const result = await page.evaluate(async () =>
     await (globalThis as InstalledFixtureGlobalType).opfsTest.shared(
       `/shared/${crypto.randomUUID()}.txt`,

@@ -1,0 +1,60 @@
+{
+  "producerPackages": {
+    "xz-utils": "5.4.1-1+deb12u2 (Debian bookworm-security)"
+  },
+  "architecture": "arm64",
+  "nativeTools": {
+    "7zip": [
+      "",
+      "7-Zip (z) 26.02 (arm64) : Copyright (c) 1999-2026 Igor Pavlov : 2026-06-25",
+      " 64-bit arm_v:8-A locale=C.UTF-8 Threads:8 OPEN_MAX:1048576",
+      "",
+      "Usage: 7zz <command> [<switches>...] <archive_name> [<file_names>...] [@listfile]"
+    ],
+    "xz": "xz (XZ Utils) 5.4.1\nliblzma 5.4.1"
+  },
+  "localBaseImage": "opfs-seven-tools:20261105",
+  "localBaseImageId": "sha256:527d62a5244f4fa71833b4a105a4906ec1c1c7708f64ea2967fa04d96c551dd5",
+  "imageLimit": "Local base; signed distro apt installation changes filesystem. Not a publicly pullable complete producer pin.",
+  "command": "python3 /produce.py --seven /usr/bin/7zz --output /tmp/independent.json",
+  "files": {
+    "create.py": "ca06c2ae05a047f1144cf288fcb4639bf7e3b734e1ae98a195e368e41ace4743",
+    "independent.json": "a1c97ad4189710b5edfd72a0b8e07986d6c3f7bef2b1269dd1f8cdef97ca3029"
+  },
+  "specifications": {
+    "lzma": {
+      "url": "https://www.7-zip.org/a/lzma-specification.7z",
+      "author": "Igor Pavlov",
+      "date": "2015-06-14",
+      "archiveSha256": "4529aca392d6b9598f72086e7d136b1e05d2863bf7a757836d3fd4f49e623b58",
+      "textSha256": "6a4d441c2fa1d8d37b0189c7147a4b5424d5cdb122a7fc1fbebd022864ed54fb"
+    },
+    "lzma2": {
+      "url": "https://raw.githubusercontent.com/ip7z/7zip/e5431fa6f5505e385c6f9367260717e9c47dc2ee/C/Lzma2Dec.c",
+      "commit": "e5431fa6f5505e385c6f9367260717e9c47dc2ee",
+      "sha256": "3d691d30e4a1f4b661d56fc483db702167ff6a91781d143a017c793c1860476f",
+      "reviewScope": "Control grammar comment and reset requirements; public domain. No implementation copied."
+    },
+    "xzWrapper": {
+      "url": "https://tukaani.org/xz/xz-file-format-1.2.1.txt",
+      "reviewScope": "Explicit test-only framing adaptation around native raw LZMA2. Not a production XZ reader."
+    }
+  },
+  "caseCount": 88,
+  "origins": {
+    "alone-empty": "Genuine XZ Utils .lzma, independent 7-Zip full-byte consumer",
+    "lzma2-empty": "Genuine XZ Utils raw LZMA2, independent 7-Zip through explicitly authored XZ wrapper",
+    "alone-literal": "Genuine XZ Utils .lzma, independent 7-Zip full-byte consumer",
+    "lzma2-literal": "Genuine XZ Utils raw LZMA2, independent 7-Zip through explicitly authored XZ wrapper",
+    "alone-overlap": "Genuine XZ Utils .lzma, independent 7-Zip full-byte consumer",
+    "lzma2-overlap": "Genuine XZ Utils raw LZMA2, independent 7-Zip through explicitly authored XZ wrapper",
+    "alone-wrap": "Genuine XZ Utils .lzma, independent 7-Zip full-byte consumer",
+    "lzma2-wrap": "Genuine XZ Utils raw LZMA2, independent 7-Zip through explicitly authored XZ wrapper",
+    "lzma2-continuation": "Genuine XZ Utils raw LZMA2, independent 7-Zip through explicitly authored XZ wrapper",
+    "lzma2-mixed": "Genuine XZ Utils raw LZMA2, independent 7-Zip through explicitly authored XZ wrapper",
+    "lzma2-reset-composition": "Explicit authored control/header composition over genuine XZ packed chunks; independent 7-Zip and liblzma full-byte consumers, not direct producer control output",
+    "7zip-lzma1": "Genuine single-file 7-Zip packed extent; independent liblzma known-size Alone wrapper full-byte consumer",
+    "7zip-lzma2": "Genuine single-file 7-Zip packed extent; independent liblzma raw full-byte consumer"
+  },
+  "controls": "Native XZ continuation contains 0x84; mixed contains raw 0x02 and state reset 0xB0. Explicit reset-composition adapts genuine packed chunks with authored A0/C0 control/header changes and is independently full-byte accepted by 7-Zip and Python liblzma. Adapted headers are not claimed as direct native producer output."
+}

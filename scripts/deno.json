@@ -1,5 +1,7 @@
 {
   "imports": {
-    "@deno/dnt": "jsr:@deno/dnt@0.43.2"
+    "@deno/dnt": "jsr:@deno/dnt@0.43.2",
+    "@std/path": "jsr:@std/path@^1.1.6",
+    "zod": "npm:zod@^4.4.3"
   }
 }

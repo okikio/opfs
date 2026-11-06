@@ -1,3 +1,4 @@
+import { withFileSystem } from "./reliability.ts";
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
@@ -6,6 +7,7 @@ import { drizzle } from "drizzle-orm/sqlite-proxy";
 import { createFileSystem } from "../mod.ts";
 import { createDb0Adapter } from "../src/adapter/db0.ts";
 import { createDrizzleAdapter } from "../src/adapter/drizzle.ts";
+import { createDrizzleDriver, type DrizzleColumnType, type DrizzleTableType } from "../src/driver/drizzle.ts";
 import { createMemoryAdapter } from "../src/adapter/memory.ts";
 import { createRxDbAdapter, RxDbRecordJsonSchema } from "../src/adapter/rxdb.ts";
 import { createKeyValueBridge } from "../src/bridge/kv.ts";
@@ -265,84 +267,136 @@ describe("ecosystem adapters", () => {
 
   it("exposes any filesystem as an unstorage driver without key collisions", async () => {
     const fileSystem = createFileSystem(createMemoryAdapter(), { coordination: "local" });
-    const driver = createUnstorageBridge(fileSystem);
-    expect(driver.inspect().adapter.name).toBe("memory");
-    expect(driver.plan({ operation: "write", source: "bytes", mode: "replace", size: 3 }).supported).toBe(true);
-    await driver.setItem("prefix", "parent-value", {});
-    await driver.setItem("prefix:child", "child-value", {});
-    await driver.setItem("odd% key/part:item?", "encoded", {});
-    await driver.setItem("odd~25:item", "tilde", {});
-    expect(await driver.getItem("prefix")).toBe("parent-value");
-    expect(await driver.getItem("prefix:child")).toBe("child-value");
-    expect(await driver.getItem("odd% key/part:item?")).toBe("encoded");
-    expect(await driver.getItem("odd~25:item")).toBe("tilde");
-    const keys = await driver.getKeys("", { maxDepth: 4 });
-    expect(keys).toContain("prefix");
-    expect(keys).toContain("prefix:child");
-    await driver.clear("prefix:", {});
-    expect(await driver.getItem("prefix")).toBe("parent-value");
-    expect(await driver.getItem("prefix:child")).toBe(null);
+    await withFileSystem(fileSystem, async () => {
+      const driver = createUnstorageBridge(fileSystem);
+      expect(driver.inspect().adapter.name).toBe("memory");
+      expect(driver.plan({ operation: "write", source: "bytes", mode: "replace", size: 3 }).supported).toBe(true);
+      await driver.setItem("prefix", "parent-value", {});
+      await driver.setItem("prefix:child", "child-value", {});
+      await driver.setItem("odd% key/part:item?", "encoded", {});
+      await driver.setItem("odd~25:item", "tilde", {});
+      expect(await driver.getItem("prefix")).toBe("parent-value");
+      expect(await driver.getItem("prefix:child")).toBe("child-value");
+      expect(await driver.getItem("odd% key/part:item?")).toBe("encoded");
+      expect(await driver.getItem("odd~25:item")).toBe("tilde");
+      const keys = await driver.getKeys("", { maxDepth: 4 });
+      expect(keys).toContain("prefix");
+      expect(keys).toContain("prefix:child");
+      await driver.clear("prefix:", {});
+      expect(await driver.getItem("prefix")).toBe("parent-value");
+      expect(await driver.getItem("prefix:child")).toBe(null);
+    });
   });
 
   it("does not build KV reads or removal on advisory exists checks", async () => {
     const fileSystem = createFileSystem(createMemoryAdapter(), { coordination: "local" });
-    const bridge = createKeyValueBridge(fileSystem);
-    try {
-      await bridge.set("prefix", "parent-value");
-      await bridge.set("prefix:child", "child-value");
-      await bridge.setRaw("raw", new Uint8Array([1, 2, 3]));
+    await withFileSystem(fileSystem, async () => {
+      const bridge = createKeyValueBridge(fileSystem);
+      try {
+        await bridge.set("prefix", "parent-value");
+        await bridge.set("prefix:child", "child-value");
+        await bridge.setRaw("raw", new Uint8Array([1, 2, 3]));
 
-      // `exists()` is deliberately advisory. If the bridge reintroduces a
-      // check-then-act precondition, this replacement turns the race-prone
-      // extra lookup into an immediate regression failure.
-      fileSystem.exists = async () => {
-        throw new Error("KV bridge must not use advisory exists() as an operation precondition.");
-      };
+        // `exists()` is deliberately advisory. If the bridge reintroduces a
+        // check-then-act precondition, this replacement turns the race-prone
+        // extra lookup into an immediate regression failure.
+        fileSystem.exists = async () => {
+          throw new Error("KV bridge must not use advisory exists() as an operation precondition.");
+        };
 
-      expect(await bridge.get("prefix")).toBe("parent-value");
-      expect(await bridge.get("missing")).toBeNull();
-      expect(await bridge.getRaw("raw")).toEqual(new Uint8Array([1, 2, 3]));
-      expect(await bridge.getRaw("missing")).toBeNull();
-      expect((await bridge.meta("prefix"))?.modified).toBeInstanceOf(Date);
-      expect(await bridge.meta("missing")).toBeNull();
-      expect(await bridge.keys("prefix")).toContain("prefix:child");
-      expect(await bridge.keys("missing")).toEqual([]);
-      await bridge.remove("missing");
-      await bridge.clear("missing");
-      await bridge.clear("prefix", { preserveExact: true });
-      expect(await bridge.get("prefix")).toBe("parent-value");
-      expect(await bridge.get("prefix:child")).toBeNull();
-    } finally {
-      await fileSystem.close();
-    }
+        expect(await bridge.get("prefix")).toBe("parent-value");
+        expect(await bridge.get("missing")).toBeNull();
+        expect(await bridge.getRaw("raw")).toEqual(new Uint8Array([1, 2, 3]));
+        expect(await bridge.getRaw("missing")).toBeNull();
+        expect((await bridge.meta("prefix"))?.modified).toBeInstanceOf(Date);
+        expect(await bridge.meta("missing")).toBeNull();
+        expect(await bridge.keys("prefix")).toContain("prefix:child");
+        expect(await bridge.keys("missing")).toEqual([]);
+        await bridge.remove("missing");
+        await bridge.clear("missing");
+        await bridge.clear("prefix", { preserveExact: true });
+        expect(await bridge.get("prefix")).toBe("parent-value");
+        expect(await bridge.get("prefix:child")).toBeNull();
+      } finally {
+        await fileSystem.close();
+      }
+    });
   });
 
   it("targets RxCollection above the selected RxStorage engine", async () => {
     expect(RxDbRecordJsonSchema.primaryKey).toBe("path");
     expect(RxDbRecordJsonSchema.indexes).toEqual(["parent"]);
-    const fileSystem = createFileSystem(createRxDbAdapter(new FakeRxCollection() as never), { coordination: "local" });
-    await exerciseRecordBackend(fileSystem);
+    const fileSystem = createFileSystem(createRxDbAdapter(new FakeRxCollection() as never), {
+      coordination: "local",
+    });
+    await withFileSystem(fileSystem, async () => {
+      await exerciseRecordBackend(fileSystem);
+    });
   });
 
   for (const dialect of ["sqlite", "libsql", "postgresql", "mysql"] as const) {
-    it(`executes db0 record operations for ${dialect}`, async () => {
+    it(`translates db0 record operations for the ${dialect} dialect double`, async () => {
       const database = new FakeDb0Database(dialect);
       const adapter = await createDb0Adapter(database as never, { disposeDatabase: true });
       const fileSystem = createFileSystem(adapter, { coordination: "local", disposeAdapter: true });
-      await exerciseRecordBackend(fileSystem);
-      await fileSystem.close();
-      expect(database.disposed).toBe(true);
-      expect(database.prepared.some((sql) => sql.startsWith("CREATE TABLE"))).toBe(true);
-      expect(database.prepared.some((sql) => sql.includes("?"))).toBe(true);
-      if (dialect === "mysql") {
-        expect(database.prepared.some((sql) => sql.includes("ON DUPLICATE KEY UPDATE"))).toBe(true);
-      }
+      await withFileSystem(fileSystem, async () => {
+        await exerciseRecordBackend(fileSystem);
+        await fileSystem.close();
+        expect(database.disposed).toBe(true);
+        expect(database.prepared.some((sql) => sql.startsWith("CREATE TABLE"))).toBe(true);
+        expect(database.prepared.some((sql) => sql.includes("?"))).toBe(true);
+        if (dialect === "mysql") {
+          expect(database.prepared.some((sql) => sql.includes("ON DUPLICATE KEY UPDATE"))).toBe(true);
+        }
+      });
     });
   }
+
+  it("retains inferred string and number data from actual caller-owned Drizzle columns", () => {
+    const table: DrizzleTableType = DrizzleTestTable;
+    const textColumn: DrizzleColumnType<string> = table.path;
+    const numberColumn: DrizzleColumnType<number> = table.size;
+    // @ts-expect-error A textual column cannot store a numeric file size.
+    const wrongNumber: DrizzleColumnType<number> = DrizzleTestTable.path;
+    // @ts-expect-error A numeric column cannot store a textual file path.
+    const wrongText: DrizzleColumnType<string> = DrizzleTestTable.size;
+    expect(textColumn).toBe(DrizzleTestTable.path);
+    expect(numberColumn).toBe(DrizzleTestTable.size);
+    void wrongNumber;
+    void wrongText;
+  });
+
+  it("rejects every missing or imitation table column before database access", () => {
+    let operations = 0;
+    const database = {
+      select() {
+        operations++;
+        throw new Error("Unexpected database access");
+      },
+      insert() {
+        operations++;
+        throw new Error("Unexpected database access");
+      },
+      delete() {
+        operations++;
+        throw new Error("Unexpected database access");
+      },
+    };
+    for (const key of ["path", "parent", "name", "kind", "data", "size", "lastModified", "mediaType"] as const) {
+      const missing = { ...DrizzleTestTable };
+      Reflect.deleteProperty(missing, key);
+      expect(() => createDrizzleDriver({ database, table: missing })).toThrow(TypeError);
+      const imitation = { ...DrizzleTestTable, [key]: { _: { data: "" }, getSQL: () => ({}) } };
+      expect(() => createDrizzleDriver({ database, table: imitation })).toThrow(TypeError);
+    }
+    expect(operations).toBe(0);
+  });
 
   it("uses the common Drizzle CRUD surface with a caller-owned table", async () => {
     const { database, table } = createTestDrizzle();
     const fileSystem = createFileSystem(createDrizzleAdapter({ database, table }), { coordination: "local" });
-    await exerciseRecordBackend(fileSystem);
+    await withFileSystem(fileSystem, async () => {
+      await exerciseRecordBackend(fileSystem);
+    });
   });
 });

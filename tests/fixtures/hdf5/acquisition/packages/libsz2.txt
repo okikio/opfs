@@ -1,0 +1,19 @@
+Package: libsz2
+Source: libaec (1.0.6-1)
+Version: 1.0.6-1+b1
+Installed-Size: 83
+Maintainer: Alastair McKinstry <mckinstry@debian.org>
+Architecture: arm64
+Depends: libaec0 (>= 1.0.6), libc6 (>= 2.17)
+Description: Adaptive Entropy Coding library - SZIP
+Description-md5: 81965572fa7032369ae23b1dacd70f5a
+Multi-Arch: same
+Homepage: https://gitlab.dkrz.de/k202009/libaec
+Tag: role::shared-lib
+Section: libs
+Priority: optional
+Filename: pool/main/liba/libaec/libsz2_1.0.6-1+b1_arm64.deb
+Size: 7740
+MD5sum: c8a28c955c258dc520e649c417b417ef
+SHA256: 473cf3693b311f2bee43681ac1c268981244f71b4310469424ee2aeac6a99170
+

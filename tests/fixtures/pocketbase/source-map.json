@@ -1,0 +1,11 @@
+{
+  "providerMigration": {
+    "historical": {
+      "path": "tests/provider/pocketbase.ts",
+      "snapshot": "provider.ts.snapshot",
+      "bytes": 6984,
+      "sha256": "f53309b2e22ff3542c49b028d95434be33ec135c1e02f600d4c9f5f908e784a4"
+    },
+    "current": "Owned runner code is maintained as TypeScript; original SDK/artifact pins and proof remain historical rather than relabeled."
+  }
+}

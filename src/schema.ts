@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { basename, dirname, validateName } from "./path.ts";
 
 /**
  * Canonical virtual path stored and exchanged by adapters.
@@ -67,7 +68,12 @@ export type OpfsContextType = import("./_schema_types.ts").OpfsContextType;
  * an in-realm FIFO lock. `none` disables library coordination and transfers all
  * concurrency responsibility to the caller or adapter.
  */
-export const CoordinationModeSchema: z.ZodType<CoordinationModeType, CoordinationModeType> = z.enum(["auto", "web-locks", "local", "none"]);
+export const CoordinationModeSchema: z.ZodType<CoordinationModeType, CoordinationModeType> = z.enum([
+  "auto",
+  "web-locks",
+  "local",
+  "none",
+]);
 
 /** A validated mutation coordination policy. */
 export type CoordinationModeType = import("./_schema_types.ts").CoordinationModeType;
@@ -92,7 +98,12 @@ export type WriteModeType = import("./_schema_types.ts").WriteModeType;
  * provider records or blocks. `unsupported` means no safe implementation is
  * available for the selected stack.
  */
-export const SupportModeSchema: z.ZodType<SupportModeType, SupportModeType> = z.enum(["native", "emulated", "partitioned", "unsupported"]);
+export const SupportModeSchema: z.ZodType<SupportModeType, SupportModeType> = z.enum([
+  "native",
+  "emulated",
+  "partitioned",
+  "unsupported",
+]);
 
 /** A validated storage support mode. */
 export type SupportModeType = import("./_schema_types.ts").SupportModeType;
@@ -166,6 +177,10 @@ export const AdapterLimitsSchema: z.ZodType<AdapterLimitsType, AdapterLimitsType
   maxParts: z.number().int().positive().optional(),
   /** Maximum useful provider concurrency known by this adapter. */
   maxConcurrency: z.number().int().positive().optional(),
+  /** Caller policy: maximum provider pages examined by one object namespace scan. */
+  maxListPages: z.number().int().positive().optional(),
+  /** Caller policy: maximum raw provider entries examined by one object namespace scan. */
+  maxListEntries: z.number().int().positive().optional(),
   /** Maximum bytes in one transactional/batched provider mutation. */
   maxBatchBytes: z.number().int().positive().optional(),
 }).strict();
@@ -176,9 +191,10 @@ export type AdapterLimitsType = import("./_schema_types.ts").AdapterLimitsType;
 /**
  * Performance routes that the filesystem facade can deliberately bypass.
  *
- * Every field defaults to true. Disabling a route forces the semantically safe
- * fallback where one exists. This is useful for differential testing and for
- * applications that prefer a slower but more observable or more portable path.
+ * Native stream, range, copy, and move routes default to true. Replacement
+ * admission delegation defaults to false: the facade validates the destination
+ * and the adapter validates it again before publication. Disabling a route
+ * selects its fallback where one exists, which also supports differential tests.
  */
 export const OptimizationSchema: z.ZodType<OptimizationType, OptimizationType> = z.object({
   /** Use adapter-native streaming reads instead of materialized `readFile()`. */
@@ -191,6 +207,8 @@ export const OptimizationSchema: z.ZodType<OptimizationType, OptimizationType> =
   nativeCopy: z.boolean(),
   /** Use adapter-native move/rename instead of copy then remove. */
   nativeMove: z.boolean(),
+  /** Explicitly delegate binary replacement admission to a validating adapter; defaults to false. */
+  writeAdmission: z.boolean(),
 }).strict();
 
 /** Resolved performance-route policy for one filesystem facade. */
@@ -225,6 +243,13 @@ export const AdapterCapabilitiesSchema: z.ZodType<AdapterCapabilitiesType, Adapt
   positionalWrite: z.boolean(),
   /** Adapter exposes a synchronous random-access file resource. */
   syncAccess: z.boolean(),
+  /**
+   * Materialized replacement validates destination kind and namespace conflicts
+   * before publication. The facade may omit its duplicate destination stat for
+   * binary inputs. Absence keeps facade admission; this never covers source
+   * acquisition, parent validation, or append/update semantics.
+   */
+  validatesReplacement: z.boolean().optional(),
 });
 
 /** Native operations implemented by one adapter. */
@@ -282,6 +307,28 @@ const RecordBaseSchema = z.object({
   lastModified: z.number().int().nonnegative(),
 });
 
+/** Checks durable identity without normalizing hostile metadata into another path. */
+function recordIdentity(record: { path: string; parent: string; name: string; kind: string }): boolean {
+  if (record.path === "/") return record.kind === "directory" && record.parent === "/" && record.name === "";
+  try {
+    return validateName(record.name) === basename(record.path) && record.parent === dirname(record.path);
+  } catch {
+    return false;
+  }
+}
+
+/** Checks canonical base64 and its advertised size before allocating decoded bytes. */
+function recordData(record: { data: string; size: number }): boolean {
+  const data = record.data;
+  const padding = data.endsWith("==") ? 2 : data.endsWith("=") ? 1 : 0;
+  if (data.length % 4 !== 0 || data.length / 4 * 3 - padding !== record.size) return false;
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(data)) return false;
+  // Canonical padding bits must be zero; tolerant decoders otherwise accept aliases.
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  const last = alphabet.indexOf(data[data.length - padding - 1] ?? "");
+  return padding === 0 || (last >= 0 && (last & (padding === 2 ? 15 : 3)) === 0);
+}
+
 /** Persisted directory record used by record-store adapters. */
 const DirectoryRecordSchemaDefinition = RecordBaseSchema.extend({
   /** Discriminator that prevents a directory row from carrying file bytes. */
@@ -289,7 +336,8 @@ const DirectoryRecordSchemaDefinition = RecordBaseSchema.extend({
 });
 
 /** Persisted directory validator with an explicit public type boundary. */
-export const DirectoryRecordSchema: z.ZodType<DirectoryRecordType, DirectoryRecordType> = DirectoryRecordSchemaDefinition;
+export const DirectoryRecordSchema: z.ZodType<DirectoryRecordType, DirectoryRecordType> =
+  DirectoryRecordSchemaDefinition.refine(recordIdentity, "Record path, parent and name must agree.");
 
 /** A validated persisted directory record. */
 export type DirectoryRecordType = import("./_schema_types.ts").DirectoryRecordType;
@@ -307,7 +355,18 @@ const FileRecordSchemaDefinition = RecordBaseSchema.extend({
 });
 
 /** Persisted file validator with an explicit public type boundary. */
-export const FileRecordSchema: z.ZodType<FileRecordType, FileRecordType> = FileRecordSchemaDefinition;
+export const FileRecordSchema: z.ZodType<FileRecordType, FileRecordType> = FileRecordSchemaDefinition
+  .refine(recordIdentity, "Record path, parent and name must agree.")
+  .refine(recordData, "File data must be canonical base64 with the declared decoded size.");
+
+/** Listing metadata validates identity without requiring or decoding a file body. */
+export const RecordMetadataSchema: z.ZodType<RecordMetadataType, RecordMetadataType> = z.discriminatedUnion("kind", [
+  DirectoryRecordSchemaDefinition,
+  FileRecordSchemaDefinition.omit({ data: true }),
+]).refine(recordIdentity, "Record path, parent and name must agree.");
+
+/** Validated listing metadata with no file body. */
+export type RecordMetadataType = import("./_schema_types.ts").RecordMetadataType;
 
 /** A validated persisted file record. */
 export type FileRecordType = import("./_schema_types.ts").FileRecordType;
@@ -319,7 +378,11 @@ export type FileRecordType = import("./_schema_types.ts").FileRecordType;
  * strings. This costs about one third more storage than raw bytes. Native file
  * adapters do not use this format.
  */
-const RecordSchemaDefinition = z.discriminatedUnion("kind", [DirectoryRecordSchemaDefinition, FileRecordSchemaDefinition]);
+const RecordSchemaDefinition = z.discriminatedUnion("kind", [
+  DirectoryRecordSchemaDefinition,
+  FileRecordSchemaDefinition,
+]).refine(recordIdentity, "Record path, parent and name must agree.")
+  .refine((record) => record.kind === "directory" || recordData(record), "File data must match its decoded size.");
 
 /** Persisted record validator with an explicit public type boundary. */
 export const RecordSchema: z.ZodType<RecordType, RecordType> = RecordSchemaDefinition;
@@ -328,13 +391,20 @@ export const RecordSchema: z.ZodType<RecordType, RecordType> = RecordSchemaDefin
 export type RecordType = import("./_schema_types.ts").RecordType;
 
 /** SQL dialects currently exposed by db0's public Database contract. */
-export const Db0DialectSchema: z.ZodType<Db0DialectType, Db0DialectType> = z.enum(["mysql", "postgresql", "sqlite", "libsql"]);
+export const Db0DialectSchema: z.ZodType<Db0DialectType, Db0DialectType> = z.enum([
+  "mysql",
+  "postgresql",
+  "sqlite",
+  "libsql",
+]);
 
 /** A validated db0 SQL dialect. */
 export type Db0DialectType = import("./_schema_types.ts").Db0DialectType;
 
 /** Safe unqualified SQL identifier used for adapter-owned table names. */
-export const SqlIdentifierSchema: z.ZodType<SqlIdentifierType, SqlIdentifierType> = z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/);
+export const SqlIdentifierSchema: z.ZodType<SqlIdentifierType, SqlIdentifierType> = z.string().regex(
+  /^[A-Za-z_][A-Za-z0-9_]*$/,
+);
 
 /** A validated unqualified SQL identifier. */
 export type SqlIdentifierType = import("./_schema_types.ts").SqlIdentifierType;
@@ -352,13 +422,23 @@ export const LimitKindSchema: z.ZodType<LimitKindType, LimitKindType> = z.enum([
 export type LimitKindType = import("./_schema_types.ts").LimitKindType;
 
 /** Layer that supplied one limit value. */
-export const LimitSourceSchema: z.ZodType<LimitSourceType, LimitSourceType> = z.enum(["provider", "implementation", "user", "probe"]);
+export const LimitSourceSchema: z.ZodType<LimitSourceType, LimitSourceType> = z.enum([
+  "provider",
+  "implementation",
+  "user",
+  "probe",
+]);
 
 /** A validated limit source. */
 export type LimitSourceType = import("./_schema_types.ts").LimitSourceType;
 
 /** Unit used by one numeric limit. */
-export const LimitUnitSchema: z.ZodType<LimitUnitType, LimitUnitType> = z.enum(["bytes", "count", "milliseconds", "operations"]);
+export const LimitUnitSchema: z.ZodType<LimitUnitType, LimitUnitType> = z.enum([
+  "bytes",
+  "count",
+  "milliseconds",
+  "operations",
+]);
 
 /** A validated limit unit. */
 export type LimitUnitType = import("./_schema_types.ts").LimitUnitType;
@@ -393,7 +473,11 @@ export const LimitSchema: z.ZodType<LimitType, LimitType> = z.object({
 export type LimitType = import("./_schema_types.ts").LimitType;
 
 /** Current state of one driver requirement. */
-export const RequirementStateSchema: z.ZodType<RequirementStateType, RequirementStateType> = z.enum(["available", "missing", "unknown"]);
+export const RequirementStateSchema: z.ZodType<RequirementStateType, RequirementStateType> = z.enum([
+  "available",
+  "missing",
+  "unknown",
+]);
 
 /** A validated requirement state. */
 export type RequirementStateType = import("./_schema_types.ts").RequirementStateType;
@@ -421,7 +505,11 @@ export const RequirementSchema: z.ZodType<RequirementType, RequirementType> = z.
 export type RequirementType = import("./_schema_types.ts").RequirementType;
 
 /** Ownership state for one configured driver backend resource. */
-export const DriverOwnershipSchema: z.ZodType<DriverOwnershipType, DriverOwnershipType> = z.enum(["none", "borrowed", "owned"]);
+export const DriverOwnershipSchema: z.ZodType<DriverOwnershipType, DriverOwnershipType> = z.enum([
+  "none",
+  "borrowed",
+  "owned",
+]);
 
 /** A validated configured-driver backend ownership state. */
 export type DriverOwnershipType = import("./_schema_types.ts").DriverOwnershipType;

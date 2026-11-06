@@ -36,3 +36,25 @@ class ChunkSource implements UnderlyingDefaultSource<Uint8Array> {
 export function streamBytes(chunks: readonly Uint8Array[]): ReadableStream<Uint8Array> {
   return new ReadableStream(new ChunkSource(chunks));
 }
+
+/**
+ * Changes a fixture's prototype without inventing native cross-realm support.
+ * Some runtimes brand Web interfaces through the original prototype chain.
+ * Their intrinsic getter rejects a fully detached copied prototype, so keep
+ * that chain after proving the refusal. Other runtimes keep native slots and
+ * accept the detached prototype. Neither case uses a duck-typed stream.
+ * Actual browser realms are tested separately through browser fixtures.
+ */
+export function changeStreamPrototype(source: ReadableStream<Uint8Array>, prototype: object): boolean {
+  Object.defineProperties(prototype, Object.getOwnPropertyDescriptors(ReadableStream.prototype));
+  Object.setPrototypeOf(source, prototype);
+  const locked = Object.getOwnPropertyDescriptor(ReadableStream.prototype, "locked")!.get!;
+  try {
+    locked.call(source);
+    return true;
+  } catch {
+    Object.setPrototypeOf(prototype, ReadableStream.prototype);
+    locked.call(source);
+    return false;
+  }
+}

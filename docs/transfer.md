@@ -1,0 +1,273 @@
+# Upload, pause and resume a fixed source
+
+Use `tus` for a tus 1.0 upload endpoint and `transfer` for checkpoint-resumable copying. An upload endpoint is not a
+filesystem: it need not support downloads, directories or listing. The source and destination remain independently
+usable. Both modules require explicit construction and perform no network work on import. For an endpoint implementing
+the separate [HTTP resumable upload draft](upload.md), use its versioned descriptor and reconciliation contract instead
+of the tus client. The comparison near the end of this guide locates the provider-specific continuation bindings.
+
+A readable stream answers “what bytes arrive next?” A resumable upload must also answer “which exact source are these
+bytes from, which bytes did the remote service retain, and what does completion mean?” A network connection can close
+after the server accepts bytes but before the client receives the reply. The saved local position is therefore a record
+of the last confirmed progress, not automatic authority to send the next chunk.
+
+| Guarantee            | What the application can recover                                            | Required state                                                                           |
+| -------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Streaming            | Continue the current connected operation with bounded application buffering | Live reader, writer and codec state                                                      |
+| Restartable          | Start the operation again from its beginning                                | A way to reopen the original input and safely replace or abandon prior output            |
+| Checkpoint-resumable | Continue one retained remote attempt after interruption                     | The same replayable source, remote session, acknowledged progress and durable checkpoint |
+
+`transfer` coordinates the third row. It does not make arbitrary streams replayable or supply a durable database. The
+application owns checkpoint storage and exclusive session ownership; the protocol client owns the remote acknowledgment
+rules. See [byte sources](source.md) for stable ranges and [encryption](encryption.md) for why a fresh encryption
+attempt cannot replace a partially uploaded ciphertext.
+
+This complete in-memory example creates a tus upload and saves its acknowledged checkpoints. Replace the URL with your
+endpoint and supply its authentication headers explicitly. The remote server must advertise the creation extension.
+
+```ts
+import { createTusClient } from "@okikio/opfs/tus";
+import { createTransferCheckpoint, resumeTransfer } from "@okikio/opfs/transfer";
+import type { TransferCheckpointType } from "@okikio/opfs/transfer";
+
+const bytes = new TextEncoder().encode("hello resumable upload");
+const source = {
+  identity: "application-owned-immutable-content-v1",
+  size: bytes.byteLength,
+  async read(offset: number, length: number) {
+    return bytes.slice(offset, offset + length);
+  },
+};
+const client = createTusClient({ endpoint: "https://uploads.example/files" });
+const destination = await client.create(source.size, { filename: "hello.txt" });
+let checkpoint: TransferCheckpointType = createTransferCheckpoint(source, destination);
+
+// This example keeps state in memory. An application must atomically save it to
+// durable storage before it can promise recovery after the application exits.
+const save = async (value: TransferCheckpointType) => {
+  checkpoint = value;
+};
+await save(checkpoint);
+const result = await resumeTransfer({ source, destination, checkpoint, save, chunkBytes: 1024 * 1024 });
+console.log(result.state, result.offset); // completed, source.size
+```
+
+The caller gives this source an identity and guarantees that every read returns the same bytes for that identity. In a
+real application, bind it to an immutable object generation, a separately verified content digest or an equivalent
+snapshot contract. An arbitrary filename, size or mutable Blob wrapper is insufficient to prove unchanged contents.
+Changing transform parameters, encryption context or ciphertext changes the replay source: use a new identity and upload
+session. A checkpoint does not store encryption keys or reconstruct an arbitrary decoder state.
+
+## Restart with the saved checkpoint
+
+Keep the checkpoint in application-owned storage using atomic publication. On restart, parse it with
+`TransferCheckpointSchema.parse(savedData)`, reopen the same immutable source, and call
+`client.open(checkpoint.destination)`. Then pass both into `resumeTransfer()` as above. Configure the same endpoint and
+authentication policy; an upload URL itself can be a bearer secret. Do not log checkpoints indiscriminately.
+
+The following functions separate the first invocation from a later continuation. The application supplies a storage slot
+whose `replace()` atomically publishes a complete string and resolves only when its chosen durability contract is met.
+`read()` returns the last published string. These functions do not implement that persistence service or acquire a
+lease: the caller must hold exclusive ownership of this slot and upload session throughout each invocation. The
+persistence methods have no cancellation parameter; the upload signal cannot preempt a pending storage call. The
+application owns that implementation's deadlines and eventual settlement.
+
+```ts
+import { createTusClient } from "@okikio/opfs/tus";
+import type { TusClientOptionsType } from "@okikio/opfs/tus";
+import type { ByteSourceType } from "@okikio/opfs/source";
+import { createTransferCheckpoint, resumeTransfer, TransferCheckpointSchema } from "@okikio/opfs/transfer";
+import type { TransferCheckpointType } from "@okikio/opfs/transfer";
+
+export interface CheckpointStorageType {
+  read(): Promise<string | null>;
+  replace(value: string): Promise<void>;
+}
+
+export class InitialCheckpointError extends Error {
+  readonly checkpoint: TransferCheckpointType;
+  constructor(checkpoint: TransferCheckpointType, cause: unknown) {
+    super("The upload was created, but its initial checkpoint was not saved.", { cause });
+    this.name = "InitialCheckpointError";
+    this.checkpoint = checkpoint;
+  }
+}
+
+export async function startUpload(
+  source: ByteSourceType,
+  connection: TusClientOptionsType,
+  storage: CheckpointStorageType,
+  signal?: AbortSignal,
+  pause: () => boolean = () => false,
+): Promise<TransferCheckpointType> {
+  const request = signal === undefined ? {} : { signal };
+  if (await storage.read() !== null) throw new Error("Continue the saved attempt instead of creating another upload.");
+  if (!source.identity) throw new Error("Choose an immutable replay identity before creating the upload.");
+  const client = createTusClient(connection);
+  const destination = await client.create(source.size, {}, request);
+  const checkpoint = createTransferCheckpoint(source, destination);
+  const save = async (value: TransferCheckpointType) => {
+    await storage.replace(JSON.stringify(value));
+  };
+  try {
+    await save(checkpoint);
+  } catch (cause) {
+    throw new InitialCheckpointError(checkpoint, cause);
+  }
+  return await resumeTransfer({ source, destination, checkpoint, save, pause, ...request });
+}
+
+export async function continueUpload(
+  source: ByteSourceType,
+  connection: TusClientOptionsType,
+  storage: CheckpointStorageType,
+  signal?: AbortSignal,
+): Promise<TransferCheckpointType> {
+  const request = signal === undefined ? {} : { signal };
+  const saved = await storage.read();
+  if (saved === null) throw new Error("There is no saved attempt to continue.");
+  const decoded: unknown = JSON.parse(saved);
+  const checkpoint = TransferCheckpointSchema.parse(decoded);
+  const destination = createTusClient(connection).open(checkpoint.destination);
+  const save = async (value: TransferCheckpointType) => {
+    await storage.replace(JSON.stringify(value));
+  };
+  return await resumeTransfer({ source, destination, checkpoint, save, ...request });
+}
+```
+
+Call `startUpload()` once with a replayable source and your persistence implementation. A UI can change the value read
+by its `pause` callback; after an acknowledged chunk, the function saves a paused checkpoint and returns. In a later
+invocation, reopen exactly that source snapshot and call `continueUpload()` with the same storage slot and configured
+authentication policy. Abort can reject either invocation after remote bytes were accepted. Once that invocation has
+settled, continue from the saved checkpoint to query remote status before writing again. The continuation does not
+recreate a missing session or automatically repeat a failed mutation.
+
+If a progress save rejects, the function stops before its next source read or write. Repair persistence, retain the same
+source and session, then reconcile through `continueUpload()`; do not create a replacement attempt just because the
+stored offset lags. The initial save has a separate failure window: session creation may have succeeded before its URL
+was stored. `InitialCheckpointError.checkpoint` retains that known URL in memory so the caller can retry durable storage
+or explicitly terminate the attempt. Treat it as a secret-bearing recovery record, not a log message. Process loss
+before that record reaches durable storage still loses the URL; this client cannot close that creation window. A
+read-then-create check is not a distributed lock.
+
+The continuation checks source identity, size, destination URL, protocol and checkpoint version before reading the
+source or contacting the destination. It then reads the server's retained offset. Each chunk follows this order:
+
+```mermaid
+sequenceDiagram
+  participant App as Application storage
+  participant Transfer as Transfer coordinator
+  participant Source as Stable source
+  participant Remote as Upload destination
+  App->>Transfer: Saved checkpoint and exclusive session
+  Transfer->>Remote: Query retained offset and completion
+  Remote-->>Transfer: Confirmed remote state
+  Transfer->>App: Save reconciled checkpoint
+  loop Each acknowledged chunk
+    Transfer->>Source: Read exact range
+    Source-->>Transfer: Owned bytes
+    Transfer->>Remote: Write at confirmed offset
+    Remote-->>Transfer: Exact acknowledged next offset
+    Transfer->>App: Atomically save checkpoint
+  end
+  Transfer->>Remote: Confirm or finish publication
+  Remote-->>Transfer: Publication confirmation
+  Transfer->>App: Save completed checkpoint
+```
+
+Time runs downward. Each saved checkpoint follows remote acknowledgment; saving before the write would claim bytes that
+might never arrive. A failed save stops the next read. The diagram shows the normal path and omits session creation,
+pause and cancellation. It does not imply a transaction between application storage and the remote service; the status
+query repairs the acknowledgment-to-save gap under the exclusive-owner rule below.
+
+After the last chunk, the library separately confirms final publication. A destination can acknowledge every byte while
+still staging an unpublished object. Its status must report `complete: true`, or its explicit `finish()` must publish
+and return that confirmation, before a completed checkpoint is saved. An empty upload needs this confirmation too. A
+missing publication receipt leaves the checkpoint active, even when its offset equals its size.
+
+If the server accepted bytes but the process exited before saving, its offset can be ahead of the checkpoint. Under
+exclusive session ownership, the library reconciles that offset and continues from it. If the server is behind a saved
+offset, has a different length, or reports an invalid offset, continuation fails. Never restart blindly at the last
+local offset after an unknown PATCH result. Resume again to query the server first. No PATCH or POST is retried
+automatically.
+
+Only one writer may own the session. The library does not provide a distributed lease, fence competing application
+instances, prove that another writer uploaded matching bytes, or orchestrate background retries. Applications needing
+concurrent ownership must add an external authority. Source identity and an offset are not content-integrity proofs.
+
+Creation has its own uncertainty window: if POST succeeds but its Location response is lost, this client cannot recover
+the unknown URL. It will not silently create a second upload. Application metadata or a service-specific lookup and
+cleanup policy may resolve that case. Missing or expired uploads fail explicitly; starting over is an application
+choice.
+
+## Pause, abort and cancel have different effects
+
+Pass `pause: () => requestedPause` to save a paused checkpoint at the next acknowledged chunk boundary. Call
+`resumeTransfer()` with that checkpoint to continue. An `AbortSignal` stops active source/transport work cooperatively;
+remote bytes may already have been committed, so reconcile on the next continuation. Neither action deletes remote
+state.
+
+`cancelTransfer(destination, checkpoint, save)` requests explicit remote termination and saves `cancelled` only after
+its acknowledgment. The tus client checks the advertised termination extension first. A failed deletion or checkpoint
+save requires reconciliation; do not assume the remote upload survived. Disposal of a borrowed source or client is still
+the application's responsibility. No timer, worker or remote cleanup starts in the background.
+
+## Bounds, extensions and third-party destinations
+
+Transfer chunks default to 8 MiB and admit 1 byte through 64 MiB. At most one source read and destination write is
+active. The tus request copies that chunk into an owned ArrayBuffer for Fetch; account for source plus transport
+buffering. Fetch and the server may retain additional bytes. A hard CPU deadline is not promised. Save rejection stops
+the operation before another chunk is read. A source returning an inexact range or destination acknowledging a different
+extent fails.
+
+`TusClient` implements tus 1.0 core, known-length creation and negotiated termination. It exposes expiration metadata
+returned by HEAD, without reading a clock or assuming expiration has not changed. Deferred length, creation-with-upload,
+checksum negotiation and concatenation are not implemented. Discovery returns server advertisements; it does not claim
+the client supports every advertised extension. It checks response versions, status codes and safe-integer offsets and
+cancels unexpected response bodies without downloading them. Metadata has an 8 KiB implementation header ceiling.
+
+Upload URLs default to the endpoint origin. Explicitly provide `allowUploadURL` when your server intentionally creates
+cross-origin resources, and make the `headers(url)` callback apply credentials only to authorized targets. Redirects
+fail rather than forwarding credentials. Fetch credentials default to `omit`; choose `credentials` explicitly when a
+browser deployment intentionally uses cookies or client certificates. CORS and the server's permissions remain
+deployment responsibilities.
+
+A third-party destination implements `UploadDestinationType`: fixed protocol/URL identity, explicit status
+reconciliation, exact acknowledged writes, optional final publication and optional termination. Its status must
+represent server-retained bytes plus explicit publication completion, and its write must not resolve on merely queued
+local progress. Use `TransferCheckpointSchema` for persisted data. This generic contract does not turn block-staging,
+multipart completion or an unknown-length session into a tus upload; the provider adapter must implement its actual
+acknowledgment and final-publication rules.
+
+Portable tests cover protocol admission, changed identities, rollback, failed saves, pause, cancellation, bounded reads
+and acknowledgment mismatches. A separate process test exits after persisting destination bytes but before the
+checkpoint, then starts a fresh process and verifies continuation without duplicate output. These tests use authored
+fixtures; they do not establish interoperability with a hosted tus service or a real cloud provider.
+
+## Choose the native recovery model
+
+“Resumable stream” is often shorthand for several different protocols. Their retained state is not interchangeable. The
+table records the implementation boundaries in this checkout; primary sources describe the upstream protocols, not proof
+that every extension or deployment has been tested. The HTTP draft status was checked on 6 November 2026.
+
+| Protocol or mechanism                                                                                          | Remote progress and publication                                                             | Current OPFS route                                                                                                                                |
+| -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [tus 1.0](https://tus.io/protocols/resumable-upload)                                                           | One retained offset; extensions add creation, termination, checksums or concatenation       | `tus` plus `transfer`; core, known-length creation and negotiated termination only                                                                |
+| [HTTP resumable upload draft-15](https://datatracker.ietf.org/doc/html/draft-ietf-httpbis-resumable-upload-15) | Upload resource and offset; terminal target response has application-specific meaning       | [`upload`](upload.md), explicit draft profile; not a generic `UploadDestinationType` because terminal response does not prove storage publication |
+| [GCS resumable upload](https://docs.cloud.google.com/storage/docs/performing-resumable-uploads)                | Session URI, persisted offset and separate final object receipt                             | [`gcs`](gcs.md) low-level sessions; `createGcsUploadDestination()` also composes with `transfer` for known sizes                                  |
+| [S3 multipart](https://docs.aws.amazon.com/AmazonS3/latest/userguide/mpuoverview.html)                         | Upload ID and independently staged numbered parts; explicit completion assembles the object | [`s3`](s3.md) native multipart operations; retain native part receipts rather than reducing them to an invented contiguous offset                 |
+| [Azure block blobs](https://learn.microsoft.com/en-us/rest/api/storageservices/put-block-list)                 | Staged block IDs and explicit ordered block-list commit                                     | [`azure`](azure.md) native block operations; staged blocks and published blob are distinct states                                                 |
+| [FTP REST STREAM](https://www.rfc-editor.org/rfc/rfc3659.html#section-5)                                       | Restart marker positions a later transfer                                                   | [`ftp`](ftp.md) does not currently expose restart/checkpoint recovery; a marker alone supplies neither snapshot identity nor safe publication     |
+| [HTTP range requests](https://www.rfc-editor.org/rfc/rfc9110.html#name-range-requests)                         | Retrieve an interval of an existing representation                                          | Read-side mechanism used by stable object sources; no upload session or durable writer checkpoint is created                                      |
+
+The tus checksum and concatenation extensions remain future work here. Further native destination bindings need their
+own checkpoint schema, independent protocol fixtures, unknown-outcome recovery and final-publication evidence before
+admission. SFTP positional writes likewise do not by themselves establish an immutable replay source or an exclusive
+resumable session; the [SFTP guide](sftp.md) states the current handle-level boundary. These gaps remain part of the
+[expansion plan](expansion.md).
+
+Compression and encryption formats introduce another kind of restart boundary. A decoder may need its earlier history,
+and an encoder may use fresh randomness. A byte offset in the _output_ does not reconstruct that internal state. Resume
+by reopening the exact encoded bytes, or implement and verify a format-specific checkpoint contract; do not treat a
+newly created `ReadableStream` as proof of replay equivalence.

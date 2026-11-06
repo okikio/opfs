@@ -1,0 +1,32 @@
+{
+  "status": "offline-install-only; native engine not imported",
+  "publicReference": "python:3.13.12-slim-bookworm@sha256:a58daefb915e1e03ad48f3ca4df8832065412c5c35cacb9d39f4229184de12b6",
+  "actualPythonImage": "sha256:5ae62b8a656b92aebda2441c1b4b872da0799b4deabca9f6c476f5940624ebef",
+  "toolsImage": "sha256:26e68cc881db490c8ebd14256fe101650609437f41017c0cd1d5a7df1c7db72f",
+  "architecture": "arm64",
+  "os": "linux",
+  "limits": {
+    "memory": 1073741824,
+    "memorySwap": 1073741824,
+    "nanoCpus": 1000000000,
+    "pids": 128,
+    "network": "none",
+    "mounts": [],
+    "capDrop": [
+      "ALL"
+    ]
+  },
+  "launcherSha256": "85c71b1801d60d8c9b1d3b0b8e40d12eaf7ed9aa7cd1d4ab0692285947a5c271",
+  "installSha256": "040b1241677c9670dc00d18736e1a2bebf98b0df914947cfc434618e31a996ce",
+  "exit": 0,
+  "oomKilled": false,
+  "seconds": 4.661577332999999,
+  "licenses": {
+    "pyarrow-LICENSE.txt": "36f65c663f1c9c910af64c73cb4302667d6513c3f0a617e42bd896d767ff4604",
+    "pyarrow-NOTICE.txt": "b62ea242642d3a18f1e29b0c1fe082415a6943fe158ee22b48cff3762f354009",
+    "python-LICENSE.txt": "78b12c3a81360b357002334f0e70ea0e92eebf7a9b358805c03c48484945f3bb"
+  },
+  "firstFailure": "copied input receipt directory was not writable with all capabilities dropped; output-only repair retained inputs and limits",
+  "firstFailureLogSha256": "9512e8d828a946dc9d0e713b976beb962908bba4739a5eb4178a429aae445307",
+  "failedInstallerSha256": "6bc958c471b2f5d5ea79aea85a973e6c59b56cd022989e1258262d1959b5d518"
+}

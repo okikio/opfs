@@ -1,0 +1,792 @@
+{
+  "status": "native-and-focused-runtime-complete-artifact-validation-separate",
+  "publicBase": "python:3.13.12-slim-bookworm@sha256:a58daefb915e1e03ad48f3ca4df8832065412c5c35cacb9d39f4229184de12b6",
+  "inspectedImage": "sha256:5ae62b8a656b92aebda2441c1b4b872da0799b4deabca9f6c476f5940624ebef",
+  "platform": "linux/arm64",
+  "admittedImage": "sha256:73bacf38a7c70c2fd572712f521ee56d9044b0cc8fc54965ba47867da5b3268e",
+  "toolsImage": "sha256:9fd46baa76be4295895ad0776988c548124cd0af616cd64aff8a495c3ad1ba22",
+  "localImageScope": "Task-local installed image, not a publicly pullable complete toolchain pin. Signed archive bytes and all actual package fields are retained separately.",
+  "archiveClosure": {
+    "directRequests": [
+      "qemu-utils"
+    ],
+    "downloadBytes": 2672468,
+    "declaredInstalledBytes": 12665856,
+    "archives": [
+      {
+        "file": "libaio1_0.3.113-4_arm64.deb",
+        "bytes": 13344,
+        "sha256": "a65da7470d336eea146ae2e33640be5309103d2013e8b3e98db7c81b95a756f3",
+        "package": "libaio1",
+        "version": "0.3.113-4",
+        "architecture": "arm64",
+        "source": "libaio",
+        "installedBytes": 91136
+      },
+      {
+        "file": "libfuse3-3_3.14.0-4_arm64.deb",
+        "bytes": 82872,
+        "sha256": "6928a77e354bf66ddae04f070c5e5bd6f3d177b9189fc91d0b15e35500dd1dba",
+        "package": "libfuse3-3",
+        "version": "3.14.0-4",
+        "architecture": "arm64",
+        "source": "fuse3",
+        "installedBytes": 312320
+      },
+      {
+        "file": "libglib2.0-0_2.74.6-2+deb12u9_arm64.deb",
+        "bytes": 1315904,
+        "sha256": "61d92fffada7e27fc0ed9d23e047b45bca3b2e3bfe1a918f4ec16559282859f4",
+        "package": "libglib2.0-0",
+        "version": "2.74.6-2+deb12u9",
+        "architecture": "arm64",
+        "source": "glib2.0",
+        "installedBytes": 4709376
+      },
+      {
+        "file": "libnuma1_2.0.16-1_arm64.deb",
+        "bytes": 20312,
+        "sha256": "b4ed2547f387eb2e97d13c0b423b034d2a4d052b2131dfe043e45a84915452c5",
+        "package": "libnuma1",
+        "version": "2.0.16-1",
+        "architecture": "arm64",
+        "source": "numactl",
+        "installedBytes": 89088
+      },
+      {
+        "file": "liburing2_2.3-3_arm64.deb",
+        "bytes": 12584,
+        "sha256": "840486327052df397d78966e9d65d35404cfe0c1eaa2953842cffba427f8ffdf",
+        "package": "liburing2",
+        "version": "2.3-3",
+        "architecture": "arm64",
+        "source": "liburing",
+        "installedBytes": 90112
+      },
+      {
+        "file": "qemu-utils_1%3a7.2+dfsg-7+deb12u18+b3_arm64.deb",
+        "bytes": 1227452,
+        "sha256": "ba18b98c2f5d5cbc142f1c79990e7c23064e39cf117451f24ac4930de5e0c77f",
+        "package": "qemu-utils",
+        "version": "1:7.2+dfsg-7+deb12u18+b3",
+        "architecture": "arm64",
+        "source": "qemu (1:7.2+dfsg-7+deb12u18)",
+        "installedBytes": 7373824
+      }
+    ]
+  },
+  "runners": {
+    "download": {
+      "script": "/acquire.sh",
+      "stage": "download",
+      "exit": 0,
+      "reason": null,
+      "logBytes": 1763,
+      "maxLogBytes": 4194304,
+      "deadlineSeconds": 180,
+      "elapsedSeconds": 3.1918888349998724,
+      "totalElapsedSeconds": 3.1918894180000734,
+      "totalLogBytes": 1763
+    },
+    "install": {
+      "script": "/acquire.sh",
+      "stage": "install",
+      "exit": 0,
+      "reason": null,
+      "logBytes": 2520,
+      "maxLogBytes": 4192541,
+      "deadlineSeconds": 180,
+      "elapsedSeconds": 1.032444625999915,
+      "totalElapsedSeconds": 4.224337293999952,
+      "totalLogBytes": 4283
+    }
+  },
+  "runtime": {
+    "python": {
+      "version": "3.13.12 (main, Apr  7 2026, 02:30:31) [GCC 12.2.0]",
+      "executable": "/usr/local/bin/python3",
+      "files": {
+        "/usr/local/bin/python3.13": "cb4548d280f38c2b1df4cba45f12c90a034729e08fce5bf1a223c58add0e21e3",
+        "/usr/local/lib/python3.13/json/__init__.py": "3b5abc6441252283e4b83dd00317430c0c0145343a8f48274f2c4fac3d856631",
+        "/usr/local/lib/python3.13/LICENSE.txt": "78b12c3a81360b357002334f0e70ea0e92eebf7a9b358805c03c48484945f3bb"
+      }
+    },
+    "licenses": [
+      {
+        "package": "libaio1:arm64",
+        "version": "0.3.113-4",
+        "source": "libaio",
+        "sourceVersion": "0.3.113-4",
+        "architecture": "arm64",
+        "bytes": 1131,
+        "sha256": "ce7a117c09040eeba9405980852248d95d8365102d1f79123a439d4c44e69717",
+        "file": "licenses/libaio1_arm64.copyright.snapshot"
+      },
+      {
+        "package": "libfuse3-3:arm64",
+        "version": "3.14.0-4",
+        "source": "fuse3",
+        "sourceVersion": "3.14.0-4",
+        "architecture": "arm64",
+        "bytes": 3578,
+        "sha256": "e3324ad43e309aae4f46501a20580d69fb3c69bf8f2fb0c7ae9e3d2408123a07",
+        "file": "licenses/libfuse3-3_arm64.copyright.snapshot"
+      },
+      {
+        "package": "libglib2.0-0:arm64",
+        "version": "2.74.6-2+deb12u9",
+        "source": "glib2.0",
+        "sourceVersion": "2.74.6-2+deb12u9",
+        "architecture": "arm64",
+        "bytes": 51488,
+        "sha256": "03cbcd6142c92bb14c997af557b8c73b1534710c34fe7f69788f8e8fc5fd941d",
+        "file": "licenses/libglib2.0-0_arm64.copyright.snapshot"
+      },
+      {
+        "package": "libnuma1:arm64",
+        "version": "2.0.16-1",
+        "source": "numactl",
+        "sourceVersion": "2.0.16-1",
+        "architecture": "arm64",
+        "bytes": 1357,
+        "sha256": "179c34f5e56cd0b6b73dd7970a97357ee784e2236e8293826656c7ebb3bface7",
+        "file": "licenses/libnuma1_arm64.copyright.snapshot"
+      },
+      {
+        "package": "liburing2:arm64",
+        "version": "2.3-3",
+        "source": "liburing",
+        "sourceVersion": "2.3-3",
+        "architecture": "arm64",
+        "bytes": 4497,
+        "sha256": "af5dd91380d9965a76ff44584572ae055313f30b142e9196b970d5ac350af113",
+        "file": "licenses/liburing2_arm64.copyright.snapshot"
+      },
+      {
+        "package": "qemu-utils",
+        "version": "1:7.2+dfsg-7+deb12u18+b3",
+        "source": "qemu",
+        "sourceVersion": "1:7.2+dfsg-7+deb12u18",
+        "architecture": "arm64",
+        "bytes": 31136,
+        "sha256": "0bdb9dd77149a6283f99fca200c49296349738fa9c5ad48e7f92c0816aeda8fc",
+        "file": "licenses/qemu-utils.copyright.snapshot"
+      },
+      {
+        "commonLicense": "MPL-2.0",
+        "bytes": 16726,
+        "sha256": "fab3dd6bdab226f1c08630b1dd917e11fcb4ec5e1e020e2c16f83a0a13863e85",
+        "file": "licenses/common-MPL-2.0.snapshot"
+      },
+      {
+        "commonLicense": "GPL-1",
+        "bytes": 12632,
+        "sha256": "d77d235e41d54594865151f4751e835c5a82322b0e87ace266567c3391a4b912",
+        "file": "licenses/common-GPL-1.snapshot"
+      },
+      {
+        "commonLicense": "LGPL-3",
+        "bytes": 7652,
+        "sha256": "e3a994d82e644b03a792a930f574002658412f62407f5fee083f2555c5f23118",
+        "file": "licenses/common-LGPL-3.snapshot"
+      },
+      {
+        "commonLicense": "GPL-2",
+        "bytes": 18092,
+        "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643",
+        "file": "licenses/common-GPL-2.snapshot"
+      },
+      {
+        "commonLicense": "CC0-1.0",
+        "bytes": 7048,
+        "sha256": "a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499",
+        "file": "licenses/common-CC0-1.0.snapshot"
+      },
+      {
+        "commonLicense": "GFDL-1.3",
+        "bytes": 22955,
+        "sha256": "110535522396708cea37c72a802c5e7e81391139f5f7985631c93ef242b206a4",
+        "file": "licenses/common-GFDL-1.3.snapshot"
+      },
+      {
+        "commonLicense": "MPL-1.1",
+        "bytes": 25755,
+        "sha256": "f849fc26a7a99981611a3a370e83078deb617d12a45776d6c4cada4d338be469",
+        "file": "licenses/common-MPL-1.1.snapshot"
+      },
+      {
+        "commonLicense": "GFDL-1.2",
+        "bytes": 20432,
+        "sha256": "d8e94ae5fdb5433fcae2961aeb1a8cf17174d6f4a0465d24bf37dd8a038bd439",
+        "file": "licenses/common-GFDL-1.2.snapshot"
+      },
+      {
+        "commonLicense": "LGPL",
+        "bytes": 7652,
+        "sha256": "e3a994d82e644b03a792a930f574002658412f62407f5fee083f2555c5f23118",
+        "file": "licenses/common-LGPL.snapshot"
+      },
+      {
+        "commonLicense": "GFDL",
+        "bytes": 22955,
+        "sha256": "110535522396708cea37c72a802c5e7e81391139f5f7985631c93ef242b206a4",
+        "file": "licenses/common-GFDL.snapshot"
+      },
+      {
+        "commonLicense": "GPL-3",
+        "bytes": 35149,
+        "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+        "file": "licenses/common-GPL-3.snapshot"
+      },
+      {
+        "commonLicense": "Artistic",
+        "bytes": 6111,
+        "sha256": "b7fd9b73ea99602016a326e0b62e6646060d18febdd065ceca8bb482208c3d88",
+        "file": "licenses/common-Artistic.snapshot"
+      },
+      {
+        "commonLicense": "Apache-2.0",
+        "bytes": 11358,
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "file": "licenses/common-Apache-2.0.snapshot"
+      },
+      {
+        "commonLicense": "GPL",
+        "bytes": 35149,
+        "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+        "file": "licenses/common-GPL.snapshot"
+      },
+      {
+        "commonLicense": "LGPL-2",
+        "bytes": 25381,
+        "sha256": "681e386e44a19d7d0674b4320272c90e66b6610b741e7e6305f8219c42e85366",
+        "file": "licenses/common-LGPL-2.snapshot"
+      },
+      {
+        "commonLicense": "BSD",
+        "bytes": 1499,
+        "sha256": "5d588eb3b157d52112afea935c88a7ff9efddc1e2d95a42c25d3b96ad9055008",
+        "file": "licenses/common-BSD.snapshot"
+      },
+      {
+        "commonLicense": "LGPL-2.1",
+        "bytes": 26530,
+        "sha256": "dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551",
+        "file": "licenses/common-LGPL-2.1.snapshot"
+      }
+    ]
+  },
+  "qemuImg": "qemu-img version 7.2.22 (Debian 1:7.2+dfsg-7+deb12u18+b3)\nCopyright (c) 2003-2022 Fabrice Bellard and the QEMU Project developers\n",
+  "qemuIo": "qemu-io version 7.2.22 (Debian 1:7.2+dfsg-7+deb12u18+b3)\nCopyright (c) 2003-2022 Fabrice Bellard and the QEMU Project developers\n",
+  "resources": {
+    "memoryBytes": 1073741824,
+    "memoryPlusSwapBytes": 1073741824,
+    "nanoCpus": 1000000000,
+    "pids": 128,
+    "hostMounts": 0,
+    "installNetwork": "none"
+  },
+  "stages": {
+    "download": {
+      "id": "36f113d5844decb0f71947f33fedb7a0974cd3713ab6a7ea6d357134f7f77a80",
+      "image": "sha256:5ae62b8a656b92aebda2441c1b4b872da0799b4deabca9f6c476f5940624ebef",
+      "state": {
+        "Dead": false,
+        "Error": "",
+        "ExitCode": 0,
+        "FinishedAt": "2026-11-05T20:26:01.197871879Z",
+        "OOMKilled": false,
+        "Paused": false,
+        "Pid": 0,
+        "Restarting": false,
+        "Running": false,
+        "StartedAt": "2026-11-05T20:25:57.759018378Z",
+        "Status": "exited"
+      },
+      "memory": 1073741824,
+      "memorySwap": 1073741824,
+      "nanoCpus": 1000000000,
+      "pids": 128,
+      "network": "bridge",
+      "mounts": []
+    },
+    "install": {
+      "id": "b3912f71860c0da4f5152f270def0c35a6fa40e0b682d5cb58dddf1ad6478b49",
+      "image": "sha256:73bacf38a7c70c2fd572712f521ee56d9044b0cc8fc54965ba47867da5b3268e",
+      "state": {
+        "Dead": false,
+        "Error": "",
+        "ExitCode": 0,
+        "FinishedAt": "2026-11-05T20:27:00.596808462Z",
+        "OOMKilled": false,
+        "Paused": false,
+        "Pid": 0,
+        "Restarting": false,
+        "Running": false,
+        "StartedAt": "2026-11-05T20:26:59.452918045Z",
+        "Status": "exited"
+      },
+      "memory": 1073741824,
+      "memorySwap": 1073741824,
+      "nanoCpus": 1000000000,
+      "pids": 128,
+      "network": "none",
+      "mounts": []
+    }
+  },
+  "executedScripts": {
+    "acquire.sh": {
+      "bytes": 8026,
+      "sha256": "6ede2e12688d6c0448928ce877358d09a39a73ad9d10c13347b71fc00f031bc6",
+      "scope": "actual container copy after successful acquisition, matching reviewed host source"
+    },
+    "acquire-run.py": {
+      "bytes": 3260,
+      "sha256": "787414ebedc2dfba7d12d9a0453aa6d925ddc1f17f7a8d1ab1348c142198d4ff",
+      "scope": "actual container copy after successful acquisition, matching reviewed host source"
+    }
+  },
+  "originalNotices": {
+    "common-GFDL-1.2.snapshot": {
+      "bytes": 20432,
+      "sha256": "d8e94ae5fdb5433fcae2961aeb1a8cf17174d6f4a0465d24bf37dd8a038bd439"
+    },
+    "common-GFDL-1.3.snapshot": {
+      "bytes": 22955,
+      "sha256": "110535522396708cea37c72a802c5e7e81391139f5f7985631c93ef242b206a4"
+    },
+    "common-LGPL-3.snapshot": {
+      "bytes": 7652,
+      "sha256": "e3a994d82e644b03a792a930f574002658412f62407f5fee083f2555c5f23118"
+    },
+    "common-LGPL-2.snapshot": {
+      "bytes": 25381,
+      "sha256": "681e386e44a19d7d0674b4320272c90e66b6610b741e7e6305f8219c42e85366"
+    },
+    "libglib2.0-0_arm64.copyright.snapshot": {
+      "bytes": 51488,
+      "sha256": "03cbcd6142c92bb14c997af557b8c73b1534710c34fe7f69788f8e8fc5fd941d"
+    },
+    "common-Apache-2.0.snapshot": {
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    "common-LGPL-2.1.snapshot": {
+      "bytes": 26530,
+      "sha256": "dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551"
+    },
+    "libaio1_arm64.copyright.snapshot": {
+      "bytes": 1131,
+      "sha256": "ce7a117c09040eeba9405980852248d95d8365102d1f79123a439d4c44e69717"
+    },
+    "common-MPL-1.1.snapshot": {
+      "bytes": 25755,
+      "sha256": "f849fc26a7a99981611a3a370e83078deb617d12a45776d6c4cada4d338be469"
+    },
+    "liburing2_arm64.copyright.snapshot": {
+      "bytes": 4497,
+      "sha256": "af5dd91380d9965a76ff44584572ae055313f30b142e9196b970d5ac350af113"
+    },
+    "common-GPL-3.snapshot": {
+      "bytes": 35149,
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+    },
+    "common-GPL-2.snapshot": {
+      "bytes": 18092,
+      "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
+    },
+    "python-image-LICENSE.txt": {
+      "bytes": 13809,
+      "sha256": "78b12c3a81360b357002334f0e70ea0e92eebf7a9b358805c03c48484945f3bb"
+    },
+    "qemu-utils.copyright.snapshot": {
+      "bytes": 31136,
+      "sha256": "0bdb9dd77149a6283f99fca200c49296349738fa9c5ad48e7f92c0816aeda8fc"
+    },
+    "common-LGPL.snapshot": {
+      "bytes": 7652,
+      "sha256": "e3a994d82e644b03a792a930f574002658412f62407f5fee083f2555c5f23118"
+    },
+    "common-GPL-1.snapshot": {
+      "bytes": 12632,
+      "sha256": "d77d235e41d54594865151f4751e835c5a82322b0e87ace266567c3391a4b912"
+    },
+    "common-GPL.snapshot": {
+      "bytes": 35149,
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+    },
+    "libnuma1_arm64.copyright.snapshot": {
+      "bytes": 1357,
+      "sha256": "179c34f5e56cd0b6b73dd7970a97357ee784e2236e8293826656c7ebb3bface7"
+    },
+    "common-GFDL.snapshot": {
+      "bytes": 22955,
+      "sha256": "110535522396708cea37c72a802c5e7e81391139f5f7985631c93ef242b206a4"
+    },
+    "common-MPL-2.0.snapshot": {
+      "bytes": 16726,
+      "sha256": "fab3dd6bdab226f1c08630b1dd917e11fcb4ec5e1e020e2c16f83a0a13863e85"
+    },
+    "common-Artistic.snapshot": {
+      "bytes": 6111,
+      "sha256": "b7fd9b73ea99602016a326e0b62e6646060d18febdd065ceca8bb482208c3d88"
+    },
+    "common-CC0-1.0.snapshot": {
+      "bytes": 7048,
+      "sha256": "a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499"
+    },
+    "common-BSD.snapshot": {
+      "bytes": 1499,
+      "sha256": "5d588eb3b157d52112afea935c88a7ff9efddc1e2d95a42c25d3b96ad9055008"
+    },
+    "libfuse3-3_arm64.copyright.snapshot": {
+      "bytes": 3578,
+      "sha256": "e3324ad43e309aae4f46501a20580d69fb3c69bf8f2fb0c7ae9e3d2408123a07"
+    }
+  },
+  "primarySources": {
+    "tag": "v9.2.0",
+    "tagObject": "55162f76c8d6698c22d9e805f29b1faf15d9724a",
+    "commit": "ae35f033b874c627d81d51070187fbf55f0bf1a7",
+    "files": [
+      {
+        "path": "docs/interop/qcow2.txt",
+        "url": "https://raw.githubusercontent.com/qemu/qemu/ae35f033b874c627d81d51070187fbf55f0bf1a7/docs/interop/qcow2.txt",
+        "finalUrl": "https://raw.githubusercontent.com/qemu/qemu/ae35f033b874c627d81d51070187fbf55f0bf1a7/docs/interop/qcow2.txt",
+        "bytes": 39551,
+        "sha256": "3d539ec45df77a7e650d0530fa2a34d3269a5d045d1ca415ee9e605c547c50f9"
+      },
+      {
+        "path": "COPYING",
+        "url": "https://raw.githubusercontent.com/qemu/qemu/ae35f033b874c627d81d51070187fbf55f0bf1a7/COPYING",
+        "finalUrl": "https://raw.githubusercontent.com/qemu/qemu/ae35f033b874c627d81d51070187fbf55f0bf1a7/COPYING",
+        "bytes": 17992,
+        "sha256": "6f04ae8364d0079a192b14635f4b1da294ce18724c034c39a6a41d1b09df6100"
+      },
+      {
+        "path": "README.rst",
+        "url": "https://raw.githubusercontent.com/qemu/qemu/ae35f033b874c627d81d51070187fbf55f0bf1a7/README.rst",
+        "finalUrl": "https://raw.githubusercontent.com/qemu/qemu/ae35f033b874c627d81d51070187fbf55f0bf1a7/README.rst",
+        "bytes": 5579,
+        "sha256": "d9e0384f45d047137f74f38b32dec1f31488fdbe2557820c8934e1fbc8fc2efd"
+      },
+      {
+        "path": "LICENSE",
+        "url": "https://raw.githubusercontent.com/qemu/qemu/ae35f033b874c627d81d51070187fbf55f0bf1a7/LICENSE",
+        "finalUrl": "https://raw.githubusercontent.com/qemu/qemu/ae35f033b874c627d81d51070187fbf55f0bf1a7/LICENSE",
+        "bytes": 1177,
+        "sha256": "139c64b7a9ae62858ff969aae622ecfcf4f1519655bd92d2e70a1a2fb615690e"
+      },
+      {
+        "path": "docs/tools/qemu-img.rst",
+        "url": "https://raw.githubusercontent.com/qemu/qemu/ae35f033b874c627d81d51070187fbf55f0bf1a7/docs/tools/qemu-img.rst",
+        "finalUrl": "https://raw.githubusercontent.com/qemu/qemu/ae35f033b874c627d81d51070187fbf55f0bf1a7/docs/tools/qemu-img.rst",
+        "bytes": 38035,
+        "sha256": "d1b4dece6e4435f65fd188e8938badb5aebd3860dee94f51531cdf19ab86773c"
+      }
+    ],
+    "failedPaths": [
+      {
+        "path": "docs/interop/qcow2.rst",
+        "status": 404
+      },
+      {
+        "path": "docs/tools/qemu-io.rst",
+        "status": 404
+      }
+    ]
+  },
+  "cleanup": "Only both exact stopped owned acquisition containers were removed after all receipts and executed inputs were copied; exact tools image retained.",
+  "nativeEvidence": {
+    "qemuVersion": "qemu-img version 7.2.22 (Debian 1:7.2+dfsg-7+deb12u18+b3)\nCopyright (c) 2003-2022 Fabrice Bellard and the QEMU Project developers\n",
+    "qemuIoVersion": "qemu-io version 7.2.22 (Debian 1:7.2+dfsg-7+deb12u18+b3)\nCopyright (c) 2003-2022 Fabrice Bellard and the QEMU Project developers\n",
+    "packages": "qemu-utils=1:7.2+dfsg-7+deb12u18+b3 arm64\n",
+    "python": {
+      "version": "3.13.12 (main, Apr  7 2026, 02:30:31) [GCC 12.2.0]",
+      "executable": "/usr/local/bin/python3"
+    },
+    "fixtureCount": 9,
+    "controlCount": 3,
+    "rawJsonBytes": 3766663,
+    "rawJsonSha256": "76506edfd3ce44dfdc3cd0b6a0e8b8a43a7d65caa5a63838c48b92e77812dbff",
+    "rawPreservation": "Original compact successful producer output retained unchanged; formatting of the checked-in JSON is separate.",
+    "limits": {
+      "fixtureOriginalAndEncodedBytes": 6531538,
+      "maxFixtureOriginalAndEncodedBytes": 16777216,
+      "nativeDiagnosticBytes": 9582,
+      "maxNativeDiagnosticBytes": 4194304
+    },
+    "scripts": {
+      "produce.py": "82f241db172f02822e3404db5b5365c60e1f40a9fc6b2a6096edc52a15a23bb4",
+      "acquire.sh": "6ede2e12688d6c0448928ce877358d09a39a73ad9d10c13347b71fc00f031bc6",
+      "acquire-run.py": "787414ebedc2dfba7d12d9a0453aa6d925ddc1f17f7a8d1ab1348c142198d4ff",
+      "producer-run.py": "c0e1b20ae40901b3bdb61090fafa58adc30705380a379e69e7e71e260e732bba"
+    },
+    "runner": {
+      "exit": 0,
+      "reason": null,
+      "logBytes": 20873,
+      "maxLogBytes": 4194304,
+      "deadlineSeconds": 210,
+      "elapsedSeconds": 0.48272916699988855
+    },
+    "state": {
+      "id": "3fe5c1128fb1ef130fb86b0eaba106d25412bb96befeddb59f068e333880eee1",
+      "image": "sha256:9fd46baa76be4295895ad0776988c548124cd0af616cd64aff8a495c3ad1ba22",
+      "state": {
+        "Dead": false,
+        "Error": "",
+        "ExitCode": 0,
+        "FinishedAt": "2026-11-05T20:34:34.878704006Z",
+        "OOMKilled": false,
+        "Paused": false,
+        "Pid": 0,
+        "Restarting": false,
+        "Running": false,
+        "StartedAt": "2026-11-05T20:34:34.271279339Z",
+        "Status": "exited"
+      },
+      "memory": 1073741824,
+      "memorySwap": 1073741824,
+      "nanoCpus": 1000000000,
+      "pids": 128,
+      "network": "none",
+      "mounts": []
+    },
+    "oracle": "Every original raw byte independently authored before QEMU conversion was compared against native full readback; no TypeScript candidate imports. QEMU readback is not a second unrelated QCOW2 implementation.",
+    "observedZero": {
+      "version": 3,
+      "clusterSize": 4096,
+      "headerLength": 112,
+      "selectedEntries": [
+        {
+          "guestOffset": 0,
+          "descriptor": "0000000000000000",
+          "explicitZero": false,
+          "compressed": false,
+          "sourceOffset": 0
+        },
+        {
+          "guestOffset": 4096,
+          "descriptor": "8000000000005001",
+          "explicitZero": true,
+          "compressed": false,
+          "sourceOffset": 20480
+        },
+        {
+          "guestOffset": 8192,
+          "descriptor": "0000000000000000",
+          "explicitZero": false,
+          "compressed": false,
+          "sourceOffset": 0
+        }
+      ]
+    },
+    "observedSerializedL1Eof": {
+      "cases": [
+        "holes-0.10",
+        "holes-1.1"
+      ],
+      "physicalBytes": 12296,
+      "l1Offset": 12288,
+      "l1SerializedBytes": 8,
+      "roundedRoleEnd": 16384,
+      "scope": "Native images need no physical padding after the final serialized L1 entry. Rounded metadata-role protection does not imply bytes past EOF exist."
+    },
+    "priorFailures": [
+      {
+        "attempt": "first",
+        "exit": 1,
+        "oom": false,
+        "logBytes": 5228,
+        "logSha256": "ca9eca893b85ebcc8729f240acea5531731fc888cbc882c69981c938765756c8",
+        "scope": "Authored qemu-io command omitted its owned image filename; fatal native no-file-open diagnostic preserved. Only argv filename additions repaired; no wire output or reader-profile changes.",
+        "state": {
+          "id": "3fe5c1128fb1ef130fb86b0eaba106d25412bb96befeddb59f068e333880eee1",
+          "image": "sha256:9fd46baa76be4295895ad0776988c548124cd0af616cd64aff8a495c3ad1ba22",
+          "state": {
+            "Dead": false,
+            "Error": "",
+            "ExitCode": 1,
+            "FinishedAt": "2026-11-05T20:31:58.037202919Z",
+            "OOMKilled": false,
+            "Paused": false,
+            "Pid": 0,
+            "Restarting": false,
+            "Running": false,
+            "StartedAt": "2026-11-05T20:31:57.691716002Z",
+            "Status": "exited"
+          },
+          "memory": 1073741824,
+          "memorySwap": 1073741824,
+          "nanoCpus": 1000000000,
+          "pids": 128,
+          "network": "none",
+          "mounts": []
+        }
+      },
+      {
+        "attempt": "retry1",
+        "exit": 1,
+        "oom": false,
+        "logBytes": 19111,
+        "logSha256": "a868a8b88b4b9389707c308ccb96722c76928cc5d38d520d011fba17ce60d911",
+        "scope": "Authored qemu-io command omitted its owned image filename; fatal native no-file-open diagnostic preserved. Only argv filename additions repaired; no wire output or reader-profile changes.",
+        "state": {
+          "id": "3fe5c1128fb1ef130fb86b0eaba106d25412bb96befeddb59f068e333880eee1",
+          "image": "sha256:9fd46baa76be4295895ad0776988c548124cd0af616cd64aff8a495c3ad1ba22",
+          "state": {
+            "Dead": false,
+            "Error": "",
+            "ExitCode": 1,
+            "FinishedAt": "2026-11-05T20:33:13.305556593Z",
+            "OOMKilled": false,
+            "Paused": false,
+            "Pid": 0,
+            "Restarting": false,
+            "Running": false,
+            "StartedAt": "2026-11-05T20:33:12.830457676Z",
+            "Status": "exited"
+          },
+          "memory": 1073741824,
+          "memorySwap": 1073741824,
+          "nanoCpus": 1000000000,
+          "pids": 128,
+          "network": "none",
+          "mounts": []
+        }
+      }
+    ],
+    "formattedJsonBytes": 3780718,
+    "formattedJsonSha256": "19d870dfa7e4f1bd8362b23c168d1c3795983f6c2468765adfe3d4eb94daf6db",
+    "formattedSemanticParity": "Parsed formatted JSON equals unchanged original compact native JSON; all24binary blobs length/SHA verified."
+  },
+  "focusedRuntime": {
+    "runtimeFile": "v26.13.0\ndeno 2.9.8 (stable, release, aarch64-unknown-linux-gnu)\nv8 15.0.245.2-rusty\ntypescript 6.0.3\n1.4.2\n",
+    "counts": {
+      "deno": {
+        "suites": 1,
+        "steps": 28,
+        "failed": 0
+      },
+      "node": {
+        "tests": 28,
+        "failed": 0
+      },
+      "bun": {
+        "tests": 28,
+        "failed": 0
+      }
+    },
+    "state": {
+      "id": "023aff9054cc0a910649bbfd7ae985e22fdd2f945e4a2c903716c1e7670b3055",
+      "image": "sha256:0d27d74b49afa69518cd96806ca02f697e377c997d889c27cf60c4ae724adc39",
+      "state": {
+        "Dead": false,
+        "Error": "",
+        "ExitCode": 0,
+        "FinishedAt": "2026-11-05T20:43:18.103307054Z",
+        "OOMKilled": false,
+        "Paused": false,
+        "Pid": 0,
+        "Restarting": false,
+        "Running": false,
+        "StartedAt": "2026-11-05T20:43:09.651930091Z",
+        "Status": "exited"
+      },
+      "memory": 1073741824,
+      "memorySwap": 1073741824,
+      "nanoCpus": 1000000000,
+      "pids": 128,
+      "network": "none",
+      "mounts": []
+    },
+    "executedSha256": "6a802a152b42a1f75250ad5be51b42b61951ca86ea6a82c45ce079d04ef35ab4  src/image/qcow2.ts\nc015ec1ab2e869109c9bf6c92e0f143f2dff576790cb2520bfedcef2d23ebc9b  tests/qcow2.test.ts\n19d870dfa7e4f1bd8362b23c168d1c3795983f6c2468765adfe3d4eb94daf6db  tests/fixtures/qcow2/independent.json\n",
+    "runtimeOnly": "Deno --no-check, Node/Bun direct tests; no compiler/static/package evidence claimed."
+  },
+  "benchmark": {
+    "rawBytes": 25911699,
+    "rawSha256": "5f6d174b14cb721f20b9e89957b5fc442d463c5e2029ac27a5d878699827d492",
+    "gzipBytes": 89628,
+    "gzipSha256": "ede01c189ebff778687e1939ef3efbf2804271a833edf6cfb86c37fe81134845",
+    "losslessRoundtrip": true,
+    "runtime": "v26.13.0\nmitata=1.0.34\nLinux aarch64\n",
+    "state": {
+      "id": "6441e7b986735c131956e1829a98cd265e20dd5ef2e2efe8a5947a2c3e8e5817",
+      "image": "sha256:0d27d74b49afa69518cd96806ca02f697e377c997d889c27cf60c4ae724adc39",
+      "state": {
+        "Dead": false,
+        "Error": "",
+        "ExitCode": 0,
+        "FinishedAt": "2026-11-05T20:53:45.768417678Z",
+        "OOMKilled": false,
+        "Paused": false,
+        "Pid": 0,
+        "Restarting": false,
+        "Running": false,
+        "StartedAt": "2026-11-05T20:53:33.169044547Z",
+        "Status": "exited"
+      },
+      "memory": 1073741824,
+      "memorySwap": 1073741824,
+      "nanoCpus": 1000000000,
+      "pids": 128,
+      "network": "none",
+      "mounts": []
+    },
+    "executedSha256": "6a802a152b42a1f75250ad5be51b42b61951ca86ea6a82c45ce079d04ef35ab4  src/image/qcow2.ts\nf3db38ba4007ba5ea9f9ab5adaeb2658352b1860f99b79e98bfb18430c1dd9dd  bench/qcow2.bench.ts\n1d619c1c202e4e77af8fed43fe9ccca1ad7df286aaa9dec5f49ac0a46c1f15a2  bench/result.ts\nfc5a3a35d10aca347b86a8830682d46d8ec870c511d622ffa44cc69a73bce6b4  src/archive/record.ts\n2a6098dae39e46031ba8da2fd52475b361155fc7236146ce8624c4398e91894f  src/bytes.ts\n17b255de15bf25edfda4f6f587dc7ca390bdc4f0fa55606152351e3cd8dc4ae3  src/source.ts\n19d870dfa7e4f1bd8362b23c168d1c3795983f6c2468765adfe3d4eb94daf6db  tests/fixtures/qcow2/independent.json\n",
+    "rows": [
+      {
+        "lane": "qcow2 native already-raw Blob output=37B source=37B requests=1 integrity=none index=absent",
+        "averageNanoseconds": 7770.476754548321,
+        "medianNanoseconds": 2625,
+        "samples": 72939
+      },
+      {
+        "lane": "qcow2 cold index image=12288B cluster=512B guest=66048B source=2656B requests=7 decoded=2656B output=0B integrity=none",
+        "averageNanoseconds": 207583.88038277513,
+        "medianNanoseconds": 102250,
+        "samples": 2926
+      },
+      {
+        "lane": "qcow2 cold index image=524288B cluster=65536B guest=262144B source=196688B requests=5 decoded=196688B output=0B integrity=none",
+        "averageNanoseconds": 2395319.0364963505,
+        "medianNanoseconds": 1873041,
+        "samples": 274
+      },
+      {
+        "lane": "qcow2 warm allocated guest=16384B offset=17B source=37B requests=1 decoded=37B output=37B integrity=none index=prebuilt",
+        "averageNanoseconds": 13513.394604856097,
+        "medianNanoseconds": 5458,
+        "samples": 42668
+      },
+      {
+        "lane": "qcow2 warm hole guest=16384B offset=4096B source=0B requests=0 decoded=37B output=37B integrity=none index=prebuilt",
+        "averageNanoseconds": 3644.2075012207088,
+        "medianNanoseconds": 3403.31005859375,
+        "samples": 40
+      },
+      {
+        "lane": "qcow2 warm preallocated-zero guest=16384B offset=4096B source=0B requests=0 decoded=37B output=37B integrity=none index=prebuilt",
+        "averageNanoseconds": 3011.9991754496004,
+        "medianNanoseconds": 2915.852783203125,
+        "samples": 53
+      },
+      {
+        "lane": "qcow2 warm full guest=262144B image=524288B source=196608B requests=3 decoded=262144B output=262144B integrity=none index=prebuilt",
+        "averageNanoseconds": 1099111.0761589403,
+        "medianNanoseconds": 568625,
+        "samples": 302
+      },
+      {
+        "lane": "qcow2 cold open+read image=32768B cluster=4096B output=37B source=12405B requests=6 decoded=12405B integrity=none",
+        "averageNanoseconds": 1019638.1587561375,
+        "medianNanoseconds": 535042,
+        "samples": 611
+      }
+    ],
+    "neighborsStart": "",
+    "neighborsEnd": "",
+    "qualification": "No other running Docker containers were observed at start/end; snapshots do not prove continuous host inactivity. One bounded Node26 Linuxarm64 run, not a universal speed or cross-runtime claim. Already-raw Blob lane has no QCOW2 indexing/admission contract."
+  }
+}

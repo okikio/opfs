@@ -1,0 +1,273 @@
+{
+  "authority": "authored explicit synthetic credentials and request inputs; no network/account discovery",
+  "vectors": [
+    {
+      "service": "glacier",
+      "region": "us-west-2",
+      "protocol": "https:",
+      "hostname": "glacier.us-west-2.amazonaws.com",
+      "method": "GET",
+      "path": "/-/vaults/test-vault",
+      "canonicalPath": "/-/vaults/test-vault",
+      "query": {},
+      "headers": {
+        "host": "glacier.us-west-2.amazonaws.com",
+        "x-amz-glacier-version": "2012-06-01"
+      },
+      "signingDate": "2015-08-30T12:36:00.000Z",
+      "credentials": {
+        "accessKeyId": "AKIDEXAMPLE",
+        "secretAccessKey": "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY"
+      },
+      "bodyVector": "empty",
+      "uriEscapePath": true,
+      "id": "describe-empty"
+    },
+    {
+      "service": "glacier",
+      "region": "us-west-2",
+      "protocol": "https:",
+      "hostname": "glacier.us-west-2.amazonaws.com",
+      "method": "GET",
+      "path": "/-/vaults/test-vault/jobs",
+      "canonicalPath": "/-/vaults/test-vault/jobs",
+      "query": {
+        "marker": [
+          "a+b/=",
+          "~z"
+        ],
+        "limit": "50",
+        "empty": ""
+      },
+      "headers": {
+        "host": "glacier.us-west-2.amazonaws.com",
+        "x-amz-glacier-version": "2012-06-01"
+      },
+      "signingDate": "2015-08-30T12:36:00.000Z",
+      "credentials": {
+        "accessKeyId": "AKIDEXAMPLE",
+        "secretAccessKey": "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY",
+        "sessionToken": "fixture-token+/="
+      },
+      "bodyVector": "empty",
+      "uriEscapePath": true,
+      "purpose": "Canonical signing mechanics for repeated/empty query values; not a service-valid ListJobs assertion",
+      "id": "query-order-token"
+    },
+    {
+      "service": "glacier",
+      "region": "us-west-2",
+      "protocol": "https:",
+      "hostname": "glacier.us-west-2.amazonaws.com",
+      "method": "GET",
+      "path": "/-/vaults/test-vault/jobs",
+      "canonicalPath": "/-/vaults/test-vault/jobs",
+      "query": {
+        "marker": "next/+ =%",
+        "limit": "50"
+      },
+      "headers": {
+        "host": "glacier.us-west-2.amazonaws.com",
+        "x-amz-glacier-version": "2012-06-01"
+      },
+      "signingDate": "2015-08-30T12:36:00.000Z",
+      "credentials": {
+        "accessKeyId": "AKIDEXAMPLE",
+        "secretAccessKey": "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY"
+      },
+      "bodyVector": "empty",
+      "uriEscapePath": true,
+      "id": "query-single-marker"
+    },
+    {
+      "service": "glacier",
+      "region": "us-west-2",
+      "protocol": "https:",
+      "hostname": "glacier.us-west-2.amazonaws.com",
+      "method": "POST",
+      "path": "/-/vaults/test-vault/archives",
+      "canonicalPath": "/-/vaults/test-vault/archives",
+      "query": {},
+      "headers": {
+        "host": "glacier.us-west-2.amazonaws.com",
+        "x-amz-glacier-version": "2012-06-01",
+        "content-type": "application/octet-stream",
+        "x-amz-archive-description": "  fixture   archive  "
+      },
+      "signingDate": "2015-08-30T12:36:00.000Z",
+      "credentials": {
+        "accessKeyId": "AKIDEXAMPLE",
+        "secretAccessKey": "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY"
+      },
+      "bodyVector": "three-leaves",
+      "uriEscapePath": true,
+      "treeVector": "three-leaves",
+      "id": "upload-three-leaves"
+    },
+    {
+      "service": "glacier",
+      "region": "us-west-2",
+      "protocol": "https:",
+      "hostname": "glacier.us-west-2.amazonaws.com",
+      "method": "PUT",
+      "path": "/-/vaults/test-vault/multipart-uploads/upload-id",
+      "canonicalPath": "/-/vaults/test-vault/multipart-uploads/upload-id",
+      "query": {},
+      "headers": {
+        "host": "glacier.us-west-2.amazonaws.com",
+        "x-amz-glacier-version": "2012-06-01",
+        "content-range": "bytes 4194304-8388607/*",
+        "content-type": "application/octet-stream"
+      },
+      "signingDate": "2015-08-30T12:36:00.000Z",
+      "credentials": {
+        "accessKeyId": "AKIDEXAMPLE",
+        "secretAccessKey": "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY"
+      },
+      "bodyVector": "four-leaves",
+      "uriEscapePath": true,
+      "id": "upload-fixed-part",
+      "treeVector": "four-leaves"
+    },
+    {
+      "service": "glacier",
+      "region": "us-west-2",
+      "protocol": "https:",
+      "hostname": "glacier.us-west-2.amazonaws.com",
+      "method": "POST",
+      "path": "/-/vaults/test-vault/multipart-uploads/upload-id",
+      "canonicalPath": "/-/vaults/test-vault/multipart-uploads/upload-id",
+      "query": {},
+      "headers": {
+        "host": "glacier.us-west-2.amazonaws.com",
+        "x-amz-glacier-version": "2012-06-01",
+        "x-amz-archive-size": "11534319"
+      },
+      "signingDate": "2015-08-30T12:36:00.000Z",
+      "credentials": {
+        "accessKeyId": "AKIDEXAMPLE",
+        "secretAccessKey": "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY"
+      },
+      "bodyVector": "empty",
+      "uriEscapePath": true,
+      "treeVector": "multipart-three-short-odd",
+      "id": "complete-short-odd"
+    },
+    {
+      "service": "glacier",
+      "region": "us-west-2",
+      "protocol": "https:",
+      "hostname": "glacier.us-west-2.amazonaws.com",
+      "method": "GET",
+      "path": "/-/vaults/test-vault/archives/A%2FB%2BC%3D%25%E9%9B%AA",
+      "canonicalPath": "/-/vaults/test-vault/archives/A%252FB%252BC%253D%2525%25E9%259B%25AA",
+      "query": {},
+      "headers": {
+        "host": "glacier.us-west-2.amazonaws.com",
+        "x-amz-glacier-version": "2012-06-01"
+      },
+      "signingDate": "2015-08-30T12:36:00.000Z",
+      "credentials": {
+        "accessKeyId": "AKIDEXAMPLE",
+        "secretAccessKey": "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY"
+      },
+      "bodyVector": "empty",
+      "uriEscapePath": true,
+      "id": "encoded-archive-id",
+      "purpose": "Synthetic escaped slash/plus/equals/percent/UTF-8 opaque-id signing; actual service/profile identifier admission is separate"
+    },
+    {
+      "service": "glacier",
+      "region": "us-west-2",
+      "protocol": "https:",
+      "hostname": "glacier.fixture.invalid",
+      "method": "GET",
+      "path": "/fixture%20prefix/%25root/-/vaults/test-vault",
+      "canonicalPath": "/fixture%2520prefix/%2525root/-/vaults/test-vault",
+      "query": {},
+      "headers": {
+        "host": "glacier.fixture.invalid:8443",
+        "x-amz-glacier-version": "2012-06-01",
+        "x-amz-meta-fixture": "  first\t second  "
+      },
+      "signingDate": "2015-08-30T12:36:00.000Z",
+      "credentials": {
+        "accessKeyId": "AKIDEXAMPLE",
+        "secretAccessKey": "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY"
+      },
+      "bodyVector": "empty",
+      "uriEscapePath": true,
+      "port": 8443,
+      "purpose": "Synthetic granted endpoint prefix with escaped bytes, nondefault port and whitespace; no AWS endpoint compatibility claim",
+      "id": "port-whitespace"
+    },
+    {
+      "service": "glacier",
+      "region": "eu-west-1",
+      "protocol": "https:",
+      "hostname": "glacier.eu-west-1.amazonaws.com",
+      "method": "GET",
+      "path": "/-/vaults/test-vault",
+      "canonicalPath": "/-/vaults/test-vault",
+      "query": {},
+      "headers": {
+        "host": "glacier.eu-west-1.amazonaws.com",
+        "x-amz-glacier-version": "2012-06-01"
+      },
+      "signingDate": "2015-08-31T00:00:00.000Z",
+      "credentials": {
+        "accessKeyId": "AKIDROTATED",
+        "secretAccessKey": "EXAMPLE-ROTATED-SECRET"
+      },
+      "bodyVector": "empty",
+      "uriEscapePath": true,
+      "id": "rotated-date-region-key"
+    },
+    {
+      "service": "s3",
+      "region": "us-west-2",
+      "protocol": "https:",
+      "hostname": "glacier.us-west-2.amazonaws.com",
+      "method": "GET",
+      "path": "/-/vaults/test-vault",
+      "canonicalPath": "/-/vaults/test-vault",
+      "query": {},
+      "headers": {
+        "host": "glacier.us-west-2.amazonaws.com",
+        "x-amz-glacier-version": "2012-06-01"
+      },
+      "signingDate": "2015-08-30T12:36:00.000Z",
+      "credentials": {
+        "accessKeyId": "AKIDEXAMPLE",
+        "secretAccessKey": "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY"
+      },
+      "bodyVector": "empty",
+      "uriEscapePath": false,
+      "purpose": "Same explicit request signed with s3 scope to compare service-separated derivation; not a Glacier service request",
+      "id": "service-separated-control"
+    },
+    {
+      "service": "s3",
+      "region": "us-west-2",
+      "protocol": "https:",
+      "hostname": "glacier.us-west-2.amazonaws.com",
+      "method": "GET",
+      "path": "/-/vaults/test-vault/archives/A%2FB%2BC%3D%25%E9%9B%AA",
+      "canonicalPath": "/-/vaults/test-vault/archives/A%2FB%2BC%3D%25%E9%9B%AA",
+      "query": {},
+      "headers": {
+        "host": "glacier.us-west-2.amazonaws.com",
+        "x-amz-glacier-version": "2012-06-01"
+      },
+      "signingDate": "2015-08-30T12:36:00.000Z",
+      "credentials": {
+        "accessKeyId": "AKIDEXAMPLE",
+        "secretAccessKey": "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY"
+      },
+      "bodyVector": "empty",
+      "uriEscapePath": false,
+      "id": "s3-path-policy-control",
+      "purpose": "Synthetic S3 single-encoding control for the same escaped path; not a Glacier or S3 service request"
+    }
+  ]
+}

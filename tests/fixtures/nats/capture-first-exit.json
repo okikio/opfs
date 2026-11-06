@@ -1,0 +1,12 @@
+{
+  "testcontainersVersion": "12.1.0",
+  "nodeVersion": "v26.13.0",
+  "exitCode": 1,
+  "seconds": 9.508860958,
+  "outerTimeoutSeconds": 300,
+  "nodeHeapMiB": 256,
+  "logBytes": 7754,
+  "terminationReason": null,
+  "remainingTaskContainers": [],
+  "scope": "Host Node runtime-only orchestration. Docker CLI/Testcontainers use the configured daemon directly; no Docker socket or host path mounted into fixture containers."
+}

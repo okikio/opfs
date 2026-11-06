@@ -1,0 +1,11 @@
+{
+  "container": "opfs-age-producer-20261105",
+  "stage": "producer",
+  "exitCode": 0,
+  "primary": [],
+  "cleanupFaults": [],
+  "elapsedSeconds": 0.403098417,
+  "logBytes": 326,
+  "outerDeadlineSeconds": 180,
+  "maxLogBytes": 1048576
+}

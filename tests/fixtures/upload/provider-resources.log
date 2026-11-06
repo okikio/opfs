@@ -1,0 +1,13 @@
+Upload native server official Node runtime: v26.13.0
+Upload native server actual cgroup limits: {"memory":1073741824,"pids":128,"cpus":1}
+▶ draft15 client against independent canonical interop10 FS server
+  ✔ recovers lost append/final replies in separate client processes and preserves unavailable publication truth (3237.321375ms)
+✔ draft15 client against independent canonical interop10 FS server (3237.9355ms)
+ℹ tests 1
+ℹ suites 1
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3456.322458

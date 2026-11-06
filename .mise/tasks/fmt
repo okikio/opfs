@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
 #MISE description="Format project-owned source, tests, configuration, and documentation."
 set -euo pipefail
-deno fmt
+
+deno task fmt "$@"

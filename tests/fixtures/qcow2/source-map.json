@@ -1,0 +1,31 @@
+{
+  "authority": "Historical Python producer sources retained byte-for-byte; TypeScript replacements have not produced old native receipts.",
+  "replacementStatus": "source-only; not executed",
+  "sources": [
+    {
+      "historicalPath": "create.py",
+      "snapshotPath": "create.py.snapshot",
+      "sha256": "82f241db172f02822e3404db5b5365c60e1f40a9fc6b2a6096edc52a15a23bb4",
+      "replacementPath": "create.ts"
+    },
+    {
+      "historicalPath": "producer-run.py",
+      "snapshotPath": "producer-run.py.snapshot",
+      "sha256": "c0e1b20ae40901b3bdb61090fafa58adc30705380a379e69e7e71e260e732bba",
+      "replacementPath": "producer-run.ts"
+    },
+    {
+      "historicalPath": "acquire-run.py",
+      "snapshotPath": "acquire-run.py.snapshot",
+      "sha256": "787414ebedc2dfba7d12d9a0453aa6d925ddc1f17f7a8d1ab1348c142198d4ff",
+      "replacementPath": "acquire-run.ts"
+    },
+    {
+      "historicalPath": "acquire.sh",
+      "snapshotPath": "acquire.sh.snapshot",
+      "sha256": "6ede2e12688d6c0448928ce877358d09a39a73ad9d10c13347b71fc00f031bc6",
+      "replacementPath": "acquire.sh",
+      "admissionPath": "../apt.ts"
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "throttleMs": 0,
+  "clusterId": "huFKU0zPjGuEh1F6_dnvFQ",
+  "controllerId": 1,
+  "brokers": [
+    {
+      "id": 1,
+      "host": "127.0.0.1",
+      "port": 9092,
+      "rack": null
+    }
+  ],
+  "topic": "opfs-metadata-8a55f140-c213-4236-ad0c-1fef0cbc9697",
+  "error": 0,
+  "internal": false,
+  "partitions": [
+    {
+      "index": 0,
+      "error": 0,
+      "leader": 1,
+      "replicas": [
+        1
+      ],
+      "isr": [
+        1
+      ]
+    }
+  ]
+}

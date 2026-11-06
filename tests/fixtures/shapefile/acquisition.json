@@ -1,0 +1,33 @@
+{
+  "url": "https://files.pythonhosted.org/packages/ac/72/1f79dab76eb7651b5e3622a46b18a7f93f57c3a1317b712986c58810895e/pyshp-3.1.6-py3-none-any.whl",
+  "bytes": 73744,
+  "sha256": "be8cd9436dcbde477c63ea789f7dcdea3af19f17ea84f2744bfc12efe9145d1e",
+  "python": "3.13.18 (main, Nov  5 2026, 08:07:50) [GCC 12.2.0]",
+  "entries": [
+    {
+      "name": "shapefile.py",
+      "bytes": 188541,
+      "sha256": "211b44002f628ea9ad697b365a413fbac73e801f2b2337b391ca91c29eeffec5"
+    },
+    {
+      "name": "pyshp-3.1.6.dist-info/METADATA",
+      "bytes": 79391,
+      "sha256": "7ca92c77c36cbd8fd3289dba72efc0e8da55bd4779f387dceb81837a11e0cddb"
+    },
+    {
+      "name": "pyshp-3.1.6.dist-info/WHEEL",
+      "bytes": 87,
+      "sha256": "942926c567d0b1273d09f20295879abd37507845f6b683eab9f87d808df91100"
+    },
+    {
+      "name": "pyshp-3.1.6.dist-info/licenses/LICENSE.TXT",
+      "bytes": 1080,
+      "sha256": "7dc6c4211e56434b6f02753720b71ff2af0bc9ad1ee556416caeb727398b5f03"
+    },
+    {
+      "name": "pyshp-3.1.6.dist-info/RECORD",
+      "bytes": 371,
+      "sha256": "5122781f06c17fd283a289dbb3c68e59aa1939959f0fe6f130f17f59a24d92ac"
+    }
+  ]
+}

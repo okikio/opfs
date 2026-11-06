@@ -2,6 +2,9 @@
 
 ## Purpose
 
+The [review inventory](./review.md) records the purpose and disposition of every test, fixture, benchmark, and
+supporting validation area. Keep that inventory aligned when adding or retiring a suite.
+
 Validation follows the storage layers. A memory test is not evidence for browser OPFS interoperability. A fake HTTP test
 is not evidence that an S3-compatible server accepts the request. A facade benchmark is not enough to identify whether
 overhead came from the protocol client, driver, adapter, metrics, or provider.
@@ -37,26 +40,107 @@ Mitata + Playwright benchmarks
 
 ## Repository command authority
 
-Mise owns tool versions and repository commands.
+Maintained task runners and fixture recipes use `.ts` source. Files ending in `.py.snapshot`, `.mjs.snapshot` or
+`.cjs.snapshot` retain the exact old executable bytes as inert evidence. They are not commands to run. A source map
+beside a ported recipe explains which historical receipt those bytes produced.
+
+A port must state what supplies its comparison: a native implementation run now, frozen independently produced bytes, or
+newly authored controls. These are different claims. Keeping an old native receipt does not certify a new producer.
+Acquisition, compilation, complete-byte comparisons and candidate tests each need their own result.
+
+The package-consumer checks deliberately create disposable `.mjs` and `.cjs` programs to test the published JavaScript
+contracts. Their maintained authors remain TypeScript tasks. Converting those temporary consumers to TypeScript would
+stop checking JavaScript-only consumers.
+
+Deno tasks own repository commands. Install the required runtimes directly, or use Mise for optional provisioning.
 
 ```sh
-mise install
-mise run check
-mise run test
-mise run test-node
-mise run test-deno
-mise run test-bun
-mise run test-browser
-mise run test-providers
-mise run bench
-mise run bench-providers
-mise run bench-browser
-mise run bench-filesystem-clients
-mise run quality
+deno task deps:ci
+deno task docs:examples
+deno task check:ci
+deno task test:all
+deno task test:node
+deno task test
+deno task test:bun
+deno task test:browser:install && deno task test:browser
+deno task test:providers
+deno task bench:all
+deno task bench:providers
+deno task test:browser:install && deno task bench:browser
+deno task bench:filesystem-clients
+deno task quality
 ```
 
 GitHub Actions owns only GitHub-specific orchestration: triggers, permissions, matrices, secrets, outputs, immutable
-release refs, and calls into those mise tasks.
+release refs, and calls those same Deno tasks. Mise can provision runtimes and delegates to the Deno graph.
+
+`deno task docs:examples` executes five complete examples directly from their Markdown fences: both examples in
+[the storage model](model.md), the four-byte range example in [sources](source.md), the authenticated-range example in
+[encryption](encryption.md), and the truncate/seek example in [the API reference](api.md). The task selects exact
+headings and fails if a selected example is missing or duplicated. It resolves public OPFS imports through `deno.json`
+exports to the current local TypeScript files, then runs each literal body in a separate Node process. A local console
+captures the printed arguments; the parent compares their exact JSON values with independent expectations. This catches
+documentation drift without maintaining copied example implementations.
+
+Use the repository's configured Node runtime with dependencies installed. Each example has a 10-second deadline and a 64
+KiB captured-output budget. The task creates a unique directory under `.tmp/reports` and removes that exact directory in
+`finally`, including on a failed comparison or native process failure. These examples use memory and authored bytes, so
+they need no cloud account, credentials or provider. This lane proves selected source examples and printed results; it
+does not prove all documentation, Mermaid rendering, browser behavior or installed-package import resolution. The
+package-consumer gates separately check built artifacts.
+
+Provider timing contracts, independent byte/acknowledgement preflights and the primitive-versus-projection comparison
+boundary are explained in [Provider benchmarks](provider-benchmarks.md).
+
+The expansion has focused commands: `deno task test:expansion`, `test:transfer:recovery`, `test:expansion:providers` and
+`bench:archive`. The first covers portable protocol/source/archive/encryption behavior; recovery starts separate Node
+processes around an acknowledged-write/checkpoint gap. Provider tests use disposable fake-gcs-server and PGSTY Silo
+containers, independent SDK writes and revision-bound ZIP preview. Their factories follow Core's Testkit pattern: lazy
+explicit acquisition, unique test namespaces, bounded container resources and awaited cleanup after partial acquisition
+or failure. They do not import Core or its private test packages.
+
+Silo exercises S3 semantics; it is not a GCS substitute. GCS emulator status-query behavior has an explicitly documented
+exclusion in [the GCS guide](gcs.md). No test discovers cloud credentials or claims live IAM/CORS verification. The
+provider CI lane runs these commands after the existing SeaweedFS/Azurite suite. Tink fixtures come from an
+independently pinned official producer; see their [provenance](../tests/fixtures/tink/README.md). A fixture match is not
+a cryptographic security audit.
+
+## Local memory budget
+
+All Deno runtime test tasks use `deno test --no-check`, including stress, coverage, and release-tool tests. The separate
+`check:*` tasks still own static type validation. For a focused local run, use:
+
+```sh
+deno test --no-check --sanitize-ops --sanitize-resources tests/path.test.ts
+```
+
+On a workstation where type checking has caused memory spikes, run runtime tests, formatting, and lint locally. Run
+`check`, `check:ci`, `quality`, `release:check`, `release:prepare`, and installed-consumer type checks on CI or an
+isolated runner with a memory budget. These aggregate commands still invoke checking; adding `--no-check` to a test
+command does not disable separate compiler subprocesses. Keep type checking serial and separate from benchmark
+measurement. Runtime tasks retain their declared permissions and sanitizer flags. Deno2.9.7's `node:test` bridge
+explicitly disables operation/resource sanitizers on its registered tests and suite steps, so those flags do not prove
+leak freedom for the portable `describe`/`it` suites. Awaited fixture scopes and observed native close/deletion controls
+provide separate lifecycle evidence. A runtime pass does not establish type correctness or bound memory use. Release and
+JSR publication gates still require static validation.
+
+Native command controls use a finite 180-second acquisition and completion budget. That budget allows cold runtime
+startup in a constrained runner; expected exits, raw bytes, EOF and quota outcomes decide correctness. Running
+cancellation waits for an actual file marker for at most 170 seconds, leaving retirement time within the child's owner
+budget. The child writes and closes a private stage, then renames it within the same directory to publish readiness. The
+control holds that stage empty until the parent proves that no final marker exists. Only an absent final marker is
+pending; incorrect published bytes fail immediately. This tests publication, not the speed of a write. A child that
+settles without its marker fails readiness immediately. Each native control supplies a test-runner timeout longer than
+its possible child lifetimes and retirement, including the three-child failure control. Bun1.3.14 forwards `it()`
+options to its runner; suite options are not used for this budget. See its
+[pinned node:test bridge](https://github.com/oven-sh/bun/blob/bun-v1.3.14/src/js/node/test.ts). The separate one-second
+deadline control still exercises the actual automatic expiry path; it does not claim a one-second startup guarantee.
+
+The command controls snapshot settled process facts before assertions and keep them beside the exact assertion or
+cleanup failure. A capture that rejects before producing a result has no invented observation. Successful,
+missing-command and quota controls write their temporary binary records before the verdict. Fixture retirement still
+removes those owned records; failure diagnostics contain status, EOF, byte extent and hashes, not a promise of durable
+raw fault bytes.
 
 ## Portable tests
 
@@ -86,6 +170,14 @@ tests/filesystem.test.ts
 tests/request.test.ts
     shared HTTP retry / zero-delay policy / single-attempt bypass
     deterministic preparation failures / transport retry / attempt timeout
+
+tests/chunk.test.ts
+    exact byte chunking / early consumer return / stalled-source cancellation
+    admitted provider work drains before source failure; independent rejection values remain intact
+
+tests/benchmark.test.ts
+    native sample/statistic validity / complete declared lifecycle observations
+    all owned releases run; cleanup preserves primary and independent failures
 
 tests/ecosystems.test.ts
     unstorage / RxDB / db0 / Drizzle
@@ -118,6 +210,50 @@ tests/sqlite.test.ts
 
 A test should identify the contract it protects. Avoid tests that merely restate private implementation steps.
 
+Use exact assertions for public bytes, canonical paths, protocol signing, complete result sets, and stable machine error
+fields. Prefer those fields over human-readable error prose. Generated annotations, private counters, and incidental
+completion order should not decide whether a consumer behavior works.
+
+Register cleanup as soon as the fixture acquires a resource. Native host, process and KV fixtures use `withReleases()`
+from `tests/close.ts`: every acquisition registers its release before the next fallible setup step, and the awaited
+scope attempts every release in reverse order while retaining primary and independent cleanup failures. Real root
+deletion and closed native file/database controls test this contract after setup, body and release faults. Deno2.9.7
+does not execute a suite test's `t.after()` registration, so cleanup cannot depend on that hook. Its
+[pinned test bridge](https://github.com/denoland/deno/blob/0c071246a412575e07423263404a5d13e7ed6aa2/ext/node/polyfills/testing.ts#L1754-L1867)
+also disables suite-step sanitizers. Use explicit scopes across runtimes rather than treating a passing runner summary
+as cleanup proof. Test-scoped mocks restore their patched methods where the runtime implements that contract; shared
+global trackers require explicit reset. Use explicit source pull/open signals to coordinate active cancellation, rather
+than guessing that one microtask or a short sleep reached the desired state.
+
+Portable filesystem fixtures use `withFileSystem()` from `tests/reliability.ts` to await public `close()` after the test
+body. It preserves an original rejection, including `undefined`, beside any independent close failure. This keeps the
+same ownership contract on Node 22, whose direct TypeScript runner cannot parse `await using`; newer-runtime syntax must
+not prevent a supported runtime from reaching its behavior assertions.
+
+The [Node test documentation](https://nodejs.org/api/test.html) and
+[standard-library expectations](https://jsr.io/@std/expect/doc) describe the available lifecycle and structural
+assertion tools. Use them where they clarify the contract; a protocol double remains appropriate when its counters and
+bytes are the independent oracle across runtimes.
+
+## Permanent fixtures and local evidence
+
+| Input                                     | Owner and repeatable lane                                                                                                           |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `tests/reliability.ts`, `tests/host.ts`   | Shared behavioral scenarios imported by the memory and native filesystem suites.                                                    |
+| `tests/browser/fixtures/`                 | Actual realms and storage operations driven by Playwright specs through `deno task test:browser:install && deno task test:browser`. |
+| `tests/ecosystem/live.ts`                 | Pinned upstream database/unstorage consumers through `deno task test:ecosystems`.                                                   |
+| `tests/provider/fixture.ts`               | Testcontainers resources borrowed by provider tests and benchmarks.                                                                 |
+| `tests/provider/fuse*`, `Dockerfile.fuse` | Mountpoint/BlobFuse correctness and measurement through `deno task test:filesystem-clients`, in isolated Linux containers.          |
+| `tests/package/verify.ts`                 | Clean installed archive consumers through `deno task verify:npm`.                                                                   |
+| `.mise/tasks/linux.ts`                    | Named, bounded containers for `deno task test:linux`; failed lanes retain diagnostics and clean up independently.                   |
+| `bench/`                                  | Durable workload definitions; each result needs its semantic oracle and measurement conditions.                                     |
+
+Slower provider, browser, ecosystem, FUSE, package, and Linux lanes remain reusable tests even though they are not run
+by every portable-suite invocation. Keep their definitions visible. Generated configurations, reports, timings, and
+dated investigations belong under ignored `.tmp/`, package output under `.release/`, and assistant-only support under
+`.agents/`. The npm task uses `--no-lock` for its separate build-tool configuration; `scripts/deno.lock` is local
+resolver output rather than a second dependency authority. The repository's `deno.lock` remains visible.
+
 ## Driver tests
 
 A driver is a public extension seam and therefore receives direct tests before an adapter exists.
@@ -147,10 +283,10 @@ The portable Deno KV partition suite uses a deterministic contract double. It pr
 - streamed replacement uses bounded partition writes without facade buffering;
 - disabling the facade stream-write optimization forces the bounded facade fallback;
 - append/update preserve untouched bytes;
-- an in-flight reader can finish against the immutable generation it resolved before an overwrite;
+- a pinned in-flight reader can finish against its immutable generation within the supported lease;
 - a versionstamp check rejects a stale writer after another writer changes the logical entry;
-- failed stale publication removes its unpublished physical generation;
-- manifest-last replacement never publishes a partial new generation.
+- failed stale publication claims its unpublished generation before bounded cleanup;
+- manifest publication checks durable generation ownership and never publishes a collector-claimed body.
 
 The Deno-native suite uses the real Deno KV API when the runtime is available. It remains the release evidence for
 actual serialization/provider behavior; the contract double does not replace it.
@@ -208,6 +344,75 @@ worker type.
 Playwright's deeper ServiceWorker instrumentation is browser-specific, so cross-browser service-worker tests use a
 page-owned registration/message path when direct runner instrumentation is unavailable.
 
+Persistent OPFS correctness contexts use one acquired temporary profile per test. Native launch has a 30-second cap,
+shortened again when less owner time remains, instead of inheriting Playwright's longer native acquisition default. The
+profile and persistent-context fixtures each have a 90-second fixture budget separate from the body. In pinned
+Playwright 1.62.1, setup and teardown share that fixture slot; suspension during the test body is not charged to it.
+Ordinary body/assertion timeouts stay unchanged. A context is registered for idempotent close as soon as acquisition
+completes; its profile is removed only after dependent context releases. The reopen case now uses this same disposable
+owner instead of retaining a browser cache profile under its report output; traces and configured report artifacts
+retain their existing evidence policy. Native deadline cancellation settles acquisition rather than abandoning a losing
+promise from `Promise.race()`.
+
+The same-profile reopen scenario has an explicit 180-second test lifetime for two launches, their native closes and both
+authored write/read sequences. It reserves its last 30 seconds before passing its deadline to the acquisition owner,
+which reserves another 30 seconds for native retirement. Acquisition dispatch therefore leaves at least 60 seconds
+before the scenario deadline and rechecks admission, including the second launch. Native cancellation may consume the
+inner retirement reserve; the outer reserve remains separate. Every launch still has the 30-second native cap. This is
+an operational fixture lifetime, not a throughput or latency requirement, and neither retries nor global suite timeout
+are increased. A native OS close or file operation can still require the outer runner watchdog. See the
+[Playwright timeout contract](https://playwright.dev/docs/test-timeouts): default test time includes fixture setup,
+while an explicit fixture has its own finite setup/teardown slot.
+
+Initial fixture-document and iframe API acquisition is also separate from functional assertions. The reusable
+`tests/browser/ready.ts` fixture acquires its own page in the provided context, registers close before navigation, and
+hands it to the test only after the declared callable API is installed. It never closes the borrowed context. Server
+HTTP200 readiness only admits HTML serving; it does not admit module execution. Numeric 50ms API polling observes module
+installation without depending on animation frames. Required same-origin script load failures, HTTP error responses,
+malformed APIs and native navigation/readiness errors fail acquisition with structured stage/category and bounded
+observations. While native navigation or reload is pending, listeners record faults without aborting that navigation
+transaction. After it settles under the same finite native deadline, any recorded fault or failed main-response status
+refuses admission before API polling. Later load faults can cancel the stable API wait. A separate native rejection and
+a recorded load fault both remain causes; failed HTTP responses cannot become ready documents. Native controls supply
+proper script/document MIME and distinguish the actual fulfilled status from engine-specific response/request
+observations.
+
+```ts
+// A test file under tests/browser/ selects its fixture API before the body starts.
+import { expect } from "@playwright/test";
+import { test } from "./ready.ts";
+
+test("the fixture exposes its Window API", async ({ ready: page }) => {
+  expect(await page.evaluate(() => typeof Reflect.get(globalThis, "opfsTest")?.probe)).toBe("function");
+});
+```
+
+The fixture's 90-second slot admits at most 60 seconds of completed page acquisition/navigation/API setup, leaving 30
+seconds of the slot for page retirement. This is operational runner policy, not a package latency requirement. Each
+native wait uses the remaining admission time and rejects expired ownership before dispatch. `context.newPage()` and
+`page.close()` do not expose a cancellable native timeout: pending acquisition/close remains framework-owned and may
+need the outer runner watchdog. The 30 seconds is a reserved budget, not a promise that a stuck OS call is interrupted.
+Cleanup errors remain independent failures; absence of an error alone is not an independent process-retirement census.
+
+Same/cross-origin and opaque frame fixtures own their containing pages, then their ordinary bodies preserve the real
+embedding/storage-policy probes. Initial Window, record-adapter and copied-WPT API installation follows the same owner.
+Reopen, fresh-context isolation and cooperating-page/reload stories retain writes, native closes, actual reloads and
+read-back assertions inside finite 180-second scenario owners. Each subsequent document admission rechecks remaining
+lifetime. This change does not introduce a global timeout increase, a retry or a new capability skip.
+
+Benchmark methods load their module before its existing internal timers. The benchmark-specific document explicitly
+admits that module before the 120-second sampling body, without performing a storage probe, warmup or sample during
+admission. Namespace setup, byte oracles, rotated sample loops and input guards keep their existing authority. The
+conservative support catalog automatically includes ready.ts and the benchmark fixture bodies. Worker module import and
+result watchdog separation remains a distinct review boundary; document admission does not claim to repair an unobserved
+worker-startup failure.
+
+Run the native admission controls and real frame stories without retries:
+
+```sh
+deno task test:browser tests/browser/readiness.spec.ts tests/browser/iframe.spec.ts --retries=0
+```
+
 ## Provider tests use Testcontainers
 
 `tests/provider/fixture.ts` owns disposable provider services through Testcontainers.
@@ -264,12 +469,22 @@ Coverage is useful evidence, not architectural proof. The coverage task exists t
 code. A high line percentage does not prove that provider limits, cancellation, or resource ownership are correct.
 
 The portable coverage report does not execute every runtime-only Node, Deno, or Bun driver branch. Read its percentages
-together with the separate host runtime suites. This distinction is important for operations whose native APIs differ from
-the memory model, such as empty-directory removal and ranged-stream resource ownership.
+together with the separate host runtime suites. This distinction is important for operations whose native APIs differ
+from the memory model, such as empty-directory removal and ranged-stream resource ownership.
 
 ## Benchmarks measure each layer
 
 Every benchmark should identify the cost added by one layer.
+
+The Deno KV benchmark compares a 24 KiB inline record with a 64 KiB partitioned record. Each size and layer has an
+independent key prefix. Partition cases include immediate retirement collection in the measured operation, so old
+generations cannot accumulate and change the cost of later samples. This is a single-reader workload with no reader
+using a retired generation. The raw KV value baseline has a simpler physical layout; its difference from partitioned
+records includes publication and reclamation, rather than measuring wrapper cost alone.
+
+Mitata JSON uses the pinned harness's native serializer and retains its complete samples. The report writer awaits
+stdout completion because Bun can exit before a large console print reaches a pipe. A successful process exit with
+truncated JSON does not establish valid benchmark evidence.
 
 For an object protocol:
 
@@ -314,7 +529,79 @@ FileSystemType
 The benchmark result should include throughput/latency plus semantic context. A faster route is not a valid substitute
 if it has different supported operations, consistency, atomicity, or caching semantics.
 
+Each workload needs a consumer question, an independent output oracle, and a declared baseline. Native byte storage and
+encoded record storage expose different physical work; their layer comparison measures that extra contract rather than
+claiming identical representations. Keep setup outside timing and consume the complete result inside it. Microbenchmarks
+can locate primitive costs, while composed replace/read, query, and cancellation scenarios show their practical impact.
+
+The Node and Deno benchmark tasks expose the collector so Mitata's requested GC policy is effective on each runtime.
+Retain raw distributions, sample counts, runtime and dependency identities, fixture sizes, concurrency, GC policy and
+cache conditions. Shared-host measurements are observations, not hard performance gates. `bench/report.ts` saves running
+and failed results under ignored `.tmp/reports/bench/` and rejects empty or invalid samples. Native, provider, browser
+and FUSE collectors use the same before/after input policy in `bench/input.ts`. A changed, missing or unreadable
+required input invalidates collection; raw samples and failed evidence remain available.
+
+This is a conservative maintained catalog, not a parsed complete import graph. It hashes regular files in `src/`,
+`bench/` and `tests/` support, including browser helpers, provider configuration and inert upstream provenance. It also
+records root manifests, present lock/configuration files and benchmark/FUSE task wrappers. Benchmark Playwright
+specifications are measured workload inputs. Correctness test/spec definitions are excluded. VCS, installed dependency
+and output directories are pruned at every depth; symbolic links are never followed. Required roots and manifests must
+exist as regular owned paths. Keep executed local support within this catalog; linked, excluded or external local
+support is unsupported. The catalog can include support that a particular workload does not execute.
+
+Browser collection writes `.tmp/reports/browser-bench/inputs.json` before tests and updates it in awaited Playwright
+teardown. Provider collection writes `provider-inputs.json` in its parent report directory or its own
+`.tmp/reports/provider-bench/` or `provider-verify/` invocation directory. Input receipts say `running`, `unchanged` or
+`invalid`; `unchanged` does not establish test success, complete measurements or valid samples. Read those receipts
+together with the workload result and sample validator. Before/after hashes do not detect a change restored between
+observations, prove installed dependency bytes or protect against hostile concurrent edits. Use a frozen owned source
+snapshot and record actual runtime, dependency and provider identities for comparisons.
+
+Mitata 1.0.34 records nonnegative heap deltas observed across batches and normalizes them by batch size. These are not
+total allocations, retained memory or RSS. A zero observation count with null aggregates means that heap data is
+unavailable; it does not mean zero bytes were allocated. Optional heap and GC fields must have the pinned shape, finite
+nonnegative values and consistent bounds when present. Missing optional fields remain valid.
+
+The default GC policy collects once after warmup. Inner GC collects before and after each batch; its reported GC time
+measures the explicit collection after the batch in nanoseconds per collection, without per-operation normalization.
+That observation is separate from operation latency. Natural collection inside timed operations remains part of their
+measured cost.
+
+The lifecycle workload samples RSS during source pulls. Its timings include that instrumentation, and its
+active-resource observations are not an open-file census. These finite runs can expose growth or failed reuse; they
+cannot establish unbounded leak freedom or crash durability.
+
+### Operational costs and budgets
+
+Choose budgets for the application workload, then compare the same payload, operation, layer and environment. The
+measurements below have different ownership and observation scopes:
+
+| Observation                                                    | What it measures                                                                               | What it does not measure                                                                                      |
+| -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Facade `operations.*.bytes`                                    | Payload bytes attributed to logical operations at the facade.                                  | HTTP headers, retries, TLS traffic or provider-internal copy traffic.                                         |
+| Facade `bufferedBytes` / `peakBufferedBytes`                   | Temporary stream materialization owned by facade fallbacks.                                    | Client multipart buffers, source buffers, runtime heap or RSS.                                                |
+| S3/Azure driver `requests`, `retries`, `responses`, `failures` | Concrete Fetch attempts, additional attempts, responses and terminal logical request failures. | Network byte volume or cloud billing totals.                                                                  |
+| S3/Azure timing `durationMs`                                   | Time inside Fetch until a response or rejection is received.                                   | Later response-body consumption, the full logical operation, CPU utilization or service-only processing time. |
+| Lifecycle RSS / active-resource samples                        | Process memory at declared sampling points and runtime-reported active resource kinds.         | A continuous memory maximum, exact open descriptors or every provider resource.                               |
+| Mitata timing / optional heap and GC samples                   | Operation latency and the pinned collector observations described above.                       | Full allocation accounting, CPU time or network traffic.                                                      |
+
+The optional driver fields `logicalBytes`, `physicalBytes`, `parts` and `peakActive` are not currently populated by the
+first-party S3/Azure drivers. Missing observations remain absent; they must not be reported as zero or inferred from
+logical payload size. Current OPFS benchmark reports record CPU model and runtime identity, rather than process CPU
+time. Provider and mounted-client throughput comparisons therefore answer elapsed-time questions for their measured
+operations; they do not establish CPU, traffic or billing budgets.
+
+`maxBufferedWriteBytes` bounds the facade fallback that materializes a stream. Provider part/block sizes and upload
+concurrency control a different layer's work admission and buffering. Record all three with a workload before choosing a
+deployment memory budget. Exact-byte checks, caller cancellation, drained cleanup and successful reuse remain
+correctness requirements even when an application accepts a slower or larger operation. Latency, RSS and request-count
+targets belong to that workload and deployment; this package does not invent a universal provider-health threshold.
+
 ## Provider benchmarks
+
+See [provider publication workloads](./provider-benchmarks.md) for the acknowledgement contract, untimed HTTP-call
+oracles, and the extra namespace admission provided by adapters and the facade. Primitive and projected publication
+lanes have different guarantees; their latency difference is not pure wrapper overhead.
 
 `bench/provider.bench.ts` uses the Testcontainers provider fixture and compares:
 
@@ -344,6 +631,9 @@ facade metrics:basic
 available.
 
 Provider container startup/readiness happens before measured samples. Container pull/start time is not benchmark data.
+Large-upload comparisons align part size, concurrency, retries and body consumption with the official SDK. Varied bytes
+must survive the complete round trip before timing starts. Loopback SeaweedFS/Azurite measurements isolate protocol and
+layer costs; cloud network latency and service policy require their own workload.
 
 ## Filesystem-client baselines
 
@@ -362,20 +652,32 @@ Environment variables select mounted roots:
 ```sh
 OPFS_MOUNTPOINT_S3_ROOT=/mnt/s3 \
 OPFS_BLOBFUSE_ROOT=/mnt/azure \
-mise run bench-filesystem-clients
+deno task bench:filesystem-clients
 ```
 
 The external mounts are intentionally not started inside the normal Testcontainers fixture. AWS Mountpoint and Azure
 BlobFuse are FUSE/system clients with host privileges, installation, mount, and unmount lifecycle beyond a normal
-application container. A dedicated benchmark runner can provision them and then call the same mise task.
+application container. A dedicated benchmark runner can provision them and then call the same Deno task.
+`deno task test:filesystem-clients` builds the checked-in client image and acquires both disposable mounts;
+`deno task bench:filesystem-clients:container` uses that same acquisition for measurement.
 
 Only comparable operations should be measured. Unsupported filesystem operations are capability differences, not
 benchmark failures.
+
+The isolated filesystem-client lane requires both mounts. Correctness uses local coordination and explicit admission
+signals; performance disables that coordination to expose the mounted-path layer costs. Timed creates use bounded
+namespaces, and cleanup suppresses only declared unsupported operations. Filesystem caches and write acknowledgement
+remain distinct from remote durability.
 
 ## Browser benchmarks
 
 The Playwright benchmark compares raw native OPFS calls against the package's OPFS driver, adapter, and facade where
 practical. Each browser result is separate. A result from one browser is not generalized to another engine.
+
+The reports retain nine rotated batches per layer, both batch totals and averages per operation, and the iteration count
+used to convert them. These batch averages are not individual-request tail latency. Native OPFS retains a file handle
+while the higher layers resolve a path, so that comparison includes path lookup. Unsupported storage is reported as a
+capability skip.
 
 ## Metrics cost is measurable
 
@@ -395,7 +697,7 @@ from one logical filesystem write.
 
 ## Quality gate
 
-`mise run quality` owns the Deno-centric release quality gate:
+`deno task quality` owns the Deno-centric release quality gate:
 
 ```text
 frozen dependency install
@@ -406,10 +708,10 @@ format check
 stress tests
 coverage tests
 JSR dry-run
-npm/deno package dry-run
+npm package build and local tarball
 ```
 
-`mise run test`, browser tests, provider tests, and runtime matrix jobs add the environment-specific evidence.
+`deno task test:all`, browser tests, provider tests, and runtime matrix jobs add the environment-specific evidence.
 
 ### Browser platform type conformance
 
@@ -484,8 +786,116 @@ Release validation keeps JSR and npm independent:
 
 ```sh
 deno publish --dry-run
-RELEASE_VERSION=0.0.0-test mise run npm
-node tests/package/verify.mjs .release/npm/*.tgz
+RELEASE_VERSION=0.0.0-test deno task pack:npm
+node tests/package/verify.ts .release/npm/*.tgz
 ```
 
-The npm consumer test installs the produced tarball with ordinary npm and rejects `@jsr/*` dependencies, raw `.ts` implementation files, missing declarations, or a non-optional Drizzle peer.
+The npm consumer test installs the produced tarball with ordinary npm and rejects `@jsr/*` dependencies, raw `.ts`
+implementation files, missing declarations, or a non-optional Drizzle peer.
+
+## Storage ownership regressions
+
+`tests/architecture.test.ts` covers actual Node/Deno host replacement and no-follow removal, Deno cursor ordering, EOF
+cursor state, bounded accepted byte/operation admission, one winning terminal action, WritableStream convenience
+terminal behavior, exact JS-string bridge codec and dedicated clear ownership, and Web Storage index shifts. Native host
+cases run under Node/Deno/Bun using Node temporary-directory APIs; Deno-only cases skip when that runtime is absent.
+
+`tests/generation.test.ts` runs with `--unstable-kv` against a real local KV engine and a faulting transport wrapper. It
+covers active zero-grace writers, publication suspended between validation and commit with/without a collection claim,
+applied-then-thrown create/renew/release/prune, retained unknown acquisition tokens, concurrent immutable-part
+accounting, capacity rejection, bounded continuation progress, reader expiry and exact transactional pruning. The
+wrapper changes receipts and dispatch timing, not the engine's version check semantics. Remote KV service availability
+and indefinitely paused read retention are not claimed. The ordinary partition suite keeps independent
+whole-body/range/stream byte oracles and verifies migration layout metadata.
+
+The KV benchmark includes reclamation and zero reclaimed-state retention in its repeatable partition samples. Both
+pin/writer fencing still apply; short ages and absent readers do not independently authorize deletion. Compare recorded
+native/driver/adapter/facade workloads before making numeric throughput or memory claims; no new speed/RSS budget is
+invented here. Host staged-copy work adds a sibling body and publication operation; object projection checks add
+metadata reads; aggregate KV accounting adds namespace CAS contention. [Storage ownership](storage.md) explains those
+costs.
+
+Host driver root profiles distinguish configured primitive admission from live mount/permission observations. Known
+limited modes reject strong copy/move before effects; runtime restrictions, positive native-host behavior, and actual
+mounted-client negative/byte oracles remain separate. See [host roots](host.md).
+
+Browser gates use Playwright's `failOnFlakyTests` control, so a retry that passes still fails the gate and retains
+diagnostic attempts. Each run owns its fixture servers; it does not reuse a listener that could serve a different
+checkout. See the
+[Playwright configuration contract](https://playwright.dev/docs/api/class-testconfig#test-config-fail-on-flaky-tests).
+
+Generated coverage samples and LCOV output from `deno task test:coverage` live under `.tmp/reports/coverage/`. Browser
+correctness artifacts live under `.tmp/reports/browser/artifacts/`, and browser benchmark artifacts under
+`.tmp/reports/browser-bench/artifacts/`, beside their report files. Playwright and Deno may clean and recreate these
+ignored output directories inside an immutable release snapshot. Source directories remain readonly.
+
+Linux browser tasks require the native `locale` utility and an installed `C.UTF-8` locale. The browser launch owners
+preserve inherited nonlocale settings and explicitly pass `LC_ALL=C.UTF-8` and `LANG=C.UTF-8` to both ordinary and
+persistent browsers. Playwright page `locale` controls web-facing language settings; it does not establish the native
+filesystem encoding. Before acquiring browsers, setup runs bounded `locale charmap` under the same locale policy. An
+unavailable command, failed command, or non-UTF-8 charset fails admission instead of skipping Unicode cases. macOS and
+Windows retain their native environment without a POSIX locale probe.
+
+Each report owner retains `environment.json` beside its existing results: `.tmp/reports/browser/` for correctness and
+`.tmp/reports/browser-bench/` for benchmarks. This receipt contains platform, allowlisted ambient/effective locale
+fields, and bounded native probe output. It excludes credentials and other inherited environment variables. Locale
+admission is separate from actual engine versions, case outcomes, skips, and timings; passing the probe does not
+establish browser or library correctness. This requirement protects literal non-ASCII filenames rather than changing
+those filenames.
+
+Browser correctness and benchmark tasks use fresh Vite servers with file watching and hot reload disabled. Sources
+remain fixed for each run; report output does not trigger watcher work. Restart the task after editing a fixture. Both
+origins use the same explicit configuration and repository root, so invocation directory does not change the served
+source.
+
+The correctness runner uses one worker so a host CPU count does not create an unbounded browser pool inside a
+memory-limited container. Multi-page, multi-worker and concurrent writer scenarios still create their required
+participants within each test; scheduler parallelism is not their oracle.
+
+Vite loads fixture configuration through `--configLoader native`. Deno already understands the TypeScript source, so the
+loader must not emit a temporary module beside maintained configuration files. This keeps startup compatible with the
+readonly source used by release preparation.
+
+Linux and FUSE runners admit owned source archives instead of binding a Git checkout into Docker. Complete copied
+membership and outer source/dependency/cache identities are checked before and after work. Copy and hashing costs are
+setup overhead outside timed library callbacks. See [container source admission](container-inputs.md) for permissions,
+alias limits, exact receipts, ordinary Linux runtime users and cleanup boundaries.
+
+Permission fixtures distinguish an observed preservation contract from a deliberately established mode. A directory
+created with a requested `0755` mode can actually have `0700` permissions under the private Linux supervisor's `077`
+umask. `tests/container.test.ts` records the actual native device, inode, owner, full mode, link count and size before
+refused cleanup, then compares those observations and independently authored binary bytes afterward. The compound
+admission-failure scenario also retains the exact primary reason and the separate cleanup failure's original and
+replacement identities. It does not use the candidate cleanup implementation to calculate expected metadata.
+
+When a scenario requires an exact permission value, such as an attestation replacement with the same `0700` mode as its
+original gate, the fixture applies `chmod` to its own newly created directory before recording the baseline. Tests never
+change the process umask to make assertions pass, and cleanup never changes borrowed permissions. Archive admission's
+explicit readonly modes remain a separate Linux contract; Windows host modes still do not establish POSIX authority. See
+the native contracts for [creation masks](https://nodejs.org/api/process.html#processumaskmask) and
+[file modes](https://nodejs.org/api/fs.html#file-modes).
+
+## HTTP storage and streaming archive gates
+
+Run `deno task test:expansion` for portable protocol/format contracts. `deno task test:expansion:providers` runs the
+existing disposable providers plus native Swift and WebDAV fixtures sequentially; fixtures use pinned images, ephemeral
+ports and awaited Testcontainers cleanup. These tests need Docker and establish only the exercised server profiles. B2
+currently has authored protocol fixtures, not hosted-service proof.
+
+On Linux with Node, 7-Zip, libarchive bsdtar and system TAR available, run `deno task test:archive:interop`. The ZIP
+consumer defaults to `7zz`; use `OPFS_SEVEN=/usr/bin/7z deno task test:archive:interop` when that is the installed
+executable, as in the Ubuntu archive interoperability CI step. This passes a literal executable argument to the
+verifier; a missing executable fails the test without fallback or a skip. It checks new writer output with independent
+consumers and fails on either producer or consumer errors. It lives in the Linux provider job instead of silently
+skipping absent tools in the Windows runtime matrix. Portable tests remain in Deno, Node and Bun gates.
+
+`bench:archive` includes ZIP writer workloads; `bench:tar` compares indexed and sequential reads plus streaming writes
+with byte-only baselines. Both validate byte/count oracles before sampling. CI retains their raw reports in the archive
+benchmark artifact. Sampling results describe the exact workload and runtime; a passed preflight alone is not a timing
+result. Run benchmarks separately from static/compiler jobs under the repository memory policy.
+
+Native age, ORC and AMQP original JSON bytes and the age acquisition/provenance snapshots are excluded from formatting.
+Their exact hashes establish the producer input and output, so format only the maintained readers, test adapters and
+recipe prose. The explicit `fmt.exclude` and `lint.exclude` entries in `deno.json` keep those inert originals separate
+from executable project tests. The shared age cipher transport and child remain in formatting and lint checks; they are
+test-only files and are not part of either published artifact.

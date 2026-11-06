@@ -1,7 +1,7 @@
 import { FileSystemError } from "./error.ts";
 import type { FileSystemType } from "./filesystem.ts";
 import { basename, isAncestorPath, joinPath, normalizePath, validateName } from "./path.ts";
-import type { EntryKindType } from "./schema.ts";
+import type { EntryKindType } from "./_schema_types.ts";
 import type { SyncFileType } from "./sync.ts";
 import { toBytes, type WriteDataType } from "./stream.ts";
 
@@ -175,7 +175,13 @@ class WriteSession {
     this.#position = position;
   }
 
-  /** Resizes the staged image and clamps the cursor when it falls past the new end. */
+  /**
+   * Replaces the staged image with an exact-size allocation, preserving its prefix.
+   * Growing zero-fills the extension; shrinking clamps the next write position.
+   * The previous image can remain live until collection, so this operation does
+   * not provide a constant-memory way to truncate a large backend file. Only
+   * closing the session publishes the staged bytes to its owning filesystem.
+   */
   truncate(size: number): void {
     this.#assertOpen();
     assertOffset(size, "size");
@@ -209,7 +215,6 @@ class WriteSession {
  */
 export class WritableFileStream extends WritableStream<WritableChunkType> {
   /** In-memory staged write state committed only when the writable stream closes. */
-  readonly #session: WriteSession;
 
   /** Wraps one staged session in the browser-compatible WritableStream contract. */
   constructor(session: WriteSession) {
@@ -218,7 +223,6 @@ export class WritableFileStream extends WritableStream<WritableChunkType> {
       close: async () => await session.close(),
       abort: () => session.abort(),
     });
-    this.#session = session;
   }
 
   /** Writes bytes or a standard write/seek/truncate command. */
@@ -235,13 +239,18 @@ export class WritableFileStream extends WritableStream<WritableChunkType> {
   /** Changes the staged cursor without committing. */
   async seek(position: number): Promise<void> {
     if (this.locked) throw new TypeError("Writable file stream is locked by another writer.");
-    this.#session.seek(position);
+    await this.write({ type: "seek", position });
   }
 
-  /** Changes staged file length without committing. */
+  /**
+   * Sets the staged length in bytes without changing the committed file.
+   * Shrinking discards the tail and clamps the cursor. Growing adds zero bytes.
+   * The complete staged image stays in memory; use an admitted direct positional
+   * resource when a backend operation is needed without that full image.
+   */
   async truncate(size: number): Promise<void> {
     if (this.locked) throw new TypeError("Writable file stream is locked by another writer.");
-    this.#session.truncate(size);
+    await this.write({ type: "truncate", size });
   }
 
   /** Commits staged bytes and closes the stream. */
@@ -324,6 +333,9 @@ export class FileHandle extends BaseHandle implements FileHandleType {
    * for large streaming writes that should reach a streaming adapter directly.
    */
   async createWritable(options: CreateWritableOptionsType = {}): Promise<WritableFileStreamType> {
+    if (!this.fileSystem.adapter.capabilities.write) {
+      throw new FileSystemError("not-supported", "write", this.path, "This filesystem is read-only.");
+    }
     const bytes = options.keepExistingData ? await this.fileSystem.readFile(this.path) : new Uint8Array();
     return new WritableFileStream(new WriteSession(this.fileSystem, this.path, bytes));
   }

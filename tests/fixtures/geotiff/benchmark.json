@@ -1,0 +1,94 @@
+{
+  "context": {
+    "now": 1793911267752,
+    "arch": "arm64-linux",
+    "version": "26.13.0",
+    "runtime": "node",
+    "cpu": {
+      "name": "unknown",
+      "freq": 2.6812743996836264
+    }
+  },
+  "benchmarks": [
+    {
+      "name": "geotiff borrowed-physical-copy lower-bound 64B validation=none conversion=none",
+      "meanNs": 5871.562093098958,
+      "p50Ns": 5069.529296875,
+      "p99Ns": 9300.557373046875,
+      "samples": 24,
+      "ticks": 98304
+    },
+    {
+      "name": "geotiff cold-main-chain-metadata images=1 source=422B requests=20 entries=17 blocks=4",
+      "meanNs": 324609.75012748595,
+      "p50Ns": 134167,
+      "p99Ns": 2226292,
+      "samples": 1961,
+      "ticks": 1961
+    },
+    {
+      "name": "geotiff early-f32-window pixels=16 source=64B requests=4 decoded=64B output=64B spans=4 chunks=1 NaN+negative-zero integrity=not-provided",
+      "meanNs": 41955.378804422,
+      "p50Ns": 17875,
+      "p99Ns": 434625,
+      "samples": 14654,
+      "ticks": 14654
+    },
+    {
+      "name": "geotiff late-tile-edge-window pixels=6 source=24B requests=2 decoded=24B output=24B spans=2 chunks=2 padding=excluded integrity=not-provided",
+      "meanNs": 24041.8505859375,
+      "p50Ns": 23006.34765625,
+      "p99Ns": 32001.4853515625,
+      "samples": 12,
+      "ticks": 49152
+    },
+    {
+      "name": "geotiff complete-logical-f32-raster pixels=323 source=1292B requests=34 decoded=1292B output=1292B spans=34 chunks=4 padding=excluded integrity=not-provided",
+      "meanNs": 229742.2025408338,
+      "p50Ns": 120708.99999904633,
+      "p99Ns": 1991958,
+      "samples": 2755,
+      "ticks": 2755
+    },
+    {
+      "name": "geotiff complete-physical-tile raw=1024B numeric-conversion=none integrity=not-provided",
+      "meanNs": 11504.967590331993,
+      "p50Ns": 10667.694091796642,
+      "p99Ns": 14737.467285156017,
+      "samples": 12,
+      "ticks": 49152
+    },
+    {
+      "name": "geotiff pure-window-plan pixels=6 source=24B requests=2 decoded=24B output=24B spans=2 chunks=2 actual-IO=none reservation=none",
+      "meanNs": 636.4709180376894,
+      "p50Ns": 458,
+      "p99Ns": 1417,
+      "samples": 728957,
+      "ticks": 728957
+    }
+  ],
+  "rawReport": {
+    "path": ".tmp/implementation/geotiff-bench.json",
+    "bytes": 23286173,
+    "sha256": "f900a8af220d09b6bd9372bc3a81a0d27b742399750b9f0306c69d0c2e943b76"
+  },
+  "gzipReport": {
+    "path": "tests/fixtures/geotiff/benchmark.json.gz",
+    "bytes": 90333,
+    "sha256": "f82725a5c21846db30ca8832a0552a21c5e02b9e3233ff27f27d450fefee0503",
+    "roundtripVerified": true
+  },
+  "exitCode": 0,
+  "oomKilled": false,
+  "memoryBytes": 1073741824,
+  "memorySwapBytes": 1073741824,
+  "nanoCpus": 1000000000,
+  "pids": 128,
+  "network": "none",
+  "mounts": [],
+  "warmState": "Native metadata opened once for reusable windows and raw tile; pure planning reuses that index. Cold lane opens a fresh index. Both raster and derived raw tile receive finite 64 GiB / 10M-request lifetime allowances; per-read defaults remain in force.",
+  "untimedPreflight": "Every original sample, complete physical raw block and selected lane sample; exact plan/source/request and integrity scope.",
+  "firstFailure": "First timing failed when reused raw block source exhausted its separate default request lifetime. First report/stderr/state/input retained. Setup-only repair explicitly passes the same finite sampling allowance to source creation.",
+  "scope": "Small native fixtures, Node/Linux ARM64, distinct operation contracts. No SDK-speed, codec, rendering, COG or CRS-conformance comparison.",
+  "externalActivity": "Start/end Docker stats retained. Any unrelated workspace activity is outside this benchmark owner; snapshots cannot prove absence of short-lived activity between observations."
+}

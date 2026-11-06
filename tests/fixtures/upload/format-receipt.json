@@ -1,0 +1,93 @@
+[
+  {
+    "original": "node-manifest.json.snapshot",
+    "originalSha256": "add5c17c14752c54d2f3d519ec46a3815684d41c33f198bcb09fb998f7dcbf68",
+    "formatted": "node-manifest.json",
+    "formattedSha256": "903badb69816ba0cea3c456f88b27a741cd17fe7a5129f2e7d5e6ad46484a19d",
+    "jsonValuesEqual": true
+  },
+  {
+    "original": "node-image.json.snapshot",
+    "originalSha256": "242e64228500d17a16f87357a2d77947e244aede25463d9c03635e0dafe05395",
+    "formatted": "node-image.json",
+    "formattedSha256": "0b96bb67af6e99630851dda247a9f31f2975225166700db85dc56f85f579eda1",
+    "jsonValuesEqual": true
+  },
+  {
+    "original": "source-receipt.json.snapshot",
+    "originalSha256": "0f5fdd5f971545e324b01af4facdb61b604e31303676371cb42da4273054a951",
+    "formatted": "source-receipt.json",
+    "formattedSha256": "0f5fdd5f971545e324b01af4facdb61b604e31303676371cb42da4273054a951",
+    "jsonValuesEqual": true
+  },
+  {
+    "original": "independent.json.snapshot",
+    "originalSha256": "45920c0a5a9353bd5c725b625968426e56df93aad8453f0089ee311229201de5",
+    "formatted": "independent.json",
+    "formattedSha256": "45920c0a5a9353bd5c725b625968426e56df93aad8453f0089ee311229201de5",
+    "jsonValuesEqual": true
+  },
+  {
+    "original": "structured/display-string.json.snapshot",
+    "originalSha256": "819283e6992e3040c377417c2a2e2e7bff3aa480eb2f1a9db66b27c865529169",
+    "formatted": "structured/display-string.json",
+    "formattedSha256": "73fe72ac2b3c014848e6ce7c3005494744552e2aa81184bf8b0a3426148f329f",
+    "jsonValuesEqual": true
+  },
+  {
+    "original": "structured/date.json.snapshot",
+    "originalSha256": "187b13bc54e017a26a18fe0270792fc2b9a3819faac3cfbc7490c38d8a7653b3",
+    "formatted": "structured/date.json",
+    "formattedSha256": "c4b2b4e2f58ebb6bb0a7809a2c10fc6261f08e4c02b3a15634576ac4676abc1a",
+    "jsonValuesEqual": true
+  },
+  {
+    "original": "structured/binary.json.snapshot",
+    "originalSha256": "653da96a89c829c7c8f18ce05c315a9b622e1b7c9f140a52d23c02163fbed4ab",
+    "formatted": "structured/binary.json",
+    "formattedSha256": "c6f0bbfc6d5f73f99bcfd6b6674be8a50cc245270df8de0b38651824cc9066fd",
+    "jsonValuesEqual": true
+  },
+  {
+    "original": "structured/dictionary.json.snapshot",
+    "originalSha256": "3e7626a312b6463bbbf6d4cface0492e8880029b33bbdcf0c5691c137862059a",
+    "formatted": "structured/dictionary.json",
+    "formattedSha256": "e0d5fb7994fe7cfe4b62929356ca253e721cac2cf78e1e578cc65794bf058c5f",
+    "jsonValuesEqual": true
+  },
+  {
+    "original": "structured/item.json.snapshot",
+    "originalSha256": "6104e2be2fdc269071973a577ae5460e55c25e40ee138a064a3dabcacf9d99a0",
+    "formatted": "structured/item.json",
+    "formattedSha256": "106ab4ed6018e5e1a7675ccaefc9a55c9f983347eb6059464dd93f88517e959a",
+    "jsonValuesEqual": true
+  },
+  {
+    "original": "structured/number.json.snapshot",
+    "originalSha256": "2f48ca6756431007f97b50c74fe7ac189cdb30f0f99284bc7f9fff131aee7064",
+    "formatted": "structured/number.json",
+    "formattedSha256": "fe7d2dcb3b944062973ff4fbe233a461235ee0df65a17656237b49ea1737e78b",
+    "jsonValuesEqual": true
+  },
+  {
+    "original": "structured/receipt.json.snapshot",
+    "originalSha256": "e679a36366157b0148f8f5383c863c03b1c5b2818f911de5f7e2102a493c6f5f",
+    "formatted": "structured/receipt.json",
+    "formattedSha256": "e679a36366157b0148f8f5383c863c03b1c5b2818f911de5f7e2102a493c6f5f",
+    "jsonValuesEqual": true
+  },
+  {
+    "original": "structured/boolean.json.snapshot",
+    "originalSha256": "0413a8dd07dae5a794e9c968cce11dd913d448892a6ff0b102c6530fa4b9446f",
+    "formatted": "structured/boolean.json",
+    "formattedSha256": "38638ada3fa6e3798ca34238fa505616a864a4851f060ea1f9be0f65a0490962",
+    "jsonValuesEqual": true
+  },
+  {
+    "original": "structured/param-dict.json.snapshot",
+    "originalSha256": "dd49405593566b7d926827ffd5c8119a3402718c5df299d5c853950db6923a0e",
+    "formatted": "structured/param-dict.json",
+    "formattedSha256": "ca5f20a5e5cd1910f47da3829a5feb4cc334dc18af9cea585d518edce03fe731",
+    "jsonValuesEqual": true
+  }
+]

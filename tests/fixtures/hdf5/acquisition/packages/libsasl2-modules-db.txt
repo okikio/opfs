@@ -1,0 +1,17 @@
+Package: libsasl2-modules-db
+Source: cyrus-sasl2
+Version: 2.1.28+dfsg-10+deb12u1
+Installed-Size: 113
+Maintainer: Debian Cyrus Team <team+cyrus@tracker.debian.org>
+Architecture: arm64
+Depends: libc6 (>= 2.17), libdb5.3
+Description: Cyrus SASL - pluggable authentication modules (DB)
+Description-md5: c4f2723280fa2cd92e5cd59c13f3ab2b
+Homepage: https://www.cyrusimap.org/sasl/
+Multi-Arch: same
+Section: libs
+Priority: optional
+Filename: pool/updates/main/c/cyrus-sasl2/libsasl2-modules-db_2.1.28+dfsg-10+deb12u1_arm64.deb
+Size: 20992
+SHA256: 37d5834fa07d30275b75dc1ec2ccf43f9ce55d0885bb846db7cf04c98da30ae5
+

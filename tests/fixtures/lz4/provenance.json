@@ -1,0 +1,43 @@
+{
+  "producerPackages": {
+    "lz4": "1.9.4-1",
+    "xxhash": "0.8.1-1"
+  },
+  "architecture": "arm64",
+  "localBaseImage": "opfs-seven-tools:20261105",
+  "localBaseImageId": "sha256:527d62a5244f4fa71833b4a105a4906ec1c1c7708f64ea2967fa04d96c551dd5",
+  "imageLimit": "Local base; signed distro apt installation changes filesystem. Not a publicly pullable complete-producer pin.",
+  "consumer": "liblz4 LZ4F_decompress 1.9.4",
+  "files": {
+    "create.py": "58ad72b14cda658e1adfff9c3906b81d63fd90ed6b15e2cfacf89d346cac199f",
+    "independent.json": "6064d6015962fb0e163f98a60ecb2ec0cd0466396ea8c15efd3df86775628e18"
+  },
+  "archives": {
+    "independent": "b53ff435b75159de823456adf82e555fd324970823708a561a42ee9ac0626913",
+    "dependent": "ca62745b27e49443cb4b9edb763659bf1cb22e6f1a4a43b550bbb97d15963b6b",
+    "content-only": "df84fe172c57825f1ba51bf27e14005d437175184b15881dbcd09c871eec4754",
+    "no-checksum": "90bbb1fabb8de0659c67a763ff3c13541a97e0bdc1a181f4fd4f2a0b0ddbbba8",
+    "raw": "f2cf1547554196b46a11375d056ab75805f3dd99eadc64ef7bc259365860a033",
+    "empty": "1829a9507d05badea902f965a15399c2e319389efb3577ddd9a70063d1c68a5b",
+    "overlap": "9ac4ba84b804026b471ea56aec173ecdc7f6f71a0711c821905be9565d166a3a",
+    "block5": "efd07bbf9b3210eb5eab6754a5c2a866495a7b189869839d6a7402081c1273a1",
+    "block6": "657e916822912eb2b2fbd8e750759add85b2a0d43db6a03e096ef2ffb53d6fcf",
+    "block7": "cb4b89ef0b9f55324dcb79e82f0d6355af4e130071d434b87a2761fa8c5c303c"
+  },
+  "specifications": {
+    "lz4": {
+      "commit": "ebb370ca83af193212df4dcbadcc5d87bc0de2f0",
+      "paths": [
+        "doc/lz4_Frame_format.md",
+        "doc/lz4_Block_format.md"
+      ],
+      "notice": "Frame specification has its own redistribution notice; see immutable source. No upstream prose or source implementation is vendored."
+    },
+    "xxhash": {
+      "commit": "bbb27a5efb85b92a0486cf361a8635715a53f6ba",
+      "path": "doc/xxhash_spec.md",
+      "license": "BSD-2-Clause; see immutable upstream LICENSE. No upstream source implementation is copied."
+    }
+  },
+  "controls": "Dictionary/size malformed-header controls use independent native xxhsum header checksums, not candidate hash output."
+}

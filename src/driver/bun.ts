@@ -1,3 +1,6 @@
+import { assertHostAdmission } from "./host.ts";
+import type { DriverPlanInputType, DriverPlanType } from "./definition.ts";
+import type { WritableOptionsType } from "./writable.ts";
 import type { FileBackendType, FileDriverType } from "./file.ts";
 import { defineFileDriver } from "./file.ts";
 import type {
@@ -65,6 +68,15 @@ export class BunBackend implements FileBackendType {
   readonly name = "bun";
   /** Native capabilities inherited from Bun's Node-compatible filesystem. */
   readonly capabilities: FileDriverType["capabilities"];
+  readonly publication?: NonNullable<FileDriverType["publication"]>;
+  readonly hostProfile?: NonNullable<FileDriverType["hostProfile"]>;
+  /** Uses the same immutable host admission as the delegated Node mechanics. */
+  admit(input: DriverPlanInputType): DriverPlanType {
+    return this.#node.admit!(input);
+  }
+  readonly reserve?: NonNullable<FileDriverType["reserve"]>;
+  readonly entry?: NonNullable<FileDriverType["entry"]>;
+  readonly entries?: NonNullable<FileDriverType["entries"]>;
   /** Bun runtime used by lazy reads and replacement writes. */
   readonly #bun: BunRuntimeType;
   /** Maps canonical virtual paths below the configured host root. */
@@ -78,6 +90,11 @@ export class BunBackend implements FileBackendType {
     this.#hostPath = createLocalPath(options.root);
     this.#node = createNodeDriver(options);
     this.capabilities = this.#node.capabilities;
+    if (this.#node.hostProfile !== undefined) this.hostProfile = this.#node.hostProfile;
+    if (this.#node.reserve !== undefined) this.reserve = this.#node.reserve.bind(this.#node);
+    if (this.#node.publication !== undefined) this.publication = this.#node.publication;
+    if (this.#node.entry !== undefined) this.entry = this.#node.entry.bind(this.#node);
+    if (this.#node.entries !== undefined) this.entries = this.#node.entries.bind(this.#node);
   }
 
   /** Delegates metadata lookup to the Node-compatible filesystem surface. */
@@ -90,10 +107,14 @@ export class BunBackend implements FileBackendType {
     throwIfAborted(options.signal, "read", path);
     if (options.length === 0) {
       const stat = await this.#node.stat(path, options);
+      throwIfAborted(options.signal, "read", path);
       if (stat === null) throw new FileSystemError("not-found", "read", path, `File '${path}' does not exist.`);
-      if (stat.kind === "directory") throw new FileSystemError("type-mismatch", "read", path, `'${path}' is a directory.`);
+      if (stat.kind === "directory") {
+        throw new FileSystemError("type-mismatch", "read", path, `'${path}' is a directory.`);
+      }
       return new Uint8Array();
     }
+    if (options.signal !== undefined) return await this.#node.readFile(path, options);
     const file = this.#bun.file(this.#hostPath(path));
     const start = options.at ?? 0;
     const end = options.length === undefined ? file.size : Math.min(file.size, start + options.length);
@@ -105,19 +126,27 @@ export class BunBackend implements FileBackendType {
     throwIfAborted(options.signal, "read", path);
     if (options.length === 0) {
       const stat = await this.#node.stat(path, options);
+      throwIfAborted(options.signal, "read", path);
       if (stat === null) throw new FileSystemError("not-found", "read", path, `File '${path}' does not exist.`);
-      if (stat.kind === "directory") throw new FileSystemError("type-mismatch", "read", path, `'${path}' is a directory.`);
-      return new ReadableStream<Uint8Array>({ start(controller) { controller.close(); } });
+      if (stat.kind === "directory") {
+        throw new FileSystemError("type-mismatch", "read", path, `'${path}' is a directory.`);
+      }
+      return new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.close();
+        },
+      });
     }
     const file = this.#bun.file(this.#hostPath(path));
     const start = options.at ?? 0;
     const end = options.length === undefined ? file.size : Math.min(file.size, start + options.length);
-    return file.slice(start, end).stream() as ReadableStream<Uint8Array>;
+    return withAbortSignal(file.slice(start, end).stream() as ReadableStream<Uint8Array>, options.signal, path);
   }
 
   /** Uses `Bun.write()` for replacement and delegates append/update semantics. */
   async writeFile(path: PathType, data: Uint8Array, options: FileDriverWriteOptionsType): Promise<void> {
-    if (options.mode !== "replace") {
+    assertHostAdmission(this.admit({ operation: "write", path, mode: options.mode, source: "bytes" }), path);
+    if (options.mode !== "replace" || options.signal !== undefined) {
       await this.#node.writeFile(path, data, options);
       return;
     }
@@ -126,23 +155,19 @@ export class BunBackend implements FileBackendType {
     await this.#bun.write(this.#hostPath(path), data);
   }
 
-  /** Streams replacement writes through `Bun.write()` without facade buffering. */
+  /** Streams through one bounded descriptor and settles empty or cancelled producers. */
   async writeStream(
     path: PathType,
     source: ReadableStream<Uint8Array>,
     options: FileDriverWriteOptionsType,
   ): Promise<void> {
-    if (options.mode !== "replace") {
-      if (this.#node.writeStream === undefined) {
-        throw new TypeError("Bun Node compatibility layer does not expose streaming writes.");
-      }
-      await this.#node.writeStream(path, source, options);
-      return;
+    if (this.#node.writeStream === undefined) {
+      throw new TypeError("Bun Node compatibility layer does not expose streaming writes.");
     }
-
-    throwIfAborted(options.signal, "write", path);
-    const body = withAbortSignal(source, options.signal, path, "write");
-    await this.#bun.write(this.#hostPath(path), new Response(body));
+    // Bun.write(Response) can remain pending when its stream contains only
+    // empty chunks. The descriptor lane preserves bounded streaming, handles
+    // partial writes, and releases the file on producer failure or cancellation.
+    await this.#node.writeStream(path, source, options);
   }
 
   /** Delegates direct-child iteration to Bun's Node-compatible filesystem surface. */
@@ -176,11 +201,11 @@ export class BunBackend implements FileBackendType {
   }
 
   /** Opens one long-lived asynchronous positional host file. */
-  openWritableFile(path: PathType): Promise<FileDriverWritableFileType> {
+  openWritableFile(path: PathType, options?: WritableOptionsType): Promise<FileDriverWritableFileType> {
     if (this.#node.openWritableFile === undefined) {
       throw new TypeError("Bun host driver does not expose positional writes.");
     }
-    return this.#node.openWritableFile(path);
+    return this.#node.openWritableFile(path, options);
   }
 
   /** Opens one synchronous random-access host file. */

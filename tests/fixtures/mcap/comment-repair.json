@@ -1,0 +1,8 @@
+{
+  "source": "src/dataset/mcap.ts",
+  "measuredSourceSha256": "e00fb95795974520f2a59fb5c409a08f47c7aa18cf4ca97b36c4b15849eff77b",
+  "commentSpacedSourceSha256": "497cbda61dd441c82472cf6ea7f01e8f37eb131844441ae5a25abe5ef1f45c12",
+  "commentsOnly": true,
+  "erasedCommentEquality": true,
+  "reason": "Consumer-facing TSDoc unit spacing after benchmark; executable source and measured benchmark lane names unchanged."
+}

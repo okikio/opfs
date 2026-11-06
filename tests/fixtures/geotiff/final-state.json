@@ -1,0 +1,192 @@
+[
+  {
+    "Id": "e54906abd0c77bf7fa5bf22fc68a0ac9860142223e1e9b056ddd1b13cbdaaece",
+    "Created": "2026-11-05T20:35:58.745712461Z",
+    "Path": "sh",
+    "Args": [
+      "-c",
+      "tar -xf /input.tar -C /work \u0026\u0026 cd /work \u0026\u0026 deno --version \u003e /tmp/runtime.txt \u0026\u0026 node --version \u003e\u003e /tmp/runtime.txt \u0026\u0026 bun --version \u003e\u003e /tmp/runtime.txt \u0026\u0026 cat /sys/fs/cgroup/memory.max /sys/fs/cgroup/memory.swap.max /sys/fs/cgroup/cpu.max /sys/fs/cgroup/pids.max \u003e\u003e /tmp/runtime.txt; timeout 90s deno test --no-check tests/geotiff.test.ts \u003e /tmp/deno.log 2\u003e\u00261; d=$?; timeout 90s node --test tests/geotiff.test.ts \u003e /tmp/node.log 2\u003e\u00261; n=$?; timeout 90s bun test tests/geotiff.test.ts \u003e /tmp/bun.log 2\u003e\u00261; b=$?; deno fmt src/dataset/geotiff.ts tests/geotiff.test.ts bench/geotiff.bench.ts docs/geotiff.md \u003e /tmp/fmt.log 2\u003e\u00261; f=$?; deno lint src/dataset/geotiff.ts tests/geotiff.test.ts bench/geotiff.bench.ts \u003e /tmp/lint.log 2\u003e\u00261; l=$?; printf \"deno=%s node=%s bun=%s fmt=%s lint=%s\\n\" \"$d\" \"$n\" \"$b\" \"$f\" \"$l\" \u003e /tmp/results.txt; test \"$d$n$b$f$l\" = 00000"
+    ],
+    "State": {
+      "Status": "exited",
+      "Running": false,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Pid": 0,
+      "ExitCode": 1,
+      "Error": "",
+      "StartedAt": "2026-11-05T20:35:58.936484253Z",
+      "FinishedAt": "2026-11-05T20:36:00.345695337Z"
+    },
+    "Image": "sha256:0d27d74b49afa69518cd96806ca02f697e377c997d889c27cf60c4ae724adc39",
+    "ResolvConfPath": "/var/lib/docker/containers/e54906abd0c77bf7fa5bf22fc68a0ac9860142223e1e9b056ddd1b13cbdaaece/resolv.conf",
+    "HostnamePath": "/var/lib/docker/containers/e54906abd0c77bf7fa5bf22fc68a0ac9860142223e1e9b056ddd1b13cbdaaece/hostname",
+    "HostsPath": "/var/lib/docker/containers/e54906abd0c77bf7fa5bf22fc68a0ac9860142223e1e9b056ddd1b13cbdaaece/hosts",
+    "LogPath": "",
+    "Name": "/opfs-geotiff-final-20261105",
+    "RestartCount": 0,
+    "Driver": "overlay2",
+    "Platform": "linux",
+    "MountLabel": "",
+    "ProcessLabel": "",
+    "AppArmorProfile": "",
+    "ExecIDs": null,
+    "HostConfig": {
+      "Binds": null,
+      "ContainerIDFile": "",
+      "LogConfig": {
+        "Type": "local",
+        "Config": {}
+      },
+      "NetworkMode": "none",
+      "PortBindings": {},
+      "RestartPolicy": {
+        "Name": "no",
+        "MaximumRetryCount": 0
+      },
+      "AutoRemove": false,
+      "VolumeDriver": "",
+      "VolumesFrom": null,
+      "ConsoleSize": [
+        0,
+        0
+      ],
+      "CapAdd": null,
+      "CapDrop": null,
+      "CgroupnsMode": "private",
+      "Dns": null,
+      "DnsOptions": [],
+      "DnsSearch": [],
+      "ExtraHosts": null,
+      "GroupAdd": null,
+      "IpcMode": "private",
+      "Cgroup": "",
+      "Links": null,
+      "OomScoreAdj": 0,
+      "PidMode": "",
+      "Privileged": false,
+      "PublishAllPorts": false,
+      "ReadonlyRootfs": false,
+      "SecurityOpt": null,
+      "UTSMode": "",
+      "UsernsMode": "",
+      "ShmSize": 67108864,
+      "Runtime": "runc",
+      "Isolation": "",
+      "CpuShares": 0,
+      "Memory": 1073741824,
+      "NanoCpus": 1000000000,
+      "CgroupParent": "",
+      "BlkioWeight": 0,
+      "BlkioWeightDevice": [],
+      "BlkioDeviceReadBps": [],
+      "BlkioDeviceWriteBps": [],
+      "BlkioDeviceReadIOps": [],
+      "BlkioDeviceWriteIOps": [],
+      "CpuPeriod": 0,
+      "CpuQuota": 0,
+      "CpuRealtimePeriod": 0,
+      "CpuRealtimeRuntime": 0,
+      "CpusetCpus": "",
+      "CpusetMems": "",
+      "Devices": [],
+      "DeviceCgroupRules": null,
+      "DeviceRequests": null,
+      "MemoryReservation": 0,
+      "MemorySwap": 1073741824,
+      "MemorySwappiness": null,
+      "OomKillDisable": null,
+      "PidsLimit": 128,
+      "Ulimits": null,
+      "CpuCount": 0,
+      "CpuPercent": 0,
+      "IOMaximumIOps": 0,
+      "IOMaximumBandwidth": 0,
+      "MaskedPaths": [
+        "/proc/acpi",
+        "/proc/asound",
+        "/proc/interrupts",
+        "/proc/kcore",
+        "/proc/keys",
+        "/proc/latency_stats",
+        "/proc/sched_debug",
+        "/proc/scsi",
+        "/proc/timer_list",
+        "/proc/timer_stats",
+        "/sys/devices/virtual/powercap",
+        "/sys/firmware"
+      ],
+      "ReadonlyPaths": [
+        "/proc/bus",
+        "/proc/fs",
+        "/proc/irq",
+        "/proc/sys",
+        "/proc/sysrq-trigger"
+      ]
+    },
+    "GraphDriver": {
+      "Data": {
+        "ID": "e54906abd0c77bf7fa5bf22fc68a0ac9860142223e1e9b056ddd1b13cbdaaece",
+        "LowerDir": "/var/lib/docker/overlay2/352b5b6b41901fa69a8d1cdd4e5a44c120092d58e487725c1a0b6bf93c3760c5-init/diff:/var/lib/docker/overlay2/78ba4d8948e22cd5e757ca46ee9c3ad7c7379bfc2c9e110cf5a1676a0f695bdd/diff:/var/lib/docker/overlay2/ynmxufyh3dz3cyfjy0yekg3uc/diff:/var/lib/docker/overlay2/squ5mv5g6bu9tr0o8wuljo3ad/diff:/var/lib/docker/overlay2/6bseisfncy2iwgxnrckjkv5jn/diff:/var/lib/docker/overlay2/w8fgwf59c9w45sqau94vacotf/diff:/var/lib/docker/overlay2/f9ac982e3e73ac093b79f170ccc36c92f318b4cded0f8f837171e67943f44671/diff:/var/lib/docker/overlay2/ee06bfca33a39487022d2d6e6f431680c0c86528a6726863442a2a4e61814935/diff:/var/lib/docker/overlay2/e823571dbf17afe235bd7e3c73d9d53b974aaada38fcc096cd52db7012d47694/diff:/var/lib/docker/overlay2/8c4c43434aa0ab6d5e0d2afe74a57e87bb86fb0a4468e4a0215442bba46be727/diff",
+        "MergedDir": "/var/lib/docker/overlay2/352b5b6b41901fa69a8d1cdd4e5a44c120092d58e487725c1a0b6bf93c3760c5/merged",
+        "UpperDir": "/var/lib/docker/overlay2/352b5b6b41901fa69a8d1cdd4e5a44c120092d58e487725c1a0b6bf93c3760c5/diff",
+        "WorkDir": "/var/lib/docker/overlay2/352b5b6b41901fa69a8d1cdd4e5a44c120092d58e487725c1a0b6bf93c3760c5/work"
+      },
+      "Name": "overlay2"
+    },
+    "Mounts": [],
+    "Config": {
+      "Hostname": "e54906abd0c7",
+      "Domainname": "",
+      "User": "",
+      "AttachStdin": false,
+      "AttachStdout": true,
+      "AttachStderr": true,
+      "Tty": false,
+      "OpenStdin": false,
+      "StdinOnce": false,
+      "Env": [
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "NODE_VERSION=26.13.0",
+        "DENO_DIR=/cache"
+      ],
+      "Cmd": [
+        "-c",
+        "tar -xf /input.tar -C /work \u0026\u0026 cd /work \u0026\u0026 deno --version \u003e /tmp/runtime.txt \u0026\u0026 node --version \u003e\u003e /tmp/runtime.txt \u0026\u0026 bun --version \u003e\u003e /tmp/runtime.txt \u0026\u0026 cat /sys/fs/cgroup/memory.max /sys/fs/cgroup/memory.swap.max /sys/fs/cgroup/cpu.max /sys/fs/cgroup/pids.max \u003e\u003e /tmp/runtime.txt; timeout 90s deno test --no-check tests/geotiff.test.ts \u003e /tmp/deno.log 2\u003e\u00261; d=$?; timeout 90s node --test tests/geotiff.test.ts \u003e /tmp/node.log 2\u003e\u00261; n=$?; timeout 90s bun test tests/geotiff.test.ts \u003e /tmp/bun.log 2\u003e\u00261; b=$?; deno fmt src/dataset/geotiff.ts tests/geotiff.test.ts bench/geotiff.bench.ts docs/geotiff.md \u003e /tmp/fmt.log 2\u003e\u00261; f=$?; deno lint src/dataset/geotiff.ts tests/geotiff.test.ts bench/geotiff.bench.ts \u003e /tmp/lint.log 2\u003e\u00261; l=$?; printf \"deno=%s node=%s bun=%s fmt=%s lint=%s\\n\" \"$d\" \"$n\" \"$b\" \"$f\" \"$l\" \u003e /tmp/results.txt; test \"$d$n$b$f$l\" = 00000"
+      ],
+      "Image": "sha256:0d27d74b49afa69518cd96806ca02f697e377c997d889c27cf60c4ae724adc39",
+      "Volumes": null,
+      "WorkingDir": "/work",
+      "Entrypoint": [
+        "sh"
+      ],
+      "Labels": {}
+    },
+    "NetworkSettings": {
+      "SandboxID": "",
+      "SandboxKey": "",
+      "Ports": {},
+      "Networks": {
+        "none": {
+          "IPAMConfig": null,
+          "Links": null,
+          "Aliases": null,
+          "DriverOpts": null,
+          "GwPriority": 0,
+          "NetworkID": "71bc8320dc1d1ee9398b46512d834c4915a0e5c46a0b4ae4b4834221ab1e12a8",
+          "EndpointID": "",
+          "Gateway": "",
+          "IPAddress": "",
+          "MacAddress": "",
+          "IPPrefixLen": 0,
+          "IPv6Gateway": "",
+          "GlobalIPv6Address": "",
+          "GlobalIPv6PrefixLen": 0,
+          "DNSNames": null
+        }
+      }
+    }
+  }
+]

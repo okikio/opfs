@@ -1,0 +1,487 @@
+[
+  {
+    "path": "bench/jwe.bench.ts",
+    "bytes": 5278,
+    "sha256": "d8ec2dca7bd9ee6fa5b4214376eb422ecbc9f4656ab146b47cd70abef06035b8"
+  },
+  {
+    "path": "bench/result.ts",
+    "bytes": 2692,
+    "sha256": "1d619c1c202e4e77af8fed43fe9ccca1ad7df286aaa9dec5f49ac0a46c1f15a2"
+  },
+  {
+    "path": "deno.json",
+    "bytes": 44637,
+    "sha256": "82889431500ed1ecb0122c8166ed3114c1ece16edc60de900ccfa05d20a47788"
+  },
+  {
+    "path": "deno.lock",
+    "bytes": 86187,
+    "sha256": "69b8f4bcf0e8b80b338b793c5fa38a0400aac57762dc367bba9dfdda9f0f8c85"
+  },
+  {
+    "path": "docs/jwe.md",
+    "bytes": 10674,
+    "sha256": "7831a821a7a32faadeaf92cfa51577a88eb2dfcb23399aae7a27243061c2a368"
+  },
+  {
+    "path": "package.json",
+    "bytes": 9387,
+    "sha256": "77f7f93abe62f37590cf9ce0702f0ef90e60cbd9c5f5711ba16da640a94e89fa"
+  },
+  {
+    "path": "src/_schema_types.ts",
+    "bytes": 9315,
+    "sha256": "b6b4c42c2e296b1fcc9a3800939aacf7c7df629a3b56e412f10be16a50036398"
+  },
+  {
+    "path": "src/abort.ts",
+    "bytes": 2174,
+    "sha256": "0f7c0b19babcb622a0c40c4632ec3ba7ceef9571a1910910beb9b13761470180"
+  },
+  {
+    "path": "src/archive/aes.ts",
+    "bytes": 4017,
+    "sha256": "ccbf170f957a5a7e36a422d6865d3743b36246daa503933dea271e34910b948d"
+  },
+  {
+    "path": "src/archive/bzip.ts",
+    "bytes": 22013,
+    "sha256": "8c9d57fe130603589b5bbeac0c2b4bfff860d12c733d4c6313f218ceedb0ce2b"
+  },
+  {
+    "path": "src/archive/lzma.ts",
+    "bytes": 25649,
+    "sha256": "5618d817458fa64fab5ad6ac13f90f595191d5474e9e95fea9f3542c5ecdcc89"
+  },
+  {
+    "path": "src/archive/password.ts",
+    "bytes": 2126,
+    "sha256": "6fde88a116650fceeabe6b245b6895084bbc146423f80bc0625c11459af8efb2"
+  },
+  {
+    "path": "src/archive/record.ts",
+    "bytes": 6848,
+    "sha256": "fc5a3a35d10aca347b86a8830682d46d8ec870c511d622ffa44cc69a73bce6b4"
+  },
+  {
+    "path": "src/archive/zip-bzip.ts",
+    "bytes": 3751,
+    "sha256": "67ccbc858ab095e29c18b450a7b90d7f68858aed2d921fa118705b5c7286758a"
+  },
+  {
+    "path": "src/archive/zip-lzma.ts",
+    "bytes": 4719,
+    "sha256": "056b13ea9f8483cd28deb5eaffffae9e947be93111667cdaf411291201e45f07"
+  },
+  {
+    "path": "src/archive/zip.ts",
+    "bytes": 49421,
+    "sha256": "149db33f65be05201d424d5c5851dcdb6dee3c1efd362272b0f2313ba1a3350c"
+  },
+  {
+    "path": "src/bytes.ts",
+    "bytes": 5687,
+    "sha256": "2a6098dae39e46031ba8da2fd52475b361155fc7236146ce8624c4398e91894f"
+  },
+  {
+    "path": "src/close.ts",
+    "bytes": 1648,
+    "sha256": "d9d9e0dc945b87d039f0c17408de11216d10cfe53777d9390ec4a9674c876f1b"
+  },
+  {
+    "path": "src/crypto/jwe.ts",
+    "bytes": 23449,
+    "sha256": "0d4b280e299af37763904de0d8443976ff2abf2b7d372a98e70b1acaae874727"
+  },
+  {
+    "path": "src/driver/definition.ts",
+    "bytes": 19406,
+    "sha256": "a211eb3f489ddce20d28320eaa18f878d5bfb0c79a6a13a2d0cbc5d17e911cb8"
+  },
+  {
+    "path": "src/driver/object.ts",
+    "bytes": 13297,
+    "sha256": "ec5d7df1da7b385099b59751aa0409fc9b607e5c1173b03df3616e9687cd90e1"
+  },
+  {
+    "path": "src/error.ts",
+    "bytes": 7010,
+    "sha256": "c8d13be40e3a41fe387f5da5587627b5bd1eae33284939a9b345bf1e2923bf5a"
+  },
+  {
+    "path": "src/metrics.ts",
+    "bytes": 7287,
+    "sha256": "e4a3896153834c6e55e602d1c63dab2d054d905bf86ff1af318aecbff70135f5"
+  },
+  {
+    "path": "src/path.ts",
+    "bytes": 3502,
+    "sha256": "1fba703cd6f9ec5ed595deead14939e32578a1b8e0eeabb405ab065eb65425f2"
+  },
+  {
+    "path": "src/schema.ts",
+    "bytes": 23071,
+    "sha256": "fd1fde5517a3db1e8e5a3e2c4a0fd0a7f14efaae7b7682bc21c9ba0ec5798c18"
+  },
+  {
+    "path": "src/source.ts",
+    "bytes": 10421,
+    "sha256": "17b255de15bf25edfda4f6f587dc7ca390bdc4f0fa55606152351e3cd8dc4ae3"
+  },
+  {
+    "path": "tests/fixtures/arfs/zip.json",
+    "bytes": 541,
+    "sha256": "ffc47f0fc7ff99ed86e85e004e8cbcc44657320906b585d9ef4b7817f3e1aba9"
+  },
+  {
+    "path": "tests/fixtures/jwe/LICENSE.rfc.txt",
+    "bytes": 1560,
+    "sha256": "2dac6764f9d9c4860d57c51d8fb2aa3f9bb034ae8f1a33aaa3921553baad81dc"
+  },
+  {
+    "path": "tests/fixtures/jwe/README.md",
+    "bytes": 2193,
+    "sha256": "07daff7a27cf172af83a796a605738a59bcfed8141aacd90cbe58397cef8332b"
+  },
+  {
+    "path": "tests/fixtures/jwe/acquire.py",
+    "bytes": 5295,
+    "sha256": "bd02fa39fcd2750ca4ce0cf77b4827e634bab29f58b23a299da900a15a3a81a8"
+  },
+  {
+    "path": "tests/fixtures/jwe/acquisition.json",
+    "bytes": 18230,
+    "sha256": "3b46fb115f0d6ded59639043d442e96fb78461e3254488c7554ea41dff6b67da"
+  },
+  {
+    "path": "tests/fixtures/jwe/acquisition.json.snapshot",
+    "bytes": 18230,
+    "sha256": "3b46fb115f0d6ded59639043d442e96fb78461e3254488c7554ea41dff6b67da"
+  },
+  {
+    "path": "tests/fixtures/jwe/artifact.tgz.snapshot",
+    "bytes": 50313,
+    "sha256": "e6d47adc1d83ec95215d791e966362629e75ce1973902fd29ae4bbd468500e9c"
+  },
+  {
+    "path": "tests/fixtures/jwe/focused-first-receipt.json",
+    "bytes": 828,
+    "sha256": "bae357fe3b699b46d46e7a76f1dc346f63bae34ad7051ec1346300a1fd590771"
+  },
+  {
+    "path": "tests/fixtures/jwe/focused-repair-receipt.json",
+    "bytes": 828,
+    "sha256": "404029185c20028279f74cc0569f179e7fc3f86092312130ef0dff5924b8f097"
+  },
+  {
+    "path": "tests/fixtures/jwe/independent.json",
+    "bytes": 10773,
+    "sha256": "2bca2d084b765b48ff5c3024ca42c3a09f957ad7720796a4f5e2ab9570ed5a2e"
+  },
+  {
+    "path": "tests/fixtures/jwe/independent.json.snapshot",
+    "bytes": 10773,
+    "sha256": "2bca2d084b765b48ff5c3024ca42c3a09f957ad7720796a4f5e2ab9570ed5a2e"
+  },
+  {
+    "path": "tests/fixtures/jwe/inspection.json",
+    "bytes": 20314,
+    "sha256": "803c3af4d9f9338d1d9b1cbd4a76afa05ef9da6286fff8fa0a2e4e2f2645219d"
+  },
+  {
+    "path": "tests/fixtures/jwe/inspection.json.snapshot",
+    "bytes": 20314,
+    "sha256": "803c3af4d9f9338d1d9b1cbd4a76afa05ef9da6286fff8fa0a2e4e2f2645219d"
+  },
+  {
+    "path": "tests/fixtures/jwe/native-receipt.json",
+    "bytes": 14772,
+    "sha256": "9703c8f46f42c0c26cbe7b7d0c99caaaff545f00a2662da1aefba62154420a1b"
+  },
+  {
+    "path": "tests/fixtures/jwe/native-receipt.json.snapshot",
+    "bytes": 14772,
+    "sha256": "9703c8f46f42c0c26cbe7b7d0c99caaaff545f00a2662da1aefba62154420a1b"
+  },
+  {
+    "path": "tests/fixtures/jwe/primary-receipts.json",
+    "bytes": 1102,
+    "sha256": "41c6b1a2529b259cf470025e0345ee2fb7787d21e3a4cd692c912f30f52d7039"
+  },
+  {
+    "path": "tests/fixtures/jwe/produce.mjs",
+    "bytes": 4460,
+    "sha256": "65495d4da525ff334f138d3ccc9dfd2b62dae1c378d1d0bbc393017b39232fc5"
+  },
+  {
+    "path": "tests/fixtures/jwe/producer-run.py",
+    "bytes": 2962,
+    "sha256": "76f007a81509af9268b4948d04294870b208b2ac03898327230e88ec53d4bdcd"
+  },
+  {
+    "path": "tests/fixtures/jwe/registry-receipt.json",
+    "bytes": 398,
+    "sha256": "d6006e2a1ca83aa07e099ce008aa228b81e916c7e6176c6c55eda03a097ea42a"
+  },
+  {
+    "path": "tests/fixtures/jwe/registry.json.snapshot",
+    "bytes": 3810,
+    "sha256": "58d6f03d2fa924a83d2c5a1cf9e91226da16a52d533f8809a53bee7c51e03c10"
+  },
+  {
+    "path": "tests/fixtures/jwe/rfc7520.json",
+    "bytes": 1339,
+    "sha256": "c4e62cb8076380d13b90b8add7cc406115852e0dc4a34e932c4aa3ee8a8929ca"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/LICENSE.md.snapshot",
+    "bytes": 1079,
+    "sha256": "8078b0829d6c3e9ecde2f003e1966e4cad3efc6e7a640efbab0313cc166b1af1"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/README.md.snapshot",
+    "bytes": 9257,
+    "sha256": "d90a64d2f0381847976e72c3b143220f329903e9cede731e21ee5b667d152d5d"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/index.js.snapshot",
+    "bytes": 2376,
+    "sha256": "f198638529597ab18dc3d2799f362106121f90cf0b0c43e75c3dffa5cc6b8590"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/jwe/compact/decrypt.js.snapshot",
+    "bytes": 217,
+    "sha256": "c08202f5114caee270bcaa0ed3e119acb241f88d51c6d65a34a1fd6a3353cd2a"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/jwe/compact/encrypt.js.snapshot",
+    "bytes": 978,
+    "sha256": "8db8eb9fa34a0187c0ff26e04c37024af421f2f265255d60a01c0edf416f2f85"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/jwe/flattened/decrypt.js.snapshot",
+    "bytes": 659,
+    "sha256": "4964d31fafb143a8f15cf4820214b268706dbbd569bdedaa9b24a11520f6c6b2"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/jwe/flattened/encrypt.js.snapshot",
+    "bytes": 1369,
+    "sha256": "e1fe288a34aae4938dbdd13b86e33e54fef9ff3f3c55a2354ab9d7b5665d1e92"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/jwe/general/decrypt.js.snapshot",
+    "bytes": 1811,
+    "sha256": "3a721fc3958f36c3bed7764a032238b35f9172bf95d40a7e28a4cea4d7ccd511"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/jwe/general/encrypt.js.snapshot",
+    "bytes": 4412,
+    "sha256": "539cecb9802acbc298b9f8cfe1f558d9f11a8674cbbd95b4ec662cbf94613414"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/jwk/embedded.js.snapshot",
+    "bytes": 1134,
+    "sha256": "449f2b08f47d006a4b937201692b7a830c9e9ac785e82073c1f6f9792642f91d"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/jwk/thumbprint.js.snapshot",
+    "bytes": 2739,
+    "sha256": "c63aa916d733cee3a3c21932cd0b207e3623214c4bfe3e5a6662ed9ea6ec4b78"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/jwks/local.js.snapshot",
+    "bytes": 2855,
+    "sha256": "539d24547c9131739064b17c21b20d299428238127ea5c9d741ac1f6e724a64d"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/jwks/remote.js.snapshot",
+    "bytes": 4392,
+    "sha256": "b49b44e5929b6236a938eb67d4380f033787fee7086f57e0140976b0e7cac149"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/jws/compact/sign.js.snapshot",
+    "bytes": 702,
+    "sha256": "09450f2b3763b531d28bec9796d2f3ff0064c7b07dde15f7d1e1e7693e2ec12a"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/jws/compact/verify.js.snapshot",
+    "bytes": 243,
+    "sha256": "6d1109739b895858c7006d02ef91f8b13ce5ae8c91996d1f1c0b57c1ab33c398"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/jws/flattened/sign.js.snapshot",
+    "bytes": 757,
+    "sha256": "01cb90bcf39d8aa9bcf6d3efd36f5b80c112e547ef5448d7512b7aafa72bb6dd"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/jws/flattened/verify.js.snapshot",
+    "bytes": 538,
+    "sha256": "ff23003a7b0a4d8a7add2cd8b13b72393b863f6f251ddd814f08d69b35be3b2e"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/jws/general/sign.js.snapshot",
+    "bytes": 1943,
+    "sha256": "11a7de8f3359584c0c283cdedb14fb841461675b37d1ed1de810c9efc3469561"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/jws/general/verify.js.snapshot",
+    "bytes": 2022,
+    "sha256": "9bd57db71138b871a78fd31d81732282154d91db78e318503a03c6b8ebe8c0d5"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/jwt/decrypt.js.snapshot",
+    "bytes": 841,
+    "sha256": "233bb797f9239582ada83fac5723c818dfa0f24e9a864680759df5f2bb5b260c"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/jwt/encrypt.js.snapshot",
+    "bytes": 1863,
+    "sha256": "7c5872544078cc618b8699b5518541fcd0058ee798f52955d58c58ca3de9d1eb"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/jwt/sign.js.snapshot",
+    "bytes": 739,
+    "sha256": "31a499b2b08c4143c1747fa101936fa58ed21da6b147056ce2fce5870cb460ca"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/jwt/unsecured.js.snapshot",
+    "bytes": 1646,
+    "sha256": "33695f71e704e945d5897a227c01d5d8f45210722650c03bf111b24ba86b6e16"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/jwt/verify.js.snapshot",
+    "bytes": 534,
+    "sha256": "e015a18744717762a1f138d0f0a88a40d3b660bc46f76ddf8309b32987175bef"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/key/export.js.snapshot",
+    "bytes": 1120,
+    "sha256": "634aee75fbdabbffb73d439ae63305ad043a268354ecf53426b827ba3f81cfb7"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/key/generate_key_pair.js.snapshot",
+    "bytes": 1645,
+    "sha256": "97e4e5b66af75700da10fc5807471636b633d7c72c65a7fe50980c4a3a2c6c74"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/key/generate_secret.js.snapshot",
+    "bytes": 1313,
+    "sha256": "eadcae7108774b03a6a9b5bb2ed22f25496dcda2e491c2fd3f8e71781f1bc260"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/key/import.js.snapshot",
+    "bytes": 2279,
+    "sha256": "ab2f57a9db99e8d48451a8d0a8adf75379381f65b0e3e28ba6c02aa5bb3ee5fa"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/lib/asn1.js.snapshot",
+    "bytes": 5872,
+    "sha256": "b67f65067322baf007226faf96ddba521d19558d4ec946a8d0e3399740e754ca"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/lib/buffer_utils.js.snapshot",
+    "bytes": 2751,
+    "sha256": "3bfbd2a1323e8456ad87fb0479831e69a0d957b9208fb8de76d82ac56cdf42fc"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/lib/content_encryption.js.snapshot",
+    "bytes": 4308,
+    "sha256": "542c666b0d9fa8f8efd3e03fe5f71c7abf74ee11e8db35a517de51353e7e317e"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/lib/deflate.js.snapshot",
+    "bytes": 1644,
+    "sha256": "d7da65e5db6a9f236d3a77d2d413e3c105f5e5fd5f4c91c7ce50b575ffa0a245"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/lib/jwe_algorithms.js.snapshot",
+    "bytes": 3326,
+    "sha256": "d41562ff2ccc3599f7189384653fbcd1ff68babd475fe99e31eccb61706abd47"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/lib/jwe_decrypt.js.snapshot",
+    "bytes": 9047,
+    "sha256": "1cc343e273867870c29edf0d0bb81b96f573e705cb0441459110ebab6c30a185"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/lib/jwe_encrypt.js.snapshot",
+    "bytes": 5967,
+    "sha256": "e9eb264823e89f9f5fa9a112331606644a35f0e27411363e6b852c8c48023573"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/lib/jws_algorithms.js.snapshot",
+    "bytes": 1762,
+    "sha256": "51fda5def135c451b291193518157c842555c2c37a8f20c598e5cc27436ba544"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/lib/jws_sign.js.snapshot",
+    "bytes": 2904,
+    "sha256": "d4daec77131ba4abacd0207377bc5de7007025028004ce5879d90162337795c0"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/lib/jws_verify.js.snapshot",
+    "bytes": 5685,
+    "sha256": "8b2e83cce30134f660a1ea96cbaba78f1877477f331ff6d71518e930a2e35842"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/lib/jwt_claims_set.js.snapshot",
+    "bytes": 7613,
+    "sha256": "c0c893b68c426d585f3b955b3873c715e5e15f46d62d9a67d82a5d19c12eefec"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/lib/key.js.snapshot",
+    "bytes": 7856,
+    "sha256": "03337646421f0df228c14817a802186dcdff853ef445cd585da191eef1d86813"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/lib/key_algorithm.js.snapshot",
+    "bytes": 517,
+    "sha256": "4ef0b80292076659b054313f70eeef81cd7df01e2ec9988c24552206bc42cc07"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/lib/key_descriptor.js.snapshot",
+    "bytes": 167,
+    "sha256": "80ae05a1fc41271a29dbd5ab717255a1255ee0ac43b6820853d2f338d9e74b46"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/lib/key_management.js.snapshot",
+    "bytes": 11071,
+    "sha256": "6604927b14ab576d12e9353f81df95b08aa483df368a16447e6a226ef991f343"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/lib/validate.js.snapshot",
+    "bytes": 4777,
+    "sha256": "2bfc6cf900868bd5e53582d1ffc979959d4f73a0f0e15a91109b86d393572003"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/util/base64url.js.snapshot",
+    "bytes": 490,
+    "sha256": "9c9c168e24c5be2db20956262065b94556de959e5dcc62430e31a0f57f821691"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/util/decode_jwt.js.snapshot",
+    "bytes": 1145,
+    "sha256": "c1698d7e962f9e1c182e98241e02bce8d0b186fa5e1e3f12a80ecb9681e7125d"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/util/decode_protected_header.js.snapshot",
+    "bytes": 771,
+    "sha256": "7f17b35289f4837b646edd06096edb15d1ef6ac56d300aff63a6f40a934764f5"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/dist/webapi/util/errors.js.snapshot",
+    "bytes": 3305,
+    "sha256": "9bb7503fd84d5387677f1b917969cdf7c20482c3d86e92e64972bc83938b95f8"
+  },
+  {
+    "path": "tests/fixtures/jwe/sdk/package.json.snapshot",
+    "bytes": 3201,
+    "sha256": "a1a833459530d36e7cacbe045a461b14b2bd38fb38e595ac3ba1dcd9de37831e"
+  },
+  {
+    "path": "tests/jwe.test.ts",
+    "bytes": 23883,
+    "sha256": "f85b84c3e68d8e678c25ab32f6f0d47fba40aa1f2c5d7cf3f854723fc7e282e7"
+  }
+]

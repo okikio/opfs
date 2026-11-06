@@ -1,0 +1,20 @@
+{
+  "containerId": "7f8f12ff912e9fabe568461418e45b440c642fa6f0a6fb3e90b170f4a4f0c32a",
+  "image": "sha256:527d62a5244f4fa71833b4a105a4906ec1c1c7708f64ea2967fa04d96c551dd5",
+  "memory": 2147483648,
+  "nanoCpus": 2000000000,
+  "pidsLimit": 256,
+  "network": "none",
+  "entrypoint": ["python3"],
+  "command": [
+    "/adapt.py",
+    "--archive",
+    "/kubo.tar.gz",
+    "--hash-reference",
+    "/hash-reference.json",
+    "--output",
+    "/tmp/hamt-authored.json"
+  ],
+  "exitCode": 0,
+  "oomKilled": false
+}

@@ -56,7 +56,8 @@ function getPath(prefix: string, key: string): PathType | null {
   const marker = `${prefix}:`;
   if (!key.startsWith(marker)) return null;
   try {
-    return normalizePath(decodeURIComponent(key.slice(marker.length)));
+    const path = normalizePath(decodeURIComponent(key.slice(marker.length)));
+    return getKey(prefix, path) === key ? path : null;
   } catch {
     return null;
   }
@@ -94,14 +95,21 @@ class LocalStorageBackend implements RecordBackendType {
   /** Scans all prefixed keys and yields only direct children of the requested parent. */
   async *list(parent: PathType): AsyncIterableIterator<RecordType> {
     const parentDepth = splitPath(parent).length;
+    const keys: string[] = [];
+    // Capture membership before yielding: deletion shifts live Storage indices.
     for (let index = 0; index < this.#storage.length; index += 1) {
-      const key = this.#storage.key(index);
-      if (key === null) continue;
+      const value = this.#storage.key(index);
+      if (value !== null) keys.push(value);
+    }
+    for (const key of keys) {
       const path = getPath(this.#prefix, key);
       if (path === null || splitPath(path).length !== parentDepth + 1) continue;
       const value = this.#storage.getItem(key);
       if (value === null) continue;
       const record = RecordSchema.parse(JSON.parse(value));
+      // Listing and exact reads must agree on the same durable key identity.
+      // Schema-valid metadata at another key is corruption, not a new child.
+      if (record.path !== path) throw new TypeError("Stored Web Storage record does not match its physical key.");
       if (record.parent === parent) yield record;
     }
   }

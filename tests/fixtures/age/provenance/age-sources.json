@@ -1,0 +1,68 @@
+{
+  "scope": "Primary metadata inspected without source acquisition or execution. Future acquisition verifies exact sizes and Git blob hashes and records SHA-256.",
+  "files": [
+    {
+      "repo": "FiloSottile/age",
+      "ref": "b74dce4cdbe35b5e5f66c06d9612b72f89028758",
+      "path": "LICENSE",
+      "bytes": 1516,
+      "gitBlob": "0080870bc29b23d7605816ac0a535a4eef9d1553"
+    },
+    {
+      "repo": "FiloSottile/age",
+      "ref": "b74dce4cdbe35b5e5f66c06d9612b72f89028758",
+      "path": "internal/bech32/bech32.go",
+      "bytes": 5226,
+      "gitBlob": "087de3d6b30e3ff6ad7d2bde65b7047cd2dcdf0b"
+    },
+    {
+      "repo": "FiloSottile/age",
+      "ref": "b74dce4cdbe35b5e5f66c06d9612b72f89028758",
+      "path": "internal/stream/stream.go",
+      "bytes": 12332,
+      "gitBlob": "7e4a98a535c2185500ac61d2b6c818c6ffb53a97"
+    },
+    {
+      "repo": "FiloSottile/age",
+      "ref": "b74dce4cdbe35b5e5f66c06d9612b72f89028758",
+      "path": "primitives.go",
+      "bytes": 2357,
+      "gitBlob": "804b0193f9ec0661f1832e8b39c3f8bf78f4b8c3"
+    },
+    {
+      "repo": "FiloSottile/age",
+      "ref": "b74dce4cdbe35b5e5f66c06d9612b72f89028758",
+      "path": "x25519.go",
+      "bytes": 6376,
+      "gitBlob": "6c0814dba394dd6b849eca446c000464f7bb14bc"
+    },
+    {
+      "repo": "C2SP/C2SP",
+      "ref": "037e546d164a89fd7577df2c18df80bb54bd246e",
+      "path": "age.md",
+      "bytes": 27548,
+      "gitBlob": "cff8d191b9d82fd059590a32161c06772981e5d5"
+    },
+    {
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "path": "age/README.md",
+      "bytes": 6427,
+      "gitBlob": "46a3cc45f9ad69331180c749556b88501be519ad"
+    },
+    {
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "path": "age/internal/LICENSE",
+      "bytes": 1490,
+      "gitBlob": "964a921afac754ccd46ccd4a9e847d5a7f52a219"
+    },
+    {
+      "repo": "C2SP/CCTV",
+      "ref": "4448f2097b2daa812c91a26141f9f36c2096b9ca",
+      "path": "age/internal/testkit/testkit.go",
+      "bytes": 11546,
+      "gitBlob": "eba9a427fcc4e6ad621f37a35aa010209bfe8e9c"
+    }
+  ]
+}

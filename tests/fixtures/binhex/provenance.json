@@ -1,0 +1,588 @@
+{
+  "profile": "BinHex4.0 version0, canonical or explicit observed producer padding",
+  "sources": [
+    {
+      "path": "rfc1741.txt",
+      "url": "https://www.rfc-editor.org/rfc/rfc1741.txt",
+      "finalUrl": "https://www.rfc-editor.org/rfc/rfc1741.txt",
+      "bytes": 10155,
+      "sha256": "5c8c672b4b7dc708796e786039813778fa4627af3f86683407346167423f9643"
+    },
+    {
+      "path": "macutils_2.0b3.orig.tar.gz",
+      "url": "https://deb.debian.org/debian/pool/main/m/macutils/macutils_2.0b3.orig.tar.gz",
+      "finalUrl": "https://deb.debian.org/debian/pool/main/m/macutils/macutils_2.0b3.orig.tar.gz",
+      "bytes": 95749,
+      "sha256": "43970ae3c82bc5a9f125a27d980d422b886b9e2cb322f7bf36685197c77781ef"
+    },
+    {
+      "path": "Convert-BinHex-1.125.tar.gz",
+      "url": "https://cpan.metacpan.org/authors/id/S/ST/STEPHEN/Convert-BinHex-1.125.tar.gz",
+      "finalUrl": "https://cpan.metacpan.org/authors/id/S/ST/STEPHEN/Convert-BinHex-1.125.tar.gz",
+      "bytes": 73122,
+      "sha256": "513591b4be46bd7eb91e83197721b4a045a9753a3dd2f11de82c9d3013226397"
+    }
+  ],
+  "selectedReferences": [
+    {
+      "archive": "macutils_2.0b3.orig.tar.gz",
+      "member": "macutils/binhex/dofile.c",
+      "bytes": 3429,
+      "sha256": "843db7a9e31ea04d227bfd978b08bcc6c85ccf5bca1f041368fc3a58c3f8fc80"
+    },
+    {
+      "archive": "macutils_2.0b3.orig.tar.gz",
+      "member": "macutils/hexbin/hqx.c",
+      "bytes": 9295,
+      "sha256": "2be223e60e543ade9143e6f8b1f01704607e7cf4e2170112126b729b3ee82beb"
+    },
+    {
+      "archive": "Convert-BinHex-1.125.tar.gz",
+      "member": "Convert-BinHex-1.125/lib/Convert/BinHex.pm",
+      "bytes": 44013,
+      "sha256": "4942c1e83127a293453b2bb0c4d136e11bbf73a023850f1e2fe2f1aee7d80eb9"
+    }
+  ],
+  "publicBase": "python:3.13.12-slim-bookworm@sha256:a58daefb915e1e03ad48f3ca4df8832065412c5c35cacb9d39f4229184de12b6",
+  "publicPlatformManifest": "sha256:34b27ac66ecf318887b55ea3c71f0db9307895efe631210231a66cc3fa130cf9",
+  "actualPublicImage": "sha256:5ae62b8a656b92aebda2441c1b4b872da0799b4deabca9f6c476f5940624ebef",
+  "toolsImage": "sha256:ea631438f481f11103ff77da86c4912da33fe13ee602908425f520122736f9e3",
+  "containers": {
+    "public-acquire": {
+      "id": "b11cecfd5d828b1a32f68857ef0e4bd3fe5cddcc9049de81b2f0805bdac3e3d0",
+      "image": "sha256:5ae62b8a656b92aebda2441c1b4b872da0799b4deabca9f6c476f5940624ebef",
+      "configImage": "sha256:5ae62b8a656b92aebda2441c1b4b872da0799b4deabca9f6c476f5940624ebef",
+      "state": {
+        "Status": "exited",
+        "Running": false,
+        "Paused": false,
+        "Restarting": false,
+        "OOMKilled": false,
+        "Dead": false,
+        "Pid": 0,
+        "ExitCode": 0,
+        "Error": "",
+        "StartedAt": "2026-11-05T19:31:22.08093496Z",
+        "FinishedAt": "2026-11-05T19:31:29.051186797Z"
+      },
+      "resource": {
+        "Memory": 1073741824,
+        "MemorySwap": 1073741824,
+        "NanoCpus": 1000000000,
+        "PidsLimit": 128,
+        "Binds": null,
+        "NetworkMode": "bridge"
+      }
+    },
+    "producer": {
+      "id": "49319e12a99a4530402d5ccf406c63f125c1d4b57f75e81c233af5bf03386d5d",
+      "image": "sha256:ea631438f481f11103ff77da86c4912da33fe13ee602908425f520122736f9e3",
+      "configImage": "sha256:ea631438f481f11103ff77da86c4912da33fe13ee602908425f520122736f9e3",
+      "state": {
+        "Status": "exited",
+        "Running": false,
+        "Paused": false,
+        "Restarting": false,
+        "OOMKilled": false,
+        "Dead": false,
+        "Pid": 0,
+        "ExitCode": 0,
+        "Error": "",
+        "StartedAt": "2026-11-05T19:32:04.472856299Z",
+        "FinishedAt": "2026-11-05T19:32:05.798118342Z"
+      },
+      "resource": {
+        "Memory": 1073741824,
+        "MemorySwap": 1073741824,
+        "NanoCpus": 1000000000,
+        "PidsLimit": 128,
+        "Binds": null,
+        "NetworkMode": "none"
+      }
+    },
+    "negative": {
+      "id": "cf7e6981aae07f714175d73661639a2a30aea9ca701f1690818bb3531f4ab5db",
+      "image": "sha256:ea631438f481f11103ff77da86c4912da33fe13ee602908425f520122736f9e3",
+      "configImage": "sha256:ea631438f481f11103ff77da86c4912da33fe13ee602908425f520122736f9e3",
+      "state": {
+        "Status": "exited",
+        "Running": false,
+        "Paused": false,
+        "Restarting": false,
+        "OOMKilled": false,
+        "Dead": false,
+        "Pid": 0,
+        "ExitCode": 0,
+        "Error": "",
+        "StartedAt": "2026-11-05T19:38:20.556211501Z",
+        "FinishedAt": "2026-11-05T19:38:20.767557126Z"
+      },
+      "resource": {
+        "Memory": 1073741824,
+        "MemorySwap": 1073741824,
+        "NanoCpus": 1000000000,
+        "PidsLimit": 128,
+        "Binds": null,
+        "NetworkMode": "none"
+      }
+    }
+  },
+  "packages": "libconvert-binhex-perl=1.125-3 all\nmacutils=2.0b3-17 arm64\nperl=5.36.0-7+deb12u4 arm64\n",
+  "debSHA256": "3ed38ffa8320e9bf7597cefa01b6a6ace4a08ccc77cdfd15ef7d8b711dea7166  /var/cache/apt/archives/perl-modules-5.36_5.36.0-7+deb12u4_all.deb\n03d979b849a1a0a8955eee28b988dbc25a407fd3a0581df5c94e6ae7bcc01ddf  /var/cache/apt/archives/perl-base_5.36.0-7+deb12u4_arm64.deb\n351263cc431de71f0cedcbf12f52ab39e231e37cbb1b4f44f38eec214437cb1a  /var/cache/apt/archives/libconvert-binhex-perl_1.125-3_all.deb\nacc13a12acbf3b17dbacc77e3c22c6c273a552150cd50fdc9bd70cdb5169af73  /var/cache/apt/archives/libgdbm-compat4_1.23-3_arm64.deb\nb20b172eff2f1edef5c29ebb9fec09ceec5b32ca62aeb9b3700e7c71a58b5071  /var/cache/apt/archives/perl_5.36.0-7+deb12u4_arm64.deb\n35013c8ce9c319abd608d27719d71ff5d2090002e5a424708df26c11d18bffb3  /var/cache/apt/archives/libperl5.36_5.36.0-7+deb12u4_arm64.deb\nfd7d08be4d9353d0210a70c78129144b4cb01a7986f042fbb99e11c9eb1a8d2a  /var/cache/apt/archives/macutils_2.0b3-17_arm64.deb\n",
+  "binaries": "849c00512615d83ae9e6a696726d7f1289cef6fb97a314682ebc30ddac4736aa  /usr/bin/binhex\n884b853fa4762416b2359e4b0804d1049858d49b34f59c869c8bac464e375ea5  /usr/bin/hexbin\na6097f7672f78105082b665344a2deef7f26be89833dc170fa573c0c64deba2b  /usr/bin/perl\ncb4548d280f38c2b1df4cba45f12c90a034729e08fce5bf1a223c58add0e21e3  /usr/local/bin/python3\n",
+  "python": {
+    "version": "3.13.12 (main, Apr  7 2026, 02:30:31) [GCC 12.2.0]",
+    "executable": "/usr/local/bin/python3",
+    "stdlib": "/usr/local/lib/python3.13",
+    "files": {
+      "/usr/local/bin/python3.13": "cb4548d280f38c2b1df4cba45f12c90a034729e08fce5bf1a223c58add0e21e3",
+      "/usr/local/lib/python3.13/zipfile/__init__.py": "9f026f5b6aadb80224e187f703a2f7667f37418b8b6f0dfaed7a6ce194461dbd",
+      "/usr/local/lib/python3.13/json/__init__.py": "3b5abc6441252283e4b83dd00317430c0c0145343a8f48274f2c4fac3d856631",
+      "/usr/local/lib/python3.13/LICENSE.txt": "78b12c3a81360b357002334f0e70ea0e92eebf7a9b358805c03c48484945f3bb"
+    }
+  },
+  "nativeRaw": {
+    "bytes": 565934,
+    "sha256": "3a67496d2c4d1e91f1df4296bcbc9f0e4389c385a4337dae817941bb3ec4c4f1"
+  },
+  "nativeFormatted": {
+    "bytes": 578634,
+    "sha256": "803e77d8fa7c5c3b1d5ddef61844b12c28d8a521eb42e4c78a6b7c56a80d6d51"
+  },
+  "negativeRaw": {
+    "bytes": 12241,
+    "sha256": "21a46d527761e3eee57756b03f36f55fea81fda6f579448713b6f955f3210c19"
+  },
+  "negativeFormatted": {
+    "bytes": 12694,
+    "sha256": "55b602142a2c93432a44330dda3f4705fe1b2d66a87055ee05bf4a2d553be63c"
+  },
+  "authoredScripts": {
+    "tests/fixtures/binhex/create.py": "865a7b9d3c54549a0b0662ca6bcfa038867cf056ee9cd33c08cb0513786c3721",
+    "tests/fixtures/binhex/native.pl": "73b7edfb93d8b88c75ff0bf9660bdc9ea71aaf5d596430dd195ac34b061a24d6",
+    "tests/fixtures/binhex/negative.py": "fc1d858de091fc0a980d2d37d997a4dc8747f2a33664747049d727b70f589cb3",
+    "tests/fixtures/binhex/acquire.sh": "8efe9666248754bdd1417e97787f222456d2ef6f8b1138ac286f34ac8d63f97d"
+  },
+  "licenses": {
+    "macutils-copyright.txt": "5fbb5498d1cb9a02ed351c7d1a83ce9a2c442fe9280a0b78967ab22199f8f782",
+    "python-image-LICENSE.txt": "78b12c3a81360b357002334f0e70ea0e92eebf7a9b358805c03c48484945f3bb",
+    "libconvert-binhex-perl-copyright.txt": "39b58be916cb708a4a1921efc0392c9dff70581acab984472ffbba3b4b5159ea",
+    "perl-copyright.txt": "b52f3ca17b45473cb0da6ec46748949101fcf0dda1fd5d8b306e6c97fd41af4d"
+  },
+  "priorAcquisition": {
+    "base": "sha256:5db6f97eaa40bd0a27d00d1c239f7278d64410d2b617424c8a9583da1f55034e",
+    "tools": "sha256:62f854af4c0eda840fd3b99dd31b182e84eb197e9bacd8e23ecd94360aa2a876",
+    "status": "successful receipts retained, local images removed during Docker recovery; not used for final fixture"
+  },
+  "caveats": [
+    "Perl decoder is a full-byte oracle only, not CRC rejection proof",
+    "Perl NoComment seeks original colon line without rewriting wire or proving banner",
+    "Negative wire controls are authored mutations, not genuine producer outputs",
+    "Twelve genuine Perl cases have 1\u20132 full zero packed padding bytes; default strict parser refuses them",
+    "No upstream implementation copied into production"
+  ],
+  "observedFraming": [
+    {
+      "case": "empty",
+      "producer": "macutils",
+      "extraDecodedBytes": [],
+      "unusedBits": 2,
+      "unusedValue": 0,
+      "wireSHA256": "67d2b19bba0aefb8fcb2cdadb46f5a13c7f113bd8e4f635cb5ec071197d14f3c"
+    },
+    {
+      "case": "empty",
+      "producer": "perl",
+      "extraDecodedBytes": [
+        0
+      ],
+      "unusedBits": 0,
+      "unusedValue": 0,
+      "wireSHA256": "bb7eb031c26f41f74d0581990be500769ec38607caf0cd1aabdf9e7749cdf968"
+    },
+    {
+      "case": "data",
+      "producer": "macutils",
+      "extraDecodedBytes": [],
+      "unusedBits": 4,
+      "unusedValue": 0,
+      "wireSHA256": "078d8e6dfbdf94432d974b61d3855b06fbea8960f10aefe43afd406ceb436091"
+    },
+    {
+      "case": "data",
+      "producer": "perl",
+      "extraDecodedBytes": [
+        0,
+        0
+      ],
+      "unusedBits": 0,
+      "unusedValue": 0,
+      "wireSHA256": "8a6618733dfe763b0fa1cbf2090e4235630eb391faecd9e47be40efd6dc78149"
+    },
+    {
+      "case": "rsrc",
+      "producer": "macutils",
+      "extraDecodedBytes": [],
+      "unusedBits": 2,
+      "unusedValue": 0,
+      "wireSHA256": "14acaa88cdf8808c684b95793beea5e35c806c49ea678c72f769edafc249bce5"
+    },
+    {
+      "case": "rsrc",
+      "producer": "perl",
+      "extraDecodedBytes": [
+        0,
+        0
+      ],
+      "unusedBits": 0,
+      "unusedValue": 0,
+      "wireSHA256": "ad1ede07d7fcfafa3585b158325df161ab464e722fa8709f303ea3b0b516ff0d"
+    },
+    {
+      "case": "forks",
+      "producer": "macutils",
+      "extraDecodedBytes": [],
+      "unusedBits": 4,
+      "unusedValue": 0,
+      "wireSHA256": "708bc4fbf8f32db6ec27652b483743c822f9d5f5839713d1e60f3d3709f79255"
+    },
+    {
+      "case": "forks",
+      "producer": "perl",
+      "extraDecodedBytes": [
+        0,
+        0
+      ],
+      "unusedBits": 0,
+      "unusedValue": 0,
+      "wireSHA256": "b9fc0e21c3a4e791e950906fe8545f4c468682b32e95883a6fcb31562acd1d5b"
+    },
+    {
+      "case": "runs",
+      "producer": "macutils",
+      "extraDecodedBytes": [],
+      "unusedBits": 4,
+      "unusedValue": 0,
+      "wireSHA256": "54fc322d5df53a3d593f54d9759fc0cecb34745fbe6eb38c70b451e1e0e0eb07"
+    },
+    {
+      "case": "runs",
+      "producer": "perl",
+      "extraDecodedBytes": [],
+      "unusedBits": 0,
+      "unusedValue": 0,
+      "wireSHA256": "92f72f05a787db856f1e78b8146c6eeea6ad61300dfdd6a597a3088196051e8c"
+    },
+    {
+      "case": "many",
+      "producer": "macutils",
+      "extraDecodedBytes": [],
+      "unusedBits": 2,
+      "unusedValue": 0,
+      "wireSHA256": "f509d155f6662e954c9385b0433d1d7f0f4e0d93bf1acf36487fdfe8cb27f6cd"
+    },
+    {
+      "case": "many",
+      "producer": "perl",
+      "extraDecodedBytes": [
+        0
+      ],
+      "unusedBits": 0,
+      "unusedValue": 0,
+      "wireSHA256": "56f7f2627d77c13543ecebb25fc298cb40a702c052dfeb3b58f9f4c8e5938a8a"
+    },
+    {
+      "case": "tail1",
+      "producer": "macutils",
+      "extraDecodedBytes": [],
+      "unusedBits": 4,
+      "unusedValue": 0,
+      "wireSHA256": "2af11c4669d8d0456dd0d1d1f4421f3aba506bef9b388fb6fc1b172ca8dfabbf"
+    },
+    {
+      "case": "tail1",
+      "producer": "perl",
+      "extraDecodedBytes": [
+        0,
+        0
+      ],
+      "unusedBits": 0,
+      "unusedValue": 0,
+      "wireSHA256": "d40cb52eea10c309ed3e45f615a1328b1410ee132b05665277a0c3cf79f2bd77"
+    },
+    {
+      "case": "tail2",
+      "producer": "macutils",
+      "extraDecodedBytes": [],
+      "unusedBits": 0,
+      "unusedValue": 0,
+      "wireSHA256": "8b2c868e432ad34b7b14b0c6c529423677e65b3357d52fd2b7550073c02b2cc7"
+    },
+    {
+      "case": "tail2",
+      "producer": "perl",
+      "extraDecodedBytes": [],
+      "unusedBits": 0,
+      "unusedValue": 0,
+      "wireSHA256": "ba900105558045b822dd224e65d37e8a9f15aa58ea908853edd8345c29b444a7"
+    },
+    {
+      "case": "tail3",
+      "producer": "macutils",
+      "extraDecodedBytes": [],
+      "unusedBits": 2,
+      "unusedValue": 0,
+      "wireSHA256": "d6f5607d67b7966a1318747ac0d53e77488d6ab23c1dacc52ac612b2ff070039"
+    },
+    {
+      "case": "tail3",
+      "producer": "perl",
+      "extraDecodedBytes": [
+        0
+      ],
+      "unusedBits": 0,
+      "unusedValue": 0,
+      "wireSHA256": "d30d835ca820c9495ce6cd7317106a91f3caba22e67478e56c184572b4841a05"
+    },
+    {
+      "case": "tail4",
+      "producer": "macutils",
+      "extraDecodedBytes": [],
+      "unusedBits": 4,
+      "unusedValue": 0,
+      "wireSHA256": "66ff39c964ef2a7d783fb406cdb3a836938bd2fde4b088ef208c602e111137cd"
+    },
+    {
+      "case": "tail4",
+      "producer": "perl",
+      "extraDecodedBytes": [
+        0,
+        0
+      ],
+      "unusedBits": 0,
+      "unusedValue": 0,
+      "wireSHA256": "72d7732f781dc4eaebd123978a5ed2b7522eb0d5aef01d8b6c82e8b742b28efb"
+    },
+    {
+      "case": "tail5",
+      "producer": "macutils",
+      "extraDecodedBytes": [],
+      "unusedBits": 4,
+      "unusedValue": 0,
+      "wireSHA256": "24db7652acdda29da34be51fbf8f8b2290573fe68d0e60f85409bd93ecc92f58"
+    },
+    {
+      "case": "tail5",
+      "producer": "perl",
+      "extraDecodedBytes": [
+        0,
+        0
+      ],
+      "unusedBits": 0,
+      "unusedValue": 0,
+      "wireSHA256": "f3420ea1562d0ff27893e4cc6a54d75091cfa686fe9b86670d556bfea395a716"
+    },
+    {
+      "case": "tail6",
+      "producer": "macutils",
+      "extraDecodedBytes": [],
+      "unusedBits": 0,
+      "unusedValue": 0,
+      "wireSHA256": "e5e4265a3a940431a56614a832d98f2825b0b9e0bdfebac89d1680bb52f2ed0e"
+    },
+    {
+      "case": "tail6",
+      "producer": "perl",
+      "extraDecodedBytes": [],
+      "unusedBits": 0,
+      "unusedValue": 0,
+      "wireSHA256": "bae84157924f2a058357e2d40d339193cd4b466024959cf8201d2592a2cdd4cf"
+    },
+    {
+      "case": "tail7",
+      "producer": "macutils",
+      "extraDecodedBytes": [],
+      "unusedBits": 2,
+      "unusedValue": 0,
+      "wireSHA256": "a7068c111f7b3e34a0f885fc89545eb3f044bec75a57e58327ed7516832be747"
+    },
+    {
+      "case": "tail7",
+      "producer": "perl",
+      "extraDecodedBytes": [
+        0
+      ],
+      "unusedBits": 0,
+      "unusedValue": 0,
+      "wireSHA256": "86b38da4bc5cb02c56b7d05cfdfe1ace99c3215eb8823de932b4f18b1e92be05"
+    },
+    {
+      "case": "tail8",
+      "producer": "macutils",
+      "extraDecodedBytes": [],
+      "unusedBits": 4,
+      "unusedValue": 0,
+      "wireSHA256": "c71fb6b56e910057458e6149580ae72095aa708d0bf1b283fb8a9e0993ac7935"
+    },
+    {
+      "case": "tail8",
+      "producer": "perl",
+      "extraDecodedBytes": [
+        0,
+        0
+      ],
+      "unusedBits": 0,
+      "unusedValue": 0,
+      "wireSHA256": "b090d2ecc2b9aae9f3d7034e081e5942ff764616bebe50445f1be2971e517c84"
+    },
+    {
+      "case": "tail9",
+      "producer": "macutils",
+      "extraDecodedBytes": [],
+      "unusedBits": 0,
+      "unusedValue": 0,
+      "wireSHA256": "93393c27df917dd2670fbd9e066a759d75de807897da5fbc888bf35b65b6593f"
+    },
+    {
+      "case": "tail9",
+      "producer": "perl",
+      "extraDecodedBytes": [],
+      "unusedBits": 0,
+      "unusedValue": 0,
+      "wireSHA256": "608b58f2ea914395d075d5de56cb44b1da117d4fd257a251ac773dccacaecf07"
+    },
+    {
+      "case": "nested",
+      "producer": "macutils",
+      "extraDecodedBytes": [],
+      "unusedBits": 0,
+      "unusedValue": 0,
+      "wireSHA256": "58e1a58453c1f593b896a694a4c3af076d015001c0d57f84a5ed18035579ddb5"
+    },
+    {
+      "case": "nested",
+      "producer": "perl",
+      "extraDecodedBytes": [
+        0
+      ],
+      "unusedBits": 0,
+      "unusedValue": 0,
+      "wireSHA256": "e0c6f8a33789876236973b8648502a08838a51b0badf39d3bc9d8355a4c4de8c"
+    }
+  ],
+  "benchmark": {
+    "raw": {
+      "bytes": 16777192,
+      "sha256": "3aea6dea3b4bca54991b679046a1b386d7d1ff0656570cd7deba344816c5d01d"
+    },
+    "gzip": {
+      "bytes": 68736,
+      "sha256": "50a45758178ed0d42171bf6373698323238b254d88272b2f3efa85532eaed79f"
+    },
+    "roundtrip": true,
+    "inputTar": {
+      "bytes": 655360,
+      "sha256": "8f3240a2f4e7a36f87547c032202b9f1244cf6ff32d76a16d1780ab16d098667"
+    },
+    "runtime": "v26.13.0\n{\"platform\":\"linux\",\"arch\":\"arm64\",\"versions\":{\"node\":\"26.13.0\",\"acorn\":\"8.19.0\",\"ada\":\"4.0.0\",\"amaro\":\"1.1.11\",\"ares\":\"1.34.9\",\"brotli\":\"1.2.0\",\"cldr\":\"48.0\",\"icu\":\"78.3\",\"libffi\":\"3.8.0\",\"lief\":\"1.0.0\",\"llhttp\":\"9.4.3\",\"merve\":\"1.2.2\",\"modules\":\"147\",\"napi\":\"10\",\"nbytes\":\"0.1.4\",\"ncrypto\":\"0.0.1\",\"nghttp2\":\"1.70.0\",\"nghttp3\":\"\",\"ngtcp2\":\"\",\"openssl\":\"3.5.9\",\"simdjson\":\"5.0.3\",\"simdutf\":\"7.7.0\",\"sqlite\":\"3.54.0\",\"tz\":\"2026e\",\"undici\":\"8.12.2\",\"unicode\":\"17.0\",\"uv\":\"1.52.1\",\"uvwasi\":\"0.0.23\",\"v8\":\"14.6.202.34-node.40\",\"zlib\":\"1.3.2.1-motley-456ae73\",\"zstd\":\"1.5.7\"}}\n",
+    "results": [
+      {
+        "lane": "binhex cold header archive=89423B source=4096B decoded=30B requests=1 header-CRC16",
+        "averageNanoseconds": 73023.07112223016,
+        "samples": 8394
+      },
+      {
+        "lane": "binhex native decoded Blob range source=37B output=37B requests=1 no-encoding-no-CRC",
+        "averageNanoseconds": 7052.7974609375,
+        "samples": 20
+      },
+      {
+        "lane": "binhex warm verified data prefix source=89423B decoded=65569B output=37B requests=22 data-CRC16-resource-pending",
+        "averageNanoseconds": 54543689.777777776,
+        "samples": 9
+      },
+      {
+        "lane": "binhex warm pending data prefix source=4096B decoded=84B output=37B requests=1 header-CRC16-data-pending",
+        "averageNanoseconds": 117706.14853443523,
+        "samples": 5561
+      },
+      {
+        "lane": "binhex warm resource prefix source=89423B decoded=65670B output=37B requests=22 both-forks-CRC16-terminal",
+        "averageNanoseconds": 65827385.24999976,
+        "samples": 12
+      },
+      {
+        "lane": "binhex warm full verify source=89423B decoded=65670B output=0B requests=22 both-forks-CRC16-terminal",
+        "averageNanoseconds": 86276340.16666667,
+        "samples": 12
+      },
+      {
+        "lane": "binhex warm data stream source=89423B decoded=65569B output=65537B requests=22 data-CRC16-resource-pending",
+        "averageNanoseconds": 63575076.333333336,
+        "samples": 12
+      }
+    ],
+    "units": "Mitata nanoseconds per operation, one isolated observation; no equivalent-contract ratio or universal speed claim.",
+    "external": {
+      "start": {
+        "BlockIO": "0B / 8.19kB",
+        "CPUPerc": "0.00%",
+        "Container": "utils-test-quality-20261105",
+        "ID": "dc721f6d5866",
+        "MemPerc": "1.00%",
+        "MemUsage": "77.99MiB / 7.651GiB",
+        "Name": "utils-test-quality-20261105",
+        "NetIO": "596kB / 433kB",
+        "PIDs": "9"
+      },
+      "end": {
+        "BlockIO": "0B / 8.19kB",
+        "CPUPerc": "0.05%",
+        "Container": "utils-test-quality-20261105",
+        "ID": "dc721f6d5866",
+        "MemPerc": "1.20%",
+        "MemUsage": "94.26MiB / 7.651GiB",
+        "Name": "utils-test-quality-20261105",
+        "NetIO": "596kB / 433kB",
+        "PIDs": "9"
+      },
+      "scope": "Start/end read-only snapshots only; not continuous activity measurement.",
+      "qualification": "Observed external runner CPU increased from0.00% atstart to0.05% atend; timing is qualified by possible externalactivity. No continuous activity measurement."
+    },
+    "image": "sha256:0d27d74b49afa69518cd96806ca02f697e377c997d889c27cf60c4ae724adc39",
+    "container": "eaaddc83325f59cad600819963116de3200d79b7a723b7f51ec3770d7a0cdebf",
+    "state": {
+      "Status": "exited",
+      "Running": false,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Pid": 0,
+      "ExitCode": 0,
+      "Error": "",
+      "StartedAt": "2026-11-05T19:47:12.826707803Z",
+      "FinishedAt": "2026-11-05T19:47:24.905177086Z"
+    },
+    "resource": {
+      "Memory": 1073741824,
+      "MemorySwap": 1073741824,
+      "NanoCpus": 1000000000,
+      "PidsLimit": 128,
+      "Binds": null,
+      "NetworkMode": "none"
+    }
+  },
+  "verification": {
+    "runtimeCases": 19,
+    "runtimes": [
+      "Deno runtime-only --no-check",
+      "Node source-strip runtime",
+      "Bun runtime"
+    ],
+    "focusedStatus": "passed",
+    "format": "passed",
+    "lint": "passed",
+    "staticAndPackedConsumers": "Parent integration gate; not claimed by focused runtime checks"
+  }
+}

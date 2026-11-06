@@ -1,0 +1,22 @@
+# Pinned upstream snapshots must keep their original bytes on every platform.
+tests/upstream/original/** -text -whitespace
+.mise/tasks/attest.sh text eol=lf
+
+# Historical research inputs retain their original bytes, including CSV CRLF.
+planning/storage/research/** -text -whitespace
+
+# Native Git object and payload oracles are byte-exact, including text-looking commits and tags.
+tests/fixtures/git/*.loose -text
+tests/fixtures/git/*.raw -text
+tests/fixtures/git/*.ls-tree -text
+
+# Frozen Glacier originals, signing preimages and licenses retain exact upstream bytes.
+tests/fixtures/glacier/** -text
+tests/fixtures/glacier/legal/tslib-CopyrightNotice.txt -whitespace
+tests/fixtures/glacier/legal/tslib-LICENSE.txt -whitespace
+
+# Native Arrow corpus envelopes are hash-pinned before their embedded bytes are read.
+tests/fixtures/ipc/native/** -text
+
+# Native BAM corpus envelopes retain their exact reviewed bytes on every platform.
+tests/fixtures/bam/native/** -text

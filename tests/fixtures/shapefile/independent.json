@@ -1,0 +1,568 @@
+{
+  "producer": "pyshp3.1.6",
+  "python": "3.13.18 (main, Nov  5 2026, 08:07:50) [GCC 12.2.0]",
+  "wheelSha256": "be8cd9436dcbde477c63ea789f7dcdea3af19f17ea84f2744bfc12efe9145d1e",
+  "fixtures": [
+    {
+      "name": "point",
+      "shapeType": 1,
+      "originals": [
+        {
+          "xy": [
+            [
+              -0.0,
+              3.25
+            ]
+          ],
+          "parts": []
+        },
+        {
+          "xy": [
+            [
+              -7.5,
+              -2
+            ]
+          ],
+          "parts": []
+        },
+        {
+          "xy": [],
+          "parts": []
+        }
+      ],
+      "attributes": [
+        {
+          "label": "e\u0301\ufeffnative",
+          "integer": "9007199254740993",
+          "flag": true
+        },
+        {
+          "label": "second",
+          "integer": "-123",
+          "flag": false
+        },
+        {
+          "label": "null row",
+          "integer": "0",
+          "flag": null
+        }
+      ],
+      "tuples": [
+        {
+          "recordNumber": 1,
+          "offset": 108,
+          "bytes": 20,
+          "bodyBase64": "AQAAAAAAAAAAAACAAAAAAAAACkA="
+        },
+        {
+          "recordNumber": 2,
+          "offset": 136,
+          "bytes": 20,
+          "bodyBase64": "AQAAAAAAAAAAAB7AAAAAAAAAAMA="
+        },
+        {
+          "recordNumber": 3,
+          "offset": 164,
+          "bytes": 4,
+          "bodyBase64": "AAAAAA=="
+        }
+      ],
+      "rawRows": [
+        "IGXMge+7v25hdGl2ZSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDkwMDcxOTkyNTQ3NDA5OTNU",
+        "IHNlY29uZCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIC0xMjNG",
+        "IG51bGwgcm93ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDAg"
+      ],
+      "dbfHeaderLength": 129,
+      "dbfRowLength": 66,
+      "dbfTrailingBytes": 0,
+      "components": {
+        "shp": {
+          "data": "AAAnCgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAVOgDAAABAAAAAAAAAAAAHsAAAAAAAAAAwAAAAAAAAACAAAAAAAAACkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAKAQAAAAAAAAAAAACAAAAAAAAACkAAAAACAAAACgEAAAAAAAAAAAAewAAAAAAAAADAAAAAAwAAAAIAAAAA",
+          "bytes": 168,
+          "sha256": "51d39042809e3067fdfbcf99934f5e178f243be08264a940ba776e6b8dc50209"
+        },
+        "shx": {
+          "data": "AAAnCgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPugDAAABAAAAAAAAAAAAHsAAAAAAAAAAwAAAAAAAAACAAAAAAAAACkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADIAAAAKAAAAQAAAAAoAAABOAAAAAg==",
+          "bytes": 124,
+          "sha256": "f0f23007aeeca8ffd3ee2bfe03bbc27faa5ce77f8d8c7725e0ee8795ff23cff5"
+        },
+        "dbf": {
+          "data": "A34LBQMAAACBAEIAAAAAAAAAAAAAAAAAAAAAAAAAAABsYWJlbAAAAAAAAEMAAAAAKAAAAAAAAAAAAAAAAAAAAGV4YWN0AAAAAAAATgAAAAAYAAAAAAAAAAAAAAAAAAAAZmxhZwAAAAAAAABMAAAAAAEAAAAAAAAAAAAAAAAAAAANIGXMge+7v25hdGl2ZSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDkwMDcxOTkyNTQ3NDA5OTNUIHNlY29uZCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIC0xMjNGIG51bGwgcm93ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDAg",
+          "bytes": 327,
+          "sha256": "ee44f2daaeee60bdbca7eae090584b036d9fe8b75327bbb6a7d2bb166b699cb3"
+        }
+      },
+      "authoredDeletion": {
+        "adaptation": "one authored deletion flag change in genuine DBF; native consumer skips that ordinal",
+        "data": "A34LBQMAAACBAEIAAAAAAAAAAAAAAAAAAAAAAAAAAABsYWJlbAAAAAAAAEMAAAAAKAAAAAAAAAAAAAAAAAAAAGV4YWN0AAAAAAAATgAAAAAYAAAAAAAAAAAAAAAAAAAAZmxhZwAAAAAAAABMAAAAAAEAAAAAAAAAAAAAAAAAAAANIGXMge+7v25hdGl2ZSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDkwMDcxOTkyNTQ3NDA5OTNUKnNlY29uZCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIC0xMjNGIG51bGwgcm93ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDAg",
+        "sha256": "5d3fa3f0422a0bd0f221797d2328e0f6d629f336b92cefd2720a1857fc58e127",
+        "nativeVisibleOrdinals": [
+          0,
+          2
+        ]
+      },
+      "nativeAllGeometryAndAttributes": true,
+      "nativeParts": [
+        [],
+        [],
+        []
+      ],
+      "physicalPartPolicy": "MultiPoint has no stored parts; native API synthesizes [0]",
+      "independentRawRowsAndIndex": true
+    },
+    {
+      "name": "polyline",
+      "shapeType": 3,
+      "originals": [
+        {
+          "xy": [
+            [
+              0,
+              0
+            ],
+            [
+              2,
+              2
+            ],
+            [
+              3,
+              -1
+            ],
+            [
+              4,
+              0
+            ],
+            [
+              5,
+              1
+            ]
+          ],
+          "parts": [
+            0,
+            2
+          ]
+        },
+        {
+          "xy": [
+            [
+              -5,
+              1
+            ],
+            [
+              -2,
+              2
+            ]
+          ],
+          "parts": [
+            0
+          ]
+        },
+        {
+          "xy": [],
+          "parts": []
+        }
+      ],
+      "attributes": [
+        {
+          "label": "e\u0301\ufeffnative",
+          "integer": "9007199254740993",
+          "flag": true
+        },
+        {
+          "label": "second",
+          "integer": "-123",
+          "flag": false
+        },
+        {
+          "label": "null row",
+          "integer": "0",
+          "flag": null
+        }
+      ],
+      "tuples": [
+        {
+          "recordNumber": 1,
+          "offset": 108,
+          "bytes": 132,
+          "bodyBase64": "AwAAAAAAAAAAAAAAAAAAAAAA8L8AAAAAAAAUQAAAAAAAAABAAgAAAAUAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAABAAAAAAAAACEAAAAAAAADwvwAAAAAAABBAAAAAAAAAAAAAAAAAAAAUQAAAAAAAAPA/"
+        },
+        {
+          "recordNumber": 2,
+          "offset": 248,
+          "bytes": 80,
+          "bodyBase64": "AwAAAAAAAAAAABTAAAAAAAAA8D8AAAAAAAAAwAAAAAAAAABAAQAAAAIAAAAAAAAAAAAAAAAAFMAAAAAAAADwPwAAAAAAAADAAAAAAAAAAEA="
+        },
+        {
+          "recordNumber": 3,
+          "offset": 336,
+          "bytes": 4,
+          "bodyBase64": "AAAAAA=="
+        }
+      ],
+      "rawRows": [
+        "IGXMge+7v25hdGl2ZSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDkwMDcxOTkyNTQ3NDA5OTNU",
+        "IHNlY29uZCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIC0xMjNG",
+        "IG51bGwgcm93ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDAg"
+      ],
+      "dbfHeaderLength": 129,
+      "dbfRowLength": 66,
+      "dbfTrailingBytes": 0,
+      "components": {
+        "shp": {
+          "data": "AAAnCgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAqugDAAADAAAAAAAAAAAAFMAAAAAAAADwvwAAAAAAABRAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAABCAwAAAAAAAAAAAAAAAAAAAAAA8L8AAAAAAAAUQAAAAAAAAABAAgAAAAUAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAABAAAAAAAAACEAAAAAAAADwvwAAAAAAABBAAAAAAAAAAAAAAAAAAAAUQAAAAAAAAPA/AAAAAgAAACgDAAAAAAAAAAAAFMAAAAAAAADwPwAAAAAAAADAAAAAAAAAAEABAAAAAgAAAAAAAAAAAAAAAAAUwAAAAAAAAPA/AAAAAAAAAMAAAAAAAAAAQAAAAAMAAAACAAAAAA==",
+          "bytes": 340,
+          "sha256": "6fd0aabf16c95800a3c9d40e12cc0f4340990d6faecf33430bb3035b013f48a9"
+        },
+        "shx": {
+          "data": "AAAnCgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPugDAAADAAAAAAAAAAAAFMAAAAAAAADwvwAAAAAAABRAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADIAAABCAAAAeAAAACgAAACkAAAAAg==",
+          "bytes": 124,
+          "sha256": "c3d1b67c939fb83a093ff4aa7ed56c232dff38e69030af45bf489b6fa48385b0"
+        },
+        "dbf": {
+          "data": "A34LBQMAAACBAEIAAAAAAAAAAAAAAAAAAAAAAAAAAABsYWJlbAAAAAAAAEMAAAAAKAAAAAAAAAAAAAAAAAAAAGV4YWN0AAAAAAAATgAAAAAYAAAAAAAAAAAAAAAAAAAAZmxhZwAAAAAAAABMAAAAAAEAAAAAAAAAAAAAAAAAAAANIGXMge+7v25hdGl2ZSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDkwMDcxOTkyNTQ3NDA5OTNUIHNlY29uZCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIC0xMjNGIG51bGwgcm93ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDAg",
+          "bytes": 327,
+          "sha256": "ee44f2daaeee60bdbca7eae090584b036d9fe8b75327bbb6a7d2bb166b699cb3"
+        }
+      },
+      "authoredDeletion": {
+        "adaptation": "one authored deletion flag change in genuine DBF; native consumer skips that ordinal",
+        "data": "A34LBQMAAACBAEIAAAAAAAAAAAAAAAAAAAAAAAAAAABsYWJlbAAAAAAAAEMAAAAAKAAAAAAAAAAAAAAAAAAAAGV4YWN0AAAAAAAATgAAAAAYAAAAAAAAAAAAAAAAAAAAZmxhZwAAAAAAAABMAAAAAAEAAAAAAAAAAAAAAAAAAAANIGXMge+7v25hdGl2ZSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDkwMDcxOTkyNTQ3NDA5OTNUKnNlY29uZCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIC0xMjNGIG51bGwgcm93ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDAg",
+        "sha256": "5d3fa3f0422a0bd0f221797d2328e0f6d629f336b92cefd2720a1857fc58e127",
+        "nativeVisibleOrdinals": [
+          0,
+          2
+        ]
+      },
+      "nativeAllGeometryAndAttributes": true,
+      "nativeParts": [
+        [
+          0,
+          2
+        ],
+        [
+          0
+        ],
+        []
+      ],
+      "physicalPartPolicy": "MultiPoint has no stored parts; native API synthesizes [0]",
+      "independentRawRowsAndIndex": true
+    },
+    {
+      "name": "polygon",
+      "shapeType": 5,
+      "originals": [
+        {
+          "xy": [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              10
+            ],
+            [
+              10,
+              10
+            ],
+            [
+              10,
+              0
+            ],
+            [
+              0,
+              0
+            ],
+            [
+              2,
+              2
+            ],
+            [
+              8,
+              2
+            ],
+            [
+              8,
+              8
+            ],
+            [
+              2,
+              8
+            ],
+            [
+              2,
+              2
+            ]
+          ],
+          "parts": [
+            0,
+            5
+          ]
+        },
+        {
+          "xy": [
+            [
+              -5,
+              0
+            ],
+            [
+              -4,
+              1
+            ],
+            [
+              -3,
+              0
+            ],
+            [
+              -5,
+              0
+            ]
+          ],
+          "parts": [
+            0
+          ]
+        },
+        {
+          "xy": [],
+          "parts": []
+        }
+      ],
+      "attributes": [
+        {
+          "label": "e\u0301\ufeffnative",
+          "integer": "9007199254740993",
+          "flag": true
+        },
+        {
+          "label": "second",
+          "integer": "-123",
+          "flag": false
+        },
+        {
+          "label": "null row",
+          "integer": "0",
+          "flag": null
+        }
+      ],
+      "tuples": [
+        {
+          "recordNumber": 1,
+          "offset": 108,
+          "bytes": 212,
+          "bodyBase64": "BQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAkQAAAAAAAACRAAgAAAAoAAAAAAAAABQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACRAAAAAAAAAJEAAAAAAAAAkQAAAAAAAACRAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAQAAAAAAAACBAAAAAAAAAAEAAAAAAAAAgQAAAAAAAACBAAAAAAAAAAEAAAAAAAAAgQAAAAAAAAABAAAAAAAAAAEA="
+        },
+        {
+          "recordNumber": 2,
+          "offset": 328,
+          "bytes": 112,
+          "bodyBase64": "BQAAAAAAAAAAABTAAAAAAAAAAAAAAAAAAAAIwAAAAAAAAPA/AQAAAAQAAAAAAAAAAAAAAAAAFMAAAAAAAAAAAAAAAAAAABDAAAAAAAAA8D8AAAAAAAAIwAAAAAAAAAAAAAAAAAAAFMAAAAAAAAAAAA=="
+        },
+        {
+          "recordNumber": 3,
+          "offset": 448,
+          "bytes": 4,
+          "bodyBase64": "AAAAAA=="
+        }
+      ],
+      "rawRows": [
+        "IGXMge+7v25hdGl2ZSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDkwMDcxOTkyNTQ3NDA5OTNU",
+        "IHNlY29uZCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIC0xMjNG",
+        "IG51bGwgcm93ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDAg"
+      ],
+      "dbfHeaderLength": 129,
+      "dbfRowLength": 66,
+      "dbfTrailingBytes": 0,
+      "components": {
+        "shp": {
+          "data": "AAAnCgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA4ugDAAAFAAAAAAAAAAAAFMAAAAAAAAAAAAAAAAAAACRAAAAAAAAAJEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAABqBQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAkQAAAAAAAACRAAgAAAAoAAAAAAAAABQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACRAAAAAAAAAJEAAAAAAAAAkQAAAAAAAACRAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAQAAAAAAAACBAAAAAAAAAAEAAAAAAAAAgQAAAAAAAACBAAAAAAAAAAEAAAAAAAAAgQAAAAAAAAABAAAAAAAAAAEAAAAACAAAAOAUAAAAAAAAAAAAUwAAAAAAAAAAAAAAAAAAACMAAAAAAAADwPwEAAAAEAAAAAAAAAAAAAAAAABTAAAAAAAAAAAAAAAAAAAAQwAAAAAAAAPA/AAAAAAAACMAAAAAAAAAAAAAAAAAAABTAAAAAAAAAAAAAAAADAAAAAgAAAAA=",
+          "bytes": 452,
+          "sha256": "af8a3ef21a76ac0de4d02b69d29f117bb4aba902c7643fc33afc8d0e6112f94b"
+        },
+        "shx": {
+          "data": "AAAnCgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPugDAAAFAAAAAAAAAAAAFMAAAAAAAAAAAAAAAAAAACRAAAAAAAAAJEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADIAAABqAAAAoAAAADgAAADcAAAAAg==",
+          "bytes": 124,
+          "sha256": "1879cfcff190098459a2acc6e35225ceb39cc2aa7d83456b49b268451187ef0a"
+        },
+        "dbf": {
+          "data": "A34LBQMAAACBAEIAAAAAAAAAAAAAAAAAAAAAAAAAAABsYWJlbAAAAAAAAEMAAAAAKAAAAAAAAAAAAAAAAAAAAGV4YWN0AAAAAAAATgAAAAAYAAAAAAAAAAAAAAAAAAAAZmxhZwAAAAAAAABMAAAAAAEAAAAAAAAAAAAAAAAAAAANIGXMge+7v25hdGl2ZSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDkwMDcxOTkyNTQ3NDA5OTNUIHNlY29uZCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIC0xMjNGIG51bGwgcm93ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDAg",
+          "bytes": 327,
+          "sha256": "ee44f2daaeee60bdbca7eae090584b036d9fe8b75327bbb6a7d2bb166b699cb3"
+        }
+      },
+      "authoredDeletion": {
+        "adaptation": "one authored deletion flag change in genuine DBF; native consumer skips that ordinal",
+        "data": "A34LBQMAAACBAEIAAAAAAAAAAAAAAAAAAAAAAAAAAABsYWJlbAAAAAAAAEMAAAAAKAAAAAAAAAAAAAAAAAAAAGV4YWN0AAAAAAAATgAAAAAYAAAAAAAAAAAAAAAAAAAAZmxhZwAAAAAAAABMAAAAAAEAAAAAAAAAAAAAAAAAAAANIGXMge+7v25hdGl2ZSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDkwMDcxOTkyNTQ3NDA5OTNUKnNlY29uZCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIC0xMjNGIG51bGwgcm93ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDAg",
+        "sha256": "5d3fa3f0422a0bd0f221797d2328e0f6d629f336b92cefd2720a1857fc58e127",
+        "nativeVisibleOrdinals": [
+          0,
+          2
+        ]
+      },
+      "nativeAllGeometryAndAttributes": true,
+      "nativeParts": [
+        [
+          0,
+          5
+        ],
+        [
+          0
+        ],
+        []
+      ],
+      "physicalPartPolicy": "MultiPoint has no stored parts; native API synthesizes [0]",
+      "independentRawRowsAndIndex": true
+    },
+    {
+      "name": "multipoint",
+      "shapeType": 8,
+      "originals": [
+        {
+          "xy": [
+            [
+              1,
+              2
+            ],
+            [
+              -3,
+              4
+            ],
+            [
+              5,
+              -6
+            ]
+          ],
+          "parts": []
+        },
+        {
+          "xy": [
+            [
+              0,
+              0
+            ]
+          ],
+          "parts": []
+        },
+        {
+          "xy": [],
+          "parts": []
+        }
+      ],
+      "attributes": [
+        {
+          "label": "e\u0301\ufeffnative",
+          "integer": "9007199254740993",
+          "flag": true
+        },
+        {
+          "label": "second",
+          "integer": "-123",
+          "flag": false
+        },
+        {
+          "label": "null row",
+          "integer": "0",
+          "flag": null
+        }
+      ],
+      "tuples": [
+        {
+          "recordNumber": 1,
+          "offset": 108,
+          "bytes": 88,
+          "bodyBase64": "CAAAAAAAAAAAAAjAAAAAAAAAGMAAAAAAAAAUQAAAAAAAABBAAwAAAAAAAAAAAPA/AAAAAAAAAEAAAAAAAAAIwAAAAAAAABBAAAAAAAAAFEAAAAAAAAAYwA=="
+        },
+        {
+          "recordNumber": 2,
+          "offset": 204,
+          "bytes": 56,
+          "bodyBase64": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAA="
+        },
+        {
+          "recordNumber": 3,
+          "offset": 268,
+          "bytes": 4,
+          "bodyBase64": "AAAAAA=="
+        }
+      ],
+      "rawRows": [
+        "IGXMge+7v25hdGl2ZSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDkwMDcxOTkyNTQ3NDA5OTNU",
+        "IHNlY29uZCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIC0xMjNG",
+        "IG51bGwgcm93ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDAg"
+      ],
+      "dbfHeaderLength": 129,
+      "dbfRowLength": 66,
+      "dbfTrailingBytes": 0,
+      "components": {
+        "shp": {
+          "data": "AAAnCgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAiOgDAAAIAAAAAAAAAAAACMAAAAAAAAAYwAAAAAAAABRAAAAAAAAAEEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAsCAAAAAAAAAAAAAjAAAAAAAAAGMAAAAAAAAAUQAAAAAAAABBAAwAAAAAAAAAAAPA/AAAAAAAAAEAAAAAAAAAIwAAAAAAAABBAAAAAAAAAFEAAAAAAAAAYwAAAAAIAAAAcCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAAAAAgAAAAA=",
+          "bytes": 272,
+          "sha256": "27c6e2f7375490f09e864d4c09003580cecf37d06754660534e8289835dcb271"
+        },
+        "shx": {
+          "data": "AAAnCgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPugDAAAIAAAAAAAAAAAACMAAAAAAAAAYwAAAAAAAABRAAAAAAAAAEEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADIAAAAsAAAAYgAAABwAAACCAAAAAg==",
+          "bytes": 124,
+          "sha256": "f64baaa5da6569e13b88c49378aa5f7b75752afdfa44413cd9181dcb4baa6d4c"
+        },
+        "dbf": {
+          "data": "A34LBQMAAACBAEIAAAAAAAAAAAAAAAAAAAAAAAAAAABsYWJlbAAAAAAAAEMAAAAAKAAAAAAAAAAAAAAAAAAAAGV4YWN0AAAAAAAATgAAAAAYAAAAAAAAAAAAAAAAAAAAZmxhZwAAAAAAAABMAAAAAAEAAAAAAAAAAAAAAAAAAAANIGXMge+7v25hdGl2ZSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDkwMDcxOTkyNTQ3NDA5OTNUIHNlY29uZCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIC0xMjNGIG51bGwgcm93ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDAg",
+          "bytes": 327,
+          "sha256": "ee44f2daaeee60bdbca7eae090584b036d9fe8b75327bbb6a7d2bb166b699cb3"
+        }
+      },
+      "authoredDeletion": {
+        "adaptation": "one authored deletion flag change in genuine DBF; native consumer skips that ordinal",
+        "data": "A34LBQMAAACBAEIAAAAAAAAAAAAAAAAAAAAAAAAAAABsYWJlbAAAAAAAAEMAAAAAKAAAAAAAAAAAAAAAAAAAAGV4YWN0AAAAAAAATgAAAAAYAAAAAAAAAAAAAAAAAAAAZmxhZwAAAAAAAABMAAAAAAEAAAAAAAAAAAAAAAAAAAANIGXMge+7v25hdGl2ZSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDkwMDcxOTkyNTQ3NDA5OTNUKnNlY29uZCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIC0xMjNGIG51bGwgcm93ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDAg",
+        "sha256": "5d3fa3f0422a0bd0f221797d2328e0f6d629f336b92cefd2720a1857fc58e127",
+        "nativeVisibleOrdinals": [
+          0,
+          2
+        ]
+      },
+      "nativeAllGeometryAndAttributes": true,
+      "nativeParts": [
+        [
+          0
+        ],
+        [
+          0
+        ],
+        []
+      ],
+      "physicalPartPolicy": "MultiPoint has no stored parts; native API synthesizes [0]",
+      "independentRawRowsAndIndex": true
+    },
+    {
+      "name": "empty",
+      "shapeType": 1,
+      "originals": [],
+      "attributes": [],
+      "tuples": [],
+      "rawRows": [],
+      "dbfHeaderLength": 129,
+      "dbfRowLength": 66,
+      "dbfTrailingBytes": 0,
+      "components": {
+        "shp": {
+          "data": "AAAnCgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMugDAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+          "bytes": 100,
+          "sha256": "c484d45d4097549ea5670906adab4ad69bd829fac7b4d65501d7d42964ad7b70"
+        },
+        "shx": {
+          "data": "AAAnCgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMugDAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+          "bytes": 100,
+          "sha256": "c484d45d4097549ea5670906adab4ad69bd829fac7b4d65501d7d42964ad7b70"
+        },
+        "dbf": {
+          "data": "A34LBQAAAACBAEIAAAAAAAAAAAAAAAAAAAAAAAAAAABsYWJlbAAAAAAAAEMAAAAAKAAAAAAAAAAAAAAAAAAAAGV4YWN0AAAAAAAATgAAAAAYAAAAAAAAAAAAAAAAAAAAZmxhZwAAAAAAAABMAAAAAAEAAAAAAAAAAAAAAAAAAAAN",
+          "bytes": 129,
+          "sha256": "5bdb9dbf357e8b61a16a6ed49ccd965ef131f909c865e8637ac1ec35efdc0b32"
+        }
+      },
+      "authoredDeletion": null,
+      "nativeAllGeometryAndAttributes": true,
+      "nativeParts": [],
+      "physicalPartPolicy": "MultiPoint has no stored parts; native API synthesizes [0]",
+      "independentRawRowsAndIndex": true
+    }
+  ]
+}

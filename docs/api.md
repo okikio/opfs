@@ -12,6 +12,11 @@ client -> driver -> adapter -> FileSystemType -> bridge
 
 No public constructor requires a global registry.
 
+Optional capabilities use explicit subpaths. Choose a native provider client, byte source, upload continuation or
+archive reader through the [capability navigation](../README.md#select-a-native-client-or-preview). The
+[expansion status](expansion.md) records implemented profiles, proof levels and remaining work. Individual guides own
+complete examples, work limits and recovery behavior. The root remains the filesystem facade.
+
 ## Filesystem root
 
 ### `openFileSystem(options?)`
@@ -168,7 +173,10 @@ cancellation. The facade does not collect the complete tree first.
 ### `copy(source, destination, options?)`
 
 Copies one file or directory tree. The facade uses native/server-side copy when the adapter provides it and the route is
-enabled. Otherwise it composes read/write work with bounded concurrency.
+enabled. Otherwise it composes read/write work with bounded concurrency. Existing file replacements preserve the old
+body by default; host routes use owned sibling staging. Existing tree or kind replacement requires `preserve: false`.
+`exclusive: true` requires admitted atomic no-replace; admitted ordinary-host copy supports it and portable rename
+rejects it. `inspect().adapter.publication` and matching `plan()` options expose those scoped guarantees.
 
 ### `move(source, destination, options?)`
 
@@ -183,7 +191,8 @@ Removes one entry or recursively removes descendants when requested. The virtual
 
 ### `emptyDir(path?, options?)`
 
-Removes children while keeping the directory. Root is the default.
+Removes children while keeping an ordinary directory. Root is the default. Host links are removed as entries, and a
+link/foreign target or stable alias ancestor rejects traversal. Direct-child membership is snapshotted before removal.
 
 ## OPFS-shaped handles
 
@@ -233,11 +242,62 @@ await writable.close();
 ```
 
 The staged image commits on close and is discarded on abort. The writable keeps the complete staged file image in
-JavaScript memory, and `keepExistingData` must first read the current complete file snapshot. Large sequential writes should
-therefore prefer `writeFile()` because that path can select a native streaming driver route. Use `openWritableFile()` when
-the selected adapter exposes direct asynchronous positional writes.
+JavaScript memory, and `keepExistingData` must first read the current complete file snapshot. Large sequential writes
+should therefore prefer `writeFile()` because that path can select a native streaming driver route. Use
+`openWritableFile()` when the selected adapter exposes direct asynchronous positional writes.
 
 `openWritableFile()` exposes a direct asynchronous positional resource only when the adapter reports that capability.
+
+### Resize a file without confusing size with the write cursor
+
+Truncating means setting the logical length in bytes. A smaller size discards the tail. A larger size adds zero bytes;
+it does not move existing bytes or fill the extension with the last byte. Seeking changes where the next write starts,
+without changing the length until a write occurs. Shrinking a staged writable also clamps its cursor to the new end.
+
+This complete memory example makes the gap visible. It starts with six ASCII bytes, keeps three, seeks past their end,
+and writes one byte. No credentials or host files are required.
+
+```ts
+import { createFileSystem } from "@okikio/opfs";
+import { createMemoryAdapter } from "@okikio/opfs/adapter/memory";
+
+await using files = createFileSystem(createMemoryAdapter(), { disposeAdapter: true });
+await files.writeFile("/note.bin", "abcdef");
+const handle = await files.root.getFileHandle("note.bin");
+const writable = await handle.createWritable({ keepExistingData: true });
+try {
+  await writable.truncate(3);
+  await writable.seek(5);
+  await writable.write(new Uint8Array([88]));
+  await writable.close();
+} catch (error) {
+  await writable.abort(error);
+  throw error;
+}
+console.log([...await files.readFile("/note.bin")]); // [97, 98, 99, 0, 0, 88]
+```
+
+The following state diagram follows this staged image. The existing file remains unchanged until publication on close.
+It omits path locks and backend-specific publication failures; a rejected close does not establish successful
+persistence.
+
+```mermaid
+stateDiagram-v2
+  [*] --> Copied: keepExistingData
+  Copied --> Shortened: truncate to 3 bytes
+  Shortened --> Positioned: seek to byte 5
+  Positioned --> Extended: write X, zero-fill gap
+  Extended --> Published: close succeeds
+  Copied --> Discarded: abort
+  Shortened --> Discarded: abort
+  Positioned --> Discarded: abort
+  Extended --> Discarded: abort
+```
+
+This staged API retains the complete image in memory. Truncating a large file to a small result does not avoid the
+initial full read requested by `keepExistingData`. A direct positional resource uses backend operations instead and can
+leave changes visible before close; abort is not a rollback promise. Resuming an upload is a different operation: its
+checkpoint records acknowledged progress for an identified upload, rather than resizing an unrelated destination.
 
 ## Synchronous files
 
@@ -474,6 +534,11 @@ createNodeAdapter({ root: "./data" });
 
 Types: `NodeDriverOptionsType`, `NodeAdapterOptionsType`.
 
+Node/Deno/Bun host options accept `profile` (native default, mountpoint-s3, blobfuse-block, or complete facts).
+`@okikio/opfs/driver/host` exports `HostProfileSchema`, `HostProfileType`, `HostProfileInputType`, and `HOST_PROFILES`.
+`inspect().adapter.hostProfile` is a detached declaration; `plan()` and execution preserve request-specific publication
+requirements. See [host roots](host.md) for complete examples and read-only/explicit best-effort behavior.
+
 ### Deno
 
 ```ts
@@ -542,11 +607,16 @@ The driver requires Deno KV's atomic check/set/delete contract for the small log
 versionstamp returned by the initial exact read to reject stale writers before a new manifest becomes visible. File body
 parts remain outside the atomic operation.
 
-The specialized `DenoKvDriverType` also exposes `collect(options?)` for bounded, age-gated reclamation of superseded and
-unpublished physical parts. Published generations use their retirement time for the grace period, which lets an in-flight reader finish against the
-immutable generation it already resolved while that configured grace remains active. Unpublished crash leftovers use generation creation
-time. The adapter path re-exports the same provider constants, Deno KV structural contracts, and maintenance types plus
-`createDenoKvAdapter()` and `DenoKvAdapterOptionsType`.
+`DenoKvDriverType` exposes `collect(options?)`, pure `maintenance` policy and live `probe()` retention. The convenience
+`DenoKvAdapterType` preserves this concrete `driver` type. V3 uses versioned writer ownership, bounded renewable reader
+pins, exact present-pin accounting and collector claims. `collect()` returns scan/pin/delete counts and an opaque cursor
+when bounded work remains. Continue it explicitly. Zero grace never bypasses active ownership. Configurable aggregate
+partition retention limits reject with `quota-exceeded`; no timer or hidden scan runs.
+
+`DenoKvUsageType` includes retained partition bytes, generation count, namespace limits and unknown reader cleanup
+count. Lease expiry can reject a paused reader; reopening obtains current logical state. Legacy entries need explicit
+migration. `readOnly` blocks logical changes/maintenance while partition read leases mutate private metadata. See
+[storage ownership](storage.md) for options, migration, lease eligibility versus CAS fencing and accounting costs.
 
 ### localStorage
 
@@ -613,6 +683,7 @@ createSqliteDriver
 `@okikio/opfs/s3` exports:
 
 - `S3AddressingSchema` / `S3AddressingType`;
+- `S3ListEncodingType`;
 - `S3CredentialsSchema` / `S3CredentialsType`;
 - `S3CredentialSourceType`;
 - `S3_LIMITS`;
@@ -624,6 +695,11 @@ createSqliteDriver
 - `S3Error`;
 - `S3ClientType`;
 - `createS3Client()`.
+
+`S3ClientOptionsType.listEncoding` selects `percent` (default) or the compatible-provider `form` listing dialect.
+`client.listEncoding` exposes the immutable policy without I/O. Only keys/prefixes declaring `EncodingType=url` use it;
+unencoded fields and continuation tokens remain exact. SeaweedFS4.41 needs `form` to preserve space versus plus
+identity. See [the S3 identity example](s3.md) before choosing a provider dialect.
 
 Important client optimization options:
 
@@ -778,7 +854,8 @@ toFileSystemError
 - `RequestPolicySchema` / `RequestPolicyType`: retries, delay, jitter, and optional per-attempt timeout.
 - `FetchType`: the standard callable Fetch shape accepted for dependency injection. It intentionally does not include
   runtime-specific properties such as Bun's `fetch.preconnect()`.
-- `RequestMetrics` / `RequestMetricsType`: concrete HTTP request, retry, response, failure, and optional duration counters.
+- `RequestMetrics` / `RequestMetricsType`: concrete HTTP request, retry, response, failure, and optional duration
+  counters.
 - `sendRequest()`: shared attempt orchestration used by protocol clients. Request preparation runs before the concrete
   Fetch counter starts, so a deterministic signing or credential failure is not reported as network I/O.
 
@@ -821,3 +898,10 @@ await using fileSystem = createFileSystem(adapter, {
 
 Cancellation and disposal remain distinct. A caller can cancel one operation without implicitly disposing a shared
 storage resource.
+
+The root also exports `WritableOptionsType`, `WritableInspectionType`, `PublicationType`, `FileEntryKindType` and
+`FileEntryType`. `openWritableFile()` accepts `maxPendingBytes`/`maxPendingOperations`; returned `inspect()` reports one
+resource's admitted bytes, operations and terminal state. Defaults are 64 MiB/64; a full ordinary queue rejects
+admission before effects while close/abort has a reserved terminal slot. Keep caller buffers unchanged until settlement.
+Native resource ordering does not replace application publication or cross-process coordination. See
+[storage ownership](storage.md).
