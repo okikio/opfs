@@ -242,7 +242,94 @@ against the pinned primary schema. Add original-native semantic assertions and a
 wrong topic/partition, count/UTF-8/range/trailing-byte cases. Do not infer that metadata semantics passed because append
 and fetch did. The TypeScript fixture migration itself needs separate execution qualification.
 
+## Independent Metadata4 qualification to run next
+
+Source-only preparation now includes `tests/fixtures/kafka/metadata.ts` and
+`tests/fixtures/kafka/oracle/AdminMetadataOracle.java`. Neither has been type-checked, compiled or executed by this
+source slice. The decoder imports no candidate parser and does not share the future client's semantic implementation. It
+reads one complete length-prefixed Metadata4 frame, verifies its correlation and exact extent, then retains native
+errors, broker IDs/hosts/ports/racks, nullable cluster ID, controller ID, topic/internal flag, and
+partition/leader/replica/ISR fields. Bounded counts, duplicate IDs/names/partitions, strict UTF-8, null sentinels,
+booleans and trailing bytes are explicit. It preserves native error -1 and unknown leader/controller -1 rather than
+treating them as malformed lengths. The decoder does not claim an error-free configured leader merely because syntax
+passed. Controller ID membership in the broker array is not a syntax requirement: controller and broker roles can
+differ.
+
+The new authored Java harness uses the admitted **public** `AdminClient.create(Properties)`, `describeCluster()` and
+`describeTopics(...).allTopicNames()` APIs on the same configured topic/partition. Exact APIs were inspected at the
+retained SDK source revision:
+[AdminClient](https://github.com/apache/kafka/blob/1156b2752aaa28eafc0b4c4d387e63356793268d/clients/src/main/java/org/apache/kafka/clients/admin/AdminClient.java#L33-L43),
+[Admin](https://github.com/apache/kafka/blob/1156b2752aaa28eafc0b4c4d387e63356793268d/clients/src/main/java/org/apache/kafka/clients/admin/Admin.java#L291-L357),
+[TopicDescription](https://github.com/apache/kafka/blob/1156b2752aaa28eafc0b4c4d387e63356793268d/clients/src/main/java/org/apache/kafka/clients/admin/TopicDescription.java#L106-L128),
+and
+[TopicPartitionInfo](https://github.com/apache/kafka/blob/1156b2752aaa28eafc0b4c4d387e63356793268d/clients/src/main/java/org/apache/kafka/common/TopicPartitionInfo.java#L83-L104).
+Reuse the exact admitted five-JAR classpath and separately qualified JDK; no Maven/Gradle resolver, additional SDK or
+production dependency is introduced. Compilation and execution remain root-owned serial qualification steps.
+
+The owner should run the following sequence inside the existing resource envelope, with fresh retained output files:
+
+1. Testcontainers starts the exact admitted broker with the bounded original config, JVM/data/log/tmpfs limits and
+   dynamic listener. Use a finite log wait for the standard INFO text `Kafka Server started`, emitted by pinned
+   [KafkaRaftServer.startup](https://github.com/apache/kafka/blob/1156b2752aaa28eafc0b4c4d387e63356793268d/core/src/main/scala/kafka/server/KafkaRaftServer.scala#L92-L100)
+   after both role startups; its
+   [constant](https://github.com/apache/kafka/blob/1156b2752aaa28eafc0b4c4d387e63356793268d/core/src/main/scala/kafka/server/KafkaBroker.scala#L64-L72)
+   deliberately supports Kafka system-test readiness. Preserve logs on failure. Do not replace the wait with a polling
+   loop or infer that the marker proves topic existence, authorization or Metadata4 semantics.
+2. Create/confirm the owned topic through the separately bounded existing native fixture flow. Do not overlap auxiliary
+   JVMs. Capture the literal Metadata4 response, then run the Admin oracle against the same stable topic/listener and
+   partition, retaining source/binary hashes, command, exit status, duration and raw output. Repeat the literal capture
+   after Admin if needed to distinguish cluster change from a decoder disagreement; a mismatch never silently retries.
+3. Compare cluster ID, broker tuple sets and the exact topic name/internal flag and configured partition. Preserve
+   replica assignment order; compare ISR as a set because its public SDK order is unspecified. Compare leader ID and
+   partition membership. Admin can describe all partitions even when only one was requested for selection, so match by
+   index.
+4. Add authored decoder controls for every primitive/truncation point, positive and negative null sentinels, duplicate
+   collections, count allocation, strict UTF-8 (including BOM preservation), flag values, native errors and unknown
+   leaders, reordered observations, wrong correlation and trailing bytes. Expected values must be authored or taken from
+   the independent native observation, never calculated by the future candidate parser.
+5. Keep Metadata4 unqualified until native comparisons, decoder controls, strict types/lint, fixture lifecycle and the
+   explicit limits below pass. The old verifier's `metadataSemanticClaim: false` must remain unchanged; write a new
+   qualification receipt instead of rewriting its historical terminal or source-map entries.
+
+`AdminMetadataOracle` takes exactly `127.0.0.1:PORT OWNED_TOPIC PARTITION`, where topic starts with `opfs-`. It admits
+input before constructing Admin, imposes one 20 s future-observation deadline and separate 5 s close bound, and uses no
+JSON dependency. Its output is at most 1 MiB, buffered until complete so serialization cannot publish a partial success
+envelope. JVM/network/log/elapsed bounds still belong to the fixture owner: a bounded output does not independently
+bound all allocations inside the SDK. Retain stdout as binary and separately bounded stderr; process failure must not be
+inferred solely from whether an observation was serialized. No connection or CLI is hidden in `metadata.ts`.
+
+The exact binary output grammar is `AMO1` (uint32 `0x414d4f31`), boolean observation-present, optional observation, then
+int32 fault count and fault phase/type strings. The observation is nullable cluster string, controller observation
+int32, broker count and broker tuples `(id, host, port, nullable rack)`, topic string, internal boolean, requested
+partition int32, partition count and tuples `(index, leader-or-minus-one, replica-count/IDs, ISR-count/IDs)`. Strings
+use signed big-endian int32 **UTF-8 byte** lengths, with -1 only for nullable strings; booleans are one byte 0/1 and all
+other fields/counts are big-endian int32. Faults are bounded class names, not server messages. There is deliberately no
+invented wire error code or throttle field in the Admin envelope. Reject a missing observation, any fault, malformed
+field or trailing bytes when admitting a successful native comparison.
+
+The comparison has real limits. Admin uses its own negotiated APIs and multiple observations, not a forced Metadata4
+request or atomic snapshot. Success does not expose Metadata4 topic/partition error codes or throttle behavior; authored
+wire controls qualify decoding those fields without pretending to be independent broker error evidence. Read internal
+flags from `TopicDescription.isInternal()`; never hardcode false because the fixture uses an ordinary topic. Most
+significantly, pinned
+[DescribeClusterResult.controller()](https://github.com/apache/kafka/blob/1156b2752aaa28eafc0b4c4d387e63356793268d/clients/src/main/java/org/apache/kafka/clients/admin/DescribeClusterResult.java#L55-L63)
+documents a **random broker** for `bootstrap.servers`, versus the voter leader for `bootstrap.controllers`. Preserve
+that Admin field as a controller _observation_, but do not treat equality on one combined-role broker as independent
+multibroker controller qualification. Do not add a controller connection or extra JVM to hide this gap. Wire decoder
+syntax, separately configured fixture identity and this degenerate comparison are distinct proof levels. Rack null,
+nullable cluster, multiple brokers, leadership changes, real native errors and non-null racks remain separate controls
+or future fixture profiles unless actually exercised.
+
 ## Reviewed order and completion gates
+
+The fresh 6 November 2026 `tests/fixtures/kafka/native-metadata/` corpus closes the stable one-broker
+success-observation portion of step 3. Its complete Metadata4 fields agree with the independent public Admin
+observation; native output, resource admission, exact artifacts and source identities are retained separately from the
+original corpus. This does not close native refusal semantics, leadership changes or multibroker controller
+qualification. The maintained
+[`qualify.ts` recipe](../../tests/fixtures/kafka/README.md#repeat-the-independent-metadata4-comparison) describes replay
+inputs and failure retention. Production implementation still follows the migration gates and candidate acceptance steps
+below; a fixture result does not make the proposed client exist.
 
 1. Finish current migration type, runtime, native and CI gates on the same branch/PR.
 2. Qualify the typed independent manifest/probe/verifier against frozen originals, preserving previous Python snapshots

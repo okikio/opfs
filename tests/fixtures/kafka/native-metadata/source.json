@@ -1,0 +1,24 @@
+{
+  "date": "2026-11-06",
+  "compilerReceipt": "49eae92e-7d8e-4baa-8b03-e5cdd48af2dd",
+  "brokerImage": "apache/kafka@sha256:77b56ddfb7104fc5814a3d0127fcff49983220c7c7ad9bfc1f0af4d439228329",
+  "brokerImageId": "sha256:8e12eba3b69e43eeed26ccf9072d46f3fe38ce0c7f5ffe66d7d9b6198801f5cc",
+  "files": [
+    {
+      "file": "metadata.ts",
+      "sha256": "2d7a1cd89fd1996ebdac4b0e107f0aaca3ca4b5c2b8cd5e5d6964cb7af976acd"
+    },
+    {
+      "file": "qualify.ts",
+      "sha256": "7544c72aa61465851fb930723b68635c0230cc9820b740f2e7f93cff9baa2e6a"
+    },
+    {
+      "file": "oracle/AdminMetadataOracle.java",
+      "sha256": "b97337007d76757ef74151bdb1a952c83614c290b961bcdbd795fabba5bd59a2"
+    },
+    {
+      "file": "../../provider/kafka.ts",
+      "sha256": "076da385ab7ff6d4c5a62c5b423f3195a348a01f2f703554d3ceaba2dcb79b35"
+    }
+  ]
+}
