@@ -33,8 +33,10 @@ Then continue the [group index](GROUPS.md), recording each implemented profile a
 whole groups complete. Kafka currently has local independent native evidence in the working investigation, but no public
 client. The [reviewed Kafka sequence](KAFKA.md) fixes the proposed public contract, limits and remaining Metadata4
 semantic qualification gap; production implementation waits for migration gates. Netlify Blobs is still
-dependency-admission work; native range identity and filesystem projection are unproved. Arrow IPC is still design and
-reference inspection. None of those three is shipped by the Glacier change.
+dependency-admission work; native range identity and filesystem projection are unproved. The
+[Netlify Blobs sequence](NETLIFY.md) starts with independent SDK fixture admission. The [Arrow IPC sequence](ARROW.md)
+defines bounded column previews and the native qualification they still need. None of those three proposals is shipped
+by the Glacier change.
 
 Each next profile needs source review, independent full-byte fixtures, bounded failure and recovery tests, runtime and
 type gates, packed public-import checks, applicable benchmarks, a readable capability guide and release note, then the
