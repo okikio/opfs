@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import { withReleases } from "./close.ts";
 import { expect } from "@std/expect";
+import { expectBytes } from "./bytes.ts";
 import { decodeBase64 } from "@std/encoding/base64";
 import { openCryptomator } from "../src/crypto/cryptomator.ts";
 import { createArchiveLedger } from "../src/archive/record.ts";
@@ -74,7 +75,7 @@ describe("Cryptomator selected format 8 preview", () => {
         releases.push(() => opened[Symbol.asyncDispose]());
         const original = decodeBase64(item.original);
         const read = await opened.readVerified(0, original.length);
-        expect(read.bytes).toEqual(original);
+        expectBytes(read.bytes, original, item.id);
         expect(read.scope).toBe("covering-chunks-authenticated");
         expect(opened.originalLength).toBe("not-authenticated");
         expect((await opened.verify({ maxCiphertextBytes: decodeBase64(encoded).length })).scope).toBe(
