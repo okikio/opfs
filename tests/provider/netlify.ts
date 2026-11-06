@@ -29,6 +29,13 @@ function object(value: unknown): Record<string, unknown> {
   }
   return value as Record<string, unknown>;
 }
+/** Docker Engine uses null or an empty JSON object for no published ports; missing evidence is not admission. */
+export function hasNoPublishedPorts(value: unknown): boolean {
+  if (value === null) return true;
+  if (typeof value !== "object" || Array.isArray(value)) return false;
+  const prototype: unknown = Object.getPrototypeOf(value);
+  return (prototype === Object.prototype || prototype === null) && Reflect.ownKeys(value).length === 0;
+}
 function hash(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
@@ -60,7 +67,7 @@ function inspect(container: string, running: boolean): void {
     !Array.isArray(host.SecurityOpt) || !host.SecurityOpt.includes("no-new-privileges") ||
     (host.CapAdd !== null && (!Array.isArray(host.CapAdd) || host.CapAdd.length !== 0)) ||
     (host.Binds !== null && (!Array.isArray(host.Binds) || host.Binds.length !== 0)) ||
-    Object.keys(object(host.PortBindings)).length !== 0 || Object.keys(tmpfs).join() !== "/data" ||
+    !hasNoPublishedPorts(host.PortBindings) || Object.keys(tmpfs).join() !== "/data" ||
     tmpfs["/data"] !== "rw,noexec,nosuid,size=32m,uid=65534,gid=65534,mode=0700" ||
     log.Type !== "json-file" || limits["max-size"] !== "1m" || limits["max-file"] !== "1"
   ) {
