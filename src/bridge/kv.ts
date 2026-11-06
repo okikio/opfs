@@ -385,9 +385,14 @@ export class KeyValueBridgeImpl implements KeyValueBridgeType {
 /**
  * Exposes any OPFS filesystem as a collision-safe key-value store.
  *
- * The factory constructs a named driver object instead of defining behavior
- * methods inside the factory. This keeps the public call site small while the
- * lifecycle and mapping rules remain individually documented and testable.
+ * Keys map into an exclusive encoded namespace, `/.opfs-kv` by default, so a
+ * key and its descendants can coexist. Existing files outside that namespace
+ * remain ordinary files; they are not automatically enumerated as keys.
+ *
+ * The bridge borrows the filesystem by default. Setting `disposeFileSystem`
+ * transfers filesystem closure to bridge disposal. This is the outward view of
+ * an existing filesystem; an adapter instead brings storage into a filesystem.
+ * See the [storage model](../../docs/model.md) for a complete composition example.
  */
 export function createKeyValueBridge(
   fileSystem: FileSystemType,

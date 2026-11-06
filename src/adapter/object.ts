@@ -507,17 +507,28 @@ class ObjectAdapter implements AdapterType {
 /**
  * Creates the OPFS-shaped filesystem translation for an object store.
  *
- * The returned adapter contains no provider credentials or ambient discovery.
- * It only translates canonical virtual paths into object keys. Provider
- * signing, HTTP behavior, multipart/block lifecycle, and error semantics remain
- * on the injected concrete client.
+ * The injected driver supplies storage mechanics and capability metadata; the
+ * adapter translates virtual paths into object keys. Signing, HTTP behavior,
+ * multipart/block lifecycle and provider errors remain on the driver's client.
+ * The driver is borrowed unless `disposeDriver` transfers its disposal to the
+ * adapter. See the [storage model](../../docs/model.md) for the layer boundaries.
  *
- * @example Use a direct S3 client as a filesystem backend.
+ * @example Adapt a caller-owned S3 client through its object driver.
  * ```ts
- * const adapter = createObjectAdapter(s3, { prefix: "app" });
- * const fileSystem = createFileSystem(adapter);
- * await fileSystem.writeFile("/state.json", "{}", { parents: true });
+ * import { createFileSystem } from "@okikio/opfs";
+ * import { createObjectAdapter } from "@okikio/opfs/adapter/object";
+ * import { createS3DriverFromClient } from "@okikio/opfs/driver/s3";
+ * import type { S3ClientType } from "@okikio/opfs/s3";
+ *
+ * export async function saveState(client: S3ClientType): Promise<void> {
+ *   const driver = createS3DriverFromClient(client);
+ *   const adapter = createObjectAdapter(driver, { prefix: "app", disposeDriver: true });
+ *   await using files = createFileSystem(adapter, { disposeAdapter: true });
+ *   await files.writeFile("/state.json", "{}", { parents: true });
+ * }
  * ```
+ * The driver borrows `client`; the caller retains its transport and credential
+ * lifecycle when this function closes the filesystem and adapter.
  */
 export function createObjectAdapter(driver: ObjectDriverType, options: ObjectAdapterOptionsType = {}): AdapterType {
   return defineAdapter(new ObjectAdapter(driver, options));
