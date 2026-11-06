@@ -65,6 +65,92 @@ Keep the checkpoint in application-owned storage using atomic publication. On re
 `client.open(checkpoint.destination)`. Then pass both into `resumeTransfer()` as above. Configure the same endpoint and
 authentication policy; an upload URL itself can be a bearer secret. Do not log checkpoints indiscriminately.
 
+The following functions separate the first invocation from a later continuation. The application supplies a storage slot
+whose `replace()` atomically publishes a complete string and resolves only when its chosen durability contract is met.
+`read()` returns the last published string. These functions do not implement that persistence service or acquire a
+lease: the caller must hold exclusive ownership of this slot and upload session throughout each invocation. The
+persistence methods have no cancellation parameter; the upload signal cannot preempt a pending storage call. The
+application owns that implementation's deadlines and eventual settlement.
+
+```ts
+import { createTusClient } from "@okikio/opfs/tus";
+import type { TusClientOptionsType } from "@okikio/opfs/tus";
+import type { ByteSourceType } from "@okikio/opfs/source";
+import { createTransferCheckpoint, resumeTransfer, TransferCheckpointSchema } from "@okikio/opfs/transfer";
+import type { TransferCheckpointType } from "@okikio/opfs/transfer";
+
+export interface CheckpointStorageType {
+  read(): Promise<string | null>;
+  replace(value: string): Promise<void>;
+}
+
+export class InitialCheckpointError extends Error {
+  readonly checkpoint: TransferCheckpointType;
+  constructor(checkpoint: TransferCheckpointType, cause: unknown) {
+    super("The upload was created, but its initial checkpoint was not saved.", { cause });
+    this.name = "InitialCheckpointError";
+    this.checkpoint = checkpoint;
+  }
+}
+
+export async function startUpload(
+  source: ByteSourceType,
+  connection: TusClientOptionsType,
+  storage: CheckpointStorageType,
+  signal?: AbortSignal,
+  pause: () => boolean = () => false,
+): Promise<TransferCheckpointType> {
+  const request = signal === undefined ? {} : { signal };
+  if (await storage.read() !== null) throw new Error("Continue the saved attempt instead of creating another upload.");
+  if (!source.identity) throw new Error("Choose an immutable replay identity before creating the upload.");
+  const client = createTusClient(connection);
+  const destination = await client.create(source.size, {}, request);
+  const checkpoint = createTransferCheckpoint(source, destination);
+  const save = async (value: TransferCheckpointType) => {
+    await storage.replace(JSON.stringify(value));
+  };
+  try {
+    await save(checkpoint);
+  } catch (cause) {
+    throw new InitialCheckpointError(checkpoint, cause);
+  }
+  return await resumeTransfer({ source, destination, checkpoint, save, pause, ...request });
+}
+
+export async function continueUpload(
+  source: ByteSourceType,
+  connection: TusClientOptionsType,
+  storage: CheckpointStorageType,
+  signal?: AbortSignal,
+): Promise<TransferCheckpointType> {
+  const request = signal === undefined ? {} : { signal };
+  const saved = await storage.read();
+  if (saved === null) throw new Error("There is no saved attempt to continue.");
+  const decoded: unknown = JSON.parse(saved);
+  const checkpoint = TransferCheckpointSchema.parse(decoded);
+  const destination = createTusClient(connection).open(checkpoint.destination);
+  const save = async (value: TransferCheckpointType) => {
+    await storage.replace(JSON.stringify(value));
+  };
+  return await resumeTransfer({ source, destination, checkpoint, save, ...request });
+}
+```
+
+Call `startUpload()` once with a replayable source and your persistence implementation. A UI can change the value read
+by its `pause` callback; after an acknowledged chunk, the function saves a paused checkpoint and returns. In a later
+invocation, reopen exactly that source snapshot and call `continueUpload()` with the same storage slot and configured
+authentication policy. Abort can reject either invocation after remote bytes were accepted. Once that invocation has
+settled, continue from the saved checkpoint to query remote status before writing again. The continuation does not
+recreate a missing session or automatically repeat a failed mutation.
+
+If a progress save rejects, the function stops before its next source read or write. Repair persistence, retain the same
+source and session, then reconcile through `continueUpload()`; do not create a replacement attempt just because the
+stored offset lags. The initial save has a separate failure window: session creation may have succeeded before its URL
+was stored. `InitialCheckpointError.checkpoint` retains that known URL in memory so the caller can retry durable storage
+or explicitly terminate the attempt. Treat it as a secret-bearing recovery record, not a log message. Process loss
+before that record reaches durable storage still loses the URL; this client cannot close that creation window. A
+read-then-create check is not a distributed lock.
+
 The continuation checks source identity, size, destination URL, protocol and checkpoint version before reading the
 source or contacting the destination. It then reads the server's retained offset. Each chunk follows this order:
 

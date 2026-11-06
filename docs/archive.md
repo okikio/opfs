@@ -25,7 +25,8 @@ import { createBlobSource } from "@okikio/opfs/source";
 import { createArchiveLedger, openZip } from "@okikio/opfs/archive/zip";
 
 // The application supplies the selected File/Blob. It remains application-owned.
-export async function preview(blob: Blob) {
+export async function preview(blob: Blob, signal?: AbortSignal) {
+  const request = signal === undefined ? {} : { signal };
   const ledger = createArchiveLedger({
     maxSourceBytes: 8 * 1024 * 1024,
     maxDecodedBytes: 32 * 1024 * 1024,
@@ -33,6 +34,7 @@ export async function preview(blob: Blob) {
     maxRequests: 128,
   });
   const archive = await openZip(createBlobSource(blob), {
+    ...request,
     ledger,
     maxEntries: 10_000,
     maxDirectoryBytes: 2 * 1024 * 1024,
@@ -44,6 +46,7 @@ export async function preview(blob: Blob) {
   // Planning is deterministic. It does not read bytes or construct a codec.
   console.log(archive.plan(entry.id, { length: Math.min(4096, entry.size) }));
   const result = await archive.read(entry.id, {
+    ...request,
     length: Math.min(4096, entry.size),
     ledger,
   });
@@ -71,6 +74,12 @@ Any stage can reject because of malformed input, an unsupported profile, a faile
 or cancellation. No arrow promises that all formats support random access. In particular, putting a TAR inside gzip
 normally removes direct correspondence between the TAR offsets and remote compressed-file ranges. A streaming decoder
 can keep memory bounded while still reading and decoding the entire compressed prefix before the wanted member.
+
+The caller can abort the example's signal when the preview is no longer wanted. ZIP retains its opening signal for later
+reads; the explicit read option also makes that operation's authority visible. The Blob remains borrowed and usable
+after cancellation. Start a new preview call to retry with a fresh reader and budget. Treat malformed or
+integrity-failing input as a rejected preview; do not silently remove verification. A larger work allowance or another
+codec is an explicit application choice, rather than an automatic retry.
 
 Preview does not extract entries onto disk. Names in the raw directory can duplicate or contain unsafe path components;
 they remain data until the application deliberately selects a projection or extraction policy. Rendering HTML, scripts
