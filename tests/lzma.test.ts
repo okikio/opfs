@@ -1,5 +1,6 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
+import { expectBytes } from "./bytes.ts";
 import { decodeBase64 } from "@std/encoding/base64";
 import { createBlobSource } from "../src/source.ts";
 import { createArchiveLedger, createLzmaDecoder } from "../src/archive/lzma.ts";
@@ -46,7 +47,7 @@ describe("bounded pure LZMA codecs", () => {
     it(`decodes independent ${fixture.name} with complete payload evidence`, { timeout: 30000 }, async () => {
       const bytes = decodeBase64(fixture.packed);
       const decoder = createLzmaDecoder(source(bytes), options(fixture));
-      expect(await consume(decoder)).toEqual(decodeBase64(fixture.body));
+      expectBytes(await consume(decoder), decodeBase64(fixture.body), fixture.name);
       expect(await decoder.finished).toMatchObject({ status: "complete", integrity: "none" });
     });
   }
@@ -134,7 +135,7 @@ describe("LZMA framing and ownership controls", () => {
     const decoder = createLzmaDecoder(source(decodeBase64(fixture.packed)), supplied);
     supplied.maxDecodedBytes = 0;
     supplied.properties.fill(255);
-    expect(await consume(decoder)).toEqual(decodeBase64(fixture.body));
+    expectBytes(await consume(decoder), decodeBase64(fixture.body), fixture.name);
   });
   it("does not read until demand and reports an early preview as pending without closing the borrowed source", async () => {
     const fixture = fixtureNamed("7zip-lzma2");
@@ -243,7 +244,7 @@ describe("LZMA aggregate and chunk boundaries", () => {
     for (const fixture of [fixtureNamed("lzma2-empty"), rawSmall]) {
       const maxChunks = fixture.name === "lzma2-empty" ? 0 : 1;
       const decoder = createLzmaDecoder(source(decodeBase64(fixture.packed)), { ...options(fixture), maxChunks });
-      expect(await consume(decoder)).toEqual(decodeBase64(fixture.body));
+      expectBytes(await consume(decoder), decodeBase64(fixture.body), fixture.name);
       expect((await decoder.finished).chunks).toBe(maxChunks);
     }
   });
