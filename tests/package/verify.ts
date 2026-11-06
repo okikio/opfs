@@ -1,4 +1,6 @@
 import process from "node:process";
+import { createHash } from "node:crypto";
+import { fileURLToPath } from "node:url";
 import { mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -95,12 +97,12 @@ try {
     throw new Error(`Unexpected npm package name: ${manifest.name}`);
   }
   if (
-    Object.keys(manifest.exports ?? {}).length !== 169 || !("./glacier" in (manifest.exports ?? {})) ||
-    !("./kafka" in (manifest.exports ?? {})) ||
+    Object.keys(manifest.exports ?? {}).length !== 170 || !("./glacier" in (manifest.exports ?? {})) ||
+    !("./kafka" in (manifest.exports ?? {})) || !("./dataset/arrow" in (manifest.exports ?? {})) ||
     "./aws" in (manifest.exports ?? {})
   ) {
     throw new Error(
-      "Packed public surface must contain 169 explicit entries, including Kafka and Glacier and excluding internal AWS signing.",
+      "Packed public surface must contain 170 explicit entries, including Arrow, Kafka and Glacier and excluding internal AWS signing.",
     );
   }
   if (manifest.dependencies?.["drizzle-orm"]) {
@@ -208,6 +210,18 @@ try {
     tarball,
   ], { cwd: consumer });
 
+  // Admit the frozen native corpus before embedding it into each extracted runtime consumer.
+  const arrowCorpusBytes = await readFile(
+    fileURLToPath(new URL("../fixtures/ipc/native/independent.json", import.meta.url).href),
+  );
+  if (
+    arrowCorpusBytes.length !== 106854 || createHash("sha256").update(arrowCorpusBytes).digest("hex") !==
+      "09bac9152ccc959f35274cd8f47f3fa170517e6dd0823ea530532b73031d44d1"
+  ) {
+    throw new Error("Frozen Arrow IPC package-consumer corpus differs from its admitted bytes.");
+  }
+  const arrowCorpus: unknown = JSON.parse(arrowCorpusBytes.toString("utf8"));
+
   await writeFile(
     join(consumer, "smoke.mjs"),
     undent`
@@ -295,6 +309,7 @@ try {
     import { AmqpClient } from '@okikio/opfs/amqp';
     import { openParquet } from '@okikio/opfs/dataset/parquet';
     import { openOrc } from '@okikio/opfs/dataset/orc';
+    import { openArrow, readArrow } from '@okikio/opfs/dataset/arrow';
     import { openHdf5 } from '@okikio/opfs/dataset/hdf5';
     import { createCmisClient } from '@okikio/opfs/cmis';
     import { createCouchdbClient } from '@okikio/opfs/couchdb';
@@ -1174,6 +1189,73 @@ try {
       });
       try{assertBytes((await owner.read(0,owner.size)).bytes,fromBase64(vector.originalBase64));}finally{await owner.dispose();}
     }
+    const arrowNative = ${JSON.stringify(arrowCorpus)};
+    if(arrowNative.fixtures.length!==10)throw new Error('Packed Arrow IPC native coverage changed');
+    const arrowBlob=item=>{
+      const bytes=fromBase64(item.base64);
+      if(bytes.length!==item.bytes||createHash('sha256').update(bytes).digest('hex')!==item.sha256)throw new Error('Packed Arrow native blob changed');
+      return bytes;
+    };
+    const arrowCompare=(result,expected)=>{
+      if(result.rows!==expected.rows||result.columns.length!==6||result.integrity!=='none'||result.scope!=='selected-columns')throw new Error('Packed Arrow batch contract changed');
+      const keys=['i','q','d','b','s','x'],physical=['int32','int64','float64','boolean','utf8','binary'];
+      for(let ordinal=0;ordinal<keys.length;ordinal++){
+        const key=keys[ordinal],column=result.columns[ordinal],original=expected.originals;
+        if(column.ordinal!==ordinal||column.name!==key||column.physical!==physical[ordinal])throw new Error('Packed Arrow column identity changed');
+        assertBytes(column.validity,arrowBlob(original[key+'.validity']));
+        if(key==='s'||key==='x'){
+          const offsets=arrowBlob(original[key+'.offsets']),offsetView=new DataView(offsets.buffer,offsets.byteOffset,offsets.byteLength),data=arrowBlob(original[key+'.data']);
+          if(key==='x'){
+            if(!(column.offsets instanceof Int32Array)||!(column.values instanceof Uint8Array))throw new Error('Packed Arrow binary representation changed');
+            assertBytes(column.values,data);
+            for(let row=0;row<=expected.rows;row++)if(column.offsets[row]!==offsetView.getInt32(row*4,true))throw new Error('Packed Arrow binary offsets changed');
+          }else{
+            if(!Array.isArray(column.values)||column.values.length!==expected.rows)throw new Error('Packed Arrow text representation changed');
+            const decoder=new TextDecoder('utf-8',{fatal:true,ignoreBOM:true});
+            for(let row=0;row<expected.rows;row++)if(column.values[row]!==decoder.decode(data.subarray(offsetView.getInt32(row*4,true),offsetView.getInt32((row+1)*4,true))))throw new Error('Packed Arrow UTF8 original changed');
+          }
+        }else{
+          const data=arrowBlob(original[key+'.bin']),view=new DataView(data.buffer,data.byteOffset,data.byteLength),constructor=key==='i'?Int32Array:key==='q'?BigInt64Array:key==='d'?Float64Array:Uint8Array;
+          if(!(column.values instanceof constructor)||column.values.length!==expected.rows)throw new Error('Packed Arrow numeric representation changed');
+          for(let row=0;row<expected.rows;row++){
+            const value=key==='i'?view.getInt32(row*4,true):key==='q'?view.getBigInt64(row*8,true):key==='d'?view.getFloat64(row*8,true):view.getUint8(row);
+            if(!Object.is(column.values[row],value))throw new Error('Packed Arrow numeric original changed');
+          }
+        }
+      }
+    };
+    const arrowStream=(wire,onCancel=()=>{})=>{
+      let at=0;
+      return new ReadableStream({pull(controller){if(at===wire.length){controller.close();return;}const end=Math.min(wire.length,at+65536);controller.enqueue(wire.slice(at,end));at=end;},cancel:onCancel},{highWaterMark:0});
+    };
+    for(const fixture of arrowNative.fixtures){
+      const wire=arrowBlob(fixture.image);
+      if(fixture.format==='file'){
+        const dataset=await openArrow(createByteSource(wire));
+        if(dataset.batches.length!==fixture.batches.length||dataset.columns.length!==6||dataset.integrity!=='none'||dataset.scope!=='footer-and-schema')throw new Error('Packed Arrow file metadata changed');
+        for(let batch=0;batch<fixture.batches.length;batch++)arrowCompare(await dataset.read(batch,[0,1,2,3,4,5]),fixture.batches[batch]);
+        const nonemptyBatch=fixture.batches.findIndex(batch=>batch.rows>0);
+        if(nonemptyBatch>=0){
+          let refused=false;try{const limited=await openArrow(createByteSource(wire),{maxOutputBytes:0});await limited.read(nonemptyBatch,[0,1,2,3,4,5]);}catch(error){if(error?.code!=='budget-exceeded')throw error;refused=true;}
+          if(!refused)throw new Error('Packed Arrow output budget did not refuse');
+        }
+      }else{
+        const stream=arrowStream(wire);let count=0;
+        for await(const batch of readArrow(stream)){if(batch.batch!==count)throw new Error('Packed Arrow stream batch ordinal changed');arrowCompare(batch,fixture.batches[count++]);}
+        if(count!==fixture.batches.length||stream.locked)throw new Error('Packed Arrow stream completion retained its lock');
+        if(fixture.batches.length){
+          let canceled=0;const early=arrowStream(wire,()=>{canceled++;});
+          for await(const batch of readArrow(early)){arrowCompare(batch,fixture.batches[0]);break;}
+          if(canceled!==1||early.locked)throw new Error('Packed Arrow early return did not cancel/release owned reader');
+        }
+      }
+    }
+    // Arrow IPC is unauthenticated. Caller labels cannot upgrade the literal result guarantee.
+    const arrowAuthFixture=arrowNative.fixtures.find(item=>item.format==='file'&&item.batches.some(batch=>batch.rows>0));
+    if(!arrowAuthFixture)throw new Error('Packed Arrow nonempty authentication control absent');
+    const arrowAuthBatch=arrowAuthFixture.batches.findIndex(batch=>batch.rows>0);
+    const arrowAuthDataset=await openArrow(createByteSource(arrowBlob(arrowAuthFixture.image)));
+    if((await arrowAuthDataset.read(arrowAuthBatch,[0])).integrity!=='none')throw new Error('Packed Arrow acquired a false authentication claim');
     const orcNative = ${
       JSON.stringify(JSON.parse(await readFile(new URL("../fixtures/orc/independent.json", import.meta.url), "utf8")))
     };
@@ -2216,6 +2298,7 @@ try {
     import { KafkaClient, createKafkaClient, KafkaError, KafkaOutcomeError, KafkaCompletionError } from '@okikio/opfs/kafka';
     import { openParquet } from '@okikio/opfs/dataset/parquet';
     import { openOrc } from '@okikio/opfs/dataset/orc';
+    import { openArrow, readArrow } from '@okikio/opfs/dataset/arrow';
     import { openAge } from '@okikio/opfs/crypto/age';
     import { createNodeAgeAead } from '@okikio/opfs/crypto/age-node';
     import { AmqpClient } from '@okikio/opfs/amqp';
@@ -2457,6 +2540,14 @@ try {
     const natsMessageTyped: import('@okikio/opfs/nats').NatsMessageType = await natsTyped.get('OWNED',natsReceiptTyped.sequence,{inbox:'_INBOX.package.read'});
     const orcTyped: import('@okikio/opfs/dataset/orc').OrcDatasetType = await openOrc(createByteSource(new Uint8Array()),{maxRows:16});
     const orcReadTyped: import('@okikio/opfs/dataset/orc').OrcReadType = await orcTyped.read(0,{length:1});
+    const arrowOptionsTyped: import('@okikio/opfs/dataset/arrow').ArrowOpenOptionsType = {maxMetadataBytes:1024,maxBufferBytes:1024,maxSelectedBytes:2048,maxRows:16,maxOutputBytes:4096};
+    const arrowTyped: import('@okikio/opfs/dataset/arrow').ArrowDatasetType = await openArrow(createByteSource(new Uint8Array()),arrowOptionsTyped);
+    const arrowReadTyped: import('@okikio/opfs/dataset/arrow').ArrowReadType = await arrowTyped.read(0,[0]);
+    const arrowColumnTyped: import('@okikio/opfs/dataset/arrow').ArrowColumnType | undefined = arrowReadTyped.columns[0];
+    const arrowIntegrityTyped: 'none' = arrowReadTyped.integrity;
+    const arrowStreamOptionsTyped: import('@okikio/opfs/dataset/arrow').ArrowStreamOptionsType = {columns:[0],maxChunkBytes:65536};
+    const arrowStreamTyped: AsyncGenerator<import('@okikio/opfs/dataset/arrow').ArrowStreamBatchType> = readArrow(new ReadableStream<Uint8Array>(),arrowStreamOptionsTyped);
+    void [arrowColumnTyped,arrowIntegrityTyped,arrowStreamTyped];
     const ageAeadTyped: import('@okikio/opfs/crypto/age').AgeAeadType = createNodeAgeAead({createDecipheriv(){throw new Error('type-only');}});
     const ageTyped: import('@okikio/opfs/crypto/age').AgeOpenedType = await openAge(createByteSource(new Uint8Array()),{profile:'age-v1-file-key',fileKey:new Uint8Array(16),subtle:globalThis.crypto.subtle,aead:ageAeadTyped});
     const ageReadTyped: import('@okikio/opfs/crypto/age').AgeReadType = await ageTyped.read(0,1);
@@ -2667,6 +2758,7 @@ try {
       export { KafkaClient, createKafkaClient } from '@okikio/opfs/kafka';
       export { openParquet } from '@okikio/opfs/dataset/parquet';
       export { openOrc } from '@okikio/opfs/dataset/orc';
+      export { openArrow, readArrow } from '@okikio/opfs/dataset/arrow';
       export { openAge } from '@okikio/opfs/crypto/age';
       export { createNodeAgeAead } from '@okikio/opfs/crypto/age-node';
       export { AmqpClient } from '@okikio/opfs/amqp';
@@ -2746,7 +2838,7 @@ try {
           throw new Error('Optional import discovered ambient capability: ' + name);
         }});
       }
-      for (const spec of ['crypto/jwe', 'nats', 'kafka', 'dataset/parquet', 'crypto/age', 'crypto/age-node', 'dataset/orc', 'amqp', 'glacier']) await import('@okikio/opfs/' + spec);
+      for (const spec of ['crypto/jwe', 'nats', 'kafka', 'dataset/parquet', 'crypto/age', 'crypto/age-node', 'dataset/orc', 'dataset/arrow', 'amqp', 'glacier']) await import('@okikio/opfs/' + spec);
       if (touched.length) throw new Error('Optional import touched ambient capabilities: ' + touched.join(','));
     } finally {
       for (const [name, descriptor] of descriptors) {
@@ -2766,7 +2858,7 @@ try {
   const specs = Object.keys(manifest.exports ?? {}).map((key) =>
     key === "." ? "@okikio/opfs" : `@okikio/opfs/${key.slice(2)}`
   );
-  if (specs.length !== 169) throw new Error("Expected all 169 public packed entrypoints.");
+  if (specs.length !== 170) throw new Error("Expected all 170 public packed entrypoints.");
   if (Object.keys(manifest.exports ?? {}).some((key) => key === "./aws" || key.includes("*"))) {
     throw new Error("Internal AWS signing must remain outside the explicit public export map.");
   }

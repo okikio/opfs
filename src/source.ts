@@ -5,6 +5,7 @@ import { isBytes, toView } from "./bytes.ts";
 
 /** Cancellation is borrowed; each read owns only the work it starts. */
 export interface SourceReadOptionsType {
+  /** Stop this read's work without transferring disposal of the borrowed source. */
   readonly signal?: AbortSignal;
 }
 
@@ -15,9 +16,13 @@ export interface SourceReadOptionsType {
  * Implementations and their resources are borrowed by archive/transfer readers.
  */
 export interface ByteSourceType {
+  /** Exact source extent in bytes, within JavaScript's safe integer range. Stability is declared separately. */
   readonly size: number;
+  /** Opaque snapshot name for replay comparison; it does not establish stability by itself. */
   readonly identity?: string;
+  /** Immutable bytes, provider-enforced revision, or the caller's explicit no-mutation assertion. */
   readonly stability?: "immutable" | "provider" | "caller";
+  /** Return exactly length bytes from offset or reject; no silent clamping is allowed. */
   read(offset: number, length: number, options?: SourceReadOptionsType): Promise<Uint8Array>;
 }
 

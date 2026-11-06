@@ -523,6 +523,11 @@ integrity guarantee. [AMQP](docs/amqp.md) retains native publication confirmatio
 applications own topology and recovery after uncertain mutations. Each module is optional and has its own limits and
 ownership contract.
 
+[Arrow IPC](docs/arrow.md) reads selected columns from indexed files or yields bounded batches from forward streams. Its
+six-type uncompressed V5 profile preserves validity masks, exact int64 values and opaque metadata. Indexed reads can
+skip excluded payloads; stream reads consume bodies in order. Both report their selected validation scope and
+`integrity: "none"`. Dictionary, nested, compressed and other physical profiles remain unsupported.
+
 [Kafka](docs/kafka.md) adds one explicit-partition log client with bounded magic-2 records and bigint offsets. Fresh
 Java/candidate full-byte comparisons passed both append/read directions on one plaintext broker; independent Metadata4
 success evidence and authored outcome/cleanup controls are separate. TLS/SASL, multiple brokers and the current

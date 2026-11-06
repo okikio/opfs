@@ -6,8 +6,10 @@ export type ArchiveErrorCodeType = "invalid-archive" | "unsupported-profile" | "
 
 /** A format or policy failure; original source/codec failures retain their own errors. */
 export class ArchiveError extends Error {
+  /** Machine-readable refusal category, independent of explanatory message text. */
   readonly code: ArchiveErrorCodeType;
 
+  /** Retain a format, profile, policy or integrity refusal without wrapping source failures. */
   constructor(code: ArchiveErrorCodeType, message: string) {
     super(message);
     this.name = "ArchiveError";
@@ -17,9 +19,13 @@ export class ArchiveError extends Error {
 
 /** Finite per-operation policy limits. Counts include parser reads and discarded decoded bytes. */
 export interface ArchiveLimitsType {
+  /** Aggregate admitted input bytes. Defaults to 64 MiB; failed reads remain charged. */
   readonly maxSourceBytes?: number;
+  /** Nonempty addressable reads or stream read attempts. Defaults to 4,096. */
   readonly maxRequests?: number;
+  /** Interpreted or decoded work bytes, including discarded bytes. Defaults to 64 MiB. */
   readonly maxDecodedBytes?: number;
+  /** Returned storage admission. Defaults to 16 MiB; formats can charge conservative allowances. */
   readonly maxOutputBytes?: number;
   /** Share one ledger across nested/open/read operations to prevent per-call budget resets. */
   readonly ledger?: ArchiveLedgerType;
@@ -27,15 +33,21 @@ export interface ArchiveLimitsType {
 
 /** Observable work from one open, scan or member-read operation. */
 export interface ArchiveWorkType {
+  /** Admitted input extents, rather than hidden transport costs inside a foreign source. */
   readonly sourceBytes: number;
+  /** Charged read operations, including attempts that later fail. */
   readonly requests: number;
+  /** Format-defined interpreted or decoded work; a small result can require a large decode. */
   readonly decodedBytes: number;
+  /** Admitted output storage; consult the format for conservative text or copy allowances. */
   readonly outputBytes: number;
 }
 
 /** Aggregate admission across caller-composed readers. Source bytes count archive-level requested extents. */
 export interface ArchiveLedgerType {
+  /** Charge before acquisition or allocation; exhausted reservations throw and are never refunded. */
   reserve(kind: keyof ArchiveWorkType, count: number): void;
+  /** Return a detached counter snapshot without performing I/O. */
   inspect(): ArchiveWorkType;
 }
 
