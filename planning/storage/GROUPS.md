@@ -133,12 +133,22 @@ contract and verification limits; a group name or catalog record is not a suppor
 
 ### existing-driver
 
-Existing file, record and object drivers; retain facade, runtime and artifact parity when extending them.
+Existing file, record and object drivers; retain facade, runtime and artifact parity when extending them. The RxDB
+driver currently borrows an RxCollection; it does not implement the separate direct RxStorage contract.
 
 ### object-native
 
-GCS, B2, Swift, S3 and Azure have native clients. Other native APIs need individual authentication, limits and provider
-fixtures.
+GCS, B2, Swift, S3 and Azure have selected native clients. GCS retains exact provider-reported metageneration and CRC32C
+metadata and constructs paired generation/metageneration conditions; neither a checksum field nor emulator reciprocity
+proves byte validation or live Google guard enforcement. JSON support does not establish XML or gRPC support.
+
+The per-record source audit still finds twelve native contracts without provider-specific implementations:
+`akamai-netstorage`, `upyun`, `rados`, `amazon-glacier-vaults`, `ibm-classic-swift`, `memset-memstore`, `netlify-blobs`,
+`qingstor`, `rackspace-cloud-files`, `vercel-blob`, `volcengine-tos` and `cdmi`. Each needs its own authentication,
+limits, operation outcomes and independent fixture. Generic S3 or Swift support does not qualify a branded service;
+Glacier vault jobs are distinct from S3 Glacier storage classes. Historical service names also need current availability
+research before implementation. Across this group and existing-driver, 22 of 34 records have selected implemented
+profiles; this count is not complete provider certification.
 
 ### s3-profile
 
@@ -182,6 +192,10 @@ conditions, explicit lease policy and historical prefix cursors without a record
 logs and vector stores need different contracts. Redis/Valkey add independently qualified native RESP2 byte commands
 with explicit expiry; record-driver revisions and filesystem semantics remain separate. JetStream adds bounded native
 message publication and sequence reads, preserving retention and deduplication as stream policy.
+[Memcached](../../docs/memcached.md), the `db-memcached` record, adds classic ASCII byte/CAS commands with explicit
+expiry and flags; misses and eviction are not authoritative filesystem absence. [AMQP](../../docs/amqp.md) adds 0-9-1
+confirmed queue publication and explicitly destructive auto-acknowledged reads over injected channels. This is a
+selected queue profile for `log-rabbitmq`; RabbitMQ Streams, manual settlement and other queue policies remain separate.
 
 ### native-protocol
 
@@ -201,16 +215,18 @@ destination claim. pCloud adds precision-preserving native uint64 IDs, explicit 
 receipts. Seafile adds native unencrypted library metadata, capability-isolated reads and collision-aware uploads,
 independently exercised with the actual server/SDK. Remaining profiles need stable IDs, duplicate names, shared roots,
 exports and session recovery. Yandex Disk adds native mutable paths, separately granted initial OAuth downloads and
-pending operations; no immutable source or filesystem projection is inferred.
+pending operations; no immutable source or filesystem projection is inferred. The `cmis` record adds native Browser
+Binding document operations with typed properties and change-token/version-series receipts; native SDK interoperability
+does not qualify the archival server authentication boundary. Capability discovery, multi-filing and ACL behavior remain
+repository-specific; this profile does not qualify other cloud-drive records.
 
 ### service-resource
 
-Box provides native IDs, version-pinned reads and part/pending/final upload receipts. CMIS adds native Browser Binding
-document operations with typed properties and change-token/version-series receipts; native SDK interoperability does not
-qualify the archival server authentication boundary. Remaining service resources must preserve originals, renditions,
-access controls and publication separately from generic file replacement. PocketBase adds native record-file fields,
-exact media reads and explicit protected tokens, with independent server/SDK bytes and update/delete-rule distinctions;
-no filesystem or resume claim.
+Box provides native IDs, version-pinned reads and part/pending/final upload receipts. The separate `cmis` record is
+tracked under [cloud-drive](#cloud-drive). Remaining service resources must preserve originals, renditions, access
+controls and publication separately from generic file replacement. PocketBase adds native record-file fields, exact
+media reads and explicit protected tokens, with independent server/SDK bytes and update/delete-rule distinctions; no
+filesystem or resume claim.
 
 ### media-service
 
@@ -267,23 +283,25 @@ streams add explicit dictionary/reset/CPU policy and no checksum. XZ indexes sin
 CRC32/CRC64 checks; SHA-256, filter chains and concatenation remain unsupported. Unencrypted ZIP method 12 composes
 BZip2 block verification with selected member reads and separate ZIP CRC. BZip2 adds a bounded non-randomized
 single-stream codec, verified-block replay and separate whole-stream CRC; concatenation and legacy randomization remain
-unsupported.
+unsupported. The `format-wim` record adds ordinary stored/32 KiB XPRESS-Huffman/LZX resource and selected-image
+previews, with separate resource/metadata SHA-1 scope, parent cancellation and finite chunk/table/CPU policy. Other WIM
+codecs remain pending.
 
 ### image-view
 
 ISO9660 primary and Joliet directory/member extents are indexed without mounts, with an explicit observable
-parent-extent compatibility policy. Rock Ridge and additional image/container profiles remain separate. WIM adds
-ordinary stored/32 KiB XPRESS-Huffman/LZX resource and selected-image previews, with separate resource/metadata SHA-1
-scope, parent cancellation and finite chunk/table/CPU policy. Other WIM codecs remain pending. UDF1.02 adds one physical
-partition, ordinary short/long recorded extents and exact member sources; descriptor CRC16 excludes payload integrity,
-while VAT/sparing/metadata partitions and embedded/sparse allocations remain unsupported. Standalone QCOW2 v2/v3 adds
-selected uncompressed guest-byte mapping and explicit zero regions; backing chains, compressed/encrypted layouts,
-snapshots and guest filesystems remain unsupported.
+parent-extent compatibility policy. Rock Ridge and additional image/container profiles remain separate. The `format-wim`
+record is tracked under [archive-view](#archive-view). UDF1.02 adds one physical partition, ordinary short/long recorded
+extents and exact member sources; descriptor CRC16 excludes payload integrity, while VAT/sparing/metadata partitions and
+embedded/sparse allocations remain unsupported. Standalone QCOW2 v2/v3 adds selected uncompressed guest-byte mapping and
+explicit zero regions; backing chains, compressed/encrypted layouts, snapshots and guest filesystems remain unsupported.
 
 ### backup-view
 
-Restic REST exposes bounded opaque native objects and whole-object SHA-256 checks, not backup decryption or restore.
-Backup indexes, chunk references, key policy and restore verification remain format-specific.
+The `restic-repository` record still needs backup index, pack, snapshot, lock and key-policy interpretation with restore
+verification. The distinct [Restic REST backend](#backup-service) stores opaque repository objects; its native object
+API does not implement repository decryption or backup-file previews. Other backup indexes and chunk-reference layouts
+remain format-specific.
 
 ### encrypted-view
 
@@ -335,7 +353,10 @@ parts remain pending.
 
 ### backup-service
 
-Pending service retention, job state and restore APIs; an initiated backup is not a file write receipt.
+The `restic-rest-backend` record has a [native REST client](../../docs/restic.md) for bounded opaque repository objects
+and separate whole-object SHA-256 checks. It does not list files inside a backup or implement repository decryption and
+restore; those belong to [backup-view](#backup-view). Other service retention, job state and restore APIs remain
+pending; an initiated backup is not a file write receipt.
 
 ### domain-connector
 
@@ -392,8 +413,10 @@ billing and retention enforcement remain separate owner policies.
 
 ### cache
 
-Memcached has a native classic ASCII byte/CAS client with explicit expiry and flags. A miss or eviction is not
-authoritative filesystem absence; cache-specific policies remain visible.
+The original `google-storage-rapid-cache` record describes an acceleration layer over GCS bucket data, not an
+independent authoritative file store. No native Rapid Cache profile is implemented; configuration, cache state and
+applicable deployment behavior need their own API contract and qualification. Memcached is the separate `db-memcached`
+record under [record-store](#record-store).
 
 ### tooling
 
