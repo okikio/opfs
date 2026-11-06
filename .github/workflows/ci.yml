@@ -493,6 +493,7 @@ jobs:
           BENCH_JSON=1 deno task bench:age > .tmp/reports/archive-bench/age.json 2> .tmp/reports/archive-bench/age-stderr.log
           BENCH_JSON=1 deno task bench:orc > .tmp/reports/archive-bench/orc.json 2> .tmp/reports/archive-bench/orc-stderr.log
           BENCH_JSON=1 deno task bench:amqp > .tmp/reports/archive-bench/amqp.json 2> .tmp/reports/archive-bench/amqp-stderr.log
+          BENCH_JSON=1 deno task bench:glacier > .tmp/reports/archive-bench/glacier.json 2> .tmp/reports/archive-bench/glacier-stderr.log
           BENCH_JSON=1 deno task bench:hdf5 > .tmp/reports/archive-bench/hdf5.json 2> .tmp/reports/archive-bench/hdf5-stderr.log
           BENCH_JSON=1 deno task bench:zarr > .tmp/reports/archive-bench/zarr.json 2> .tmp/reports/archive-bench/zarr-stderr.log
           BENCH_JSON=1 deno task bench:unixfs > .tmp/reports/archive-bench/unixfs.json 2> .tmp/reports/archive-bench/unixfs-stderr.log

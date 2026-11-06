@@ -2986,3 +2986,36 @@ for (const backingKind of ["local", "foreign", "detached flag", "detached getter
     });
   }
 }
+
+it("preserves fixed S3 signing bytes with key caching enabled and disabled after crypto extraction", async () => {
+  for (const signingKeyCache of [true, false]) {
+    const order: string[] = [];
+    const client = createS3Client({
+      endpoint: "https://s3.amazonaws.com",
+      bucket: "examplebucket",
+      region: "us-east-1",
+      credentials: () => {
+        order.push("credentials");
+        return credentials;
+      },
+      now: () => {
+        order.push("clock");
+        return new Date("2013-05-24T00:00:00.000Z");
+      },
+      signingKeyCache,
+      fetch: async (_input, init) => {
+        order.push("fetch");
+        expect(new Headers(init?.headers).get("authorization")).toBe(
+          "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20130524/us-east-1/s3/aws4_request, " +
+            "SignedHeaders=host;x-amz-content-sha256;x-amz-date, " +
+            "Signature=f9026f9c6df0d2208a26fd69dcb05b43269bda5a28e17f4186bb1570a3a600da",
+        );
+        return new Response(null);
+      },
+    });
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await client.request({ method: "GET", key: "test file.txt", query: { z: "last", a: "first" } });
+    }
+    expect(order).toEqual(["clock", "credentials", "fetch", "clock", "credentials", "fetch"]);
+  }
+});

@@ -1,0 +1,508 @@
+{
+  "authority": "pinned public Smithy signer; complete original request bodies retained separately",
+  "receipts": [
+    {
+      "id": "describe-empty",
+      "service": "glacier",
+      "region": "us-west-2",
+      "signingDate": "2015-08-30T12:36:00.000Z",
+      "purpose": "Glacier request signing mechanics; no native service acceptance",
+      "request": {
+        "protocol": "https:",
+        "hostname": "glacier.us-west-2.amazonaws.com",
+        "method": "GET",
+        "path": "/-/vaults/test-vault",
+        "query": {},
+        "headers": {
+          "host": "glacier.us-west-2.amazonaws.com",
+          "x-amz-glacier-version": "2012-06-01"
+        },
+        "body": {
+          "originalFile": "empty.bin",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "canonicalPath": "/-/vaults/test-vault",
+      "canonicalQuery": "",
+      "payloadHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "canonicalRequest": "GET\n/-/vaults/test-vault\n\nhost:glacier.us-west-2.amazonaws.com\nx-amz-content-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\nx-amz-date:20150830T123600Z\nx-amz-glacier-version:2012-06-01\n\nhost;x-amz-content-sha256;x-amz-date;x-amz-glacier-version\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stringToSign": "AWS4-HMAC-SHA256\n20150830T123600Z\n20150830/us-west-2/glacier/aws4_request\nff31685bef3b8f3543ceb95246449c3a3b7ac2d4497ba78b5b39a165e56bb432",
+      "signedHeaders": {
+        "host": "glacier.us-west-2.amazonaws.com",
+        "x-amz-glacier-version": "2012-06-01",
+        "x-amz-date": "20150830T123600Z",
+        "x-amz-content-sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authorization": "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20150830/us-west-2/glacier/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date;x-amz-glacier-version, Signature=5971a87c7bb8fc0d0e4c4815af09a5d6bea99d567909d6a829fffde115689730"
+      },
+      "authorization": "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20150830/us-west-2/glacier/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date;x-amz-glacier-version, Signature=5971a87c7bb8fc0d0e4c4815af09a5d6bea99d567909d6a829fffde115689730",
+      "files": {
+        "stringToSign": "describe-empty.string-to-sign.txt",
+        "canonicalRequest": "describe-empty.canonical-request.txt",
+        "canonicalHeaders": "describe-empty.canonical-headers.txt",
+        "authorization": "describe-empty.authorization.txt",
+        "signedHeaders": "describe-empty.signed-headers.json"
+      }
+    },
+    {
+      "id": "query-order-token",
+      "service": "glacier",
+      "region": "us-west-2",
+      "signingDate": "2015-08-30T12:36:00.000Z",
+      "purpose": "Canonical signing mechanics for repeated/empty query values; not a service-valid ListJobs assertion",
+      "request": {
+        "protocol": "https:",
+        "hostname": "glacier.us-west-2.amazonaws.com",
+        "method": "GET",
+        "path": "/-/vaults/test-vault/jobs",
+        "query": {
+          "marker": [
+            "a+b/=",
+            "~z"
+          ],
+          "limit": "50",
+          "empty": ""
+        },
+        "headers": {
+          "host": "glacier.us-west-2.amazonaws.com",
+          "x-amz-glacier-version": "2012-06-01"
+        },
+        "body": {
+          "originalFile": "empty.bin",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "canonicalPath": "/-/vaults/test-vault/jobs",
+      "canonicalQuery": "empty=&limit=50&marker=a%2Bb%2F%3D&marker=~z",
+      "payloadHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "canonicalRequest": "GET\n/-/vaults/test-vault/jobs\nempty=&limit=50&marker=a%2Bb%2F%3D&marker=~z\nhost:glacier.us-west-2.amazonaws.com\nx-amz-content-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\nx-amz-date:20150830T123600Z\nx-amz-glacier-version:2012-06-01\nx-amz-security-token:fixture-token+/=\n\nhost;x-amz-content-sha256;x-amz-date;x-amz-glacier-version;x-amz-security-token\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stringToSign": "AWS4-HMAC-SHA256\n20150830T123600Z\n20150830/us-west-2/glacier/aws4_request\nd43c78217a5a97104f008ead3d8be342e01f3fbf2ea659c72f330661c8dcb05e",
+      "signedHeaders": {
+        "host": "glacier.us-west-2.amazonaws.com",
+        "x-amz-glacier-version": "2012-06-01",
+        "x-amz-date": "20150830T123600Z",
+        "x-amz-security-token": "fixture-token+/=",
+        "x-amz-content-sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authorization": "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20150830/us-west-2/glacier/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date;x-amz-glacier-version;x-amz-security-token, Signature=db39fd7805ef6382cd95211fba181791d1365fcbee72cc5d3729d75ba874aacc"
+      },
+      "authorization": "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20150830/us-west-2/glacier/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date;x-amz-glacier-version;x-amz-security-token, Signature=db39fd7805ef6382cd95211fba181791d1365fcbee72cc5d3729d75ba874aacc",
+      "files": {
+        "stringToSign": "query-order-token.string-to-sign.txt",
+        "canonicalRequest": "query-order-token.canonical-request.txt",
+        "canonicalHeaders": "query-order-token.canonical-headers.txt",
+        "authorization": "query-order-token.authorization.txt",
+        "signedHeaders": "query-order-token.signed-headers.json"
+      }
+    },
+    {
+      "id": "query-single-marker",
+      "service": "glacier",
+      "region": "us-west-2",
+      "signingDate": "2015-08-30T12:36:00.000Z",
+      "purpose": "Glacier request signing mechanics; no native service acceptance",
+      "request": {
+        "protocol": "https:",
+        "hostname": "glacier.us-west-2.amazonaws.com",
+        "method": "GET",
+        "path": "/-/vaults/test-vault/jobs",
+        "query": {
+          "marker": "next/+ =%",
+          "limit": "50"
+        },
+        "headers": {
+          "host": "glacier.us-west-2.amazonaws.com",
+          "x-amz-glacier-version": "2012-06-01"
+        },
+        "body": {
+          "originalFile": "empty.bin",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "canonicalPath": "/-/vaults/test-vault/jobs",
+      "canonicalQuery": "limit=50&marker=next%2F%2B%20%3D%25",
+      "payloadHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "canonicalRequest": "GET\n/-/vaults/test-vault/jobs\nlimit=50&marker=next%2F%2B%20%3D%25\nhost:glacier.us-west-2.amazonaws.com\nx-amz-content-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\nx-amz-date:20150830T123600Z\nx-amz-glacier-version:2012-06-01\n\nhost;x-amz-content-sha256;x-amz-date;x-amz-glacier-version\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stringToSign": "AWS4-HMAC-SHA256\n20150830T123600Z\n20150830/us-west-2/glacier/aws4_request\neca033359d4cda07323d378aba9f8bfc7792d9878caa341ad7dd58346a0b6821",
+      "signedHeaders": {
+        "host": "glacier.us-west-2.amazonaws.com",
+        "x-amz-glacier-version": "2012-06-01",
+        "x-amz-date": "20150830T123600Z",
+        "x-amz-content-sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authorization": "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20150830/us-west-2/glacier/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date;x-amz-glacier-version, Signature=801c4f17c23c3cba86a52d3779831c5a4b6102bd0b6d60d400a5a332fd3f83a5"
+      },
+      "authorization": "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20150830/us-west-2/glacier/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date;x-amz-glacier-version, Signature=801c4f17c23c3cba86a52d3779831c5a4b6102bd0b6d60d400a5a332fd3f83a5",
+      "files": {
+        "stringToSign": "query-single-marker.string-to-sign.txt",
+        "canonicalRequest": "query-single-marker.canonical-request.txt",
+        "canonicalHeaders": "query-single-marker.canonical-headers.txt",
+        "authorization": "query-single-marker.authorization.txt",
+        "signedHeaders": "query-single-marker.signed-headers.json"
+      }
+    },
+    {
+      "id": "upload-three-leaves",
+      "service": "glacier",
+      "region": "us-west-2",
+      "signingDate": "2015-08-30T12:36:00.000Z",
+      "purpose": "Glacier request signing mechanics; no native service acceptance",
+      "request": {
+        "protocol": "https:",
+        "hostname": "glacier.us-west-2.amazonaws.com",
+        "method": "POST",
+        "path": "/-/vaults/test-vault/archives",
+        "query": {},
+        "headers": {
+          "host": "glacier.us-west-2.amazonaws.com",
+          "x-amz-glacier-version": "2012-06-01",
+          "content-type": "application/octet-stream",
+          "x-amz-archive-description": "  fixture   archive  ",
+          "x-amz-sha256-tree-hash": "cf0171ddd490992993f13eaf2fc5cc5f759ae9faea267ba26eb500c643630c1b"
+        },
+        "body": {
+          "originalFile": "three-leaves.bin",
+          "bytes": 3145728,
+          "sha256": "925c6fdb10bce39036f5f01f1ec98127023a13b4d993717c28b3a6184cd8df7e"
+        }
+      },
+      "canonicalPath": "/-/vaults/test-vault/archives",
+      "canonicalQuery": "",
+      "payloadHash": "925c6fdb10bce39036f5f01f1ec98127023a13b4d993717c28b3a6184cd8df7e",
+      "canonicalRequest": "POST\n/-/vaults/test-vault/archives\n\ncontent-type:application/octet-stream\nhost:glacier.us-west-2.amazonaws.com\nx-amz-archive-description:fixture archive\nx-amz-content-sha256:925c6fdb10bce39036f5f01f1ec98127023a13b4d993717c28b3a6184cd8df7e\nx-amz-date:20150830T123600Z\nx-amz-glacier-version:2012-06-01\nx-amz-sha256-tree-hash:cf0171ddd490992993f13eaf2fc5cc5f759ae9faea267ba26eb500c643630c1b\n\ncontent-type;host;x-amz-archive-description;x-amz-content-sha256;x-amz-date;x-amz-glacier-version;x-amz-sha256-tree-hash\n925c6fdb10bce39036f5f01f1ec98127023a13b4d993717c28b3a6184cd8df7e",
+      "stringToSign": "AWS4-HMAC-SHA256\n20150830T123600Z\n20150830/us-west-2/glacier/aws4_request\n9fe28400397956b45606a5ca00dd3fd2177e84254bb883e77511ef3f9b789a37",
+      "signedHeaders": {
+        "host": "glacier.us-west-2.amazonaws.com",
+        "x-amz-glacier-version": "2012-06-01",
+        "content-type": "application/octet-stream",
+        "x-amz-archive-description": "  fixture   archive  ",
+        "x-amz-sha256-tree-hash": "cf0171ddd490992993f13eaf2fc5cc5f759ae9faea267ba26eb500c643630c1b",
+        "x-amz-date": "20150830T123600Z",
+        "x-amz-content-sha256": "925c6fdb10bce39036f5f01f1ec98127023a13b4d993717c28b3a6184cd8df7e",
+        "authorization": "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20150830/us-west-2/glacier/aws4_request, SignedHeaders=content-type;host;x-amz-archive-description;x-amz-content-sha256;x-amz-date;x-amz-glacier-version;x-amz-sha256-tree-hash, Signature=e6c154765df0687dc94a9bda6aeb82f7fa9bc3e6be310d8075e4517de72a7be9"
+      },
+      "authorization": "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20150830/us-west-2/glacier/aws4_request, SignedHeaders=content-type;host;x-amz-archive-description;x-amz-content-sha256;x-amz-date;x-amz-glacier-version;x-amz-sha256-tree-hash, Signature=e6c154765df0687dc94a9bda6aeb82f7fa9bc3e6be310d8075e4517de72a7be9",
+      "files": {
+        "stringToSign": "upload-three-leaves.string-to-sign.txt",
+        "canonicalRequest": "upload-three-leaves.canonical-request.txt",
+        "canonicalHeaders": "upload-three-leaves.canonical-headers.txt",
+        "authorization": "upload-three-leaves.authorization.txt",
+        "signedHeaders": "upload-three-leaves.signed-headers.json"
+      }
+    },
+    {
+      "id": "upload-fixed-part",
+      "service": "glacier",
+      "region": "us-west-2",
+      "signingDate": "2015-08-30T12:36:00.000Z",
+      "purpose": "Glacier request signing mechanics; no native service acceptance",
+      "request": {
+        "protocol": "https:",
+        "hostname": "glacier.us-west-2.amazonaws.com",
+        "method": "PUT",
+        "path": "/-/vaults/test-vault/multipart-uploads/upload-id",
+        "query": {},
+        "headers": {
+          "host": "glacier.us-west-2.amazonaws.com",
+          "x-amz-glacier-version": "2012-06-01",
+          "content-range": "bytes 4194304-8388607/*",
+          "content-type": "application/octet-stream",
+          "x-amz-sha256-tree-hash": "0e1fb698d726a900a720f1324b9ca31ec0d7e06467d86b7a7d42db153be96dd4"
+        },
+        "body": {
+          "originalFile": "four-leaves.bin",
+          "bytes": 4194304,
+          "sha256": "f4cd41e12e52354db6a3a4e57df0ed96e529ad4f9d100a632e910e62aa80a20c"
+        }
+      },
+      "canonicalPath": "/-/vaults/test-vault/multipart-uploads/upload-id",
+      "canonicalQuery": "",
+      "payloadHash": "f4cd41e12e52354db6a3a4e57df0ed96e529ad4f9d100a632e910e62aa80a20c",
+      "canonicalRequest": "PUT\n/-/vaults/test-vault/multipart-uploads/upload-id\n\ncontent-range:bytes 4194304-8388607/*\ncontent-type:application/octet-stream\nhost:glacier.us-west-2.amazonaws.com\nx-amz-content-sha256:f4cd41e12e52354db6a3a4e57df0ed96e529ad4f9d100a632e910e62aa80a20c\nx-amz-date:20150830T123600Z\nx-amz-glacier-version:2012-06-01\nx-amz-sha256-tree-hash:0e1fb698d726a900a720f1324b9ca31ec0d7e06467d86b7a7d42db153be96dd4\n\ncontent-range;content-type;host;x-amz-content-sha256;x-amz-date;x-amz-glacier-version;x-amz-sha256-tree-hash\nf4cd41e12e52354db6a3a4e57df0ed96e529ad4f9d100a632e910e62aa80a20c",
+      "stringToSign": "AWS4-HMAC-SHA256\n20150830T123600Z\n20150830/us-west-2/glacier/aws4_request\n03d6de097ef34fa5b99859ad5d76a61b640c69155be7d345515f30abfe7a9c82",
+      "signedHeaders": {
+        "host": "glacier.us-west-2.amazonaws.com",
+        "x-amz-glacier-version": "2012-06-01",
+        "content-range": "bytes 4194304-8388607/*",
+        "content-type": "application/octet-stream",
+        "x-amz-sha256-tree-hash": "0e1fb698d726a900a720f1324b9ca31ec0d7e06467d86b7a7d42db153be96dd4",
+        "x-amz-date": "20150830T123600Z",
+        "x-amz-content-sha256": "f4cd41e12e52354db6a3a4e57df0ed96e529ad4f9d100a632e910e62aa80a20c",
+        "authorization": "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20150830/us-west-2/glacier/aws4_request, SignedHeaders=content-range;content-type;host;x-amz-content-sha256;x-amz-date;x-amz-glacier-version;x-amz-sha256-tree-hash, Signature=f7b4bd0509f64f56280f73cd97a7309fac30e22704f6a0b1b0592ad8db7ced84"
+      },
+      "authorization": "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20150830/us-west-2/glacier/aws4_request, SignedHeaders=content-range;content-type;host;x-amz-content-sha256;x-amz-date;x-amz-glacier-version;x-amz-sha256-tree-hash, Signature=f7b4bd0509f64f56280f73cd97a7309fac30e22704f6a0b1b0592ad8db7ced84",
+      "files": {
+        "stringToSign": "upload-fixed-part.string-to-sign.txt",
+        "canonicalRequest": "upload-fixed-part.canonical-request.txt",
+        "canonicalHeaders": "upload-fixed-part.canonical-headers.txt",
+        "authorization": "upload-fixed-part.authorization.txt",
+        "signedHeaders": "upload-fixed-part.signed-headers.json"
+      }
+    },
+    {
+      "id": "complete-short-odd",
+      "service": "glacier",
+      "region": "us-west-2",
+      "signingDate": "2015-08-30T12:36:00.000Z",
+      "purpose": "Glacier request signing mechanics; no native service acceptance",
+      "request": {
+        "protocol": "https:",
+        "hostname": "glacier.us-west-2.amazonaws.com",
+        "method": "POST",
+        "path": "/-/vaults/test-vault/multipart-uploads/upload-id",
+        "query": {},
+        "headers": {
+          "host": "glacier.us-west-2.amazonaws.com",
+          "x-amz-glacier-version": "2012-06-01",
+          "x-amz-archive-size": "11534319",
+          "x-amz-sha256-tree-hash": "eba955cb06248da4171a1fb27a26305575850a56298f5634fb08a5bcaea62681"
+        },
+        "body": {
+          "originalFile": "empty.bin",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "canonicalPath": "/-/vaults/test-vault/multipart-uploads/upload-id",
+      "canonicalQuery": "",
+      "payloadHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "canonicalRequest": "POST\n/-/vaults/test-vault/multipart-uploads/upload-id\n\nhost:glacier.us-west-2.amazonaws.com\nx-amz-archive-size:11534319\nx-amz-content-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\nx-amz-date:20150830T123600Z\nx-amz-glacier-version:2012-06-01\nx-amz-sha256-tree-hash:eba955cb06248da4171a1fb27a26305575850a56298f5634fb08a5bcaea62681\n\nhost;x-amz-archive-size;x-amz-content-sha256;x-amz-date;x-amz-glacier-version;x-amz-sha256-tree-hash\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stringToSign": "AWS4-HMAC-SHA256\n20150830T123600Z\n20150830/us-west-2/glacier/aws4_request\nbe7ddd9c2b90d658117ae6490de66deab8c832fe31214fd9125284d34b1ede68",
+      "signedHeaders": {
+        "host": "glacier.us-west-2.amazonaws.com",
+        "x-amz-glacier-version": "2012-06-01",
+        "x-amz-archive-size": "11534319",
+        "x-amz-sha256-tree-hash": "eba955cb06248da4171a1fb27a26305575850a56298f5634fb08a5bcaea62681",
+        "x-amz-date": "20150830T123600Z",
+        "x-amz-content-sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authorization": "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20150830/us-west-2/glacier/aws4_request, SignedHeaders=host;x-amz-archive-size;x-amz-content-sha256;x-amz-date;x-amz-glacier-version;x-amz-sha256-tree-hash, Signature=be1f10aa7e90afdb90c9095a417d89050c76fff53673056559cf890534c27024"
+      },
+      "authorization": "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20150830/us-west-2/glacier/aws4_request, SignedHeaders=host;x-amz-archive-size;x-amz-content-sha256;x-amz-date;x-amz-glacier-version;x-amz-sha256-tree-hash, Signature=be1f10aa7e90afdb90c9095a417d89050c76fff53673056559cf890534c27024",
+      "files": {
+        "stringToSign": "complete-short-odd.string-to-sign.txt",
+        "canonicalRequest": "complete-short-odd.canonical-request.txt",
+        "canonicalHeaders": "complete-short-odd.canonical-headers.txt",
+        "authorization": "complete-short-odd.authorization.txt",
+        "signedHeaders": "complete-short-odd.signed-headers.json"
+      }
+    },
+    {
+      "id": "encoded-archive-id",
+      "service": "glacier",
+      "region": "us-west-2",
+      "signingDate": "2015-08-30T12:36:00.000Z",
+      "purpose": "Synthetic escaped slash/plus/equals/percent/UTF-8 opaque-id signing; actual service/profile identifier admission is separate",
+      "request": {
+        "protocol": "https:",
+        "hostname": "glacier.us-west-2.amazonaws.com",
+        "method": "GET",
+        "path": "/-/vaults/test-vault/archives/A%2FB%2BC%3D%25%E9%9B%AA",
+        "query": {},
+        "headers": {
+          "host": "glacier.us-west-2.amazonaws.com",
+          "x-amz-glacier-version": "2012-06-01"
+        },
+        "body": {
+          "originalFile": "empty.bin",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "canonicalPath": "/-/vaults/test-vault/archives/A%252FB%252BC%253D%2525%25E9%259B%25AA",
+      "canonicalQuery": "",
+      "payloadHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "canonicalRequest": "GET\n/-/vaults/test-vault/archives/A%252FB%252BC%253D%2525%25E9%259B%25AA\n\nhost:glacier.us-west-2.amazonaws.com\nx-amz-content-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\nx-amz-date:20150830T123600Z\nx-amz-glacier-version:2012-06-01\n\nhost;x-amz-content-sha256;x-amz-date;x-amz-glacier-version\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stringToSign": "AWS4-HMAC-SHA256\n20150830T123600Z\n20150830/us-west-2/glacier/aws4_request\n94ed00930f65d2a8099170e2d9c9fc1263edd9324fac1aca7bddcb2a5a17b5c8",
+      "signedHeaders": {
+        "host": "glacier.us-west-2.amazonaws.com",
+        "x-amz-glacier-version": "2012-06-01",
+        "x-amz-date": "20150830T123600Z",
+        "x-amz-content-sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authorization": "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20150830/us-west-2/glacier/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date;x-amz-glacier-version, Signature=1bcd00975872c125a18e4eddc3d84756f363fc6e747cad0ba1b66cf1fd605e2e"
+      },
+      "authorization": "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20150830/us-west-2/glacier/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date;x-amz-glacier-version, Signature=1bcd00975872c125a18e4eddc3d84756f363fc6e747cad0ba1b66cf1fd605e2e",
+      "files": {
+        "stringToSign": "encoded-archive-id.string-to-sign.txt",
+        "canonicalRequest": "encoded-archive-id.canonical-request.txt",
+        "canonicalHeaders": "encoded-archive-id.canonical-headers.txt",
+        "authorization": "encoded-archive-id.authorization.txt",
+        "signedHeaders": "encoded-archive-id.signed-headers.json"
+      }
+    },
+    {
+      "id": "port-whitespace",
+      "service": "glacier",
+      "region": "us-west-2",
+      "signingDate": "2015-08-30T12:36:00.000Z",
+      "purpose": "Synthetic granted endpoint prefix with escaped bytes, nondefault port and whitespace; no AWS endpoint compatibility claim",
+      "request": {
+        "protocol": "https:",
+        "hostname": "glacier.fixture.invalid",
+        "port": 8443,
+        "method": "GET",
+        "path": "/fixture%20prefix/%25root/-/vaults/test-vault",
+        "query": {},
+        "headers": {
+          "host": "glacier.fixture.invalid:8443",
+          "x-amz-glacier-version": "2012-06-01",
+          "x-amz-meta-fixture": "  first\t second  "
+        },
+        "body": {
+          "originalFile": "empty.bin",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "canonicalPath": "/fixture%2520prefix/%2525root/-/vaults/test-vault",
+      "canonicalQuery": "",
+      "payloadHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "canonicalRequest": "GET\n/fixture%2520prefix/%2525root/-/vaults/test-vault\n\nhost:glacier.fixture.invalid:8443\nx-amz-content-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\nx-amz-date:20150830T123600Z\nx-amz-glacier-version:2012-06-01\nx-amz-meta-fixture:first second\n\nhost;x-amz-content-sha256;x-amz-date;x-amz-glacier-version;x-amz-meta-fixture\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stringToSign": "AWS4-HMAC-SHA256\n20150830T123600Z\n20150830/us-west-2/glacier/aws4_request\n674b9127de895194f9d41956832377adb21b9275a5fd3303d456b5dfdd277b20",
+      "signedHeaders": {
+        "host": "glacier.fixture.invalid:8443",
+        "x-amz-glacier-version": "2012-06-01",
+        "x-amz-meta-fixture": "  first\t second  ",
+        "x-amz-date": "20150830T123600Z",
+        "x-amz-content-sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authorization": "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20150830/us-west-2/glacier/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date;x-amz-glacier-version;x-amz-meta-fixture, Signature=048901495cb6a9e310eaa6a56d1cb7a6dd30e56c5a6ec369f35dff70a4baca36"
+      },
+      "authorization": "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20150830/us-west-2/glacier/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date;x-amz-glacier-version;x-amz-meta-fixture, Signature=048901495cb6a9e310eaa6a56d1cb7a6dd30e56c5a6ec369f35dff70a4baca36",
+      "files": {
+        "stringToSign": "port-whitespace.string-to-sign.txt",
+        "canonicalRequest": "port-whitespace.canonical-request.txt",
+        "canonicalHeaders": "port-whitespace.canonical-headers.txt",
+        "authorization": "port-whitespace.authorization.txt",
+        "signedHeaders": "port-whitespace.signed-headers.json"
+      }
+    },
+    {
+      "id": "rotated-date-region-key",
+      "service": "glacier",
+      "region": "eu-west-1",
+      "signingDate": "2015-08-31T00:00:00.000Z",
+      "purpose": "Glacier request signing mechanics; no native service acceptance",
+      "request": {
+        "protocol": "https:",
+        "hostname": "glacier.eu-west-1.amazonaws.com",
+        "method": "GET",
+        "path": "/-/vaults/test-vault",
+        "query": {},
+        "headers": {
+          "host": "glacier.eu-west-1.amazonaws.com",
+          "x-amz-glacier-version": "2012-06-01"
+        },
+        "body": {
+          "originalFile": "empty.bin",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "canonicalPath": "/-/vaults/test-vault",
+      "canonicalQuery": "",
+      "payloadHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "canonicalRequest": "GET\n/-/vaults/test-vault\n\nhost:glacier.eu-west-1.amazonaws.com\nx-amz-content-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\nx-amz-date:20150831T000000Z\nx-amz-glacier-version:2012-06-01\n\nhost;x-amz-content-sha256;x-amz-date;x-amz-glacier-version\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stringToSign": "AWS4-HMAC-SHA256\n20150831T000000Z\n20150831/eu-west-1/glacier/aws4_request\n8c1edcfe925250a4c1792ac00fad2cb23f252cc17c165122ddb48b9c33c59c82",
+      "signedHeaders": {
+        "host": "glacier.eu-west-1.amazonaws.com",
+        "x-amz-glacier-version": "2012-06-01",
+        "x-amz-date": "20150831T000000Z",
+        "x-amz-content-sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authorization": "AWS4-HMAC-SHA256 Credential=AKIDROTATED/20150831/eu-west-1/glacier/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date;x-amz-glacier-version, Signature=44ee3eaee5cb07721fa4a7df9381d62039aa29a742d2f0fbbb72f7e8e2a80e2f"
+      },
+      "authorization": "AWS4-HMAC-SHA256 Credential=AKIDROTATED/20150831/eu-west-1/glacier/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date;x-amz-glacier-version, Signature=44ee3eaee5cb07721fa4a7df9381d62039aa29a742d2f0fbbb72f7e8e2a80e2f",
+      "files": {
+        "stringToSign": "rotated-date-region-key.string-to-sign.txt",
+        "canonicalRequest": "rotated-date-region-key.canonical-request.txt",
+        "canonicalHeaders": "rotated-date-region-key.canonical-headers.txt",
+        "authorization": "rotated-date-region-key.authorization.txt",
+        "signedHeaders": "rotated-date-region-key.signed-headers.json"
+      }
+    },
+    {
+      "id": "service-separated-control",
+      "service": "s3",
+      "region": "us-west-2",
+      "signingDate": "2015-08-30T12:36:00.000Z",
+      "purpose": "Same explicit request signed with s3 scope to compare service-separated derivation; not a Glacier service request",
+      "request": {
+        "protocol": "https:",
+        "hostname": "glacier.us-west-2.amazonaws.com",
+        "method": "GET",
+        "path": "/-/vaults/test-vault",
+        "query": {},
+        "headers": {
+          "host": "glacier.us-west-2.amazonaws.com",
+          "x-amz-glacier-version": "2012-06-01"
+        },
+        "body": {
+          "originalFile": "empty.bin",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "canonicalPath": "/-/vaults/test-vault",
+      "canonicalQuery": "",
+      "payloadHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "canonicalRequest": "GET\n/-/vaults/test-vault\n\nhost:glacier.us-west-2.amazonaws.com\nx-amz-content-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\nx-amz-date:20150830T123600Z\nx-amz-glacier-version:2012-06-01\n\nhost;x-amz-content-sha256;x-amz-date;x-amz-glacier-version\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stringToSign": "AWS4-HMAC-SHA256\n20150830T123600Z\n20150830/us-west-2/s3/aws4_request\nff31685bef3b8f3543ceb95246449c3a3b7ac2d4497ba78b5b39a165e56bb432",
+      "signedHeaders": {
+        "host": "glacier.us-west-2.amazonaws.com",
+        "x-amz-glacier-version": "2012-06-01",
+        "x-amz-date": "20150830T123600Z",
+        "x-amz-content-sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authorization": "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20150830/us-west-2/s3/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date;x-amz-glacier-version, Signature=533d14568e49a2801e961e2fe7c148b538be8d2e7397f925975eca9977ebc801"
+      },
+      "authorization": "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20150830/us-west-2/s3/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date;x-amz-glacier-version, Signature=533d14568e49a2801e961e2fe7c148b538be8d2e7397f925975eca9977ebc801",
+      "files": {
+        "stringToSign": "service-separated-control.string-to-sign.txt",
+        "canonicalRequest": "service-separated-control.canonical-request.txt",
+        "canonicalHeaders": "service-separated-control.canonical-headers.txt",
+        "authorization": "service-separated-control.authorization.txt",
+        "signedHeaders": "service-separated-control.signed-headers.json"
+      }
+    },
+    {
+      "id": "s3-path-policy-control",
+      "service": "s3",
+      "region": "us-west-2",
+      "signingDate": "2015-08-30T12:36:00.000Z",
+      "purpose": "Synthetic S3 single-encoding control for the same escaped path; not a Glacier or S3 service request",
+      "request": {
+        "protocol": "https:",
+        "hostname": "glacier.us-west-2.amazonaws.com",
+        "method": "GET",
+        "path": "/-/vaults/test-vault/archives/A%2FB%2BC%3D%25%E9%9B%AA",
+        "query": {},
+        "headers": {
+          "host": "glacier.us-west-2.amazonaws.com",
+          "x-amz-glacier-version": "2012-06-01"
+        },
+        "body": {
+          "originalFile": "empty.bin",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "canonicalPath": "/-/vaults/test-vault/archives/A%2FB%2BC%3D%25%E9%9B%AA",
+      "canonicalQuery": "",
+      "payloadHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "canonicalRequest": "GET\n/-/vaults/test-vault/archives/A%2FB%2BC%3D%25%E9%9B%AA\n\nhost:glacier.us-west-2.amazonaws.com\nx-amz-content-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\nx-amz-date:20150830T123600Z\nx-amz-glacier-version:2012-06-01\n\nhost;x-amz-content-sha256;x-amz-date;x-amz-glacier-version\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stringToSign": "AWS4-HMAC-SHA256\n20150830T123600Z\n20150830/us-west-2/s3/aws4_request\nbe61ef830157d3fca51b6995f3e6c82462edc0b2f0bbee9ac9c775203012d4aa",
+      "signedHeaders": {
+        "host": "glacier.us-west-2.amazonaws.com",
+        "x-amz-glacier-version": "2012-06-01",
+        "x-amz-date": "20150830T123600Z",
+        "x-amz-content-sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authorization": "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20150830/us-west-2/s3/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date;x-amz-glacier-version, Signature=2bb20b1fa5f487885cc2ce5c77d05dcfa04d07d7abb7b7551c18c72f02312fc5"
+      },
+      "authorization": "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20150830/us-west-2/s3/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date;x-amz-glacier-version, Signature=2bb20b1fa5f487885cc2ce5c77d05dcfa04d07d7abb7b7551c18c72f02312fc5",
+      "files": {
+        "stringToSign": "s3-path-policy-control.string-to-sign.txt",
+        "canonicalRequest": "s3-path-policy-control.canonical-request.txt",
+        "canonicalHeaders": "s3-path-policy-control.canonical-headers.txt",
+        "authorization": "s3-path-policy-control.authorization.txt",
+        "signedHeaders": "s3-path-policy-control.signed-headers.json"
+      }
+    }
+  ]
+}

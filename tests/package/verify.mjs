@@ -79,6 +79,14 @@ try {
   if (manifest.name !== "@okikio/opfs") {
     throw new Error(`Unexpected npm package name: ${manifest.name}`);
   }
+  if (
+    Object.keys(manifest.exports ?? {}).length !== 168 || !("./glacier" in manifest.exports) ||
+    "./aws" in manifest.exports
+  ) {
+    throw new Error(
+      "Packed public surface must contain 168 explicit entries, including Glacier and excluding internal AWS signing.",
+    );
+  }
   if (manifest.dependencies?.["drizzle-orm"]) {
     throw new Error("drizzle-orm must not be a normal npm dependency.");
   }
@@ -186,7 +194,7 @@ try {
   await writeFile(
     join(consumer, "smoke.mjs"),
     undent`
-    import { createCipheriv, createDecipheriv } from 'node:crypto';
+    import { createCipheriv, createDecipheriv, createHash } from 'node:crypto';
     import { env, versions } from 'node:process';
     import { fileURLToPath } from 'node:url';
     import { openAge, AgeError } from '@okikio/opfs/crypto/age';
@@ -235,6 +243,7 @@ try {
     import { ResticClient } from '@okikio/opfs/restic';
     import { LakefsClient } from '@okikio/opfs/lakefs';
     import { createGcsClient, GcsStorageClassSchema } from '@okikio/opfs/gcs';
+    import { createGlacierClient, glacierTreeHash, glacierMultipartHash, GLACIER_MIB, GlacierPublicationError } from '@okikio/opfs/glacier';
     import { createGcsDriverFromClient } from '@okikio/opfs/driver/gcs';
     import { openFits } from '@okikio/opfs/dataset/fits';
     import { openNetcdf } from '@okikio/opfs/dataset/netcdf';
@@ -1399,6 +1408,84 @@ try {
     const arweaveDownloaded = await arweaveRemote.read({ chunkProfile: 'arweave-js-1.15.7' });
     assertBytes(await arweaveDownloaded.source.read(0, 1), arweaveBytes);
     if (arweaveCalls !== 2 || Object.hasOwn(arweaveRemote.transaction, 'verifyData')) throw new Error('Packed Arweave ownership boundary changed');
+    // Authored in-memory protocol exercise through the installed public artifact;
+    // independent SDK fixtures and live-service qualification are separate gates.
+    const glacierOriginal = Uint8Array.from({length:GLACIER_MIB+17},(_,index)=>(index*31+17)%251);
+    const glacierReferenceTree = (bytes) => {
+      let level=[];
+      for(let at=0;at<bytes.length;at+=GLACIER_MIB)level.push(createHash('sha256').update(bytes.subarray(at,at+GLACIER_MIB)).digest());
+      if(!level.length)return createHash('sha256').digest('hex');
+      while(level.length>1){const next=[];for(let at=0;at<level.length;at+=2)next.push(at+1===level.length?level[at]:createHash('sha256').update(level[at]).update(level[at+1]).digest());level=next;}
+      return level[0].toString('hex');
+    };
+    const glacierHash=glacierReferenceTree(glacierOriginal);
+    if(await glacierTreeHash(glacierOriginal,crypto.subtle)!==glacierHash)throw new Error('Packed Glacier tree differs from independent Node reduction');
+    const glacierJob={JobId:'job',Action:'ArchiveRetrieval',Completed:true,StatusCode:'Succeeded',ArchiveId:'archive',ArchiveSizeInBytes:glacierOriginal.length,RetrievalByteRange:'0-'+(glacierOriginal.length-1),SHA256TreeHash:glacierHash};
+    const glacierReceipt=(kind,id)=>({['x-amz-'+kind+'-id']:id,location:'/-/vaults/packed/'+(kind==='job'?'jobs':kind==='multipart-upload'?'multipart-uploads':'archives')+'/'+id,'x-amzn-requestid':'packed-request'});
+    let glacierRequests=0;
+    const glacierOptions={endpoint:'https://glacier.invalid',account:'-',vault:'packed',region:'us-east-1',credentials:{accessKeyId:'fixture',secretAccessKey:'fixture-secret'},subtle:crypto.subtle,now:()=>new Date('2026-11-05T00:00:00Z'),requestPolicy:{retries:0},fetch:async(input,init)=>{
+      glacierRequests++;const url=new URL(String(input)),headers=new Headers(init?.headers),method=init?.method;
+      if(!headers.get('authorization')?.includes('/us-east-1/glacier/aws4_request')||headers.get('x-amz-glacier-version')!=='2012-06-01'||init?.redirect!=='manual')throw new Error('Packed Glacier signing scope changed');
+      const prefix='/-/vaults/packed';
+      if(method==='GET'&&url.pathname===prefix)return Response.json({VaultARN:'arn:aws:glacier:us-east-1:000000000000:vaults/packed',VaultName:'packed',CreationDate:'2026-11-05T00:00:00Z',LastInventoryDate:null,NumberOfArchives:1,SizeInBytes:glacierOriginal.length});
+      if(method==='GET'&&url.pathname===prefix+'/jobs')return Response.json({JobList:[glacierJob],Marker:null});
+      if(method==='GET'&&url.pathname===prefix+'/jobs/job')return Response.json(glacierJob);
+      if(method==='POST'&&url.pathname===prefix+'/jobs')return new Response(null,{status:202,headers:glacierReceipt('job','job')});
+      if(method==='GET'&&url.pathname===prefix+'/jobs/job/output'){
+        const range=headers.get('range');
+        if(range===null)return new Response(glacierOriginal,{headers:{'content-length':String(glacierOriginal.length),'x-amz-sha256-tree-hash':glacierHash}});
+        if(range!=='bytes=17-47')throw new Error('Packed Glacier job-relative selected range changed');
+        return new Response(glacierOriginal.slice(17,48),{status:206,headers:{'content-range':'bytes 17-47/'+glacierOriginal.length,'content-length':'31'}});
+      }
+      if(method==='POST'&&url.pathname===prefix+'/archives'){
+        assertBytes(new Uint8Array(init.body),glacierOriginal);
+        if(headers.get('x-amz-sha256-tree-hash')!==glacierHash)throw new Error('Packed Glacier upload hash changed');
+        return new Response(null,{status:201,headers:{...glacierReceipt('archive','archive'),'x-amz-sha256-tree-hash':glacierHash}});
+      }
+      if(method==='DELETE'&&url.pathname===prefix+'/archives/archive')return new Response(null,{status:204});
+      if(url.pathname===prefix+'/multipart-uploads'){
+        if(method==='POST')return new Response(null,{status:201,headers:glacierReceipt('multipart-upload','upload')});
+        if(method==='GET')return Response.json({UploadsList:[{MultipartUploadId:'upload',PartSizeInBytes:2*GLACIER_MIB}],Marker:null});
+      }
+      if(url.pathname===prefix+'/multipart-uploads/upload'){
+        if(method==='GET')return Response.json({MultipartUploadId:'upload',PartSizeInBytes:2*GLACIER_MIB,Parts:[{RangeInBytes:'0-'+(glacierOriginal.length-1),SHA256TreeHash:glacierHash}],Marker:null});
+        if(method==='PUT'){
+          assertBytes(new Uint8Array(init.body),glacierOriginal);
+          if(headers.get('content-range')!=='bytes 0-'+(glacierOriginal.length-1)+'/*')throw new Error('Packed Glacier multipart range changed');
+          return new Response(null,{status:204,headers:{'x-amz-sha256-tree-hash':glacierHash}});
+        }
+        if(method==='POST'){
+          if(headers.get('x-amz-archive-size')!==String(glacierOriginal.length)||headers.get('x-amz-sha256-tree-hash')!==glacierHash)throw new Error('Packed Glacier completion preflight changed');
+          return new Response(null,{status:201,headers:glacierReceipt('archive','archive')});
+        }
+        if(method==='DELETE')return new Response(null,{status:204});
+      }
+      throw new Error('Unexpected packed Glacier route');
+    }};
+    const glacier=createGlacierClient(glacierOptions);
+    if((await glacier.describeVault()).NumberOfArchives!==1||(await glacier.listJobsPage()).marker!==null)throw new Error('Packed Glacier metadata changed');
+    if((await glacier.startArchiveJob('archive')).id!=='job'||(await glacier.startInventoryJob()).id!=='job')throw new Error('Packed Glacier job receipt changed');
+    const glacierOutput=await glacier.readOutput(glacierJob,0,glacierOriginal.length,{requireChecksum:true});assertBytes(glacierOutput.bytes,glacierOriginal);
+    if(glacierOutput.checksum!=='service')throw new Error('Packed Glacier service checksum evidence changed');
+    const glacierSelected=await glacier.readOutput(glacierJob,17,31,{requireChecksum:true,expectedTreeHash:glacierReferenceTree(glacierOriginal.subarray(17,48))});assertBytes(glacierSelected.bytes,glacierOriginal.subarray(17,48));
+    if(glacierSelected.checksum!=='caller')throw new Error('Packed Glacier caller checksum evidence changed');
+    const glacierBefore=glacierRequests;
+    let glacierRefused=false;try{await glacier.readOutput(glacierJob,17,31,{requireChecksum:true});}catch{glacierRefused=true;}
+    if(!glacierRefused||glacierRequests!==glacierBefore)throw new Error('Packed Glacier ineligible checksum policy performed I/O');
+    const glacierSource=await glacier.openOutput('job');assertBytes(await glacierSource.read(17,31),glacierOriginal.subarray(17,48));
+    if((await glacier.uploadArchive(glacierOriginal)).id!=='archive')throw new Error('Packed Glacier archive receipt changed');
+    const glacierUpload=await glacier.createUpload(2*GLACIER_MIB);
+    const glacierPartInput=new Uint8Array(glacierOriginal);
+    const glacierPartPending=glacier.uploadPart(glacierUpload,0,glacierPartInput);glacierPartInput.fill(0);
+    const glacierPart=await glacierPartPending;
+    const glacierParts=await glacier.listParts(glacierUpload,{maxPages:1});
+    if(glacierParts.length!==1||(await glacier.listUploadsPage()).marker!==null||await glacierMultipartHash(glacierUpload,glacierParts,glacierOriginal.length,crypto.subtle)!==glacierHash)throw new Error('Packed Glacier multipart state changed');
+    if((await glacier.completeUpload(glacierUpload,[glacierPart],glacierOriginal.length)).id!=='archive')throw new Error('Packed Glacier completion receipt changed');
+    await glacier.abortUpload(glacierUpload);await glacier.deleteArchive('archive');
+    const glacierLost=createGlacierClient({...glacierOptions,fetch:async()=>{throw new Error('lost receipt');}});
+    let glacierUnknown=false;try{await glacierLost.startArchiveJob('archive');}catch(reason){glacierUnknown=reason instanceof GlacierPublicationError&&reason.outcome==='unknown';}
+    if(!glacierUnknown)throw new Error('Packed Glacier lost publication lost unknown-outcome identity');
+
     let gcsArchiveCalls = 0;
     const gcsReported = { name: 'archive.bin', size: '3', generation: '18446744073709551614', storageClass: 'ARCHIVE', metageneration: '9007199254740993', crc32c: 'AQIDBA==' };
     const gcsArchive = createGcsClient({
@@ -2014,6 +2101,7 @@ try {
     import { ResticClient } from '@okikio/opfs/restic';
     import { LakefsClient } from '@okikio/opfs/lakefs';
     import { createGcsClient, GcsStorageClassSchema } from '@okikio/opfs/gcs';
+    import { createGlacierClient } from '@okikio/opfs/glacier';
     import { createGcsDriverFromClient } from '@okikio/opfs/driver/gcs';
     import { openFits } from '@okikio/opfs/dataset/fits';
     import { openNetcdf } from '@okikio/opfs/dataset/netcdf';
@@ -2151,6 +2239,21 @@ try {
     const fitsValues: import('@okikio/opfs/dataset/fits').FitsValuesType = (await fits.read(0)).values;
     const fitsVerification: import('@okikio/opfs/dataset/fits').FitsVerificationType = await fits.verify(0);
     const gcsNative = createGcsClient({ bucket: 'types' });
+    const glacierNative = createGlacierClient({endpoint:'https://glacier.invalid',account:'-',vault:'types',region:'us-east-1',credentials:{accessKeyId:'fixture',secretAccessKey:'fixture'},fetch:async()=>{throw new Error('type-only');},subtle:globalThis.crypto.subtle,now:()=>new Date()});
+    const glacierReceiptTyped: import('@okikio/opfs/glacier').GlacierReceiptType = await glacierNative.startArchiveJob('archive',{start:0,end:1048575,archiveSize:1048576,tier:'Bulk'});
+    const glacierUploadTyped: import('@okikio/opfs/glacier').GlacierUploadType = await glacierNative.createUpload(1048576);
+    const glacierPartTyped: import('@okikio/opfs/glacier').GlacierPartType = await glacierNative.uploadPart(glacierUploadTyped,0,new Uint8Array([1]));
+    const glacierListedTyped: import('@okikio/opfs/glacier').GlacierPartsType = await glacierNative.listPartsPage(glacierUploadTyped,{limit:1});
+    const glacierJobTyped: import('@okikio/opfs/glacier').GlacierJobType = await glacierNative.describeJob(glacierReceiptTyped.id);
+    const glacierOutputTyped: import('@okikio/opfs/glacier').GlacierOutputSourceType = await glacierNative.openOutput(glacierReceiptTyped.id);
+    const glacierReadTyped: Uint8Array = (await glacierNative.readOutput(glacierJobTyped,0,1,{expectedTreeHash:'a'.repeat(64)})).bytes;
+    const glacierCompleteTyped: import('@okikio/opfs/glacier').GlacierReceiptType = await glacierNative.completeUpload(glacierUploadTyped,[glacierPartTyped],1);
+    const glacierVaultTyped: import('@okikio/opfs/glacier').GlacierVaultType = await glacierNative.describeVault();
+    // @ts-expect-error Glacier's native client does not implement an OPFS object driver contract.
+    const glacierObjectDriver: import('@okikio/opfs/driver/object').ObjectBackendType = glacierNative;
+    // @ts-expect-error Native tree hashes are textual digests, not mutable byte buffers.
+    const glacierWrongHash: import('@okikio/opfs/glacier').GlacierPartType = {start:0,end:0,treeHash:new Uint8Array(32)};
+    void [glacierListedTyped,glacierOutputTyped.archiveOffset,glacierReadTyped,glacierCompleteTyped,glacierVaultTyped,glacierObjectDriver,glacierWrongHash];
     const gcsClass: import('@okikio/opfs/gcs').GcsStorageClassType = GcsStorageClassSchema.parse('ARCHIVE');
     const gcsReceipt: import('@okikio/opfs/gcs').GcsReceiptType = await gcsNative.put('object', new Uint8Array(), { storageClass: gcsClass });
     const gcsMetadata: string | undefined = gcsReceipt.metageneration;
@@ -2474,6 +2577,7 @@ try {
       export { openAge } from '@okikio/opfs/crypto/age';
       export { createNodeAgeAead } from '@okikio/opfs/crypto/age-node';
       export { AmqpClient } from '@okikio/opfs/amqp';
+      export { createGlacierClient, glacierTreeHash } from '@okikio/opfs/glacier';
     `,
     );
     await command("deno", [
@@ -2486,7 +2590,9 @@ try {
       "optional-browser.mjs",
     ], { cwd: consumer });
     const browserBundle = await readFile(join(consumer, "browser-bundle.js"), "utf8");
-    for (const marker of ["jwe-compact-dir-a128gcm", "Nats-Expected-Stream", "Parquet Compact"]) {
+    for (
+      const marker of ["jwe-compact-dir-a128gcm", "Nats-Expected-Stream", "Parquet Compact", "x-amz-glacier-version"]
+    ) {
       if (browserBundle.includes(marker)) throw new Error("Memory-only bundle retained optional protocol: " + marker);
     }
     await writeFile(
@@ -2547,7 +2653,7 @@ try {
           throw new Error('Optional import discovered ambient capability: ' + name);
         }});
       }
-      for (const spec of ['crypto/jwe', 'nats', 'dataset/parquet', 'crypto/age', 'crypto/age-node', 'dataset/orc', 'amqp']) await import('@okikio/opfs/' + spec);
+      for (const spec of ['crypto/jwe', 'nats', 'dataset/parquet', 'crypto/age', 'crypto/age-node', 'dataset/orc', 'amqp', 'glacier']) await import('@okikio/opfs/' + spec);
       if (touched.length) throw new Error('Optional import touched ambient capabilities: ' + touched.join(','));
     } finally {
       for (const [name, descriptor] of descriptors) {
@@ -2555,7 +2661,7 @@ try {
         else delete globalThis[name];
       }
     }
-    console.log('Imported seven optional capabilities without ambient crypto, fetch or sockets');
+    console.log('Imported eight optional capabilities without ambient crypto, fetch or sockets');
   `,
   );
   await command("node", ["optional-imports.mjs"], { cwd: consumer });
@@ -2567,6 +2673,10 @@ try {
   const specs = Object.keys(manifest.exports).map((key) =>
     key === "." ? "@okikio/opfs" : `@okikio/opfs/${key.slice(2)}`
   );
+  if (specs.length !== 168) throw new Error("Expected all 168 public packed entrypoints.");
+  if (Object.keys(manifest.exports).some((key) => key === "./aws" || key.includes("*"))) {
+    throw new Error("Internal AWS signing must remain outside the explicit public export map.");
+  }
   await writeFile(
     join(consumer, "exports.mjs"),
     undent`
@@ -2578,6 +2688,10 @@ try {
     if (relative(consumer, root) !== join('node_modules', '@okikio', 'opfs')) {
       throw new Error('Package root is outside the fresh installed consumer: ' + root);
     }
+    const cryptoDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'crypto');
+    let eagerCrypto = 0;
+    Object.defineProperty(globalThis, 'crypto', {configurable:true,get(){eagerCrypto++;throw new Error('Packed import discovered ambient crypto');}});
+    try {
     for (const spec of ${JSON.stringify(specs)}) {
       const path = await realpath(fileURLToPath(import.meta.resolve(spec)));
       const inside = relative(root, path);
@@ -2586,6 +2700,14 @@ try {
       }
       await import(spec);
     }
+    if(eagerCrypto!==0)throw new Error('Packed public imports touched ambient crypto');
+    } finally {
+      if(cryptoDescriptor)Object.defineProperty(globalThis,'crypto',cryptoDescriptor);
+      else delete globalThis.crypto;
+    }
+    let internalAwsRejected = false;
+    try { await import('@okikio/opfs/aws'); } catch { internalAwsRejected = true; }
+    if (!internalAwsRejected) throw new Error('Internal AWS signing escaped the public export map');
     console.log('Imported ${specs.length} physically installed packed public entrypoints');
 `,
   );

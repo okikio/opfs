@@ -1,0 +1,112 @@
+{
+  "authority": "authored complete original bytes; no candidate imports",
+  "vectors": [
+    {
+      "id": "empty",
+      "size": 0,
+      "seed": 11,
+      "pattern": "affine-block-v1",
+      "file": "empty.bin",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "one",
+      "size": 1,
+      "seed": 29,
+      "pattern": "affine-block-v1",
+      "file": "one.bin",
+      "sha256": "1f18d650d205d71d934c3646ff5fac1c096ba52eba4cf758b865364f4167d3cd"
+    },
+    {
+      "id": "mib-minus-one",
+      "size": 1048575,
+      "seed": 41,
+      "pattern": "affine-block-v1",
+      "file": "mib-minus-one.bin",
+      "sha256": "583122d6c141273f4cce1bc6b7a3e9f449ea6c8bbec21115d8f119a948443cea"
+    },
+    {
+      "id": "mib",
+      "size": 1048576,
+      "seed": 53,
+      "pattern": "affine-block-v1",
+      "file": "mib.bin",
+      "sha256": "934bf538ff78aa57fc5b2233a8e62b9f2afec5e837f1f5ab1497e0d7a26c3253"
+    },
+    {
+      "id": "mib-plus-one",
+      "size": 1048577,
+      "seed": 67,
+      "pattern": "affine-block-v1",
+      "file": "mib-plus-one.bin",
+      "sha256": "4438a9d71e2b167bb79328a2a2ca54d697ff2cf313d617e9fe234a571473eb0f"
+    },
+    {
+      "id": "three-leaves",
+      "size": 3145728,
+      "seed": 79,
+      "pattern": "affine-block-v1",
+      "file": "three-leaves.bin",
+      "sha256": "925c6fdb10bce39036f5f01f1ec98127023a13b4d993717c28b3a6184cd8df7e"
+    },
+    {
+      "id": "four-leaves",
+      "size": 4194304,
+      "seed": 81,
+      "pattern": "affine-block-v1",
+      "file": "four-leaves.bin",
+      "sha256": "f4cd41e12e52354db6a3a4e57df0ed96e529ad4f9d100a632e910e62aa80a20c"
+    },
+    {
+      "id": "five-leaves",
+      "size": 5242880,
+      "seed": 83,
+      "pattern": "affine-block-v1",
+      "file": "five-leaves.bin",
+      "sha256": "0084842ec5a3c2464a0d437ec40a0152580c6522f0c59cca94372708ffa9b1cc"
+    },
+    {
+      "id": "seven-leaves",
+      "size": 7340032,
+      "seed": 97,
+      "pattern": "affine-block-v1",
+      "file": "seven-leaves.bin",
+      "sha256": "10f15f6ec5de0651f7658863263a6840d50d4f3026ba5e6141d58714f23df75b"
+    },
+    {
+      "id": "zeroes-partial",
+      "size": 1048577,
+      "seed": 0,
+      "pattern": "zero",
+      "file": "zeroes-partial.bin",
+      "sha256": "2cb74edba754a81d121c9db6833704a8e7d417e5b13d1a19f4a52f007d644264"
+    },
+    {
+      "id": "multipart-three-short-odd",
+      "size": 11534319,
+      "seed": 101,
+      "pattern": "affine-block-v1",
+      "partSize": 4194304,
+      "file": "multipart-three-short-odd.bin",
+      "sha256": "f5dc1cc9a8392b65fb4b425e00f7d0243b9babc9a9239b3a44cbcebc2389ef0e"
+    },
+    {
+      "id": "multipart-five-short",
+      "size": 9437167,
+      "seed": 103,
+      "pattern": "affine-block-v1",
+      "partSize": 2097152,
+      "file": "multipart-five-short.bin",
+      "sha256": "542ddf332b1a974ecb56d342765da0dc7ee937a10f4ecef1bcbfa635b4979445"
+    },
+    {
+      "id": "multipart-seven-short",
+      "size": 13631471,
+      "seed": 107,
+      "pattern": "affine-block-v1",
+      "partSize": 2097152,
+      "file": "multipart-seven-short.bin",
+      "sha256": "ae4d5f9203c6e2fd400e225dde626f1cc75b5a0ab94b8daa49194e7dbcc94371"
+    }
+  ]
+}

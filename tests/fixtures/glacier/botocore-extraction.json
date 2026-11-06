@@ -1,0 +1,28 @@
+{
+  "status": "unchanged-inert-source-extraction-not-executed",
+  "upstreamCommit": "a3bbf61a0a3548c6bc7b68dd0a23bb6242a8e630",
+  "upstreamVersion": "1.40.0",
+  "fullSourceSha256": "41ec2d50f8b471bb9a186562f38ac8c0b872fc7676abb2625a0f8a5c3844dedf",
+  "sourceLinesInclusive": [
+    1116,
+    1163
+  ],
+  "fragmentFile": "botocore-tree-functions.py.snapshot",
+  "fragmentSha256": "3df5e68cee20bbe60753d3a57dd25182ee7efed201f25d22b147cc9ae8b36eef",
+  "fragmentBytes": 1553,
+  "symbols": [
+    "calculate_tree_hash",
+    "_in_pairs"
+  ],
+  "runtimeBindings": [
+    "hashlib (Python stdlib/OpenSSL)",
+    "binascii (Python stdlib)",
+    "zip_longest (Python stdlib itertools)"
+  ],
+  "license": "Apache-2.0; retain botocore-LICENSE.txt, botocore-NOTICE.txt and original utils.py copyright header. No PSF source was copied; using Python stdlib does not change botocore source attribution.",
+  "limits": [
+    "No full utils import or botocore/dateutil/urllib3 installation.",
+    "Full source retained unchanged; fragment byte slice unchanged; future stdlib wrapper must disclose adaptation and retain provenance.",
+    "No tree computation, script import or test executed."
+  ]
+}

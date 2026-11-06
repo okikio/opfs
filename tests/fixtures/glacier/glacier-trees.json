@@ -1,0 +1,368 @@
+{
+  "authority": "unchanged botocore 1.40.0 tree functions plus stdlib SHA-256 over complete originals",
+  "fragmentSha256": "3df5e68cee20bbe60753d3a57dd25182ee7efed201f25d22b147cc9ae8b36eef",
+  "vectors": [
+    {
+      "id": "empty",
+      "file": "empty.bin",
+      "size": 0,
+      "linearSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "leafHashes": [],
+      "treeHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "parts": []
+    },
+    {
+      "id": "one",
+      "file": "one.bin",
+      "size": 1,
+      "linearSha256": "1f18d650d205d71d934c3646ff5fac1c096ba52eba4cf758b865364f4167d3cd",
+      "leafHashes": [
+        "1f18d650d205d71d934c3646ff5fac1c096ba52eba4cf758b865364f4167d3cd"
+      ],
+      "treeHash": "1f18d650d205d71d934c3646ff5fac1c096ba52eba4cf758b865364f4167d3cd",
+      "parts": []
+    },
+    {
+      "id": "mib-minus-one",
+      "file": "mib-minus-one.bin",
+      "size": 1048575,
+      "linearSha256": "583122d6c141273f4cce1bc6b7a3e9f449ea6c8bbec21115d8f119a948443cea",
+      "leafHashes": [
+        "583122d6c141273f4cce1bc6b7a3e9f449ea6c8bbec21115d8f119a948443cea"
+      ],
+      "treeHash": "583122d6c141273f4cce1bc6b7a3e9f449ea6c8bbec21115d8f119a948443cea",
+      "parts": []
+    },
+    {
+      "id": "mib",
+      "file": "mib.bin",
+      "size": 1048576,
+      "linearSha256": "934bf538ff78aa57fc5b2233a8e62b9f2afec5e837f1f5ab1497e0d7a26c3253",
+      "leafHashes": [
+        "934bf538ff78aa57fc5b2233a8e62b9f2afec5e837f1f5ab1497e0d7a26c3253"
+      ],
+      "treeHash": "934bf538ff78aa57fc5b2233a8e62b9f2afec5e837f1f5ab1497e0d7a26c3253",
+      "parts": []
+    },
+    {
+      "id": "mib-plus-one",
+      "file": "mib-plus-one.bin",
+      "size": 1048577,
+      "linearSha256": "4438a9d71e2b167bb79328a2a2ca54d697ff2cf313d617e9fe234a571473eb0f",
+      "leafHashes": [
+        "e2cecd3f9a9c3f10e91da1a3dd1231450b6509d79c5da24a44fe6b48958cd633",
+        "8de0b3c47f112c59745f717a626932264c422a7563954872e237b223af4ad643"
+      ],
+      "treeHash": "8b1ff74333e5a303294711bf2b886bbede9945f14f800ccf240a0b5ac46b370d",
+      "parts": []
+    },
+    {
+      "id": "three-leaves",
+      "file": "three-leaves.bin",
+      "size": 3145728,
+      "linearSha256": "925c6fdb10bce39036f5f01f1ec98127023a13b4d993717c28b3a6184cd8df7e",
+      "leafHashes": [
+        "0ea02822daadc7c6f79320d0fbf43009cb1c1eeddb9d7898526304214373a4cd",
+        "6c7fdc8ecc4f64fafb8e7046e56dc70cecde3978408e43795ccb240cd26dc5be",
+        "d56a9a8706625be0dc72280c288cb2719d637a36373ebd61e1dc9d4240a074da"
+      ],
+      "treeHash": "cf0171ddd490992993f13eaf2fc5cc5f759ae9faea267ba26eb500c643630c1b",
+      "parts": []
+    },
+    {
+      "id": "four-leaves",
+      "file": "four-leaves.bin",
+      "size": 4194304,
+      "linearSha256": "f4cd41e12e52354db6a3a4e57df0ed96e529ad4f9d100a632e910e62aa80a20c",
+      "leafHashes": [
+        "aa90d7631b058a7210bd406dd9ad2f62b854ad6bfcca6f94ab496918166266d0",
+        "c0bcf35143d32442fc98e7011c127fa47c86e2ea97445d152fe4e22667a8da83",
+        "5004a589fa67d7b40e4bd7a9a7a7afe2e22dda04ed8eab7b7858207bf0d06e5e",
+        "7cbdf202fcb8b4e6ea81016ea68cea3a1d8b4ad0c91003a58dc141cced01c0e4"
+      ],
+      "treeHash": "0e1fb698d726a900a720f1324b9ca31ec0d7e06467d86b7a7d42db153be96dd4",
+      "parts": []
+    },
+    {
+      "id": "five-leaves",
+      "file": "five-leaves.bin",
+      "size": 5242880,
+      "linearSha256": "0084842ec5a3c2464a0d437ec40a0152580c6522f0c59cca94372708ffa9b1cc",
+      "leafHashes": [
+        "3d04d76ee9d0779538601697ba7d00de773ef4cae7cdaeaeb42759078e92141c",
+        "4699ae34bb61490e4d08108582b02ad3c0340b886b168fccf94e8728a841a78c",
+        "5902595dae2f2d5717929da5f6b32a40add4e8378111ee37bf4884678fd0c8e4",
+        "fdb36c9fb26840d2e7436a40dd6a2b9dfe88ff9a9bf88b38c378fb2b260ccda7",
+        "7d7d69fd139d3019687441213027ab8a9b6d0de95a49212598e08c3f40bf102e"
+      ],
+      "treeHash": "c2fed6506dca33864240089ce69c13e3baf552011c517311083f02249db243c7",
+      "parts": []
+    },
+    {
+      "id": "seven-leaves",
+      "file": "seven-leaves.bin",
+      "size": 7340032,
+      "linearSha256": "10f15f6ec5de0651f7658863263a6840d50d4f3026ba5e6141d58714f23df75b",
+      "leafHashes": [
+        "c0bcf35143d32442fc98e7011c127fa47c86e2ea97445d152fe4e22667a8da83",
+        "5004a589fa67d7b40e4bd7a9a7a7afe2e22dda04ed8eab7b7858207bf0d06e5e",
+        "7cbdf202fcb8b4e6ea81016ea68cea3a1d8b4ad0c91003a58dc141cced01c0e4",
+        "6949697104aaa940cf05829ddeb15d26acd97a89a5645b12419d480891c33770",
+        "18bb61d4e6e32f7edc391c28360504e5298585df8830587020daac3a260a3418",
+        "30ce239846ff2d4bd55df793dadec915e65ef761d5f428dae13aa0dc68493db9",
+        "2bb01d6353b5bb07c6518b672adec39e6179e234afe233468cdf5b1a157a6d00"
+      ],
+      "treeHash": "2155a546a11348723d292b0e3084459f03d17985bedb41a7570bc7c885fdffbc",
+      "parts": []
+    },
+    {
+      "id": "zeroes-partial",
+      "file": "zeroes-partial.bin",
+      "size": 1048577,
+      "linearSha256": "2cb74edba754a81d121c9db6833704a8e7d417e5b13d1a19f4a52f007d644264",
+      "leafHashes": [
+        "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+        "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d"
+      ],
+      "treeHash": "28638dab8d5e1754a4ecb38b0ebe6df66c844f94aed142d4d0283d208bb786cd",
+      "parts": []
+    },
+    {
+      "id": "multipart-three-short-odd",
+      "file": "multipart-three-short-odd.bin",
+      "size": 11534319,
+      "linearSha256": "f5dc1cc9a8392b65fb4b425e00f7d0243b9babc9a9239b3a44cbcebc2389ef0e",
+      "leafHashes": [
+        "baa07da92e5b17b8bb4712b13994fa7e6d508974a2ad3ea76d86236bf9fffe0c",
+        "2d9b75f15f0943c1e6e4db51256292693f0c63d41634285935e69a79ad32682a",
+        "21744e211939b1aa7327efe2d6ba0c7102beae537949ef54e8658e885c12afe0",
+        "e51c491e681ddcad96e40a6b7f10fb3974eefb793a571b124cb1a2768aafb8f2",
+        "89d4b342cab64512e5a70cd4cfa59394e373dbe5dc03af0dbf49af922efea097",
+        "a1ee9a75cf501ed6a961601e1a266b935abe3dd39a4964ccafca74e6d64f704f",
+        "6c69cdafaa31396bd3a73091441706ad9b974cb5e9195a46c277f3dd53191a7c",
+        "85cc2200cfa2a1d37ee60d831391bcbb133a81b0ae2d70e14383cec03017140d",
+        "2f4f4df11248ea5daa63b314142ee34fb310634183e185351ce43406bacd89e9",
+        "998cd2d604fae9e3d3ec39c64d3276ef28baaa288d02fec4d8d30df3857588da",
+        "9f91febb1cbfa46fb0b4e728de6c4f95ce6583bd4022f79686772c9e3a2ed5b8"
+      ],
+      "treeHash": "eba955cb06248da4171a1fb27a26305575850a56298f5634fb08a5bcaea62681",
+      "partSize": 4194304,
+      "parts": [
+        {
+          "start": 0,
+          "endInclusive": 4194303,
+          "size": 4194304,
+          "linearSha256": "30405af73d324d3727a1e2e85b02e13658cd95469fee8e54379c891c3503371f",
+          "leafHashes": [
+            "baa07da92e5b17b8bb4712b13994fa7e6d508974a2ad3ea76d86236bf9fffe0c",
+            "2d9b75f15f0943c1e6e4db51256292693f0c63d41634285935e69a79ad32682a",
+            "21744e211939b1aa7327efe2d6ba0c7102beae537949ef54e8658e885c12afe0",
+            "e51c491e681ddcad96e40a6b7f10fb3974eefb793a571b124cb1a2768aafb8f2"
+          ],
+          "treeHash": "ffb09642e20a47e8d27f6cb1ac0d8727b5109bb00e438f7f81e968ba719aa22f"
+        },
+        {
+          "start": 4194304,
+          "endInclusive": 8388607,
+          "size": 4194304,
+          "linearSha256": "76cd0ba2e3e3c12ce54020f44231223c93fec084fae3499fac6366fb602e1bf6",
+          "leafHashes": [
+            "89d4b342cab64512e5a70cd4cfa59394e373dbe5dc03af0dbf49af922efea097",
+            "a1ee9a75cf501ed6a961601e1a266b935abe3dd39a4964ccafca74e6d64f704f",
+            "6c69cdafaa31396bd3a73091441706ad9b974cb5e9195a46c277f3dd53191a7c",
+            "85cc2200cfa2a1d37ee60d831391bcbb133a81b0ae2d70e14383cec03017140d"
+          ],
+          "treeHash": "5cdd55f63c25833608d3a4c0122734977838531341b84859157931aa1f0cfbb6"
+        },
+        {
+          "start": 8388608,
+          "endInclusive": 11534318,
+          "size": 3145711,
+          "linearSha256": "deec03741a39b4632ef6a6d9b3052b2d76164c94a84e7d17f880b4b478963862",
+          "leafHashes": [
+            "2f4f4df11248ea5daa63b314142ee34fb310634183e185351ce43406bacd89e9",
+            "998cd2d604fae9e3d3ec39c64d3276ef28baaa288d02fec4d8d30df3857588da",
+            "9f91febb1cbfa46fb0b4e728de6c4f95ce6583bd4022f79686772c9e3a2ed5b8"
+          ],
+          "treeHash": "deea1563a9180126b7e42c0a90ec6127b960a8c37ca468df0c3909d4886ff1c8"
+        }
+      ]
+    },
+    {
+      "id": "multipart-five-short",
+      "file": "multipart-five-short.bin",
+      "size": 9437167,
+      "linearSha256": "542ddf332b1a974ecb56d342765da0dc7ee937a10f4ecef1bcbfa635b4979445",
+      "leafHashes": [
+        "1e300d6fd493c177ecc2f707d0d782516e1e9b0cad5aa3229a2559276453a72f",
+        "ac0fadbed032b8a4e21599ba82faa61335a289a370b35528fc45080cee56865a",
+        "765343ec1906d91815e94d4fe8f5a586f98053bf3d91f12fdffa7b377904eee8",
+        "d6c753e9e2d9662f69ab185d3b6f7a882beace5a0850e690e362895a2cb21ed0",
+        "77b83c5f467bc437ddc91f2e27aa8141dc0d8fe139a212683d6d21aec3f533e4",
+        "9e85f64465d615d05facc9eb71cc69a62409142ce33a5ac466dbcb991adb9090",
+        "a49bd316684606b5ee3500b5295ac950731c24e97306cccdf610c6deec80c610",
+        "b8eae2f055c135d97f4d48a166beef0312ed7008b0ece9beca9c0f26626ecf92",
+        "b3cf5de3fd9b14b8598e3df38d327b48a8dbac06f41391da10db6e709f78df82"
+      ],
+      "treeHash": "c3d18675f7fb49bb8d2cc062bc7fc705d9050cce2b5280ef249f10e845190ff8",
+      "partSize": 2097152,
+      "parts": [
+        {
+          "start": 0,
+          "endInclusive": 2097151,
+          "size": 2097152,
+          "linearSha256": "35947f3052ca4c42b326b1fb7415cebf4ca13c01d00cf98ec7694647c8dfd463",
+          "leafHashes": [
+            "1e300d6fd493c177ecc2f707d0d782516e1e9b0cad5aa3229a2559276453a72f",
+            "ac0fadbed032b8a4e21599ba82faa61335a289a370b35528fc45080cee56865a"
+          ],
+          "treeHash": "ef35886e23d52b29c7750bd1bf6b5bc580929df954a4ed60de3ec4e8a173e116"
+        },
+        {
+          "start": 2097152,
+          "endInclusive": 4194303,
+          "size": 2097152,
+          "linearSha256": "120b131b4f096290201d5a14ec032714e3d35a04b8dc9f2bffeabbbc12113840",
+          "leafHashes": [
+            "765343ec1906d91815e94d4fe8f5a586f98053bf3d91f12fdffa7b377904eee8",
+            "d6c753e9e2d9662f69ab185d3b6f7a882beace5a0850e690e362895a2cb21ed0"
+          ],
+          "treeHash": "3b66c44d28e9cc5b84bfd320dd70ae7a3a42079e3234b50698afe29ef03654f3"
+        },
+        {
+          "start": 4194304,
+          "endInclusive": 6291455,
+          "size": 2097152,
+          "linearSha256": "3947e70ec9f8b4e91e597a8f11bb71d7871b6012a604dffa623eac4120048b4a",
+          "leafHashes": [
+            "77b83c5f467bc437ddc91f2e27aa8141dc0d8fe139a212683d6d21aec3f533e4",
+            "9e85f64465d615d05facc9eb71cc69a62409142ce33a5ac466dbcb991adb9090"
+          ],
+          "treeHash": "53da700a30c3a0c285e9f163f8060f012fbb49c14c8b5ee2b4f79db13bea7a72"
+        },
+        {
+          "start": 6291456,
+          "endInclusive": 8388607,
+          "size": 2097152,
+          "linearSha256": "ae015d6f1d3860da5b2542013eebcb4573211364eeaf6509edeecf820df0619d",
+          "leafHashes": [
+            "a49bd316684606b5ee3500b5295ac950731c24e97306cccdf610c6deec80c610",
+            "b8eae2f055c135d97f4d48a166beef0312ed7008b0ece9beca9c0f26626ecf92"
+          ],
+          "treeHash": "480741e63c5d60019d184e157ba663c9abe03cd6604002024e594eea9d0a2bb5"
+        },
+        {
+          "start": 8388608,
+          "endInclusive": 9437166,
+          "size": 1048559,
+          "linearSha256": "b3cf5de3fd9b14b8598e3df38d327b48a8dbac06f41391da10db6e709f78df82",
+          "leafHashes": [
+            "b3cf5de3fd9b14b8598e3df38d327b48a8dbac06f41391da10db6e709f78df82"
+          ],
+          "treeHash": "b3cf5de3fd9b14b8598e3df38d327b48a8dbac06f41391da10db6e709f78df82"
+        }
+      ]
+    },
+    {
+      "id": "multipart-seven-short",
+      "file": "multipart-seven-short.bin",
+      "size": 13631471,
+      "linearSha256": "ae4d5f9203c6e2fd400e225dde626f1cc75b5a0ab94b8daa49194e7dbcc94371",
+      "leafHashes": [
+        "4c198b0f832e38b819b51b13a332628fb3c1b091fe01f1e70701244002a044ad",
+        "18a7999307d4baa37190b16b4ae8f0e81b43225b7853d2ba21edbf53cd02e455",
+        "c25fd733e5a08012a56f05413305aa6e993e9c741682112e2c2ae1b6d45fe56a",
+        "279efb3031170d4ae3384f0e11cd24243d9e33af42e08355e4f07bd5d99e8d1e",
+        "becc19dde9ac38243ddf9f050667423d95bad99bf867624f6daba4caacae93be",
+        "b783fd986de2f4c7d4f76c50f5198da878f76d1c12819cb384827fba988d8c55",
+        "1fb470c7b9b6216e0b841459cb7f3e847efe74ae24d98a34ed5559b003172119",
+        "10006b42daf44e66611f4dbcf884aeaecfcdbf02aba40412a14edbc3a0bd2d63",
+        "031776c25bcf65f31ad04b71771630400e1ff46de3c81dc08533dea9106af204",
+        "42681d32b894b3f72580ed8e73d2bbfd1ab08813d9987d4a3ea2826880a29a85",
+        "6ec4450e08b117fcf1c9960d01cfcfbee503a43826a106aa12793ba793bf11d9",
+        "878e82c13b0ec35d0ff93afe8a87f059315e96da27b9dfe62bae85faa13e1c19",
+        "96d329c80b9adbad5d3da629ac3e9385f55299697878a8b742e6a3daf93bc631"
+      ],
+      "treeHash": "0d331acfc1a5a2ee63ae8fe70fc35db50458bc30f3a170404cdda7dac9da6ce7",
+      "partSize": 2097152,
+      "parts": [
+        {
+          "start": 0,
+          "endInclusive": 2097151,
+          "size": 2097152,
+          "linearSha256": "7d8d4bbb5d9cccc83f8a1901d01e64b471d46181db821e9dfd453030e0b5a719",
+          "leafHashes": [
+            "4c198b0f832e38b819b51b13a332628fb3c1b091fe01f1e70701244002a044ad",
+            "18a7999307d4baa37190b16b4ae8f0e81b43225b7853d2ba21edbf53cd02e455"
+          ],
+          "treeHash": "f9c1bf404148a297fbfaf7eaf2446b1996554da39b1e0de228c5f2d227aca14b"
+        },
+        {
+          "start": 2097152,
+          "endInclusive": 4194303,
+          "size": 2097152,
+          "linearSha256": "33fc6b33eb9e51133f1b9a4487b9e95dfd341eeb2395bac55642ff660cb3adc4",
+          "leafHashes": [
+            "c25fd733e5a08012a56f05413305aa6e993e9c741682112e2c2ae1b6d45fe56a",
+            "279efb3031170d4ae3384f0e11cd24243d9e33af42e08355e4f07bd5d99e8d1e"
+          ],
+          "treeHash": "b8d93ee9fdcd9c1a67c959ff60c76828f52600a25bf2ce4366764dfa3d75d8d5"
+        },
+        {
+          "start": 4194304,
+          "endInclusive": 6291455,
+          "size": 2097152,
+          "linearSha256": "6aaa56ba84d5023082c58e12e95423d86efc00ad37418f4da65402a29f192d32",
+          "leafHashes": [
+            "becc19dde9ac38243ddf9f050667423d95bad99bf867624f6daba4caacae93be",
+            "b783fd986de2f4c7d4f76c50f5198da878f76d1c12819cb384827fba988d8c55"
+          ],
+          "treeHash": "1a4668fcc634acff57cc9742fc7bcf37b22bbda7bdd028a5aabeb0af6cee8c73"
+        },
+        {
+          "start": 6291456,
+          "endInclusive": 8388607,
+          "size": 2097152,
+          "linearSha256": "fb82718c661fa1057c87bcb04237ea2147c463f2d86ebe23988bb4fb0b43db42",
+          "leafHashes": [
+            "1fb470c7b9b6216e0b841459cb7f3e847efe74ae24d98a34ed5559b003172119",
+            "10006b42daf44e66611f4dbcf884aeaecfcdbf02aba40412a14edbc3a0bd2d63"
+          ],
+          "treeHash": "1dbd4d067a16f422a14439e1af04fb3940ff07203dcea19180b1a80dad76faec"
+        },
+        {
+          "start": 8388608,
+          "endInclusive": 10485759,
+          "size": 2097152,
+          "linearSha256": "eee04959ebbb961263cb9c2aabefa3e632d2861636305008545a8fdf9f92ba31",
+          "leafHashes": [
+            "031776c25bcf65f31ad04b71771630400e1ff46de3c81dc08533dea9106af204",
+            "42681d32b894b3f72580ed8e73d2bbfd1ab08813d9987d4a3ea2826880a29a85"
+          ],
+          "treeHash": "a5a5d5ad1479eec6799145ca4d16e825554ac0ec6fa1aa3a4e97e8a553ca91bd"
+        },
+        {
+          "start": 10485760,
+          "endInclusive": 12582911,
+          "size": 2097152,
+          "linearSha256": "6a49bb4ad9feecc2692e432cea4e38d694c9b8864e069cfd390f056cea85d46c",
+          "leafHashes": [
+            "6ec4450e08b117fcf1c9960d01cfcfbee503a43826a106aa12793ba793bf11d9",
+            "878e82c13b0ec35d0ff93afe8a87f059315e96da27b9dfe62bae85faa13e1c19"
+          ],
+          "treeHash": "d12299d66d0dbf9120c5695c48cdb50a081f1d84351615b6fcc9158f6462919a"
+        },
+        {
+          "start": 12582912,
+          "endInclusive": 13631470,
+          "size": 1048559,
+          "linearSha256": "96d329c80b9adbad5d3da629ac3e9385f55299697878a8b742e6a3daf93bc631",
+          "leafHashes": [
+            "96d329c80b9adbad5d3da629ac3e9385f55299697878a8b742e6a3daf93bc631"
+          ],
+          "treeHash": "96d329c80b9adbad5d3da629ac3e9385f55299697878a8b742e6a3daf93bc631"
+        }
+      ]
+    }
+  ]
+}

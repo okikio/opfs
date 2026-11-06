@@ -1,0 +1,87 @@
+{
+  "status": "authored-original-input-specification-not-generated-or-executed",
+  "pattern": "affine-block-v1: byte[i] = (31*i + 17*floor(i/65536) + seed) mod 256; zeroes-partial uses constant zero",
+  "vectors": [
+    {
+      "id": "empty",
+      "size": 0,
+      "seed": 11,
+      "pattern": "affine-block-v1"
+    },
+    {
+      "id": "one",
+      "size": 1,
+      "seed": 29,
+      "pattern": "affine-block-v1"
+    },
+    {
+      "id": "mib-minus-one",
+      "size": 1048575,
+      "seed": 41,
+      "pattern": "affine-block-v1"
+    },
+    {
+      "id": "mib",
+      "size": 1048576,
+      "seed": 53,
+      "pattern": "affine-block-v1"
+    },
+    {
+      "id": "mib-plus-one",
+      "size": 1048577,
+      "seed": 67,
+      "pattern": "affine-block-v1"
+    },
+    {
+      "id": "three-leaves",
+      "size": 3145728,
+      "seed": 79,
+      "pattern": "affine-block-v1"
+    },
+    {
+      "id": "four-leaves",
+      "size": 4194304,
+      "seed": 81,
+      "pattern": "affine-block-v1"
+    },
+    {
+      "id": "five-leaves",
+      "size": 5242880,
+      "seed": 83,
+      "pattern": "affine-block-v1"
+    },
+    {
+      "id": "seven-leaves",
+      "size": 7340032,
+      "seed": 97,
+      "pattern": "affine-block-v1"
+    },
+    {
+      "id": "zeroes-partial",
+      "size": 1048577,
+      "seed": 0,
+      "pattern": "zero"
+    },
+    {
+      "id": "multipart-three-short-odd",
+      "size": 11534319,
+      "seed": 101,
+      "pattern": "affine-block-v1",
+      "partSize": 4194304
+    },
+    {
+      "id": "multipart-five-short",
+      "size": 9437167,
+      "seed": 103,
+      "pattern": "affine-block-v1",
+      "partSize": 2097152
+    },
+    {
+      "id": "multipart-seven-short",
+      "size": 13631471,
+      "seed": 107,
+      "pattern": "affine-block-v1",
+      "partSize": 2097152
+    }
+  ]
+}

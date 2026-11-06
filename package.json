@@ -104,6 +104,7 @@
     "./source": "./src/source.ts",
     "./adapter/read": "./src/adapter/read.ts",
     "./gcs": "./src/gcs.ts",
+    "./glacier": "./src/glacier.ts",
     "./driver/gcs": "./src/driver/gcs.ts",
     "./adapter/gcs": "./src/adapter/gcs.ts",
     "./tus": "./src/tus.ts",

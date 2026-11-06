@@ -9,3 +9,8 @@ planning/storage/research/** -text -whitespace
 tests/fixtures/git/*.loose -text
 tests/fixtures/git/*.raw -text
 tests/fixtures/git/*.ls-tree -text
+
+# Frozen Glacier originals, signing preimages and licenses retain exact upstream bytes.
+tests/fixtures/glacier/** -text
+tests/fixtures/glacier/legal/tslib-CopyrightNotice.txt -whitespace
+tests/fixtures/glacier/legal/tslib-LICENSE.txt -whitespace
