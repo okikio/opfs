@@ -60,7 +60,7 @@ export async function supervise(argv: readonly string[], deadline: number): Prom
     await Promise.race([closed, failed]);
   } finally {
     clearTimeout(timer);
-    if (failure !== null || !retired) {
+    if (failure !== null || !retired || terminal.code !== 0 || terminal.signal !== null) {
       if (child.pid !== undefined) {
         try {
           kill(-child.pid, "SIGKILL");
