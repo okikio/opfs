@@ -513,3 +513,8 @@ can inspect a nested archive without collecting all plaintext. Whole-file verifi
 integrity guarantee. [AMQP](docs/amqp.md) retains native publication confirmations and explicit destructive queue reads;
 applications own topology and recovery after uncertain mutations. Each module is optional and has its own limits and
 ownership contract.
+
+[Glacier vaults](docs/glacier.md) provide explicit native archive uploads, asynchronous retrieval jobs, bounded
+completed-output sources, and multipart receipts. Applications retain IDs, approve retrieval costs, schedule polling,
+and reconcile unknown publication outcomes. This optional client does not implement S3 Glacier storage classes or a
+filesystem projection; source tests and independent service qualification remain separate evidence.

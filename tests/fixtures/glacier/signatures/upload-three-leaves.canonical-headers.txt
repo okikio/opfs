@@ -1,0 +1,7 @@
+content-type:application/octet-stream
+host:glacier.us-west-2.amazonaws.com
+x-amz-archive-description:fixture archive
+x-amz-content-sha256:925c6fdb10bce39036f5f01f1ec98127023a13b4d993717c28b3a6184cd8df7e
+x-amz-date:20150830T123600Z
+x-amz-glacier-version:2012-06-01
+x-amz-sha256-tree-hash:cf0171ddd490992993f13eaf2fc5cc5f759ae9faea267ba26eb500c643630c1b

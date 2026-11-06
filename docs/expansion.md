@@ -106,3 +106,9 @@ inspect a nested archive without collecting all plaintext. Whole-file verificati
 selected uncompressed physical numeric columns with separate validity masks and no invented integrity guarantee.
 [AMQP](amqp.md) retains native publication confirmations and explicit destructive queue reads; applications own topology
 and recovery after uncertain mutations. Each module is optional and has its own limits and ownership contract.
+
+[Glacier vaults](glacier.md) add original vault/archive REST operations, explicit retrieval jobs, completed-output byte
+sources and native multipart mechanics. Retrieval is potentially billable and output availability can expire. Callers
+own durable receipts and reconcile unknown outcomes; no automatic paid job, OPFS projection, S3 Glacier storage-class
+qualification or durable transfer checkpoint is implied. Authored source/packed-consumer checks and independent
+SDK/native/live proof are distinct gates.

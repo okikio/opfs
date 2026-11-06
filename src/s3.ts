@@ -3,6 +3,7 @@ import type { DriverPlanInputType, DriverPlanType } from "./driver/definition.ts
 import { map } from "./pool.ts";
 import { encodeHex } from "@std/encoding/hex";
 import { z } from "zod";
+import { hmac, signingKey } from "./aws.ts";
 
 import { open } from "./chunk.ts";
 import { isBuffer, isBytes, toRequestBuffer, toRequestBytes, toView } from "./bytes.ts";
@@ -420,16 +421,12 @@ async function getPayloadHash(body: BodyInit | null | undefined): Promise<string
 
 /** Computes one HMAC-SHA256 step in the Signature Version 4 key derivation. */
 async function getHmac(key: BufferSource, value: string): Promise<Uint8Array> {
-  const cryptoKey = await crypto.subtle.importKey("raw", key, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  return new Uint8Array(await crypto.subtle.sign("HMAC", cryptoKey, textEncoder.encode(value)));
+  return await hmac(crypto.subtle, key, value);
 }
 
 /** Derives the date, region, and service-specific Signature Version 4 signing key. */
 async function getSigningKey(secret: string, date: string, region: string): Promise<Uint8Array> {
-  const dateKey = await getHmac(textEncoder.encode(`AWS4${secret}`), date);
-  const regionKey = await getHmac(dateKey as Uint8Array<ArrayBuffer>, region);
-  const serviceKey = await getHmac(regionKey as Uint8Array<ArrayBuffer>, "s3");
-  return await getHmac(serviceKey as Uint8Array<ArrayBuffer>, "aws4_request");
+  return await signingKey(crypto.subtle, secret, date, region, "s3");
 }
 
 /** Formats one UTC instant as the compact timestamp required by Signature Version 4. */

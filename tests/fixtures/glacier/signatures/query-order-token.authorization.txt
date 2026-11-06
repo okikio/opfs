@@ -1,0 +1,1 @@
+AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20150830/us-west-2/glacier/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date;x-amz-glacier-version;x-amz-security-token, Signature=db39fd7805ef6382cd95211fba181791d1365fcbee72cc5d3729d75ba874aacc

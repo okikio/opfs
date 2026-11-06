@@ -142,12 +142,18 @@ GCS, B2, Swift, S3 and Azure have selected native clients. GCS retains exact pro
 metadata and constructs paired generation/metageneration conditions; neither a checksum field nor emulator reciprocity
 proves byte validation or live Google guard enforcement. JSON support does not establish XML or gRPC support.
 
-The per-record source audit still finds twelve native contracts without provider-specific implementations:
-`akamai-netstorage`, `upyun`, `rados`, `amazon-glacier-vaults`, `ibm-classic-swift`, `memset-memstore`, `netlify-blobs`,
-`qingstor`, `rackspace-cloud-files`, `vercel-blob`, `volcengine-tos` and `cdmi`. Each needs its own authentication,
-limits, operation outcomes and independent fixture. Generic S3 or Swift support does not qualify a branded service;
-Glacier vault jobs are distinct from S3 Glacier storage classes. Historical service names also need current availability
-research before implementation. Across this group and existing-driver, 22 of 34 records have selected implemented
+`amazon-glacier-vaults` now has an optional [native vault client](../../docs/glacier.md), covering bounded archive
+uploads, explicit retrieval jobs, completed-output byte sources, native multipart operations and bounded part
+reconciliation. Applications own cost approval, polling and durable receipts. SDK differential execution,
+provider-native behavior and eligible-account proof remain separate qualifications; this profile supplies no OPFS
+adapter, automatic transfer checkpoint, Select initiation or S3 Glacier storage-class support.
+
+The per-record source audit still finds eleven native contracts without provider-specific implementations:
+`akamai-netstorage`, `upyun`, `rados`, `ibm-classic-swift`, `memset-memstore`, `netlify-blobs`, `qingstor`,
+`rackspace-cloud-files`, `vercel-blob`, `volcengine-tos` and `cdmi`. Each needs its own authentication, limits,
+operation outcomes and independent fixture. Generic S3 or Swift support does not qualify a branded service; Glacier
+vault jobs are distinct from S3 Glacier storage classes. Historical service names also need current availability
+research before implementation. Across this group and existing-driver, 23 of 34 records have selected implemented
 profiles; this count is not complete provider certification.
 
 ### s3-profile
