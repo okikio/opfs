@@ -155,6 +155,13 @@ PyCryptodome reciprocal original-byte/name cases, exact artifact/package hashes 
 offline and imports no candidate TypeScript code. Its proof is selected AES-256 interoperability; no direct published
 AES-128 RFC known-answer run or independent security audit is claimed.
 
+The same recipe now documents a separately qualified TypeScript producer. Its acquisition and offline production passed,
+retaining all 19 native cryptolib reciprocal byte/name cases with OpenJDK 17.0.21 and Node 26.13.0. It uses Node's
+AES-GCM primitives for content and labels its filename checks as authored RFC5297 framing over Node AES primitives. It
+does not inherit the historical PyCryptodome attribution or claim an independent complete SIV implementation. The new
+producer output remains separate from the frozen fixture; candidate-reader acceptance of that new output is a separate
+check.
+
 The focused benchmark separates a native preselected GCM chunk, warm selected/boundary/full reads, cold key opening,
 authenticated names and a nested ZIP preview. Each lane checks the retained independent original before timing. A
 37-byte full-chunk prefix still costs 32796 physical and 32768 decoded bytes; three bytes across a chunk boundary cost

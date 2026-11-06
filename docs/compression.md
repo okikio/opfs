@@ -135,16 +135,18 @@ transfer checkpoint or guarantee rollback of output already emitted.
 
 ## Evidence
 
-`tests/fixtures/compression/create.py` uses Python 3.9.6 stdlib gzip/zlib 1.2.12 to produce inert independent gzip,
-zlib, raw-DEFLATE, expansion and compressed-PAX-TAR fixtures. `independent.json` records compressed-byte SHA-256 hashes
-and a complete payload oracle. The TAR bytes come from the independently produced TAR fixtures, not this writer.
-`tests/compress.test.ts` checks split input, every output byte, corruption/truncation, limits, foreign native bytes,
-backpressure, abort, cancellation, cleanup errors and complete/partial TAR checksum scopes. Its independently built gzip
-optional-header fixture is verified by Python zlib and exercises FTEXT, FEXTRA, FNAME, FCOMMENT and FHCRC. Valid
-byte-split headers decode; corrupt FHCRC, reserved flags, invalid methods and unterminated optional fields reject
-through the native header parser. `tests/compress-process.test.ts` sends all three native encodings and a gzip TAR to
-Python gzip/zlib/tarfile consumers with 10-second and 64-KiB subprocess-output bounds. These are compatibility and
-resource controls, not a complete compression conformance corpus or performance result.
+The historical `tests/fixtures/compression/create.py.snapshot` used Python 3.9.6 stdlib gzip/zlib 1.2.12 to produce
+inert independent gzip, zlib, raw-DEFLATE, expansion and compressed-PAX-TAR fixtures. `independent.json` records
+compressed-byte SHA-256 hashes and a complete payload oracle. The TAR bytes come from the independently produced TAR
+fixtures, not this writer. `tests/compress.test.ts` checks split input, every output byte, corruption/truncation,
+limits, foreign native bytes, backpressure, abort, cancellation, cleanup errors and complete/partial TAR checksum
+scopes. Its independently built gzip optional-header fixture is verified by Python zlib and exercises FTEXT, FEXTRA,
+FNAME, FCOMMENT and FHCRC. Valid byte-split headers decode; corrupt FHCRC, reserved flags, invalid methods and
+unterminated optional fields reject through the native header parser. Current `tests/fixtures/compression/create.ts`
+uses built-in Node zlib and records its own source/runtime identity; it does not claim to reproduce the historical
+Python producer bytes. `tests/compress-process.test.ts` sends all three native encodings to a separate Node zlib
+consumer and a gzip TAR to native libarchive (`bsdtar`), with 10-second and 64-KiB subprocess-output bounds. These are
+compatibility and resource controls, not a complete compression conformance corpus or performance result.
 
 The API follows the [WHATWG Compression Streams specification](https://compression.spec.whatwg.org/), with format
 definitions from [RFC1950](https://www.rfc-editor.org/rfc/rfc1950), [RFC1951](https://www.rfc-editor.org/rfc/rfc1951)

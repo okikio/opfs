@@ -147,6 +147,13 @@ success establishes those fixture bytes; candidate runtime tests, static compila
 checks are separate verification stages. The reproducible recipe and original notice files are in
 [the source fixture directory](https://github.com/okikio/opfs/tree/main/tests/fixtures/parquet).
 
+The fixture recipe also documents a separate TypeScript/native C++ workflow. It admits the same Arrow wheel as an inert
+archive and substitutes the official DuckDB CLI for the Python binding. All 22 intended profiles retain two-engine
+full-value checks. Its separate native qualification passed all 22 profiles with Node 26.13.0, Debian C++ 12.2.0 and
+DuckDB CLI 1.3.2 in a network-disabled 1 GiB runner, without OOM or cleanup faults. This qualifies the replacement
+producer and its complete-value comparisons; it does not replace the frozen historical fixture or establish candidate
+reader acceptance of the newly generated images.
+
 ## Measure preview costs
 
 `bench/parquet.bench.ts` compares cold footer indexing, warm selected/full reads, and a cold-open-plus-selected read

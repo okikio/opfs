@@ -136,6 +136,11 @@ behavior explicitly rather than counting it as interoperability evidence. Genuin
 grammar; [fixture provenance](https://github.com/okikio/opfs/blob/827bdbe/tests/fixtures/tar-sparse/provenance.json)
 pins its hash and tool receipts.
 
+The current [sparse fixture producer](../tests/fixtures/tar-sparse/README.md) is TypeScript. It retains native GNU tar
+production and original-byte oracles, and replaces the Python consumer with GNU tar while preserving independent
+libarchive consumption. That port has not yet run; the committed fixture and receipt still belong to the historical
+executed source retained as inert `create.py.snapshot`.
+
 ## Supported records and limits
 
 The reader accepts POSIX ustar headers and PAX `x`/`g` extended headers, plus GNU header magic and `L`/`K` long-name and
@@ -207,13 +212,20 @@ resumable TAR write checkpoint or concurrent member writer.
 
 ## Evidence and maintenance
 
-`tests/fixtures/tar/create.py` independently produces the inert PAX/GNU archives in `independent.json` using Python
-3.9.6 stdlib `tarfile`. That file records producer names, SHA-256 hashes, entry metadata and complete expected payload
-bytes. `tests/tar.test.ts` checks every possible two-chunk split of the 10,240-byte PAX fixture, independently produced
-payloads, corrupt/truncated metadata, budgets, backpressure, body lifetime and cancellation. `tests/tar-process.test.ts`
-sends writer output to Python `tarfile` and the system BSD/GNU `tar` with bounded subprocesses; extraction goes to
-stdout, not host paths. Local independent consumers were Python 3.9.6 and bsdtar 3.5.3/libarchive 3.7.4. These are
-compatibility cases, not an exhaustive TAR corpus or a performance claim.
+The historical producer, now inert `tests/fixtures/tar/create.py.snapshot`, produced the PAX/GNU archives in
+`independent.json` using Python 3.9.6 stdlib `tarfile`. That file records producer names, SHA-256 hashes, entry metadata
+and complete expected payload bytes. `tests/tar.test.ts` checks every possible two-chunk split of the 10,240-byte PAX
+fixture, independently produced payloads, corrupt/truncated metadata, budgets, backpressure, body lifetime and
+cancellation. The current `tests/tar-process.test.ts` sends new writer output to system TAR for exact listing, owned
+temporary extraction of authored paths, full file bytes, directory kind and symbolic-link target checks. A second
+selected-member check uses stdout extraction. The former Python consumer test remains inert `consumer.test.ts.snapshot`.
+Historical successful consumers were Python 3.9.6 and bsdtar 3.5.3/libarchive 3.7.4; the changed native-only test route
+still needs its own run. These are compatibility cases, not an exhaustive TAR corpus or a performance claim.
+
+The current [TypeScript fixture producer](../tests/fixtures/tar/README.md) supplies new native GNU PAX/GNU profiles,
+with independent libarchive full-byte comparisons. It has not yet executed. Its ordinary `short.txt` path differs from
+the old Python fixture's global-PAX override. Keep those profiles and receipts separate rather than claiming that a new
+native producer created the existing historical bytes.
 
 The framing follows the [POSIX pax specification](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/pax.html)
 and [GNU TAR format documentation](https://www.gnu.org/software/tar/manual/html_node/Standard.html). The independently

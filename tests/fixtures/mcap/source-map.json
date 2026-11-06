@@ -1,0 +1,20 @@
+{
+  "authority": "Historical Python wheel sources remain byte-identical inert snapshots; the new native C++ recipe has not produced retained Python receipts.",
+  "replacementStatus": "source-only; not executed",
+  "sources": [
+    {
+      "historicalPath": "acquire.py",
+      "snapshotPath": "acquire.py.snapshot",
+      "sha256": "42817e28364e2e21a71790b218b03f2b977829e14cf36d62ee71fa28571fd918",
+      "replacementPath": "acquire.ts"
+    },
+    {
+      "historicalPath": "produce.py",
+      "snapshotPath": "produce.py.snapshot",
+      "sha256": "03869e3ff535741be89a3fd5648223206c0431d4e9c72095bb3546a7ab7a7ce2",
+      "replacementPath": "produce.ts",
+      "nativeSource": "native.cpp",
+      "checksumSource": "crc.ts"
+    }
+  ]
+}

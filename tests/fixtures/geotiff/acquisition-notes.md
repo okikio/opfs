@@ -28,3 +28,11 @@ baseline, totaling 1,754,924 bytes. `runtime.json` records system Python 3.11.2,
 tifffile 2023.2.3 and GDAL 3.6.2. The exact resulting tool image is recorded in `tool-image.json`. The separately
 approved offline native producer subsequently passed; see `README.md`, `producer-run.json` and `producer-state.json` for
 its actual proof and limits. Successful tool installation alone is not native format proof.
+
+## Native-only replacement
+
+This page records the historical Python closure and its actual failures. Current acquisition uses
+`acquire-run.ts download|install` and the native GeoTIFF profile in `../apt.ts`; current execution uses `produce-run.ts`
+and the authored C++ harness. See [the current recipe](README.md#current-native-only-recipe). The new recipe requires
+its own admitted development package closure and new qualification receipts. It does not reuse the old 102-archive
+identity or reinterpret the old continuation repair as a new installation.

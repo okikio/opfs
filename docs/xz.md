@@ -119,16 +119,21 @@ ownership transfers or global registries.
 
 ## Independent evidence
 
-`tests/fixtures/xz/create.py` runs genuine signed-Debian XZ Utils encoders and compares every output byte against the
-original input with Python liblzma and independent 7-Zip. Fixtures cover CRC32/CRC64/none, empty data, dictionary
-overlap and wraparound, multiple independent blocks, and threaded encoder headers containing optional size fields.
-Unsupported SHA-256 and Delta/BCJ files are genuine producer outputs accepted by independent consumers and refused by
-this profile.
+The historical `tests/fixtures/xz/create.py.snapshot` ran genuine signed-Debian XZ Utils encoders and compared every
+output byte against the original input with Python liblzma and independent 7-Zip. Fixtures cover CRC32/CRC64/none, empty
+data, dictionary overlap and wraparound, multiple independent blocks, and threaded encoder headers containing optional
+size fields. Unsupported SHA-256 and Delta/BCJ files are genuine producer outputs accepted by independent consumers and
+refused by this profile.
 
 The trailing-padding fixture is an explicitly labelled adaptation of native output. Python's convenience
 `lzma.decompress` rejected it on the recorded producer runtime. That negative observation remains in the fixture; native
 `xz -dc` and 7-Zip accept the full payload. Python's lower-level `LZMADecompressor` separately records EOF and exact
 unused padding bytes. No consumer failure is relabelled as a success or hidden by stripping bytes.
+
+Current `tests/fixtures/xz/create.ts` runs installed XZ Utils and 7-Zip without Python. Its new deterministic random
+recipe is identified explicitly and differs from the historical Python recipe. It independently calculates each CRC64
+block check with a bit-at-a-time BigInt oracle, checks corrupted checksums with both native tools and retains their
+observed failures. Its explicit output destination keeps new results separate from the historical corpus.
 
 The receipt pins source, fixtures, native tools and the official
 [XZ format version 1.2.1](https://tukaani.org/xz/xz-file-format-1.2.1.txt), SHA-256

@@ -1,8 +1,8 @@
 // Reproduce the literal native capture using the separately admitted test-only fixture.
-// Literal producer framing does not import src/amqp.ts at runtime. Project ZIP
-// admission and close are tooling dependencies, not independent AMQP proof.
+// Literal producer framing does not import src/amqp.ts at runtime. The native
+// rabbitmq-c SDK checks full bytes independently; close only owns cleanup.
 import { Buffer } from "node:buffer";
-import { readFileSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { env } from "node:process";
 import { createHash } from "node:crypto";
 import { withAmqpFixture } from "../../provider/amqp.ts";
@@ -160,9 +160,9 @@ class Tape {
   }
 }
 const original = Buffer.from([0, 255, 13, 10, 128, 9]);
-const wheelPath = env.OPFS_AMQP_ORACLE_WHEEL, outputPath = env.OPFS_AMQP_CAPTURE_OUTPUT;
-if (!wheelPath || !outputPath) throw new Error("Set explicit admitted wheel and new capture output paths.");
-await withAmqpFixture(readFileSync(wheelPath), async (fixture) => {
+const outputPath = env.OPFS_AMQP_CAPTURE_OUTPUT;
+if (!outputPath) throw new Error("Set an explicit new capture output path.");
+await withAmqpFixture(async (fixture) => {
   async function capture(operation: "take" | "publish") {
     const signal = AbortSignal.timeout(30000), channel: AmqpChannelType = await fixture.openChannel({ signal });
     let reader: ReadableStreamDefaultReader<Uint8Array> | undefined,
@@ -229,7 +229,7 @@ await withAmqpFixture(readFileSync(wheelPath), async (fixture) => {
   same((await fixture.count()).messages === "0");
   const receipt = {
     scope:
-      "Native unmodified RabbitMQ binary frames; literal independent producer, Pika complete bytes before/after. Credentials are disposable fixture literals. Project ZIP/close are tooling only; src/amqp.ts has no runtime import.",
+      "Native unmodified RabbitMQ binary frames; literal independent producer, signed Debian rabbitmq-c complete bytes before/after. Changed native SDK profile; historical Pika proof remains frozen. Credentials are disposable fixture literals. src/amqp.ts has no runtime import.",
     oracle: { base64: original.toString("base64"), bytes: original.length, sha256: hash(original) },
     take,
     publish,

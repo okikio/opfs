@@ -1,4 +1,4 @@
-import { diagnostic } from "../.mise/tasks/command.mjs";
+import { diagnostic } from "../.mise/tasks/command.ts";
 
 /** One untimed setup observation; origins omit credentials, account paths and signed query data. */
 export interface ProviderPhaseType {

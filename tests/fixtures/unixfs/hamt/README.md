@@ -1,22 +1,13 @@
 # Native fanout-256 HAMT evidence
 
-`produce.py` runs Kubo 0.43.1 offline against independently authored files. The candidate reader is not imported. The
-script verifies the retained release archive and executable, forces directory sharding with `--max-directory-links=4`,
-and compares native complete file reads, selected ranges and directory listings with those originals. The successful
-`independent.json` receipt contains 126 blocks, 18 shards and 108 complete originals. Root and nested native listings
-match the authored names, and every native file and selected range matches original bytes.
+`produce.py.snapshot` runs Kubo 0.43.1 offline against independently authored files. The candidate reader is not
+imported. The script verifies the retained release archive and executable, forces directory sharding with
+`--max-directory-links=4`, and compares native complete file reads, selected ranges and directory listings with those
+originals. The successful `independent.json` receipt contains 126 blocks, 18 shards and 108 complete originals. Root and
+nested native listings match the authored names, and every native file and selected range matches original bytes.
 
-Run the recipe inside a disposable Linux ARM64 container with the verified Kubo archive copied to `/kubo.tar.gz` and
-this script copied to `/produce.py`:
-
-```sh
-python3 /produce.py --archive /kubo.tar.gz --output /tmp/hamt-independent.json
-```
-
-The producer base is `opfs-seven-tools:20261105`, image SHA256
-`527d62a5244f4fa71833b4a105a4906ec1c1c7708f64ea2967fa04d96c551dd5`. It needs Python 3 only. Use no network, no host bind
-mounts, a 2 GiB memory ceiling, two CPUs and 256 processes. Copy the result out only on exit zero. No Kubo dependency is
-introduced into the published library.
+The historical recipe ran in a bounded offline Linux ARM64 container. Its exact source is now inert
+`produce.py.snapshot`; current TypeScript commands follow below. Native tools remain fixture-only dependencies.
 
 ## Byte conventions under investigation
 
@@ -52,19 +43,15 @@ hashes. Neither failed attempt produced a successful interoperability receipt.
 
 ## Independent routing hash oracle
 
-`hash-produce.py` compiles the exact original public-domain Austin Appleby `MurmurHash3.cpp` and header named in
-`primary.json`, then calls the reference x64-128 function with seed zero. A small explicit C ABI wrapper serializes the
-first output word big-endian to match Boxo. The retained `hash-reference.json` contains 135 vectors, including every
+`hash-produce.py.snapshot` compiles the exact original public-domain Austin Appleby `MurmurHash3.cpp` and header named
+in `primary.json`, then calls the reference x64-128 function with seed zero. A small explicit C ABI wrapper serializes
+the first output word big-endian to match Boxo. The retained `hash-reference.json` contains 135 vectors, including every
 input length from zero through 129, UTF8 names and a 4096-byte input, plus compiler, wrapper and command receipts. This
 was separately executed with the existing Apple Clang 21.0.0 on ARM64 macOS. It is not candidate output and creates no
 production compiler or native dependency.
 
-To reproduce, retrieve both exact pinned original files into a supplied source directory, then run:
-
-```sh
-python3 tests/fixtures/unixfs/hamt/hash-produce.py \
-  --source /path/to/pinned-smhasher-src --output /tmp/hash-reference.json
-```
+The historical ctypes harness is retained as inert `hash-produce.py.snapshot`. The current executable-wrapper command
+below uses the same exact original reference source files and checks every result against this retained vector set.
 
 All four Kubo `block put` Murmur3 probes refused insecure hashes. Their exact errors are retained in `independent.json`;
 none count as successful hash-byte verification. Kubo's genuine path results independently exercise the complete native
@@ -75,19 +62,44 @@ receipt layout only; retained archive CAR bytes, serialized blocks, original fil
 
 ## Authored hash-exhaustion boundary
 
-`adapt.py` builds deliberately degenerate eight-shard chains using a literal name's independently produced reference
-hash. These are authored wire cases, not topology emitted by the genuine importer. `authored.json` retains successful
-Kubo complete/range reads for trimmed and left-zero-padded bitmaps, plus native refusal of a ninth shard with
+`adapt.py.snapshot` builds deliberately degenerate eight-shard chains using a literal name's independently produced
+reference hash. These are authored wire cases, not topology emitted by the genuine importer. `authored.json` retains
+successful Kubo complete/range reads for trimmed and left-zero-padded bitmaps, plus native refusal of a ninth shard with
 `sharded directory too deep`. The supplied file content is authored before encoding; no candidate output determines
 expectations.
 
-The bounded offline container identified in `container.json` ran:
-
-```sh
-python3 /adapt.py --archive /kubo.tar.gz \
-  --hash-reference /hash-reference.json --output /tmp/hamt-authored.json
-```
+The bounded offline container identified in `container.json` ran the historical `adapt.py.snapshot` source with the
+pinned archive and native hash-reference receipt. Current TypeScript commands use separate output paths.
 
 It exited zero without OOM. Only the successful receipt left the container, which was then removed. The outer producer
 succeeds only when the first two variants match original bytes and the ninth-level variant refuses as expected. The raw
 receipt SHA256 is `b5368ec2ab861af64f0d9d4b785be1d42924e5c72283d8bd502f54a41fda8dba`.
+
+## Current TypeScript tooling
+
+From the repository root, use Node 22.18 or later. Native Kubo commands need the bounded offline Linux ARM64 runner and
+the exact archive described in the [parent fixture guide](../README.md). Copy the shared `native.ts` and `wire.ts` with
+the fixture tree; a single isolated `.ts` file is not the complete input.
+
+```sh
+node --max-old-space-size=256 tests/fixtures/unixfs/hamt/produce.ts --archive /kubo.tar.gz --output /tmp/new-hamt.json
+node --max-old-space-size=256 tests/fixtures/unixfs/hamt/hash-produce.ts --source /pinned-smhasher --compiler /usr/bin/clang++ --output /tmp/new-hash-reference.json
+node --max-old-space-size=256 tests/fixtures/unixfs/hamt/adapt.ts --archive /kubo.tar.gz --hash-reference /tmp/new-hash-reference.json --output /tmp/new-hamt-authored.json
+```
+
+`produce.ts` retains all 108 originals, native shard framing, literal directory names, full/range byte checks and
+optional hash probe refusals. `adapt.ts` retains two native-positive depth-eight cases and the required native
+`sharded directory too deep` refusal for depth nine. Authored topology is explicitly distinct from importer output;
+refusal/spawn failure are distinct.
+
+`hash-produce.ts` admits each original C++/header hash before compilation. Its new small executable wrapper calls the
+unchanged x64-128 function with seed zero and serializes the first word big-endian. This replaces ctypes mechanics, not
+the independent algorithm. It runs all 135 inputs and compares every digest with the historical reference. Source files
+are limited to 1 MiB, wrapper inputs to 4 KiB, each command to 60 seconds/1 MiB per pipe and the complete hash run to
+two minutes. No Go compiler or candidate hash implementation is needed.
+
+All five Python sources are now inert snapshots mapped with exact bytes/SHA in source maps. Historical JSON, native
+failures and execution receipts remain unchanged. New scripts own fresh temporary directories, retain independent
+primary/cleanup failures and refuse existing output paths. Shared Kubo archive, command and 32 MiB JSON bounds are
+documented in the parent guide; outer native memory/CPU/filesystem limits still belong to the caller. Qualify new
+execution receipts before replacing any historical evidence.

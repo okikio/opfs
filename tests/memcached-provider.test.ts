@@ -4,7 +4,7 @@ import { openMemcachedClient } from "../src/memcached.ts";
 import { openMemcached } from "./provider/memcached.ts";
 import { close } from "./close.ts";
 
-describe("Memcached1.6.45 native classic ASCII against independent pymemcache4.0.0", () => {
+describe("Memcached1.6.45 native classic ASCII against independent libmemcached", () => {
   it("preserves complete binary values, flags, CAS staleness, creation outcomes and unconditional deletion", {
     timeout: 240_000,
   }, async () => {

@@ -1,0 +1,47 @@
+{
+  "terminal": true,
+  "candidateImported": false,
+  "cleanupFailures": [
+    {
+      "phase": "outputs/semantic",
+      "type": "RuntimeError"
+    }
+  ],
+  "sourceHashes": {
+    "kafka-native.ts": "83f137e2db4d51848f6d0941477e4fd987fbac7988f3cde75ed3a045dd32b271",
+    "kafka-admission/native_verify.py": "0549d0b2cf9f0ddf23861a6c9750aa1c895c8d34cb7405144697dc086fbdcd78",
+    "kafka-admission/manifest.py": "df1b7482f3dd559153734482c7be7a0b5799fa8351ebc880038f6409d1de0833",
+    "kafka-admission/probe.py": "54dec3674d58b2d9e04f9a0066fcf274edbdf6e9abca417bd336a5eb717fa79c"
+  },
+  "nativeExitCode": 0,
+  "leftoversBeforeEmergencyCleanup": [],
+  "remainingContainers": [],
+  "outputs": {
+    "sdk-append.bin": {
+      "bytes": 109,
+      "sha256": "6185111a661e706e78047fb225a383ff360c4003661b73135f97ff41e52e1d71"
+    },
+    "sdk-append.bin.stderr": {
+      "bytes": 210,
+      "sha256": "9ddf3781b5e43a87b1d67caac2bc4b251f9ce8d77c509c8369129f4b0359fd55"
+    },
+    "sdk-fetch.bin": {
+      "bytes": 131305,
+      "sha256": "50ffdf44efb0c59b5f827db4679b10eff32921be4cf7e3a04011f8943a6ebb42"
+    },
+    "sdk-fetch.bin.stderr": {
+      "bytes": 210,
+      "sha256": "9ddf3781b5e43a87b1d67caac2bc4b251f9ce8d77c509c8369129f4b0359fd55"
+    },
+    "crc.txt": {
+      "bytes": 9,
+      "sha256": "d77f1a5cbfe9af23c47dbb34b0136ca1a44b944f7c4b6451ed19fad26da4575d"
+    },
+    "crc.txt.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "seconds": 15.24917425,
+  "scope": "One native broker ceiling1GiB; host Node heap256MiB is not total RSS. Compiler/classes/SDKs are test-only; no production candidate imports."
+}

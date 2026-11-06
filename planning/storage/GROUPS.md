@@ -93,11 +93,11 @@ for CRC32; unchecked partial reads retain pending integrity. Compressed decoding
 nonzero extended headers remain unsupported. See [the ARJ guide](../../docs/arj.md).
 
 The `db-memcached` record now has a [native classic ASCII client](../../docs/memcached.md), qualified against the
-official server and independent pymemcache full-byte/CAS operations. A cache miss, eviction and unconditional deletion
-do not supply filesystem semantics. The `format-mcap` record now has an
-[uncompressed recording view](../../docs/mcap.md): physical enumeration, exact timestamps and separate
-summary/data/chunk/attachment CRC evidence. Compressed chunks, optional-index semantics and application message decoders
-remain unsupported.
+official server and independent native libmemcached full-byte/CAS operations. The earlier pymemcache captures remain
+historical evidence, not the current executable oracle. A cache miss, eviction and unconditional deletion do not supply
+filesystem semantics. The `format-mcap` record now has an [uncompressed recording view](../../docs/mcap.md): physical
+enumeration, exact timestamps and separate summary/data/chunk/attachment CRC evidence. Compressed chunks, optional-index
+semantics and application message decoders remain unsupported.
 
 The `archive-binhex` profile preserves both forks through bounded replay and explicit CRC/terminal evidence; a data-only
 preview does not verify the resource fork. The `format-shapefile` profile reads explicitly supplied 2D components and

@@ -118,20 +118,22 @@ server's directory limit. Unknown non-authority metadata is otherwise ignored.
 grants, ranges and actual extents, encryption refusal, listing identity, malformed numeric authority, uncertain receipts
 and cancellation. These fixtures do not constitute an independent server implementation.
 
-The native provider lane passes against the pinned official CE14 image reporting **14.0.9**, with official `seafileapi2`
-as an independent producer and complete-byte reader. Run `node --test tests/seafile-provider.test.ts` with Docker
-available. The test checks complete bytes in both directions, exact ranges/stat, actual collision names and preserved
-originals, unconditional replacement, listing, encrypted-library refusal, invalid tokens and native read-only sharing
-(read succeeds; upload refuses). It also verifies the returned native capability origin and `/seafhttp/` prefix before
-the candidate reads bytes. The final run exited 0; its bounded receipt is `.tmp/seafile-provider-final.log`. This is one
-disposable local deployment, not proof of every Seafile release, production scaling, failover or encrypted content
-support.
+Historical native verification passed against the pinned official CE14 image reporting **14.0.9**, with official
+`seafileapi2` as an independent producer and complete-byte reader. The current TypeScript fixture uses native curl for
+HTTP and multipart framing instead. This is an authored API recipe, not a new run of that SDK. Run
+`node --test tests/seafile-provider.test.ts` with Docker available. The test checks complete bytes in both directions,
+exact ranges/stat, actual collision names and preserved originals, unconditional replacement, listing, encrypted-library
+refusal, invalid tokens and native read-only sharing (read succeeds; upload refuses). It also verifies the returned
+native capability origin and `/seafhttp/` prefix before the candidate reads bytes. The final run exited 0; its bounded
+receipt is `.tmp/seafile-provider-final.log`. This is one disposable local deployment, not proof of every Seafile
+release, production scaling, failover or encrypted content support.
 
-No production module imports that SDK. The finite fixture budgets are 2 GiB server, 0.5 GiB database and 0.125 GiB
-Redis. The private network and services have reverse-order cleanup, with the primary setup failure preserved alongside
-cleanup failures. Testcontainers owns readiness and mapped ports. No host account, production library or fixed port is
-used. The first attempt encountered a read-only Docker filesystem that also prevented cleanup; its initial and recovery
-logs remain under `.tmp/seafile-*.log`. After host/Docker recovery, the final native run and teardown succeeded.
+No production module imports the fixture recipe or former SDK. The finite fixture budgets are 2 GiB server, 0.5 GiB
+database and 0.125 GiB Redis. The private network and services have reverse-order cleanup, with the primary setup
+failure preserved alongside cleanup failures. Testcontainers owns readiness and mapped ports. No host account,
+production library or fixed port is used. The first attempt encountered a read-only Docker filesystem that also
+prevented cleanup; its initial and recovery logs remain under `.tmp/seafile-*.log`. After host/Docker recovery, the
+final native run and teardown succeeded.
 
 The fixture configures native capability receipts with its actual mapped authority. CE14 applies
 `SEAFILE_SERVER_HOSTNAME` after local settings, so the fixture restarts only Seahub with that explicit environment
@@ -140,20 +142,17 @@ one second for graceful shutdown. On its exact slow-shutdown failure, a bounded 
 for the owned Gunicorn process to exit before repeating native restart. Testcontainers then verifies HTTP readiness. The
 inspected `seahub.sh` SHA-256 is `9bb44214b9787aa47b7a08b27bc29e876928fbbdef54f15af5a1046617691368`.
 
-Only the test-only SDK maps that exact public fixture authority back to the server's own loopback listener; path, query
-and headers remain unchanged. Candidate production URLs are not rewritten or granted broader authority. This adaptation
-is needed because the SDK runs inside the container while the candidate runs outside it. The SDK's legacy download
-method forwards a user token to file links; that behavior is confined to this owned fixture. Production code explicitly
-strips that token instead.
+The current [TypeScript curl recipe](../tests/provider/seafile-curl.ts) runs on the caller's host and requires curl on
+PATH. It disables curl startup configuration and proxies, bounds each command to 35 seconds and 1 MiB of output, and
+sends credentials only to the disposable server's exact mapped authority. It validates returned capability URLs before
+using them and omits the user token on downloads. No URL is rewritten to a different authority.
 
-Test-only SDK wheels are fetched from fixed artifact URLs, checked against SHA-256 pins, and imported from copied
-pure-Python wheels inside the disposable server. There is no global pip install or host SDK import. `seafileapi2==2.0.2`
-wheel SHA-256 is `a174a9f1b4cbe737b353b11c7158f6aa23bc5ed59d65e2e338bdf30132965bed`. Its `main.py` exactly matches
-official source commit `19978a1e7a99509667abfc8454f3646e89ee0ed8`, SHA-256
-`df09a02d401b15904bf41120a91c277eaf38874bf9bc78e4068f436da7696ffc`. The fixture also pins requests 2.34.2,
-charset-normalizer 3.5.2, idna 3.20, urllib3 2.8.0 and certifi 2026.10.23, with individual artifact hashes in its
-source. Server and dependency licenses remain separate; the pinned Seahub web API source is Apache 2.0, while other
-components in the CE image have their own licenses. No upstream implementation code is copied into production.
+The recipe follows Seafile's [upload API](https://plus.seafile.com/published/web-api/v2.1/file-upload.md) and
+[file API](https://cloud.seafile.com/published/web-api/v2.1/file.md). Native curl owns multipart framing; the recipe
+authors the create, upload and read operation sequence. Its complete provider suite must pass before this replacement
+can be called runtime-qualified. The previous SDK fixture is retained byte-for-byte as
+[`provider.ts.snapshot`](../tests/fixtures/seafile/provider.ts.snapshot), including all original wheel pins. That
+snapshot is inert historical evidence; no Python, pip, wheel imports or upstream setup run in the current fixture.
 
 Primary evidence inspected 2026-11-05:
 

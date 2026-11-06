@@ -10,10 +10,10 @@ output is 359,325 bytes with SHA-256 `c06a5fa6e1dee2ea93b1cfca83d894f1e2efd960a3
 
 ## What produced and consumed the bytes
 
-The candidate-free `produce.py` ran under system Python 3.11.2 with NumPy 1.24.2, GDAL 3.6.2, tifffile 2023.2.3 and
-libtiff 4.5.0. It produced 11 files containing 12 main-chain images. Nine files use GDAL's genuine GTiff writer; two use
-tifffile's separate writer with authored GeoKey declarations. GDAL builds EPSG:4326 declarations in its files. The
-tifffile GeoKeys instead explicitly retain unresolved, user-defined declarations.
+The retained candidate-free `produce.py.first.snapshot` ran under system Python 3.11.2 with NumPy 1.24.2, GDAL 3.6.2,
+tifffile 2023.2.3 and libtiff 4.5.0. It produced 11 files containing 12 main-chain images. Nine files use GDAL's genuine
+GTiff writer; two use tifffile's separate writer with authored GeoKey declarations. GDAL builds EPSG:4326 declarations
+in its files. The tifffile GeoKeys instead explicitly retain unresolved, user-defined declarations.
 
 The author's arrays cover little- and big-endian strips, 16 × 16 tiles with padded edges, RGB, unsigned and signed
 integers, float32 and float64, NaN, negative zero and infinities. A separate two-image file contains a constant-valued
@@ -42,19 +42,18 @@ scripts are retained as `.first.snapshot` files, with input hashes in `producer-
 the acquisition-time receipt; its `nativeProducerExecuted: false` records the state before the later producer run, whose
 separate terminal receipts are authoritative.
 
-`produce-run.py` limits the process group to 90 seconds and combined logs to 4 MiB; the outer execution bound was 120
-seconds. The producer caps files at 16, each file at 1 MiB, aggregate fixture bytes at 8 MiB and JSON at 16 MiB. Native
-libraries may allocate internally; the process memory limit is the outer bound.
+The retained `produce-run.py.first.snapshot` limits the process group to 90 seconds and combined logs to 4 MiB; the
+outer execution bound was 120 seconds. The producer caps files at 16, each file at 1 MiB, aggregate fixture bytes at 8
+MiB and JSON at 16 MiB. Native libraries may allocate internally; the process memory limit is the outer bound.
 
 The signed-Debian acquisition required two retained installation-order repairs before success. Read
 `acquisition-notes.md` for the failures, exact 102-archive hashes, original package baseline, ABI boundary and offline
 continuation. The scripts retain the package closure and all 102 changed-package notices in `licenses/`. These tools are
 test-only; no native SDK or codec dependency is imported by the library.
 
-To reproduce, inspect the public Python base and exact acquired package closure before installation. Run
-`acquire-run.py` with `acquire.sh`, then the offline producer with `/usr/bin/python3`, not the base's Python 3.13. The
-original failed acquisition and continuation scripts remain snapshots. A currently cached local tool image is not
-required or promised by these receipts.
+These are historical execution instructions, retained through inert source snapshots. For a new execution, use the
+[current native-only recipe](#current-native-only-recipe) below. A currently cached local tool image is not required or
+promised by the historical receipts.
 
 ## Primary grammar
 
@@ -87,3 +86,85 @@ recorded separately. All original samples and stored blocks are checked before t
 remains in `benchmark-first.stderr` and its stopped container state; it was repaired only by explicitly supplying the
 sampling allowance to the reusable raw block source. The timing result does not compare equivalent work with the
 physical-copy lower bound and does not measure a renderer, native SDK or COG server.
+
+## Current native-only recipe
+
+The executable recipe is now TypeScript plus the small C++ harness in `native.cpp`. It calls the installed GDAL C++ API
+and libtiff C API directly. It does not import Python, NumPy or tifffile. The earlier sections describe the retained
+historical execution; their corpus and receipt hashes remain unchanged. [source-map.json](source-map.json) maps the
+previous active scripts to exact inert snapshots. The original `.first.snapshot` files still identify the first runs.
+
+A maintainer reproducing the new proof first acquires a **new** signed Debian development closure, then installs it
+offline, then runs the producer offline. The old 102-archive closure lacks the compiler and development headers needed
+here. It is evidence for the old run, not an interchangeable native build environment. A successful new run must retain
+its own package, source, compiler, executable, log and terminal-state receipts.
+
+```mermaid
+flowchart LR
+  A[Authored original sample bits] --> B[GDAL GTiff writer: nine files]
+  A --> C[TypeScript TIFF writer: two files]
+  B --> D[Eleven TIFF files]
+  C --> D
+  D --> E[GDAL full rasters and edge windows]
+  D --> F[libtiff raw and decoded blocks]
+  D --> G[Authored physical word reader]
+  E --> H[Compare exact original bits]
+  F --> H
+  G --> H
+```
+
+The nine GDAL profiles keep little- and big-endian scalar types, tiled RGB, padded edges, floating-point exceptional
+values and the separate overview. The two replacement TypeScript writer cases keep big-endian U16 strip/tile layouts and
+unresolved user-defined GeoKeys. They are explicitly named `authored-*`: this writer is authored test code, not a
+separate vendor implementation. GDAL and libtiff also share a backend. The new run therefore does **not** replace or
+claim to repeat the independent tifffile writer/reader proof in the frozen old corpus.
+
+Copy `acquire.ts`, `apt.ts` and `group.ts` to `/tool/`; copy this directory's `acquire-run.ts`, `acquire.sh`,
+`produce-run.ts`, `produce.ts`, `raster.ts` and `native.cpp` to `/tool/geotiff/`. Use the reviewed
+`node:26.13.0-bookworm-slim@sha256:add5c17c14752c54d2f3d519ec46a3815684d41c33f198bcb09fb998f7dcbf68` base, with ARM64
+configuration identity checked separately, not the old Python image. The [fixture acquisition guide](../acquisition.md)
+describes the image admission and caller-owned container limits. No command below creates or removes a container.
+
+In a fresh disposable acquisition container with network access:
+
+```sh
+node /tool/geotiff/acquire-run.ts download --script /tool/geotiff/acquire.sh \
+  --admission /tool/apt.ts --receipts /evidence/geotiff-native-packages
+```
+
+Move that exact container state and receipt directory into the separately admitted offline stage. Keep its APT lists and
+archive cache. Do not replace the archives or rerun a networked install:
+
+```sh
+node /tool/geotiff/acquire-run.ts install --script /tool/geotiff/acquire.sh \
+  --admission /tool/apt.ts --receipts /evidence/geotiff-native-packages
+```
+
+This requests `gdal-bin`, `libgdal-dev`, `libtiff-dev`, `libtiff-tools` and `g++`. The shared admission code verifies
+archive identities before installation, retains notices and binds the direct request list to the GeoTIFF profile. The
+two stages share 180 seconds and 4 MiB of diagnostics. Existing limits remain 256 archives, 64 MiB per archive, 256 MiB
+total downloads, 768 MiB declared installed size, and 8 MiB of notices. If the selected distribution exceeds those
+limits, acquisition fails with retained evidence; the recipe does not silently broaden them.
+
+In the resulting offline image, with 1 GiB RAM, no swap, 1 CPU, 128 PIDs, no network, mounts or published ports:
+
+```sh
+node /tool/geotiff/produce-run.ts --producer /tool/geotiff/produce.ts \
+  --output /evidence/geotiff-native-proof --receipts /evidence/geotiff-native-launch
+```
+
+All output directories must be fresh. The launcher owns only its child process group and bounds the whole run to 240
+seconds and 4 MiB of logs. The producer separately bounds compiler/configuration commands and native execution; each
+native data file is capped at 1 MiB. It validates all eleven files and twelve pages before publishing a new
+`independent.json`. Failure leaves the `.partial` evidence directory. Never copy that new file over the committed old
+corpus without a separate fixture review: its writer identity and receipt structure intentionally differ.
+
+The physical reader walks headers, sorted IFD fields and exact raw block extents without importing candidate code. It
+reconstructs every scalar word and compares retained NaN payloads and negative-zero bits. GDAL checks full rasters and
+bottom-right windows; libtiff checks every raw and decoded block, including tile padding. Metadata checks cover physical
+GeoKeys, declared area/point and the geotransform. They still do not establish authoritative CRS resolution, COG
+conformance or source authenticity. A separate offline native qualification of this executable recipe passed all eleven
+files and twelve main-chain pages with GDAL 3.6.2 and libtiff 4.5.0. It ran without network in a 1 GiB runner, without
+OOM, and removed the owned container. This is new producer/consumer evidence for nine GDAL-written and two
+authored-written files, not a repeat of tifffile proof or candidate-reader acceptance of newly generated output. The
+frozen corpus and its historical receipt hashes remain unchanged.

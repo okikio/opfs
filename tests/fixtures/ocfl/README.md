@@ -5,11 +5,11 @@
 `a480226d54cf8d03d71ab8c56eb69ae8a78e231d`. Installed version: `2.1.0`; interpreter: CPython `3.14.7`. The installed
 `ocfl/object.py` SHA-256 is `123e732088523c2fb65b60e58159d9d41c39be8303132cf572e0f7f66018d745`.
 
-The independently authored inputs are visible in `produce.py`. The upstream `Object.build()` writes two genuine OCFL 1.1
-objects, using SHA-512 and SHA-256 respectively, each with three versions. `Object.validate()` accepts both objects. Its
-independent `Object.extract()` reproduces each version's complete authored filename/byte mapping. The retained files
-include root declaration, root and version inventory JSON, inventory sidecars, and content. Nothing in an upstream
-inventory, declaration, path, digest or content file is rewritten. The corpus includes modifications, deletion,
+The independently authored inputs are visible in inert `produce.py.snapshot`. The upstream `Object.build()` writes two
+genuine OCFL 1.1 objects, using SHA-512 and SHA-256 respectively, each with three versions. `Object.validate()` accepts
+both objects. Its independent `Object.extract()` reproduces each version's complete authored filename/byte mapping. The
+retained files include root declaration, root and version inventory JSON, inventory sidecars, and content. Nothing in an
+upstream inventory, declaration, path, digest or content file is rewritten. The corpus includes modifications, deletion,
 restoration, rename, logical aliases, forward-delta physical reuse, empty files, binary bytes and a mail message.
 
 Each retained physical and extracted file has its full base64 bytes and SHA-256. Normal runtime tests recompute physical
@@ -17,11 +17,26 @@ file hashes, select every independently extracted logical file, compare exact by
 and compose the genuine mail content with the MIME reader. The extracted expectations originate from the authored input
 and are checked by the independent extractor before being saved; candidate output never defines an oracle.
 
-Reproduce from the repository root with network/cache permission in a temporary uv environment:
+## Current authored controls
 
-```sh
-uv run --with 'ocfl-py @ git+https://github.com/zimeon/ocfl-py.git@a480226d54cf8d03d71ab8c56eb69ae8a78e231d' python tests/fixtures/ocfl/produce.py
-```
+Run `node tests/fixtures/ocfl/produce.ts --output /ABS/NEW-ocfl.json` with Node 22.18 or later. The output path must not
+exist. Stage this directory with `../iso/native.ts` and `../codec.ts` in an isolated runner. No Python or SDK
+acquisition occurs.
+
+The current harness authors both digest profiles, each three-version state, the first-occurrence content manifest and
+all original payloads. Every inventory is compared structurally with the frozen native inventory; every physical content
+byte and every complete extracted filename/byte mapping must match. New inventory whitespace and matching digest
+sidecars are authored, so new file hashes need not match the historical writer’s serialization. Historical sidecar
+digests are checked against the historical inventory bytes separately.
+
+The output says `independentNativeRerun: false`. It does not invoke `ocfl-py`, run its validator/extractor or establish
+new independent conformance. `independent.json` and its native evidence remain unchanged. `source-map.json` records the
+exact historical Python source hash and inert snapshot; new receipts do not replace frozen native output.
+
+## Historical independent execution
+
+The old producer used the pinned Python package described above and is preserved as `produce.py.snapshot`; it is
+retained for inspection, not execution.
 
 The producer and its transitive Python dependencies are test-only acquisitions. They are absent from package imports and
 manifests. This is interoperability evidence for one implementation profile, not a deployed storage test, full OCFL

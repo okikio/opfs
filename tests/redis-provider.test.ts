@@ -25,12 +25,12 @@ describe("separate native Redis and Valkey RESP2 qualification", () => {
           const key = new Uint8Array([0, 13, 10, 255]), original = new Uint8Array(131072);
           for (let index = 0; index < original.length; index++) original[index] = index * 31 & 255;
           await fixture.seed(key, original);
-          // Independent redis-py producer -> candidate full-byte consumer.
+          // Independent hiredis producer -> candidate full-byte consumer.
           expectBytes((await client.get(key))!, original);
           const replacement = new Uint8Array(original.map((byte) => byte ^ 170));
           expect(await client.put(key, replacement, { mode: "present", expiry: { kind: "persist" } }))
             .toEqual({ state: "stored" });
-          // Candidate producer -> independent redis-py full-byte consumer.
+          // Candidate producer -> independent hiredis full-byte consumer.
           expectBytes((await fixture.read(key)).bytes!, replacement);
           expect(await client.put(key, original, { mode: "absent", expiry: { kind: "persist" } }))
             .toEqual({ state: "not-stored" });

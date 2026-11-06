@@ -1,0 +1,5 @@
+{
+  "snapshot": "acquire.sh.snapshot",
+  "sha256": "8efe9666248754bdd1417e97787f222456d2ef6f8b1138ac286f34ac8d63f97d",
+  "scope": "Exact historical Python-era acquisition recipe. Current acquire.sh provisions native tools only; historical receipts are unchanged."
+}

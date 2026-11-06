@@ -11,7 +11,34 @@ first reproduces all original bytes with native C. Mutations then change header 
 byte/CRC. Every mutation produces native C exit 1 with an explicit CRC mismatch diagnostic. Candidate tests reject those
 same controls with `checksum-mismatch`. Perl is a full-byte oracle only, not our negative checksum oracle.
 
-## Reproduce the bounded native workflow
+## Run the current TypeScript producers
+
+`create.ts` keeps macutils and Perl Convert::BinHex as reciprocal independent BinHex producers and consumers.
+`native.pl` is unchanged. Run from the repository root in a disposable runner with Node 26, macutils, the Perl module,
+Perl and util-linux `prlimit` installed:
+
+```sh
+node tests/fixtures/binhex/create.ts --harness tests/fixtures/binhex/native.pl --output /tmp/binhex-new.json
+node tests/fixtures/binhex/negative.ts --fixture /tmp/binhex-new.json --output /tmp/binhex-negative-new.json
+```
+
+Both commands require new output files and refuse to overwrite existing evidence. Native children retain the old 2 MiB
+per-file limit through `prlimit`, plus a 60-second deadline with SIGKILL and a 2 MiB captured-output budget. Each
+producer removes only its owned temporary tree. These are per-file and per-command bounds, not a filesystem quota. The
+negative command can also take the existing `independent.json`; it checks the selected fork blobs and their hashes
+before requiring full-byte baseline acceptance and checksum-specific native refusal.
+
+The new producer replaces Python zipfile's nested input with explicitly authored, single-member STORED ZIP framing,
+fixed at DOS date 1980-01-01. The authored CRC32 recurrence checks the standard `123456789` vector. This is a changed
+nested input profile, not an independently supplied ZIP writer or a claim that the old ZIP bytes are reproduced. The
+native C and Perl consumers still compare every original BinHex fork byte, including that nested image.
+
+These TypeScript commands have not yet run. Qualify them offline with fresh source/tool hashes and native results before
+admitting new fixture output. The existing JSON, native outputs and historical receipts remain unchanged. The exact
+executed Python producers remain inert `create.py.snapshot` and `negative.py.snapshot`; the old filenames inside their
+receipts retain their original identity. Do not reattribute old evidence to the TypeScript port.
+
+## Historical bounded native workflow
 
 The public base is
 `python:3.13.12-slim-bookworm@sha256:a58daefb915e1e03ad48f3ca4df8832065412c5c35cacb9d39f4229184de12b6`. The inspected
@@ -35,8 +62,8 @@ image is `sha256:ea631438f481f11103ff77da86c4912da33fe13ee602908425f520122736f9e
 observed identity, not a public pullable reproducibility pin; future APT versions may differ and must be recorded
 separately.
 
-In a separate `--network none` container from that exact derived image, copy `create.py` to `/produce.py` and
-`native.pl` to `/native.pl`. Run:
+In the recorded historical run, a separate `--network none` container from that exact derived image received the
+original `create.py` as `/produce.py` and `native.pl` as `/native.pl`. It ran:
 
 ```text
 /usr/local/bin/python3 -I /produce.py --harness /native.pl --output /tmp/independent.json
@@ -48,7 +75,8 @@ stdout/stderr, in addition to the container memory ceiling. Require exit 0/no OO
 before copying the JSON. Preserve all first failures; tool help/version, empty-file or filename behavior must not be
 silently normalized to fit the reader.
 
-Run `negative.py` separately offline under the same quotas, copying the original genuine JSON to `/independent.json`:
+The historical `negative.py` ran separately offline under the same quotas, with the original genuine JSON at
+`/independent.json`:
 
 ```text
 /usr/local/bin/python3 -I /negative.py --fixture /independent.json --output /tmp/negative.json

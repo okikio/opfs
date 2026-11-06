@@ -1,0 +1,21 @@
+{
+  "commonjsMigration": {
+    "purpose": "Exact inert historical sources; TypeScript runs require new separate receipts and preserve native SDK identities.",
+    "entries": [
+      {
+        "historical": "acquire.cjs",
+        "snapshot": "acquire.cjs.snapshot",
+        "bytes": 836,
+        "sha256": "73d5414240e11f2ccfea55bed80144ed86def551d6c053b42eec7bfc32196036",
+        "current": "acquire.ts"
+      },
+      {
+        "historical": "produce.cjs",
+        "snapshot": "produce.cjs.snapshot",
+        "bytes": 5937,
+        "sha256": "76fd266ff7fd500fccd88fc3e3677397edcfc5468d77a1829ad87a9ce5c78eac",
+        "current": "produce.ts"
+      }
+    ]
+  }
+}

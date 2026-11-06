@@ -108,12 +108,12 @@ cleanup, and rejects the terminal result. The decoder never closes an applicatio
 
 ## Independent evidence and format sources
 
-`tests/fixtures/lz4/create.py` uses the signed Debian LZ4 CLI to produce independent/dependent frames, all four maximum
-block sizes, raw data blocks, empty content and checksum variants. It compares every original payload through the C
-`LZ4F_decompress` API separately from the CLI. A repeated pseudorandom 65000-byte period fits the maximum match distance
-and forces cross-block history use. `xxhsum -H0` supplies full expected xxHash32 values at byte/stripe boundaries. The
-package adds neither tool as a runtime dependency. Native producer/consumer version strings and original full payloads
-remain in the fixture JSON; provenance pins each file and archive hash.
+The historical `tests/fixtures/lz4/create.py.snapshot` used the signed Debian LZ4 CLI to produce independent/dependent
+frames, all four maximum block sizes, raw data blocks, empty content and checksum variants. It compares every original
+payload through the C `LZ4F_decompress` API separately from the CLI. A repeated pseudorandom 65000-byte period fits the
+maximum match distance and forces cross-block history use. `xxhsum -H0` supplies full expected xxHash32 values at
+byte/stripe boundaries. The package adds neither tool as a runtime dependency. Native producer/consumer version strings
+and original full payloads remain in the fixture JSON; provenance pins each file and archive hash.
 
 The producer used signed Debian `lz4` package `1.9.4-1` and `xxhash` package `0.8.1-1` on arm64. Its local base image is
 diagnostic provenance, not a publicly pullable complete producer pin. The source implementation follows the immutable

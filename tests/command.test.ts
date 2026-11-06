@@ -6,8 +6,9 @@ import { join } from "node:path";
 import { execPath, versions } from "node:process";
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { capture, diagnostic, observation, retain } from "../.mise/tasks/command.mjs";
-import { own } from "../.mise/tasks/container.mjs";
+import { capture, diagnostic, observation, retain } from "../.mise/tasks/command.ts";
+import type { DiagnosticType } from "../.mise/tasks/command.ts";
+import { own } from "../.mise/tasks/container.ts";
 import { withReleases } from "./close.ts";
 
 /** One shared native program; each runtime uses its documented ESM evaluator. */
@@ -161,7 +162,11 @@ describe("native command evidence", () => {
         expect(output.signal).toBe(null);
         expect(output.stdout.complete).toBe(false);
         expect(output.stderr.complete).toBe(false);
-        expect(output.failures.some((failure: { reason: { code?: string } }) => failure.reason.code === "ENOENT")).toBe(
+        expect(
+          output.failures.some((failure) =>
+            failure.reason instanceof Error && "code" in failure.reason && failure.reason.code === "ENOENT"
+          ),
+        ).toBe(
           true,
         );
         expect(record.retentionFailures).toEqual([]);
@@ -234,7 +239,7 @@ describe("native command evidence", () => {
         expect(output.pid).toBe(null);
         expect(output.exitObserved).toBe(false);
         expect(output.success).toBe(false);
-        expect(output.failures[0].reason).toBe(signal.reason);
+        expect(output.failures[0]?.reason).toBe(signal.reason);
         expect(output.stdout.eof).toBe(false);
       });
     },
@@ -330,7 +335,7 @@ describe("native command evidence", () => {
         expect(record.code).toBe(9);
         expect(record.exitObserved).toBe(true);
         expect(record.retentionFailures.length).toBe(1);
-        expect(record.retentionFailures[0].stage).toBe("acquire");
+        expect(record.retentionFailures[0]?.stage).toBe("acquire");
         expect(await readdir(owner.directory)).toEqual([]);
         expect(await readFile(join(moved, "sentinel.bin"))).toEqual(Buffer.from([0, 255, 128]));
       });
@@ -373,8 +378,8 @@ describe("native command evidence", () => {
         expect(injected).toBe(true);
         expect(record.code).toBe(9);
         expect(record.retentionFailures.length).toBe(1);
-        expect(record.retentionFailures[0].stage).toBe("write");
-        expect(record.retentionFailures[0].stream).toBe("stdout");
+        expect(record.retentionFailures[0]?.stage).toBe("write");
+        expect(record.retentionFailures[0]?.stream).toBe("stdout");
         expect(await readFile(join(record.report, "stderr.bin"))).toEqual(Buffer.from([128, 1]));
         const metadata = JSON.parse(await readFile(join(record.report, "metadata.json"), "utf8"));
         expect(metadata.code).toBe(9);
@@ -419,9 +424,15 @@ describe("native command evidence", () => {
       },
     });
     const value = diagnostic({ failure, bytes });
+    const record = (input: DiagnosticType | undefined): Record<string, DiagnosticType> => {
+      if (input === null || typeof input !== "object") throw new Error("Expected a retained diagnostic object.");
+      return input;
+    };
+    const fields = record(value);
+    const cause = record(fields.failure);
     expect(accessed).toBe(0);
-    expect(value.failure.name).toEqual({ accessor: true });
-    expect(value.failure.message).toBe("owned reason");
-    expect(value.bytes).toEqual({ type: "Buffer", byteLength: 3 });
+    expect(cause.name).toEqual({ accessor: true });
+    expect(cause.message).toBe("owned reason");
+    expect(fields.bytes).toEqual({ type: "Buffer", byteLength: 3 });
   });
 });

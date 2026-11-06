@@ -136,11 +136,16 @@ requested bytes because ar has no format checksum requiring a full-file scan.
 
 ## Interoperability evidence
 
-`tests/fixtures/ar/create.py` creates normal GNU archives with GNU binutils ar 2.40 and BSD archives with LLVM ar
-14.0.6, then extracts every payload with the other implementation and compares all bytes to original binary inputs.
-Tests include empty and odd-size files, a 128 KiB member, exact 16-byte names, spaces, UTF-8 and Python-stdlib-produced
-nested gzip/TAR. Fixed original wire controls cover table references, padding, numeric parsing, duplicate IDs, malformed
-extents, limits and cancellation.
+The historical executed producer, now retained as inert `tests/fixtures/ar/create.py.snapshot`, created normal GNU
+archives with GNU binutils ar 2.40 and BSD archives with LLVM ar 14.0.6, then extracts every payload with the other
+implementation and compares all bytes to original binary inputs. Tests include empty and odd-size files, a 128 KiB
+member, exact 16-byte names, spaces, UTF-8 and Python-stdlib-produced nested gzip/TAR. Fixed original wire controls
+cover table references, padding, numeric parsing, duplicate IDs, malformed extents, limits and cancellation.
+
+[`create.ts`](../tests/fixtures/ar/create.ts) is the current project-owned producer source. It preserves independent
+native ar production and cross-reader payload checks, but uses native bsdtar and built-in gzip for the nested control
+archive. The [producer instructions](../tests/fixtures/ar/README.md) explain how to record a separate native run. This
+TypeScript port has not yet been executed and is not the source of the committed historical fixtures.
 
 Unfiltered bsdtar 3.6.2 extraction of the GNU fixture fails when it exposes `//` as a pathname; that diagnostic is
 retained in the fixture rather than reported as a successful consumer. Cross GNU/LLVM extraction is the successful

@@ -31,9 +31,9 @@ serialized-L1 bounds independently of that command repair.
 
 ## Reproduce the native tools and outputs
 
-Use `RECIPE.md`, `acquire.sh`, `acquire-run.py`, `create.py` and `producer-run.py`. They describe signed package
-download/admission, a separate offline local-archive installation, then offline native production with finite
-process-group lifetime, combined diagnostics, fixture/output sizes and resource limits.
+The historical `RECIPE.md` section used `acquire.sh`, `acquire-run.py`, `create.py` and `producer-run.py`. They describe
+signed package download/admission, a separate offline local-archive installation, then offline native production with
+finite process-group lifetime, combined diagnostics, fixture/output sizes and resource limits.
 
 Actual qemu-img/qemu-io version is 7.2.22, Debian package `1:7.2+dfsg-7+deb12u18+b3`, with Python 3.13.12 on Linux
 arm64. The grammar reference is QEMU v9.2.0 commit `ae35f033b874c627d81d51070187fbf55f0bf1a7`; it is not the installed
@@ -51,3 +51,10 @@ The eight-lane benchmark passed its complete original-byte preflights on Node 26
 the same one-CPU/1-GiB/no-swap/offline limits. Full raw distributions are preserved losslessly with raw/gzip hashes in
 `provenance.json`; only scalar results are summarized. No other Docker containers were observed at the start and end,
 which does not prove continuous host inactivity or a universal speed ratio.
+
+The maintained native producer is now TypeScript: `create.ts` and `producer-run.ts`, with explicit fresh output and
+receipt arguments. The [current producer section](RECIPE.md#current-typescript-acquisition-and-producer) explains its
+full-byte readbacks, file/process/output bounds, relative source layout and required new Linux Node/QEMU recipe.
+Original Python producer and acquisition sources remain inert snapshots. `acquire.sh` now delegates bounded archive
+admission, offline byte rechecks and notices to `../apt.ts`; no current QCOW2 tool invokes Python. These source ports
+require a new controlled acquisition/producer run and have not produced the historical native JSON or receipts.

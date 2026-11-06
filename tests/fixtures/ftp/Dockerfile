@@ -1,12 +1,20 @@
-# Official Python 3.13.11 slim-bookworm index inspected on 2026-11-05.
-FROM python@sha256:20080e807bfc404f8450b185cf0fc95d553462673598549613735f70a5b4d5d0
-COPY requirements.txt /fixture/requirements.txt
-RUN pip install --no-cache-dir --only-binary=:all: --require-hashes -r /fixture/requirements.txt
-# Upstream pyftpdlib 2.2.0 source from primary PyPI metadata, without build dependencies.
-RUN python -c 'import hashlib,pathlib,urllib.request; data=urllib.request.urlopen("https://files.pythonhosted.org/packages/f9/42/8751c5f58ae59b09e070da4fa322ae9693a340d2cc456b5a380b2c1ee47a/pyftpdlib-2.2.0.tar.gz",timeout=30).read(); assert hashlib.sha256(data).hexdigest()=="4ba0642078792df63dd3b2e9c8f838f2a3ecf428c7518d5921c0530d53512acf"; pathlib.Path("/fixture/server.tar.gz").write_bytes(data)'
-RUN mkdir /fixture/library && tar -xzf /fixture/server.tar.gz --strip-components=1 -C /fixture/library && rm /fixture/server.tar.gz
-COPY server.py /fixture/server.py
-ENV PYTHONPATH=/fixture/library PYTHONUNBUFFERED=1
+# Official Node26 index already reviewed for the repository's provider fixtures.
+FROM node:26.13.0-bookworm-slim@sha256:add5c17c14752c54d2f3d519ec46a3815684d41c33f198bcb09fb998f7dcbf68
+ENV DEBIAN_FRONTEND=noninteractive
+# Only inherited signed Debian sources acquire the native protocol/TLS/client tools.
+# Keep exact downloaded package digests and installed versions for each actual build.
+RUN printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d && chmod 755 /usr/sbin/policy-rc.d \
+    && mkdir -p /fixture/receipts \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends --download-only proftpd-core proftpd-mod-crypto openssl curl \
+    && sha256sum /var/cache/apt/archives/*.deb > /fixture/receipts/debs.sha256 \
+    && apt-get install -y --no-install-recommends proftpd-core proftpd-mod-crypto openssl curl \
+    && dpkg-query -W > /fixture/receipts/packages.txt \
+    && cp /etc/os-release /fixture/receipts/os-release \
+    && cp -a /etc/apt/sources.list.d /fixture/receipts/apt-sources \
+    && cp /var/lib/apt/lists/*InRelease /fixture/receipts/ \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*.deb
+COPY server.ts client.ts /fixture/
 USER 65534:65534
 EXPOSE 2121 30000
-CMD ["python", "/fixture/server.py"]
+CMD ["node", "/fixture/server.ts"]

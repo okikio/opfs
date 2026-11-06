@@ -104,6 +104,11 @@ The primary grammar is RARLAB's [RAR5 technical note](https://www.rarlab.com/tec
 fixture/archive hashes, exact producer/consumer versions and commands are in
 [`tests/fixtures/rar/provenance.json`](../tests/fixtures/rar/provenance.json) and the adjacent inert receipt.
 
+The historical executed producer remains byte-for-byte inert `tests/fixtures/rar/create.py.snapshot`.
+[`create.ts`](../tests/fixtures/rar/create.ts) is the current project-owned port, not the producer of those existing
+fixtures. It has not yet run. Its [instructions](../tests/fixtures/rar/README.md) require separately reviewed native
+tools and a new qualification receipt; the port does not download a vendor executable or renew trial authorization.
+
 An explicitly authorized, one-time vendor RAR 7.23 trial invocation produced STORED and quick-open/comment archives.
 Native 7zz's forced RAR5 reader and macOS libarchive independently consumed every original file and matched complete
 bytes, including empty, Unicode, 150,123-byte and unrelated 1 MiB members. Libarchive extraction names are retained with

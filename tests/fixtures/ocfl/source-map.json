@@ -1,0 +1,15 @@
+{
+  "purpose": "Historical independent SDK evidence stays frozen; current TypeScript controls are explicitly authored, not a new native SDK run.",
+  "historical": [
+    {
+      "path": "produce.py",
+      "snapshot": "produce.py.snapshot",
+      "bytes": 3019,
+      "sha256": "61b32f25536a331e04c7ce1b2a01808805410fe670b040de2c1255e9d869f960"
+    }
+  ],
+  "current": {
+    "path": "produce.ts",
+    "independentNativeRerun": false
+  }
+}

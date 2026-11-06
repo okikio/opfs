@@ -50,7 +50,7 @@ export async function preview(bucket: string, key: string, token: () => Promise<
   const ledger = createSourceBudget({ maxBytes: 32 * 1024 * 1024, maxRequests: 100 });
   const source = budgetSource(await openObjectSource(client, key), ledger);
   const archive = await openZip(source);
-  const member = archive.entries.find((entry) => !entry.directory && !entry.encrypted);
+  const member = archive.entries.find((entry) => entry.kind === "file" && !entry.encrypted);
   if (!member) return null;
   const result = await archive.read(member.id, {
     length: Math.min(4096, member.size),

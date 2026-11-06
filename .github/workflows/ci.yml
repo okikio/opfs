@@ -155,6 +155,8 @@ jobs:
           install_args: deno node
       - run: deno task deps:ci && deno task test:providers
       - run: deno task test:expansion:providers
+      - name: Install independent archive consumers
+        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends 7zip libarchive-tools
       - run: deno task test:archive:interop
 
   firebase:

@@ -105,6 +105,14 @@ The native writer and reader share Apache C++ ORC through PyArrow 20.0.0. This c
 interoperability against the separate TypeScript reader; it does not compare two independent native ORC engines.
 Authored wire tests remain separate grammar controls, including the alternate content-length equation.
 
+The fixture recipe now includes a separate TypeScript launcher that extracts the pinned wheel's C++ subset and calls the
+public native API directly. It retains all eighteen intended profiles and the same shared-implementation proof limit,
+with no Python runtime. Its separate native qualification passed all eighteen profiles with Node 26.13.0 and Debian C++
+12.2.0 in a network-disabled 1 GiB runner, without OOM or cleanup faults. For each file version, 8192-row nonnull and
+mixed-null cases produced 32 stripes; all-null cases produced seven. This qualifies the new producer and native
+readback, not a second ORC engine or candidate-reader acceptance of these newly generated images. Frozen historical
+fixtures and their provenance remain separate.
+
 ## Measure preview work
 
 [bench/orc.bench.ts](https://github.com/okikio/opfs/blob/codex%2Frelease-2026-10-06/bench/orc.bench.ts) separates cold

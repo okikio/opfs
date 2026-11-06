@@ -56,13 +56,22 @@ BSD-style age Authors/Google/Filippo Valsorda notice. The release's bundled lice
 BSD notice. The Bech32 source has its original embedded MIT notice naming Takatoshi Nakagawa and the age Authors. Do not
 apply the vector license to the entire source collection.
 
-`provenance/age-acquire.py`, `age-produce.mjs` and `age-run.py` are the exact reviewed scripts used for these receipts.
-The acquisition has fixed URLs, compressed/expanded/member caps, redirect policy and source hash admission. The runner
-verifies exact stopped-container image/config/platform/resources/network before starting and separately retains primary
-and retirement faults. The immutable Python and Node image references are in `age-prepared-inputs.json`. Reproduction
-needs separate serialized acquisition and offline producer reservations, fresh task-owned containers and no candidate
-files in `/tool`. The source-stage receipt names the original paths expected under `/tool/evidence/sources/`; the
-producer additionally takes the admitted CLI and vector receipts, derived wires and exact Python ZIP JSON.
+The historical receipts identify `provenance/age-acquire.py`, `age-produce.mjs` and `age-run.py`. Both Python sources
+now remain inert as `provenance/*.py.snapshot`; their TypeScript replacements are `provenance/age-acquire.ts` and
+`provenance/age-run.ts`. The [acquisition and launcher guide](../acquisition.md) gives the new Node-only recipe,
+relative source layout, fresh output ownership and exact quotas. Acquisition now uses the pinned official Node image;
+the old Python image remains part of historical evidence only. The new source has not produced those historical
+receipts, and its shared source map preserves the old source hashes. `provenance/age-produce.mjs.snapshot` retains the
+exact executed producer bytes, and `provenance/source-map.json` maps that identity to the snapshot and the new
+`provenance/age-produce.ts` source. The TypeScript producer has not replaced the historical receipts. A future run still
+needs the explicitly admitted offline `/tool/evidence` tree, the pinned Node runtime and a new owned `/tmp/age-native`
+workspace. Ordinary tests do not run this producer. The acquisition has fixed URLs, compressed/expanded/member caps,
+redirect policy and source hash admission. The runner verifies exact stopped-container
+image/config/platform/resources/network before starting and separately retains primary and retirement faults. The
+immutable Python and Node image references are in `age-prepared-inputs.json`. Reproduction needs separate serialized
+acquisition and offline producer reservations, fresh task-owned containers and no candidate files in `/tool`. The
+source-stage receipt names the original paths expected under `/tool/evidence/sources/`; the producer additionally takes
+the admitted CLI and vector receipts, derived wires and exact Python ZIP JSON.
 
 Strict type, installed-package and fresh-process import checks are separate integration gates. Native oracle production
 and authored runtime evidence do not replace them. The first authored candidate run exposed a ZIP consumer mistake:
@@ -73,8 +82,8 @@ without modifying native oracles.
 
 The retained first four-runtime snapshot passed native age cases in Deno, Node 22 and Node 26. Bun 1.4.2's native
 `node:crypto` rejected this cipher with `ERR_CRYPTO_UNKNOWN_CIPHER`; that failure remains preserved rather than treated
-as a malformed tag. `../../age-oracle.ts` is a typed wrapper around `provider.mjs`. This shared test-only transport and
-`oracle.mjs` provide the explicit Deno single-chunk capability for the portable Bun reader. The installed-package check
+as a malformed tag. `../../age-oracle.ts` is a typed wrapper around `provider.ts`. This shared test-only transport and
+`oracle.ts` provide the explicit Deno single-chunk capability for the portable Bun reader. The installed-package check
 copies the same transport and unchanged child into its disposable consumer and supplies the packed `AgeError`
 constructor. Neither helper imports the source reader there or becomes a published module. The child imports no
 candidate library and runs with denied I/O permissions, finite request/output/call/deadline caps and native finalization
@@ -87,3 +96,10 @@ The immutable input has SHA-256 `f6bd346a7173541705c561be9ff034547612772697f9f95
 receipt records exit 0, no OOM, a 1 GiB memory-and-swap ceiling, one CPU, PID limit 128 and no host mounts. This
 qualifies that source input and the restricted helper behavior, not later edits, strict type checks, installed artifacts
 or a cryptographic audit. The earlier Bun native-cipher failure remains a separate retained result.
+
+The current transport and native child use TypeScript. Their pre-migration JavaScript bytes remain inert as
+`provider.mjs.snapshot` (SHA-256 `bcfdae4f2bcf37acc7294c357aeede25d321208689d0a06e76ee0469ccf01ddf`) and
+`oracle.mjs.snapshot` (SHA-256 `16d246c5ce1583dadeab023290fcf3917b9e7a598f3d5d13203752c819932583`). The dated runtime
+and installed-package receipts above retain their original input identities. They do not prove execution of the new
+TypeScript sources. Run the current age test and package gates to establish that separate result; do not rewrite a
+historical receipt or execute an inert snapshot to make the migration appear prequalified.

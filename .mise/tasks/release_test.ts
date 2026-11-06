@@ -539,12 +539,15 @@ async function fixture(body: (value: FixtureType) => Promise<void>, workspace = 
       join(root, "verify.ts"),
       "const bytes=await Deno.readFile(Deno.args[0]);if(bytes[0]!==31||bytes[1]!==139)throw new Error('toy archive is not gzip');\n",
     );
-    await Deno.writeTextFile(join(root, "bin/registry.mjs"), REGISTRY);
+    // Copy the maintained TypeScript mock; generated package JavaScript remains a separate consumer contract.
+    await Deno.copyFile(new URL("tests/fixtures/release/registry.ts", source), join(root, "bin/registry.ts"));
     for (const command of ["curl", "npm"]) {
-      await Deno.writeTextFile(join(root, "bin", command), `#!/bin/sh\nexec ${quote(node)} "$0".mjs "$@"\n`);
+      await Deno.writeTextFile(join(root, "bin", command), `#!/bin/sh\nexec ${quote(node)} "$0".ts "$@"\n`);
       await Deno.writeTextFile(
-        join(root, "bin", `${command}.mjs`),
-        `process.env.REGISTRY_COMMAND=${JSON.stringify(command)};await import('./registry.mjs');\n`,
+        join(root, "bin", `${command}.ts`),
+        `import process from 'node:process';process.env.REGISTRY_COMMAND=${
+          JSON.stringify(command)
+        };await import('./registry.ts');\n`,
       );
       await Deno.chmod(join(root, "bin", command), 0o755);
     }
@@ -1399,26 +1402,6 @@ describe("Deno release command", { skip: Deno.build.os === "windows" }, () => {
     });
   });
 });
-
-/** Fakes only the registry command boundary; real Bumpy and the real candidate tarball remain unchanged. */
-const REGISTRY = `
-import {readFileSync,writeFileSync} from 'node:fs';
-const path=process.env.REGISTRY_STATE;const state=JSON.parse(readFileSync(path,'utf8'));const args=process.argv.slice(2);
-if(process.env.REGISTRY_COMMAND==='npm'){
-  if(args[0]!=='publish')throw new Error('Unexpected fake npm operation');
-  state.uploads.push(args);writeFileSync(path,JSON.stringify(state));
-  if(state.failUpload)process.exit(9);
-  state.npm=true;writeFileSync(path,JSON.stringify(state));process.exit(0);
-}
-const url=args.at(-1);const npm=url.startsWith('https://registry.npmjs.org/');
-if(url.endsWith('.tgz')){process.stdout.write(state.different?Buffer.from('different archive'):readFileSync(state.archive));process.exit(0);}
-const origin=state.status??((npm?state.npm:state.jsr)?200:404);
-let status=origin;
-if(!npm&&state.staleJsr){state.jsrCache??={};status=state.jsrCache[url]??=origin;writeFileSync(path,JSON.stringify(state));}
-const body=JSON.stringify({name:'@okikio/opfs',version:'0.1.0',dist:{tarball:'https://registry.npmjs.org/@okikio/opfs/-/opfs-0.1.0.tgz'}});
-process.stdout.write(body+(args.includes('--write-out')?'\\n'+status:''));
-if(args.includes('--fail')&&status>=400)process.exit(22);
-`;
 
 /** Copies the pinned bundled release implementation, not the project's unrelated dependency tree. */
 async function fixtureDependencies(root: string, source: URL): Promise<void> {

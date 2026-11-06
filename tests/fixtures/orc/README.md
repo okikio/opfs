@@ -1,9 +1,15 @@
 # Native ORC originals
 
 `independent.json` contains eighteen genuine uncompressed ORC files written and read by Apache C++ ORC through PyArrow
-20.0.0 on Python 3.13.12, Linux ARM64. `create.py` authored fixed original arrays without importing the TypeScript
-candidate. Each file retains its original wire, every physical little-endian column, separate null masks, and SHA-256
-digests. The native readback checks all values before the fixture is accepted.
+20.0.0 on Python 3.13.12, Linux ARM64. The preserved `create.py.snapshot` authored fixed original arrays without
+importing the TypeScript candidate. Each file retains its original wire, every physical little-endian column, separate
+null masks, and SHA-256 digests. The native readback checks all values before the fixture is accepted.
+
+The [current TypeScript recipe](RECIPE.md#current-typescript-and-native-c-workflow) admits the same wheel as a ZIP
+container and links its C++ libraries directly. No Python, pip or `libarrow_python` runs. All eighteen intended profiles
+passed a separate native qualification, including complete original values and masks. The 8192-row nonnull and
+mixed-null cases produced 32 stripes; all-null cases produced seven for both file versions. Keep this new output
+separate from the frozen evidence above. Original Python tools remain exact inert `.py.snapshot` files.
 
 Versions 0.11 and 0.12 each cover 0, 37 and 8192 rows with nonnullable, mixed-null and all-null columns. The seven
 physical types are BOOLEAN, BYTE, SHORT, INT, LONG, FLOAT and DOUBLE. Cases include signed endpoints, integers beyond

@@ -115,11 +115,11 @@ unsupported layouts need a separate implemented profile rather than a relaxed ch
 
 ## Independent evidence
 
-`tests/fixtures/udf/create.py` invokes signed-Debian `genisoimage -udf` and compares every original file byte through
-the independent 7-Zip handler forced with `-tUdf`. This prevents an ISO bridge from accidentally supplying the
-verification result. `udfinfo` supplies a separate structural report. The corpus includes empty files, Unicode names
-using both compression identifiers, nested directories, identifiers crossing sector boundaries, file aliases and a large
-unrelated payload used to check exact selected-range access.
+The current TypeScript producer, `tests/fixtures/udf/create.ts`, invokes signed-Debian `genisoimage -udf` and compares
+every original file byte through the independent 7-Zip handler forced with `-tUdf`. This prevents an ISO bridge from
+accidentally supplying the verification result. `udfinfo` supplies a separate structural report. The corpus includes
+empty files, Unicode names using both compression identifiers, nested directories, identifiers crossing sector
+boundaries, file aliases and a large unrelated payload used to check exact selected-range access.
 
 Long and split allocation vectors are explicitly labelled authored adaptations of a genuine image. The original payloads
 remain unchanged; independent forced-UDF extraction verifies every file in each adaptation. They are not labelled

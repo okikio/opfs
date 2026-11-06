@@ -92,18 +92,23 @@ policy are copied before source awaits; property bytes are copied before a later
 
 ## Independent evidence
 
-`tests/fixtures/zip-lzma/create.py` defines native Python `zipfile.ZIP_LZMA` and 7-Zip producers and a forward-only
-Python writer for data descriptors. Python and 7-Zip consume every original byte in all sixteen members; libarchive also
-matches every nonempty original. The four archives contain twelve actual LZMA members. The receipt records actual
-method/flags, producer SDK bytes, property bytes, dictionary capacity, tool/package versions and hashes. Tiny entries
-that a native producer stores without compression are recorded as method 0 and are not LZMA proof. Producer and consumer
-programs are test-only and are never installed or invoked by the library.
+The historical `tests/fixtures/zip-lzma/create.py.snapshot` defines native Python `zipfile.ZIP_LZMA` and 7-Zip producers
+and a forward-only Python writer for data descriptors. Python and 7-Zip consume every original byte in all sixteen
+members; libarchive also matches every nonempty original. The four archives contain twelve actual LZMA members. The
+receipt records actual method/flags, producer SDK bytes, property bytes, dictionary capacity, tool/package versions and
+hashes. Tiny entries that a native producer stores without compression are recorded as method 0 and are not LZMA proof.
+Producer and consumer programs are test-only and are never installed or invoked by the library.
 
 Libarchive 3.6.2 refuses the two genuine Python LZMA empty members with exit code 1 and `lzma unknown error 10`, while
 Python and 7-Zip accept their complete empty outputs. Those exact refusals are retained as diagnostics, not counted as
 libarchive parity. Every other consumer failure is fatal to fixture production. The requested `seven-1m` producer
 setting actually emits a 262144-byte dictionary; the receipt preserves that observed capacity. The `seven-64k` case
 declares 65536 bytes and returns 230017 original bytes, exercising dictionary wrap.
+
+Current `tests/fixtures/zip-lzma/create.ts` uses native 7-Zip and reciprocal libarchive consumption, with separately
+labelled authored data-descriptor framing over genuine compressed extents. It records observed property bytes and
+dictionary sizes rather than assuming a command-line setting became the wire value. Historical Python profiles and their
+empty-member diagnostics remain unchanged; a new TypeScript run establishes a separate native-only result.
 
 The reviewed wire grammar is [PKWARE APPNOTE 6.3.10](https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT),
 sections 4.4.3.2, 4.4.4 and 5.8. Exact reviewed-byte provenance accompanies the fixtures. Authored mutations separately

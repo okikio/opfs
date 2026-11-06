@@ -124,12 +124,18 @@ remain binary. The same grammar checks the server's initial properties without t
 
 ## Sources and verification boundary
 
-The selected profile passed a disposable native RabbitMQ 4.4.0 check with Python 3.13.12 and independent Pika 1.4.4.
+The historical selected profile passed a disposable RabbitMQ 4.4.0 check with Python 3.13.12 and independent Pika 1.4.4.
 Pika seeded complete 6-byte and 128-KiB messages for this client to dequeue; this client then published both originals
 for Pika to read and compare byte for byte. The same check covered an empty queue, a mandatory return with code 312
 followed by an acknowledgement, a missing queue, and a refused password. Both containers retired without an
 out-of-memory event or retained fixture resources. This plaintext fixture does not qualify TLS, persistence, clustering,
 manual acknowledgements or AMQP 1.0. Compiler, package-artifact and CI evidence remain separate checks.
+
+The current provider fixture replaces Python/Pika execution with a signed Debian rabbitmq-c client through an authored C
+shim and TypeScript launcher. This changed native SDK profile passed its provider case against RabbitMQ 4.4.0, comparing
+every byte of both 6-byte and 128-KiB originals in both directions. It also checked publication confirmation, mandatory
+returns, empty and missing queues, and authentication refusal. Its native image and package/source receipts are separate
+from the frozen Pika captures and receipts; neither profile is relabeled as the other.
 
 The test fixture uses a durable queue because RabbitMQ 4.4 refuses deprecated nonexclusive transient queues by default.
 Its broker data lives only in owned tmpfs, and the client still publishes nonpersistent messages. This setup makes the

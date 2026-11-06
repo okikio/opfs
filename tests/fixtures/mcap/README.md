@@ -8,7 +8,7 @@ The authoritative primary specification is foxglove/mcap commit `23d6c627a27ac08
 Markdown, registry, notes and MIT license remain `.snapshot` bytes. The normative record definitions control over older
 terminology in the notes.
 
-`acquire.py` downloaded only the 21,955-byte Python `mcap==1.6.0` wheel with SHA256
+The historical `acquire.py.snapshot` downloaded only the 21,955-byte Python `mcap==1.6.0` wheel with SHA256
 `7cd37fba2cf51d033f2139ca837d2ed3024dcec3cd9f8ecdf3d4d15930df6e17`. It rejected redirects and admitted exact ZIP member
 paths, ordinary file types, stored/DEFLATE methods and finite member/expanded-size bounds after checking the whole-wheel
 hash. No setup, pip, package import or extra dependency ran during acquisition. `acquisition.json` records every member
@@ -50,3 +50,15 @@ mounts or ports. `native-recipe.md` explains reproduction and approval/resource 
 profiles, sparse pagination, inherited budgets/cancellation and native byte-brand regressions. Those are authored tests,
 not copied upstream conformance IDs. Upstream `.mcap` entries represented as Git LFS pointers have not been acquired or
 resolved. No conformance claim follows from the repository tree listings.
+
+The maintained acquisition/producer tools now use TypeScript and a small authored C++ harness around the official native
+MCAP writer/readers. `upstream-cpp.json` pins the complete header closure at the same primary commit. The
+[current native recipe](native-recipe.md#current-native-c-recipe) gives exact commands, input reconstruction, bounds and
+compiler/resource ownership. These sources have not produced the historical Python fixtures above. They write only a new
+owned output directory; the frozen checked-in JSON and its CRC-qualified Python receipt remain unchanged.
+
+The evidence owners are explicit: C++ checks every original message/schema/attachment byte and exact metadata through
+the project's sequential and seeking paths. Its reader does not validate CRCs. Separate authored framing plus Node's
+built-in zlib CRC checks every enabled scope and exercises changed-byte/checksum controls; those are not native-reader
+corruption refusals. `source-map.json` preserves the old Python tool identities without pretending the new harness ran
+when those receipts were created. There is no production MCAP SDK dependency.

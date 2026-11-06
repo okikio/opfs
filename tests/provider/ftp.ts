@@ -1,4 +1,5 @@
 import { createConnection } from "node:net";
+import { Buffer } from "node:buffer";
 import type { Socket } from "node:net";
 import { connect as secureConnection, TLSSocket } from "node:tls";
 import { fileURLToPath } from "node:url";
@@ -6,7 +7,7 @@ import type { StartedTestContainer } from "testcontainers";
 import type { FtpOptionsType, FtpSocketType, FtpTransportType } from "../../src/ftp.ts";
 import { close } from "../close.ts";
 
-export const FTP_BYTES = "independent Python ftplib bytes";
+export const FTP_BYTES = "independent native libcurl bytes";
 const PORT = 2121;
 const PASSIVE = 30000;
 
@@ -111,15 +112,18 @@ function wrap(socket: Socket, peerAddress: string): FtpSocketType {
   };
 }
 
-/** One unprivileged pyftpdlib server. Testcontainers owns build/start and all mapped ports. */
+/** One unprivileged native ProFTPD server. Testcontainers owns build/start and mapped ports. */
 export class FtpFixture implements AsyncDisposable {
   readonly #container: StartedTestContainer;
   readonly #certificate: string;
   #closing: Promise<void> | undefined;
   readonly tls = { controls: 0, data: 0, reused: 0 };
-  constructor(container: StartedTestContainer, certificate: string) {
+  /** Actual source, package and binary receipts from this fixture build/start. */
+  readonly provenance: string;
+  constructor(container: StartedTestContainer, certificate: string, provenance: string) {
     this.#container = container;
     this.#certificate = certificate;
+    this.provenance = provenance;
   }
   close(): Promise<void> {
     return this.#closing ??= Promise.resolve().then(async () => {
@@ -139,7 +143,7 @@ export class FtpFixture implements AsyncDisposable {
     const sockets = new WeakMap<FtpSocketType, Socket>();
     const transport: FtpTransportType = {
       connect: async ({ host: requested, port, signal }) => {
-        const target = port === PASSIVE ? container.getMappedPort(PASSIVE) : port;
+        const target = port === PASSIVE || port === PASSIVE + 1 ? container.getMappedPort(port) : port;
         const raw = createConnection({ host: requested, port: target });
         raw.on("error", () => {});
         await event(raw, "connect", signal);
@@ -189,33 +193,31 @@ export class FtpFixture implements AsyncDisposable {
       timeoutMs: 10_000,
     };
   }
-  /** Python's standard ftplib independently seeds the server via real STOR. */
+  /** Native libcurl independently seeds the server through STOR with stdin bytes. */
   async seed(): Promise<void> {
     const result = await this.#container.exec([
-      "python",
-      "-c",
-      [
-        "import ftplib, io",
-        "ftp=ftplib.FTP(); ftp.connect('127.0.0.1',2121,timeout=10); ftp.login('fixture','test-only-password')",
-        `ftp.storbinary('STOR producer.txt',io.BytesIO(${JSON.stringify(FTP_BYTES)}.encode()))`,
-        "ftp.mkd('folder'); ftp.quit()",
-      ].join("\n"),
+      "node",
+      "/fixture/client.ts",
+      "seed",
+      Buffer.from(FTP_BYTES).toString("base64"),
     ]);
     if (result.exitCode !== 0) throw new Error(`Independent FTP producer failed: ${result.output}`);
   }
-  /** Independent ftplib RETR verifies candidate uploads, not its own read implementation. */
+  /** Independent libcurl RETR verifies candidate uploads through a separate protocol implementation. */
   async read(path: string): Promise<string> {
     const result = await this.#container.exec([
-      "python",
-      "-c",
-      [
-        "import ftplib,sys",
-        "ftp=ftplib.FTP(); ftp.connect('127.0.0.1',2121,timeout=10); ftp.login('fixture','test-only-password')",
-        "parts=[]; ftp.retrbinary('RETR '+sys.argv[1],parts.append); ftp.quit(); print(b''.join(parts).decode(),end='')",
-      ].join("\n"),
+      "node",
+      "/fixture/client.ts",
+      "read",
       path,
     ]);
     if (result.exitCode !== 0) throw new Error(`Independent FTP reader failed: ${result.output}`);
+    return result.stdout;
+  }
+  /** Native 550 refusals must cover directory traversal, world-readable files and writable /tmp. */
+  async outside(): Promise<string> {
+    const result = await this.#container.exec(["node", "/fixture/client.ts", "deny-outside"]);
+    if (result.exitCode !== 0) throw new Error(`Independent FTP confinement check failed: ${result.output}`);
     return result.stdout;
   }
 }
@@ -224,14 +226,43 @@ export async function openFtp(): Promise<FtpFixture> {
   const { GenericContainer, Wait } = await import("testcontainers");
   const built = await GenericContainer.fromDockerfile(fileURLToPath(new URL("../fixtures/ftp/", import.meta.url).href))
     .build();
-  const container = await built.withExposedPorts(PORT, PASSIVE)
-    .withDroppedCapabilities("ALL").withSecurityOpt("no-new-privileges")
-    .withResourcesQuota({ memory: 0.5, cpu: 1 })
-    .withWaitStrategy(Wait.forLogMessage("OPFS FTP fixture ready")).withStartupTimeout(90_000).start();
+  // Readiness can fail before Testcontainers returns an owned container handle.
+  // Capture a finite prefix while its log stream still exists, without changing native configuration.
+  const startup: Buffer[] = [];
+  let startupBytes = 0;
+  const capture = (chunk: unknown): void => {
+    const remaining = 256 * 1024 - startupBytes;
+    if (remaining <= 0) return;
+    const bytes = (chunk instanceof Uint8Array ? Buffer.from(chunk) : Buffer.from(String(chunk))).subarray(
+      0,
+      remaining,
+    );
+    startup.push(Buffer.from(bytes));
+    startupBytes += bytes.length;
+  };
+  let container: StartedTestContainer;
   try {
-    const certificate = await container.exec(["cat", "/tmp/ftp-cert.pem"]);
+    container = await built.withExposedPorts(PORT, PASSIVE, PASSIVE + 1)
+      .withDroppedCapabilities("ALL").withSecurityOpt("no-new-privileges")
+      .withResourcesQuota({ memory: 0.5, cpu: 1 })
+      .withLogConsumer((stream) => {
+        stream.on("data", capture);
+        stream.on("err", capture);
+      })
+      .withWaitStrategy(Wait.forLogMessage("OPFS FTP fixture ready")).withStartupTimeout(90_000).start();
+  } catch (reason) {
+    console.error("Native FTP startup diagnostics (at most 256 KiB):", Buffer.concat(startup).toString());
+    throw reason;
+  }
+  try {
+    const certificate = await container.exec(["cat", "/tmp/ftp-control/cert.pem"]);
     if (certificate.exitCode !== 0) throw new Error("Fixture certificate was unavailable.");
-    const fixture = new FtpFixture(container, certificate.stdout);
+    const provenance = await container.exec(["cat", "/tmp/ftp-provenance.json"]);
+    if (provenance.exitCode !== 0 || provenance.stdout.length > 1024 * 1024) {
+      throw new Error("Fixture provenance was unavailable or exceeded its budget.");
+    }
+    JSON.parse(provenance.stdout);
+    const fixture = new FtpFixture(container, certificate.stdout, provenance.stdout);
     await fixture.seed();
     return fixture;
   } catch (reason) {

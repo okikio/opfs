@@ -8,7 +8,9 @@ A representative supported flow uploads a ZIP to a disposable GCS-compatible ser
 lists its directory, and reads one member through a read-only filesystem view. The caller owns credentials, transfer
 checkpoint persistence, key policy and preview rendering. A changed generation fails instead of mixing object versions.
 For encrypted content, the optional Tink payload source authenticates complete covering segments before returning
-plaintext. Encrypted upload restart remains a separate, unimplemented contract.
+plaintext. A transfer can resume the exact ciphertext saved from an earlier encryption attempt. Reconstructing that
+ciphertext from plaintext after losing the encoder state remains unimplemented; a new encryption attempt produces
+different bytes. See [encrypted transfer recovery](encryption.md#resume-exact-ciphertext-not-a-new-encryption-attempt).
 
 Native GCS metadata now retains exact decimal metageneration and canonical CRC32C text through client and driver
 results. Guarded requests pair the metadata token with an object generation; a returned checksum remains unverified
@@ -53,12 +55,21 @@ replicated consensus or deployment durability. [HTTP upload draft 15](upload.md)
 and explicit reconciliation. Actual client process kills verify recovery after lost append/final replies, while a
 missing completed resource remains an unknown publication outcome. It is separate from tus and is not a final RFC.
 
+The current provider qualification uses native ProFTPD/libcurl for FTP, rabbitmq-c for AMQP, libmemcached for Memcached,
+and nats.c for JetStream. Their selected local provider cases passed; preserved Python SDK captures remain historical
+evidence with their original hashes. Redis and Valkey also passed the native hiredis profile, including a rerun of the
+final file-admission and receipt-bound guards. See each capability guide for the exercised operations and exclusions.
+These results do not establish live-service or full-group support.
+
 ## How to continue
 
-Add each protocol as an import-safe subpath: client → driver → adapter → filesystem → real consumer bridge. Keep
-protocol messages in the client, storage mechanics in the driver and canonical filesystem translation in the adapter.
-Third-party implementations use the same public contracts without registering globals. Prefer injected capabilities and
-native Web APIs; selecting a new runtime dependency requires an explicit provenance and supply-chain review.
+Add each protocol as an import-safe subpath at the narrowest useful layer. A native client can stand alone when its
+operations do not supply file semantics; message acknowledgment and cache eviction, for example, do not become files.
+Where storage semantics fit, compose client → driver → adapter → filesystem. Add a bridge only for an actual external
+consumer contract. Keep protocol messages in the client, storage mechanics in the driver and canonical filesystem
+translation in the adapter. Third-party implementations use the same public contracts without registering globals.
+Prefer injected capabilities and native Web APIs; selecting a new runtime dependency requires an explicit provenance and
+supply-chain review.
 
 For every added capability, document a complete consumer example, exact unsupported behavior, resource ownership,
 bounded allocations, cancellation and recovery. Test against an independent producer or provider as well as malformed

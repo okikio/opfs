@@ -13,8 +13,8 @@ bind-mount ownership view can differ from the outer checkout's ownership. Even m
 that Git will admit that mounted repository. Source admission therefore consults Git only in the ordinary outer
 checkout, rather than configuring `safe.directory`, changing the checkout owner, or relaxing its write protection.
 
-`.mise/tasks/container.mjs` owns one identity-guarded private temporary copy and uncompressed archive per invocation.
-The maintained catalog comes from outer `git ls-files --cached --others --exclude-standard`. Repository administration,
+`.mise/tasks/container.ts` owns one identity-guarded private temporary copy and uncompressed archive per invocation. The
+maintained catalog comes from outer `git ls-files --cached --others --exclude-standard`. Repository administration,
 ignored task outputs and output trees are excluded. Installed `node_modules` is copied separately; Linux also copies the
 manual Deno cache. Installed package `dist` and `build` directories remain runtime inputs; the source-output exclusion
 rule does not remove those dependency implementations. No dependency installation or network access occurs in a Linux
@@ -41,17 +41,18 @@ to a Linux guarantee. Portable tar headers contain contained relative aliases, n
 
 Linux adds only CHOWN to the otherwise dropped container capability set. Root explicitly acquires ownership of its
 copied private archive and establishes its private `0600` mode before hashing and extracting it; Docker copy ownership
-is not inferred from the caller UID. This never changes borrowed or maintained host inputs. The same native JavaScript
-worker first checks exact bytes, kinds, links and root ownership with `--admit`, then establishes and verifies the
-declared Linux permissions. Linux worker identity is independently observed after runtime startup and before work. All
-real tests run as UID/GID 1000 with zero inheritable, effective, permitted and ambient capability sets and NoNewPrivs=1.
-The bounding set retains CHOWN, so the evidence does not claim every capability set is zero. Node, Bun and Deno use
-their native built-in modules; the Deno image does not require Node. Its root admission alone gets write permission for
-the private copied tree. The entrypoint is explicit, so the Deno command includes its `deno` executable rather than
-relying on the image's default entrypoint. All five existing runtime/storage lanes retain their test selection, network
-exclusion and resource caps. POSIX-only host mode/link tests have an explicit Windows capability boundary; binary
-independent copying, portable tar headers, dependency retention and cancellation controls run on every host. Actual
-Linux byte, owner, mode and single-link guards remain mandatory.
+is not inferred from the caller UID. This never changes borrowed or maintained host inputs. The same TypeScript worker
+runs directly in each selected runtime, using erasable types rather than a build step. It first checks exact bytes,
+kinds, links and root ownership with `--admit`, then establishes and verifies the declared Linux permissions. Linux
+worker identity is independently observed after runtime startup and before work. All real tests run as UID/GID 1000 with
+zero inheritable, effective, permitted and ambient capability sets and NoNewPrivs=1. The bounding set retains CHOWN, so
+the evidence does not claim every capability set is zero. Node, Bun and Deno use their native built-in modules; the Deno
+image does not require Node. Its root admission alone gets write permission for the private copied tree. The entrypoint
+is explicit, so the Deno command includes its `deno` executable rather than relying on the image's default entrypoint.
+All five existing runtime/storage lanes retain their test selection, network exclusion and resource caps. POSIX-only
+host mode/link tests have an explicit Windows capability boundary; binary independent copying, portable tar headers,
+dependency retention and cancellation controls run on every host. Actual Linux byte, owner, mode and single-link guards
+remain mandatory.
 
 The two offline Deno lanes set `DENO_DISABLE_NODE_SHIM=1` for the entire owned container, including root admission,
 ordinary worker startup and the selected Deno tests. This is Deno's supported opt-out for its optional native `node`

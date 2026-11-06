@@ -12,44 +12,6 @@ export const PUBSUB_ORACLE_IMAGE =
   "node:22.22.0-bookworm-slim@sha256:dd9d21971ec4395903fa6143c2b9267d048ae01ca6d3ea96f16cb30df6187d94";
 const PROJECT = "opfs-pubsub";
 const SDK_LOCK_SHA = "be831ae4d6d51f6db1cc66b0fc11db9da39f8ce07c4accf243f296d2946cfd45";
-const ORACLE = String.raw`
-const fs = require('node:fs');
-const {v1} = require('@google-cloud/pubsub');
-const {grpc} = require('google-gax');
-const options = {projectId:'opfs-pubsub',apiEndpoint:'pubsub.test',port:8085,sslCreds:grpc.credentials.createInsecure()};
-const publisher = new v1.PublisherClient(options), subscriber = new v1.SubscriberClient(options);
-const topic = 'projects/opfs-pubsub/topics/events', subscription = 'projects/opfs-pubsub/subscriptions/events-sub';
-const call = {timeout:10000,retry:null};
-async function main() {
-  const operation = process.argv[2];
-  if (operation === 'init') {
-    const metadata = JSON.parse(fs.readFileSync('/oracle/node_modules/@google-cloud/pubsub/package.json','utf8'));
-    if (metadata.version !== '6.3.2') throw new Error('Independent SDK version differs.');
-    await publisher.createTopic({name:topic},call);
-    await subscriber.createSubscription({name:subscription,topic,ackDeadlineSeconds:10},call);
-    return {sdkVersion:metadata.version};
-  }
-  if (operation === 'seed') {
-    const data = fs.readFileSync('/oracle/value.bin');
-    if (data.length > 1048576) throw new Error('Independent value exceeds policy.');
-    const [result] = await publisher.publish({topic,messages:[{data,attributes:{oracle:'sdk'}}]},call);
-    return {messageIds:result.messageIds};
-  }
-  if (operation === 'pull') {
-    const [result] = await subscriber.pull({subscription,maxMessages:1},call);
-    return {receivedMessages:(result.receivedMessages || []).map(value => ({ackId:value.ackId,messageId:value.message.messageId,
-      data:Buffer.from(value.message.data || []).toString('base64'),attributes:value.message.attributes || {}}))};
-  }
-  throw new Error('Unknown independent operation.');
-}
-(async () => {
-  let value, primary = [];
-  try { value = await main(); } catch (reason) { primary.push(reason); }
-  for (const client of [subscriber,publisher]) { try { await client.close(); } catch (reason) { primary.push(reason); } }
-  if (primary.length) throw new AggregateError(primary,'Independent Pub/Sub operation/cleanup failed.');
-  console.log('RECEIPT:' + JSON.stringify(value));
-})().catch(reason => { console.error(reason);process.exitCode=1; });
-`;
 /** Disposable private emulator and isolated official SDK only; no host project, ADC or existing subscription is borrowed. */
 export class PubsubFixture implements AsyncDisposable {
   readonly endpoint: string;
@@ -71,7 +33,7 @@ export class PubsubFixture implements AsyncDisposable {
     this.endpoint = `http://${server.getHost()}:${server.getMappedPort(8085)}/`;
   }
   async #run(operation: "init" | "seed" | "pull"): Promise<unknown> {
-    const result = await this.#oracle.exec(["timeout", "20", "node", "/oracle/oracle.cjs", operation]);
+    const result = await this.#oracle.exec(["timeout", "20", "node", "/oracle/oracle.ts", operation]);
     if (result.exitCode !== 0 || result.output.length > 2 * 1024 * 1024) {
       throw new Error("Independent Pub/Sub SDK failed.", { cause: result.output.slice(0, 65536) });
     }
@@ -203,7 +165,10 @@ export async function openPubsub(): Promise<PubsubFixture> {
       .withCopyContentToContainer([{ content: packageBytes, target: "/oracle/package.json" }, {
         content: lockBytes,
         target: "/oracle/package-lock.json",
-      }, { content: ORACLE, target: "/oracle/oracle.cjs" }])
+      }, {
+        content: await readFile(fileURLToPath(new URL("../fixtures/pubsub/oracle.ts", import.meta.url).href)),
+        target: "/oracle/oracle.ts",
+      }])
       .withCommand([
         "sh",
         "-c",

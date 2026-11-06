@@ -18,8 +18,9 @@ import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
 import { platform } from "node:process";
 import { expect } from "@std/expect";
-import { changes, copy, open, own, pack } from "../.mise/tasks/container.mjs";
-import { locate, verify } from "../.mise/tasks/container-worker.mjs";
+import { changes, copy, open, own, pack } from "../.mise/tasks/container.ts";
+import { locate, verify } from "../.mise/tasks/container-worker.ts";
+import type { EntryType, ManifestType } from "../.mise/tasks/container-worker.ts";
 import { withReleases } from "./close.ts";
 
 /** Windows host modes/link privileges do not prove the mandatory private Linux guard. */
@@ -72,7 +73,7 @@ describe("container copy admission", () => {
     });
   });
   it("classifies real catalog differences with full digests and finite retained entries", () => {
-    const value = { kind: "file", mode: 0o600, links: 1, bytes: 1, sha256: "a" };
+    const value: EntryType = { kind: "file", mode: 0o600, links: 1, bytes: 1, sha256: "a" };
     const before = {
       paths: ["original"],
       root: { uid: 1000, gid: 1000, mode: 0o755 },
@@ -251,7 +252,7 @@ describe("container copy admission", () => {
       await mkdir(join(root, "source"));
       const bytes = new Uint8Array([0, 255, 128, 13, 10, 42]);
       await writeFile(join(root, "source/a"), bytes);
-      const manifest = {
+      const manifest: ManifestType = {
         version: 1,
         roots: ["source"],
         entries: {
@@ -288,7 +289,7 @@ describe("container copy admission", () => {
       }
       expect([...fields.keys()]).toEqual(["manifest.json", "source/", "source/a", "source/alias"]);
       expect(fields.get("source/")?.mode).toBe(0o700);
-      expect(manifest.entries.source.mode).toBe(0o555);
+      expect(manifest.entries.source?.mode).toBe(0o555);
       expect(fields.get("source/a")?.mode).toBe(0o444);
       expect(new Uint8Array(fields.get("source/a")!.bytes)).toEqual(bytes);
       expect(fields.get("source/alias")?.kind).toBe("2");
@@ -303,7 +304,7 @@ describe("container copy admission", () => {
       await writeFile(join(root, "first/a"), a);
       await writeFile(join(root, "second/b"), b);
       // This is an independently authored noncontiguous archive order, not a production catalog snapshot.
-      const manifest = {
+      const manifest: ManifestType = {
         version: 1,
         roots: ["first", "second"],
         entries: {
@@ -334,8 +335,8 @@ describe("container copy admission", () => {
       expect(new Uint8Array(entries.get("first/a")!.bytes)).toEqual(a);
       expect(new Uint8Array(entries.get("second/b")!.bytes)).toEqual(b);
       expect(decoder.decode(entries.get("manifest.json")!.bytes)).toBe(declaration);
-      expect(manifest.entries.first.mode).toBe(0o555);
-      expect(manifest.entries.second.mode).toBe(0o555);
+      expect(manifest.entries.first?.mode).toBe(0o555);
+      expect(manifest.entries.second?.mode).toBe(0o555);
       expect(await readFile(join(root, "manifest.json"), "utf8")).toBe(declaration);
     });
   });
@@ -396,7 +397,7 @@ describe("container copy admission", () => {
       await writeFile(join(source, "a"), "oracle");
       await chmod(join(source, "a"), 0o444);
       await chmod(source, 0o700);
-      const manifest = {
+      const manifest: ManifestType = {
         version: 1,
         roots: ["source"],
         entries: {
@@ -432,7 +433,7 @@ describe("container copy admission", () => {
       await link(join(root, "borrowed"), join(source, "a"));
       await chmod(join(source, "a"), 0o444);
       await chmod(source, 0o700);
-      const manifest = {
+      const manifest: ManifestType = {
         version: 1,
         roots: ["source"],
         entries: {

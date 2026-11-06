@@ -1,9 +1,9 @@
 # Genuine classic HDF5 bytes and raw numeric oracles
 
-`independent.json` was produced by the retained `produce.py` without importing candidate TypeScript. It contains an
-actual earliest-format HDF5 file, 37 original numeric arrays authored before serialization, and seven separately
-produced unsupported-profile files. Original integers are decimal strings, so JSON does not round 64-bit values. Special
-floats have explicit textual labels.
+`independent.json` was produced by the historical Python source, now retained as inert `produce.py.snapshot`, without
+importing candidate TypeScript. It contains an actual earliest-format HDF5 file, 37 original numeric arrays authored
+before serialization, and seven separately produced unsupported-profile files. Original integers are decimal strings, so
+JSON does not round 64-bit values. Special floats have explicit textual labels.
 
 The producer asserts exact bytes through three paths: authored values' original file-order byte arrays, physical extents
 returned by native `get_offset()` and `get_storage_size()`, and h5py/h5dump complete reads. Each
@@ -33,7 +33,40 @@ SHA-256 `a5c68bc06df3af2e4e6016929e48287d457836f7fffe3e3801225a68a06e848e`, prov
 context. The modern [official format specification](https://support.hdfgroup.org/documentation/hdf5/latest/_f_m_t3.html)
 is context, not an immutable release pin.
 
-## Native toolchain and reproduction
+## Current TypeScript and native C workflow
+
+`produce.ts` authors all 37 original numeric datasets as explicit file-order bytes, then compiles the test-only
+`native.c`. The native HDF5 API writes an earliest-format classic file with the hard alias, soft link and nested child.
+It reads complete datasets and separate coordinate selections, checks native datatype/rank/shape, and reports observed
+object/data addresses and storage sizes. TypeScript compares those outputs and allocated physical extents against the
+original bytes. Separate `h5dump -b FILE` calls must reproduce every original byte too. Both paths use libHDF5; neither
+is an independent HDF5 implementation, and the new route makes no h5py claim.
+
+The native writer also preserves all seven intended refusal profiles: latest format, chunked, gzip-filtered, compound,
+unallocated, a 400-dataset tree and a 512-byte userblock. These files retain native header observations; their role is
+reader refusal coverage, not a claim that the candidate supports these layouts. Native versions can choose different
+addresses, trees and object encodings, so the new route never copies the historical layout numbers above into results.
+
+Run from the repository root in a disposable runner with Node 26, a C compiler, signed Debian `libhdf5-dev`,
+`hdf5-tools` and util-linux `prlimit` installed:
+
+```sh
+node tests/fixtures/hdf5/produce.ts --output /tmp/hdf5-native-new.json
+```
+
+The default compile command uses
+`cc -std=c11 -Wall -Wextra native.c -I/usr/include/hdf5/serial -lhdf5_serial -o NATIVE`. `--source`, `--cc`,
+`--include`, `--library`, `--h5dump` and `--prlimit` make those tool paths explicit when the reviewed runner differs.
+The exact executed compiler/native/CLI commands and source hashes are retained. `--output` must name a new file:
+exclusive creation refuses to overwrite existing evidence. Native children have a 16 MiB kernel per-file limit,
+60-second deadline with SIGKILL and 4 MiB captured-output budget. Regular files are admitted before reading; the tool
+removes only its owned temporary tree. These bounds do not impose a filesystem quota.
+
+This TypeScript/C workflow has not yet run. It needs compiler and bounded native qualification before its output can be
+admitted as new evidence. The existing `independent.json`, `layout.json`, `receipt.json` and acquisition records remain
+unchanged. The exact Python snapshot retains its original source hash and historical receipt identity.
+
+## Historical native toolchain and reproduction
 
 The parent reviewed and authorized `acquire.sh` and `produce.py`. Acquisition used a disposable Linux ARM64 container
 with 1 GiB memory, one CPU and 128 PIDs, no host mounts or published ports, from exact existing base image
@@ -58,7 +91,7 @@ streaming subprocess-output cap is made. Both owned stopped containers and the t
 receipts were copied. The original base image was retained. There is no production HDF5 SDK, Python, OS package
 acquisition or implicit filesystem walk.
 
-To reproduce, build an isolated image from the recorded base, copy `acquire.sh`, run it with network access only for
-signed package acquisition, then copy `produce.py` and execute the command above in a fresh offline container. Inspect
-all assertions and exit status before accepting output. Do not replace a failed native result with candidate output. New
-native versions or layout profiles need new receipts, not a rewrite of this fixture's provenance.
+That historical recipe used the recorded base, `acquire.sh` with network access only for signed package acquisition, and
+the original `produce.py` command above in a fresh offline container. Inspect all assertions and exit status before
+accepting output. Do not replace a failed native result with candidate output. New native versions or layout profiles
+need new receipts, not a rewrite of this fixture's provenance.
