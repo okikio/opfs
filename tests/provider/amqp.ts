@@ -320,7 +320,7 @@ export interface AmqpFixtureType {
   take(): Promise<Record<string, unknown>>;
   count(): Promise<Record<string, unknown>>;
 }
-/** Source-only reviewed recipe: caller must obtain separate native GO first. */
+/** Acquires the pinned native fixture and retires its private containers and network after the test. */
 export async function withAmqpFixture<T>(
   admittedWheel: Uint8Array | undefined,
   body: (fixture: AmqpFixtureType) => Promise<T>,
@@ -340,8 +340,13 @@ export async function withAmqpFixture<T>(
   console.log(JSON.stringify({ testcontainersVersion: tool.version }));
   const architecture = arch === "arm64" ? "arm64" : arch === "x64" ? "amd64" : undefined;
   if (architecture === undefined) throw new Error("Native AMQP fixture supports only explicit arm64 or x64 hosts.");
+  const { GenericContainer, ImageName, Network, Wait, getContainerRuntimeClient } = await import("testcontainers");
+  const runtime = await getContainerRuntimeClient(), releases: (() => Promise<unknown>)[] = [], ids: string[] = [];
   const imageIds = new Map<boolean, string>();
   for (const [server, reference] of [[true, SERVER], [false, PYTHON]] as const) {
+    // A fresh CI host has no cached images. Acquisition must finish before
+    // immutable-image admission, which still runs before any container starts.
+    await runtime.image.pull(ImageName.fromString(reference), { force: false, platform: `linux/${architecture}` });
     const image = JSON.parse(
       execFileSync("docker", ["image", "inspect", reference], {
         encoding: "utf8",
@@ -358,8 +363,6 @@ export async function withAmqpFixture<T>(
     ) throw new Error("Native AMQP image identity/platform differs.");
     imageIds.set(server, image.Id);
   }
-  const { GenericContainer, Network, Wait, getContainerRuntimeClient } = await import("testcontainers");
-  const runtime = await getContainerRuntimeClient(), releases: (() => Promise<unknown>)[] = [], ids: string[] = [];
   let networkId: string | undefined, networkName: string | undefined;
   function inspect(id: string, server: boolean, created: boolean): void {
     const text = execFileSync("docker", [
