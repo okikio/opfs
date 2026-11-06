@@ -145,8 +145,8 @@ SHA256 `4197b0200bb5c657d2a97e70816b078fdb050a9027f030c342c2862a3c33b3b6`. MIT l
 belong with the fixtures.
 
 Authored tests exercise framing, bigint timestamps, scopes, duplicate authority, bounded paging, inherited cancellation
-and byte-slot admission. The separately reviewed recipe in `tests/fixtures/mcap/native-recipe.md` proposes the test-only
-Python `mcap==1.6.0` wheel, exact SHA256, NONE writer and two native consumer paths with independently authored original
+and byte-slot admission. The historical recipe in `tests/fixtures/mcap/native-recipe.md` used the test-only Python
+`mcap==1.6.0` wheel, exact SHA256, NONE writer and two native consumer paths with independently authored original
 payloads. The exact wheel was acquired without installation or setup and executed offline under 1 GiB/1 CPU/128 PID
 quotas. Native uncompressed chunked 2689 B, unchunked 1842 B, zero-summary 1348 B and empty 322 B files retain all
 original message bytes, exact timestamps, schema bytes, attachment bytes and metadata receipts. Raw producer JSON SHA256
@@ -155,6 +155,13 @@ bytes. The wheel has no bundled LICENSE member; its METADATA declares MIT and th
 retained separately. Both reader paths are from one implementation, so they will not prove cross-vendor
 interoperability. Upstream conformance binaries represented by Git LFS pointers have not been resolved and are not
 claimed as coverage.
+
+The [current reproduction recipe](../tests/fixtures/mcap/native-recipe.md#current-native-c-recipe) uses typed TypeScript
+tooling and the official C++ writer/readers at the same primary commit. It keeps the four profiles and complete original
+message, schema, attachment and metadata comparisons. The pinned C++ reader does not validate CRCs; an authored scope
+walker plus Node's native zlib CRC primitive separately checks every enabled checksum and byte corruption control. That
+is a different proof owner, not a native-reader CRC refusal. The old Python corpus and receipt identities remain frozen.
+Only a new successful acquisition, compile and execution receipt can qualify the new recipe.
 
 ## Measured workload
 

@@ -1,0 +1,11 @@
+{
+  "providerMigration": {
+    "historical": {
+      "path": "tests/provider/couchdb.ts",
+      "snapshot": "provider.ts.snapshot",
+      "bytes": 8655,
+      "sha256": "1e5b2ac78cf87b5554037d70e8bea73e5650b4c0e34c3321668f959023056f6a"
+    },
+    "current": "Owned runner code is maintained as TypeScript; original SDK/artifact pins and proof remain historical rather than relabeled."
+  }
+}

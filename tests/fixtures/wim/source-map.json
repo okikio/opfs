@@ -1,0 +1,47 @@
+{
+  "purpose": "Exact historical sources remain inert; TypeScript plus small C public-API shim preserve native proof and separate new execution receipts.",
+  "entries": [
+    {
+      "historical": "produce.py",
+      "snapshot": "produce.py.snapshot",
+      "bytes": 4125,
+      "sha256": "d16d1c751428fe9d5ae70f7b3dc2756516faf04fb3ec7b8470843027bf5e6f1b",
+      "current": "produce.ts"
+    },
+    {
+      "historical": "xpress-produce.py",
+      "snapshot": "xpress-produce.py.snapshot",
+      "bytes": 7404,
+      "sha256": "f34e793640e0670f5dec399e42263e2d4407ac7319fa7712155b1040e4b8fee3",
+      "current": "xpress-produce.ts"
+    },
+    {
+      "historical": "lzx-produce.py",
+      "snapshot": "lzx-produce.py.snapshot",
+      "bytes": 8178,
+      "sha256": "99d6d7be176f76d3abb83b967a7ee4acedfad2863a5c748c4691211d382c229a",
+      "current": "lzx-produce.ts"
+    },
+    {
+      "historical": "lzx-raw-produce.py",
+      "snapshot": "lzx-raw-produce.py.snapshot",
+      "bytes": 6291,
+      "sha256": "5bf25de65dce4bece870a172d6690ff1127cab721c5c6d20004d31602bde2f7a",
+      "current": "lzx-raw-produce.ts"
+    },
+    {
+      "historical": "xpress-audit.py",
+      "snapshot": "xpress-audit.py.snapshot",
+      "bytes": 3640,
+      "sha256": "7cd8b9b28a2cbf3466dcad79ff298e3a3a2858a4104546d9b67efa534e809a09",
+      "current": "xpress-audit.ts"
+    },
+    {
+      "historical": "lzx-audit.py",
+      "snapshot": "lzx-audit.py.snapshot",
+      "bytes": 7134,
+      "sha256": "8c1ae4663cdf6e9edadc9d73abd5a59218fd41f861e24e9305b8548b6ba53a8d",
+      "current": "lzx-audit.ts"
+    }
+  ]
+}

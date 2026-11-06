@@ -1,0 +1,29 @@
+{
+  "qualified": true,
+  "originalTerminalRemainsFailed": true,
+  "originalTerminalSha256": "d87cf00a6c1d8bb3172ca75b9bc9293803e121ac1ef9d48261fd7ab041b9c648",
+  "fixtureTerminalSha256": "9ae247afeb073adf85e18195994d4271b6259238193da0bc7444f1c9a766508b",
+  "originalByteFreezeSha256": "0faedfa486664ff679573d2adcf58021e5f7a32a645ea7c2a7d27e75c011f0de",
+  "verifierSha256": "df32b4a7ec80cde0b55edf067ee9ba771314e0eb88b1f159a5444f8285adc9bb",
+  "semanticResult": {
+    "semanticFullBytes": true,
+    "sdkAppendOffsets": [
+      0,
+      1,
+      2
+    ],
+    "literalAppendOffsets": [
+      3,
+      4,
+      5
+    ],
+    "crc32c": true,
+    "candidateCodeImported": false,
+    "compressedCodecClaim": false
+  },
+  "nativeExitCode": 0,
+  "semanticExitCode": 0,
+  "oomKilled": false,
+  "remainingContainers": [],
+  "scope": "Retained independent Java/CLI/literal wire run succeeded; replay corrects only Enum.name() expectation. No candidate code or production qualification."
+}

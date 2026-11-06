@@ -1,5 +1,67 @@
 # Reviewable native Parquet fixture recipe
 
+## Current TypeScript and native C++ workflow
+
+The current tools passed a separate native qualification of all 22 profiles. They replace Python launchers and bindings
+while retaining complete original-value and encoding checks through Arrow C++ 20.0.0 and DuckDB CLI 1.3.2. The run used
+Node 26.13.0 and Debian C++ 12.2.0 in a network-disabled 1 GiB runner; both producer state and container receipts
+reported success without OOM, signals or cleanup faults. Keep new output separate from the frozen JSON and historical
+receipts. Producer qualification does not establish candidate-reader acceptance of newly generated images.
+
+Use a disposable Linux ARM64 Node 26 runner with signed Debian `g++` and `util-linux` (`prlimit`). The reviewed Node
+base digest is `sha256:add5c17c14752c54d2f3d519ec46a3815684d41c33f198bcb09fb998f7dcbf68`; record the actual
+platform/image and signed toolchain package identities. Acquisition alone needs network access. Offline extraction and
+production must have no network, no host mounts, 1 GiB memory=swap, one CPU, PID limit 128, dropped capabilities and
+`no-new-privileges`. Copy only the fixture sources and admitted archives into those owned stages.
+
+```sh
+# Network-enabled acquisition stage. The directory must not exist.
+node tests/fixtures/parquet/acquire.ts --output /tmp/parquet-receipts-new
+# After reviewing acquisition.json, copy its admitted archives to the offline runner.
+node tests/fixtures/parquet/install.ts --receipts /tmp/parquet-receipts-new --output /tmp/parquet-cpp-new
+node tests/fixtures/parquet/producer-run.ts --artifacts /tmp/parquet-cpp-new --output /tmp/parquet-native-new
+```
+
+The wheel is the same 40,677,027-byte PyArrow 20.0.0 artifact with SHA256
+`991f85b48a8a5e839b2128590ce07611fae48a904cae6cab1f089c5955b57eb5`. It is treated as an inert ZIP, never installed.
+`../arrow/admit.ts` validates canonical unique names, regular modes, local/central framing, CRC32, exact expanded
+lengths and bounded Node DEFLATE output before extracting headers, the two pinned C++ libraries and notices. It retains
+the original archive so the producer can recheck every extracted compilation input against its pinned bytes. No `.pth`,
+`libarrow_python`, Python interpreter, pip, Maven, npm resolver or downloaded setup script runs.
+
+The second engine is the official
+[DuckDB 1.3.2 Linux ARM64 CLI release](https://github.com/duckdb/duckdb/releases/expanded_assets/v1.3.2), ZIP SHA256
+`f322807f0f5d146d2bb1eea253f894d0a015561695408fa22981f085eb2b77ad`. This changes the artifact from the historical Python
+wheel. The CLI's complete bytes and ELF architecture are admitted before execution; source and license authority remain
+the official v1.3.2 release. Its reviewed MIT license remains in `licenses/duckdb-LICENSE`. The CLI receives an empty
+init file, disables extension autoload/install, and runs with one thread and a 256 MiB memory setting. No extension
+downloads are allowed in the offline stage.
+
+`../arrow/native.cpp` calls Arrow's public C++ Parquet writer/reader APIs. All sixteen Arrow page/version/checksum
+combinations, four DuckDB cases, and dictionary/Snappy controls remain. Both engines must read every original value and
+null mask. INT64 crosses the CLI boundary as decimal strings; NaN, infinity and signed zero use explicit
+classifications. This avoids JSON Number rounding and loss of negative zero. NaN payload bit identity is not claimed.
+Actual row-group encodings, codec, offsets and sizes are retained; supported cases must remain PLAIN/RLE, uncompressed
+and dictionary-free. Arrow page checksum verification is enabled during full reads.
+
+The C++ build uses `c++ -std=c++17 -O1 -Wall -Wextra`, the admitted `include/` tree, full paths to `libparquet.so.2000`
+and `libarrow.so.2000`, and an rpath to that owned artifact directory. The outer TypeScript runner signals the exact
+owned native process group with SIGKILL after 180 seconds and bounds combined diagnostics to 4 MiB. After a fault it
+waits at most 15 more seconds for child closure, then releases its owned pipes. The original failure and any signal or
+cleanup fault are recorded separately in `native-state.json`. Native commands also have 120-second deadlines and 32 MiB
+kernel per-file limits. Each retained image is at most 2 MiB, original/image accounting is at most 16 MiB and final JSON
+at most 32 MiB. These are admission limits, not filesystem quotas. New output directories and exclusive final writes
+preserve existing evidence on failure. Failed run logs remain available.
+
+The executed qualification established C++ ABI compatibility, native CLI numeric agreement, built-in offline Parquet and
+Snappy availability for all 22 intended profiles. Repeat those checks when changing artifacts or the toolchain. Do not
+replace a failed profile with same-engine-only proof or rewrite old fixture bytes to make the candidate pass.
+
+## Historical Python evidence
+
+The commands below describe the executed historical workflow. Its exact tools now end in `.py.snapshot`; these inert
+sources and frozen receipts are retained for audit, and are not the current commands.
+
 The exact two wheels were acquired, inspected and installed offline. The first native producer run succeeded and
 retained 22 genuine files after reciprocal full-value/null-mask checks. See [README.md](README.md) for actual versions,
 fixture profiles, original hashes and license boundaries. Candidate runtime, static and installed-package verification

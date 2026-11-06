@@ -162,6 +162,18 @@ after reading the complete value. A portable move can use copy followed by remov
 Call `inspect()` for the effective route and limits, and `plan()` for known constraints before expensive work. Both are
 preflight tools, not network probes or guarantees about future service availability.
 
+## Resize files separately from transfer progress
+
+A write cursor says where the next write starts; a file length says which bytes belong to the file. Seeking changes the
+cursor. Truncating sets the length: shrinking discards the tail, while growing adds zero bytes. Neither operation
+records which bytes a remote upload acknowledged. A resumable transfer needs its own source identity, session and
+checkpoint.
+
+The [complete resize example](api.md#resize-a-file-without-confusing-size-with-the-write-cursor) shows truncation,
+seeking past the end and zero-filled gaps. It also distinguishes a staged writable, which publishes on close and retains
+its image in memory, from a direct positional resource, whose writes can already be visible before close. Select the
+route from the backend capabilities and publication contract; aborting a direct resource is not a rollback promise.
+
 ## Stop at bytes when files add no value
 
 A preview of one remote archive does not always need paths, directories or a writable filesystem. A byte source provides

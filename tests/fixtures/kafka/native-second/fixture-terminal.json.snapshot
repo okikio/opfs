@@ -1,0 +1,17 @@
+{
+  "terminal": true,
+  "ids": [
+    "7965ed18574636954d46a96879dc18e74bcf088a879d051b4c3a984fb5475f8a"
+  ],
+  "retirements": [
+    {
+      "id": "7965ed18574636954d46a96879dc18e74bcf088a879d051b4c3a984fb5475f8a",
+      "owner": "fixture",
+      "evidence": "retained terminal state, exact owned removal and empty ID query"
+    }
+  ],
+  "primaryFailure": null,
+  "cleanupFailures": [],
+  "failures": [],
+  "candidateImported": false
+}

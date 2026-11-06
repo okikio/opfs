@@ -15,10 +15,10 @@ SHA256 `211b44002f628ea9ad697b365a413fbac73e801f2b2337b391ca91c29eeffec5`. The w
 hashes and inspected standard-library imports are recorded in `acquisition.json`. No PyShp import or installation is
 required by the library or ordinary tests.
 
-Follow [the native recipe](native-recipe.md) to reproduce the independently reviewed acquisition and offline execution.
-`acquisition-state.json` and `producer-state.json` retain actual resolved image and resource facts; the successful
-producer exited 0 without OOM. Container network was disabled for execution, with no mounts or ports. The producer uses
-only the verified wheel through zipimport and never imports candidate code.
+[The native recipe](native-recipe.md) records the historical reviewed acquisition and offline execution. Its Python
+sources are now inert `.snapshot` data. `acquisition-state.json` and `producer-state.json` retain actual resolved image
+and resource facts; the successful producer exited 0 without OOM. Container network was disabled for execution, with no
+mounts or ports. The producer uses only the verified wheel through zipimport and never imports candidate code.
 
 `independent.json.snapshot` preserves the exact successful JSON output; `independent.json` is its formatting-safe test
 import. `format-receipt.json` records both hashes and equality of decoded JSON values. Five genuine writer profiles
@@ -35,3 +35,20 @@ native object's synthetic parts separately. No candidate behavior changed to fit
 Deletion-flag variants are explicitly authored modifications of genuine DBF files. Their hashes and original bytes are
 in the fixture. Native PyShp suppresses those rows; this library preserves their physical ordinals and exposes the flag
 so a later feature keeps its original row association. No signature, checksum or source authenticity is implied.
+
+## Current authored TypeScript controls
+
+Run `node tests/fixtures/shapefile/produce.ts --output /ABS/NEW-shapefile.json` with Node 22.18 or later. The output
+path must not exist. Stage this directory with `../iso/native.ts` and `../codec.ts` if copying it into an isolated
+runner. No package is acquired.
+
+`produce.ts` writes all five component profiles from authored geometry and attribute rows. It compares every SHP, SHX
+and DBF byte and every deletion variant with the frozen corpus. IEEE-754 negative zero is checked in packed geometry;
+the integer `9007199254740993` is encoded through BigInt. The DBF header date is deliberately fixed to the historical
+2026-11-05 date rather than the current clock. Empty files and physical MultiPoint parts remain distinct from PyShp
+object conventions.
+
+The new receipt says `independentNativeRerun: false`: it does not invoke PyShp or establish fresh independent
+conformance. Historical native full-value checks above remain the independent evidence. `source-map.json` links exact
+source snapshots and hashes. The retired acquisition harness acquired only that historical Python wheel; current
+controls need no replacement downloader. New receipts are controls, not replacements for `independent.json`.

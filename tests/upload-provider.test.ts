@@ -23,15 +23,15 @@ async function nativeFiles() {
     out.push({ content, target: "/tool/source/" + item.path });
   }
   out.push({
-    content: await readFile(fileURLToPath(new URL("./fixtures/upload/server.mjs", import.meta.url).href)),
-    target: "/tool/server.mjs",
+    content: await readFile(fileURLToPath(new URL("./fixtures/upload/server.ts", import.meta.url).href)),
+    target: "/tool/server.ts",
   });
   return out;
 }
 /** Bounded child capture; close is the join after SIGKILL, not merely the kill request. */
 async function client(phase: string, target: string, directory: string) {
   const process = spawn("node", [
-    fileURLToPath(new URL("./fixtures/upload/client.mjs", import.meta.url).href),
+    fileURLToPath(new URL("./fixtures/upload/client.ts", import.meta.url).href),
     new URL("../src/upload.ts", import.meta.url).href,
     phase,
     target,
@@ -74,7 +74,7 @@ describe("draft15 client against independent canonical interop10 FS server", () 
       )
         .withResourcesQuota({ memory: 1, cpu: 1 })
         .withCopyContentToContainer(await nativeFiles())
-        .withCommand(["node", "/tool/server.mjs", "/tmp/upload-store", "--public-fixture"])
+        .withCommand(["node", "/tool/server.ts", "/tmp/upload-store", "--public-fixture"])
         .withExposedPorts(8080).withWaitStrategy(Wait.forLogMessage("upload-fixture-ready:8080"))
         .withStartupTimeout(30_000).start();
       releases.push(async () => {

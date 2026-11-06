@@ -7,18 +7,18 @@ import { startSeafile } from "./provider/seafile.ts";
 
 function id(value: unknown): string {
   if (typeof value !== "object" || value === null || !("id" in value) || typeof value.id !== "string") {
-    throw new Error("Official Seafile SDK omitted its library identity.");
+    throw new Error("Native curl recipe omitted its library identity.");
   }
   return value.id;
 }
 function bytes(value: unknown): Uint8Array<ArrayBuffer> {
   if (typeof value !== "object" || value === null || !("bytes" in value) || typeof value.bytes !== "string") {
-    throw new Error("Official Seafile SDK omitted its complete bytes.");
+    throw new Error("Native curl recipe omitted its complete bytes.");
   }
   return new Uint8Array(Buffer.from(value.bytes, "base64"));
 }
 
-describe("Seafile CE14 and official Python SDK interoperability", () => {
+describe("Seafile CE14 and native curl interoperability", () => {
   it(
     "preserves complete bytes, actual collision names, replacement and library permissions",
     { timeout: 600_000 },

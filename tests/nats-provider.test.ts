@@ -1,6 +1,4 @@
 import { it } from "node:test";
-import { readFileSync } from "node:fs";
-import { env } from "node:process";
 import { expect } from "@std/expect";
 import { NatsClient, NatsError } from "../src/nats.ts";
 import { close } from "../src/close.ts";
@@ -11,8 +9,7 @@ it(
   "qualifies the selected native JetStream profile against the independent official SDK",
   { timeout: 240000 },
   async () => {
-    const suppliedWheel = env.OPFS_NATS_ORACLE_WHEEL;
-    const fixture = await openNats(suppliedWheel === undefined ? undefined : readFileSync(suppliedWheel));
+    const fixture = await openNats();
     let counter = 0;
     const request = () => ({ inbox: `_INBOX.fixture.${++counter}` });
     const failures: unknown[] = [];

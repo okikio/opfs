@@ -25,5 +25,13 @@
   "baselineScriptHashes": {
     "baseline-server.mjs.snapshot": "4cb7ea3ad935c2d1b8610971c4db99fc4af72ee4c37530080d99f48c9d3690c1",
     "baseline-producer.mjs.snapshot": "43b210bbff7ce997bbd140ef2cdeb2ff1764bca537bcb1d16265e5bb1ee1b973"
+  },
+  "typescriptMigration": {
+    "policy": "Historical JavaScript producer receipts remain unchanged; TypeScript harness verification requires a new run.",
+    "originalProviderScriptHashes": {
+      "provider-server.mjs.snapshot": "93701531b0e3a80d433eb3a3cdff73dc6fe57d46321211aa576f379b8efa8bb9",
+      "provider-client.mjs.snapshot": "b63b745645c53066ec975a626f7ec3a6513eabd59ddf57bc3acf7156fc9fafe4"
+    },
+    "executableSources": ["baseline.ts", "server.ts", "client.ts"]
   }
 }

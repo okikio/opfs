@@ -1,0 +1,14 @@
+{
+  "historical": {
+    "path": "tests/provider/memcached.ts",
+    "snapshot": "provider.ts.snapshot",
+    "bytes": 17155,
+    "sha256": "a746ebf1ba55a9886b81e24fb3166fa6bc06c20b918c335a132f08a2e46147ca"
+  },
+  "current": {
+    "provider": "tests/provider/memcached.ts",
+    "nativeShim": "oracle.c",
+    "acquisition": "Dockerfile",
+    "proof": "New native libmemcached profile; historical pymemcache proof remains unchanged."
+  }
+}

@@ -1,0 +1,155 @@
+# Independent native Kafka fixture, source-only handoff
+
+Root must review all three sources and grant native execution separately. No
+broker pull or execution, compiler, Java, fixture or verifier run has occurred
+from this handoff. The root's accepted test-only attribution supplement remains
+separate from the original incomplete acquisition inventory and wrong notice.
+
+`kafka-native.ts` owns Testcontainers12.1.0 lifecycle and serial in-container
+commands. `kafka-native-launch.py` owns the host hard deadline, frozen inputs,
+bounded output parsing and exact emergency retirement. `kafka-admission/native_verify.py`
+independently verifies original wire/Java output bytes, without production code.
+It imports only the frozen independent manifest/probe sources. Those original
+sources and both Java sources remain unchanged.
+
+The exact Kafka arm64 child is
+`apache/kafka@sha256:77b56ddfb7104fc5814a3d0127fcff49983220c7c7ad9bfc1f0af4d439228329`,
+expected actual image/config ID
+`sha256:8e12eba3b69e43eeed26ccf9072d46f3fe38ce0c7f5ffe66d7d9b6198801f5cc`.
+The image must be separately pulled/admitted before this gate. There is no
+explicit pull command and Testcontainers pull policy is false; an exact cached
+image is required first. If another task deletes the image during this race,
+stop rather than accepting an acquisition as this gate's intended operation.
+
+The outer owner requires an explicit compiler directory and exact qualification SHA.
+The fixture verifies clean compile exit/noOOM/retirement, every recorded class
+hash/size/version61 and both roots, then exact copied compiler-input JAR hashes.
+For the actual first attempt, the pinned recovery SHA
+`eeca0a794b96ee7ae6a5fa9fbfbaaf85735ba72a671a5a51d009994ab21461ba`
+selects only `recovery.json` and `classes-recovered`. This mode verifies the exact
+original failed terminal SHA, exact inputs/source/archive/parser SHA, unchanged
+zero compiler exit/noOOM/retirement, and the sole original inspect/copy ValueError.
+It admits exactly11 recovered class names/30389B, then verifies every class hash
+and the two original Java source hashes. Any other original failure refuses.
+It preserves the original failed terminal; it neither ignores all cleanup faults
+nor treats a recovery receipt as evidence of Java class execution.
+No wildcard classpath or discovery of arbitrary plugin/logging directories.
+One unique attempt directory records fixed original append/fetch inputs and CRC
+input before starting a broker. Topic/partition/timestamps/offsets are planned
+before native output exists, never reconstructed from candidate decoding.
+
+Proposed invocation after root source/native GO:
+
+```sh
+python3 .tmp/implementation/kafka-native-launch.py first /Users/okikio/Other/Code/opfs/.tmp/implementation/opfs-kafka-compile-first eeca0a794b96ee7ae6a5fa9fbfbaaf85735ba72a671a5a51d009994ab21461ba
+```
+
+Host Node is the existing explicit26.13.0 arm64 binary, heap256MiB; its binary
+SHA/version/path and host Python identity are retained. Node heap is not a total
+RSS guarantee. Native container ceiling is1GiB memory=swap, CPU1/PID128, no host
+mounts/credentials/capability additions, cap-dropALL/no-new-privileges. One
+Testcontainers network and one labelled broker are owned. Ryuk/reuse are disabled
+so no second resource container can appear. Testcontainers readiness remains the
+startup authority; its failure boundary retains actual state/logs before library
+automatic removal. The outer owner repairs only exact labelled leftovers.
+
+The broker uses256MiB heap; format/readiness/topic CLI and Java oracles use128MiB
+heap inside that same container, serially. Broker plus one auxiliary JVM may run;
+two auxiliary JVMs never overlap. Fixed env-i removes credentials/proxies/tool
+options from Java, and startup overrides the image's default entrypoint. Kafka
+image runtime classes are necessary for official broker/CLI use and are outside
+the five-JAR client-only closure; this native gate requires that explicit root
+acceptance, not an assertion that only five JARs execute anywhere.
+
+All image volumes are replaced by owned tmpfs: data32MiB, tmp8MiB, broker file
+logs1MiB, secrets/config64KiB each. Docker console rotation1MiB/one file.
+TMPFS extents and isolation are checked before engine start and again afterward.
+Small fixed segment/index/retention/request limits bound the planned one-topic
+workload; tmpfs is the physical ceiling, not a claim that retention is a quota.
+The unproven32MiB data/PID128/readiness profile may fail; preserve actual evidence
+before proposing any resource change. Snapshot actual `du` and pre-stop state.
+
+Actual native-first stopped during format with ConfigException: the Kafka4.4.0
+minimum metadata.log.segment.bytes is8388608. The revised source sets exactly
+8MiB; data tmpfs stays32MiB. The one user partition still has1MiB segment/index
+settings and two three-record writes of roughly132KiB each. Metadata bootstrap,
+checkpoint/snapshot and index files also share that32MiB, so an8MiB segment
+ceiling is not a total storage estimate or proof of allocated file extents.
+Format failed before useful actual directory measurements; metadata index and
+bootstrap overhead are not yet quantified. There is no observed ENOSPC or other
+evidence requiring a larger physical ceiling. Retain32MiB for the next bounded
+attempt, inspect its actual storage receipt, and treat any exhaustion as a real
+failure requiring a separate evidence-based budget decision. No storage expansion
+is included in this repair.
+
+Actual native-second completed its broker/SDK/literal sequence in15.25s with
+zero native exit/noOOM/fixture faults and confirmed retirement. Its measured data
+was304KiB, tmp184KiB and retained results152KiB, so32MiB was sufficient for this
+specific bounded run. The independent semantic verifier then refused its own
+incorrect timestamp label. KafkaOracle.java206 deliberately writes
+`record.timestampType().name()`. The pinned upstream enum at
+`https://raw.githubusercontent.com/apache/kafka/1156b2752aaa28eafc0b4c4d387e63356793268d/clients/src/main/java/org/apache/kafka/common/record/TimestampType.java`
+(retained `kafka-admission/TimestampType.java`, SHA
+`89e55d22dd3bfa0d2090ca0fd8a2b35dd5f1cb14bbbdbdc1c07964b4336484f8`)
+declares enum constant CREATE_TIME and a distinct display-name field CreateTime;
+toString returns that display field. The narrow verifier fix expects CREATE_TIME,
+with no native/source/JAR/input changes. Root can replay only the pure verifier
+over exact retained native-second outputs; original terminal failure remains
+unchanged and any subsequent semantic recovery proof must be separate. Final
+SDK full-byte and JDK CRC assertions remain pending that replay.
+
+On startup failure, Testcontainers can remove the container before start rejects.
+The revised owner accepts already-removed status only with structured Docker404,
+matching retained readiness-state identity/label and bounded log, and an exact
+empty container-ID query. It records that attributed retirement and skips duplicate
+inspect/remove calls. Any other inspection failure remains a cleanup fault.
+Primary startup failure remains separately recorded, even when retirement was
+successful. Readiness and broker log capture now retain both Docker stdout and
+stderr within the same1MiB combined retained limit; the first ConfigException
+was preserved in native.log while its separate readiness.log was empty.
+
+Only EXTERNAL9094 is dynamically published to127.0.0.1. INTERNAL9092 and
+CONTROLLER9093 listen on container loopback only. The Testcontainers starting
+hook obtains the actual mapped port and publishes one fixed generated properties
+file atomically through an owned bounded exec before a waiting bootstrap starts
+Kafka. Class/JAR/original input source copies all precede engine start. Metadata
+advertises the exact external endpoint for the probe and container loopback for
+the Java oracle. No arbitrary advertised address is followed.
+
+Sequence: format, broker/readiness, explicit one-partition topic creation with
+auto-create disabled/CreateTime/uncompressed; official Java append; original
+literal probe fetch at0; literal probe append/fetch at3; official Java fetch at3;
+JDK CRC32C over the exact original literal batch CRC input. Request/response
+frames retain correlations, full original bytes, hashes and independent receipt.
+No OPFS candidate is imported. Later production code must replay these original
+frames and repeat both native directions; this gate alone is independent oracle
+qualification, not production provider coverage or CI completion.
+
+The verifier requires actual SDK acknowledgment offsets0,1,2 and timestamps;
+Produce3 response error=0/baseOffset3; ListOffsets1 original offsets; Fetch4
+CRC32C, uncompressed magic2 batches and full original null/empty keys/values,
+binary values, ordered duplicate headers and timestamp/offset deltas; and actual
+Java fetch equality at3,4,5. It separately checks Java builtin CRC32C agreement.
+Metadata4 is framing/correlation captured, not yet independently semantically
+decoded. SDK poll max-records is not the candidate's whole-wire-page overflow
+proof. Unknown append on killed/incomplete native stages remains conservative;
+the raw probe does not manufacture semantic acknowledgments from framing.
+
+Host deadline180s, readiness90s, individual CLI30s/oracle45s, each probe50s and
+CRC15s. Host native log4MiB; semantic output1MiB; original wire frames4MiB each.
+Oracle files first live in8MiB tmpfs. Before stop, an owned shell snapshots only
+known result basenames, each at its admitted maximum plus one byte, into the
+owned writable home directory. This retains finite failure evidence across
+tmpfs teardown; oversize is refused by the outer parser, never silently passed.
+Copy only after stopped-state admission: SDK stdout4MiB, stderr1MiB, physical
+single-file tar parser rejects aliases/extensions/path/padding/appended members.
+No host extractall or filesystem symlink traversal. Full output identities and
+semantic terminal results are distinct from primary/cleanup/container outcomes.
+
+Root must recheck image pull headroom and existing128MiB research reserve before
+native GO. The outer currently conservatively requires1500MiB+512MiB free; it is
+not a filesystem quota or an instruction to delete unrelated resources. Peak
+additional native tmpfs41.125MiB, fixed oracle/class copies<=28MiB and retained
+known-file snapshot<=15MiB coexist with host evidence/input copies. Existing
+retention must be counted, rather than assuming those totals fit the reserve.
+Compiler image retirement and Kafka pull admission remain separately owned gates.

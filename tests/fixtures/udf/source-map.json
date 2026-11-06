@@ -1,0 +1,13 @@
+{
+  "purpose": "Preserve exact historical source and execution evidence; new TypeScript runs require separate receipts.",
+  "historical": {
+    "path": "create.py",
+    "snapshot": "create.py.snapshot",
+    "bytes": 6402,
+    "sha256": "4b8912014c989a44e89bbff054b16152999dcab2c4fa3f51a5675696ee3fa4ff"
+  },
+  "current": {
+    "path": "create.ts",
+    "proof": "native producers and complete independent payload consumers"
+  }
+}

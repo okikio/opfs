@@ -1,0 +1,6 @@
+{
+  "original": "tests/provider/redis.ts",
+  "snapshot": "provider.ts.snapshot",
+  "sha256": "f4d1ebb547e19b1f326b622fc8c2c5864ee1e7467c67f34acc220ea3defdc9f6",
+  "proof": "Historical Python SDK execution only; current native hiredis fixture requires its own runtime result."
+}

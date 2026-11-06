@@ -1,0 +1,145 @@
+"""SOURCE ONLY: independent full-byte native fixture assertions; never imports OPFS.
+
+Frozen manifest/probe modules are independent authorities. Bounds precede every
+wire slice; compressed/transaction/control records deliberately refuse.
+"""
+import base64, hashlib, importlib.util, json, pathlib, struct, sys
+
+PINS = {'manifest.py':'df1b7482f3dd559153734482c7be7a0b5799fa8351ebc880038f6409d1de0833',
+        'probe.py':'54dec3674d58b2d9e04f9a0066fcf274edbdf6e9abca417bd336a5eb717fa79c'}
+CAP = 4*1024*1024
+def load(name):
+    path = pathlib.Path(__file__).with_name(name)
+    if path.is_symlink() or path.stat().st_size > 65536 or hashlib.sha256(path.read_bytes()).hexdigest()!=PINS[name]:
+        raise ValueError('Frozen independent authority')
+    spec=importlib.util.spec_from_file_location(name[:-3],path)
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);return module
+class Reader:
+    def __init__(self,data): self.data,self.at=data,0
+    def take(self,n):
+        if not 0<=n<=len(self.data)-self.at: raise ValueError('Truncated native field')
+        raw=self.data[self.at:self.at+n];self.at+=n;return raw
+    def number(self,fmt):return struct.unpack('>'+fmt,self.take(struct.calcsize('>'+fmt)))[0]
+    def count(self,nullable=False):
+        n=self.number('i')
+        if n==-1 and nullable:return None
+        if not 0<=n<=1024:raise ValueError('Native count')
+        return n
+    def text(self):
+        n=self.number('h')
+        if not 0<=n<=249:raise ValueError('Native text extent')
+        return self.take(n).decode('utf-8',errors='strict')
+    def done(self):
+        if self.at!=len(self.data):raise ValueError('Native trailing bytes')
+    def varint(self):
+        n=0
+        for shift in range(0,70,7):
+            b=self.number('B')
+            if shift==63 and b>1:raise ValueError('Native varint overflow')
+            n|=(b&127)<<shift
+            if not b&128:return (n>>1)^-(n&1)
+        raise ValueError('Native varint extent')
+    def blob(self):
+        n=self.varint()
+        if n==-1:return None
+        if not 0<=n<=1024*1024:raise ValueError('Native blob extent')
+        return self.take(n)
+def read(path):
+    if path.is_symlink() or not path.is_file() or path.stat().st_size>CAP+4:raise ValueError('Original output type/extent')
+    raw=path.read_bytes()
+    if len(raw)>CAP+4:raise ValueError('Original output changed extent')
+    return raw
+def response(path,correlation):
+    r=Reader(read(path));size=r.number('i')
+    if not 4<=size<=CAP or size!=len(r.data)-4 or r.number('i')!=correlation:raise ValueError('Original frame identity')
+    return r
+def produced(path,topic):
+    r=response(path,3103)
+    if r.count()!=1 or r.text()!=topic or r.count()!=1:raise ValueError('Produce topology')
+    partition,error,offset,timestamp=r.number('i'),r.number('h'),r.number('q'),r.number('q')
+    if partition!=0 or error or offset!=3 or timestamp!=-1:raise ValueError('Produce semantic acknowledgment')
+    if r.number('i')<0:raise ValueError('Produce throttle')
+    r.done();return offset
+def end_offset(path,topic,correlation,expected):
+    r=response(path,correlation)
+    if r.count()!=1 or r.text()!=topic or r.count()!=1 or r.number('i')!=0 or r.number('h')!=0:
+        raise ValueError('ListOffsets topology/error')
+    r.number('q')
+    if r.number('q')!=expected:raise ValueError('ListOffsets actual offset')
+    r.done()
+def fetched(path,topic,expected_high,probe):
+    r=response(path,3106)
+    if r.number('i')<0 or r.count()!=1 or r.text()!=topic or r.count()!=1 \
+            or r.number('i')!=0 or r.number('h')!=0 or r.number('q')!=expected_high:
+        raise ValueError('Fetch topology/error/highwatermark')
+    stable=r.number('q');aborted=r.count(True)
+    if stable<0 or aborted not in [None,0]:raise ValueError('Unexpected transactional page')
+    n=r.number('i')
+    if not 0<=n<=CAP:raise ValueError('Fetch record extent')
+    batches=Reader(r.take(n));r.done();records=[]
+    while batches.at<len(batches.data):
+        offset,length=batches.number('q'),batches.number('i')
+        if not 49<=length<=CAP:raise ValueError('Batch preallocation extent')
+        batch=Reader(batches.take(length));batch.number('i')
+        if batch.number('B')!=2:raise ValueError('Batch magic')
+        crc=batch.number('I');crc_input=batch.data[batch.at:]
+        if probe.crc32c(crc_input)!=crc:raise ValueError('Original batch CRC32C')
+        if batch.number('h')!=0:raise ValueError('Only original uncompressed CreateTime batches admitted')
+        last=batch.number('i');first_time,last_time=batch.number('q'),batch.number('q')
+        batch.number('q');batch.number('h');batch.number('i')
+        count=batch.count()
+        if count<1 or count>3 or last!=count-1:raise ValueError('Batch record count/delta')
+        for index in range(count):
+            length=batch.varint()
+            if not 0<=length<=1024*1024:raise ValueError('Record extent')
+            record=Reader(batch.take(length))
+            if record.number('B')!=0:raise ValueError('Record attributes')
+            timestamp=first_time+record.varint();delta=record.varint()
+            if delta!=index or not first_time<=timestamp<=last_time:raise ValueError('Record timestamp/delta')
+            key,value=record.blob(),record.blob();headers=[];amount=record.varint()
+            if not 0<=amount<=32:raise ValueError('Record headers')
+            for _ in range(amount):
+                name=record.blob()
+                if name is None or len(name)>256:raise ValueError('Header name')
+                headers.append((name.decode('utf-8',errors='strict'),record.blob()))
+            record.done();records.append((offset+delta,timestamp,key,value,headers))
+            if len(records)>3:raise ValueError('Whole native page record budget')
+        batch.done()
+    return records
+def main():
+    if len(sys.argv)!=3:raise SystemExit('Use output-directory exact-owned-topic')
+    directory=pathlib.Path(sys.argv[1]);topic=sys.argv[2];manifest=load('manifest.py');probe=load('probe.py')
+    append=manifest.decode(read(directory/'sdk-append.bin'))
+    if append['operation']!=1 or append['status'] or append['topic']!=topic or append['partition']!=0 \
+            or append['unknown'] or append['records'] or append['faults'] or append['faultsTruncated'] \
+            or len(append['acks'])!=3:raise ValueError('SDK append terminal')
+    for index,ack in enumerate(append['acks']):
+        if ack!={'partition':0,'offset':str(index),'timestamp':str(probe.TIMESTAMP+index)}:
+            raise ValueError('SDK actual acknowledgments')
+    original=[(index,t,key,value,headers) for index,(t,key,value,headers) in enumerate(manifest.payloads(probe.TIMESTAMP))]
+    if fetched(directory/'read/fetch-response.bin',topic,3,probe)!=original:raise ValueError('SDK to independent raw full bytes')
+    end_offset(directory/'read/earliest-response.bin',topic,3104,0)
+    end_offset(directory/'read/latest-response.bin',topic,3105,3)
+    produced(directory/'append/produce-response.bin',topic)
+    end_offset(directory/'append/latest-response.bin',topic,3105,6)
+    if fetched(directory/'append/fetch-response.bin',topic,6,probe)!=[(o+3,t,k,v,h)for o,t,k,v,h in original]:
+        raise ValueError('Literal append to original raw fetch full bytes')
+    fetched_sdk=manifest.decode(read(directory/'sdk-fetch.bin'))
+    if fetched_sdk['operation']!=2 or fetched_sdk['status'] or fetched_sdk['topic']!=topic \
+            or fetched_sdk['partition']!=0 or fetched_sdk['unknown'] or fetched_sdk['acks'] \
+            or fetched_sdk['faults'] or fetched_sdk['faultsTruncated'] or len(fetched_sdk['records'])!=3:
+        raise ValueError('SDK fetch terminal')
+    def raw(item):return None if item is None else base64.b64decode(item['base64'],validate=True)
+    actual=[]
+    for item in fetched_sdk['records']:
+        # KafkaOracle serializes Enum.name(), not TimestampType.toString() or
+        # its separate public display-name field (which both say CreateTime).
+        if item['timestampType']!='CREATE_TIME':raise ValueError('SDK timestamp type')
+        actual.append((int(item['offset']),int(item['timestamp']),raw(item['key']),raw(item['value']),
+            [(header['name'],raw(header['value']))for header in item['headers']]))
+    if actual!=[(o+3,t,k,v,h)for o,t,k,v,h in original]:raise ValueError('Literal to SDK full bytes')
+    crc_input=read(directory/'append/produce-crc-input.bin')
+    if read(directory/'crc.txt')!=('%08x\n'%probe.crc32c(crc_input)).encode():raise ValueError('JDK CRC32C agreement')
+    print(json.dumps({'semanticFullBytes':True,'sdkAppendOffsets':[0,1,2],'literalAppendOffsets':[3,4,5],
+        'crc32c':True,'candidateCodeImported':False,'compressedCodecClaim':False}))
+if __name__=='__main__':main()

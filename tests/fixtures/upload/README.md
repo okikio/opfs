@@ -15,23 +15,35 @@ downloaded archive SHA256 and every selected file's SHA256 after its Git blob id
 original license, notice and package metadata are under `source/`. Production code does not import this implementation,
 and acquisition runs no upstream setup hooks.
 
-`acquire.py` bounds compressed input, expanded TAR bytes, all member counts and declared extents before selecting files;
-redirects stay on the primary HTTPS codeload origin. Initial acquisition startup on base
+The historical `acquire.py.snapshot` bounds compressed input, expanded TAR bytes, all member counts and declared extents
+before selecting files; redirects stay on the primary HTTPS codeload origin. Initial acquisition startup on base
 `f1d61877be7f1023016b35716b2424f3f3d77825a875853130311bdb0d9fe43e` exited 127: Node 26.13.0 ARM64 existed, but
 `/usr/bin/python3` did not. No source was downloaded or executed. The corrected explicitly approved existing tools base
 `4e9b1d5f2972c4b3df05c5fe56f976e02b42a535e6be46bee7c46406fa28cfee` contained Node 26.13.0 ARM64/Python 3.11.2.
 Acquisition exited 0/noOOM and verified all 35 files. Both attempts used 1 GiB/1 CPU/128 PIDs, no mounts or published
 ports. Initial and corrected logs/state remain in the task's implementation receipts.
 
+The current replacement is `acquire.ts`, which preserves the reviewed commit and Git blob admission while writing only
+inert `.snapshot` files to a fresh staged destination. It requires no Python runtime. See the shared
+[acquisition and launcher guide](../acquisition.md) for the current commands, output ownership, bounds and the
+distinction between new source qualification and the unchanged historical receipts above.
+
 ## Native proof scope
 
-`server.mjs` wraps unmodified upstream `createUploadHandler` and `fsUploadStore`. `baseline.mjs` is an independent raw
+`server.ts` wraps unmodified upstream `createUploadHandler` and `fsUploadStore`. `baseline.ts` is an independent raw
 `node:http` client with authored original binary bytes. Neither imports the candidate client. The reviewed baseline
 exited 0/noOOM on 2026-11-05 in 0.84 seconds. `independent.json` contains 13 native wire traces; its unchanged original
 is `independent.json.snapshot`; its original producer SHA256 is
 `45920c0a5a9353bd5c725b625968426e56df93aad8453f0089ee311229201de5`. The exact executed scripts are retained as
 `baseline-*.mjs.snapshot`; the source-only tool image was
 `43658f8669f6876ab0f8ec0a2e2c9a42363cd9b20e3229a862656fee65df9888`.
+
+The executable tools now use TypeScript. The baseline result above was produced by the retained original JavaScript
+scripts, not by a retrospective TypeScript execution. `baseline-producer.mjs.snapshot` retains the exact previous
+`baseline.mjs` bytes. `baseline-server.mjs.snapshot` retains the server version used by that historical baseline.
+`provider-server.mjs.snapshot` and `provider-client.mjs.snapshot` retain the later JavaScript versions that preceded the
+TypeScript migration. `provenance.json` records their hashes separately. Do not execute these snapshots or update
+historical receipts to name a new producer without a new run.
 
 The baseline killed/restarted the FS-backed server and reloaded a persisted checkpoint whose acknowledgement was still
 zero. The restarted server reported 32,768. The entire 131,089-byte published file equaled the authored original. Empty
@@ -70,7 +82,7 @@ native AMD64 or ARM64. The executed server version must equal v26.13.0. The firs
 
 The fixture uses Testcontainers with 1 GiB memory, 1 CPU, 128 PIDs, internal port 8080 and an ephemeral host port. No
 host filesystem is mounted and no external service is contacted. Testcontainers may acquire the public pinned image on a
-fresh runner. `client.mjs` is an authored test transport around the actual production client. It kills its own process
+fresh runner. `client.ts` is an authored test transport around the actual production client. It kills its own process
 after a remote append acknowledgement or terminal reply, before the library can return and the application can persist
 that receipt. Each restart revalidates the real SHA256 source identity and parses the production `UploadSessionSchema`
 from an atomically renamed checkpoint.
@@ -85,6 +97,12 @@ Both candidate keys passed every original-byte comparison. Six actual client pro
 reviewed transport injection points and two fresh processes observed replay or unknown publication. The first run passed
 without a fixture or production repair; its complete log is retained in the implementation receipts. These process-kill
 points intentionally precede local receipt persistence; they do not simulate filesystem power loss.
+
+Run the current TypeScript fixture with `deno task test:upload-provider` from the repository root. It uses the same
+official Node image, native server sources, original payload formula and process-loss cases. A new run establishes
+current harness behavior; the dated results above remain evidence for their original executed harnesses. The server
+imports its reconstructed upstream modules only inside the disposable container. Its narrow local type declarations
+describe the exercised callbacks; the retained upstream definitions remain the source of truth for their full API.
 
 ## Timing observation
 

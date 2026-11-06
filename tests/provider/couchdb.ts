@@ -1,4 +1,6 @@
+import { fileURLToPath } from "node:url";
 import { Buffer } from "node:buffer";
+import { readFile } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import { close } from "../../src/close.ts";
 import type { StartedTestContainer } from "testcontainers";
@@ -37,24 +39,6 @@ const LOCK = JSON.stringify({
     },
   },
 });
-/** Independent official SDK operations, bounded by an external timeout and copied byte files rather than shell interpolation.
- * Nano appends attName without encoding (pinned lib/nano.js335-336); only its attachment argument needs encodeURIComponent.
- * The candidate retains its own literal-ID URL construction unchanged.
- */
-const ORACLE = `const fs=require('node:fs');
-const Nano=require('nano');
-const timer=setTimeout(()=>{console.error('oracle deadline');process.exit(2)},30000);
-const auth='Basic '+Buffer.from('fixture:disposable-only').toString('base64');
-const server=Nano({url:'http://couchdb.test:5984',headers:{Authorization:auth}});
-const db=server.use('fixture');
-const [op,id,name]=process.argv.slice(2);
-(async()=>{
- if(op==='init') { const v=await server.info(); if(v.version!=='3.5.3')throw Error('native version mismatch'); await server.db.create('fixture'); console.log('VERSION:'+v.version); }
- else if(op==='seed') {const bytes=fs.readFileSync('/oracle/input.bin');if(bytes.length>1048576)throw Error('fixture size');const receipt=await db.attachment.insert(id,encodeURIComponent(name),bytes,'application/octet-stream');console.log('RECEIPT:'+JSON.stringify(receipt));}
- else if(op==='read') {const bytes=await db.attachment.get(id,encodeURIComponent(name));if(bytes.length>1048576)throw Error('fixture size');console.log('BYTES:'+bytes.toString('base64'));}
- else throw Error('unsupported fixture action');
-})().then(()=>clearTimeout(timer),e=>{console.error(e);process.exitCode=1;clearTimeout(timer)});
-`;
 function field(output: string, name: string): string {
   const rows = output.split(/\r?\n/u).filter((line) => line.startsWith(`${name}:`));
   if (rows.length !== 1) throw new Error(`CouchDB oracle omitted ${name} evidence.`);
@@ -83,7 +67,7 @@ export class CouchdbFixture implements AsyncDisposable {
       "45",
       "node",
       "--max-old-space-size=128",
-      "/oracle/oracle.cjs",
+      "/oracle/oracle.ts",
       ...args,
     ]);
     if (result.exitCode !== 0 || result.output.length > 2 * 1024 * 1024) {
@@ -146,7 +130,10 @@ export async function openCouchdb(): Promise<CouchdbFixture> {
       .withCopyContentToContainer([{ content: PACKAGE, target: "/oracle/package.json" }, {
         content: LOCK,
         target: "/oracle/package-lock.json",
-      }, { content: ORACLE, target: "/oracle/oracle.cjs" }])
+      }, {
+        content: await readFile(fileURLToPath(new URL("../fixtures/couchdb/oracle.ts", import.meta.url).href)),
+        target: "/oracle/oracle.ts",
+      }])
       .withWorkingDir("/oracle").withCommand([
         "sh",
         "-c",

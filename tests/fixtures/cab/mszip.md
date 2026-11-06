@@ -1,13 +1,19 @@
 # Independent MSZIP vectors
 
-`mszip.py` creates authored CAB framing around Python zlib 1.2.12 streams, including explicit prior-history
-dictionaries. It never imports OPFS. These vectors supplement the genuine gcab/cabextract corpus; they are not extra
-genuine gcab producer outputs.
+The historical `mszip.py.snapshot` created authored CAB framing around Python zlib 1.2.12 streams, including explicit
+prior-history dictionaries. It never imports OPFS. These vectors supplement the genuine gcab/cabextract corpus; they are
+not extra genuine gcab producer outputs.
+
+Current tooling is [`mszip.ts`](mszip.ts). In an isolated fixture environment, use Node 26.5 or later and a new output
+path:
 
 ```sh
-python3 tests/fixtures/cab/mszip.py --seven /opt/homebrew/bin/7zz
-deno fmt tests/fixtures/cab/mszip.json
+node tests/fixtures/cab/mszip.ts --seven /opt/homebrew/bin/7zz --output /tmp/new-mszip.json
 ```
+
+The TypeScript source uses Node zlib and a documented xorshift32 original-byte pattern rather than CPython Random. It
+has not produced the frozen results below and does not promise their archive hashes. The [fixture guide](README.md)
+explains its full-byte comparisons, refusal controls and ownership. Existing `mszip.json` remains unchanged.
 
 Complete authored inputs and packed blocks are retained. Python independently checks exact decoded bytes, EOF and
 absence of unused compressed data. Each profile records whether dictionary-free raw decoding fails. Native 7zz 26.02
@@ -24,7 +30,7 @@ hash remain explicit negative evidence. Tests do not convert that failure into a
 
 Fixture hashes after repository formatting:
 
-- `mszip.py`: SHA-256 `ee86172dc66e731d1ee6add50ba40ac94c5d3422ee963872803cc02093f9224b`.
+- `mszip.py.snapshot`: SHA-256 `ee86172dc66e731d1ee6add50ba40ac94c5d3422ee963872803cc02093f9224b`.
 - `mszip.json`: SHA-256 `9a3bf55229c45549b9925825df6153c8c52069e2df91f11bc1a75b8572f3a0bb`.
 
 The format authorities are

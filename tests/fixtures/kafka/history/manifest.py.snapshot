@@ -1,0 +1,86 @@
+"""Source-only independent oracle manifests. No Kafka or project imports; no network."""
+import argparse, base64, hashlib, json, struct, sys
+MAX = 4 * 1024 * 1024
+
+def integer(n): return struct.pack('>i', n)
+def long(n): return struct.pack('>q', n)
+def blob(b): return integer(-1) if b is None else integer(len(b)) + b
+def text(s): return blob(s.encode('utf-8'))
+def payloads(timestamp):
+    return [
+        (timestamp, None, bytes(range(256)) * 512, [('dup', b'\x00\xff'), ('dup', None), ('dup', b'')]),
+        (timestamp + 1, b'', None, []),
+        (timestamp + 2, b'\x00\xff\x00', b'', [('trace', b'\r\n\x00\x80')]),
+    ]
+def write(args):
+    out = integer(0x4b4f5031) + bytes([1 if args.mode == 'append' else 2])
+    out += text(args.bootstrap) + text(args.topic) + integer(args.partition)
+    if args.mode == 'append':
+        records = payloads(args.timestamp)
+        out += integer(len(records))
+        for timestamp, key, value, headers in records:
+            out += long(timestamp) + blob(key) + blob(value) + integer(len(headers))
+            for name, value in headers: out += text(name) + blob(value)
+    else:
+        out += long(args.offset) + integer(args.count) + integer(args.wait_ms)
+    if len(out) > 2 * 1024 * 1024: raise ValueError('input policy')
+    sys.stdout.buffer.write(out)
+class Reader:
+    def __init__(self, data): self.data, self.at = data, 0
+    def take(self, n):
+        if n < 0 or n > len(self.data) - self.at: raise ValueError('truncated field')
+        b = self.data[self.at:self.at+n]; self.at += n; return b
+    def int(self): return struct.unpack('>i', self.take(4))[0]
+    def long(self): return struct.unpack('>q', self.take(8))[0]
+    def byte(self): return self.take(1)[0]
+    def boolean(self):
+        n = self.byte()
+        if n not in [0, 1]: raise ValueError('boolean')
+        return bool(n)
+    def count(self, limit):
+        n = self.int()
+        if not 0 <= n <= limit: raise ValueError('count')
+        return n
+    def blob(self, limit, nullable=False):
+        n = self.int()
+        if n == -1 and nullable: return None
+        if not 0 <= n <= limit: raise ValueError('length')
+        return self.take(n)
+    def text(self, limit): return self.blob(limit).decode('utf-8', errors='strict')
+def image(b): return None if b is None else {'base64': base64.b64encode(b).decode(), 'bytes': len(b), 'sha256': hashlib.sha256(b).hexdigest()}
+def decode(data):
+    if len(data) > MAX: raise ValueError('output policy')
+    r = Reader(data)
+    if r.int() != 0x4b4f5231: raise ValueError('output magic')
+    operation, status = r.byte(), r.byte()
+    if operation not in [0, 1, 2] or status not in [0, 1]: raise ValueError('terminal discriminator')
+    result = {'operation': operation, 'status': status, 'topic': r.text(249), 'partition': r.int(),
+              'attempted': r.int(), 'unknown': r.boolean(), 'acks': [], 'records': []}
+    for _ in range(r.count(1024)):
+        result['acks'].append({'partition': r.int(), 'offset': str(r.long()), 'timestamp': str(r.long())})
+    for _ in range(r.count(1024)):
+        record = {'offset': str(r.long()), 'timestamp': str(r.long()), 'timestampType': r.text(64),
+                  'key': image(r.blob(1024*1024, True)), 'value': image(r.blob(1024*1024, True)), 'headers': []}
+        for _ in range(r.count(32)):
+            record['headers'].append({'name': r.text(256), 'value': image(r.blob(1024*1024, True))})
+        result['records'].append(record)
+    result['faultsTruncated'] = r.boolean(); result['faults'] = []
+    for _ in range(r.count(16)):
+        result['faults'].append({'path': r.text(256), 'class': r.text(4096), 'message': image(r.blob(4096, True))})
+    if r.at != len(data): raise ValueError('trailing output')
+    if (status == 0) != (len(result['faults']) == 0): raise ValueError('status/fault disagreement')
+    return result
+if __name__ == '__main__':
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument('mode', choices=['append', 'fetch', 'decode'])
+    p.add_argument('--bootstrap', default='127.0.0.1:9092'); p.add_argument('--topic', default='opfs-oracle')
+    p.add_argument('--partition', type=int, default=0); p.add_argument('--timestamp', type=int)
+    p.add_argument('--offset', type=int, default=0); p.add_argument('--count', type=int, default=3)
+    p.add_argument('--wait-ms', type=int, default=10000)
+    a = p.parse_args()
+    if a.mode == 'decode':
+        d = sys.stdin.buffer.read(MAX + 1); print(json.dumps(decode(d), indent=2))
+    else:
+        if a.mode == 'append' and (a.timestamp is None or not 0 <= a.timestamp <= (1<<63)-3):
+            p.error('--timestamp is required and must leave room for two successor timestamps')
+        write(a)

@@ -1,5 +1,53 @@
 # Native ORC qualification recipe
 
+## Current TypeScript and native C++ workflow
+
+The current workflow passed a separate native qualification of all eighteen intended ORC profiles, comparing complete
+original values through the admitted Arrow C++ writer/reader. The run used Node 26.13.0 and Debian C++ 12.2.0 in a
+network-disabled 1 GiB runner, without OOM, signals or cleanup faults. Those directions share one native ORC
+implementation; no second native ORC engine or new PyArrow execution is claimed. Keep its output separate from the
+frozen JSON and historical receipts. Candidate-reader acceptance of newly generated images is a separate check.
+
+The [Parquet recipe](../parquet/RECIPE.md#current-typescript-and-native-c-workflow) explains the common archive
+admission, toolchain, process and container budgets. ORC needs the same pinned PyArrow wheel and C++ libraries but no
+DuckDB CLI. Use `--orc` when acquiring its single input:
+
+```sh
+node tests/fixtures/parquet/acquire.ts --orc --output /tmp/orc-receipts-new
+# Review its exact hash receipt, then copy to the separate offline runner.
+node tests/fixtures/orc/install.ts --receipts /tmp/orc-receipts-new --output /tmp/orc-cpp-new
+node tests/fixtures/orc/producer-run.ts --artifacts /tmp/orc-cpp-new --output /tmp/orc-native-new
+```
+
+`create.ts` feeds authored little-endian originals and separate validity bytes into the public C++ API in
+`../arrow/native.cpp`. Both file versions, all three row counts, all three null layouts and seven physical types remain.
+Readback compares exact integers/masks, IEEE float values and signed zeros, with no NaN payload identity claim. Separate
+authored protobuf envelope checks retain version, compression, stripe offsets/lengths/counts, DIRECT/DIRECT_V2 encoding
+receipts and the `contentLength` equation. Modern SHORT/INT/LONG remain genuine refusal controls; the port does not add
+candidate RLEv2 support.
+
+The optional `launch.ts` creates one explicitly named install or native container from an already present immutable
+image ID. It never pulls, builds or commits an image. Install accepts the pinned official Node 26 base; the native stage
+must use a separately prepared image containing the admitted C++ subset and signed compiler tools. It verifies no
+network, mounts, added capabilities, devices or ports before start, then retains attachment, copied result and final
+exit/OOM receipts. Preparing and reviewing the derived native image remains the operator's explicit step:
+
+```sh
+node tests/fixtures/orc/launch.ts --stage install --image-id sha256:<actual-node-base-image-id> --name opfs-orc-install-<unique-suffix> --receipts <admitted-arrow-archive-directory> --output <new-install-receipt-directory>
+node tests/fixtures/orc/launch.ts --stage native --image-id sha256:<reviewed-derived-tools-image-id> --name opfs-orc-native-<unique-suffix> --output <new-native-receipt-directory>
+```
+
+Successful qualification must retain all eighteen native images and full comparisons. In particular, the 8192-row
+nonnull profile must still produce multiple stripes, and actual wire encodings must match their intended versions.
+Different byte serialization or stripe counts must be reported as a changed profile, not silently attributed to the old
+Python run. The new qualification independently reconfirmed 32 stripes for 8192-row nonnull/mixed-null cases and seven
+for all-null cases, in both versions; it did not replace the frozen historical images.
+
+## Historical Python evidence
+
+The following commands and results describe the executed historical workflow. Its tools now remain exact inert
+`.py.snapshot` sources, not current executable entrypoints.
+
 The recorded installation and native-production run completed on November 5, 2026. [provenance.json](provenance.json)
 and [receipts](receipts/) retain their actual inputs, limits, outcomes and the first installation failure. The
 TypeScript reader has no runtime SDK dependency. This recipe installs only a previously inspected, SHA-admitted test

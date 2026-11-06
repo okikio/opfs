@@ -139,11 +139,12 @@ intentionally outside this reader's profile. The
 [libarchive CPIO producer tests](https://github.com/libarchive/libarchive/blob/master/libarchive/test/test_write_format_cpio_newc.c)
 provide a second primary implementation reference; no upstream source is copied into production.
 
-`tests/fixtures/cpio/create.py` invokes an independent installed `cpio` executable. Fixture JSON records its version,
-command, archive digest, complete archive bytes, and full expected file payloads derived from input files. Corruption
-fixtures in the test are labelled adaptations, not independent producer evidence. Runtime checks and package/type gates
-provide different evidence; a source fixture pass does not establish installed-artifact behavior or real provider
-performance.
+[`tests/fixtures/cpio/create.ts`](../tests/fixtures/cpio/create.ts) invokes an independent installed `cpio` executable.
+The [producer instructions](../tests/fixtures/cpio/README.md) distinguish this unexecuted TypeScript port from the
+historical executed producer retained as inert `create.py.snapshot`. Fixture JSON records its version, command, archive
+digest, complete archive bytes, and full expected file payloads derived from input files. Corruption fixtures in the
+test are labelled adaptations, not independent producer evidence. Runtime checks and package/type gates provide
+different evidence; a source fixture pass does not establish installed-artifact behavior or real provider performance.
 
 The committed producer set includes bsdcpio 3.5.3 / libarchive 3.7.4 newc and GNU cpio 2.13 newc/CRC. GNU fixtures came
 from Debian bookworm's `cpio` package `2.13+dfsg-7.1` for arm64 in a disposable bounded runner. The

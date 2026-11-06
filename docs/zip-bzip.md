@@ -84,11 +84,18 @@ awaits, so replacing their fields does not change the admitted operation.
 
 ## Independent wire-format evidence
 
-The fixture producer in `tests/fixtures/zip-bzip/create.py` uses Python `zipfile.ZIP_BZIP2` and genuine 7-Zip method-12
-output at levels 1 and 9. Python's forward-only writer supplies independent bit-3/data-descriptor cases. Python
-`zipfile`, 7-Zip and libarchive each extract and compare every original byte. The native producer sometimes chooses
-STORED for tiny or empty inputs; those entries are recorded as method 0, rather than counted as BZip2 proof. The six
-archives contain twenty genuine BZip2 members, including empty streams and multiple-block data.
+The retained historical producer `tests/fixtures/zip-bzip/create.py.snapshot` used Python `zipfile.ZIP_BZIP2` and
+genuine 7-Zip method-12 output at levels 1 and 9. Python's forward-only writer supplies independent
+bit-3/data-descriptor cases. Python `zipfile`, 7-Zip and libarchive each extract and compare every original byte. The
+native producer sometimes chooses STORED for tiny or empty inputs; those entries are recorded as method 0, rather than
+counted as BZip2 proof. The six archives contain twenty genuine BZip2 members, including empty streams and
+multiple-block data.
+
+Current fixture tooling is `tests/fixtures/zip-bzip/create.ts`. It produces genuine 7-Zip archives and separately
+labelled authored descriptor framing over their unchanged native compressed extents. Both 7-Zip and libarchive compare
+complete member bytes. These new native-only profiles do not recreate or relabel the historical Python profiles. An
+explicit `--output` destination is required, and the retained corpus and its historical receipt stay unchanged until a
+maintainer reviews a new run.
 
 The fixture provenance records tool/package versions, producer/fixture hashes and the exact reviewed
 [PKWARE APPNOTE 6.3.10](https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT) bytes. The native programs are

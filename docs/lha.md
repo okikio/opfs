@@ -131,6 +131,11 @@ exact expected file sets and every original payload byte, including empty files 
 reader was not imported by the producer. The fixtures and [provenance receipt](../tests/fixtures/lha/provenance.json)
 retain package versions, signed artifact hashes, source pins, original byte digests and negative diagnostics.
 
+The executed producer is retained byte-for-byte as inert `tests/fixtures/lha/create.py.snapshot`.
+[`create.ts`](../tests/fixtures/lha/create.ts) is the current project-owned port; it preserves the native writer and
+four-reader comparisons. The [producer instructions](../tests/fixtures/lha/README.md) describe a separate qualification
+run. This TypeScript source has not yet been executed and did not produce the committed historical fixtures.
+
 The installed JLHA level-0 writer has its own 100-byte header ceiling. Its initial 98-byte pathname required a 122-byte
 header and was refused. The successful level-0 fixture uses a 58-byte pathname and 82-byte header; levels 1/2 retain the
 98-byte pathname. This is a constraint of that exact native writer, not a universal LHA format limit. A second producer

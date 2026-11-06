@@ -1,0 +1,173 @@
+# Kafka artifact review and proposed next execution gates
+
+2026-11-05. For the maintainer deciding whether to compile the independent
+oracle, then verify a bounded native Kafka profile. This is a recommendation,
+not permission to execute. No Java/compiler/broker execution has occurred.
+
+Root ran the ten independent ZIP unit tests successfully, then the offline data
+inspection successfully: exit0, no OOM, no cleanup faults and no remaining owned
+container. Data receipt is `opfs-kafka-artifact-data-first/terminal.json`, SHA
+`37b7a905c42c035c190d5356d22ea591d0ea32404cc97f49a3dbc598a9632ee0`.
+The report is `opfs-kafka-artifact-data-first/output/report.json`,2215275B, SHA
+`cf7ecb4e682898bfdc67a217d00952e9d9f1bcacef60dc009b36c5cf52f363bb`.
+Its5052 members used1182856B admitted physical ZIP metadata,51971120B summed
+declared expansion and112927B selected text. All17 selected original text
+members have exact size, SHA and CRC evidence in that report.
+
+The original acquisition inventory remains unchanged and `complete:false`, SHA
+`77186214185e8e7ef867caddd34eac6f046ba4d585b2e1e0707bdb5a393979fd`.
+Its verified layer map and separately pinned351-alias legal supplement support
+this scoped data review; neither receipt is retroactively made executable.
+
+## Actual five-JAR closure
+
+Whole-JAR SHA/size identities are in `kafka-artifact-review.md` and the report.
+The following embedded statements agree with those pinned filenames:
+
+| Exact JAR | Actual embedded version evidence | License evidence |
+| --- | --- | --- |
+| kafka-clients-4.4.0.jar | kafka/kafka-version.properties:4.4.0, commit1156b2752aaa28ea | Original LICENSE Apache2.0; Kafka NOTICE plus shaded Commons Net Apache2.0 LICENSE/NOTICE |
+| lz4-java-1.11.2.jar | Manifest Bundle-Version1.11.2; Maven at.yawk.lz4:lz4-java:1.11.2 | Manifest/POM Apache2.0, matching image distribution list |
+| slf4j-api-1.7.36.jar | Manifest Implementation-Version1.7.36; Maven org.slf4j:slf4j-api:1.7.36 | Image licenses/slf4j-MIT, original QOS.ch MIT text |
+| snappy-java-1.1.10.7.jar | Manifest Implementation/Specification/Bundle-Version1.1.10.7 | Manifest Apache2.0, matching image distribution list |
+| zstd-jni-1.5.7-17.jar | Manifest Implementation/Specification-Version1.5.7-17; OSGi Bundle-Version1.5.7.17 | Manifest BSD2-clause; image licenses/zstd-jni-BSD-2-clause original Luben Karavelov text |
+
+These are artifact statements, not independently reproduced builds. The LZ4
+POM introductory comment describes reproducing1.8.0, while its actual project
+version and manifest both say1.11.2; do not use that stale comment as provenance.
+Its declared dependencies are test-scoped and do not authorize JUnit/Jazzer
+acquisition or Maven execution. SLF4J's POM has build-plugin configuration, not
+additional runtime dependencies. No POM was parsed as executable configuration.
+
+The exact external oracle classpath proposal remains these five JARs only,
+plus the compiled oracle class directory. No wildcard, Kafka distribution
+plugin/logging directory, Maven resolver or extra downloaded SDK is needed.
+This bounded offline compilation and native run must prove that proposed closure;
+metadata inspection alone cannot prove runtime linkage.
+
+There is additional code inside the pinned Kafka JAR:204 shaded Commons Net
+classes,735 shaded protobuf classes and325 shaded OpenTelemetry proto classes.
+Commons Net's embedded Maven properties identify3.13.0. The image distribution
+list names protobuf-java3.25.5 and opentelemetry-proto1.3.2-alpha, but the selected
+Kafka metadata does not independently bind those exact versions to shaded class
+bytes. They are included in the JAR identity and cannot be omitted from its
+attribution review or described as absent because there are only five files.
+
+An actual attribution discrepancy remains: image file
+`opt/kafka/licenses/protobuf-java-BSD-3-clause` (`kafka-6-2635.data`, SHA
+`42e972d1d5bd3c02caa548c08ad0ea27f722bfb753802fc9effbcd723ad8a5cc`)
+contains a2023 original-author notice and a JLine non-endorsement clause.
+It contains no Google/protobuf-specific copyright attribution. This review records
+the bytes, rather than silently correcting upstream attribution or claiming legal
+closure. The separate immutable upstream attribution investigation below supports
+isolated test use; public redistribution needs its own decision.
+The four full selected Kafka LICENSE/NOTICE files are Apache2.0/Kafka/Commons Net
+texts; none contains Google/protobuf attribution. All legal/notice-like member
+names in the admitted index were selected, so no additional matching named JAR
+notice remains hidden behind the unselected-class limitation.
+
+Bounded curl fallback subsequently retained the exact Kafka source commit's
+build/dependency declarations. They verify all four external runtime dependencies,
+three explicit shaded roots and pinned versions, agreeing with the artifact data.
+The source's protobuf notice is byte-identical to the image's wrong JLine notice.
+Separate immutable upstream protobuf3.25.5 source now supplies Google's BSD3
+LICENSE, and immutable OTel source supplies its Apache2.0 LICENSE. Full URL/hash,
+tag-to-commit chains, bounds and limits are in `kafka-attribution-receipt.md`.
+This supplements attribution for isolated testing; it does not modify or green
+the original image, prove reproduced builds, or claim correct upstream packaging.
+
+## Services, logging and native exposure
+
+All five physical member indexes contain no manifest Class-Path, Java signature
+entries, SLF4J StaticLoggerBinder or SLF4JServiceProvider. SLF4J's selected POM
+explicitly removes its dummy binding classes. Do not add a logging binding to
+silence expected stderr warnings or let them enter binary oracle stdout.
+
+The only service file is Kafka's ConfigProvider descriptor. Its actual providers
+are FileConfigProvider, DirectoryConfigProvider and EnvVarConfigProvider.
+They can access files/environment if enabled by client configuration. The frozen
+oracle constructs its own Properties, passes byte serializers directly and has
+no caller configuration passthrough. The launcher must not forward credentials,
+proxies, CLASSPATH, JAVA_TOOL_OPTIONS, JDK_JAVA_OPTIONS, _JAVA_OPTIONS, plugin or
+config-provider settings. Do not claim that a service descriptor proves providers
+are never loaded; a source/runtime check of the exact client path remains useful.
+No annotation-processor service was found. Compile with `-proc:none` nonetheless.
+
+The codec indexes contain54 native members:9LZ4,27Snappy,18Zstd, including Linux
+aarch64 and other platforms. Snappy has an OSGi Bundle-Activator and native-code
+manifest; Zstd declares optional OSGi imports. These do not require OSGi in the
+proposed plain Java classpath. They are executable potential, not proven safe
+payloads. The uncompressed oracle requests compression=none and the isolated
+topic must contain only reviewed uncompressed records. No codec/native loading
+or musl compatibility claim follows. The original compressed class/native member
+bytes were neither decompressed nor CRC-verified; only whole-JAR SHA anchors them.
+No cryptographic signature or static bytecode audit was performed.
+
+## Recommendation and finite next recipe
+
+The source/attribution investigation now supports preparing the narrow offline
+compiler gate below with original notices and upstream attribution supplement
+retained. Root should review the frozen launcher as the ordinary next test gate;
+no additional user dependency approval is needed. No acquired code has executed.
+Do not yet
+call the full broker image or compressed codecs qualified. The source commit
+matches Kafka's embedded abbreviated commit, but the prior RC4 promotion versus
+final source-to-binary equivalence limitation remains. Exact immutable image
+identity is useful test provenance, not a complete supply-chain attestation.
+
+The Kafka JRE release states Temurin25.0.4.1+1/musl/aarch64; compiler JDK states
+Temurin25.0.5+8/glibc/aarch64. Their base GPL2 LICENSE, Classpath clarification
+and assembly-exception texts match exactly, with per-component legal references
+resolved only through the separate logical supplement. Run each complete pinned
+image in its own environment; never transplant the glibc JDK into Alpine. These
+facts support trying `--release 17`; actual compilation and runtime remain unproven.
+
+1. Freeze the two Java source hashes, five JAR identities, inventory, supplement
+   and current artifact report. Recheck free disk before immutable image
+   acquisition; allow only the exact arm64 references in `kafka-oracle-recipe.md`
+   and verify actual child/config/platform/declared volumes. Account compressed
+   Docker storage separately from the1500MiB expanded retention envelope and
+  128MiB research reserve. Last data receipt had3073466368B host free, not proof
+   that the next pull fits. No mutable fallback, unrelated pruning or parallel job.
+2. Create a stopped compiler container, network none/no host mounts or ports,
+   memory=swap512MiB,CPU1/PID128,cap-dropALL/no-new-privileges. Override the image
+   entrypoint, copy readonly source/JARs into `/work`, and write only `/tmp/classes`.
+   Use literal five-JAR paths: `javac -J-Xms16m -J-Xmx128m
+   -J-XX:ActiveProcessorCount=1 -proc:none --release 17 -cp <five-literal-paths>
+   -d /tmp/classes /work/KafkaOracle.java /work/CrcOracle.java`.
+   A frozen owner supplies the reviewed fixed mkdir/exec command,60s external
+   watchdog and1MiB diagnostic cap. Do not start a broker during compilation.
+3. Preserve terminal/resource/OOM/log evidence before removal. Copy only bounded
+   ordinary generated class files from the stopped compiler using a reviewed
+   physical archive parser; cap total4MiB/count128, reject aliases/extensions and
+   unexpected paths, hash every class. Retire and confirm that exact container.
+   A compile pass is not permission to start Java or a broker.
+4. After separate native-owner review, Testcontainers alone owns one pinned
+   Kafka container, readiness, labelled storage and cleanup. Proposed ceiling:
+   memory=swap1GiB,CPU1/PID128; broker heap256MiB and one auxiliary JVM heap128MiB
+   at a time inside that same container. This tight PID/resource profile is
+   unproven; inspect real failure before proposing any increase. No companion
+   JVM container may run beside it. Replace all three image volumes with explicit
+   owned disposable storage whose actual extent/retirement is recorded.
+5. Preload exact classes/JARs and original binary inputs with stopped-container
+   copy. Owned isolated networking publishes only a dynamic loopback-bound test
+   listener; controller/internal/oracle listeners stay internal. No account or
+   ambient authentication. Readiness and topic CLI run serially with128MiB heap;
+   one topic/partition, auto-create disabled, explicit CreateTime, uncompressed
+   records and bounded request/log data. Bound total broker life180s, readiness
+  90s, each CLI30s and oracle45s; preserve partial outcomes on timeout.
+6. Run the independent literal probe and Java oracle in the pre-reviewed order,
+   with finite binary stdin/EOF and stdout4MiB/stderr1MiB caps. Compare original
+   full bytes in both directions, null/empty fields, ordered duplicate headers,
+   actual partitions/offsets/timestamps and Java CRC32C. Retain original bounded
+   wire responses and correlations. No candidate-generated expectation fixtures.
+   SDK poll limits do not prove candidate raw-page overflow refusal. Keep that
+   separate original-wire assertion and unknown-append outcome checks.
+7. Stop once the bounded sequence settles; retain broker state/logs, all native
+   outputs and owned-volume extents before exact removal and confirmation.
+   No successful stage silently approves production Kafka code, runtime SDK use,
+   arbitrary broker auth, compression or public redistribution.
+
+This recipe requires a frozen compiler/native launcher source review before
+execution. The existing Python artifact launcher does not implement these JVM
+stages and must not be repurposed by changing its frozen sources or modes.

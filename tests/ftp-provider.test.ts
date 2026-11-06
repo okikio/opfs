@@ -5,7 +5,7 @@ import { FTP_BYTES, openFtp } from "./provider/ftp.ts";
 import type { FtpFixture } from "./provider/ftp.ts";
 import { withReleases } from "./close.ts";
 
-describe("pyftpdlib2.2.0 Testcontainers native FTP and TLS1.2", () => {
+describe("ProFTPD Testcontainers native FTP and TLS1.2", () => {
   let fixture: FtpFixture;
   before(async () => {
     fixture = await openFtp();
@@ -13,7 +13,7 @@ describe("pyftpdlib2.2.0 Testcontainers native FTP and TLS1.2", () => {
   after(async () => {
     await fixture?.close();
   });
-  it("reads ftplib-produced content through EPSV, MLST, MLSD and REST suffix", async () => {
+  it("reads libcurl-produced content through EPSV, MLST, MLSD and REST suffix", async () => {
     await withReleases(async (releases) => {
       const files = await openFtpClient(fixture.options("plain"));
       releases.push(() => files.close());
@@ -24,7 +24,7 @@ describe("pyftpdlib2.2.0 Testcontainers native FTP and TLS1.2", () => {
       expect((await read.done).bytes).toBe(FTP_BYTES.length - 12);
     });
   });
-  it("publishes bounded native STOR and independent ftplib confirms its stored bytes", async () => {
+  it("publishes bounded native STOR and independent libcurl confirms its stored bytes", async () => {
     await withReleases(async (releases) => {
       const files = await openFtpClient(fixture.options("plain"));
       releases.push(() => files.close());
@@ -47,5 +47,17 @@ describe("pyftpdlib2.2.0 Testcontainers native FTP and TLS1.2", () => {
   it("refuses an untrusted certificate without downgrading to plain FTP", async () => {
     await expect(openFtpClient(fixture.options("explicit-tls", false))).rejects.toThrow();
     expect(fixture.tls.controls).toBe(1);
+  });
+  it("denies native directory, read and write operations outside the real container home", async () => {
+    expect(await fixture.outside()).toBe("native DIRS/READ/WRITE outside-home refusals verified");
+    await withReleases(async (releases) => {
+      const files = await openFtpClient(fixture.options("plain"));
+      releases.push(() => files.close());
+      await expect(files.stat("/etc/passwd")).rejects.toThrow();
+      await expect(files.list("/tmp")).rejects.toThrow();
+      await expect(files.openRead("/etc/passwd")).rejects.toThrow();
+      await expect(files.put("/tmp/opfs-ftp-candidate-outside.txt", new TextEncoder().encode("must be refused")))
+        .rejects.toThrow();
+    });
   });
 });

@@ -1,147 +1,15 @@
 import { Buffer } from "node:buffer";
-import { createHash } from "node:crypto";
-import { inflateRawSync } from "node:zlib";
+import { randomUUID } from "node:crypto";
+import { fileURLToPath } from "node:url";
 import { createConnection } from "node:net";
 import type { Socket } from "node:net";
 import { execFileSync } from "node:child_process";
-import { openZip } from "../../src/archive/zip.ts";
-import { collectBytes } from "../../src/stream.ts";
-import { readResponse } from "../../src/response.ts";
-import { sourceRange } from "../../src/source.ts";
 import { close } from "../../src/close.ts";
 import type { MemcachedChannelType } from "../../src/memcached.ts";
 import type { StartedTestContainer } from "testcontainers";
 
 export const MEMCACHED_IMAGE =
   "memcached:1.6.45-alpine@sha256:6a089e37cbb8acd75c80c6c0667fe57ec54db68782fb1b3afb1d0eb265e50070";
-export const MEMCACHED_ORACLE_IMAGE =
-  "python:3.13.12-slim-bookworm@sha256:a58daefb915e1e03ad48f3ca4df8832065412c5c35cacb9d39f4229184de12b6";
-const WHEEL_SHA = "f507bc20e0dc8d562f8df9d872107a278df049fa496805c1431b926f3ddd0eab";
-/** Exact published no-dependency wheel; download/inspection approval is separate from importing or executing it. */
-export async function acquireMemcachedOracle(): Promise<{
-  readonly bytes: Buffer;
-  readonly members: readonly { readonly name: string; readonly size: number; readonly sha256?: string }[];
-}> {
-  const signal = AbortSignal.timeout(30_000);
-  const response = await fetch(
-    "https://files.pythonhosted.org/packages/41/ba/2f7b22d8135b51c4fefb041461f8431e1908778e6539ff5af6eeaaee367a/pymemcache-4.0.0-py2.py3-none-any.whl",
-    {
-      redirect: "error",
-      credentials: "omit",
-      referrerPolicy: "no-referrer",
-      signal,
-    },
-  );
-  if (response.status !== 200 || response.body === null) {
-    await readResponse(response, () => {
-      throw new Error("Independent pymemcache wheel acquisition failed.");
-    });
-  }
-  const bytes = await collectBytes(response.body!, 65536, signal, "read", "pymemcache wheel");
-  if (bytes.length !== 60772 || createHash("sha256").update(bytes).digest("hex") !== WHEEL_SHA) {
-    throw new Error("Independent pymemcache wheel differs from its published hash.");
-  }
-  // Existing project ZIP is acquisition tooling only, not a Memcached protocol oracle. Native zlib bounds each raw DEFLATE output.
-  const archive = await openZip({
-    size: bytes.length,
-    stability: "immutable",
-    read: async (at, length) => {
-      sourceRange(bytes.length, at, length);
-      return bytes.slice(at, at + length);
-    },
-  }, {
-    maxEntries: 256,
-    maxDirectoryBytes: 131072,
-    maxSourceBytes: 4 * 1048576,
-    maxDecodedBytes: 4 * 1048576,
-    maxOutputBytes: 4 * 1048576,
-    maxRequests: 2048,
-  });
-  const seen = new Set<string>(), members: { name: string; size: number; sha256?: string }[] = [];
-  let total = 0, metadata = false;
-  for (const entry of archive.entries) {
-    const name = entry.name.endsWith("/") ? entry.name.slice(0, -1) : entry.name;
-    if (
-      name.length > 4096 || name.includes("\\") || name.startsWith("/") || [...name].some((character) =>
-        character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127
-      ) ||
-      name.split("/").some((part) => part === "" || part === "." || part === "..") || seen.has(name) ||
-      !(name === "pymemcache" || name.startsWith("pymemcache/") || name === "pymemcache-4.0.0.dist-info" ||
-        name.startsWith("pymemcache-4.0.0.dist-info/")) ||
-      entry.kind !== "file" && entry.kind !== "directory" || entry.encrypted || ![0, 8].includes(entry.method) ||
-      entry.size > 524288 || entry.kind === "directory" && entry.size !== 0
-    ) throw new Error("Independent wheel has unsupported members or paths.");
-    seen.add(name);
-    total += entry.size;
-    if (total > 4 * 1048576) throw new Error("Independent wheel expansion exceeds policy.");
-    if (entry.kind === "directory") {
-      members.push({ name, size: 0 });
-      continue;
-    }
-    const inflated = await archive.read(entry.id, {
-      verify: true,
-      maxSourceBytes: 65536,
-      maxDecodedBytes: 524288,
-      maxOutputBytes: 524288,
-      maxRequests: 32,
-      inflate: () => {
-        const chunks: Buffer[] = [];
-        let compressed = 0;
-        return new TransformStream<Uint8Array, Uint8Array>({
-          transform(chunk) {
-            compressed += chunk.length;
-            if (compressed > 65536) throw new Error("Wheel DEFLATE input exceeds policy.");
-            chunks.push(Buffer.from(chunk));
-          },
-          flush(controller) {
-            controller.enqueue(new Uint8Array(inflateRawSync(Buffer.concat(chunks), { maxOutputLength: 524288 })));
-          },
-        });
-      },
-    });
-    if (inflated.integrity !== "checksum-verified") throw new Error("Independent wheel CRC was not checked.");
-    members.push({
-      name,
-      size: inflated.bytes.length,
-      sha256: createHash("sha256").update(inflated.bytes).digest("hex"),
-    });
-    if (name === "pymemcache-4.0.0.dist-info/METADATA") {
-      const text = new TextDecoder("utf-8", { fatal: true }).decode(inflated.bytes);
-      if (!/^Name: pymemcache$/mu.test(text) || !/^Version: 4\.0\.0$/mu.test(text) || /^Requires-Dist:/mu.test(text)) {
-        throw new Error("Independent wheel metadata does not match the no-dependency recipe.");
-      }
-      metadata = true;
-    }
-  }
-  if (!metadata) throw new Error("Independent wheel metadata is absent.");
-  return { bytes: Buffer.from(bytes), members };
-}
-/** Independent client deliberately disables its default noreply=True; each tested write must have a native terminal receipt. */
-const ORACLE = `import sys,base64,json
-from pathlib import Path
-from pymemcache.client.base import Client
-client=Client(('memcached.test',11211),connect_timeout=5,timeout=10,default_noreply=False)
-try:
- op=sys.argv[1]
- if op=='init':
-  version=client.version().decode('ascii')
-  if version!='1.6.45':raise RuntimeError('native version mismatch')
-  print('VERSION:'+version)
- elif op=='seed':
-  value=Path('/oracle/input.bin').read_bytes()
-  if len(value)>1048576:raise RuntimeError('fixture input policy')
-  if client.set(sys.argv[2],value,expire=0,flags=4294967295,noreply=False) is not True:raise RuntimeError('native set refusal')
-  print('STORED:true')
- elif op=='read':
-  value,cas=client.gets(sys.argv[2])
-  if value is None:print('MISSING:true')
-  else:
-   if len(value)>1048576:raise RuntimeError('fixture output policy')
-   print('BYTES:'+base64.b64encode(value).decode('ascii'))
-   print('CAS:'+cas.decode('ascii'))
- else:raise RuntimeError('unsupported independent operation')
-finally:client.close()
-`;
 /** Socket destruction is awaited, with a finite fixture-only close deadline and no remote graceful-close dependency. */
 function retire(socket: Socket): Promise<void> {
   if (socket.closed) return Promise.resolve();
@@ -276,9 +144,14 @@ export class MemcachedFixture implements AsyncDisposable {
     }
   }
   async #command(args: string[]): Promise<string> {
-    const result = await this.#oracle.exec(["timeout", "20", "python", "-I", "/oracle/oracle.py", ...args]);
+    const result = await this.#oracle.exec(["timeout", "20", "/oracle/oracle", ...args]);
     if (result.exitCode !== 0 || result.output.length > 2 * 1048576) {
-      throw new Error(`Independent pymemcache failed: ${result.output.slice(0, 8192)}`);
+      const diagnostic = result.output.replace(/^BYTES:[^\r\n]*/mu, "BYTES:[payload elided]");
+      throw new Error(
+        `Independent libmemcached failed (exit ${result.exitCode}, ${result.output.length} output characters): ${
+          diagnostic.slice(0, 2048)
+        }\nTail: ${diagnostic.slice(-1024)}`,
+      );
     }
     return result.output;
   }
@@ -311,9 +184,8 @@ export class MemcachedFixture implements AsyncDisposable {
     return this.close();
   }
 }
-/** Recipe approval is required before acquisition or execution; private ephemeral server and independently implemented Python client only. */
+/** Testcontainers owns a private server and independent native libmemcached client; acquisition receipts remain separate from test results. */
 export async function openMemcached(): Promise<MemcachedFixture> {
-  const acquired = await acquireMemcachedOracle();
   const { GenericContainer, Network, Wait, getContainerRuntimeClient } = await import("testcontainers");
   const runtime = await getContainerRuntimeClient();
   const resources: (() => Promise<unknown>)[] = [], ids: string[] = [];
@@ -338,6 +210,10 @@ export async function openMemcached(): Promise<MemcachedFixture> {
     }
   }
   try {
+    const oracleImage = `opfs-memcached-oracle-${randomUUID()}`;
+    await GenericContainer.fromDockerfile(fileURLToPath(new URL("../fixtures/memcached/", import.meta.url).href)).build(
+      oracleImage,
+    );
     const network = await new Network().start();
     resources.push(() => network.stop());
     const server = await new OwnedContainer(MEMCACHED_IMAGE).withNetwork(network).withNetworkAliases("memcached.test")
@@ -346,20 +222,10 @@ export async function openMemcached(): Promise<MemcachedFixture> {
         Wait.forListeningPorts(),
       ).withStartupTimeout(45_000).start();
     resources.push(() => server.stop());
-    const oracle = await new OwnedContainer(MEMCACHED_ORACLE_IMAGE).withNetwork(network).withCopyContentToContainer([
-      { content: acquired.bytes, target: "/oracle/pymemcache-4.0.0-py2.py3-none-any.whl" },
-      {
-        content: `/oracle/pymemcache-4.0.0-py2.py3-none-any.whl --hash=sha256:${WHEEL_SHA}\n`,
-        target: "/oracle/requirements.txt",
-      },
-      { content: ORACLE, target: "/oracle/oracle.py" },
-    ]).withCommand([
-      "sh",
-      "-c",
-      "timeout 45 python -I -m pip install --no-index --no-deps --require-hashes --no-compile --disable-pip-version-check -r /oracle/requirements.txt && touch /oracle/ready && exec sleep 600",
-    ])
+    const oracle = await new OwnedContainer(oracleImage).withNetwork(network)
+      .withCommand(["sleep", "600"])
       .withResourcesQuota({ memory: 0.5, cpu: 0.5 }).withWaitStrategy(
-        Wait.forSuccessfulCommand("test -f /oracle/ready"),
+        Wait.forSuccessfulCommand("test -x /oracle/oracle"),
       ).withStartupTimeout(60_000).start();
     resources.push(() => oracle.stop());
     // Docker's actual host-config readback qualifies resource limits independently of fluent recipe calls.
@@ -385,6 +251,13 @@ export async function openMemcached(): Promise<MemcachedFixture> {
     }
     const fixture = new MemcachedFixture(server, oracle, resources);
     await fixture.init();
+    for (const name of ["packages.txt", "debs.sha256", "artifacts.sha256", "compiler.txt", "os-release"]) {
+      const receipt = await oracle.exec(["cat", `/oracle/receipts/${name}`]);
+      if (receipt.exitCode !== 0 || receipt.output.length > 262144) {
+        throw new Error("Native Memcached acquisition receipt unavailable or too large.");
+      }
+      console.log(JSON.stringify({ memcachedNativeAcquisition: name, value: receipt.output }));
+    }
     return fixture;
   } catch (reason) {
     for (const id of ids) {

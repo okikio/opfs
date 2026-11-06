@@ -4,11 +4,13 @@
 compared every original value and null mask through **both** engines before retaining any file. Neither engine imports
 the candidate TypeScript reader. These test-only engines are not library dependencies.
 
-Reproduce the bounded acquisition, offline installation and offline generation with [RECIPE.md](RECIPE.md),
-[acquire.py](acquire.py), [install.py](install.py), [create.py](create.py) and [producer-run.py](producer-run.py). The
-original compact JSON is 1,388,965 bytes, SHA-256 `86a16246d99ee9c500d1ea0e9ec7fa8e90b2a22bcc759c7ed70a16bdb368596c`.
-Repository JSON formatting, if applied later, changes that serialization hash; each native file and each
-original-value/mask blob has its own retained digest.
+The [current TypeScript recipe](RECIPE.md#current-typescript-and-native-c-workflow) replaces Python package installation
+with inert ZIP admission and direct C++ linking. Its separate native qualification passed all 22 profiles, with complete
+original values compared through Arrow C++ 20.0.0 and DuckDB CLI 1.3.2. Its DuckDB CLI is a new artifact profile, not a
+replay of the old Python wheel. Original tools remain exact inert `.py.snapshot` files; the historical recipe and frozen
+proof remain below. The original compact JSON is 1,388,965 bytes, SHA-256
+`86a16246d99ee9c500d1ea0e9ec7fa8e90b2a22bcc759c7ed70a16bdb368596c`. Repository JSON formatting, if applied later,
+changes that serialization hash; each native file and each original-value/mask blob has its own retained digest.
 
 Twenty files cover five physical types (BOOLEAN, INT32, INT64, FLOAT, DOUBLE), empty/required/nullable/many-page arrays
 and actual row-group metadata. Each PyArrow scenario has v1 and v2 page configurations, with and without page CRCs.

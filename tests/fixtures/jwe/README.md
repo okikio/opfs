@@ -20,9 +20,21 @@ formatted or installed.
 The first offline native producer passed all eight complete original-byte comparisons: empty, binary, decomposed Unicode
 and independent Python ZIP under both AES key sizes. `independent.json.snapshot` retains the unformatted original
 output. `native-receipt.json` records its SHA, all inputs, actual Node 26.13.0, exact image and resource state.
-`produce.mjs` reconstructs only SHA-admitted snapshot paths in a fresh `/tool/sdk`, then imports that absolute SDK
-entrypoint. `producer-run.py` owns the bounded launcher. The candidate is never imported. Both SDK paths share native
-WebCrypto AES; this is not independent cipher evidence.
+`produce.mjs.snapshot` retains the exact executed producer source. Its historical bounded launcher was
+`producer-run.py.snapshot`; the receipts preserve that original identity. The producer reconstructs only SHA-admitted
+snapshot paths in a fresh `/tool/sdk`, then imports that absolute SDK entrypoint. The candidate is never imported. Both
+SDK paths share native WebCrypto AES; this is not independent cipher evidence.
+
+`produce.ts` is the typed replacement for future reviewed offline runs. It still requires the admitted evidence tree
+under `/tool/evidence` and a fresh owned `/tool/sdk`; it is not ordinary test setup. It has not produced the historical
+receipts. `source-map.json` maps the old executed path to its unchanged snapshot and the new source without rewriting
+earlier execution records.
+
+`acquire.ts` now separates metadata review from SHA-512 artifact admission without Python. `producer-run.ts` starts only
+an explicitly named, pre-created offline container after checking its pinned image and authority envelope. These are new
+recipes, including the launcher's mandatory output argument and pre-start checks; they have not produced the historical
+receipts. The [acquisition and launcher guide](../acquisition.md) gives exact commands and input-copy requirements.
+`acquire.py.snapshot` and `producer-run.py.snapshot` retain their original bytes and hashes via the shared source map.
 
 The final focused matrix passes 35 cases on Deno 2.9.8, Node 26.13.0 and Bun 1.4.2, including every native original and
 both selected ZIP previews. `focused-native-receipt.json` distinguishes this final matrix from the retained first

@@ -40,10 +40,23 @@ Mitata + Playwright benchmarks
 
 ## Repository command authority
 
+Maintained task runners and fixture recipes use `.ts` source. Files ending in `.py.snapshot`, `.mjs.snapshot` or
+`.cjs.snapshot` retain the exact old executable bytes as inert evidence. They are not commands to run. A source map
+beside a ported recipe explains which historical receipt those bytes produced.
+
+A port must state what supplies its comparison: a native implementation run now, frozen independently produced bytes, or
+newly authored controls. These are different claims. Keeping an old native receipt does not certify a new producer.
+Acquisition, compilation, complete-byte comparisons and candidate tests each need their own result.
+
+The package-consumer checks deliberately create disposable `.mjs` and `.cjs` programs to test the published JavaScript
+contracts. Their maintained authors remain TypeScript tasks. Converting those temporary consumers to TypeScript would
+stop checking JavaScript-only consumers.
+
 Mise tasks own repository commands, and `mise.toml` pins the runtimes they use.
 
 ```sh
 mise run prepare:deps
+node tools/workspace/examples.ts
 mise run check
 mise run test
 mise run test:node
@@ -58,6 +71,21 @@ OPFS_FUSE_BENCH=1 mise run test:clients
 
 GitHub Actions owns only GitHub-specific orchestration: triggers, permissions, matrices, secrets, outputs, immutable
 release refs, and calls those same Mise tasks.
+
+`node tools/workspace/examples.ts` executes five complete examples directly from their Markdown fences: both examples in
+[the storage model](model.md), the four-byte range example in [sources](source.md), the authenticated-range example in
+[encryption](encryption.md), and the truncate/seek example in [the API reference](api.md). The task selects exact
+headings and fails if a selected example is missing or duplicated. It resolves public OPFS imports through `deno.json`
+exports to the current local TypeScript files, then runs each literal body in a separate Node process. A local console
+captures the printed arguments; the parent compares their exact JSON values with independent expectations. This catches
+documentation drift without maintaining copied example implementations.
+
+Use the repository's configured Node runtime with dependencies installed. Each example has a 10-second deadline and a 64
+KiB captured-output budget. The task creates a unique directory under `.tmp/reports` and removes that exact directory in
+`finally`, including on a failed comparison or native process failure. These examples use memory and authored bytes, so
+they need no cloud account, credentials or provider. This lane proves selected source examples and printed results; it
+does not prove all documentation, Mermaid rendering, browser behavior or installed-package import resolution. The
+package-consumer gates separately check built artifacts.
 
 Provider timing contracts, independent byte/acknowledgement preflights and the primitive-versus-projection comparison
 boundary are explained in [Provider benchmarks](provider-benchmarks.md).
@@ -211,11 +239,11 @@ bytes are the independent oracle across runtimes.
 | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | `tests/reliability.ts`, `tests/host.ts`   | Shared behavioral scenarios imported by the memory and native filesystem suites.                                             |
 | `tests/browser/fixtures/`                 | Actual realms and storage operations driven by Playwright specs through `mise run prepare:browser && mise run test:browser`. |
-| `tests/ecosystem/live.mjs`                | Pinned upstream database/unstorage consumers through `mise run test:ecosystems`.                                             |
+| `tests/ecosystem/live.ts`                 | Pinned upstream database/unstorage consumers through `mise run test:ecosystems`.                                             |
 | `tests/provider/fixture.ts`               | Testcontainers resources borrowed by provider tests and benchmarks.                                                          |
 | `tests/provider/fuse*`, `Dockerfile.fuse` | Mountpoint/BlobFuse correctness and measurement through `mise run test:clients`, in isolated Linux containers.               |
-| `tests/package/verify.mjs`                | Clean installed archive consumers through `mise run check:package`.                                                          |
-| `tools/testing/linux.mjs`                 | Named, bounded containers for `mise run test:linux`; failed lanes retain diagnostics and clean up independently.             |
+| `tests/package/verify.ts`                 | Clean installed archive consumers through `mise run check:package`.                                                          |
+| `tools/testing/linux.ts`                  | Named, bounded containers for `mise run test:linux`; failed lanes retain diagnostics and clean up independently.             |
 | `bench/`                                  | Durable workload definitions; each result needs its semantic oracle and measurement conditions.                              |
 
 Slower provider, browser, ecosystem, FUSE, package, and Linux lanes remain reusable tests even though they are not run
@@ -757,7 +785,7 @@ Release validation keeps JSR and npm independent:
 ```sh
 deno publish --dry-run
 RELEASE_VERSION=0.0.0-test mise run build:npm
-node tests/package/verify.mjs .release/npm/*.tgz
+node tests/package/verify.ts .release/npm/*.tgz
 ```
 
 The npm consumer test installs the produced tarball with ordinary npm and rejects `@jsr/*` dependencies, raw `.ts`
@@ -852,9 +880,10 @@ providers plus native Swift and WebDAV fixtures sequentially; fixtures use pinne
 Testcontainers cleanup. These tests need Docker and establish only the exercised server profiles. B2 currently has
 authored protocol fixtures, not hosted-service proof.
 
-On Linux with Node, Python 3 and system TAR available, run `mise run test:interop`. It checks new writer output with
-independent consumers and fails on either producer or consumer errors. It lives in the Linux provider job instead of
-silently skipping absent tools in the Windows runtime matrix. Portable tests remain in Deno, Node and Bun gates.
+On Linux with Node, 7-Zip, libarchive bsdtar and system TAR available, run `mise run test:interop`. It checks new writer
+output with independent consumers and fails on either producer or consumer errors. It lives in the Linux provider job
+instead of silently skipping absent tools in the Windows runtime matrix. Portable tests remain in Deno, Node and Bun
+gates.
 
 `bench:archive` includes ZIP writer workloads; `bench:tar` compares indexed and sequential reads plus streaming writes
 with byte-only baselines. Both validate byte/count oracles before sampling. CI retains their raw reports in the archive

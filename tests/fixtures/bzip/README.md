@@ -1,14 +1,19 @@
 # Independent BZip2 producer and consumer receipt
 
-`produce.py` never imports OPFS. It authors input bytes before alternating native bzip2 1.0.8 and Python `bz2`
-producers. Native bzip2, Python `bz2` and 7zz 26.02 compare complete decoded payload bytes against those inputs. Python
-and native bzip2 use libbzip2-family implementations, so they are not two independently authored algorithms; 7zz
-supplies the separate native consumer. Tool versions and commands are retained verbatim in `independent.json`.
+The historical `produce.py.snapshot` never imports OPFS. It authored input bytes before alternating native bzip2 1.0.8
+and Python `bz2` producers. Native bzip2, Python `bz2` and 7zz 26.02 compare complete decoded payload bytes against
+those inputs. Python and native bzip2 use libbzip2-family implementations, so they are not two independently authored
+algorithms; 7zz supplies the separate native consumer. Tool versions and commands are retained verbatim in
+`independent.json`.
 
 ```sh
-python3 tests/fixtures/bzip/produce.py --bzip /usr/bin/bzip2 --seven /opt/homebrew/bin/7zz
-deno fmt tests/fixtures/bzip/independent.json
+node tests/fixtures/bzip/produce.ts --bzip /usr/bin/bzip2 --seven /usr/bin/7zz --output /tmp/bzip-next.json
 ```
+
+The current TypeScript tool uses native bzip2 for every producer row and independent 7-Zip consumption. It creates a new
+receipt with an explicit xorshift input recipe, not a claim that it recreated Python's historical random bytes or
+Python-bz2 rows. The table below and `independent.json` remain evidence from the historical execution. Follow the
+[codec evidence workflow](../codecs.md) before replacing retained fixtures or provenance.
 
 | Fixture        | Producer     | Original bytes | Packed bytes | Packed SHA-256                                                     |
 | -------------- | ------------ | -------------: | -----------: | ------------------------------------------------------------------ |
@@ -51,7 +56,7 @@ Files inspected from that archive:
 
 Fixture files after repository formatting:
 
-- `produce.py`: SHA-256 `8b0b444e171d3c42024f3d27e8c9bf121f1228b4efa022fe6fb102088c48fbb1`.
+- `produce.py.snapshot`: SHA-256 `8b0b444e171d3c42024f3d27e8c9bf121f1228b4efa022fe6fb102088c48fbb1`.
 - `independent.json`: SHA-256 `bbd802e7f8b091333def46ab44188f11ef74d3dc568e623fafa31acaebf83dac`.
 
 Original expected bytes are retained in full; they do not come from candidate output. Research sources and native tools

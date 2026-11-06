@@ -120,7 +120,9 @@ codecs or background jobs to release.
 The [fixture provenance](../tests/fixtures/hdf5/README.md) pins the primary HDF5 grammar, signed distribution packages
 and native producer recipe. Genuine h5py 3.7.0/HDF5 1.10.8 bytes contain 37 authored datasets, a hard alias, a soft link
 and a subgroup. The producer checks authored physical bytes, h5py reads and `h5dump -b FILE` output independently of
-this reader. h5py and h5dump share HDF5's implementation; they are not two independent HDF5 implementations. Selected
+this reader. h5py and h5dump share HDF5's implementation; they are not two independent HDF5 implementations. The current
+[TypeScript and native C producer](../tests/fixtures/hdf5/README.md) preserves the intended profiles with native C API
+and h5dump checks; its output requires fresh qualification and does not claim the historical h5py run. Selected
 candidate values and full raw extents are checked against those original oracles, including big integers, endian
 conversion and special floats.
 

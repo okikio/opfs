@@ -7,11 +7,11 @@ originals include deterministic 20000-byte random data, repeated/deduplicated co
 literal `Links` entry and symlink metadata. Kubo `cat` compares every complete ordinary file and selected ranges with
 authored originals. Separate genuine standalone raw and DAG-PB file roots are retained too.
 
-`authored.json` is distinct wire-variant evidence, not importer-produced topology. `adapt.py` authors three small CARs
-with no inline File data: Links-first expanded, Data-first packed and Data-first mixed `blocksizes`. Each has repeated
-raw children, a zero-length raw child and deliberately wrong Tsize hints. Native Kubo imports each CAR and compares
-complete and selected-range output with the authored original. All three comparisons pass. This does not establish
-behavior for every legacy protobuf variant or another independent native algorithm.
+`authored.json` is distinct wire-variant evidence, not importer-produced topology. `adapt.py.snapshot` authors three
+small CARs with no inline File data: Links-first expanded, Data-first packed and Data-first mixed `blocksizes`. Each has
+repeated raw children, a zero-length raw child and deliberately wrong Tsize hints. Native Kubo imports each CAR and
+compares complete and selected-range output with the authored original. All three comparisons pass. This does not
+establish behavior for every legacy protobuf variant or another independent native algorithm.
 
 ## Retained inline-data incompatibility
 
@@ -70,12 +70,8 @@ release v0.43.1, published 2026-09-15. `release.json` records the public downloa
 Go 1.26.5 and repository version 18. Scripts verify the tar digest and architecture before extracting only `kubo/ipfs`
 into an owned temporary directory.
 
-Copy the verified vendor archive and scripts into a disposable ARM64 container, then run:
-
-```sh
-python3 /produce.py --archive /kubo.tar.gz --output /tmp/unixfs-independent.json
-python3 /adapt.py --archive /kubo.tar.gz --output /tmp/unixfs-authored.json
-```
+The historical scripts are now inert snapshots. The current TypeScript commands below preserve the same native importer
+and consumer profiles.
 
 The retained `inline-failure.json` CAR can also be imported into that private offline repository and read with `cat` to
 reproduce the native difference. To reproduce the original authored input with the script, explicitly restore the
@@ -91,9 +87,9 @@ There is no real gateway, deployed IPFS network, HAMT, identity hash, writer or 
 
 | File                  | SHA256                                                             |
 | --------------------- | ------------------------------------------------------------------ |
-| `produce.py`          | `b1ce8782f22f3c4cb1ab6ecb03eeff7cd22019f7dc0d3eb21bb3eaf4d2e726d5` |
+| `produce.py.snapshot` | `b1ce8782f22f3c4cb1ab6ecb03eeff7cd22019f7dc0d3eb21bb3eaf4d2e726d5` |
 | `independent.json`    | `41f437d34da41a29e10d8897c93abf2b7192c4d69291df7feb1aef7d6aa8f55f` |
-| `adapt.py`            | `aa2ca5d43fdd4883c78cb6c0c9818c4996826a8b4c175a0d8c7a81876d0af014` |
+| `adapt.py.snapshot`   | `aa2ca5d43fdd4883c78cb6c0c9818c4996826a8b4c175a0d8c7a81876d0af014` |
 | `authored.json`       | `a10176661e55045f28d643c0bf20b47a7dee98c2236f068075a13d167027aaf1` |
 | `inline-failure.json` | `e225ff4b54eb0806760fbb51f95ade4b8d4e1d0038e586033b24398e9af5bada` |
 
@@ -101,3 +97,32 @@ The fixture JSON files use Deno formatting. Original compact producer-output SHA
 `0772616d0070c27fb0d343261e8ae237e71f561f63a2ced843ad2f5b348a7894` (genuine) and
 `3915d49e1d5b5a203144d361b715ec649f0dd678b82ea1f91e7477c5256ec684` (authored); parsed records and embedded bytes are
 unchanged.
+
+## Current TypeScript tooling
+
+Use Node 22.18 or later inside the same bounded offline Linux ARM64 runner. Copy this fixture directory, including
+`native.ts` and `wire.ts`, beside the verified Kubo archive. From the repository root:
+
+```sh
+node --max-old-space-size=256 tests/fixtures/unixfs/produce.ts --archive /kubo.tar.gz --output /tmp/new-unixfs.json
+node --max-old-space-size=256 tests/fixtures/unixfs/adapt.ts --archive /kubo.tar.gz --output /tmp/new-unixfs-authored.json
+```
+
+`native.ts` verifies the archive size/hash before bounded gunzip (220 MiB), checks tar headers and at most 256 members,
+selects only the fixed ordinary `kubo/ipfs` member under 200 MiB and verifies its binary digest before execution. It
+does not extract archive paths or run a setup script. Every Kubo command uses `--offline` and one temporary repository;
+calls have a 90-second deadline, 32 MiB per captured pipe, 8 MiB total retained stderr, at most 10,000 commands and a
+30-minute whole-run deadline. The outer runner still owns process, native memory, CPU and filesystem quotas; the V8 heap
+flag is not a total memory cap.
+
+`produce.ts` retains all three genuine importer profiles, serialized blocks, full/range reads and two standalone roots.
+Its 20,000 noise bytes come from the retained historical original, with a digest/length check; other originals are
+authored and compared completely. It does not claim Node emulates CPython Random. `adapt.ts` retains authored
+protobuf/CAR variants with full/range native verification. Its encoder imports no candidate production code, and its own
+roundtrip never supplies the expected original.
+
+Each run owns one fresh temporary directory, preserves primary and cleanup failures, limits JSON to 32 MiB and
+exclusively creates a new output. Existing `independent.json`, `authored.json`, failures and execution receipts remain
+unchanged. `source-map.json` maps exact old source bytes to inert snapshots; new commands do not retroactively produce
+old hashes. Qualify new receipts with the pinned native asset and reviewed outer resource limits before using them as
+replacement evidence.

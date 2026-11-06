@@ -1,0 +1,9 @@
+{
+  "authority": "Historical executed source preserved byte-for-byte; replacement is a new TypeScript port and has not produced the retained native receipts.",
+  "historicalPath": "tests/fixtures/age/provenance/age-produce.mjs",
+  "snapshotPath": "tests/fixtures/age/provenance/age-produce.mjs.snapshot",
+  "bytes": 11315,
+  "sha256": "4079ea121305c450f8c4f45ab4eabb4865e9e4c229aec754a6b93d87dc984d4a",
+  "replacementPath": "tests/fixtures/age/provenance/age-produce.ts",
+  "replacementStatus": "source-only; not executed"
+}

@@ -1,0 +1,99 @@
+{
+  "mode": "read",
+  "topic": "opfs-native-proof",
+  "partition": 0,
+  "fetchOffset": "0",
+  "fixedTimestamp": "1700000000000",
+  "exchanges": [
+    {
+      "api": 18,
+      "version": 0,
+      "correlation": 3101,
+      "request": {
+        "file": "versions-request.bin",
+        "bytes": 26,
+        "sha256": "5f65d54afe47c5fd77ac284dcb5275c9dd7f2cb94bce89db8890dfa66e1a6cf9"
+      },
+      "sendAttempted": true,
+      "response": {
+        "file": "versions-response.bin",
+        "bytes": 476,
+        "sha256": "051f5ba63a0fe01a81ff3846d733c5f8b3525a965f9f36088b4c6661a576b6d8"
+      },
+      "framingComplete": true
+    },
+    {
+      "api": 3,
+      "version": 4,
+      "correlation": 3102,
+      "request": {
+        "file": "metadata-request.bin",
+        "bytes": 50,
+        "sha256": "5df0d49076d24c62583c274eaca0a1377cc80ebc48f1041f6729160fb4da34cc"
+      },
+      "sendAttempted": true,
+      "response": {
+        "file": "metadata-response.bin",
+        "bytes": 121,
+        "sha256": "304cb80da3c5372cad8718c71456eb8a438bf0c4b932a34febdf33100a231070"
+      },
+      "framingComplete": true
+    },
+    {
+      "api": 2,
+      "version": 1,
+      "correlation": 3104,
+      "request": {
+        "file": "earliest-request.bin",
+        "bytes": 69,
+        "sha256": "7d1c4de9685e0040320bd473d41c086835b199ef5afdcdc9ba1e335508c996db"
+      },
+      "sendAttempted": true,
+      "response": {
+        "file": "earliest-response.bin",
+        "bytes": 57,
+        "sha256": "a01304d13f83aae73137627f53ff1964bbcd3d79cd7a2dda85bf74177d9be461"
+      },
+      "framingComplete": true
+    },
+    {
+      "api": 2,
+      "version": 1,
+      "correlation": 3105,
+      "request": {
+        "file": "latest-request.bin",
+        "bytes": 69,
+        "sha256": "e661a25000ea0f2edd17edd61be08c92dddc26538059c73e7ae714dadc61e3d9"
+      },
+      "sendAttempted": true,
+      "response": {
+        "file": "latest-response.bin",
+        "bytes": 57,
+        "sha256": "cd3e962a33a2d8e34cf056e51fda75e76c538c4bde243edc0e5759ae9396e80e"
+      },
+      "framingComplete": true
+    },
+    {
+      "api": 1,
+      "version": 4,
+      "correlation": 3106,
+      "request": {
+        "file": "fetch-request.bin",
+        "bytes": 86,
+        "sha256": "64efa481b5e9f4bfa10a1803dbce1bb5a6ebae72b8a9aa9435e42a13a06411b8"
+      },
+      "sendAttempted": true,
+      "response": {
+        "file": "fetch-response.bin",
+        "bytes": 131380,
+        "sha256": "d79d756497f3ae3f62f8dcdce69afdafb8a8a727e40f67b405a9e1b5dc00e16a"
+      },
+      "framingComplete": true
+    }
+  ],
+  "produceAttempted": false,
+  "appendOutcomeRequiresOracleReview": false,
+  "faultClass": null,
+  "semanticSuccessClaimed": false,
+  "sourceOnlyUntilParentGO": true
+}

@@ -1,0 +1,11 @@
+{
+  "providerMigration": {
+    "historical": {
+      "path": "tests/provider/firebase.ts",
+      "snapshot": "provider.ts.snapshot",
+      "bytes": 6938,
+      "sha256": "987b0b60b8066c79fe913d5271508f882596c0bbc3288fdfb9246517ad2c9acf"
+    },
+    "current": "Owned runner code is maintained as TypeScript; original SDK/artifact pins and proof remain historical rather than relabeled."
+  }
+}

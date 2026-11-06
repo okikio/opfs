@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { platform } from "node:process";
 import { execFile } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { approval } from "../tools/testing/attest.mjs";
+import { approval } from "../tools/testing/attest.ts";
 import { withReleases } from "./close.ts";
 
 /** Real gate controls are host POSIX observations, not Docker runtime/capability claims. */

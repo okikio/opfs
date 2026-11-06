@@ -69,7 +69,7 @@
       "bytes": 3224,
       "sha256": "9d5d89e667fc24f8fa6b05dc70ba6440bb035e02be7a285d8618120f1977d4f3"
     },
-    "originals.mjs": {
+    "originals.mjs.snapshot": {
       "bytes": 1446,
       "sha256": "7c119d1f61788d3f16082acdf8ae03f56761eae9edd66ebd03386d4c2dba22b6"
     },
@@ -301,7 +301,7 @@
       "bytes": 9315,
       "sha256": "3621d86cc9745c32d25b29fe8bd0760c1d0c1d0b85c1c2a034c6784302a1b1e8"
     },
-    "signing.mjs": {
+    "signing.mjs.snapshot": {
       "bytes": 7376,
       "sha256": "e76ab1255e4753d159fa60ff14741705e69676a58c42ed225aacc32f40d10f26"
     },
@@ -309,13 +309,13 @@
       "bytes": 5313,
       "sha256": "00906aefeffdc1c671bb82dd69c40caa2e63d1f75ff7e5a865f278c24c5569fb"
     },
-    "tree_oracle.py": {
-      "bytes": 3577,
-      "sha256": "2ee48e0a55d9edb360de83d88ed4daef2330f6eaf0b69abb90c02ebb438fafed"
-    },
     "vectors.json": {
       "bytes": 1810,
       "sha256": "e5fd009baf8e0ec1211bece3d14d3e146898ab2108a5b54f4a2e95f147003cec"
+    },
+    "tree_oracle.py.snapshot": {
+      "bytes": 3577,
+      "sha256": "2ee48e0a55d9edb360de83d88ed4daef2330f6eaf0b69abb90c02ebb438fafed"
     }
   }
 }

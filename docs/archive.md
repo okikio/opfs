@@ -107,11 +107,14 @@ protect against a maliciously constructed archive. Parsed directory fields are n
 Legacy ZipCrypto STORED and DEFLATE members accept explicit password bytes; see the complete
 [password preview guide](password.md). A partial read can return plaintext with a pending CRC, and even a verified CRC
 provides no authentication. The optional [WinZip AES STORED/DEFLATE profile](aes.md) authenticates the complete bounded
-ciphertext before decrypting selected blocks. Other strong encryption profiles, split volumes, extra directory
-records/signatures and unsupported compression methods return `ArchiveError` with `code: "unsupported-profile"` when
-requested. ZIP64 values above `Number.MAX_SAFE_INTEGER` are refused instead of rounded. Data-descriptor members can be
-read using their central-directory sizes; descriptor bytes are not independently verified. Self-extracting or
-offset-rebased archives require an explicit supported profile rather than automatic offset guessing.
+ciphertext before decrypting selected blocks. Unencrypted BZip2 method 12 and EOS-marked LZMA1 method 14 have explicit
+bounded policies; see [ZIP BZip2](zip-bzip.md) and [ZIP LZMA](zip-lzma.md) for their work and integrity boundaries.
+These codecs do not extend password support to those methods. Other strong encryption profiles, split volumes, extra
+directory records/signatures and unsupported compression methods return `ArchiveError` with
+`code: "unsupported-profile"` when requested. ZIP64 values above `Number.MAX_SAFE_INTEGER` are refused instead of
+rounded. Data-descriptor members can be read using their central-directory sizes; descriptor bytes are not independently
+verified. Self-extracting or offset-rebased archives require an explicit supported profile rather than automatic offset
+guessing.
 
 `maxDirectoryBytes` defaults to 16 MiB and `maxEntries` to 100,000. Opening limits default to 64 MiB source bytes, 4,096
 source requests, 64 MiB decoded bytes and 16 MiB returned bytes. These are cumulative allowances for directory parsing
@@ -186,8 +189,10 @@ TAR supplies no payload checksum or authentication.
 
 For a one-shot `ReadableStream`, use `readTarStream()`; entry bodies are single-use within the visitor callback and
 unconsumed payloads are drained under the same budget. `createTarStream()` writes deterministic ustar/PAX streams. See
-the [TAR guide](tar.md) for complete examples, metadata precedence, resource ownership and exact limits. Sparse records,
-base-256 numeric fields and unsupported special records remain refused. Compressed TAR needs an explicitly bounded
+the [TAR guide](tar.md) for complete examples, metadata precedence, resource ownership and exact limits. Indexed reads
+additionally reconstruct the exact GNU PAX sparse 1.0 profile: recorded extents supply data and omitted holes supply
+zeros. The one-shot stream reader and writer still refuse sparse records. Other sparse layouts, base-256 sizes without a
+PAX size override and unsupported special records remain refused. Compressed TAR needs an explicitly bounded
 decompression strategy. The [ZIP writer](zip.md) creates a narrower STORED ZIP32 profile than `openZip()` reads.
 
 Focused checks are in `tests/archive.test.ts` and `tests/view.test.ts`. Fixtures were produced with Python 3.9
