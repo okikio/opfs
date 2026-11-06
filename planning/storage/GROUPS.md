@@ -202,6 +202,10 @@ message publication and sequence reads, preserving retention and deduplication a
 expiry and flags; misses and eviction are not authoritative filesystem absence. [AMQP](../../docs/amqp.md) adds 0-9-1
 confirmed queue publication and explicitly destructive auto-acknowledged reads over injected channels. This is a
 selected queue profile for `log-rabbitmq`; RabbitMQ Streams, manual settlement and other queue policies remain separate.
+[Kafka](../../docs/kafka.md) adds the `log-kafka` explicit-partition profile: uncompressed CreateTime append, bounded
+whole-page reads and earliest/latest offsets over fresh injected channels. Java SDK comparisons cover both record
+directions on one plaintext broker. Compression, idempotent-producer batches, consumer groups, transactions, TLS/SASL
+and multibroker behavior remain outside the qualified profile; no filesystem adapter follows from log retention.
 
 ### native-protocol
 

@@ -185,6 +185,10 @@ explicit codec capabilities without global registration. The [expansion status](
 summary of implemented profiles, proof levels and remaining groups. A container or authored protocol fixture does not
 establish live-service IAM, CORS, durability or universal format compatibility.
 
+For a retained log rather than files, [Kafka](docs/kafka.md) appends binary records and reads explicit offsets in one
+selected partition. The application supplies authenticated exclusive channels and retains acknowledgments or reconciles
+unknown append outcomes. It does not create a filesystem projection or manage consumer-group offsets.
+
 ## Drivers are independently useful
 
 A driver is not an adapter with a new name. It owns backend mechanics that remain meaningful without `FileSystemType`.
@@ -518,6 +522,11 @@ can inspect a nested archive without collecting all plaintext. Whole-file verifi
 integrity guarantee. [AMQP](docs/amqp.md) retains native publication confirmations and explicit destructive queue reads;
 applications own topology and recovery after uncertain mutations. Each module is optional and has its own limits and
 ownership contract.
+
+[Kafka](docs/kafka.md) adds one explicit-partition log client with bounded magic-2 records and bigint offsets. Fresh
+Java/candidate full-byte comparisons passed both append/read directions on one plaintext broker; independent Metadata4
+success evidence and authored outcome/cleanup controls are separate. TLS/SASL, multiple brokers and the current
+release's package/CI checks are not implied by that result. The client never reconnects or retries an uncertain append.
 
 [Glacier vaults](docs/glacier.md) provide explicit native archive uploads, asynchronous retrieval jobs, bounded
 completed-output sources, and multipart receipts. Applications retain IDs, approve retrieval costs, schedule polling,

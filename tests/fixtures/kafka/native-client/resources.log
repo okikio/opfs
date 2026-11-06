@@ -1,0 +1,370 @@
+{"phase":"kafka-prestart","id":"2a0d9b40657ca17eb42be031b3313d4c8621136e414e8b82115e9d3507bc82ec","host":{"Binds":null,"ContainerIDFile":"","LogConfig":{"Type":"json-file","Config":{"max-file":"1","max-size":"1m"}},"NetworkMode":"9c6416a62621","PortBindings":{"9092/tcp":[{"HostIp":"","HostPort":"0"}]},"RestartPolicy":{"Name":"no","MaximumRetryCount":0},"AutoRemove":false,"VolumeDriver":"","VolumesFrom":null,"ConsoleSize":[0,0],"CapAdd":null,"CapDrop":null,"CgroupnsMode":"private","Dns":null,"DnsOptions":null,"DnsSearch":null,"ExtraHosts":null,"GroupAdd":null,"IpcMode":"private","Cgroup":"","Links":null,"OomScoreAdj":0,"PidMode":"","Privileged":false,"PublishAllPorts":false,"ReadonlyRootfs":false,"SecurityOpt":null,"Tmpfs":{"/etc/kafka/secrets":"rw,noexec,nosuid,size=64k,mode=0777","/mnt/shared/config":"rw,noexec,nosuid,size=64k,mode=0777","/opt/kafka/logs":"rw,noexec,nosuid,size=1m,mode=0777","/tmp":"rw,noexec,nosuid,size=8m,mode=1777","/var/lib/kafka/data":"rw,noexec,nosuid,size=32m,mode=0777"},"UTSMode":"","UsernsMode":"","ShmSize":67108864,"Runtime":"runc","Isolation":"","CpuShares":0,"Memory":1073741824,"NanoCpus":1000000000,"CgroupParent":"","BlkioWeight":0,"BlkioWeightDevice":null,"BlkioDeviceReadBps":null,"BlkioDeviceWriteBps":null,"BlkioDeviceReadIOps":null,"BlkioDeviceWriteIOps":null,"CpuPeriod":0,"CpuQuota":0,"CpuRealtimePeriod":0,"CpuRealtimeRuntime":0,"CpusetCpus":"","CpusetMems":"","Devices":null,"DeviceCgroupRules":null,"DeviceRequests":null,"MemoryReservation":0,"MemorySwap":1073741824,"MemorySwappiness":null,"OomKillDisable":false,"PidsLimit":128,"Ulimits":null,"CpuCount":0,"CpuPercent":0,"IOMaximumIOps":0,"IOMaximumBandwidth":0,"MaskedPaths":["/proc/acpi","/proc/asound","/proc/interrupts","/proc/kcore","/proc/keys","/proc/latency_stats","/proc/sched_debug","/proc/scsi","/proc/timer_list","/proc/timer_stats","/sys/devices/virtual/powercap","/sys/firmware"],"ReadonlyPaths":["/proc/bus","/proc/fs","/proc/irq","/proc/sys","/proc/sysrq-trigger"]},"state":{"Status":"created","Running":false,"Paused":false,"Restarting":false,"OOMKilled":false,"Dead":false,"Pid":0,"ExitCode":0,"Error":"","StartedAt":"0001-01-01T00:00:00Z","FinishedAt":"0001-01-01T00:00:00Z"},"mounts":[],"config":{"Hostname":"2a0d9b40657c","Domainname":"","User":"appuser","AttachStdin":false,"AttachStdout":false,"AttachStderr":false,"ExposedPorts":{"9092/tcp":{}},"Tty":false,"OpenStdin":false,"StdinOnce":false,"Env":["PATH=/opt/java/openjdk/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin","JAVA_HOME=/opt/java/openjdk","LANG=en_US.UTF-8","LANGUAGE=en_US:en","LC_ALL=en_US.UTF-8","JAVA_VERSION=jdk-25.0.4.1+1"],"Cmd":["-c","'/usr/bin/env' '-i' 'PATH=/opt/java/openjdk/bin:/opt/kafka/bin:/usr/bin:/bin' 'HOME=/tmp' 'LANG=C.UTF-8' 'LC_ALL=C.UTF-8' 'KAFKA_HEAP_OPTS=-Xms16m -Xmx128m' 'KAFKA_JVM_PERFORMANCE_OPTS=-XX:ActiveProcessorCount=1' 'KAFKA_LOG4J_OPTS=-Dlog4j2.configurationFile=/fixture/log4j2.properties' '/opt/kafka/bin/kafka-storage.sh' 'format' '--cluster-id' 'huFKU0zPjGuEh1F6_dnvFQ' '--config' '/fixture/server.properties' && exec '/usr/bin/env' '-i' 'PATH=/opt/java/openjdk/bin:/opt/kafka/bin:/usr/bin:/bin' 'HOME=/tmp' 'LANG=C.UTF-8' 'LC_ALL=C.UTF-8' 'KAFKA_HEAP_OPTS=-Xms64m -Xmx256m' 'KAFKA_JVM_PERFORMANCE_OPTS=-XX:ActiveProcessorCount=1' 'KAFKA_LOG4J_OPTS=-Dlog4j2.configurationFile=/fixture/log4j2.properties' '/opt/kafka/bin/kafka-server-start.sh' '/fixture/server.properties'"],"Image":"apache/kafka@sha256:77b56ddfb7104fc5814a3d0127fcff49983220c7c7ad9bfc1f0af4d439228329","Volumes":{"/etc/kafka/secrets":{},"/mnt/shared/config":{},"/var/lib/kafka/data":{}},"WorkingDir":"/","Entrypoint":["/bin/sh"],"Labels":{"opfs.fixture":"kafka-metadata-7316d4fb-5c4e-481d-87aa-faddd37677ea","org.label-schema.build-date":"2026-10-07","org.label-schema.description":"Apache Kafka","org.label-schema.name":"kafka","org.label-schema.vcs-url":"https://github.com/apache/kafka","org.opencontainers.image.authors":"Apache Kafka","org.testcontainers":"true","org.testcontainers.lang":"node","org.testcontainers.session-id":"e7967dc2efc9","org.testcontainers.version":"12.1.0"}},"image":"sha256:8e12eba3b69e43eeed26ccf9072d46f3fe38ce0c7f5ffe66d7d9b6198801f5cc"}
+{"phase":"kafka-kernel-mounts","id":"2a0d9b40657ca17eb42be031b3313d4c8621136e414e8b82115e9d3507bc82ec","mountinfoSha256":"bcb8074e74114580b986290d44d4c2b30ea111127ef75be82982144b4b8cf1c7","actual":[{"path":"/tmp","sizeBytes":"8388608","line":"158 149 0:72 / /tmp rw,nosuid,nodev,noexec,relatime - tmpfs tmpfs rw,size=8192k"},{"path":"/etc/kafka/secrets","sizeBytes":"65536","line":"162 149 0:73 / /etc/kafka/secrets rw,nosuid,nodev,noexec,relatime - tmpfs tmpfs rw,size=64k,mode=777"},{"path":"/mnt/shared/config","sizeBytes":"65536","line":"163 149 0:74 / /mnt/shared/config rw,nosuid,nodev,noexec,relatime - tmpfs tmpfs rw,size=64k,mode=777"},{"path":"/opt/kafka/logs","sizeBytes":"1048576","line":"164 149 0:75 / /opt/kafka/logs rw,nosuid,nodev,noexec,relatime - tmpfs tmpfs rw,size=1024k,mode=777"},{"path":"/var/lib/kafka/data","sizeBytes":"33554432","line":"165 149 0:76 / /var/lib/kafka/data rw,nosuid,nodev,noexec,relatime - tmpfs tmpfs rw,size=32768k,mode=777"}]}
+{"phase":"kafka-ready","id":"2a0d9b40657ca17eb42be031b3313d4c8621136e414e8b82115e9d3507bc82ec","host":{"Binds":null,"ContainerIDFile":"","LogConfig":{"Type":"json-file","Config":{"max-file":"1","max-size":"1m"}},"NetworkMode":"9c6416a62621","PortBindings":{"9092/tcp":[{"HostIp":"","HostPort":"0"}]},"RestartPolicy":{"Name":"no","MaximumRetryCount":0},"AutoRemove":false,"VolumeDriver":"","VolumesFrom":null,"ConsoleSize":[0,0],"CapAdd":null,"CapDrop":null,"CgroupnsMode":"private","Dns":null,"DnsOptions":null,"DnsSearch":null,"ExtraHosts":null,"GroupAdd":null,"IpcMode":"private","Cgroup":"","Links":null,"OomScoreAdj":0,"PidMode":"","Privileged":false,"PublishAllPorts":false,"ReadonlyRootfs":false,"SecurityOpt":null,"Tmpfs":{"/etc/kafka/secrets":"rw,noexec,nosuid,size=64k,mode=0777","/mnt/shared/config":"rw,noexec,nosuid,size=64k,mode=0777","/opt/kafka/logs":"rw,noexec,nosuid,size=1m,mode=0777","/tmp":"rw,noexec,nosuid,size=8m,mode=1777","/var/lib/kafka/data":"rw,noexec,nosuid,size=32m,mode=0777"},"UTSMode":"","UsernsMode":"","ShmSize":67108864,"Runtime":"runc","Isolation":"","CpuShares":0,"Memory":1073741824,"NanoCpus":1000000000,"CgroupParent":"","BlkioWeight":0,"BlkioWeightDevice":null,"BlkioDeviceReadBps":null,"BlkioDeviceWriteBps":null,"BlkioDeviceReadIOps":null,"BlkioDeviceWriteIOps":null,"CpuPeriod":0,"CpuQuota":0,"CpuRealtimePeriod":0,"CpuRealtimeRuntime":0,"CpusetCpus":"","CpusetMems":"","Devices":null,"DeviceCgroupRules":null,"DeviceRequests":null,"MemoryReservation":0,"MemorySwap":1073741824,"MemorySwappiness":null,"OomKillDisable":null,"PidsLimit":128,"Ulimits":null,"CpuCount":0,"CpuPercent":0,"IOMaximumIOps":0,"IOMaximumBandwidth":0,"MaskedPaths":["/proc/acpi","/proc/asound","/proc/interrupts","/proc/kcore","/proc/keys","/proc/latency_stats","/proc/sched_debug","/proc/scsi","/proc/timer_list","/proc/timer_stats","/sys/devices/virtual/powercap","/sys/firmware"],"ReadonlyPaths":["/proc/bus","/proc/fs","/proc/irq","/proc/sys","/proc/sysrq-trigger"]},"state":{"Status":"running","Running":true,"Paused":false,"Restarting":false,"OOMKilled":false,"Dead":false,"Pid":51699,"ExitCode":0,"Error":"","StartedAt":"2026-11-06T05:52:08.819191886Z","FinishedAt":"0001-01-01T00:00:00Z"},"mounts":[],"config":{"Hostname":"2a0d9b40657c","Domainname":"","User":"appuser","AttachStdin":false,"AttachStdout":false,"AttachStderr":false,"ExposedPorts":{"9092/tcp":{}},"Tty":false,"OpenStdin":false,"StdinOnce":false,"Env":["PATH=/opt/java/openjdk/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin","JAVA_HOME=/opt/java/openjdk","LANG=en_US.UTF-8","LANGUAGE=en_US:en","LC_ALL=en_US.UTF-8","JAVA_VERSION=jdk-25.0.4.1+1"],"Cmd":["-c","'/usr/bin/env' '-i' 'PATH=/opt/java/openjdk/bin:/opt/kafka/bin:/usr/bin:/bin' 'HOME=/tmp' 'LANG=C.UTF-8' 'LC_ALL=C.UTF-8' 'KAFKA_HEAP_OPTS=-Xms16m -Xmx128m' 'KAFKA_JVM_PERFORMANCE_OPTS=-XX:ActiveProcessorCount=1' 'KAFKA_LOG4J_OPTS=-Dlog4j2.configurationFile=/fixture/log4j2.properties' '/opt/kafka/bin/kafka-storage.sh' 'format' '--cluster-id' 'huFKU0zPjGuEh1F6_dnvFQ' '--config' '/fixture/server.properties' && exec '/usr/bin/env' '-i' 'PATH=/opt/java/openjdk/bin:/opt/kafka/bin:/usr/bin:/bin' 'HOME=/tmp' 'LANG=C.UTF-8' 'LC_ALL=C.UTF-8' 'KAFKA_HEAP_OPTS=-Xms64m -Xmx256m' 'KAFKA_JVM_PERFORMANCE_OPTS=-XX:ActiveProcessorCount=1' 'KAFKA_LOG4J_OPTS=-Dlog4j2.configurationFile=/fixture/log4j2.properties' '/opt/kafka/bin/kafka-server-start.sh' '/fixture/server.properties'"],"Image":"apache/kafka@sha256:77b56ddfb7104fc5814a3d0127fcff49983220c7c7ad9bfc1f0af4d439228329","Volumes":{"/etc/kafka/secrets":{},"/mnt/shared/config":{},"/var/lib/kafka/data":{}},"WorkingDir":"/","Entrypoint":["/bin/sh"],"Labels":{"opfs.fixture":"kafka-metadata-7316d4fb-5c4e-481d-87aa-faddd37677ea","org.label-schema.build-date":"2026-10-07","org.label-schema.description":"Apache Kafka","org.label-schema.name":"kafka","org.label-schema.vcs-url":"https://github.com/apache/kafka","org.opencontainers.image.authors":"Apache Kafka","org.testcontainers":"true","org.testcontainers.lang":"node","org.testcontainers.session-id":"e7967dc2efc9","org.testcontainers.version":"12.1.0"}},"image":"sha256:8e12eba3b69e43eeed26ccf9072d46f3fe38ce0c7f5ffe66d7d9b6198801f5cc"}
+[
+    {
+        "Id": "2a0d9b40657ca17eb42be031b3313d4c8621136e414e8b82115e9d3507bc82ec",
+        "Created": "2026-11-06T05:52:08.511142428Z",
+        "Path": "/bin/sh",
+        "Args": [
+            "-c",
+            "'/usr/bin/env' '-i' 'PATH=/opt/java/openjdk/bin:/opt/kafka/bin:/usr/bin:/bin' 'HOME=/tmp' 'LANG=C.UTF-8' 'LC_ALL=C.UTF-8' 'KAFKA_HEAP_OPTS=-Xms16m -Xmx128m' 'KAFKA_JVM_PERFORMANCE_OPTS=-XX:ActiveProcessorCount=1' 'KAFKA_LOG4J_OPTS=-Dlog4j2.configurationFile=/fixture/log4j2.properties' '/opt/kafka/bin/kafka-storage.sh' 'format' '--cluster-id' 'huFKU0zPjGuEh1F6_dnvFQ' '--config' '/fixture/server.properties' \u0026\u0026 exec '/usr/bin/env' '-i' 'PATH=/opt/java/openjdk/bin:/opt/kafka/bin:/usr/bin:/bin' 'HOME=/tmp' 'LANG=C.UTF-8' 'LC_ALL=C.UTF-8' 'KAFKA_HEAP_OPTS=-Xms64m -Xmx256m' 'KAFKA_JVM_PERFORMANCE_OPTS=-XX:ActiveProcessorCount=1' 'KAFKA_LOG4J_OPTS=-Dlog4j2.configurationFile=/fixture/log4j2.properties' '/opt/kafka/bin/kafka-server-start.sh' '/fixture/server.properties'"
+        ],
+        "State": {
+            "Status": "running",
+            "Running": true,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 51699,
+            "ExitCode": 0,
+            "Error": "",
+            "StartedAt": "2026-11-06T05:52:08.819191886Z",
+            "FinishedAt": "0001-01-01T00:00:00Z"
+        },
+        "Image": "sha256:8e12eba3b69e43eeed26ccf9072d46f3fe38ce0c7f5ffe66d7d9b6198801f5cc",
+        "ResolvConfPath": "/var/lib/docker/containers/2a0d9b40657ca17eb42be031b3313d4c8621136e414e8b82115e9d3507bc82ec/resolv.conf",
+        "HostnamePath": "/var/lib/docker/containers/2a0d9b40657ca17eb42be031b3313d4c8621136e414e8b82115e9d3507bc82ec/hostname",
+        "HostsPath": "/var/lib/docker/containers/2a0d9b40657ca17eb42be031b3313d4c8621136e414e8b82115e9d3507bc82ec/hosts",
+        "LogPath": "/var/lib/docker/containers/2a0d9b40657ca17eb42be031b3313d4c8621136e414e8b82115e9d3507bc82ec/2a0d9b40657ca17eb42be031b3313d4c8621136e414e8b82115e9d3507bc82ec-json.log",
+        "Name": "/pensive_lehmann",
+        "RestartCount": 0,
+        "Driver": "overlay2",
+        "Platform": "linux",
+        "MountLabel": "",
+        "ProcessLabel": "",
+        "AppArmorProfile": "",
+        "ExecIDs": null,
+        "HostConfig": {
+            "Binds": null,
+            "ContainerIDFile": "",
+            "LogConfig": {
+                "Type": "json-file",
+                "Config": {
+                    "max-file": "1",
+                    "max-size": "1m"
+                }
+            },
+            "NetworkMode": "9c6416a62621",
+            "PortBindings": {
+                "9092/tcp": [
+                    {
+                        "HostIp": "",
+                        "HostPort": "0"
+                    }
+                ]
+            },
+            "RestartPolicy": {
+                "Name": "no",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+            "VolumesFrom": null,
+            "ConsoleSize": [
+                0,
+                0
+            ],
+            "CapAdd": null,
+            "CapDrop": null,
+            "CgroupnsMode": "private",
+            "Dns": null,
+            "DnsOptions": null,
+            "DnsSearch": null,
+            "ExtraHosts": null,
+            "GroupAdd": null,
+            "IpcMode": "private",
+            "Cgroup": "",
+            "Links": null,
+            "OomScoreAdj": 0,
+            "PidMode": "",
+            "Privileged": false,
+            "PublishAllPorts": false,
+            "ReadonlyRootfs": false,
+            "SecurityOpt": null,
+            "Tmpfs": {
+                "/etc/kafka/secrets": "rw,noexec,nosuid,size=64k,mode=0777",
+                "/mnt/shared/config": "rw,noexec,nosuid,size=64k,mode=0777",
+                "/opt/kafka/logs": "rw,noexec,nosuid,size=1m,mode=0777",
+                "/tmp": "rw,noexec,nosuid,size=8m,mode=1777",
+                "/var/lib/kafka/data": "rw,noexec,nosuid,size=32m,mode=0777"
+            },
+            "UTSMode": "",
+            "UsernsMode": "",
+            "ShmSize": 67108864,
+            "Runtime": "runc",
+            "Isolation": "",
+            "CpuShares": 0,
+            "Memory": 1073741824,
+            "NanoCpus": 1000000000,
+            "CgroupParent": "",
+            "BlkioWeight": 0,
+            "BlkioWeightDevice": null,
+            "BlkioDeviceReadBps": null,
+            "BlkioDeviceWriteBps": null,
+            "BlkioDeviceReadIOps": null,
+            "BlkioDeviceWriteIOps": null,
+            "CpuPeriod": 0,
+            "CpuQuota": 0,
+            "CpuRealtimePeriod": 0,
+            "CpuRealtimeRuntime": 0,
+            "CpusetCpus": "",
+            "CpusetMems": "",
+            "Devices": null,
+            "DeviceCgroupRules": null,
+            "DeviceRequests": null,
+            "MemoryReservation": 0,
+            "MemorySwap": 1073741824,
+            "MemorySwappiness": null,
+            "OomKillDisable": null,
+            "PidsLimit": 128,
+            "Ulimits": null,
+            "CpuCount": 0,
+            "CpuPercent": 0,
+            "IOMaximumIOps": 0,
+            "IOMaximumBandwidth": 0,
+            "MaskedPaths": [
+                "/proc/acpi",
+                "/proc/asound",
+                "/proc/interrupts",
+                "/proc/kcore",
+                "/proc/keys",
+                "/proc/latency_stats",
+                "/proc/sched_debug",
+                "/proc/scsi",
+                "/proc/timer_list",
+                "/proc/timer_stats",
+                "/sys/devices/virtual/powercap",
+                "/sys/firmware"
+            ],
+            "ReadonlyPaths": [
+                "/proc/bus",
+                "/proc/fs",
+                "/proc/irq",
+                "/proc/sys",
+                "/proc/sysrq-trigger"
+            ]
+        },
+        "GraphDriver": {
+            "Data": {
+                "ID": "2a0d9b40657ca17eb42be031b3313d4c8621136e414e8b82115e9d3507bc82ec",
+                "LowerDir": "/var/lib/docker/overlay2/bd926deeb1f494eba2e70b105dd6ef7397a28ba21bfaa3d537a3b61ddbaebf38-init/diff:/var/lib/docker/overlay2/89bab3f68f6c497726fdb1cc646117252c75a431bb19bce3ba835ab080bf5891/diff:/var/lib/docker/overlay2/2a9be16054c2323f6afa8a5c3668c464b6987a16d971b3b24d606d1f64550829/diff:/var/lib/docker/overlay2/17a9f40f140a710458b368cbd4b2883696d78fb7fd1df4abaec8bff7a6dcde1a/diff:/var/lib/docker/overlay2/b2f2d1d3d09192163697096dff2713e60bf74657507dabea7704badc3e51c06f/diff:/var/lib/docker/overlay2/59c81778b7f56ba9cd5e579eb8d41029c81364bbce3415fc547a5a2290dd914b/diff:/var/lib/docker/overlay2/11c9c4b9202dda80c846c92572e07628d7b788f7ffb94328174c7cf920e5c3ee/diff:/var/lib/docker/overlay2/580b678dcb2f9d3c5ecbabb86ba17035c4c8cd7061e3778f4282cdae54ad87e9/diff:/var/lib/docker/overlay2/a60d9b40e424fe139123a5ac72b43e90dacc6c0e6d6462fb55932099a52938b2/diff:/var/lib/docker/overlay2/3097971ff8b5ad8bb5916cc1040c3b2db510b991297f947064bc2e4e49a44f21/diff:/var/lib/docker/overlay2/160bff1ecf3294f118fee34565813dfd7e6bf9df8dd2530249df5b3f07d904d2/diff:/var/lib/docker/overlay2/016176e5662a0d77b5c7a6a8a09d4dd5f2c13a4ef2d70094122c3875ad16eae0/diff:/var/lib/docker/overlay2/0df48ff678c7f00444db29491bbda4af912403b5d84b9448cce29be26993f277/diff",
+                "MergedDir": "/var/lib/docker/overlay2/bd926deeb1f494eba2e70b105dd6ef7397a28ba21bfaa3d537a3b61ddbaebf38/merged",
+                "UpperDir": "/var/lib/docker/overlay2/bd926deeb1f494eba2e70b105dd6ef7397a28ba21bfaa3d537a3b61ddbaebf38/diff",
+                "WorkDir": "/var/lib/docker/overlay2/bd926deeb1f494eba2e70b105dd6ef7397a28ba21bfaa3d537a3b61ddbaebf38/work"
+            },
+            "Name": "overlay2"
+        },
+        "Mounts": [],
+        "Config": {
+            "Hostname": "2a0d9b40657c",
+            "Domainname": "",
+            "User": "appuser",
+            "AttachStdin": false,
+            "AttachStdout": false,
+            "AttachStderr": false,
+            "ExposedPorts": {
+                "9092/tcp": {}
+            },
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [
+                "PATH=/opt/java/openjdk/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "JAVA_HOME=/opt/java/openjdk",
+                "LANG=en_US.UTF-8",
+                "LANGUAGE=en_US:en",
+                "LC_ALL=en_US.UTF-8",
+                "JAVA_VERSION=jdk-25.0.4.1+1"
+            ],
+            "Cmd": [
+                "-c",
+                "'/usr/bin/env' '-i' 'PATH=/opt/java/openjdk/bin:/opt/kafka/bin:/usr/bin:/bin' 'HOME=/tmp' 'LANG=C.UTF-8' 'LC_ALL=C.UTF-8' 'KAFKA_HEAP_OPTS=-Xms16m -Xmx128m' 'KAFKA_JVM_PERFORMANCE_OPTS=-XX:ActiveProcessorCount=1' 'KAFKA_LOG4J_OPTS=-Dlog4j2.configurationFile=/fixture/log4j2.properties' '/opt/kafka/bin/kafka-storage.sh' 'format' '--cluster-id' 'huFKU0zPjGuEh1F6_dnvFQ' '--config' '/fixture/server.properties' \u0026\u0026 exec '/usr/bin/env' '-i' 'PATH=/opt/java/openjdk/bin:/opt/kafka/bin:/usr/bin:/bin' 'HOME=/tmp' 'LANG=C.UTF-8' 'LC_ALL=C.UTF-8' 'KAFKA_HEAP_OPTS=-Xms64m -Xmx256m' 'KAFKA_JVM_PERFORMANCE_OPTS=-XX:ActiveProcessorCount=1' 'KAFKA_LOG4J_OPTS=-Dlog4j2.configurationFile=/fixture/log4j2.properties' '/opt/kafka/bin/kafka-server-start.sh' '/fixture/server.properties'"
+            ],
+            "Image": "apache/kafka@sha256:77b56ddfb7104fc5814a3d0127fcff49983220c7c7ad9bfc1f0af4d439228329",
+            "Volumes": {
+                "/etc/kafka/secrets": {},
+                "/mnt/shared/config": {},
+                "/var/lib/kafka/data": {}
+            },
+            "WorkingDir": "/",
+            "Entrypoint": [
+                "/bin/sh"
+            ],
+            "Labels": {
+                "opfs.fixture": "kafka-metadata-7316d4fb-5c4e-481d-87aa-faddd37677ea",
+                "org.label-schema.build-date": "2026-10-07",
+                "org.label-schema.description": "Apache Kafka",
+                "org.label-schema.name": "kafka",
+                "org.label-schema.vcs-url": "https://github.com/apache/kafka",
+                "org.opencontainers.image.authors": "Apache Kafka",
+                "org.testcontainers": "true",
+                "org.testcontainers.lang": "node",
+                "org.testcontainers.session-id": "e7967dc2efc9",
+                "org.testcontainers.version": "12.1.0"
+            }
+        },
+        "NetworkSettings": {
+            "SandboxID": "48363d3b11c5f34a90d2445f161428d839fe8966cc8dfe6436d76e7c727e57b4",
+            "SandboxKey": "/var/run/docker/netns/48363d3b11c5",
+            "Ports": {
+                "9092/tcp": [
+                    {
+                        "HostIp": "0.0.0.0",
+                        "HostPort": "55554"
+                    },
+                    {
+                        "HostIp": "::",
+                        "HostPort": "55554"
+                    }
+                ]
+            },
+            "Networks": {
+                "9c6416a62621": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": null,
+                    "DriverOpts": null,
+                    "GwPriority": 0,
+                    "NetworkID": "09358bda8ff3016bcff656e527cc533ebbb5cec07461f180006fb4401bd32c7e",
+                    "EndpointID": "36ca9934be40d8ccf7701c6bb870dfda089101e9d7949a34e5cb73a0dea6f3ba",
+                    "Gateway": "172.18.0.1",
+                    "IPAddress": "172.18.0.2",
+                    "MacAddress": "52:a1:6e:c1:8a:2b",
+                    "IPPrefixLen": 16,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "DNSNames": [
+                        "pensive_lehmann",
+                        "2a0d9b40657c"
+                    ]
+                }
+            }
+        }
+    }
+]
+
+	sasl.oauthbearer.assertion.claim.aud = null
+	sasl.oauthbearer.assertion.claim.exp.seconds = 300
+	sasl.oauthbearer.assertion.claim.iss = null
+	sasl.oauthbearer.assertion.claim.jti.include = false
+	sasl.oauthbearer.assertion.claim.nbf.seconds = 60
+	sasl.oauthbearer.assertion.claim.sub = null
+	sasl.oauthbearer.assertion.file = null
+	sasl.oauthbearer.assertion.private.key.file = null
+	sasl.oauthbearer.assertion.private.key.passphrase = null
+	sasl.oauthbearer.assertion.template.file = null
+	sasl.oauthbearer.client.credentials.client.id = null
+	sasl.oauthbearer.client.credentials.client.secret = null
+	sasl.oauthbearer.clock.skew.seconds = 30
+	sasl.oauthbearer.expected.audience = []
+	sasl.oauthbearer.expected.issuer = null
+	sasl.oauthbearer.jwks.endpoint.refresh.ms = 3600000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.max.ms = 10000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.ms = 100
+	sasl.oauthbearer.jwks.endpoint.url = null
+	sasl.oauthbearer.jwt.retriever.class = class org.apache.kafka.common.security.oauthbearer.DefaultJwtRetriever
+	sasl.oauthbearer.jwt.validator.class = class org.apache.kafka.common.security.oauthbearer.DefaultJwtValidator
+	sasl.oauthbearer.scope = null
+	sasl.oauthbearer.scope.claim.name = scope
+	sasl.oauthbearer.sub.claim.name = sub
+	sasl.oauthbearer.token.endpoint.url = null
+	sasl.server.callback.handler.class = null
+	sasl.server.max.receive.size = 524288
+	security.inter.broker.protocol = PLAINTEXT
+	security.providers = null
+	server.max.startup.time.ms = 9223372036854775807
+	share.coordinator.append.linger.ms = -1
+	share.coordinator.cached.buffer.max.bytes = 1048588
+	share.coordinator.cold.partition.snapshot.interval.ms = 300000
+	share.coordinator.load.buffer.size = 5242880
+	share.coordinator.snapshot.update.records.per.snapshot = 500
+	share.coordinator.state.topic.compression.codec = 0
+	share.coordinator.state.topic.min.isr = 2
+	share.coordinator.state.topic.num.partitions = 50
+	share.coordinator.state.topic.prune.interval.ms = 300000
+	share.coordinator.state.topic.replication.factor = 3
+	share.coordinator.state.topic.segment.bytes = 104857600
+	share.coordinator.threads = 1
+	share.coordinator.write.timeout.ms = 5000
+	share.fetch.purgatory.purge.interval.requests = 1000
+	socket.connection.setup.timeout.max.ms = 30000
+	socket.connection.setup.timeout.ms = 10000
+	socket.listen.backlog.size = 50
+	socket.receive.buffer.bytes = 102400
+	socket.request.max.bytes = 4194304
+	socket.send.buffer.bytes = 102400
+	ssl.allow.dn.changes = false
+	ssl.allow.san.changes = false
+	ssl.cipher.suites = []
+	ssl.client.auth = none
+	ssl.enabled.protocols = [TLSv1.2, TLSv1.3]
+	ssl.endpoint.identification.algorithm = https
+	ssl.engine.factory.class = null
+	ssl.key.password = null
+	ssl.keymanager.algorithm = SunX509
+	ssl.keystore.certificate.chain = null
+	ssl.keystore.key = null
+	ssl.keystore.location = null
+	ssl.keystore.password = null
+	ssl.keystore.type = JKS
+	ssl.principal.mapping.rules = DEFAULT
+	ssl.protocol = TLSv1.3
+	ssl.provider = null
+	ssl.secure.random.implementation = null
+	ssl.trustmanager.algorithm = PKIX
+	ssl.truststore.certificates = null
+	ssl.truststore.location = null
+	ssl.truststore.password = null
+	ssl.truststore.type = JKS
+	telemetry.max.bytes = 1048576
+	transaction.abort.timed.out.transaction.cleanup.interval.ms = 10000
+	transaction.max.timeout.ms = 900000
+	transaction.partition.verification.enable = true
+	transaction.remove.expired.transaction.cleanup.interval.ms = 3600000
+	transaction.state.log.load.buffer.size = 5242880
+	transaction.state.log.min.isr = 1
+	transaction.state.log.num.partitions = 50
+	transaction.state.log.replication.factor = 1
+	transaction.state.log.segment.bytes = 104857600
+	transaction.two.phase.commit.enable = false
+	transactional.id.expiration.ms = 604800000
+	unclean.leader.election.enable = false
+	unclean.leader.election.interval.ms = 300000
+	unstable.api.versions.enable = false
+	unstable.feature.versions.enable = false
+
+[BrokerServer id=1] Waiting for the broker to be unfenced
+[QuorumController id=1] Replayed BrokerRegistrationChangeRecord modifying the registration for broker 1: BrokerRegistrationChangeRecord(brokerId=1, brokerEpoch=12, fenced=0, inControlledShutdown=0, logDirs=[], cordonedLogDirs=[])
+[BrokerLifecycleManager id=1] The broker is in RECOVERY.
+[QuorumController id=1] The request from broker 1 to unfence has been granted because it has caught up with the offset of its register broker record 12.
+[QuorumController id=1] Replayed BrokerRegistrationChangeRecord modifying the registration for broker 1: BrokerRegistrationChangeRecord(brokerId=1, brokerEpoch=12, fenced=-1, inControlledShutdown=0, logDirs=[], cordonedLogDirs=null)
+[BrokerLifecycleManager id=1] The broker has been unfenced. Transitioning from RECOVERY to RUNNING.
+[BrokerServer id=1] Finished waiting for the broker to be unfenced
+authorizerStart completed for endpoint INTERNAL. Endpoint is now READY.
+[SocketServer listenerType=BROKER, nodeId=1] Enabling request processing.
+Awaiting socket connections on 0.0.0.0:9092.
+[BrokerServer id=1] Waiting for all of the authorizer futures to be completed
+[BrokerServer id=1] Finished waiting for all of the authorizer futures to be completed
+[BrokerServer id=1] Waiting for all of the SocketServer Acceptors to be started
+[BrokerServer id=1] Finished waiting for all of the SocketServer Acceptors to be started
+[BrokerServer id=1] Transition from STARTING to STARTED
+Kafka version: 4.4.0
+Kafka commitId: 1156b2752aaa28ea
+Kafka startTimeMs: 1793944334635
+[KafkaRaftServer nodeId=1] Kafka Server started
+[QuorumController id=1] CreateTopics result(s): CreatableTopic(name='opfs-metadata-8a55f140-c213-4236-ad0c-1fef0cbc9697', numPartitions=1, replicationFactor=1, assignments=[], configs=[]): SUCCESS
+[QuorumController id=1] Replayed TopicRecord for topic opfs-metadata-8a55f140-c213-4236-ad0c-1fef0cbc9697 with topic ID fj2jk15UQu6H1uij1r655w.
+[QuorumController id=1] Replayed PartitionRecord for new partition opfs-metadata-8a55f140-c213-4236-ad0c-1fef0cbc9697-0 with topic ID fj2jk15UQu6H1uij1r655w and PartitionRegistration(replicas=[1], directories=[jQaVkS_vpJROoxM95IH6Aw], isr=[1], removingReplicas=[], addingReplicas=[], elr=[], lastKnownElr=[], leader=1, leaderRecoveryState=RECOVERED, leaderEpoch=0, partitionEpoch=0).
+[Broker id=1] Transitioning 1 partition(s) to local leaders.
+[ReplicaFetcherManager on broker 1] Removed fetcher for partitions Set(opfs-metadata-8a55f140-c213-4236-ad0c-1fef0cbc9697-0)
+[Broker id=1] Creating new partition opfs-metadata-8a55f140-c213-4236-ad0c-1fef0cbc9697-0 with topic id fj2jk15UQu6H1uij1r655w.
+[LogLoader partition=opfs-metadata-8a55f140-c213-4236-ad0c-1fef0cbc9697-0, dir=/var/lib/kafka/data] Loading producer state till offset 0
+Created log for partition opfs-metadata-8a55f140-c213-4236-ad0c-1fef0cbc9697-0 in /var/lib/kafka/data/opfs-metadata-8a55f140-c213-4236-ad0c-1fef0cbc9697-0 with properties {}
+[Partition opfs-metadata-8a55f140-c213-4236-ad0c-1fef0cbc9697-0 broker=1] No checkpointed highwatermark is found for partition opfs-metadata-8a55f140-c213-4236-ad0c-1fef0cbc9697-0
+[Partition opfs-metadata-8a55f140-c213-4236-ad0c-1fef0cbc9697-0 broker=1] Log loaded for partition opfs-metadata-8a55f140-c213-4236-ad0c-1fef0cbc9697-0 with initial high watermark 0
+[Broker id=1] Leader opfs-metadata-8a55f140-c213-4236-ad0c-1fef0cbc9697-0 with topic id Some(fj2jk15UQu6H1uij1r655w) starts at leader epoch 0 from offset 0 with partition epoch 0, high watermark 0, ISR [1], adding replicas [] and removing replicas [] . Previous leader None and previous leader epoch was -1.
+
+{"evidence":"/Users/okikio/Other/Code/opfs/.tmp/implementation/kafka-candidate-native-v3","qualified":true,"nativeToCandidate":true,"candidateToNative":true}

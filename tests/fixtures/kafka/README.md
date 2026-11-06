@@ -1,8 +1,9 @@
 # Independent Kafka originals and typed fixture tools
 
 This directory preserves an independently executed Java/literal-wire investigation and ports its small capture and
-semantic verifier to TypeScript. It does not implement a public Kafka client, storage driver or filesystem adapter. The
-[reviewed next sequence](../../../planning/storage/KAFKA.md) defines the proposed client and remaining gates.
+semantic verifier to TypeScript. Its current native acceptance runner also checks the separate
+[public client](../../../docs/kafka.md); fixture tooling supplies no storage driver or filesystem adapter. The
+[reviewed sequence](../../../planning/storage/KAFKA.md) records the client contract and remaining gates.
 
 The original bounded native run used Apache Kafka 4.4.0, the official Java producer/consumer, an authored literal
 framing probe, and JDK builtin CRC32C. Java appended records at offsets 0/1/2, the literal probe read them and appended
@@ -106,6 +107,35 @@ the malformed-frame controls also run through `deno task quality`.
 
 This is a stable **one-broker observation**, not qualification of a production Kafka parser, leader recovery, TLS/SASL,
 replication or native error semantics. The older `metadataSemanticClaim: false` receipt stays unchanged.
+
+## Verify the public client against Java
+
+`accept.ts` exercises the production Kafka client, separately from the candidate-independent Metadata comparison. It
+first asks the unchanged Java producer to append the three authored originals, then reads them through the client. It
+next appends through the client and reads those records through the unchanged Java consumer. Every payload byte,
+timestamp, offset and ordered header is compared with the authored originals, including null versus empty fields. Public
+metadata is checked against the explicit singleton fixture configuration; earliest/latest offsets must be `0`, `3` and
+finally `6`, with native special-query timestamp `-1`.
+
+```sh
+node tests/fixtures/kafka/accept.ts --classes /ABS/OFFLINE_CLASSES \
+  --jars /ABS/ADMITTED_FIVE_JARS --evidence /ABS/FRESH_EVIDENCE_DIRECTORY
+```
+
+Compile `KafkaOracle.java`, `CrcOracle.java` and `AdminMetadataOracle.java` together using the bounded offline compiler
+and exact admitted JARs. This runner does not acquire or compile them. It uses the same Testcontainers resource owner
+and awaits broker/channel cleanup before admitting success. Neither the historical Python snapshots nor the old literal
+probe runs as part of this command.
+
+The final 6 November capture is retained in `native-client/`. Its receipt hashes every binary input, Java terminal,
+candidate observation, source identity and resource log. `terminal.json` records both directions as successful without
+operation or cleanup faults. The separate receipt confirms the exact owned container was absent after cleanup and was
+not OOM-killed. Compilation receipt `aca3d0f3-9de5-4640-9d72-86736eeadc96` identifies the isolated Java 17-target build;
+compiled classes and JARs are test inputs rather than repository or package contents.
+
+This qualifies one plaintext broker and the selected uncompressed non-idempotent CreateTime profile. It does not qualify
+TLS/SASL, consumer groups, leader failover, replication, compressed batches or transactional records. Authored portable
+failure tests and packed-consumer tests cover different contracts and must pass separately.
 
 Admin success cannot supply Metadata4 wire error codes or throttle evidence. Its public controller observation with
 `bootstrap.servers` is not an independent multibroker controller identity. Read actual topic internal flags from the

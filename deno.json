@@ -169,7 +169,8 @@
     "./crypto/age": "./src/crypto/age.ts",
     "./crypto/age-node": "./src/crypto/age-node.ts",
     "./dataset/orc": "./src/dataset/orc.ts",
-    "./amqp": "./src/amqp.ts"
+    "./amqp": "./src/amqp.ts",
+    "./kafka": "./src/kafka.ts"
   },
   "imports": {
     "@okikio/undent": "jsr:@okikio/undent@^0.3.3",
@@ -236,11 +237,12 @@
       "tests/fixtures/age/cctv.json",
       "tests/fixtures/orc/independent.json",
       "tests/fixtures/orc/receipts/",
+      "tests/fixtures/ipc/native/",
       "tests/fixtures/amqp/receipts/",
       "tests/fixtures/amqp/independent.json",
       "tests/fixtures/glacier/**/*.json",
       "tests/fixtures/glacier/**/*.snapshot",
-      "tests/fixtures/ipc/native/",
+      "tests/fixtures/kafka/native-client/",
       "tests/fixtures/age/provenance/**/*.mjs"
     ]
   },

@@ -1,0 +1,205 @@
+{
+  "scope": "One owned broker, partition 0, plaintext, uncompressed magic-2 CreateTime records; Java SDK interoperability.",
+  "qualified": true,
+  "nativeToCandidate": true,
+  "candidateToNative": true,
+  "topic": "opfs-metadata-8a55f140-c213-4236-ad0c-1fef0cbc9697",
+  "partition": 0,
+  "milliseconds": 11290,
+  "candidateKafkaClientImported": true,
+  "tlsQualified": false,
+  "multibrokerQualified": false,
+  "filesystemQualified": false,
+  "inputs": [
+    {
+      "file": "kafka-clients-4.4.0.jar",
+      "bytes": 10925782,
+      "sha256": "9e4514622675f9b24c83373d0d5b35dd7a4dba34bad69762fe90a9e54cfb71de"
+    },
+    {
+      "file": "lz4-java-1.11.2.jar",
+      "bytes": 897831,
+      "sha256": "8a7458657938e9b692224db83aac458c13abd7a59ab75c3d3b08bd2233a646a2"
+    },
+    {
+      "file": "slf4j-api-1.7.36.jar",
+      "bytes": 41125,
+      "sha256": "d3ef575e3e4979678dc01bf1dcce51021493b4d11fb7f1be8ad982877c16a1c0"
+    },
+    {
+      "file": "snappy-java-1.1.10.7.jar",
+      "bytes": 2338496,
+      "sha256": "4c766cb3f855415ee734b2392949a0b6f12a60879334a74518deaf6270d32e36"
+    },
+    {
+      "file": "zstd-jni-1.5.7-17.jar",
+      "bytes": 6323239,
+      "sha256": "c9043e2da8a16c13b6cd7661a5cb56685a573c3546ef4bd0ead67b0b67c2e107"
+    },
+    {
+      "file": "AdminMetadataOracle$Bounded.class",
+      "bytes": 812,
+      "sha256": "f53a0ca70df1f59bd0747dd48356cd5c9b7c7d72cc908e981b03a27f08e9d6cb"
+    },
+    {
+      "file": "AdminMetadataOracle$Fault.class",
+      "bytes": 1360,
+      "sha256": "ad00c8a4a1ba9aff1594ac994c3484794f3c3582e6eb981d601919ed22d77fa7"
+    },
+    {
+      "file": "AdminMetadataOracle$Observation.class",
+      "bytes": 2067,
+      "sha256": "5fcbc4bba2084c021cf708d61b70e5ae2cd81be470abb1fc28b593b6c8da518a"
+    },
+    {
+      "file": "AdminMetadataOracle.class",
+      "bytes": 8333,
+      "sha256": "ff87d3d69505e4dd3094b16ef301ad83a38dd3398ece059fae52e12fc3d4730d"
+    },
+    {
+      "file": "CrcOracle.class",
+      "bytes": 1290,
+      "sha256": "7aa5060c09c4e734a7c0be21987caeb6dda11d953193ed6fcb9dbdc6da87a82b"
+    },
+    {
+      "file": "KafkaOracle$1.class",
+      "bytes": 927,
+      "sha256": "dd54a1d67e174346c0f6359ceb186115d82fe0247f982f8812d77c6fc09e5307"
+    },
+    {
+      "file": "KafkaOracle$1Node.class",
+      "bytes": 1555,
+      "sha256": "723c4f2ae25dbea9082c232464e52c959148c5dd731f24d3eda816287be59a5c"
+    },
+    {
+      "file": "KafkaOracle$Ack.class",
+      "bytes": 1379,
+      "sha256": "1ff19f0bb3ab6a24be08a95a74c2bc00ba01aad72b1299eee01339c96433b35a"
+    },
+    {
+      "file": "KafkaOracle$Budget.class",
+      "bytes": 559,
+      "sha256": "499c033d1fa77c09ceb4927e689a73df90a36a03203200b7a8b120294c5df6a9"
+    },
+    {
+      "file": "KafkaOracle$Fault.class",
+      "bytes": 1367,
+      "sha256": "51ac346d671dc07c14baa1d0c96ff27c01b582b02f04cc571a049ff34a418d28"
+    },
+    {
+      "file": "KafkaOracle$Input.class",
+      "bytes": 2230,
+      "sha256": "c247494d309cc7a65d18d4ae8740b98e447f5f37b02ee1a0492bb8f378b32766"
+    },
+    {
+      "file": "KafkaOracle$Item.class",
+      "bytes": 1771,
+      "sha256": "58343cffeb7d4e93e4ae9a8c34b0df13a912905a97a030fc6c693976a118e527"
+    },
+    {
+      "file": "KafkaOracle$Result.class",
+      "bytes": 900,
+      "sha256": "83a6a18f57f20d79d117bc744595f77a62919997a43450cbac505ffb528d2f63"
+    },
+    {
+      "file": "KafkaOracle$Seen.class",
+      "bytes": 2042,
+      "sha256": "83a16a6442ca2b130060acc3f04fe137dd4a19bc5c2703e7c85715f20c215b2a"
+    },
+    {
+      "file": "KafkaOracle.class",
+      "bytes": 16369,
+      "sha256": "c53a2af9bce5a4feeb482206abef8cceccd01d20643d9f8f2dbdfd0e3b7be5b2"
+    }
+  ],
+  "nativeCommands": [
+    {
+      "operation": "create-topic",
+      "stdoutBytes": 4224,
+      "stdoutSha256": "0f44a3d6d96dcd381cb4c9e25ed4863a9508b4f9bc698db9293f2efb86176a53",
+      "stderr": "",
+      "exitCode": 0
+    },
+    {
+      "operation": "record-oracle",
+      "stdinBytes": 131272,
+      "stdinSha256": "8986a0124567a80792061f79107ed5e491ebf1b5c2179ac4cf167b7e4e988599",
+      "stdoutBytes": 142,
+      "stdoutSha256": "7be4b04eb8ed5b22f7cec71597286fd579e7ab6ff2d9a0a050df90c19eedd1b5",
+      "stderr": "SLF4J: Failed to load class \"org.slf4j.impl.StaticLoggerBinder\".\nSLF4J: Defaulting to no-operation (NOP) logger implementation\nSLF4J: See http://www.slf4j.org/codes.html#StaticLoggerBinder for further details.\n",
+      "exitCode": 0
+    },
+    {
+      "operation": "record-oracle",
+      "stdinBytes": 97,
+      "stdinSha256": "cf4a8626658020e5d1a774674622aa21a7220c29c77ecb2454bca1affa3b19e9",
+      "stdoutBytes": 131338,
+      "stdoutSha256": "760da2311fb8a07503ddcce01d7940bcd6934410170302c2f78a5bdef90fe1d1",
+      "stderr": "SLF4J: Failed to load class \"org.slf4j.impl.StaticLoggerBinder\".\nSLF4J: Defaulting to no-operation (NOP) logger implementation\nSLF4J: See http://www.slf4j.org/codes.html#StaticLoggerBinder for further details.\n",
+      "exitCode": 0
+    }
+  ],
+  "artifacts": [
+    {
+      "file": "native-append-input.bin",
+      "bytes": 131272,
+      "sha256": "8986a0124567a80792061f79107ed5e491ebf1b5c2179ac4cf167b7e4e988599"
+    },
+    {
+      "file": "native-append-output.bin",
+      "bytes": 142,
+      "sha256": "7be4b04eb8ed5b22f7cec71597286fd579e7ab6ff2d9a0a050df90c19eedd1b5"
+    },
+    {
+      "file": "native-append-decoded.json",
+      "bytes": 507,
+      "sha256": "9b75e752249f9525bb212524e2231e5bcd16987d2aeaf0e28949203c3b7147ef"
+    },
+    {
+      "file": "candidate-metadata.json",
+      "bytes": 459,
+      "sha256": "286b2c7802c94564fa3bac5bd329d4c8e7ffcfaac8e1466695b59d5328128975"
+    },
+    {
+      "file": "candidate-initial-offsets.json",
+      "bytes": 353,
+      "sha256": "3a94622de4426d0080424c2ed2e6bad420efaf17d03c4a40554601160c130096"
+    },
+    {
+      "file": "candidate-fetch.json",
+      "bytes": 263978,
+      "sha256": "0c0bd0918ef85f05abc6b461bc44ebe11976c6fffd0b7629570402b1d7468d7d"
+    },
+    {
+      "file": "candidate-originals.bin",
+      "bytes": 131272,
+      "sha256": "9a8728d19665e5223a67cac2022ae1f01161f56328fd4e6a853a5ee46ea24fd0"
+    },
+    {
+      "file": "candidate-append.json",
+      "bytes": 165,
+      "sha256": "004e37dd4b09a1c2d0a3aeb3f9c62af383296cc9c350c6bc9cc5bb5b62be7ee7"
+    },
+    {
+      "file": "native-fetch-input.bin",
+      "bytes": 97,
+      "sha256": "cf4a8626658020e5d1a774674622aa21a7220c29c77ecb2454bca1affa3b19e9"
+    },
+    {
+      "file": "native-fetch-output.bin",
+      "bytes": 131338,
+      "sha256": "760da2311fb8a07503ddcce01d7940bcd6934410170302c2f78a5bdef90fe1d1"
+    },
+    {
+      "file": "native-fetch-decoded.json",
+      "bytes": 263380,
+      "sha256": "21ba1395b77d52f45435d65d7c5247254ac82e50cce932ad74171c10f7ef1432"
+    },
+    {
+      "file": "candidate-final-offset.json",
+      "bytes": 148,
+      "sha256": "c26528803bd64fd9413728dc455f6cf409e3bb75a1126f5898da642a84d7d4dc"
+    }
+  ],
+  "failures": []
+}

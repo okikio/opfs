@@ -21,6 +21,8 @@
 /glacier/installed-provenance.json
 /hdf5/independent.json
 /iso/independent.json
+/kafka/native-client/candidate-fetch.json
+/kafka/native-client/native-fetch-decoded.json
 /las/independent.json
 /lha/independent.json
 /lz4/independent.json

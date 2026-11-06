@@ -118,6 +118,15 @@ selected uncompressed physical numeric columns with separate validity masks and 
 [AMQP](amqp.md) retains native publication confirmations and explicit destructive queue reads; applications own topology
 and recovery after uncertain mutations. Each module is optional and has its own limits and ownership contract.
 
+[Kafka](kafka.md) appends bounded binary records and fetches a fully admitted page from an explicit bigint offset in one
+selected partition. The application supplies authenticated exclusive channels and retains known receipts or reconciles
+unknown append outcomes; there is no automatic broker discovery, retry, consumer group or filesystem projection. The
+first profile accepts uncompressed, nontransactional, non-idempotent CreateTime magic-2 batches only. Fresh
+Java/candidate full-value comparisons passed in both directions on one plaintext broker, including public metadata and
+earliest/latest offset observations in a separate repeat. Deno record/session controls passed independently. TLS/SASL,
+multiple brokers, measured allocation peaks and current release package/CI gates remain separate. This advances
+`log-kafka`, not the entire `record-store` group.
+
 [Glacier vaults](glacier.md) add original vault/archive REST operations, explicit retrieval jobs, completed-output byte
 sources and native multipart mechanics. Retrieval is potentially billable and output availability can expire. Callers
 own durable receipts and reconcile unknown outcomes; no automatic paid job, OPFS projection, S3 Glacier storage-class

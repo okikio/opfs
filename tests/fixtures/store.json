@@ -86,6 +86,14 @@
       "size": 16005999,
       "sha256": "53afc0dcb88cba82830b48f253f5a6dd3c69ee29c43029ef2b6a37b8df78c318"
     },
+    "tests/fixtures/kafka/native-client/candidate-fetch.json": {
+      "size": 263978,
+      "sha256": "0c0bd0918ef85f05abc6b461bc44ebe11976c6fffd0b7629570402b1d7468d7d"
+    },
+    "tests/fixtures/kafka/native-client/native-fetch-decoded.json": {
+      "size": 263380,
+      "sha256": "21ba1395b77d52f45435d65d7c5247254ac82e50cce932ad74171c10f7ef1432"
+    },
     "tests/fixtures/las/independent.json": {
       "size": 14424404,
       "sha256": "e261422e570c6de25b3656c849ecfffbcf064f237c20d5cc7895a62a37f0f539"

@@ -1,0 +1,89 @@
+{
+  "qualified": true,
+  "scope": "One owned broker, partition 0, plaintext, uncompressed magic-2 CreateTime records; Java SDK interoperability.",
+  "ownedContainerId": "2a0d9b40657ca17eb42be031b3313d4c8621136e414e8b82115e9d3507bc82ec",
+  "containerRemoved": true,
+  "oomKilled": false,
+  "memoryBytes": 1073741824,
+  "memorySwapBytes": 1073741824,
+  "cpu": 1,
+  "pids": 128,
+  "compileReceipt": "aca3d0f3-9de5-4640-9d72-86736eeadc96",
+  "artifacts": [
+    {
+      "file": "native-append-input.bin",
+      "bytes": 131272,
+      "sha256": "8986a0124567a80792061f79107ed5e491ebf1b5c2179ac4cf167b7e4e988599"
+    },
+    {
+      "file": "native-append-output.bin",
+      "bytes": 142,
+      "sha256": "7be4b04eb8ed5b22f7cec71597286fd579e7ab6ff2d9a0a050df90c19eedd1b5"
+    },
+    {
+      "file": "native-append-decoded.json",
+      "bytes": 507,
+      "sha256": "9b75e752249f9525bb212524e2231e5bcd16987d2aeaf0e28949203c3b7147ef"
+    },
+    {
+      "file": "candidate-metadata.json",
+      "bytes": 459,
+      "sha256": "286b2c7802c94564fa3bac5bd329d4c8e7ffcfaac8e1466695b59d5328128975"
+    },
+    {
+      "file": "candidate-initial-offsets.json",
+      "bytes": 353,
+      "sha256": "3a94622de4426d0080424c2ed2e6bad420efaf17d03c4a40554601160c130096"
+    },
+    {
+      "file": "candidate-fetch.json",
+      "bytes": 263978,
+      "sha256": "0c0bd0918ef85f05abc6b461bc44ebe11976c6fffd0b7629570402b1d7468d7d"
+    },
+    {
+      "file": "candidate-originals.bin",
+      "bytes": 131272,
+      "sha256": "9a8728d19665e5223a67cac2022ae1f01161f56328fd4e6a853a5ee46ea24fd0"
+    },
+    {
+      "file": "candidate-append.json",
+      "bytes": 165,
+      "sha256": "004e37dd4b09a1c2d0a3aeb3f9c62af383296cc9c350c6bc9cc5bb5b62be7ee7"
+    },
+    {
+      "file": "native-fetch-input.bin",
+      "bytes": 97,
+      "sha256": "cf4a8626658020e5d1a774674622aa21a7220c29c77ecb2454bca1affa3b19e9"
+    },
+    {
+      "file": "native-fetch-output.bin",
+      "bytes": 131338,
+      "sha256": "760da2311fb8a07503ddcce01d7940bcd6934410170302c2f78a5bdef90fe1d1"
+    },
+    {
+      "file": "native-fetch-decoded.json",
+      "bytes": 263380,
+      "sha256": "21ba1395b77d52f45435d65d7c5247254ac82e50cce932ad74171c10f7ef1432"
+    },
+    {
+      "file": "candidate-final-offset.json",
+      "bytes": 148,
+      "sha256": "c26528803bd64fd9413728dc455f6cf409e3bb75a1126f5898da642a84d7d4dc"
+    },
+    {
+      "file": "terminal.json",
+      "bytes": 6890,
+      "sha256": "d3ae75c2e2d5fc91514650f0df563192f8af100cb4ae4105abba0c6dde524f8b"
+    },
+    {
+      "file": "source.json",
+      "bytes": 2650,
+      "sha256": "4c40d8cef456132603451ac463bd599a3ba878afcf4521b7ffac5d04668574bd"
+    },
+    {
+      "file": "resources.log",
+      "bytes": 28987,
+      "sha256": "dcdf6d91c7001698cfb419bafbf9b0d29a349499e7a298b4ae86b1286fe5203d"
+    }
+  ]
+}

@@ -1,8 +1,10 @@
-# Next Kafka slice: one explicit partition
+# Kafka: one explicit partition
 
-Status: reviewed implementation proposal. No public Kafka client is implemented by this plan or by the fixture tooling
-port. Complete the current language-migration verification gates before production implementation. This slice covers
-catalog record `log-kafka` under `record-store`; it introduces no filesystem driver or adapter.
+Status: first public client profile implemented, 2026-11-06. The optional `./kafka` entry now supplies the explicit
+partition contract below. Deno record/session controls and fresh Java/candidate full-byte interoperability passed for
+one plaintext broker; TLS/SASL, multiple brokers, allocation measurements and current release package/CI gates remain
+separate. This slice advances catalog record `log-kafka` under `record-store`; it introduces no filesystem driver or
+adapter and does not complete that group. See the [consumer guide](../../docs/kafka.md).
 
 The caller wants to append binary records, retain acknowledged offsets, and read a bounded page from an explicit offset.
 Offsets are positions in a retained log. Reading does not dequeue, retention/compaction can remove records, and an
@@ -18,14 +20,14 @@ flowchart LR
   E --> G[Validate complete wire page before returning records]
 ```
 
-## Contract to implement after migration gates
+## Implemented first contract
 
-Expose optional `./kafka`, with a `KafkaClient` configured for one topic, partition, expected broker ID and an injected
+The optional `./kafka` exposes a `KafkaClient` configured for one topic, partition, expected broker ID and an injected
 fresh exclusive channel opener. The opener owns abort-aware transport acquisition, TLS/peer verification and any SASL
 handshake, and transfers an already authenticated request-boundary stream. Plaintext requires explicit caller policy.
 The library owns retirement of the transferred channel. It discovers no host sockets, globals, credentials or brokers.
 
-Proposed operations are `metadata()`, `offset('earliest' | 'latest')`, `append(records)` and `fetch(offset, options)`.
+The operations are `metadata()`, `offset('earliest' | 'latest')`, `append(records)` and `fetch(offset, options)`.
 Use the independently exercised fixed versions: ApiVersions0, Metadata4, Produce3, Fetch4 and ListOffsets1. Check
 version support and the configured partition leader on the same owned channel before Produce dispatch. Report advertised
 endpoints as untrusted metadata; never auto-dial or forward credentials to an advertised host. A moved leader requires
@@ -48,7 +50,7 @@ partition errors as separate observations. An empty page is a point-in-time resu
 explicitly nontransactional read_uncommitted profile is in scope; compressed, transactional, control and unsupported
 batch attributes refuse.
 
-Proposed implementation safety ceilings, independent of broker limits: 1 MiB aggregate admitted record bytes; 1024
+Implementation safety ceilings, independent of broker limits: 1 MiB aggregate complete serialized record bytes; 1024
 records; 64 headers per record and 1024 headers total; 4 MiB request/response frame; 8 MiB whole-call I/O; 64 KiB
 retained transport chunks. Header names and values count toward admission. Allocation accounting must confirm these
 bounds before code is accepted; valid CRC32C never excuses malformed lengths, varints, counts or offset arithmetic.
@@ -143,7 +145,7 @@ worst-case admitted frames and narrow documented claims to what those measuremen
 The following decisions use Apache Kafka commit `1156b2752aaa28eafc0b4c4d387e63356793268d`, the same revision recorded
 by the retained 4.4.0 attribution receipt. The referenced sources were read without executing them. Record parser
 implementations are under `common/record/internal/` at this revision. These source findings settle the initial profile;
-they do not qualify the future client or replace native control cases.
+they do not themselves qualify the client or replace native control cases.
 
 **A native error response does not necessarily mean rejection.** Pinned
 [`Errors.java`](https://github.com/apache/kafka/blob/1156b2752aaa28eafc0b4c4d387e63356793268d/clients/src/main/java/org/apache/kafka/common/protocol/Errors.java#L223-L226)
@@ -223,11 +225,12 @@ page for LogAppendTime attributes. This is an implementation restriction, not a 
 support. The official batch source above describes broker-set maximum timestamps; a later read profile must qualify its
 exact per-record reconstruction against Java. Never claim supplied CreateTime values survived broker rewriting.
 
-Execution gates remain: Metadata4 native semantic qualification; null/empty/incomplete-tail/empty-compacted-batch and
-int64-boundary controls; byte-for-byte Java interoperability; error/abort/cleanup tests; allocation measurements; and
-runtime/package/CI gates. Source research alone passes none of them.
+Execution evidence now includes independent stable one-broker Metadata4 success semantics, Deno record/session
+controls and fresh byte-for-byte Java/candidate interoperability. Their exact scopes are recorded below. Allocation
+measurements, other runtime/package/CI gates and broader native topologies remain separate; source research alone
+passes none of them.
 
-## Existing evidence and the remaining semantic gap
+## Historical originals and their Metadata4 gap
 
 [Retained native evidence](../../tests/fixtures/kafka/README.md) records official Java append offsets 0/1/2, independent
 literal append offsets 3/4/5, complete 128 KiB/null/empty/header/timestamp comparisons, and JDK builtin CRC32C
@@ -236,17 +239,18 @@ remains failed because the verifier expected a display name where Java emitted `
 semantic recovery qualified the unchanged original bytes. No candidate code was imported. That is independent oracle
 qualification, not public client or CI qualification.
 
-**Metadata4 was captured and correlation/framing checked, but not independently semantically decoded.** Before leader
+**The original corpus captured Metadata4 and checked correlation/framing, but did not independently decode semantics.** Before leader
 preflight is trusted, implement its version-specific broker/rack/cluster/controller/topic/partition/replica/ISR parser
 against the pinned primary schema. Add original-native semantic assertions and adversarial duplicate, missing leader,
 wrong topic/partition, count/UTF-8/range/trailing-byte cases. Do not infer that metadata semantics passed because append
-and fetch did. The TypeScript fixture migration itself needs separate execution qualification.
+and fetch did. The later independent Metadata4 corpus below closes the stable success-observation portion without
+rewriting the original receipt's `metadataSemanticClaim: false` result.
 
-## Independent Metadata4 qualification to run next
+## Independent Metadata4 qualification recipe
 
-Source-only preparation now includes `tests/fixtures/kafka/metadata.ts` and
-`tests/fixtures/kafka/oracle/AdminMetadataOracle.java`. Neither has been type-checked, compiled or executed by this
-source slice. The decoder imports no candidate parser and does not share the future client's semantic implementation. It
+The separately qualified tools are `tests/fixtures/kafka/metadata.ts` and
+`tests/fixtures/kafka/oracle/AdminMetadataOracle.java`; the completed native run is recorded below. The decoder imports
+no candidate parser and does not share the production client's semantic implementation. It
 reads one complete length-prefixed Metadata4 frame, verifies its correlation and exact extent, then retains native
 errors, broker IDs/hosts/ports/racks, nullable cluster ID, controller ID, topic/internal flag, and
 partition/leader/replica/ISR fields. Bounded counts, duplicate IDs/names/partitions, strict UTF-8, null sentinels,
@@ -328,8 +332,25 @@ observation; native output, resource admission, exact artifacts and source ident
 original corpus. This does not close native refusal semantics, leadership changes or multibroker controller
 qualification. The maintained
 [`qualify.ts` recipe](../../tests/fixtures/kafka/README.md#repeat-the-independent-metadata4-comparison) describes replay
-inputs and failure retention. Production implementation still follows the migration gates and candidate acceptance steps
-below; a fixture result does not make the proposed client exist.
+inputs and failure retention. This remains distinct from the production candidate acceptance below.
+
+The migration gates completed before implementation. Fresh candidate runs on 6 November 2026 now retain local
+evidence under `.tmp/implementation/kafka-candidate-native-v1/` and `kafka-candidate-native-v2/`. Both terminal
+receipts report `qualified: true`, both directions true and no operation/cleanup failures. The Java producer wrote
+three original records for the production client to fetch, then the production client appended three originals for the
+Java consumer. Every original key/value/header byte, timestamp and offset agreed, including 128 KiB, null/empty fields
+and duplicate ordered headers. The runs took approximately 14.2 and 13.2 seconds respectively; these are fixture
+durations, not throughput benchmarks. The second run additionally compared public metadata with independent fixture
+observations and checked earliest `0`, latest `3` and final latest `6`, with special-query timestamps `-1`.
+
+Separate isolated Deno `--no-check` record controls passed in receipt
+`df287981-946b-4e64-9580-4c61aae01ca3`; session/outcome/ownership controls passed in
+`2c2faee8-3e80-4129-9c8c-b5f753f9c9ea`. These exercise portable source, not every runtime or type checking. The
+native candidate profile is one plaintext broker and one partition, with non-idempotent uncompressed CreateTime
+records. TLS/SASL, multiple brokers, leadership changes and replicated durability are not qualified by it. Keep
+allocation measurements, packed consumers and current release CI as separate gates.
+
+The original ordering remains the acceptance checklist; the scoped results above close only the checks they exercised:
 
 1. Finish current migration type, runtime, native and CI gates on the same branch/PR.
 2. Qualify the typed independent manifest/probe/verifier against frozen originals, preserving previous Python snapshots
@@ -348,7 +369,7 @@ Native qualification preserves the proven serial envelope: one exact admitted Ka
 ceiling, one CPU, 128 PIDs, broker heap 256 MiB and at most one 128 MiB auxiliary JVM at a time. Data tmpfs stays 32
 MiB; additional tmpfs/log/config bounds and fixed five-JAR client classpath remain in the retained recipe. Topic
 creation, CLI readiness, oracle and CRC steps are serial. Testcontainers owns lifecycle, dynamic loopback listener,
-diagnostics and exact cleanup; no concurrent broker/oracle workload is authorized by this source-only plan.
+diagnostics and exact cleanup. Repeat qualifiers serially within that resource envelope.
 
 Compression, producer idempotence/transactions, group offsets/rebalances, SASL mechanisms, automatic leader recovery,
 administration APIs, Connect, broad ecosystem bridges and filesystem semantics remain separate future profiles.
