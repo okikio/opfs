@@ -200,10 +200,16 @@ export async function withKafkaSession<T>(
   if (typeof opener !== "function" || typeof action !== "function" || typeof plaintext !== "boolean") {
     throw new TypeError("Invalid Kafka session capabilities or policy.");
   }
-  const lifetime = new AbortController(), signals = [AbortSignal.timeout(timeout), lifetime.signal];
+  const lifetime = new AbortController(), signals = [lifetime.signal];
   if (parent) signals.push(parent);
   const signal = AbortSignal.any(signals);
   signal.throwIfAborted();
+  // Node's AbortSignal.timeout timer is unreferenced. This operation owns a live
+  // deadline even when an injected channel has no socket keeping Node alive.
+  const deadline = setTimeout(
+    () => lifetime.abort(new DOMException("Kafka operation timed out.", "TimeoutError")),
+    timeout,
+  );
   let retire: (() => Promise<void>) | undefined, session: KafkaSession | undefined;
   let reader: ReadableStreamDefaultReader<Uint8Array> | undefined,
     writer: WritableStreamDefaultWriter<Uint8Array> | undefined;
@@ -247,13 +253,25 @@ export async function withKafkaSession<T>(
   } catch (reason) {
     failures.push(reason);
   }
+  clearTimeout(deadline);
   if (session?.retire() && complete) {
     failures.push(new TypeError("Kafka action returned before its exchange settled."));
   }
   lifetime.abort(new Error("Kafka session action ended."));
   await close([
     async () => {
-      if (retire) await wait(Promise.resolve().then(retire), AbortSignal.timeout(cleanup));
+      if (!retire) return;
+      const retirement = new AbortController();
+      // Retirement has its own deadline after the action's timer has retired.
+      const timer = setTimeout(
+        () => retirement.abort(new DOMException("Kafka cleanup timed out.", "TimeoutError")),
+        cleanup,
+      );
+      try {
+        await wait(Promise.resolve().then(retire), retirement.signal);
+      } finally {
+        clearTimeout(timer);
+      }
     },
     () => reader?.releaseLock(),
     () => writer?.releaseLock(),
