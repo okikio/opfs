@@ -23,6 +23,16 @@ describe("GCS Archive native class interoperability", () => {
         useAuthWithCustomEndpoint: false,
       });
       const bucket = sdk.bucket(GCS_BUCKET);
+      // SDK 7.19.0 converts generation options through Number; only select an exactly representable fixture token.
+      const select = (name: string, generation: string | undefined) => {
+        if (
+          generation === undefined || !Number.isSafeInteger(Number(generation)) ||
+          String(Number(generation)) !== generation
+        ) {
+          throw new Error("The independent SDK cannot select this generation without numeric precision loss.");
+        }
+        return bucket.file(name, { generation });
+      };
       const client = createGcsClient({ endpoint: fixture.endpoint, bucket: GCS_BUCKET, request: { retries: 0 } });
       const producerBytes = new Uint8Array([0, 17, 255, 42, 9]);
       await bucket.file("archive/sdk.bin").save(producerBytes, {
@@ -32,7 +42,22 @@ describe("GCS Archive native class interoperability", () => {
       });
       const stat = await client.head("archive/sdk.bin");
       expect(stat?.storageClass).toBe("ARCHIVE");
-      expect(new Uint8Array(await new Response(await client.get("archive/sdk.bin")).arrayBuffer()))
+      const [producerMetadata] = await select("archive/sdk.bin", stat?.version).getMetadata();
+      expect(typeof producerMetadata.generation).toBe("string");
+      expect(typeof producerMetadata.crc32c).toBe("string");
+      expect(producerMetadata.crc32c).toMatch(/^[A-Za-z0-9+/]{5}[AQgw]==$/);
+      expect(stat).toMatchObject({
+        version: producerMetadata.generation,
+        // The pinned emulator reports this constant; it does not model metadata version evolution or guards.
+        metageneration: "1",
+        crc32c: producerMetadata.crc32c,
+      });
+      expect(producerMetadata.metageneration).toBe("1");
+      expect(
+        new Uint8Array(
+          await new Response(await client.get("archive/sdk.bin", { revision: stat!.revision! })).arrayBuffer(),
+        ),
+      )
         .toEqual(producerBytes);
       expect(
         new Uint8Array(
@@ -64,13 +89,43 @@ describe("GCS Archive native class interoperability", () => {
         final: true,
       });
       expect(result).toMatchObject({ complete: true, receipt: { storageClass: "ARCHIVE", size: bytes.length } });
-      const file = bucket.file("archive/client.bin");
+      if (!result.complete) throw new Error("The candidate did not return a final publication receipt.");
+      const file = select("archive/client.bin", result.receipt.version);
       const [metadata] = await file.getMetadata();
       expect(metadata.storageClass).toBe("ARCHIVE");
+      expect(typeof metadata.generation).toBe("string");
+      expect(typeof metadata.crc32c).toBe("string");
+      expect(metadata.crc32c).toMatch(/^[A-Za-z0-9+/]{5}[AQgw]==$/);
+      expect(metadata.metageneration).toBe("1");
+      expect(result.receipt).toMatchObject({
+        version: metadata.generation,
+        metageneration: "1",
+        crc32c: metadata.crc32c,
+      });
+      expect(await client.head("archive/client.bin", { revision: result.receipt.revision! }))
+        .toMatchObject({ version: metadata.generation, metageneration: "1", crc32c: metadata.crc32c });
       const [download] = await file.download({ validation: false });
       expect(new Uint8Array(download)).toEqual(bytes);
-      expect((await client.list({ prefix: "archive/" })).objects.map((entry) => entry.storageClass))
-        .toEqual(["ARCHIVE", "ARCHIVE"]);
+      const listed = (await client.list({ prefix: "archive/" })).objects;
+      expect(listed.map((entry) => entry.storageClass)).toEqual(["ARCHIVE", "ARCHIVE"]);
+      expect(
+        listed.map((entry) => ({
+          key: entry.key,
+          version: entry.version,
+          metageneration: entry.metageneration,
+          crc32c: entry.crc32c,
+        })),
+      )
+        .toEqual([
+          { key: "archive/client.bin", version: metadata.generation, metageneration: "1", crc32c: metadata.crc32c },
+          {
+            key: "archive/sdk.bin",
+            version: producerMetadata.generation,
+            metageneration: "1",
+            crc32c: producerMetadata.crc32c,
+          },
+        ]);
+      // SDK metadata equality proves retention; validation:false and constant metageneration do not prove checksum or guard enforcement.
     } catch (reason) {
       primary = [reason];
       throw reason;

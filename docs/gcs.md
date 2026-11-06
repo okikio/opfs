@@ -75,6 +75,70 @@ and is not a retention lock. This client does not calculate fees or manage lifec
 legal holds. It does not yet offer same-object class transitions or a rewrite class override. The filesystem adapter
 does not select a class on individual writes; use the native client for this upload intent.
 
+## Native metadata observations and metadata conditions
+
+`head()`, `list()`, final upload/status-query receipts and copy receipts retain optional `metageneration` and `crc32c`
+fields. The native driver constructors return `GcsDriverType`, so these facts and native conditions remain visible to
+TypeScript callers as well as at runtime. The filesystem adapter still returns portable file metadata.
+
+This complete function reads a small preview while requiring the same observed generation and metadata version. The
+application supplies credentials and chooses how to recover when metadata is unavailable or the service refuses a stale
+observation:
+
+```ts
+import { createGcsClient } from "@okikio/opfs/gcs";
+
+export async function readPreview(bucket: string, token: string, key: string) {
+  const client = createGcsClient({ bucket, token });
+  const observed = await client.head(key);
+  if (observed === null) throw new Error("Object does not exist.");
+  if (observed.revision === undefined || observed.metageneration === undefined) {
+    throw new Error("The provider did not report the versions needed for this guarded preview.");
+  }
+  const stream = await client.get(key, {
+    revision: observed.revision,
+    ifMetagenerationMatch: observed.metageneration,
+    at: 0,
+    length: Math.min(64, observed.size),
+  });
+  // This function consumes its stream; callers receiving a stream directly must consume or cancel it.
+  return { observed, bytes: new Uint8Array(await new Response(stream).arrayBuffer()) };
+}
+```
+
+Generation identifies the object's bytes. Metageneration identifies mutable metadata for that particular key and
+generation; it is neither an ETag nor an independent byte revision. Decimal tokens are preserved exactly as strings,
+including values beyond JavaScript's safe integer range. Response metageneration and metadata conditions must be
+positive decimal strings without leading zeroes. No numeric range is inferred from their text representation.
+
+An omitted native field remains absent, while JSON `null`, numeric tokens and malformed strings are rejected. `crc32c`
+must be canonical standard Base64 for four big-endian bytes, including valid zero checksum `AAAAAA==`. It is a
+provider-reported checksum of the whole stored object. Retaining it does not calculate a checksum or validate
+downloaded/uploaded bytes. Whole-object CRC32C cannot validate this example's partial HTTP range. Caller-defined
+`metadata.metageneration` and `metadata.crc32c` remain separate user metadata. These facts follow the
+[Objects resource](https://docs.cloud.google.com/storage/docs/json_api/v1/objects) and Google's
+[data-validation contract](https://docs.cloud.google.com/storage/docs/data-validation).
+
+The native `head`, `get`, `delete`, `put` and `createUpload` options accept `ifMetagenerationMatch` together with a
+positive generation `revision`. Copy/rewrite accepts the same destination pair, plus `ifSourceMetagenerationMatch`
+paired with `sourceRevision`. Missing, ETag, zero or conflicting create-only generation conditions are refused before
+credentials, transport or upload source acquisition. Each rewrite continuation retains both pairs.
+`head(key, { revision })` also selects that exact metadata generation and refuses a conflicting returned generation.
+Empty local reads still do no I/O, so they do not evaluate a server condition.
+
+Google recommends
+[pairing metadata and generation conditions](https://docs.cloud.google.com/storage/docs/request-preconditions) to avoid
+accidentally matching another generation's metadata version. An HTTP 412 raises `GcsError`; deliberately reopen and
+reconcile state rather than silently discarding the condition. Upload metadata conditions are sent in the
+[resumable Objects.insert initiation request](https://docs.cloud.google.com/storage/docs/json_api/v1/objects/insert).
+This profile does not establish whether a service rechecks concurrent metadata changes at final publication. Extent
+writes and status queries retain session authority without adding a new metadata condition. The new object's reported
+metageneration is independent of the previous object's guard and is not compared with it.
+
+Malformed final upload/status-query or rewrite metadata raises `GcsPublicationError`. The object may already have been
+published; the failure does not prove absence or justify replay. Retain the session when available and reconcile its
+outcome. A later current HEAD cannot replace this attempt's attributable receipt.
+
 ## Revisions and byte ranges
 
 `head()` returns `revision: { kind: "generation", value }` and `version` as opaque decimal strings. The ETag stays in
@@ -207,3 +271,19 @@ Protocol evidence inspected on 2026-11-05:
 
 The [insert contract](https://docs.cloud.google.com/storage/docs/json_api/v1/objects/insert) places `storageClass` in
 native Object metadata. The SDK is not imported by production code and adds no runtime dependency to this client.
+
+### Metadata interoperability limits
+
+The pinned emulator's `newObjectResponse` reports the constant metageneration `"1"`; its upload condition parser tracks
+generation conditions only, and its object handlers do not enforce metageneration matches. The SDK interoperability
+fixture therefore compares reported metadata and complete bytes, not metadata-version evolution or stale-guard refusal.
+Authored Fetch tests cover exact paired query construction, early refusal and 412 handling. Native Google
+metadata-condition enforcement remains unverified. See the immutable emulator
+[response mapping](https://github.com/fsouza/fake-gcs-server/blob/896ece51e49eed0946089f3089f6343855c0d106/fakestorage/response.go#L169),
+[upload conditions](https://github.com/fsouza/fake-gcs-server/blob/896ece51e49eed0946089f3089f6343855c0d106/fakestorage/upload.go#L389)
+and
+[object handlers](https://github.com/fsouza/fake-gcs-server/blob/896ece51e49eed0946089f3089f6343855c0d106/fakestorage/object.go#L707).
+The pinned SDK converts generation options through `Number`; the fixture refuses any token that cannot round-trip as a
+safe integer before using that SDK's generation selection. Candidate precision above that range is checked separately
+with authored raw decimal fixtures. SDK checksum validation remains disabled; metadata equality is not checksum
+verification.

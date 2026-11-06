@@ -235,6 +235,7 @@ try {
     import { ResticClient } from '@okikio/opfs/restic';
     import { LakefsClient } from '@okikio/opfs/lakefs';
     import { createGcsClient, GcsStorageClassSchema } from '@okikio/opfs/gcs';
+    import { createGcsDriverFromClient } from '@okikio/opfs/driver/gcs';
     import { openFits } from '@okikio/opfs/dataset/fits';
     import { openNetcdf } from '@okikio/opfs/dataset/netcdf';
     import { openZarr, createZarrObjectLedger } from '@okikio/opfs/dataset/zarr';
@@ -1399,20 +1400,40 @@ try {
     assertBytes(await arweaveDownloaded.source.read(0, 1), arweaveBytes);
     if (arweaveCalls !== 2 || Object.hasOwn(arweaveRemote.transaction, 'verifyData')) throw new Error('Packed Arweave ownership boundary changed');
     let gcsArchiveCalls = 0;
+    const gcsReported = { name: 'archive.bin', size: '3', generation: '18446744073709551614', storageClass: 'ARCHIVE', metageneration: '9007199254740993', crc32c: 'AQIDBA==' };
     const gcsArchive = createGcsClient({
       bucket: 'installed-bucket', endpoint: 'https://storage.example', token: 'explicit-token',
       fetch: async (input, init) => {
+        const url = new URL(String(input));
         if (new Headers(init?.headers).get('authorization') !== 'Bearer explicit-token') throw new Error('Packed GCS explicit authority changed');
-        if (gcsArchiveCalls++ === 0) {
+        const step = gcsArchiveCalls++;
+        if (step === 0) {
           if (JSON.parse(String(init?.body)).storageClass !== 'ARCHIVE') throw new Error('Packed GCS class intent lost');
+          if (url.searchParams.get('ifGenerationMatch') !== '9007199254740993' || url.searchParams.get('ifMetagenerationMatch') !== '18446744073709551615') throw new Error('Packed GCS initiation guard lost precision');
           return new Response(null, { headers: { location: 'https://storage.example/upload?upload_id=installed-session' } });
         }
-        assertBytes(new Uint8Array(await new Response(init.body).arrayBuffer()), new Uint8Array([1, 2, 3]));
-        return Response.json({ name: 'archive.bin', size: '3', generation: '18446744073709551614', storageClass: 'ARCHIVE' });
+        if (step === 1) {
+          if (url.searchParams.has('ifMetagenerationMatch')) throw new Error('Packed GCS extent inherited initiation guard');
+          assertBytes(new Uint8Array(await new Response(init.body).arrayBuffer()), new Uint8Array([1, 2, 3]));
+          return Response.json(gcsReported);
+        }
+        if (step === 2) {
+          if (url.searchParams.get('generation') !== gcsReported.generation || url.searchParams.get('ifGenerationMatch') !== gcsReported.generation || url.searchParams.get('ifMetagenerationMatch') !== gcsReported.metageneration) throw new Error('Packed native GCS driver discarded paired observation guard');
+          return Response.json(gcsReported);
+        }
+        if (step === 3) return Response.json({items: [gcsReported]});
+        throw new Error('Unexpected packed GCS request');
       },
     });
-    const gcsArchiveReceipt = await gcsArchive.put('archive.bin', new Uint8Array([1, 2, 3]), { storageClass: GcsStorageClassSchema.parse('ARCHIVE') });
-    if (gcsArchiveReceipt.storageClass !== 'ARCHIVE' || gcsArchiveReceipt.revision.value !== '18446744073709551614') throw new Error('Packed GCS class/generation receipt changed');
+    const gcsArchiveReceipt = await gcsArchive.put('archive.bin', new Uint8Array([1, 2, 3]), { storageClass: GcsStorageClassSchema.parse('ARCHIVE'), revision: {kind: 'generation', value: '9007199254740993'}, ifMetagenerationMatch: '18446744073709551615' });
+    if (gcsArchiveReceipt.storageClass !== 'ARCHIVE' || gcsArchiveReceipt.revision.value !== gcsReported.generation || gcsArchiveReceipt.metageneration !== gcsReported.metageneration || gcsArchiveReceipt.crc32c !== gcsReported.crc32c) throw new Error('Packed GCS native receipt lost exact metadata');
+    const gcsDriver = createGcsDriverFromClient(gcsArchive);
+    const gcsHead = await gcsDriver.head('archive.bin', {revision: gcsArchiveReceipt.revision, ifMetagenerationMatch: gcsArchiveReceipt.metageneration});
+    const gcsListed = await gcsDriver.list({prefix: 'archive'});
+    for (const observation of [gcsHead, gcsListed.objects[0]]) {
+      if (observation?.metageneration !== gcsReported.metageneration || observation?.crc32c !== gcsReported.crc32c) throw new Error('Packed GCS driver dropped provider metadata');
+    }
+    if (gcsArchiveCalls !== 4) throw new Error('Packed GCS request count changed');
     const lakefs = new LakefsClient({
       endpoint: 'https://lake.example/', repository: 'installed', credentials: () => 'Bearer explicit-lake-token',
       fetch: async (input, init) => {
@@ -1993,6 +2014,7 @@ try {
     import { ResticClient } from '@okikio/opfs/restic';
     import { LakefsClient } from '@okikio/opfs/lakefs';
     import { createGcsClient, GcsStorageClassSchema } from '@okikio/opfs/gcs';
+    import { createGcsDriverFromClient } from '@okikio/opfs/driver/gcs';
     import { openFits } from '@okikio/opfs/dataset/fits';
     import { openNetcdf } from '@okikio/opfs/dataset/netcdf';
     import { openZarr, createZarrObjectLedger } from '@okikio/opfs/dataset/zarr';
@@ -2131,7 +2153,20 @@ try {
     const gcsNative = createGcsClient({ bucket: 'types' });
     const gcsClass: import('@okikio/opfs/gcs').GcsStorageClassType = GcsStorageClassSchema.parse('ARCHIVE');
     const gcsReceipt: import('@okikio/opfs/gcs').GcsReceiptType = await gcsNative.put('object', new Uint8Array(), { storageClass: gcsClass });
-    void gcsReceipt.storageClass;
+    const gcsMetadata: string | undefined = gcsReceipt.metageneration;
+    const gcsChecksum: string | undefined = gcsReceipt.crc32c;
+    const gcsGuard: import('@okikio/opfs/gcs').GcsHeadOptionsType = {revision: {kind: 'generation', value: '18446744073709551615'}, ifMetagenerationMatch: '9007199254740993'};
+    const gcsRead: import('@okikio/opfs/gcs').GcsGetOptionsType = {...gcsGuard, at: 0, length: 1};
+    const gcsDelete: import('@okikio/opfs/gcs').GcsDeleteOptionsType = gcsGuard;
+    const gcsCopy: import('@okikio/opfs/gcs').GcsCopyOptionsType = {...gcsGuard, sourceRevision: gcsGuard.revision, ifSourceMetagenerationMatch: '18446744073709551615'};
+    const gcsDriver: import('@okikio/opfs/driver/gcs').GcsDriverType = createGcsDriverFromClient(gcsNative);
+    const gcsHead: import('@okikio/opfs/gcs').GcsStatType | null = await gcsDriver.head('object', gcsGuard);
+    const gcsList: import('@okikio/opfs/gcs').GcsListType = await gcsDriver.list({prefix: ''});
+    const gcsDriverPut: import('@okikio/opfs/gcs').GcsReceiptType = await gcsDriver.put('object', new Uint8Array(), gcsGuard);
+    const gcsDriverCopy: import('@okikio/opfs/gcs').GcsReceiptType = await gcsDriver.copy('source', 'object', gcsCopy);
+    await gcsDriver.get('object', gcsRead);
+    await gcsDriver.delete('object', gcsDelete);
+    void [gcsReceipt.storageClass, gcsMetadata, gcsChecksum, gcsHead?.metageneration, gcsList.objects[0]?.crc32c, gcsDriverPut.metageneration, gcsDriverCopy.crc32c];
     const lakefs = new LakefsClient({ endpoint: 'https://lake.example/', repository: 'types' });
     const lakefsPut: import('@okikio/opfs/lakefs').LakefsPutType = { ifNoneMatch: '*' };
     const lakefsCommit: import('@okikio/opfs/lakefs').LakefsCommitType = await lakefs.commit('branch', 'Publish');
