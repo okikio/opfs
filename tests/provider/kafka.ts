@@ -1,11 +1,115 @@
-/** Owned native Kafka fixture for Metadata observations; no production client or leader routing. */
+/** Owned native Kafka fixture for Metadata and binary record observations; no production client or leader routing. */
 import { Buffer } from "node:buffer";
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { lstatSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { createConnection } from "node:net";
+import type { Socket } from "node:net";
+import type { KafkaChannelType } from "../../src/kafka/session.ts";
 import { close } from "../../src/close.ts";
 import type { StartedTestContainer, WaitStrategy } from "testcontainers";
+
+/** A finite retirement wait proves the owned socket closed, rather than only requesting destruction. */
+function retireSocket(socket: Socket): Promise<void> {
+  if (socket.closed) return Promise.resolve();
+  return new Promise<void>((resolve, reject) => {
+    const ended = (): void => {
+      clearTimeout(timer);
+      resolve();
+    };
+    const timer = setTimeout(() => {
+      socket.off("close", ended);
+      reject(new Error("Owned Kafka fixture socket retirement deadline."));
+    }, 5000);
+    socket.once("close", ended);
+    socket.destroy();
+  });
+}
+/**
+ * Borrow a paused loopback socket under Web Stream backpressure. No TLS or authentication claim is made.
+ * Every enqueue is a private at-most-64-KiB copy. A larger native buffer is retained and split before another read.
+ */
+function channel(socket: Socket, retire: () => Promise<void>): KafkaChannelType {
+  let pending: Uint8Array | undefined, at = 0, socketFault: Error | undefined;
+  socket.on("error", (reason: Error) => {
+    socketFault = reason;
+  });
+  return {
+    security: "plaintext",
+    readable: new ReadableStream<Uint8Array>({
+      pull(controller) {
+        return new Promise<void>((resolve, reject) => {
+          const clean = (): void => {
+            socket.off("readable", read);
+            socket.off("end", read);
+            socket.off("close", read);
+            socket.off("error", error);
+          };
+          const error = (reason: Error): void => {
+            clean();
+            reject(reason);
+          };
+          const read = (): void => {
+            try {
+              if (socketFault) {
+                error(socketFault);
+                return;
+              }
+              if (!pending || at === pending.length) {
+                const bytes: unknown = socket.read(Math.min(65536, socket.readableLength));
+                if (bytes instanceof Uint8Array && bytes.length) {
+                  pending = bytes;
+                  at = 0;
+                }
+              }
+              if (pending && at < pending.length) {
+                const end = Math.min(pending.length, at + 65536);
+                const bytes = new Uint8Array(pending.subarray(at, end));
+                at = end;
+                if (at === pending.length) {
+                  pending = undefined;
+                  at = 0;
+                }
+                clean();
+                controller.enqueue(bytes);
+                resolve();
+              } else if (socket.readableEnded) {
+                clean();
+                controller.close();
+                resolve();
+              } else if (socket.destroyed) error(new Error("Owned Kafka fixture socket closed."));
+            } catch (reason) {
+              clean();
+              reject(reason);
+            }
+          };
+          socket.on("readable", read);
+          socket.once("end", read);
+          socket.once("close", read);
+          socket.once("error", error);
+          read();
+        });
+      },
+      cancel() {
+        return retire();
+      },
+    }, { highWaterMark: 0 }),
+    writable: new WritableStream<Uint8Array>({
+      write(bytes) {
+        // Completion of write's callback supplies the transport's backpressure boundary.
+        const captured = Buffer.from(bytes);
+        return new Promise<void>((resolve, reject) => {
+          socket.write(captured, (reason) => reason ? reject(reason) : resolve());
+        });
+      },
+      abort() {
+        return retire();
+      },
+    }),
+    close: retire,
+  };
+}
 
 export const KAFKA_IMAGE = "apache/kafka@sha256:77b56ddfb7104fc5814a3d0127fcff49983220c7c7ad9bfc1f0af4d439228329";
 const MIB = 1048576;
@@ -137,7 +241,7 @@ function file(path: string, maximum: number): Buffer<ArrayBuffer> {
   return bytes;
 }
 export interface KafkaInputType {
-  /** Offline-compiled AdminMetadataOracle classes. Compilation and compiler evidence belong to the caller. */
+  /** Offline-compiled AdminMetadataOracle and optional KafkaOracle/CrcOracle classes; caller owns compiler evidence. */
   readonly classes: string;
   /** Directory containing the exact five admitted SDK JARs. They are copied as bytes, never installed. */
   readonly jars: string;
@@ -146,6 +250,9 @@ export interface KafkaCommandReceiptType {
   readonly operation: string;
   readonly stdoutBytes: number;
   readonly stdoutSha256: string;
+  /** Present only for an explicitly piped private oracle manifest. */
+  readonly stdinBytes?: number;
+  readonly stdinSha256?: string;
   readonly stderr: string;
   readonly exitCode: 0;
 }
@@ -158,6 +265,9 @@ export class KafkaFixture implements AsyncDisposable {
   readonly receipts: KafkaCommandReceiptType[] = [];
   readonly #server: StartedTestContainer;
   readonly #release: () => Promise<void>;
+  readonly #oracle: boolean;
+  readonly #sockets = new Set<Socket>();
+  readonly #retirements = new WeakMap<Socket, Promise<void>>();
   #closing: Promise<void> | undefined;
   #busy = false;
   #commands = 0;
@@ -170,29 +280,101 @@ export class KafkaFixture implements AsyncDisposable {
     this.#server = server;
     this.topic = topic;
     this.inputs = inputs;
+    this.#oracle = inputs.some((entry) => entry.file === "KafkaOracle.class");
     this.host = server.getHost();
     this.port = server.getMappedPort(9092);
     this.#release = release;
   }
+  /** Cache one socket retirement event; remove ownership only after its exact close notification. */
+  #retireSocket(socket: Socket): Promise<void> {
+    const pending = this.#retirements.get(socket);
+    if (pending) return pending;
+    const retired = retireSocket(socket).then(() => {
+      this.#sockets.delete(socket);
+    });
+    this.#retirements.set(socket, retired);
+    return retired;
+  }
+  /**
+   * Open only the owned disposable loopback listener. The signal controls acquisition, not a transferred session.
+   * Callers must explicitly permit plaintext; this fixture proves no TLS, peer authentication or broker discovery.
+   */
+  async openChannel({ signal }: { readonly signal: AbortSignal }): Promise<KafkaChannelType> {
+    signal.throwIfAborted();
+    if (this.#closing || this.#sockets.size >= 16 || !["127.0.0.1", "localhost", "::1"].includes(this.host)) {
+      throw new Error("Kafka fixture socket ownership or loopback admission differs.");
+    }
+    const socket = createConnection({ host: this.host, port: this.port });
+    // The set owns a socket before any await, including connect failures and acquisition cancellation.
+    this.#sockets.add(socket);
+    socket.on("error", () => {});
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const clean = (): void => {
+          socket.off("connect", ready);
+          socket.off("error", error);
+          socket.off("close", ended);
+          signal.removeEventListener("abort", abort);
+        };
+        const ready = (): void => {
+          clean();
+          resolve();
+        };
+        const error = (reason: unknown): void => {
+          clean();
+          reject(reason);
+        };
+        const ended = (): void => error(new Error("Owned Kafka socket closed during acquisition."));
+        const abort = (): void => {
+          socket.destroy();
+          error(signal.reason);
+        };
+        socket.once("connect", ready);
+        socket.once("error", error);
+        socket.once("close", ended);
+        signal.addEventListener("abort", abort, { once: true });
+        if (signal.aborted) abort();
+      });
+      signal.throwIfAborted();
+      if (this.#closing) throw new Error("Kafka fixture retired during channel acquisition.");
+      return channel(socket, () => this.#retireSocket(socket));
+    } catch (reason) {
+      await close([() => this.#retireSocket(socket)], [reason]);
+      throw reason;
+    }
+  }
   /** A timeout kills the CLI, then closes the entire owned broker so an auxiliary JVM cannot survive its deadline. */
-  async #run(operation: string, command: readonly string[]): Promise<Buffer<ArrayBuffer>> {
+  async #run(
+    operation: string,
+    command: readonly string[],
+    input?: Buffer<ArrayBuffer>,
+  ): Promise<Buffer<ArrayBuffer>> {
+    if (input !== undefined && input.length > MIB) throw new Error("Kafka native input exceeds 1 MiB policy.");
     if (this.#closing || this.#busy || ++this.#commands > 8) {
       throw new Error("Kafka auxiliary JVM ownership or command budget exceeded.");
     }
     this.#busy = true;
     try {
-      // Stderr is collected separately: Admin stdout is a binary envelope.
-      const result = spawnSync("docker", ["exec", this.#server.getId(), ...command], {
+      // Stderr stays separate from binary stdout; stdin is granted only to an admitted caller-owned oracle input.
+      const result = spawnSync("docker", [
+        "exec",
+        ...(input === undefined ? [] : ["-i"]),
+        this.#server.getId(),
+        ...command,
+      ], {
         timeout: 25_000,
         maxBuffer: 2 * MIB,
         killSignal: "SIGKILL",
-        stdio: ["ignore", "pipe", "pipe"],
+        stdio: [input === undefined ? "ignore" : "pipe", "pipe", "pipe"],
+        input,
       });
       const output = result.stdout ?? Buffer.alloc(0), stderr = result.stderr ?? Buffer.alloc(0);
       if (result.error || result.status !== 0 || result.signal || output.length > MIB || stderr.length > 65536) {
         throw new Error("Kafka native auxiliary command failed.", {
           cause: {
             operation,
+            stdinBytes: input?.length,
+            stdinSha256: input === undefined ? undefined : hash(input),
             error: result.error,
             status: result.status,
             signal: result.signal,
@@ -207,6 +389,7 @@ export class KafkaFixture implements AsyncDisposable {
       }
       this.receipts.push({
         operation,
+        ...(input === undefined ? {} : { stdinBytes: input.length, stdinSha256: hash(input) }),
         stdoutBytes: output.length,
         stdoutSha256: hash(output),
         stderr: stderr.toString("utf8"),
@@ -258,8 +441,35 @@ export class KafkaFixture implements AsyncDisposable {
       "0",
     ]);
   }
+  /**
+   * Run the unchanged admitted Java producer/consumer oracle with a private binary manifest on stdin.
+   * Input is copied before yielding and limited to 1 MiB, below the original oracle own 2 MiB admission.
+   * The caller decodes the complete KOR1 envelope and retains native evidence; no semantic success is inferred here.
+   */
+  async oracle(input: Uint8Array): Promise<Buffer<ArrayBuffer>> {
+    if (!this.#oracle) throw new Error("Kafka record oracle classes were not admitted.");
+    if (!(input instanceof Uint8Array) || input.byteLength > MIB) {
+      throw new Error("Kafka record oracle input exceeds byte admission.");
+    }
+    const captured = Buffer.from(input);
+    if (captured.length > MIB) throw new Error("Kafka record oracle input exceeds 1 MiB policy.");
+    const jars = JARS.map(([name]) => "/oracle/" + name).join(":");
+    return this.#run("record-oracle", [
+      ...environment("-Xms16m -Xmx128m"),
+      "/opt/java/openjdk/bin/java",
+      "-Xms16m",
+      "-Xmx128m",
+      "-XX:ActiveProcessorCount=1",
+      "-cp",
+      `/oracle:${jars}`,
+      "KafkaOracle",
+    ], captured);
+  }
   close(): Promise<void> {
-    return this.#closing ??= this.#release();
+    return this.#closing ??= close([
+      ...[...this.#sockets].map((socket) => () => this.#retireSocket(socket)),
+      this.#release,
+    ]);
   }
   [Symbol.asyncDispose](): Promise<void> {
     return this.close();
@@ -280,10 +490,10 @@ export async function openKafka(options: KafkaInputType): Promise<KafkaFixture> 
     admit(name, value);
   }
   const names = readdirSync(resolve(options.classes)).filter((name) =>
-    /^AdminMetadataOracle(?:\$[A-Za-z0-9_]+)?\.class$/u.test(name)
+    /^(?:AdminMetadataOracle|KafkaOracle|CrcOracle)(?:\$[A-Za-z0-9_]+)?\.class$/u.test(name)
   ).sort();
-  if (!names.includes("AdminMetadataOracle.class") || names.length > 16) {
-    throw new Error("Kafka Admin class set differs.");
+  if (!names.includes("AdminMetadataOracle.class") || names.length > 24) {
+    throw new Error("Kafka oracle class set differs.");
   }
   let classBytes = 0;
   for (const name of names) {

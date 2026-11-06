@@ -95,11 +95,12 @@ try {
     throw new Error(`Unexpected npm package name: ${manifest.name}`);
   }
   if (
-    Object.keys(manifest.exports ?? {}).length !== 168 || !("./glacier" in (manifest.exports ?? {})) ||
+    Object.keys(manifest.exports ?? {}).length !== 169 || !("./glacier" in (manifest.exports ?? {})) ||
+    !("./kafka" in (manifest.exports ?? {})) ||
     "./aws" in (manifest.exports ?? {})
   ) {
     throw new Error(
-      "Packed public surface must contain 168 explicit entries, including Glacier and excluding internal AWS signing.",
+      "Packed public surface must contain 169 explicit entries, including Kafka and Glacier and excluding internal AWS signing.",
     );
   }
   if (manifest.dependencies?.["drizzle-orm"]) {
@@ -290,6 +291,7 @@ try {
     import { openRedisClient, RedisExpirySchema } from '@okikio/opfs/redis';
     import { openJwe, JweProtectedSchema } from '@okikio/opfs/crypto/jwe';
     import { NatsClient } from '@okikio/opfs/nats';
+    import { KafkaClient, createKafkaClient, KafkaError, KafkaOutcomeError, KafkaCompletionError } from '@okikio/opfs/kafka';
     import { AmqpClient } from '@okikio/opfs/amqp';
     import { openParquet } from '@okikio/opfs/dataset/parquet';
     import { openOrc } from '@okikio/opfs/dataset/orc';
@@ -1020,6 +1022,54 @@ try {
       try{await message.source.read(0,0);}catch(error){if(error?.code!=='disposed')throw error;refused=true;}
       if(!refused)throw new Error('Packed disposed JWE source remained readable');
     }
+    // Authored classic response bytes make the packed-path check independent of candidate encoders.
+    // Fresh native SDK interoperability is qualified separately; this peer proves no broker behavior.
+    const kafkaCat=(...parts)=>{
+      const bytes=new Uint8Array(parts.reduce((size,part)=>size+part.length,0));let at=0;
+      for(const part of parts){bytes.set(part,at);at+=part.length;}return bytes;
+    };
+    const kafkaInt=(value,width=4)=>{const bytes=new Uint8Array(width),view=new DataView(bytes.buffer);if(width===2)view.setInt16(0,value);else view.setInt32(0,value);return bytes;};
+    const kafkaLong=value=>{const bytes=new Uint8Array(8);new DataView(bytes.buffer).setBigInt64(0,value);return bytes;};
+    const kafkaText=value=>{const bytes=new TextEncoder().encode(value);return kafkaCat(kafkaInt(bytes.length,2),bytes);};
+    const kafkaBody=key=>{
+      if(key===18)return kafkaCat(kafkaInt(0,2),kafkaInt(5),...[[18,0],[3,4],[0,3],[1,4],[2,1]].map(([api,version])=>kafkaCat(kafkaInt(api,2),kafkaInt(version,2),kafkaInt(version,2))));
+      if(key===3)return kafkaCat(kafkaInt(0),kafkaInt(1),kafkaInt(1),kafkaText('inert.example'),kafkaInt(9092),kafkaInt(-1,2),kafkaText('packed-cluster'),kafkaInt(1),kafkaInt(1),kafkaInt(0,2),kafkaText('owned'),new Uint8Array([0]),kafkaInt(1),kafkaInt(0,2),kafkaInt(0),kafkaInt(1),kafkaInt(1),kafkaInt(1),kafkaInt(1),kafkaInt(1));
+      if(key===0)return kafkaCat(kafkaInt(1),kafkaText('owned'),kafkaInt(1),kafkaInt(0),kafkaInt(0,2),kafkaLong(23n),kafkaLong(-1n),kafkaInt(0));
+      throw new Error('Packed Kafka requested an unexpected API');
+    };
+    const kafkaPeer=(mode='success')=>{
+      let controller,closed=0;const seen=[];
+      const readable=new ReadableStream({start(value){controller=value;}});
+      const writable=new WritableStream({write(bytes){
+        const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength),key=view.getInt16(4),version=view.getInt16(6),correlation=view.getInt32(8);
+        if(view.getInt32(0)!==bytes.length-4||view.getInt16(12)!==4||new TextDecoder().decode(bytes.subarray(14,18))!=='opfs'||correlation!==seen.length+1)throw new Error('Packed Kafka classic request header changed');
+        if(version!==({18:0,3:4,0:3})[key])throw new Error('Packed Kafka API version changed');
+        seen.push(key);
+        if(key===0&&mode==='unknown')throw new Error('Authored dispatched transport fault');
+        const body=kafkaCat(kafkaInt(correlation),kafkaBody(key)),frame=kafkaCat(kafkaInt(body.length),body);
+        controller.enqueue(frame.slice(0,3));controller.enqueue(frame.slice(3));
+      }});
+      const channel={readable,writable,security:'tls',async close(){closed++;controller.close();if(mode==='cleanup')throw new Error('Authored retirement fault');}};
+      return {channel,seen,closed:()=>closed};
+    };
+    const kafkaRecord={timestamp:1700000000000n,key:null,value:new Uint8Array([0,255]),headers:[]};
+    let kafkaOpens=0;
+    const kafkaInert={topic:'owned',partition:0,brokerId:1,openChannel:async()=>{kafkaOpens++;throw new Error('Constructor must not acquire');}};
+    new KafkaClient(kafkaInert);const kafkaCancelled=createKafkaClient(kafkaInert);
+    if(kafkaOpens!==0)throw new Error('Packed Kafka constructor performed I/O');
+    const kafkaAbort=new AbortController(),kafkaReason=new Error('Packed caller cancellation');kafkaAbort.abort(kafkaReason);
+    let kafkaCancelledCorrect=false;try{await kafkaCancelled.metadata({signal:kafkaAbort.signal});}catch(error){kafkaCancelledCorrect=error===kafkaReason;}
+    if(!kafkaCancelledCorrect||kafkaOpens!==0)throw new Error('Packed Kafka ignored cancellation before acquisition');
+    for(const mode of ['success','unknown','cleanup']){
+      const peer=kafkaPeer(mode),client=createKafkaClient({topic:'owned',partition:0,brokerId:1,openChannel:async()=>peer.channel});
+      let receipt,failure;try{receipt=await client.append([kafkaRecord]);}catch(error){failure=error;}
+      if(mode==='success'&&(failure||receipt.topic!=='owned'||receipt.partition!==0||receipt.baseOffset!==23n||receipt.count!==1||receipt.logAppendTime!==-1n))throw new Error('Packed Kafka acknowledgement changed');
+      if(mode==='unknown'&&(!(failure instanceof KafkaOutcomeError)||failure.outcome!=='unknown'))throw new Error('Packed Kafka lost an unknown append outcome');
+      if(mode==='cleanup'&&(!(failure instanceof KafkaCompletionError)||failure.receipt.baseOffset!==23n||failure.receipt.count!==1))throw new Error('Packed Kafka lost a known acknowledgement during retirement');
+      if(peer.seen.join(',')!=='18,3,0'||peer.closed()!==1||peer.channel.readable.locked||peer.channel.writable.locked)throw new Error('Packed Kafka exchange or channel ownership changed');
+    }
+    const kafkaRefusal=new KafkaError('append',20,{baseOffset:23n});
+    if(kafkaRefusal.operation!=='append'||kafkaRefusal.code!==20)throw new Error('Packed Kafka native error identity changed');
     const amqpNative = ${
       JSON.stringify(JSON.parse(await readFile(new URL("../fixtures/amqp/independent.json", import.meta.url), "utf8")))
     };
@@ -2163,6 +2213,7 @@ try {
     import { openRedisClient, RedisExpirySchema } from '@okikio/opfs/redis';
     import { openJwe, JweProtectedSchema } from '@okikio/opfs/crypto/jwe';
     import { NatsClient } from '@okikio/opfs/nats';
+    import { KafkaClient, createKafkaClient, KafkaError, KafkaOutcomeError, KafkaCompletionError } from '@okikio/opfs/kafka';
     import { openParquet } from '@okikio/opfs/dataset/parquet';
     import { openOrc } from '@okikio/opfs/dataset/orc';
     import { openAge } from '@okikio/opfs/crypto/age';
@@ -2391,6 +2442,17 @@ try {
     const jweIntegrityTyped: 'whole-jwe-message-authenticated' = jweReadTyped.integrity;
     jweTyped.dispose();
     const natsTyped: NatsClient = new NatsClient({openChannel:async()=>{throw new Error('type-only');}});
+    const kafkaOptionsTyped: import('@okikio/opfs/kafka').KafkaOptionsType = {topic:'owned',partition:0,brokerId:1,openChannel:async():Promise<import('@okikio/opfs/kafka').KafkaChannelType>=>{throw new Error('type-only');}};
+    const kafkaTyped: KafkaClient = createKafkaClient(kafkaOptionsTyped);
+    const kafkaRecordTyped: import('@okikio/opfs/kafka').KafkaRecordType = {timestamp:1700000000000n,key:null,value:new Uint8Array(),headers:[]};
+    const kafkaReceiptTyped: import('@okikio/opfs/kafka').KafkaReceiptType = await kafkaTyped.append([kafkaRecordTyped]);
+    const kafkaPageTyped: import('@okikio/opfs/kafka').KafkaPageType = await kafkaTyped.fetch(kafkaReceiptTyped.baseOffset);
+    const kafkaMetadataTyped: import('@okikio/opfs/kafka').KafkaMetadataType = await kafkaTyped.metadata();
+    const kafkaOffsetTyped: import('@okikio/opfs/kafka').KafkaOffsetType = await kafkaTyped.offset('latest');
+    const kafkaFetchedTyped: import('@okikio/opfs/kafka').KafkaFetchedRecordType | undefined = kafkaPageTyped.records[0];
+    const kafkaHeaderTyped: import('@okikio/opfs/kafka').KafkaHeaderType = {name:'dup',value:null};
+    const kafkaErrorsTyped: readonly Error[] = [new KafkaError('append',20),new KafkaOutcomeError(new Error('type-only')),new KafkaCompletionError(kafkaReceiptTyped,new Error('type-only'))];
+    void [kafkaMetadataTyped,kafkaOffsetTyped,kafkaFetchedTyped,kafkaHeaderTyped,kafkaErrorsTyped];
     const natsReceiptTyped: import('@okikio/opfs/nats').NatsReceiptType = await natsTyped.publish('OWNED','owned.data',new Uint8Array(),{inbox:'_INBOX.package.publish'});
     const natsMessageTyped: import('@okikio/opfs/nats').NatsMessageType = await natsTyped.get('OWNED',natsReceiptTyped.sequence,{inbox:'_INBOX.package.read'});
     const orcTyped: import('@okikio/opfs/dataset/orc').OrcDatasetType = await openOrc(createByteSource(new Uint8Array()),{maxRows:16});
@@ -2602,6 +2664,7 @@ try {
       undent`
       export { openJwe } from '@okikio/opfs/crypto/jwe';
       export { NatsClient } from '@okikio/opfs/nats';
+      export { KafkaClient, createKafkaClient } from '@okikio/opfs/kafka';
       export { openParquet } from '@okikio/opfs/dataset/parquet';
       export { openOrc } from '@okikio/opfs/dataset/orc';
       export { openAge } from '@okikio/opfs/crypto/age';
@@ -2683,7 +2746,7 @@ try {
           throw new Error('Optional import discovered ambient capability: ' + name);
         }});
       }
-      for (const spec of ['crypto/jwe', 'nats', 'dataset/parquet', 'crypto/age', 'crypto/age-node', 'dataset/orc', 'amqp', 'glacier']) await import('@okikio/opfs/' + spec);
+      for (const spec of ['crypto/jwe', 'nats', 'kafka', 'dataset/parquet', 'crypto/age', 'crypto/age-node', 'dataset/orc', 'amqp', 'glacier']) await import('@okikio/opfs/' + spec);
       if (touched.length) throw new Error('Optional import touched ambient capabilities: ' + touched.join(','));
     } finally {
       for (const [name, descriptor] of descriptors) {
@@ -2691,7 +2754,7 @@ try {
         else delete globalThis[name];
       }
     }
-    console.log('Imported eight optional capabilities without ambient crypto, fetch or sockets');
+    console.log('Imported nine optional capabilities without ambient crypto, fetch or sockets');
   `,
   );
   await command("node", ["optional-imports.mjs"], { cwd: consumer });
@@ -2703,7 +2766,7 @@ try {
   const specs = Object.keys(manifest.exports ?? {}).map((key) =>
     key === "." ? "@okikio/opfs" : `@okikio/opfs/${key.slice(2)}`
   );
-  if (specs.length !== 168) throw new Error("Expected all 168 public packed entrypoints.");
+  if (specs.length !== 169) throw new Error("Expected all 169 public packed entrypoints.");
   if (Object.keys(manifest.exports ?? {}).some((key) => key === "./aws" || key.includes("*"))) {
     throw new Error("Internal AWS signing must remain outside the explicit public export map.");
   }

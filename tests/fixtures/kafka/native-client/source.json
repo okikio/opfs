@@ -1,0 +1,81 @@
+{
+  "scope": "Current source identities recorded during the final native client run; compiled classes have their separate offline receipt",
+  "compileReceipt": "aca3d0f3-9de5-4640-9d72-86736eeadc96",
+  "files": [
+    {
+      "path": "src/kafka.ts",
+      "bytes": 17877,
+      "sha256": "3a2acec114be2ff38e4b44546134bf9969b7d500ce7dca1c00fb12899649d7e1"
+    },
+    {
+      "path": "src/kafka/wire.ts",
+      "bytes": 10607,
+      "sha256": "009a2cc5a971a565a74845ab75b48f13412f104fe633823e72596d6c3b6a7e8e"
+    },
+    {
+      "path": "src/kafka/records.ts",
+      "bytes": 14766,
+      "sha256": "5a91d35034df7fe249874af39911629b1183750295c341ed2a2bdeb7a49d8a26"
+    },
+    {
+      "path": "src/kafka/session.ts",
+      "bytes": 11581,
+      "sha256": "ca9b764c1ae096cc9047dc582b569bf901cc41ad4ed81ad0c8e9d1130c0111f6"
+    },
+    {
+      "path": "src/bytes.ts",
+      "bytes": 5687,
+      "sha256": "2a6098dae39e46031ba8da2fd52475b361155fc7236146ce8624c4398e91894f"
+    },
+    {
+      "path": "src/close.ts",
+      "bytes": 1648,
+      "sha256": "d9d9e0dc945b87d039f0c17408de11216d10cfe53777d9390ec4a9674c876f1b"
+    },
+    {
+      "path": "tests/provider/kafka.ts",
+      "bytes": 30405,
+      "sha256": "3a4a598ee616dab99e197f6ef99d37ba472206a73be256272e1b97eeea24a078"
+    },
+    {
+      "path": "tests/fixtures/kafka/accept.ts",
+      "bytes": 12334,
+      "sha256": "36b8452895f0af3cd5b5e8b4e37c97fa4350d64fc45c1baf867aa0625203b10f"
+    },
+    {
+      "path": "tests/fixtures/kafka/manifest.ts",
+      "bytes": 5651,
+      "sha256": "e71f97016c9fa8fcb953937cb6d25c641d7b61e68cc5b8dbcf1d7825f6c07bd1"
+    },
+    {
+      "path": "tests/fixtures/kafka/records.ts",
+      "bytes": 2903,
+      "sha256": "5e96cbd1e8f9b23e45fd6a390d855f233971ca85bc04b95cd9c4c3fc4c68db53"
+    },
+    {
+      "path": "tests/fixtures/kafka/wire.ts",
+      "bytes": 4362,
+      "sha256": "e10d968f11a69f6edcf088f76b153bd0447c8545903e9f7714d13d7bb83832d5"
+    },
+    {
+      "path": "tests/fixtures/acquire.ts",
+      "bytes": 11669,
+      "sha256": "d6b2f59f268453d843083f1df21f031e66ae68dc6d5aa73f0ee1ecd133e336fc"
+    },
+    {
+      "path": "tests/fixtures/kafka/oracle/KafkaOracle.java",
+      "bytes": 17042,
+      "sha256": "827323a1da00dd8fe4e1be1a9352738745367b25538d7edf7d77d9720e629744"
+    },
+    {
+      "path": "tests/fixtures/kafka/oracle/CrcOracle.java",
+      "bytes": 972,
+      "sha256": "dc78549f0152518b2537597e741897db9e14832b0b1488a3af004c730a6fcd4d"
+    },
+    {
+      "path": "tests/fixtures/kafka/oracle/AdminMetadataOracle.java",
+      "bytes": 8038,
+      "sha256": "b97337007d76757ef74151bdb1a952c83614c290b961bcdbd795fabba5bd59a2"
+    }
+  ]
+}

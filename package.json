@@ -211,7 +211,8 @@
     "./crypto/age": "./src/crypto/age.ts",
     "./crypto/age-node": "./src/crypto/age-node.ts",
     "./dataset/orc": "./src/dataset/orc.ts",
-    "./amqp": "./src/amqp.ts"
+    "./amqp": "./src/amqp.ts",
+    "./kafka": "./src/kafka.ts"
   },
   "dependencies": {
     "@okikio/undent": "^0.3.3",
