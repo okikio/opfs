@@ -170,6 +170,7 @@
     "./crypto/age-node": "./src/crypto/age-node.ts",
     "./dataset/orc": "./src/dataset/orc.ts",
     "./dataset/arrow": "./src/dataset/arrow.ts",
+    "./dataset/bam": "./src/dataset/bam.ts",
     "./amqp": "./src/amqp.ts",
     "./kafka": "./src/kafka.ts",
     "./netlify": "./src/netlify.ts"
@@ -240,6 +241,7 @@
       "tests/fixtures/orc/independent.json",
       "tests/fixtures/orc/receipts/",
       "tests/fixtures/ipc/native/",
+      "tests/fixtures/bam/native/",
       "tests/fixtures/amqp/receipts/",
       "tests/fixtures/amqp/independent.json",
       "tests/fixtures/glacier/**/*.json",
