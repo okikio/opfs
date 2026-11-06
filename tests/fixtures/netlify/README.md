@@ -108,8 +108,7 @@ Missing candidate admission fails rather than skipping the comparison. This test
 and candidate-written bytes read by the SDK, with separately authored expectations. It also checks conditional refusals,
 deletion, credential separation and an unknown outcome after exactly one dispatched candidate PUT whose reply is lost.
 Both fixture servers retired with exit zero and without Docker's OOMKilled flag. Package-consumer and CI qualification
-have separate evidence below; this local profile does not establish production service behavior or a filesystem
-adapter.
+have separate evidence below; this local profile does not establish production service behavior or a filesystem adapter.
 
 The local server has a pinned prefix-list defect: its keyless API URL parser captures the query in the store name and
 then appends another `?signature=` suffix. The test preserves the resulting empty prefix page, requires both objects in
@@ -142,18 +141,18 @@ export OPFS_NETLIFY_CANDIDATE_SHA256=$(node --input-type=module -e 'import{readF
 DENO_V8_FLAGS=--max-old-space-size=256 deno task test:netlify-provider
 ```
 
-Success runs two tests: official SDK observations and reciprocal candidate comparison. The output includes safe full-byte
-observations, effective isolation receipts and one clean `netlifyRetirement` per fixture. A failed assertion still prints
-its observation first; a failure to stop cleanly fails the test rather than becoming a passing cleanup log. Keep the
-output with the candidate and closure hashes when sharing the result. Those hashes identify this execution; they are
-not permanently fixed expected hashes for every later source or metadata revision.
+Success runs two tests: official SDK observations and reciprocal candidate comparison. The output includes safe
+full-byte observations, effective isolation receipts and one clean `netlifyRetirement` per fixture. A failed assertion
+still prints its observation first; a failure to stop cleanly fails the test rather than becoming a passing cleanup log.
+Keep the output with the candidate and closure hashes when sharing the result. Those hashes identify this execution;
+they are not permanently fixed expected hashes for every later source or metadata revision.
 
-The other gates answer different questions. `deno task test:portable`, `deno task test:node` and
-`deno task test:bun` include the authored client tests. `deno task bench:netlify` compares the injected peer with an
-owned-array copy, not with the SDK or production service. `deno task verify:npm` builds and installs the package into
-disposable consumers, then exercises public imports, declarations and runtime behavior; run it serially in the compiler
-lane. An already built tarball can instead be supplied to `deno task verify:npm:artifact /path/to/package.tgz`.
-The source and local-container checks described above have passed. Extracted-package checks passed in isolated run
+The other gates answer different questions. `deno task test:portable`, `deno task test:node` and `deno task test:bun`
+include the authored client tests. `deno task bench:netlify` compares the injected peer with an owned-array copy, not
+with the SDK or production service. `deno task verify:npm` builds and installs the package into disposable consumers,
+then exercises public imports, declarations and runtime behavior; run it serially in the compiler lane. An already built
+tarball can instead be supplied to `deno task verify:npm:artifact /path/to/package.tgz`. The source and local-container
+checks described above have passed. Extracted-package checks passed in isolated run
 `7c5fc551-cd24-4730-96bb-00e645a6db2b`: all 171 exports, Node/Deno/Bun consumers, strict declarations, browser bundling,
 import safety and selective adoption. The [pull request checks](https://github.com/okikio/opfs/pull/1/checks) record
 exact-commit CI results; the presence of the CI job is not evidence of a passing run.
