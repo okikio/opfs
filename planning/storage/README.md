@@ -34,11 +34,14 @@ whole groups complete. The optional [Kafka client](../../docs/kafka.md) now impl
 injected authenticated channel, with bounded uncompressed non-idempotent CreateTime records. Fresh Java/candidate
 append/read comparisons passed in both directions on one plaintext broker, and Metadata4 success semantics have
 independent Admin evidence. The [Kafka sequence](KAFKA.md) preserves remaining TLS/SASL, multibroker, allocation and
-release-gate boundaries. Netlify Blobs is still dependency-admission work; native range identity and filesystem
-projection are unproved. The [Netlify Blobs sequence](NETLIFY.md) starts with independent SDK fixture admission. The
-[Arrow IPC sequence](ARROW.md) tracks the six-type indexed and forward-stream reader, its ten-profile native corpus and
-remaining qualification or format extensions. The [Arrow guide](../../docs/arrow.md) explains selected-payload
-validation and resource ownership. These are separate capabilities; none completes its wider catalog group.
+release-gate boundaries. Netlify Blobs now has a bounded native client with independent SDK and local-server
+qualification; native range identity and filesystem projection remain unproved. The [Netlify Blobs sequence](NETLIFY.md)
+records its admitted fixture and remaining boundaries. The [Arrow IPC sequence](ARROW.md) tracks the six-type indexed
+and forward-stream reader, its ten-profile native corpus and remaining qualification or format extensions. The
+[Arrow guide](../../docs/arrow.md) explains selected-payload validation and resource ownership. These are separate
+capabilities; none completes its wider catalog group.
+
+The [BAM sequence](BAM.md) adds bounded sequential alignment previews over checked BGZF blocks.
 
 Each next profile needs source review, independent full-byte fixtures, bounded failure and recovery tests, runtime and
 type gates, packed public-import checks, applicable benchmarks, a readable capability guide and release note, then the

@@ -212,6 +212,7 @@
     "./crypto/age-node": "./src/crypto/age-node.ts",
     "./dataset/orc": "./src/dataset/orc.ts",
     "./dataset/arrow": "./src/dataset/arrow.ts",
+    "./dataset/bam": "./src/dataset/bam.ts",
     "./amqp": "./src/amqp.ts",
     "./kafka": "./src/kafka.ts",
     "./netlify": "./src/netlify.ts"

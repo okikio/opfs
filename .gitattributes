@@ -17,3 +17,6 @@ tests/fixtures/glacier/legal/tslib-LICENSE.txt -whitespace
 
 # Native Arrow corpus envelopes are hash-pinned before their embedded bytes are read.
 tests/fixtures/ipc/native/** -text
+
+# Native BAM corpus envelopes retain their exact reviewed bytes on every platform.
+tests/fixtures/bam/native/** -text

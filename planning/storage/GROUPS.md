@@ -351,6 +351,13 @@ IPC adds indexed file and forward-stream batches for six flat uncompressed V5 li
 binary columns. Its selected-payload scope does not establish whole-file integrity; dictionary, nested and compressed
 Arrow profiles remain separate. See the [Arrow guide](../../docs/arrow.md) and [remaining profile plan](ARROW.md).
 
+The first [BAM prefix reader](../../docs/bam.md) is implemented for bounded sequential previews with checked BGZF
+members and ordered scalar auxiliary values. Focused Deno/Node/Bun candidate tests passed in receipt
+`e1990cbe-7cea-4255-8b5d-4089c5f6aa33`; installed-package consumers passed in receipt
+`eb663979-e1bf-4c92-b91b-b10c3a770916`; exact-head CI remains pending. Its four native Samtools/HTSlib originals passed
+full readback, including one crossing record. This does not close BAM regional indexes, CRAM, writing, long CIGAR or
+other auxiliary profiles; see the [BAM plan](BAM.md).
+
 ### format-view
 
 Composition routes need an actual format decoder and byte-source contract before claiming a generic archive/reference

@@ -97,13 +97,14 @@ try {
     throw new Error(`Unexpected npm package name: ${manifest.name}`);
   }
   if (
-    Object.keys(manifest.exports ?? {}).length !== 171 || !("./glacier" in (manifest.exports ?? {})) ||
+    Object.keys(manifest.exports ?? {}).length !== 172 || !("./glacier" in (manifest.exports ?? {})) ||
     !("./netlify" in (manifest.exports ?? {})) ||
     !("./kafka" in (manifest.exports ?? {})) || !("./dataset/arrow" in (manifest.exports ?? {})) ||
+    !("./dataset/bam" in (manifest.exports ?? {})) ||
     "./aws" in (manifest.exports ?? {})
   ) {
     throw new Error(
-      "Packed public surface must contain 171 explicit entries, including Netlify, Arrow, Kafka and Glacier and excluding internal AWS signing.",
+      "Packed public surface must contain 172 explicit entries, including BAM, Netlify, Arrow, Kafka and Glacier and excluding internal AWS signing.",
     );
   }
   if (manifest.dependencies?.["drizzle-orm"]) {
@@ -222,6 +223,15 @@ try {
     throw new Error("Frozen Arrow IPC package-consumer corpus differs from its admitted bytes.");
   }
   const arrowCorpus: unknown = JSON.parse(arrowCorpusBytes.toString("utf8"));
+  const bamCorpusBytes = await readFile(new URL("../fixtures/bam/native/corpus.json", import.meta.url));
+  if (
+    bamCorpusBytes.length !== 325349 ||
+    createHash("sha256").update(bamCorpusBytes).digest("hex") !==
+      "4b18297001bdc669a16801340dcb7e5847c073a5aa577cd6baf0c59de5297ebf"
+  ) {
+    throw new Error("Frozen BAM package-consumer corpus differs from its admitted bytes.");
+  }
+  const bamCorpus: unknown = JSON.parse(bamCorpusBytes.toString("utf8"));
 
   await writeFile(
     join(consumer, "smoke.mjs"),
@@ -312,6 +322,7 @@ try {
     import { openParquet } from '@okikio/opfs/dataset/parquet';
     import { openOrc } from '@okikio/opfs/dataset/orc';
     import { openArrow, readArrow } from '@okikio/opfs/dataset/arrow';
+    import { openBam } from '@okikio/opfs/dataset/bam';
     import { openHdf5 } from '@okikio/opfs/dataset/hdf5';
     import { createCmisClient } from '@okikio/opfs/cmis';
     import { createCouchdbClient } from '@okikio/opfs/couchdb';
@@ -1258,6 +1269,34 @@ try {
         profile:'age-v1-file-key',fileKey:ageKey(vector.fileKeyHex),subtle:globalThis.crypto.subtle,aead:ageNativeAead,
       });
       try{assertBytes((await owner.read(0,owner.size)).bytes,fromBase64(vector.originalBase64));}finally{await owner.dispose();}
+    }
+    const bamNative = ${JSON.stringify(bamCorpus)};
+    if(bamNative.cases.length!==4)throw new Error('Packed BAM native coverage changed');
+    const bamSam=(record,dataset)=>{
+      const reference=id=>id<0?'*':dataset.header.references[id].name;
+      const mate=record.mateReferenceId>=0&&record.mateReferenceId===record.referenceId?'=':reference(record.mateReferenceId);
+      const quality=record.qualities===null?'*':Array.from(record.qualities,value=>String.fromCharCode(value+33)).join('');
+      const aux=record.auxiliary.map(field=>field.tag+':'+('cCsSiI'.includes(field.type)?'i':field.type)+':'+field.value);
+      return [record.name,record.flags,reference(record.referenceId),record.position+1,record.mappingQuality,record.cigar.map(part=>part.length+part.operation).join('')||'*',mate,record.matePosition+1,record.templateLength,record.sequence??'*',quality,...aux].join(String.fromCharCode(9))+String.fromCharCode(10);
+    };
+    for(const fixture of bamNative.cases){
+      const wire=fromBase64(fixture.bam.base64);
+      if(wire.length!==fixture.bam.bytes||createHash('sha256').update(wire).digest('hex')!==fixture.bam.sha256||createHash('sha256').update(fixture.originalSam).digest('hex')!==fixture.originalSha256)throw new Error('Packed BAM native/original hash changed');
+      const dataset=await openBam(createByteSource(wire));
+      let actual=dataset.header.text,ended=false;
+      for await(const page of dataset.records({maxRecords:100,pageRecords:1})){
+        if(page.verification!=='checked-blocks')throw new Error('Packed BAM verification scope changed');
+        actual+=page.records.map(record=>bamSam(record,dataset)).join('');
+        if(page.end==='eof')ended=true;
+      }
+      if(actual!==fixture.originalSam||!ended||dataset.inspect().records!==fixture.geometry.records||dataset.inspect().blocks!==fixture.geometry.blocks)throw new Error('Packed BAM differs from full authored SAM/native geometry');
+      if(!Object.isFrozen(dataset.header)||!Object.isFrozen(dataset.header.references)||dataset.finalMarker!=='canonical-physical')throw new Error('Packed BAM header contract changed');
+      const before=dataset.inspect().requests;
+      for await(const page of dataset.records({maxRecords:0}))if(page.records.length||page.end!=='preview')throw new Error('Packed BAM zero preview changed');
+      if(dataset.inspect().requests!==before)throw new Error('Packed BAM zero preview read records');
+      let refused=false;
+      try{await openBam(createByteSource(wire),{maxDecodedBytes:0});}catch(error){if(error?.code!=='budget-exceeded')throw error;refused=true;}
+      if(!refused)throw new Error('Packed BAM decoded budget was bypassed');
     }
     const arrowNative = ${JSON.stringify(arrowCorpus)};
     if(arrowNative.fixtures.length!==10)throw new Error('Packed Arrow IPC native coverage changed');
@@ -2370,6 +2409,7 @@ try {
     import { NetlifyClient, createNetlifyClient, NETLIFY_PROFILE, NetlifyError, NetlifyPublicationError, NetlifyCompletionError } from '@okikio/opfs/netlify';
     import { openOrc } from '@okikio/opfs/dataset/orc';
     import { openArrow, readArrow } from '@okikio/opfs/dataset/arrow';
+    import { openBam } from '@okikio/opfs/dataset/bam';
     import { openAge } from '@okikio/opfs/crypto/age';
     import { createNodeAgeAead } from '@okikio/opfs/crypto/age-node';
     import { AmqpClient } from '@okikio/opfs/amqp';
@@ -2639,6 +2679,14 @@ try {
     const natsMessageTyped: import('@okikio/opfs/nats').NatsMessageType = await natsTyped.get('OWNED',natsReceiptTyped.sequence,{inbox:'_INBOX.package.read'});
     const orcTyped: import('@okikio/opfs/dataset/orc').OrcDatasetType = await openOrc(createByteSource(new Uint8Array()),{maxRows:16});
     const orcReadTyped: import('@okikio/opfs/dataset/orc').OrcReadType = await orcTyped.read(0,{length:1});
+    const bamOptionsTyped: import('@okikio/opfs/dataset/bam').BamOptionsType = {maxHeaderBytes:1024,maxRecordBytes:1024,maxTotalRecords:16,maxDeflateBlocks:256};
+    const bamTyped: import('@okikio/opfs/dataset/bam').BamDatasetType = await openBam(createByteSource(new Uint8Array()),bamOptionsTyped);
+    const bamPagesTyped: AsyncGenerator<import('@okikio/opfs/dataset/bam').BamPageType> = bamTyped.records({maxRecords:20,pageRecords:10});
+    const bamRecordTyped: import('@okikio/opfs/dataset/bam').BamRecordType | undefined = (await bamPagesTyped.next()).value?.records[0];
+    const bamOffsetTyped: bigint | undefined = bamRecordTyped?.virtualOffset;
+    // @ts-expect-error Preview counts are finite numeric selections, never textual offsets.
+    bamTyped.records({maxRecords:'20'});
+    void [bamOffsetTyped,bamTyped.header.references,bamTyped.inspect()];
     const arrowOptionsTyped: import('@okikio/opfs/dataset/arrow').ArrowOpenOptionsType = {maxMetadataBytes:1024,maxBufferBytes:1024,maxSelectedBytes:2048,maxRows:16,maxOutputBytes:4096};
     const arrowTyped: import('@okikio/opfs/dataset/arrow').ArrowDatasetType = await openArrow(createByteSource(new Uint8Array()),arrowOptionsTyped);
     const arrowReadTyped: import('@okikio/opfs/dataset/arrow').ArrowReadType = await arrowTyped.read(0,[0]);
@@ -2859,6 +2907,7 @@ try {
       export { openParquet } from '@okikio/opfs/dataset/parquet';
       export { openOrc } from '@okikio/opfs/dataset/orc';
       export { openArrow, readArrow } from '@okikio/opfs/dataset/arrow';
+      export { openBam } from '@okikio/opfs/dataset/bam';
       export { openAge } from '@okikio/opfs/crypto/age';
       export { createNodeAgeAead } from '@okikio/opfs/crypto/age-node';
       export { AmqpClient } from '@okikio/opfs/amqp';
@@ -2944,7 +2993,7 @@ try {
           throw new Error('Optional import discovered ambient capability: ' + name);
         }});
       }
-      for (const spec of ['crypto/jwe', 'nats', 'kafka', 'netlify', 'dataset/parquet', 'crypto/age', 'crypto/age-node', 'dataset/orc', 'dataset/arrow', 'amqp', 'glacier']) await import('@okikio/opfs/' + spec);
+      for (const spec of ['crypto/jwe', 'nats', 'kafka', 'netlify', 'dataset/parquet', 'crypto/age', 'crypto/age-node', 'dataset/orc', 'dataset/arrow', 'dataset/bam', 'amqp', 'glacier']) await import('@okikio/opfs/' + spec);
       if (touched.length) throw new Error('Optional import touched ambient capabilities: ' + touched.join(','));
     } finally {
       for (const [name, descriptor] of descriptors) {
@@ -2964,7 +3013,7 @@ try {
   const specs = Object.keys(manifest.exports ?? {}).map((key) =>
     key === "." ? "@okikio/opfs" : `@okikio/opfs/${key.slice(2)}`
   );
-  if (specs.length !== 171) throw new Error("Expected all 171 public packed entrypoints.");
+  if (specs.length !== 172) throw new Error("Expected all 172 public packed entrypoints.");
   if (Object.keys(manifest.exports ?? {}).some((key) => key === "./aws" || key.includes("*"))) {
     throw new Error("Internal AWS signing must remain outside the explicit public export map.");
   }
