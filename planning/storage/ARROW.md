@@ -1,8 +1,9 @@
 # Arrow IPC: bounded column previews
 
-Status: researched proposal, 2026-11-05. No IPC production reader, export, native IPC corpus or passing IPC checks are
-supplied by this document. The catalog's `format-arrow` record is an inventory entry, not implemented support. The
-current [native harness](../../tests/fixtures/arrow/native.cpp) reads and writes Parquet and ORC, not IPC.
+Status: production reader proposal with a qualified first native corpus, updated 2026-11-06. There is no IPC production
+reader or export. The catalog's `format-arrow` record remains an inventory entry, not implemented support. The separate
+[IPC native harness](../../tests/fixtures/ipc/README.md) passed ten Arrow C++ writer/reader profiles against authored
+originals. The shared [Parquet/ORC harness](../../tests/fixtures/arrow/native.cpp) remains unchanged.
 
 This plan is for a library maintainer implementing a preview of typed columns without loading an entire dataset. A
 caller should be able to inspect a schema, select one record batch and a few columns, and obtain their values and null
@@ -151,18 +152,35 @@ source budgets are already the closer fit for random access. No dependency is ad
 
 Extend the existing test-only native boundary, not candidate code. Its
 [artifact admission](../../tests/fixtures/arrow/artifacts.ts) pins Arrow C++ 20.0.0 libraries inside an inert wheel
-archive. No Python installation or execution is needed. The current C++ harness needs IPC writer/reader branches and
-full-value/mask comparison for every original. Check APIs against the admitted 20.0.0 headers; current
+archive. No Python installation or execution is needed. The separate
+[IPC harness](../../tests/fixtures/ipc/native.cpp) now supplies writer/reader calls and full-value/mask comparison for
+its first six primitive fields. Check APIs against the admitted 20.0.0 headers; current
 [C++ IPC documentation](https://arrow.apache.org/docs/cpp/api/ipc.html) is orientation, not proof that a newer signature
 exists in that pinned build. Research consulted the 21.0.0 format definitions; fixture receipts must record the exact
 20.0.0 native producer and its supported format features.
 
-The qualification sequence is:
+The first native qualification passed on 6 November 2026. Its
+[retained receipt](../../tests/fixtures/ipc/native/receipt.json) identifies isolated run
+`b08cc08f-c149-47dc-a3ae-7fe1f6d00547`, an offline 1 GiB runner with one CPU and 256 PIDs, no OOM and completed
+container removal. The [producer state](../../tests/fixtures/ipc/native/native-state.json) reports code 0, no signal,
+no operation failure and no cleanup faults. The [retained corpus](../../tests/fixtures/ipc/native/independent.json)
+contains ten uncompressed V5 images: file and stream forms of schema-only, empty-batch, mixed multibatch, all-null and
+no-null scenarios. Each has nullable int32, int64, float64, boolean, UTF8 and binary fields. Full typed values,
+validity, UTF8/binary offsets and payloads are checked against authored originals, including int64 extrema beyond
+Number precision, signed zero and NaN value semantics. NaN payload bits are not asserted.
 
-1. Add native IPC file/stream production from independent authored originals, then read all original values back with
-   native C++. Include multiple batches, empty/all-null arrays, extrema, unsigned high bits, BigInt values beyond Number
-   precision, signed zero, NaN/infinities, UTF-8, empty/nonempty binary and fixed binary. Record original byte hashes,
-   schema, masks, options, toolchain and library identities.
+Arrow C++ owns both writing and reading. This establishes same-library native round trips against authored originals,
+not independent two-engine interoperability, candidate-reader acceptance or a portable production reader. Unsigned and
+other integer widths, Float32, Null and FixedSizeBinary still need corpus coverage before the broader first profile
+above can be accepted. Dictionary and compressed images remain separate follow-ups. Exact native output hashes stay
+frozen; repeat qualification into a fresh destination instead of rewriting them.
+
+The remaining qualification sequence is:
+
+1. Extend the qualified native file/stream corpus to the other admitted primitive types, including unsigned high bits,
+   Float32, Null and fixed binary. Preserve the existing multibatch, empty/all-null, extrema, BigInt, signed-zero,
+   NaN/infinity, UTF8 and binary coverage. Continue full native readback against authored originals and retain original
+   byte hashes, schema, masks, options, toolchain and library identities.
 2. Compare candidate full values and masks with originals, not with candidate serialization. Compare file-selected
    batch/columns against full native reads. Native Arrow remains one implementation; a second native reader is a
    separate future proof layer, not supplied by DuckDB's existing Parquet checks.
@@ -178,5 +196,5 @@ The qualification sequence is:
 
 Only then change the catalog/readme from research to the exact implemented profile, add dataset documentation and
 runnable examples, export the subpath, add public package-consumer tests and a release note. The acceptance result must
-show both a successful bounded preview and an understandable unsupported-profile error. No production code, fixtures,
-runtime dependencies, checks or benchmarks were executed as part of this research note.
+show both a successful bounded preview and an understandable unsupported-profile error. Native fixture qualification
+above does not advance those production-reader, runtime, package or benchmark gates.

@@ -1,0 +1,2039 @@
+{
+  "profile": "arrow-cpp-20-ipc-v5-authored-originals-v1",
+  "claim": "Arrow C++ native writer and same-library reader checked against authored originals; no candidate reader or Python runtime",
+  "limits": "Six nullable primitive fields only; no dictionary, nested types, compression, legacy IPC, unsigned integers or production support claim",
+  "floatComparison": "IEEE values with signed zero preserved; NaN payload bits are not compared",
+  "originalEncoding": "little-endian fixed values; one validity byte per row; int32 offsets plus raw UTF8/binary bytes",
+  "tools": {
+    "node": "26.13.0",
+    "compiler": "c++ (Debian 12.2.0-14+deb12u1) 12.2.0\nCopyright (C) 2022 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
+  },
+  "artifacts": {
+    "arrow": {
+      "url": "https://files.pythonhosted.org/packages/90/c3/0c7da7b6dac863af75b64e2f827e4742161128c350bfe7955b426484e226/pyarrow-20.0.0-cp313-cp313-manylinux_2_28_aarch64.whl",
+      "bytes": 40677027,
+      "sha256": "991f85b48a8a5e839b2128590ce07611fae48a904cae6cab1f089c5955b57eb5"
+    },
+    "libraries": {
+      "libarrow.so.2000": "30731be58945008b5864462de64769baff13a3afc197a3d7fef8ada2856a4b98",
+      "libparquet.so.2000": "97f6dd678fd3a778056f12c74f17886f718612dd7d9b9463d00fef02f66fbeb1"
+    }
+  },
+  "sources": {
+    "native.cpp": "5eaf399e3424a4dba96dfa78f26b8ce69358bb3b22da4b85d2b8e0b0cc6493e5",
+    "create.ts": "68ca479ccd8ada3d39cc4154dce3ffe044039091e1c88034c35734b018873d50",
+    "producer-run.ts": "e78faf124bcf0eec154e91c409a4143284ea470a41b0df7e060c516e709f4601",
+    "../arrow/admit.ts": "53d9364afd281a7da9d20597bc39276e71aebd83dd1a6f1e09b2e571878fb676",
+    "../arrow/artifacts.ts": "274c220ff5df27cde8e7f23259f1424a3f6bc85cb80a02ff442f7915b95d8d13",
+    "../arrow/files.ts": "93fdf94856ea66b86b7a3888acf7c38cdf1fda2687f34a92eda6808b84e7ffec",
+    "../arrow/runner.ts": "7ad643fe26bd72e73903c1b075782df9abf0acf467e2d97ba178582ee6bd93fa"
+  },
+  "commands": [
+    {
+      "argv": [
+        "c++",
+        "-std=c++17",
+        "-O1",
+        "-Wall",
+        "-Wextra",
+        "-I",
+        "/native-input/include",
+        "/candidate/tests/fixtures/ipc/native.cpp",
+        "/native-input/libarrow.so.2000",
+        "-Wl,-rpath,/native-input",
+        "-o",
+        "/tmp/opfs-ipc-native-zi7A23/native"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": "In file included from /native-input/include/arrow/builder.h:29,\n                 from /native-input/include/arrow/api.h:26,\n                 from /candidate/tests/fixtures/ipc/native.cpp:2:\n/native-input/include/arrow/array/builder_run_end.h: In member function 'virtual arrow::Status arrow::internal::RunCompressorBuilder::WillCloseRun(const std::shared_ptr<const arrow::Scalar>&, int64_t)':\n/native-input/include/arrow/array/builder_run_end.h:77:68: warning: unused parameter 'value' [-Wunused-parameter]\n   77 |   virtual Status WillCloseRun(const std::shared_ptr<const Scalar>& value,\n      |                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~\n/native-input/include/arrow/array/builder_run_end.h:78:39: warning: unused parameter 'length' [-Wunused-parameter]\n   78 |                               int64_t length) {\n      |                               ~~~~~~~~^~~~~~\n/native-input/include/arrow/array/builder_run_end.h: In member function 'virtual arrow::Status arrow::internal::RunCompressorBuilder::WillCloseRunOfEmptyValues(int64_t)':\n/native-input/include/arrow/array/builder_run_end.h:89:52: warning: unused parameter 'length' [-Wunused-parameter]\n   89 |   virtual Status WillCloseRunOfEmptyValues(int64_t length) { return Status::OK(); }\n      |                                            ~~~~~~~~^~~~~~\nIn file included from /native-input/include/arrow/util/async_util.h:31,\n                 from /native-input/include/arrow/util/async_generator.h:29,\n                 from /native-input/include/arrow/ipc/reader.h:35,\n                 from /native-input/include/arrow/ipc/api.h:24,\n                 from /candidate/tests/fixtures/ipc/native.cpp:4:\n/native-input/include/arrow/util/mutex.h: In lambda function:\n/native-input/include/arrow/util/mutex.h:40:42: warning: unused parameter 'mutex' [-Wunused-parameter]\n   40 |     Guard() : locked_(NULLPTR, [](Mutex* mutex) {}) {}\n      |                                   ~~~~~~~^~~~~\n"
+    },
+    {
+      "argv": [
+        "c++",
+        "--version"
+      ],
+      "code": 0,
+      "stdout": "c++ (Debian 12.2.0-14+deb12u1) 12.2.0\nCopyright (C) 2022 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/tmp/opfs-ipc-native-zi7A23/native",
+        "file",
+        "/tmp/opfs-ipc-native-zi7A23/schema-only-file"
+      ],
+      "code": 0,
+      "stdout": "Arrow C++ IPC V5 full readback: file 0 batches\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/tmp/opfs-ipc-native-zi7A23/native",
+        "stream",
+        "/tmp/opfs-ipc-native-zi7A23/schema-only-stream"
+      ],
+      "code": 0,
+      "stdout": "Arrow C++ IPC V5 full readback: stream 0 batches\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/tmp/opfs-ipc-native-zi7A23/native",
+        "file",
+        "/tmp/opfs-ipc-native-zi7A23/empty-batch-file",
+        "0"
+      ],
+      "code": 0,
+      "stdout": "Arrow C++ IPC V5 full readback: file 1 batches\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/tmp/opfs-ipc-native-zi7A23/native",
+        "stream",
+        "/tmp/opfs-ipc-native-zi7A23/empty-batch-stream",
+        "0"
+      ],
+      "code": 0,
+      "stdout": "Arrow C++ IPC V5 full readback: stream 1 batches\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/tmp/opfs-ipc-native-zi7A23/native",
+        "file",
+        "/tmp/opfs-ipc-native-zi7A23/mixed-multibatch-file",
+        "0",
+        "17",
+        "33"
+      ],
+      "code": 0,
+      "stdout": "Arrow C++ IPC V5 full readback: file 3 batches\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/tmp/opfs-ipc-native-zi7A23/native",
+        "stream",
+        "/tmp/opfs-ipc-native-zi7A23/mixed-multibatch-stream",
+        "0",
+        "17",
+        "33"
+      ],
+      "code": 0,
+      "stdout": "Arrow C++ IPC V5 full readback: stream 3 batches\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/tmp/opfs-ipc-native-zi7A23/native",
+        "file",
+        "/tmp/opfs-ipc-native-zi7A23/all-null-file",
+        "3",
+        "0",
+        "9"
+      ],
+      "code": 0,
+      "stdout": "Arrow C++ IPC V5 full readback: file 3 batches\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/tmp/opfs-ipc-native-zi7A23/native",
+        "stream",
+        "/tmp/opfs-ipc-native-zi7A23/all-null-stream",
+        "3",
+        "0",
+        "9"
+      ],
+      "code": 0,
+      "stdout": "Arrow C++ IPC V5 full readback: stream 3 batches\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/tmp/opfs-ipc-native-zi7A23/native",
+        "file",
+        "/tmp/opfs-ipc-native-zi7A23/no-null-file",
+        "1",
+        "33"
+      ],
+      "code": 0,
+      "stdout": "Arrow C++ IPC V5 full readback: file 2 batches\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/tmp/opfs-ipc-native-zi7A23/native",
+        "stream",
+        "/tmp/opfs-ipc-native-zi7A23/no-null-stream",
+        "1",
+        "33"
+      ],
+      "code": 0,
+      "stdout": "Arrow C++ IPC V5 full readback: stream 2 batches\n",
+      "stderr": ""
+    }
+  ],
+  "fixtures": [
+    {
+      "name": "schema-only-file",
+      "format": "file",
+      "metadataVersion": "V5",
+      "compression": "uncompressed",
+      "schema": [
+        {
+          "name": "i",
+          "type": "int32",
+          "nullable": true
+        },
+        {
+          "name": "q",
+          "type": "int64",
+          "nullable": true
+        },
+        {
+          "name": "d",
+          "type": "float64",
+          "nullable": true
+        },
+        {
+          "name": "b",
+          "type": "boolean",
+          "nullable": true
+        },
+        {
+          "name": "s",
+          "type": "utf8",
+          "nullable": true
+        },
+        {
+          "name": "x",
+          "type": "binary",
+          "nullable": true
+        }
+      ],
+      "image": {
+        "bytes": 734,
+        "sha256": "d996b41a2ad22da0614423960ad8c1fee3d19e26437d4988e5c580451e68e4ef",
+        "base64": "QVJST1cxAAD/////WAEAABAAAAAAAAoADAAGAAUACAAKAAAAAAEEAAwAAAAIAAgAAAAEAAgAAAAEAAAABgAAAPAAAACwAAAAgAAAAFQAAAAsAAAABAAAADj///8AAAEEEAAAABQAAAAEAAAAAAAAAAEAAAB4AAAAuP///1z///8AAAEFEAAAABQAAAAEAAAAAAAAAAEAAABzAAAA3P///4D///8AAAEGEAAAABgAAAAEAAAAAAAAAAEAAABiAAAABAAEAAQAAACo////AAABAxAAAAAYAAAABAAAAAAAAAABAAAAZAAGAAgABgAGAAAAAAACANT///8AAAECEAAAABQAAAAEAAAAAAAAAAEAAABxAAAAxP///wAAAAFAAAAAEAAUAAgABgAHAAwAAAAQABAAAAAAAAECEAAAABwAAAAEAAAAAAAAAAEAAABpAAAACAAMAAgABwAIAAAAAAAAASAAAAAAAAAA/////wAAAAAQAAAADAAUAAYACAAMABAADAAAAAAABAAcAAAADAAAAAQAAAAAAAAAAAAAAAgACAAAAAQACAAAAAQAAAAGAAAA8AAAALAAAACAAAAAVAAAACwAAAAEAAAAOP///wAAAQQQAAAAFAAAAAQAAAAAAAAAAQAAAHgAAAC4////XP///wAAAQUQAAAAFAAAAAQAAAAAAAAAAQAAAHMAAADc////gP///wAAAQYQAAAAGAAAAAQAAAAAAAAAAQAAAGIAAAAEAAQABAAAAKj///8AAAEDEAAAABgAAAAEAAAAAAAAAAEAAABkAAYACAAGAAYAAAAAAAIA1P///wAAAQIQAAAAFAAAAAQAAAAAAAAAAQAAAHEAAADE////AAAAAUAAAAAQABQACAAGAAcADAAAABAAEAAAAAAAAQIQAAAAHAAAAAQAAAAAAAAAAQAAAGkAAAAIAAwACAAHAAgAAAAAAAABIAAAAGQBAABBUlJPVzE="
+      },
+      "batches": [],
+      "checks": [
+        "native schema and batch count",
+        "full typed values and validity",
+        "exact UTF8/binary offsets and bytes"
+      ],
+      "nativeReadback": "Arrow C++ IPC V5 full readback: file 0 batches"
+    },
+    {
+      "name": "schema-only-stream",
+      "format": "stream",
+      "metadataVersion": "V5",
+      "compression": "uncompressed",
+      "schema": [
+        {
+          "name": "i",
+          "type": "int32",
+          "nullable": true
+        },
+        {
+          "name": "q",
+          "type": "int64",
+          "nullable": true
+        },
+        {
+          "name": "d",
+          "type": "float64",
+          "nullable": true
+        },
+        {
+          "name": "b",
+          "type": "boolean",
+          "nullable": true
+        },
+        {
+          "name": "s",
+          "type": "utf8",
+          "nullable": true
+        },
+        {
+          "name": "x",
+          "type": "binary",
+          "nullable": true
+        }
+      ],
+      "image": {
+        "bytes": 360,
+        "sha256": "f482924f6cbe17b0ad2b6d6c2e459517608b2c1967e72ea5e70c428f1d9e7263",
+        "base64": "/////1gBAAAQAAAAAAAKAAwABgAFAAgACgAAAAABBAAMAAAACAAIAAAABAAIAAAABAAAAAYAAADwAAAAsAAAAIAAAABUAAAALAAAAAQAAAA4////AAABBBAAAAAUAAAABAAAAAAAAAABAAAAeAAAALj///9c////AAABBRAAAAAUAAAABAAAAAAAAAABAAAAcwAAANz///+A////AAABBhAAAAAYAAAABAAAAAAAAAABAAAAYgAAAAQABAAEAAAAqP///wAAAQMQAAAAGAAAAAQAAAAAAAAAAQAAAGQABgAIAAYABgAAAAAAAgDU////AAABAhAAAAAUAAAABAAAAAAAAAABAAAAcQAAAMT///8AAAABQAAAABAAFAAIAAYABwAMAAAAEAAQAAAAAAABAhAAAAAcAAAABAAAAAAAAAABAAAAaQAAAAgADAAIAAcACAAAAAAAAAEgAAAAAAAAAP////8AAAAA"
+      },
+      "batches": [],
+      "checks": [
+        "native schema and batch count",
+        "full typed values and validity",
+        "exact UTF8/binary offsets and bytes"
+      ],
+      "nativeReadback": "Arrow C++ IPC V5 full readback: stream 0 batches"
+    },
+    {
+      "name": "empty-batch-file",
+      "format": "file",
+      "metadataVersion": "V5",
+      "compression": "uncompressed",
+      "schema": [
+        {
+          "name": "i",
+          "type": "int32",
+          "nullable": true
+        },
+        {
+          "name": "q",
+          "type": "int64",
+          "nullable": true
+        },
+        {
+          "name": "d",
+          "type": "float64",
+          "nullable": true
+        },
+        {
+          "name": "b",
+          "type": "boolean",
+          "nullable": true
+        },
+        {
+          "name": "s",
+          "type": "utf8",
+          "nullable": true
+        },
+        {
+          "name": "x",
+          "type": "binary",
+          "nullable": true
+        }
+      ],
+      "image": {
+        "bytes": 1186,
+        "sha256": "7859be14a50f57ebd2f93e1272fedd592389423cf65904cb6447114396b88033",
+        "base64": "QVJST1cxAAD/////WAEAABAAAAAAAAoADAAGAAUACAAKAAAAAAEEAAwAAAAIAAgAAAAEAAgAAAAEAAAABgAAAPAAAACwAAAAgAAAAFQAAAAsAAAABAAAADj///8AAAEEEAAAABQAAAAEAAAAAAAAAAEAAAB4AAAAuP///1z///8AAAEFEAAAABQAAAAEAAAAAAAAAAEAAABzAAAA3P///4D///8AAAEGEAAAABgAAAAEAAAAAAAAAAEAAABiAAAABAAEAAQAAACo////AAABAxAAAAAYAAAABAAAAAAAAAABAAAAZAAGAAgABgAGAAAAAAACANT///8AAAECEAAAABQAAAAEAAAAAAAAAAEAAABxAAAAxP///wAAAAFAAAAAEAAUAAgABgAHAAwAAAAQABAAAAAAAAECEAAAABwAAAAEAAAAAAAAAAEAAABpAAAACAAMAAgABwAIAAAAAAAAASAAAAAAAAAA/////5ABAAAUAAAAAAAAAAwAGgAGAAUACAAMAAwAAAAAAwQAHAAAABAAAAAAAAAAAAAAAAAACgAMAAAABAAIAAoAAADwAAAABAAAAA4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAACAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAQAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP////8AAAAAEAAAAAwAFAAGAAgADAAQAAwAAAAAAAQAOAAAACgAAAAEAAAAAQAAAGgBAAAAAAAAmAEAAAAAAAAQAAAAAAAAAAAAAAAAAAAACAAIAAAABAAIAAAABAAAAAYAAADwAAAAsAAAAIAAAABUAAAALAAAAAQAAAA4////AAABBBAAAAAUAAAABAAAAAAAAAABAAAAeAAAALj///9c////AAABBRAAAAAUAAAABAAAAAAAAAABAAAAcwAAANz///+A////AAABBhAAAAAYAAAABAAAAAAAAAABAAAAYgAAAAQABAAEAAAAqP///wAAAQMQAAAAGAAAAAQAAAAAAAAAAQAAAGQABgAIAAYABgAAAAAAAgDU////AAABAhAAAAAUAAAABAAAAAAAAAABAAAAcQAAAMT///8AAAABQAAAABAAFAAIAAYABwAMAAAAEAAQAAAAAAABAhAAAAAcAAAABAAAAAAAAAABAAAAaQAAAAgADAAIAAcACAAAAAAAAAEgAAAAgAEAAEFSUk9XMQ=="
+      },
+      "batches": [
+        {
+          "rows": 0,
+          "originals": {
+            "i.validity": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "i.bin": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "q.validity": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "q.bin": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "d.validity": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "d.bin": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "b.validity": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "b.bin": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "s.validity": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "s.offsets": {
+              "bytes": 4,
+              "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119",
+              "base64": "AAAAAA=="
+            },
+            "s.data": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "x.validity": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "x.offsets": {
+              "bytes": 4,
+              "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119",
+              "base64": "AAAAAA=="
+            },
+            "x.data": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            }
+          }
+        }
+      ],
+      "checks": [
+        "native schema and batch count",
+        "full typed values and validity",
+        "exact UTF8/binary offsets and bytes"
+      ],
+      "nativeReadback": "Arrow C++ IPC V5 full readback: file 1 batches"
+    },
+    {
+      "name": "empty-batch-stream",
+      "format": "stream",
+      "metadataVersion": "V5",
+      "compression": "uncompressed",
+      "schema": [
+        {
+          "name": "i",
+          "type": "int32",
+          "nullable": true
+        },
+        {
+          "name": "q",
+          "type": "int64",
+          "nullable": true
+        },
+        {
+          "name": "d",
+          "type": "float64",
+          "nullable": true
+        },
+        {
+          "name": "b",
+          "type": "boolean",
+          "nullable": true
+        },
+        {
+          "name": "s",
+          "type": "utf8",
+          "nullable": true
+        },
+        {
+          "name": "x",
+          "type": "binary",
+          "nullable": true
+        }
+      ],
+      "image": {
+        "bytes": 784,
+        "sha256": "fb1e970093d5f06cae70a73e8707bacaf773c3bbce3822d3642075eed8b50be5",
+        "base64": "/////1gBAAAQAAAAAAAKAAwABgAFAAgACgAAAAABBAAMAAAACAAIAAAABAAIAAAABAAAAAYAAADwAAAAsAAAAIAAAABUAAAALAAAAAQAAAA4////AAABBBAAAAAUAAAABAAAAAAAAAABAAAAeAAAALj///9c////AAABBRAAAAAUAAAABAAAAAAAAAABAAAAcwAAANz///+A////AAABBhAAAAAYAAAABAAAAAAAAAABAAAAYgAAAAQABAAEAAAAqP///wAAAQMQAAAAGAAAAAQAAAAAAAAAAQAAAGQABgAIAAYABgAAAAAAAgDU////AAABAhAAAAAUAAAABAAAAAAAAAABAAAAcQAAAMT///8AAAABQAAAABAAFAAIAAYABwAMAAAAEAAQAAAAAAABAhAAAAAcAAAABAAAAAAAAAABAAAAaQAAAAgADAAIAAcACAAAAAAAAAEgAAAAAAAAAP////+QAQAAFAAAAAAAAAAMABoABgAFAAgADAAMAAAAAAMEABwAAAAQAAAAAAAAAAAAAAAAAAoADAAAAAQACAAKAAAA8AAAAAQAAAAOAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAEAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAABgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/////AAAAAA=="
+      },
+      "batches": [
+        {
+          "rows": 0,
+          "originals": {
+            "i.validity": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "i.bin": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "q.validity": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "q.bin": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "d.validity": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "d.bin": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "b.validity": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "b.bin": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "s.validity": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "s.offsets": {
+              "bytes": 4,
+              "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119",
+              "base64": "AAAAAA=="
+            },
+            "s.data": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "x.validity": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "x.offsets": {
+              "bytes": 4,
+              "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119",
+              "base64": "AAAAAA=="
+            },
+            "x.data": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            }
+          }
+        }
+      ],
+      "checks": [
+        "native schema and batch count",
+        "full typed values and validity",
+        "exact UTF8/binary offsets and bytes"
+      ],
+      "nativeReadback": "Arrow C++ IPC V5 full readback: stream 1 batches"
+    },
+    {
+      "name": "mixed-multibatch-file",
+      "format": "file",
+      "metadataVersion": "V5",
+      "compression": "uncompressed",
+      "schema": [
+        {
+          "name": "i",
+          "type": "int32",
+          "nullable": true
+        },
+        {
+          "name": "q",
+          "type": "int64",
+          "nullable": true
+        },
+        {
+          "name": "d",
+          "type": "float64",
+          "nullable": true
+        },
+        {
+          "name": "b",
+          "type": "boolean",
+          "nullable": true
+        },
+        {
+          "name": "s",
+          "type": "utf8",
+          "nullable": true
+        },
+        {
+          "name": "x",
+          "type": "binary",
+          "nullable": true
+        }
+      ],
+      "image": {
+        "bytes": 4050,
+        "sha256": "d2357303af46524f4c0aeb7bf29bc59d00a0d5776e78223577faf0e3cd6645ec",
+        "base64": "QVJST1cxAAD/////WAEAABAAAAAAAAoADAAGAAUACAAKAAAAAAEEAAwAAAAIAAgAAAAEAAgAAAAEAAAABgAAAPAAAACwAAAAgAAAAFQAAAAsAAAABAAAADj///8AAAEEEAAAABQAAAAEAAAAAAAAAAEAAAB4AAAAuP///1z///8AAAEFEAAAABQAAAAEAAAAAAAAAAEAAABzAAAA3P///4D///8AAAEGEAAAABgAAAAEAAAAAAAAAAEAAABiAAAABAAEAAQAAACo////AAABAxAAAAAYAAAABAAAAAAAAAABAAAAZAAGAAgABgAGAAAAAAACANT///8AAAECEAAAABQAAAAEAAAAAAAAAAEAAABxAAAAxP///wAAAAFAAAAAEAAUAAgABgAHAAwAAAAQABAAAAAAAAECEAAAABwAAAAEAAAAAAAAAAEAAABpAAAACAAMAAgABwAIAAAAAAAAASAAAAAAAAAA/////5ABAAAUAAAAAAAAAAwAGgAGAAUACAAMAAwAAAAAAwQAHAAAABAAAAAAAAAAAAAAAAAACgAMAAAABAAIAAoAAADwAAAABAAAAA4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAACAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAQAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP////+YAQAAFAAAAAAAAAAMABYABgAFAAgADAAMAAAAAAMEABgAAAC4AgAAAAAAAAAACgAYAAwABAAIAAoAAAD8AAAAEAAAABEAAAAAAAAAAAAAAA4AAAAAAAAAAAAAAAMAAAAAAAAACAAAAAAAAABEAAAAAAAAAFAAAAAAAAAAAwAAAAAAAABYAAAAAAAAAIgAAAAAAAAA4AAAAAAAAAADAAAAAAAAAOgAAAAAAAAAiAAAAAAAAABwAQAAAAAAAAMAAAAAAAAAeAEAAAAAAAADAAAAAAAAAIABAAAAAAAAAwAAAAAAAACIAQAAAAAAAEgAAAAAAAAA0AEAAAAAAABZAAAAAAAAADACAAAAAAAAAwAAAAAAAAA4AgAAAAAAAEgAAAAAAAAAgAIAAAAAAAA2AAAAAAAAAAAAAAAGAAAAEQAAAAAAAAAEAAAAAAAAABEAAAAAAAAABAAAAAAAAAARAAAAAAAAAAQAAAAAAAAAEQAAAAAAAAAEAAAAAAAAABEAAAAAAAAABAAAAAAAAAARAAAAAAAAAAQAAAAAAAAA3nsBAAAAAAAAAAAA/v//fwIAAID8//9/BAAAgAAAAAAGAACA+P//fwgAAID2//9/AAAAAPT//38MAACA8v//fw4AAIAAAAAAEAAAgAAAAADeewEAAAAAAAAAAAAAAAAA/////////38BAAAAAAAgAP///////9//AAAAAAAAAAAAAAAAAAAAAP////////9/AQAAAAAAIAD////////f/wAAAAAAAAAAAAAAAAAAAAD/////////fwEAAAAAACAA////////3/8AAAAAAAAAAAAAAAAAAAAA/////////3/eewEAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAD4fwAAAAAAAPB/AAAAAAAA8P8AAAAAAAAAABgtRFT7IQlAAAAAAAAA9L8AAAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAAAAAADwfwAAAAAAAPD/AQAAAAAAAAAYLURU+yEJQAAAAAAAAAAAAAAAAAAAAADeewEAAAAAAIoqAAAAAAAA3nsBAAAAAAAAAAAAAAAAAAUAAAAOAAAAGAAAABwAAAAcAAAAIQAAACoAAAA0AAAAOAAAADgAAAA9AAAARgAAAFAAAABUAAAAVAAAAFkAAABoZWxsb2NhZsOpLeeMq++7v2xpdGVyYWzwn6aLaGVsbG9jYWbDqS3njKvvu79saXRlcmFs8J+mi2hlbGxvY2Fmw6kt54yr77u/bGl0ZXJhbPCfpotoZWxsbwAAAAAAAADeewEAAAAAAAAAAAAAAAAABgAAAAwAAAAMAAAAEgAAABIAAAASAAAAGAAAAB4AAAAeAAAAHgAAACQAAAAkAAAAKgAAADAAAAAwAAAANgAAAAD/DQqAAQD/DQqAAgD/DQqABAD/DQqABwD/DQqACAD/DQqACwD/DQqADQD/DQqADgD/DQqAEAAA/////5gBAAAUAAAAAAAAAAwAFgAGAAUACAAMAAwAAAAAAwQAGAAAAAgFAAAAAAAAAAAKABgADAAEAAgACgAAAPwAAAAQAAAAIQAAAAAAAAAAAAAADgAAAAAAAAAAAAAABQAAAAAAAAAIAAAAAAAAAIQAAAAAAAAAkAAAAAAAAAAFAAAAAAAAAJgAAAAAAAAACAEAAAAAAACgAQAAAAAAAAUAAAAAAAAAqAEAAAAAAAAIAQAAAAAAALACAAAAAAAABQAAAAAAAAC4AgAAAAAAAAUAAAAAAAAAwAIAAAAAAAAFAAAAAAAAAMgCAAAAAAAAiAAAAAAAAABQAwAAAAAAALYAAAAAAAAACAQAAAAAAAAFAAAAAAAAABAEAAAAAAAAiAAAAAAAAACYBAAAAAAAAGwAAAAAAAAAAAAAAAYAAAAhAAAAAAAAAAcAAAAAAAAAIQAAAAAAAAAHAAAAAAAAACEAAAAAAAAABwAAAAAAAAAhAAAAAAAAAAcAAAAAAAAAIQAAAAAAAAAHAAAAAAAAACEAAAAAAAAABwAAAAAAAADee++9AQAAAAAAAAD+//9/AgAAgPz//38EAACAAAAAAAYAAID4//9/CAAAgPb//38AAAAA9P//fwwAAIDy//9/DgAAgAAAAAAQAACA7v//fxIAAIDs//9/AAAAAOr//38WAACA6P//fxgAAIAAAAAAGgAAgOT//38cAACA4v//fwAAAADg//9/IAAAgAAAAADee++9AQAAAAAAAAAAAAAA/////////38BAAAAAAAgAP///////9//AAAAAAAAAAAAAAAAAAAAAP////////9/AQAAAAAAIAD////////f/wAAAAAAAAAAAAAAAAAAAAD/////////fwEAAAAAACAA////////3/8AAAAAAAAAAAAAAAAAAAAA/////////38BAAAAAAAgAP///////9//AAAAAAAAAAAAAAAAAAAAAP////////9/AQAAAAAAIAD////////f/wAAAAAAAAAAAAAAAAAAAAD/////////fwEAAAAAACAA////////3/8AAAAAAAAAAAAAAAAAAAAA/////////38BAAAAAAAgAN57770BAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAPh/AAAAAAAA8H8AAAAAAADw/wAAAAAAAAAAGC1EVPshCUAAAAAAAAD0vwAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAPB/AAAAAAAA8P8BAAAAAAAAABgtRFT7IQlAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAA+H8AAAAAAADwfwAAAAAAAAAAAQAAAAAAAAAYLURU+yEJQAAAAAAAAPS/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAPh/AAAAAAAA8H8AAAAAAADw/wEAAAAAAAAAAAAAAAAAAAAAAAAAAAD0vwAAAAAAAAAA3nvvvQEAAACKKqqoAAAAAN57770BAAAAAAAAAAAAAAAFAAAADgAAABgAAAAcAAAAHAAAACEAAAAqAAAANAAAADgAAAA4AAAAPQAAAEYAAABQAAAAVAAAAFQAAABZAAAAYgAAAGwAAABwAAAAcAAAAHUAAAB+AAAAiAAAAIwAAACMAAAAkQAAAJoAAACkAAAAqAAAAKgAAACtAAAAtgAAAGhlbGxvY2Fmw6kt54yr77u/bGl0ZXJhbPCfpotoZWxsb2NhZsOpLeeMq++7v2xpdGVyYWzwn6aLaGVsbG9jYWbDqS3njKvvu79saXRlcmFs8J+mi2hlbGxvY2Fmw6kt54yr77u/bGl0ZXJhbPCfpotoZWxsb2NhZsOpLeeMq++7v2xpdGVyYWzwn6aLaGVsbG9jYWbDqS3njKvvu79saXRlcmFs8J+mi2hlbGxvY2Fmw6kt54yrAADee++9AQAAAAAAAAAAAAAABgAAAAwAAAAMAAAAEgAAABIAAAASAAAAGAAAAB4AAAAeAAAAHgAAACQAAAAkAAAAKgAAADAAAAAwAAAANgAAADwAAAA8AAAAQgAAAEIAAABCAAAASAAAAE4AAABOAAAATgAAAFQAAABUAAAAWgAAAGAAAABgAAAAZgAAAGwAAAAA/w0KgAEA/w0KgAIA/w0KgAQA/w0KgAcA/w0KgAgA/w0KgAsA/w0KgA0A/w0KgA4A/w0KgBAA/w0KgBEA/w0KgBMA/w0KgBYA/w0KgBcA/w0KgBoA/w0KgBwA/w0KgB0A/w0KgB8A/w0KgCAAAAAA/////wAAAAAQAAAADAAUAAYACAAMABAADAAAAAAABABoAAAAWAAAAAQAAAADAAAAaAEAAAAAAACYAQAAAAAAABAAAAAAAAAAEAMAAAAAAACgAQAAAAAAALgCAAAAAAAAaAcAAAAAAACgAQAAAAAAAAgFAAAAAAAAAAAAAAAAAAAIAAgAAAAEAAgAAAAEAAAABgAAAPAAAACwAAAAgAAAAFQAAAAsAAAABAAAADj///8AAAEEEAAAABQAAAAEAAAAAAAAAAEAAAB4AAAAuP///1z///8AAAEFEAAAABQAAAAEAAAAAAAAAAEAAABzAAAA3P///4D///8AAAEGEAAAABgAAAAEAAAAAAAAAAEAAABiAAAABAAEAAQAAACo////AAABAxAAAAAYAAAABAAAAAAAAAABAAAAZAAGAAgABgAGAAAAAAACANT///8AAAECEAAAABQAAAAEAAAAAAAAAAEAAABxAAAAxP///wAAAAFAAAAAEAAUAAgABgAHAAwAAAAQABAAAAAAAAECEAAAABwAAAAEAAAAAAAAAAEAAABpAAAACAAMAAgABwAIAAAAAAAAASAAAACwAQAAQVJST1cx"
+      },
+      "batches": [
+        {
+          "rows": 0,
+          "originals": {
+            "i.validity": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "i.bin": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "q.validity": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "q.bin": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "d.validity": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "d.bin": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "b.validity": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "b.bin": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "s.validity": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "s.offsets": {
+              "bytes": 4,
+              "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119",
+              "base64": "AAAAAA=="
+            },
+            "s.data": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "x.validity": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "x.offsets": {
+              "bytes": 4,
+              "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119",
+              "base64": "AAAAAA=="
+            },
+            "x.data": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            }
+          }
+        },
+        {
+          "rows": 17,
+          "originals": {
+            "i.validity": {
+              "bytes": 17,
+              "sha256": "f55182b353796d0fc0ea7ff36f900f2ca18fb6ac9076e6c24d6b6900cb037fd4",
+              "base64": "AAEBAQEAAQEBAQABAQEBAAE="
+            },
+            "i.bin": {
+              "bytes": 68,
+              "sha256": "9a1fb094ac434f873142740c96d842fa330926f43d6ce1b595b18bef08859fd3",
+              "base64": "AAAAAP7//38CAACA/P//fwQAAIAAAAAABgAAgPj//38IAACA9v//fwAAAAD0//9/DAAAgPL//38OAACAAAAAABAAAIA="
+            },
+            "q.validity": {
+              "bytes": 17,
+              "sha256": "f55182b353796d0fc0ea7ff36f900f2ca18fb6ac9076e6c24d6b6900cb037fd4",
+              "base64": "AAEBAQEAAQEBAQABAQEBAAE="
+            },
+            "q.bin": {
+              "bytes": 136,
+              "sha256": "d6d0b8a5a8e6597e8345669696382c32ece2222e41826f967fda09dce09d25f8",
+              "base64": "AAAAAAAAAAD/////////fwEAAAAAACAA////////3/8AAAAAAAAAAAAAAAAAAAAA/////////38BAAAAAAAgAP///////9//AAAAAAAAAAAAAAAAAAAAAP////////9/AQAAAAAAIAD////////f/wAAAAAAAAAAAAAAAAAAAAD/////////fw=="
+            },
+            "d.validity": {
+              "bytes": 17,
+              "sha256": "f55182b353796d0fc0ea7ff36f900f2ca18fb6ac9076e6c24d6b6900cb037fd4",
+              "base64": "AAEBAQEAAQEBAQABAQEBAAE="
+            },
+            "d.bin": {
+              "bytes": 136,
+              "sha256": "ca57316e4ea3f580755e30f89d11d16a84732505b0b62850a2aa4da8b26fb655",
+              "base64": "AAAAAAAAAAAAAAAAAAAAgAAAAAAAAPh/AAAAAAAA8H8AAAAAAADw/wAAAAAAAAAAGC1EVPshCUAAAAAAAAD0vwAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAPB/AAAAAAAA8P8BAAAAAAAAABgtRFT7IQlAAAAAAAAAAAAAAAAAAAAAAA=="
+            },
+            "b.validity": {
+              "bytes": 17,
+              "sha256": "f55182b353796d0fc0ea7ff36f900f2ca18fb6ac9076e6c24d6b6900cb037fd4",
+              "base64": "AAEBAQEAAQEBAQABAQEBAAE="
+            },
+            "b.bin": {
+              "bytes": 17,
+              "sha256": "f56673783197b5f0f7c5cd33d5cdcaa5bab1efc631e9462cce8f243d1c011305",
+              "base64": "AAEAAQAAAAEAAQABAAEAAAA="
+            },
+            "s.validity": {
+              "bytes": 17,
+              "sha256": "f55182b353796d0fc0ea7ff36f900f2ca18fb6ac9076e6c24d6b6900cb037fd4",
+              "base64": "AAEBAQEAAQEBAQABAQEBAAE="
+            },
+            "s.offsets": {
+              "bytes": 72,
+              "sha256": "a5c4c1a5de9db841883fd4d199ddcd926e74decf0c4959c91338216d72f561fb",
+              "base64": "AAAAAAAAAAAFAAAADgAAABgAAAAcAAAAHAAAACEAAAAqAAAANAAAADgAAAA4AAAAPQAAAEYAAABQAAAAVAAAAFQAAABZAAAA"
+            },
+            "s.data": {
+              "bytes": 89,
+              "sha256": "bb294405e95622d9f424bb5ffd79091dc95ac6258a65bb2d76cfdde11b1571be",
+              "base64": "aGVsbG9jYWbDqS3njKvvu79saXRlcmFs8J+mi2hlbGxvY2Fmw6kt54yr77u/bGl0ZXJhbPCfpotoZWxsb2NhZsOpLeeMq++7v2xpdGVyYWzwn6aLaGVsbG8="
+            },
+            "x.validity": {
+              "bytes": 17,
+              "sha256": "f55182b353796d0fc0ea7ff36f900f2ca18fb6ac9076e6c24d6b6900cb037fd4",
+              "base64": "AAEBAQEAAQEBAQABAQEBAAE="
+            },
+            "x.offsets": {
+              "bytes": 72,
+              "sha256": "9e8c3e769cd17676c9d6bbbd599d561a64f26be8b245c9b43b1365f186826100",
+              "base64": "AAAAAAAAAAAGAAAADAAAAAwAAAASAAAAEgAAABIAAAAYAAAAHgAAAB4AAAAeAAAAJAAAACQAAAAqAAAAMAAAADAAAAA2AAAA"
+            },
+            "x.data": {
+              "bytes": 54,
+              "sha256": "3ccbdfb3bdf03a2b11d1860c1dc2ca947c1094ac85fef616fdb2856f0948c318",
+              "base64": "AP8NCoABAP8NCoACAP8NCoAEAP8NCoAHAP8NCoAIAP8NCoALAP8NCoANAP8NCoAOAP8NCoAQ"
+            }
+          }
+        },
+        {
+          "rows": 33,
+          "originals": {
+            "i.validity": {
+              "bytes": 33,
+              "sha256": "6dbb5cba9cfca5f88ec3d5ab9649c17f7b3dd9e491ea08150dcecc4189267d51",
+              "base64": "AAEBAQEAAQEBAQABAQEBAAEBAQEAAQEBAQABAQEBAAEB"
+            },
+            "i.bin": {
+              "bytes": 132,
+              "sha256": "148e97130ff224ceedfefca22c749492016b70a931c7998fcee81f55c49d5a36",
+              "base64": "AAAAAP7//38CAACA/P//fwQAAIAAAAAABgAAgPj//38IAACA9v//fwAAAAD0//9/DAAAgPL//38OAACAAAAAABAAAIDu//9/EgAAgOz//38AAAAA6v//fxYAAIDo//9/GAAAgAAAAAAaAACA5P//fxwAAIDi//9/AAAAAOD//38gAACA"
+            },
+            "q.validity": {
+              "bytes": 33,
+              "sha256": "6dbb5cba9cfca5f88ec3d5ab9649c17f7b3dd9e491ea08150dcecc4189267d51",
+              "base64": "AAEBAQEAAQEBAQABAQEBAAEBAQEAAQEBAQABAQEBAAEB"
+            },
+            "q.bin": {
+              "bytes": 264,
+              "sha256": "755adf0389e5201aa2f8770089c63f0020f6c9bb461ce08eca11d68b6bee82e3",
+              "base64": "AAAAAAAAAAD/////////fwEAAAAAACAA////////3/8AAAAAAAAAAAAAAAAAAAAA/////////38BAAAAAAAgAP///////9//AAAAAAAAAAAAAAAAAAAAAP////////9/AQAAAAAAIAD////////f/wAAAAAAAAAAAAAAAAAAAAD/////////fwEAAAAAACAA////////3/8AAAAAAAAAAAAAAAAAAAAA/////////38BAAAAAAAgAP///////9//AAAAAAAAAAAAAAAAAAAAAP////////9/AQAAAAAAIAD////////f/wAAAAAAAAAAAAAAAAAAAAD/////////fwEAAAAAACAA"
+            },
+            "d.validity": {
+              "bytes": 33,
+              "sha256": "6dbb5cba9cfca5f88ec3d5ab9649c17f7b3dd9e491ea08150dcecc4189267d51",
+              "base64": "AAEBAQEAAQEBAQABAQEBAAEBAQEAAQEBAQABAQEBAAEB"
+            },
+            "d.bin": {
+              "bytes": 264,
+              "sha256": "64217ccca2676c36d5c0ee54e71281d0cfdb9659b674701226a5e4e64bf633e4",
+              "base64": "AAAAAAAAAAAAAAAAAAAAgAAAAAAAAPh/AAAAAAAA8H8AAAAAAADw/wAAAAAAAAAAGC1EVPshCUAAAAAAAAD0vwAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAPB/AAAAAAAA8P8BAAAAAAAAABgtRFT7IQlAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAA+H8AAAAAAADwfwAAAAAAAAAAAQAAAAAAAAAYLURU+yEJQAAAAAAAAPS/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAPh/AAAAAAAA8H8AAAAAAADw/wEAAAAAAAAAAAAAAAAAAAAAAAAAAAD0vwAAAAAAAAAA"
+            },
+            "b.validity": {
+              "bytes": 33,
+              "sha256": "6dbb5cba9cfca5f88ec3d5ab9649c17f7b3dd9e491ea08150dcecc4189267d51",
+              "base64": "AAEBAQEAAQEBAQABAQEBAAEBAQEAAQEBAQABAQEBAAEB"
+            },
+            "b.bin": {
+              "bytes": 33,
+              "sha256": "8890d9023119dfab0c2f8bd4d555a7f9064ce6cc0212ad6d0b1b5764178a5ac5",
+              "base64": "AAEAAQAAAAEAAQABAAEAAAABAAEAAQABAAAAAQABAAEA"
+            },
+            "s.validity": {
+              "bytes": 33,
+              "sha256": "6dbb5cba9cfca5f88ec3d5ab9649c17f7b3dd9e491ea08150dcecc4189267d51",
+              "base64": "AAEBAQEAAQEBAQABAQEBAAEBAQEAAQEBAQABAQEBAAEB"
+            },
+            "s.offsets": {
+              "bytes": 136,
+              "sha256": "147c9b1f69523a8c3efc75bf3acb47ef83facc9d8ba36db125775e180172c674",
+              "base64": "AAAAAAAAAAAFAAAADgAAABgAAAAcAAAAHAAAACEAAAAqAAAANAAAADgAAAA4AAAAPQAAAEYAAABQAAAAVAAAAFQAAABZAAAAYgAAAGwAAABwAAAAcAAAAHUAAAB+AAAAiAAAAIwAAACMAAAAkQAAAJoAAACkAAAAqAAAAKgAAACtAAAAtgAAAA=="
+            },
+            "s.data": {
+              "bytes": 182,
+              "sha256": "3ed114ddbd2f99ed2d791cdccb3a7a03a0274fe72d1b81cb4ff85480539b349b",
+              "base64": "aGVsbG9jYWbDqS3njKvvu79saXRlcmFs8J+mi2hlbGxvY2Fmw6kt54yr77u/bGl0ZXJhbPCfpotoZWxsb2NhZsOpLeeMq++7v2xpdGVyYWzwn6aLaGVsbG9jYWbDqS3njKvvu79saXRlcmFs8J+mi2hlbGxvY2Fmw6kt54yr77u/bGl0ZXJhbPCfpotoZWxsb2NhZsOpLeeMq++7v2xpdGVyYWzwn6aLaGVsbG9jYWbDqS3njKs="
+            },
+            "x.validity": {
+              "bytes": 33,
+              "sha256": "6dbb5cba9cfca5f88ec3d5ab9649c17f7b3dd9e491ea08150dcecc4189267d51",
+              "base64": "AAEBAQEAAQEBAQABAQEBAAEBAQEAAQEBAQABAQEBAAEB"
+            },
+            "x.offsets": {
+              "bytes": 136,
+              "sha256": "364e8e6f294d86fe982fd1e86e572fbcad2ced4a0fd778ceaef98fbd7f0a7424",
+              "base64": "AAAAAAAAAAAGAAAADAAAAAwAAAASAAAAEgAAABIAAAAYAAAAHgAAAB4AAAAeAAAAJAAAACQAAAAqAAAAMAAAADAAAAA2AAAAPAAAADwAAABCAAAAQgAAAEIAAABIAAAATgAAAE4AAABOAAAAVAAAAFQAAABaAAAAYAAAAGAAAABmAAAAbAAAAA=="
+            },
+            "x.data": {
+              "bytes": 108,
+              "sha256": "32886e93e3e25310085b72964139a7a83620f1549b4fb82262b8894a6040771e",
+              "base64": "AP8NCoABAP8NCoACAP8NCoAEAP8NCoAHAP8NCoAIAP8NCoALAP8NCoANAP8NCoAOAP8NCoAQAP8NCoARAP8NCoATAP8NCoAWAP8NCoAXAP8NCoAaAP8NCoAcAP8NCoAdAP8NCoAfAP8NCoAg"
+            }
+          }
+        }
+      ],
+      "checks": [
+        "native schema and batch count",
+        "full typed values and validity",
+        "exact UTF8/binary offsets and bytes"
+      ],
+      "nativeReadback": "Arrow C++ IPC V5 full readback: file 3 batches"
+    },
+    {
+      "name": "mixed-multibatch-stream",
+      "format": "stream",
+      "metadataVersion": "V5",
+      "compression": "uncompressed",
+      "schema": [
+        {
+          "name": "i",
+          "type": "int32",
+          "nullable": true
+        },
+        {
+          "name": "q",
+          "type": "int64",
+          "nullable": true
+        },
+        {
+          "name": "d",
+          "type": "float64",
+          "nullable": true
+        },
+        {
+          "name": "b",
+          "type": "boolean",
+          "nullable": true
+        },
+        {
+          "name": "s",
+          "type": "utf8",
+          "nullable": true
+        },
+        {
+          "name": "x",
+          "type": "binary",
+          "nullable": true
+        }
+      ],
+      "image": {
+        "bytes": 3600,
+        "sha256": "6f57bb102929da1f01a58ba3d481f62439ef87b248fad91de039e0ded4925c5a",
+        "base64": "/////1gBAAAQAAAAAAAKAAwABgAFAAgACgAAAAABBAAMAAAACAAIAAAABAAIAAAABAAAAAYAAADwAAAAsAAAAIAAAABUAAAALAAAAAQAAAA4////AAABBBAAAAAUAAAABAAAAAAAAAABAAAAeAAAALj///9c////AAABBRAAAAAUAAAABAAAAAAAAAABAAAAcwAAANz///+A////AAABBhAAAAAYAAAABAAAAAAAAAABAAAAYgAAAAQABAAEAAAAqP///wAAAQMQAAAAGAAAAAQAAAAAAAAAAQAAAGQABgAIAAYABgAAAAAAAgDU////AAABAhAAAAAUAAAABAAAAAAAAAABAAAAcQAAAMT///8AAAABQAAAABAAFAAIAAYABwAMAAAAEAAQAAAAAAABAhAAAAAcAAAABAAAAAAAAAABAAAAaQAAAAgADAAIAAcACAAAAAAAAAEgAAAAAAAAAP////+QAQAAFAAAAAAAAAAMABoABgAFAAgADAAMAAAAAAMEABwAAAAQAAAAAAAAAAAAAAAAAAoADAAAAAQACAAKAAAA8AAAAAQAAAAOAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAEAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAABgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/////mAEAABQAAAAAAAAADAAWAAYABQAIAAwADAAAAAADBAAYAAAAuAIAAAAAAAAAAAoAGAAMAAQACAAKAAAA/AAAABAAAAARAAAAAAAAAAAAAAAOAAAAAAAAAAAAAAADAAAAAAAAAAgAAAAAAAAARAAAAAAAAABQAAAAAAAAAAMAAAAAAAAAWAAAAAAAAACIAAAAAAAAAOAAAAAAAAAAAwAAAAAAAADoAAAAAAAAAIgAAAAAAAAAcAEAAAAAAAADAAAAAAAAAHgBAAAAAAAAAwAAAAAAAACAAQAAAAAAAAMAAAAAAAAAiAEAAAAAAABIAAAAAAAAANABAAAAAAAAWQAAAAAAAAAwAgAAAAAAAAMAAAAAAAAAOAIAAAAAAABIAAAAAAAAAIACAAAAAAAANgAAAAAAAAAAAAAABgAAABEAAAAAAAAABAAAAAAAAAARAAAAAAAAAAQAAAAAAAAAEQAAAAAAAAAEAAAAAAAAABEAAAAAAAAABAAAAAAAAAARAAAAAAAAAAQAAAAAAAAAEQAAAAAAAAAEAAAAAAAAAN57AQAAAAAAAAAAAP7//38CAACA/P//fwQAAIAAAAAABgAAgPj//38IAACA9v//fwAAAAD0//9/DAAAgPL//38OAACAAAAAABAAAIAAAAAA3nsBAAAAAAAAAAAAAAAAAP////////9/AQAAAAAAIAD////////f/wAAAAAAAAAAAAAAAAAAAAD/////////fwEAAAAAACAA////////3/8AAAAAAAAAAAAAAAAAAAAA/////////38BAAAAAAAgAP///////9//AAAAAAAAAAAAAAAAAAAAAP////////9/3nsBAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAA+H8AAAAAAADwfwAAAAAAAPD/AAAAAAAAAAAYLURU+yEJQAAAAAAAAPS/AAAAAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAAAAAA8H8AAAAAAADw/wEAAAAAAAAAGC1EVPshCUAAAAAAAAAAAAAAAAAAAAAA3nsBAAAAAACKKgAAAAAAAN57AQAAAAAAAAAAAAAAAAAFAAAADgAAABgAAAAcAAAAHAAAACEAAAAqAAAANAAAADgAAAA4AAAAPQAAAEYAAABQAAAAVAAAAFQAAABZAAAAaGVsbG9jYWbDqS3njKvvu79saXRlcmFs8J+mi2hlbGxvY2Fmw6kt54yr77u/bGl0ZXJhbPCfpotoZWxsb2NhZsOpLeeMq++7v2xpdGVyYWzwn6aLaGVsbG8AAAAAAAAA3nsBAAAAAAAAAAAAAAAAAAYAAAAMAAAADAAAABIAAAASAAAAEgAAABgAAAAeAAAAHgAAAB4AAAAkAAAAJAAAACoAAAAwAAAAMAAAADYAAAAA/w0KgAEA/w0KgAIA/w0KgAQA/w0KgAcA/w0KgAgA/w0KgAsA/w0KgA0A/w0KgA4A/w0KgBAAAP////+YAQAAFAAAAAAAAAAMABYABgAFAAgADAAMAAAAAAMEABgAAAAIBQAAAAAAAAAACgAYAAwABAAIAAoAAAD8AAAAEAAAACEAAAAAAAAAAAAAAA4AAAAAAAAAAAAAAAUAAAAAAAAACAAAAAAAAACEAAAAAAAAAJAAAAAAAAAABQAAAAAAAACYAAAAAAAAAAgBAAAAAAAAoAEAAAAAAAAFAAAAAAAAAKgBAAAAAAAACAEAAAAAAACwAgAAAAAAAAUAAAAAAAAAuAIAAAAAAAAFAAAAAAAAAMACAAAAAAAABQAAAAAAAADIAgAAAAAAAIgAAAAAAAAAUAMAAAAAAAC2AAAAAAAAAAgEAAAAAAAABQAAAAAAAAAQBAAAAAAAAIgAAAAAAAAAmAQAAAAAAABsAAAAAAAAAAAAAAAGAAAAIQAAAAAAAAAHAAAAAAAAACEAAAAAAAAABwAAAAAAAAAhAAAAAAAAAAcAAAAAAAAAIQAAAAAAAAAHAAAAAAAAACEAAAAAAAAABwAAAAAAAAAhAAAAAAAAAAcAAAAAAAAA3nvvvQEAAAAAAAAA/v//fwIAAID8//9/BAAAgAAAAAAGAACA+P//fwgAAID2//9/AAAAAPT//38MAACA8v//fw4AAIAAAAAAEAAAgO7//38SAACA7P//fwAAAADq//9/FgAAgOj//38YAACAAAAAABoAAIDk//9/HAAAgOL//38AAAAA4P//fyAAAIAAAAAA3nvvvQEAAAAAAAAAAAAAAP////////9/AQAAAAAAIAD////////f/wAAAAAAAAAAAAAAAAAAAAD/////////fwEAAAAAACAA////////3/8AAAAAAAAAAAAAAAAAAAAA/////////38BAAAAAAAgAP///////9//AAAAAAAAAAAAAAAAAAAAAP////////9/AQAAAAAAIAD////////f/wAAAAAAAAAAAAAAAAAAAAD/////////fwEAAAAAACAA////////3/8AAAAAAAAAAAAAAAAAAAAA/////////38BAAAAAAAgAP///////9//AAAAAAAAAAAAAAAAAAAAAP////////9/AQAAAAAAIADee++9AQAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAD4fwAAAAAAAPB/AAAAAAAA8P8AAAAAAAAAABgtRFT7IQlAAAAAAAAA9L8AAAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAAAAAADwfwAAAAAAAPD/AQAAAAAAAAAYLURU+yEJQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAPh/AAAAAAAA8H8AAAAAAAAAAAEAAAAAAAAAGC1EVPshCUAAAAAAAAD0vwAAAAAAAAAAAAAAAAAAAAAAAAAAAAD4fwAAAAAAAPB/AAAAAAAA8P8BAAAAAAAAAAAAAAAAAAAAAAAAAAAA9L8AAAAAAAAAAN57770BAAAAiiqqqAAAAADee++9AQAAAAAAAAAAAAAABQAAAA4AAAAYAAAAHAAAABwAAAAhAAAAKgAAADQAAAA4AAAAOAAAAD0AAABGAAAAUAAAAFQAAABUAAAAWQAAAGIAAABsAAAAcAAAAHAAAAB1AAAAfgAAAIgAAACMAAAAjAAAAJEAAACaAAAApAAAAKgAAACoAAAArQAAALYAAABoZWxsb2NhZsOpLeeMq++7v2xpdGVyYWzwn6aLaGVsbG9jYWbDqS3njKvvu79saXRlcmFs8J+mi2hlbGxvY2Fmw6kt54yr77u/bGl0ZXJhbPCfpotoZWxsb2NhZsOpLeeMq++7v2xpdGVyYWzwn6aLaGVsbG9jYWbDqS3njKvvu79saXRlcmFs8J+mi2hlbGxvY2Fmw6kt54yr77u/bGl0ZXJhbPCfpotoZWxsb2NhZsOpLeeMqwAA3nvvvQEAAAAAAAAAAAAAAAYAAAAMAAAADAAAABIAAAASAAAAEgAAABgAAAAeAAAAHgAAAB4AAAAkAAAAJAAAACoAAAAwAAAAMAAAADYAAAA8AAAAPAAAAEIAAABCAAAAQgAAAEgAAABOAAAATgAAAE4AAABUAAAAVAAAAFoAAABgAAAAYAAAAGYAAABsAAAAAP8NCoABAP8NCoACAP8NCoAEAP8NCoAHAP8NCoAIAP8NCoALAP8NCoANAP8NCoAOAP8NCoAQAP8NCoARAP8NCoATAP8NCoAWAP8NCoAXAP8NCoAaAP8NCoAcAP8NCoAdAP8NCoAfAP8NCoAgAAAAAP////8AAAAA"
+      },
+      "batches": [
+        {
+          "rows": 0,
+          "originals": {
+            "i.validity": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "i.bin": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "q.validity": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "q.bin": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "d.validity": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "d.bin": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "b.validity": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "b.bin": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "s.validity": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "s.offsets": {
+              "bytes": 4,
+              "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119",
+              "base64": "AAAAAA=="
+            },
+            "s.data": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "x.validity": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "x.offsets": {
+              "bytes": 4,
+              "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119",
+              "base64": "AAAAAA=="
+            },
+            "x.data": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            }
+          }
+        },
+        {
+          "rows": 17,
+          "originals": {
+            "i.validity": {
+              "bytes": 17,
+              "sha256": "f55182b353796d0fc0ea7ff36f900f2ca18fb6ac9076e6c24d6b6900cb037fd4",
+              "base64": "AAEBAQEAAQEBAQABAQEBAAE="
+            },
+            "i.bin": {
+              "bytes": 68,
+              "sha256": "9a1fb094ac434f873142740c96d842fa330926f43d6ce1b595b18bef08859fd3",
+              "base64": "AAAAAP7//38CAACA/P//fwQAAIAAAAAABgAAgPj//38IAACA9v//fwAAAAD0//9/DAAAgPL//38OAACAAAAAABAAAIA="
+            },
+            "q.validity": {
+              "bytes": 17,
+              "sha256": "f55182b353796d0fc0ea7ff36f900f2ca18fb6ac9076e6c24d6b6900cb037fd4",
+              "base64": "AAEBAQEAAQEBAQABAQEBAAE="
+            },
+            "q.bin": {
+              "bytes": 136,
+              "sha256": "d6d0b8a5a8e6597e8345669696382c32ece2222e41826f967fda09dce09d25f8",
+              "base64": "AAAAAAAAAAD/////////fwEAAAAAACAA////////3/8AAAAAAAAAAAAAAAAAAAAA/////////38BAAAAAAAgAP///////9//AAAAAAAAAAAAAAAAAAAAAP////////9/AQAAAAAAIAD////////f/wAAAAAAAAAAAAAAAAAAAAD/////////fw=="
+            },
+            "d.validity": {
+              "bytes": 17,
+              "sha256": "f55182b353796d0fc0ea7ff36f900f2ca18fb6ac9076e6c24d6b6900cb037fd4",
+              "base64": "AAEBAQEAAQEBAQABAQEBAAE="
+            },
+            "d.bin": {
+              "bytes": 136,
+              "sha256": "ca57316e4ea3f580755e30f89d11d16a84732505b0b62850a2aa4da8b26fb655",
+              "base64": "AAAAAAAAAAAAAAAAAAAAgAAAAAAAAPh/AAAAAAAA8H8AAAAAAADw/wAAAAAAAAAAGC1EVPshCUAAAAAAAAD0vwAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAPB/AAAAAAAA8P8BAAAAAAAAABgtRFT7IQlAAAAAAAAAAAAAAAAAAAAAAA=="
+            },
+            "b.validity": {
+              "bytes": 17,
+              "sha256": "f55182b353796d0fc0ea7ff36f900f2ca18fb6ac9076e6c24d6b6900cb037fd4",
+              "base64": "AAEBAQEAAQEBAQABAQEBAAE="
+            },
+            "b.bin": {
+              "bytes": 17,
+              "sha256": "f56673783197b5f0f7c5cd33d5cdcaa5bab1efc631e9462cce8f243d1c011305",
+              "base64": "AAEAAQAAAAEAAQABAAEAAAA="
+            },
+            "s.validity": {
+              "bytes": 17,
+              "sha256": "f55182b353796d0fc0ea7ff36f900f2ca18fb6ac9076e6c24d6b6900cb037fd4",
+              "base64": "AAEBAQEAAQEBAQABAQEBAAE="
+            },
+            "s.offsets": {
+              "bytes": 72,
+              "sha256": "a5c4c1a5de9db841883fd4d199ddcd926e74decf0c4959c91338216d72f561fb",
+              "base64": "AAAAAAAAAAAFAAAADgAAABgAAAAcAAAAHAAAACEAAAAqAAAANAAAADgAAAA4AAAAPQAAAEYAAABQAAAAVAAAAFQAAABZAAAA"
+            },
+            "s.data": {
+              "bytes": 89,
+              "sha256": "bb294405e95622d9f424bb5ffd79091dc95ac6258a65bb2d76cfdde11b1571be",
+              "base64": "aGVsbG9jYWbDqS3njKvvu79saXRlcmFs8J+mi2hlbGxvY2Fmw6kt54yr77u/bGl0ZXJhbPCfpotoZWxsb2NhZsOpLeeMq++7v2xpdGVyYWzwn6aLaGVsbG8="
+            },
+            "x.validity": {
+              "bytes": 17,
+              "sha256": "f55182b353796d0fc0ea7ff36f900f2ca18fb6ac9076e6c24d6b6900cb037fd4",
+              "base64": "AAEBAQEAAQEBAQABAQEBAAE="
+            },
+            "x.offsets": {
+              "bytes": 72,
+              "sha256": "9e8c3e769cd17676c9d6bbbd599d561a64f26be8b245c9b43b1365f186826100",
+              "base64": "AAAAAAAAAAAGAAAADAAAAAwAAAASAAAAEgAAABIAAAAYAAAAHgAAAB4AAAAeAAAAJAAAACQAAAAqAAAAMAAAADAAAAA2AAAA"
+            },
+            "x.data": {
+              "bytes": 54,
+              "sha256": "3ccbdfb3bdf03a2b11d1860c1dc2ca947c1094ac85fef616fdb2856f0948c318",
+              "base64": "AP8NCoABAP8NCoACAP8NCoAEAP8NCoAHAP8NCoAIAP8NCoALAP8NCoANAP8NCoAOAP8NCoAQ"
+            }
+          }
+        },
+        {
+          "rows": 33,
+          "originals": {
+            "i.validity": {
+              "bytes": 33,
+              "sha256": "6dbb5cba9cfca5f88ec3d5ab9649c17f7b3dd9e491ea08150dcecc4189267d51",
+              "base64": "AAEBAQEAAQEBAQABAQEBAAEBAQEAAQEBAQABAQEBAAEB"
+            },
+            "i.bin": {
+              "bytes": 132,
+              "sha256": "148e97130ff224ceedfefca22c749492016b70a931c7998fcee81f55c49d5a36",
+              "base64": "AAAAAP7//38CAACA/P//fwQAAIAAAAAABgAAgPj//38IAACA9v//fwAAAAD0//9/DAAAgPL//38OAACAAAAAABAAAIDu//9/EgAAgOz//38AAAAA6v//fxYAAIDo//9/GAAAgAAAAAAaAACA5P//fxwAAIDi//9/AAAAAOD//38gAACA"
+            },
+            "q.validity": {
+              "bytes": 33,
+              "sha256": "6dbb5cba9cfca5f88ec3d5ab9649c17f7b3dd9e491ea08150dcecc4189267d51",
+              "base64": "AAEBAQEAAQEBAQABAQEBAAEBAQEAAQEBAQABAQEBAAEB"
+            },
+            "q.bin": {
+              "bytes": 264,
+              "sha256": "755adf0389e5201aa2f8770089c63f0020f6c9bb461ce08eca11d68b6bee82e3",
+              "base64": "AAAAAAAAAAD/////////fwEAAAAAACAA////////3/8AAAAAAAAAAAAAAAAAAAAA/////////38BAAAAAAAgAP///////9//AAAAAAAAAAAAAAAAAAAAAP////////9/AQAAAAAAIAD////////f/wAAAAAAAAAAAAAAAAAAAAD/////////fwEAAAAAACAA////////3/8AAAAAAAAAAAAAAAAAAAAA/////////38BAAAAAAAgAP///////9//AAAAAAAAAAAAAAAAAAAAAP////////9/AQAAAAAAIAD////////f/wAAAAAAAAAAAAAAAAAAAAD/////////fwEAAAAAACAA"
+            },
+            "d.validity": {
+              "bytes": 33,
+              "sha256": "6dbb5cba9cfca5f88ec3d5ab9649c17f7b3dd9e491ea08150dcecc4189267d51",
+              "base64": "AAEBAQEAAQEBAQABAQEBAAEBAQEAAQEBAQABAQEBAAEB"
+            },
+            "d.bin": {
+              "bytes": 264,
+              "sha256": "64217ccca2676c36d5c0ee54e71281d0cfdb9659b674701226a5e4e64bf633e4",
+              "base64": "AAAAAAAAAAAAAAAAAAAAgAAAAAAAAPh/AAAAAAAA8H8AAAAAAADw/wAAAAAAAAAAGC1EVPshCUAAAAAAAAD0vwAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAPB/AAAAAAAA8P8BAAAAAAAAABgtRFT7IQlAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAA+H8AAAAAAADwfwAAAAAAAAAAAQAAAAAAAAAYLURU+yEJQAAAAAAAAPS/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAPh/AAAAAAAA8H8AAAAAAADw/wEAAAAAAAAAAAAAAAAAAAAAAAAAAAD0vwAAAAAAAAAA"
+            },
+            "b.validity": {
+              "bytes": 33,
+              "sha256": "6dbb5cba9cfca5f88ec3d5ab9649c17f7b3dd9e491ea08150dcecc4189267d51",
+              "base64": "AAEBAQEAAQEBAQABAQEBAAEBAQEAAQEBAQABAQEBAAEB"
+            },
+            "b.bin": {
+              "bytes": 33,
+              "sha256": "8890d9023119dfab0c2f8bd4d555a7f9064ce6cc0212ad6d0b1b5764178a5ac5",
+              "base64": "AAEAAQAAAAEAAQABAAEAAAABAAEAAQABAAAAAQABAAEA"
+            },
+            "s.validity": {
+              "bytes": 33,
+              "sha256": "6dbb5cba9cfca5f88ec3d5ab9649c17f7b3dd9e491ea08150dcecc4189267d51",
+              "base64": "AAEBAQEAAQEBAQABAQEBAAEBAQEAAQEBAQABAQEBAAEB"
+            },
+            "s.offsets": {
+              "bytes": 136,
+              "sha256": "147c9b1f69523a8c3efc75bf3acb47ef83facc9d8ba36db125775e180172c674",
+              "base64": "AAAAAAAAAAAFAAAADgAAABgAAAAcAAAAHAAAACEAAAAqAAAANAAAADgAAAA4AAAAPQAAAEYAAABQAAAAVAAAAFQAAABZAAAAYgAAAGwAAABwAAAAcAAAAHUAAAB+AAAAiAAAAIwAAACMAAAAkQAAAJoAAACkAAAAqAAAAKgAAACtAAAAtgAAAA=="
+            },
+            "s.data": {
+              "bytes": 182,
+              "sha256": "3ed114ddbd2f99ed2d791cdccb3a7a03a0274fe72d1b81cb4ff85480539b349b",
+              "base64": "aGVsbG9jYWbDqS3njKvvu79saXRlcmFs8J+mi2hlbGxvY2Fmw6kt54yr77u/bGl0ZXJhbPCfpotoZWxsb2NhZsOpLeeMq++7v2xpdGVyYWzwn6aLaGVsbG9jYWbDqS3njKvvu79saXRlcmFs8J+mi2hlbGxvY2Fmw6kt54yr77u/bGl0ZXJhbPCfpotoZWxsb2NhZsOpLeeMq++7v2xpdGVyYWzwn6aLaGVsbG9jYWbDqS3njKs="
+            },
+            "x.validity": {
+              "bytes": 33,
+              "sha256": "6dbb5cba9cfca5f88ec3d5ab9649c17f7b3dd9e491ea08150dcecc4189267d51",
+              "base64": "AAEBAQEAAQEBAQABAQEBAAEBAQEAAQEBAQABAQEBAAEB"
+            },
+            "x.offsets": {
+              "bytes": 136,
+              "sha256": "364e8e6f294d86fe982fd1e86e572fbcad2ced4a0fd778ceaef98fbd7f0a7424",
+              "base64": "AAAAAAAAAAAGAAAADAAAAAwAAAASAAAAEgAAABIAAAAYAAAAHgAAAB4AAAAeAAAAJAAAACQAAAAqAAAAMAAAADAAAAA2AAAAPAAAADwAAABCAAAAQgAAAEIAAABIAAAATgAAAE4AAABOAAAAVAAAAFQAAABaAAAAYAAAAGAAAABmAAAAbAAAAA=="
+            },
+            "x.data": {
+              "bytes": 108,
+              "sha256": "32886e93e3e25310085b72964139a7a83620f1549b4fb82262b8894a6040771e",
+              "base64": "AP8NCoABAP8NCoACAP8NCoAEAP8NCoAHAP8NCoAIAP8NCoALAP8NCoANAP8NCoAOAP8NCoAQAP8NCoARAP8NCoATAP8NCoAWAP8NCoAXAP8NCoAaAP8NCoAcAP8NCoAdAP8NCoAfAP8NCoAg"
+            }
+          }
+        }
+      ],
+      "checks": [
+        "native schema and batch count",
+        "full typed values and validity",
+        "exact UTF8/binary offsets and bytes"
+      ],
+      "nativeReadback": "Arrow C++ IPC V5 full readback: stream 3 batches"
+    },
+    {
+      "name": "all-null-file",
+      "format": "file",
+      "metadataVersion": "V5",
+      "compression": "uncompressed",
+      "schema": [
+        {
+          "name": "i",
+          "type": "int32",
+          "nullable": true
+        },
+        {
+          "name": "q",
+          "type": "int64",
+          "nullable": true
+        },
+        {
+          "name": "d",
+          "type": "float64",
+          "nullable": true
+        },
+        {
+          "name": "b",
+          "type": "boolean",
+          "nullable": true
+        },
+        {
+          "name": "s",
+          "type": "utf8",
+          "nullable": true
+        },
+        {
+          "name": "x",
+          "type": "binary",
+          "nullable": true
+        }
+      ],
+      "image": {
+        "bytes": 2538,
+        "sha256": "d78fee3b37133e320473c4d5b05ea019eebf30c55ce37ae3362f0a741ab3fbd3",
+        "base64": "QVJST1cxAAD/////WAEAABAAAAAAAAoADAAGAAUACAAKAAAAAAEEAAwAAAAIAAgAAAAEAAgAAAAEAAAABgAAAPAAAACwAAAAgAAAAFQAAAAsAAAABAAAADj///8AAAEEEAAAABQAAAAEAAAAAAAAAAEAAAB4AAAAuP///1z///8AAAEFEAAAABQAAAAEAAAAAAAAAAEAAABzAAAA3P///4D///8AAAEGEAAAABgAAAAEAAAAAAAAAAEAAABiAAAABAAEAAQAAACo////AAABAxAAAAAYAAAABAAAAAAAAAABAAAAZAAGAAgABgAGAAAAAAACANT///8AAAECEAAAABQAAAAEAAAAAAAAAAEAAABxAAAAxP///wAAAAFAAAAAEAAUAAgABgAHAAwAAAAQABAAAAAAAAECEAAAABwAAAAEAAAAAAAAAAEAAABpAAAACAAMAAgABwAIAAAAAAAAASAAAAAAAAAA/////5gBAAAUAAAAAAAAAAwAFgAGAAUACAAMAAwAAAAAAwQAGAAAAJgAAAAAAAAAAAAKABgADAAEAAgACgAAAPwAAAAQAAAAAwAAAAAAAAAAAAAADgAAAAAAAAAAAAAAAQAAAAAAAAAIAAAAAAAAAAwAAAAAAAAAGAAAAAAAAAABAAAAAAAAACAAAAAAAAAAGAAAAAAAAAA4AAAAAAAAAAEAAAAAAAAAQAAAAAAAAAAYAAAAAAAAAFgAAAAAAAAAAQAAAAAAAABgAAAAAAAAAAEAAAAAAAAAaAAAAAAAAAABAAAAAAAAAHAAAAAAAAAAEAAAAAAAAACAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAABAAAAAAAAAIgAAAAAAAAAEAAAAAAAAACYAAAAAAAAAAAAAAAAAAAAAAAAAAYAAAADAAAAAAAAAAMAAAAAAAAAAwAAAAAAAAADAAAAAAAAAAMAAAAAAAAAAwAAAAAAAAADAAAAAAAAAAMAAAAAAAAAAwAAAAAAAAADAAAAAAAAAAMAAAAAAAAAAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP////+QAQAAFAAAAAAAAAAMABoABgAFAAgADAAMAAAAAAMEABwAAAAQAAAAAAAAAAAAAAAAAAoADAAAAAQACAAKAAAA8AAAAAQAAAAOAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAEAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAABgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/////mAEAABQAAAAAAAAADAAWAAYABQAIAAwADAAAAAADBAAYAAAAQAEAAAAAAAAAAAoAGAAMAAQACAAKAAAA/AAAABAAAAAJAAAAAAAAAAAAAAAOAAAAAAAAAAAAAAACAAAAAAAAAAgAAAAAAAAAJAAAAAAAAAAwAAAAAAAAAAIAAAAAAAAAOAAAAAAAAABIAAAAAAAAAIAAAAAAAAAAAgAAAAAAAACIAAAAAAAAAEgAAAAAAAAA0AAAAAAAAAACAAAAAAAAANgAAAAAAAAAAgAAAAAAAADgAAAAAAAAAAIAAAAAAAAA6AAAAAAAAAAoAAAAAAAAABABAAAAAAAAAAAAAAAAAAAQAQAAAAAAAAIAAAAAAAAAGAEAAAAAAAAoAAAAAAAAAEABAAAAAAAAAAAAAAAAAAAAAAAABgAAAAkAAAAAAAAACQAAAAAAAAAJAAAAAAAAAAkAAAAAAAAACQAAAAAAAAAJAAAAAAAAAAkAAAAAAAAACQAAAAAAAAAJAAAAAAAAAAkAAAAAAAAACQAAAAAAAAAJAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/////wAAAAAQAAAADAAUAAYACAAMABAADAAAAAAABABoAAAAWAAAAAQAAAADAAAAaAEAAAAAAACgAQAAAAAAAJgAAAAAAAAAoAMAAAAAAACYAQAAAAAAABAAAAAAAAAASAUAAAAAAACgAQAAAAAAAEABAAAAAAAAAAAAAAAAAAAIAAgAAAAEAAgAAAAEAAAABgAAAPAAAACwAAAAgAAAAFQAAAAsAAAABAAAADj///8AAAEEEAAAABQAAAAEAAAAAAAAAAEAAAB4AAAAuP///1z///8AAAEFEAAAABQAAAAEAAAAAAAAAAEAAABzAAAA3P///4D///8AAAEGEAAAABgAAAAEAAAAAAAAAAEAAABiAAAABAAEAAQAAACo////AAABAxAAAAAYAAAABAAAAAAAAAABAAAAZAAGAAgABgAGAAAAAAACANT///8AAAECEAAAABQAAAAEAAAAAAAAAAEAAABxAAAAxP///wAAAAFAAAAAEAAUAAgABgAHAAwAAAAQABAAAAAAAAECEAAAABwAAAAEAAAAAAAAAAEAAABpAAAACAAMAAgABwAIAAAAAAAAASAAAACwAQAAQVJST1cx"
+      },
+      "batches": [
+        {
+          "rows": 3,
+          "originals": {
+            "i.validity": {
+              "bytes": 3,
+              "sha256": "709e80c88487a2411e1ee4dfb9f22a861492d20c4765150c0c794abd70f8147c",
+              "base64": "AAAA"
+            },
+            "i.bin": {
+              "bytes": 12,
+              "sha256": "15ec7bf0b50732b49f8228e07d24365338f9e3ab994b00af08e5a3bffe55fd8b",
+              "base64": "AAAAAAAAAAAAAAAA"
+            },
+            "q.validity": {
+              "bytes": 3,
+              "sha256": "709e80c88487a2411e1ee4dfb9f22a861492d20c4765150c0c794abd70f8147c",
+              "base64": "AAAA"
+            },
+            "q.bin": {
+              "bytes": 24,
+              "sha256": "9d908ecfb6b256def8b49a7c504e6c889c4b0e41fe6ce3e01863dd7b61a20aa0",
+              "base64": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+            },
+            "d.validity": {
+              "bytes": 3,
+              "sha256": "709e80c88487a2411e1ee4dfb9f22a861492d20c4765150c0c794abd70f8147c",
+              "base64": "AAAA"
+            },
+            "d.bin": {
+              "bytes": 24,
+              "sha256": "9d908ecfb6b256def8b49a7c504e6c889c4b0e41fe6ce3e01863dd7b61a20aa0",
+              "base64": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+            },
+            "b.validity": {
+              "bytes": 3,
+              "sha256": "709e80c88487a2411e1ee4dfb9f22a861492d20c4765150c0c794abd70f8147c",
+              "base64": "AAAA"
+            },
+            "b.bin": {
+              "bytes": 3,
+              "sha256": "709e80c88487a2411e1ee4dfb9f22a861492d20c4765150c0c794abd70f8147c",
+              "base64": "AAAA"
+            },
+            "s.validity": {
+              "bytes": 3,
+              "sha256": "709e80c88487a2411e1ee4dfb9f22a861492d20c4765150c0c794abd70f8147c",
+              "base64": "AAAA"
+            },
+            "s.offsets": {
+              "bytes": 16,
+              "sha256": "374708fff7719dd5979ec875d56cd2286f6d3cf7ec317a3b25632aab28ec37bb",
+              "base64": "AAAAAAAAAAAAAAAAAAAAAA=="
+            },
+            "s.data": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "x.validity": {
+              "bytes": 3,
+              "sha256": "709e80c88487a2411e1ee4dfb9f22a861492d20c4765150c0c794abd70f8147c",
+              "base64": "AAAA"
+            },
+            "x.offsets": {
+              "bytes": 16,
+              "sha256": "374708fff7719dd5979ec875d56cd2286f6d3cf7ec317a3b25632aab28ec37bb",
+              "base64": "AAAAAAAAAAAAAAAAAAAAAA=="
+            },
+            "x.data": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            }
+          }
+        },
+        {
+          "rows": 0,
+          "originals": {
+            "i.validity": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "i.bin": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "q.validity": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "q.bin": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "d.validity": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "d.bin": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "b.validity": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "b.bin": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "s.validity": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "s.offsets": {
+              "bytes": 4,
+              "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119",
+              "base64": "AAAAAA=="
+            },
+            "s.data": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "x.validity": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "x.offsets": {
+              "bytes": 4,
+              "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119",
+              "base64": "AAAAAA=="
+            },
+            "x.data": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            }
+          }
+        },
+        {
+          "rows": 9,
+          "originals": {
+            "i.validity": {
+              "bytes": 9,
+              "sha256": "3e7077fd2f66d689e0cee6a7cf5b37bf2dca7c979af356d0a31cbc5c85605c7d",
+              "base64": "AAAAAAAAAAAA"
+            },
+            "i.bin": {
+              "bytes": 36,
+              "sha256": "6db65fd59fd356f6729140571b5bcd6bb3b83492a16e1bf0a3884442fc3c8a0e",
+              "base64": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+            },
+            "q.validity": {
+              "bytes": 9,
+              "sha256": "3e7077fd2f66d689e0cee6a7cf5b37bf2dca7c979af356d0a31cbc5c85605c7d",
+              "base64": "AAAAAAAAAAAA"
+            },
+            "q.bin": {
+              "bytes": 72,
+              "sha256": "834a709ba2534ebe3ee1397fd4f7bd288b2acc1d20a08d6c862dcd99b6f04400",
+              "base64": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+            },
+            "d.validity": {
+              "bytes": 9,
+              "sha256": "3e7077fd2f66d689e0cee6a7cf5b37bf2dca7c979af356d0a31cbc5c85605c7d",
+              "base64": "AAAAAAAAAAAA"
+            },
+            "d.bin": {
+              "bytes": 72,
+              "sha256": "834a709ba2534ebe3ee1397fd4f7bd288b2acc1d20a08d6c862dcd99b6f04400",
+              "base64": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+            },
+            "b.validity": {
+              "bytes": 9,
+              "sha256": "3e7077fd2f66d689e0cee6a7cf5b37bf2dca7c979af356d0a31cbc5c85605c7d",
+              "base64": "AAAAAAAAAAAA"
+            },
+            "b.bin": {
+              "bytes": 9,
+              "sha256": "3e7077fd2f66d689e0cee6a7cf5b37bf2dca7c979af356d0a31cbc5c85605c7d",
+              "base64": "AAAAAAAAAAAA"
+            },
+            "s.validity": {
+              "bytes": 9,
+              "sha256": "3e7077fd2f66d689e0cee6a7cf5b37bf2dca7c979af356d0a31cbc5c85605c7d",
+              "base64": "AAAAAAAAAAAA"
+            },
+            "s.offsets": {
+              "bytes": 40,
+              "sha256": "2c34ce1df23b838c5abf2a7f6437cca3d3067ed509ff25f11df6b11b582b51eb",
+              "base64": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+            },
+            "s.data": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "x.validity": {
+              "bytes": 9,
+              "sha256": "3e7077fd2f66d689e0cee6a7cf5b37bf2dca7c979af356d0a31cbc5c85605c7d",
+              "base64": "AAAAAAAAAAAA"
+            },
+            "x.offsets": {
+              "bytes": 40,
+              "sha256": "2c34ce1df23b838c5abf2a7f6437cca3d3067ed509ff25f11df6b11b582b51eb",
+              "base64": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+            },
+            "x.data": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            }
+          }
+        }
+      ],
+      "checks": [
+        "native schema and batch count",
+        "full typed values and validity",
+        "exact UTF8/binary offsets and bytes"
+      ],
+      "nativeReadback": "Arrow C++ IPC V5 full readback: file 3 batches"
+    },
+    {
+      "name": "all-null-stream",
+      "format": "stream",
+      "metadataVersion": "V5",
+      "compression": "uncompressed",
+      "schema": [
+        {
+          "name": "i",
+          "type": "int32",
+          "nullable": true
+        },
+        {
+          "name": "q",
+          "type": "int64",
+          "nullable": true
+        },
+        {
+          "name": "d",
+          "type": "float64",
+          "nullable": true
+        },
+        {
+          "name": "b",
+          "type": "boolean",
+          "nullable": true
+        },
+        {
+          "name": "s",
+          "type": "utf8",
+          "nullable": true
+        },
+        {
+          "name": "x",
+          "type": "binary",
+          "nullable": true
+        }
+      ],
+      "image": {
+        "bytes": 2088,
+        "sha256": "9c87fbed288ef9e53aca9f4637b2524fe71a14a7214cf3798370e0eb57256169",
+        "base64": "/////1gBAAAQAAAAAAAKAAwABgAFAAgACgAAAAABBAAMAAAACAAIAAAABAAIAAAABAAAAAYAAADwAAAAsAAAAIAAAABUAAAALAAAAAQAAAA4////AAABBBAAAAAUAAAABAAAAAAAAAABAAAAeAAAALj///9c////AAABBRAAAAAUAAAABAAAAAAAAAABAAAAcwAAANz///+A////AAABBhAAAAAYAAAABAAAAAAAAAABAAAAYgAAAAQABAAEAAAAqP///wAAAQMQAAAAGAAAAAQAAAAAAAAAAQAAAGQABgAIAAYABgAAAAAAAgDU////AAABAhAAAAAUAAAABAAAAAAAAAABAAAAcQAAAMT///8AAAABQAAAABAAFAAIAAYABwAMAAAAEAAQAAAAAAABAhAAAAAcAAAABAAAAAAAAAABAAAAaQAAAAgADAAIAAcACAAAAAAAAAEgAAAAAAAAAP////+YAQAAFAAAAAAAAAAMABYABgAFAAgADAAMAAAAAAMEABgAAACYAAAAAAAAAAAACgAYAAwABAAIAAoAAAD8AAAAEAAAAAMAAAAAAAAAAAAAAA4AAAAAAAAAAAAAAAEAAAAAAAAACAAAAAAAAAAMAAAAAAAAABgAAAAAAAAAAQAAAAAAAAAgAAAAAAAAABgAAAAAAAAAOAAAAAAAAAABAAAAAAAAAEAAAAAAAAAAGAAAAAAAAABYAAAAAAAAAAEAAAAAAAAAYAAAAAAAAAABAAAAAAAAAGgAAAAAAAAAAQAAAAAAAABwAAAAAAAAABAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAQAAAAAAAACIAAAAAAAAABAAAAAAAAAAmAAAAAAAAAAAAAAAAAAAAAAAAAAGAAAAAwAAAAAAAAADAAAAAAAAAAMAAAAAAAAAAwAAAAAAAAADAAAAAAAAAAMAAAAAAAAAAwAAAAAAAAADAAAAAAAAAAMAAAAAAAAAAwAAAAAAAAADAAAAAAAAAAMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/////kAEAABQAAAAAAAAADAAaAAYABQAIAAwADAAAAAADBAAcAAAAEAAAAAAAAAAAAAAAAAAKAAwAAAAEAAgACgAAAPAAAAAEAAAADgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAABAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/////5gBAAAUAAAAAAAAAAwAFgAGAAUACAAMAAwAAAAAAwQAGAAAAEABAAAAAAAAAAAKABgADAAEAAgACgAAAPwAAAAQAAAACQAAAAAAAAAAAAAADgAAAAAAAAAAAAAAAgAAAAAAAAAIAAAAAAAAACQAAAAAAAAAMAAAAAAAAAACAAAAAAAAADgAAAAAAAAASAAAAAAAAACAAAAAAAAAAAIAAAAAAAAAiAAAAAAAAABIAAAAAAAAANAAAAAAAAAAAgAAAAAAAADYAAAAAAAAAAIAAAAAAAAA4AAAAAAAAAACAAAAAAAAAOgAAAAAAAAAKAAAAAAAAAAQAQAAAAAAAAAAAAAAAAAAEAEAAAAAAAACAAAAAAAAABgBAAAAAAAAKAAAAAAAAABAAQAAAAAAAAAAAAAAAAAAAAAAAAYAAAAJAAAAAAAAAAkAAAAAAAAACQAAAAAAAAAJAAAAAAAAAAkAAAAAAAAACQAAAAAAAAAJAAAAAAAAAAkAAAAAAAAACQAAAAAAAAAJAAAAAAAAAAkAAAAAAAAACQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP////8AAAAA"
+      },
+      "batches": [
+        {
+          "rows": 3,
+          "originals": {
+            "i.validity": {
+              "bytes": 3,
+              "sha256": "709e80c88487a2411e1ee4dfb9f22a861492d20c4765150c0c794abd70f8147c",
+              "base64": "AAAA"
+            },
+            "i.bin": {
+              "bytes": 12,
+              "sha256": "15ec7bf0b50732b49f8228e07d24365338f9e3ab994b00af08e5a3bffe55fd8b",
+              "base64": "AAAAAAAAAAAAAAAA"
+            },
+            "q.validity": {
+              "bytes": 3,
+              "sha256": "709e80c88487a2411e1ee4dfb9f22a861492d20c4765150c0c794abd70f8147c",
+              "base64": "AAAA"
+            },
+            "q.bin": {
+              "bytes": 24,
+              "sha256": "9d908ecfb6b256def8b49a7c504e6c889c4b0e41fe6ce3e01863dd7b61a20aa0",
+              "base64": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+            },
+            "d.validity": {
+              "bytes": 3,
+              "sha256": "709e80c88487a2411e1ee4dfb9f22a861492d20c4765150c0c794abd70f8147c",
+              "base64": "AAAA"
+            },
+            "d.bin": {
+              "bytes": 24,
+              "sha256": "9d908ecfb6b256def8b49a7c504e6c889c4b0e41fe6ce3e01863dd7b61a20aa0",
+              "base64": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+            },
+            "b.validity": {
+              "bytes": 3,
+              "sha256": "709e80c88487a2411e1ee4dfb9f22a861492d20c4765150c0c794abd70f8147c",
+              "base64": "AAAA"
+            },
+            "b.bin": {
+              "bytes": 3,
+              "sha256": "709e80c88487a2411e1ee4dfb9f22a861492d20c4765150c0c794abd70f8147c",
+              "base64": "AAAA"
+            },
+            "s.validity": {
+              "bytes": 3,
+              "sha256": "709e80c88487a2411e1ee4dfb9f22a861492d20c4765150c0c794abd70f8147c",
+              "base64": "AAAA"
+            },
+            "s.offsets": {
+              "bytes": 16,
+              "sha256": "374708fff7719dd5979ec875d56cd2286f6d3cf7ec317a3b25632aab28ec37bb",
+              "base64": "AAAAAAAAAAAAAAAAAAAAAA=="
+            },
+            "s.data": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "x.validity": {
+              "bytes": 3,
+              "sha256": "709e80c88487a2411e1ee4dfb9f22a861492d20c4765150c0c794abd70f8147c",
+              "base64": "AAAA"
+            },
+            "x.offsets": {
+              "bytes": 16,
+              "sha256": "374708fff7719dd5979ec875d56cd2286f6d3cf7ec317a3b25632aab28ec37bb",
+              "base64": "AAAAAAAAAAAAAAAAAAAAAA=="
+            },
+            "x.data": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            }
+          }
+        },
+        {
+          "rows": 0,
+          "originals": {
+            "i.validity": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "i.bin": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "q.validity": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "q.bin": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "d.validity": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "d.bin": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "b.validity": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "b.bin": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "s.validity": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "s.offsets": {
+              "bytes": 4,
+              "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119",
+              "base64": "AAAAAA=="
+            },
+            "s.data": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "x.validity": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "x.offsets": {
+              "bytes": 4,
+              "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119",
+              "base64": "AAAAAA=="
+            },
+            "x.data": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            }
+          }
+        },
+        {
+          "rows": 9,
+          "originals": {
+            "i.validity": {
+              "bytes": 9,
+              "sha256": "3e7077fd2f66d689e0cee6a7cf5b37bf2dca7c979af356d0a31cbc5c85605c7d",
+              "base64": "AAAAAAAAAAAA"
+            },
+            "i.bin": {
+              "bytes": 36,
+              "sha256": "6db65fd59fd356f6729140571b5bcd6bb3b83492a16e1bf0a3884442fc3c8a0e",
+              "base64": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+            },
+            "q.validity": {
+              "bytes": 9,
+              "sha256": "3e7077fd2f66d689e0cee6a7cf5b37bf2dca7c979af356d0a31cbc5c85605c7d",
+              "base64": "AAAAAAAAAAAA"
+            },
+            "q.bin": {
+              "bytes": 72,
+              "sha256": "834a709ba2534ebe3ee1397fd4f7bd288b2acc1d20a08d6c862dcd99b6f04400",
+              "base64": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+            },
+            "d.validity": {
+              "bytes": 9,
+              "sha256": "3e7077fd2f66d689e0cee6a7cf5b37bf2dca7c979af356d0a31cbc5c85605c7d",
+              "base64": "AAAAAAAAAAAA"
+            },
+            "d.bin": {
+              "bytes": 72,
+              "sha256": "834a709ba2534ebe3ee1397fd4f7bd288b2acc1d20a08d6c862dcd99b6f04400",
+              "base64": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+            },
+            "b.validity": {
+              "bytes": 9,
+              "sha256": "3e7077fd2f66d689e0cee6a7cf5b37bf2dca7c979af356d0a31cbc5c85605c7d",
+              "base64": "AAAAAAAAAAAA"
+            },
+            "b.bin": {
+              "bytes": 9,
+              "sha256": "3e7077fd2f66d689e0cee6a7cf5b37bf2dca7c979af356d0a31cbc5c85605c7d",
+              "base64": "AAAAAAAAAAAA"
+            },
+            "s.validity": {
+              "bytes": 9,
+              "sha256": "3e7077fd2f66d689e0cee6a7cf5b37bf2dca7c979af356d0a31cbc5c85605c7d",
+              "base64": "AAAAAAAAAAAA"
+            },
+            "s.offsets": {
+              "bytes": 40,
+              "sha256": "2c34ce1df23b838c5abf2a7f6437cca3d3067ed509ff25f11df6b11b582b51eb",
+              "base64": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+            },
+            "s.data": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "x.validity": {
+              "bytes": 9,
+              "sha256": "3e7077fd2f66d689e0cee6a7cf5b37bf2dca7c979af356d0a31cbc5c85605c7d",
+              "base64": "AAAAAAAAAAAA"
+            },
+            "x.offsets": {
+              "bytes": 40,
+              "sha256": "2c34ce1df23b838c5abf2a7f6437cca3d3067ed509ff25f11df6b11b582b51eb",
+              "base64": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+            },
+            "x.data": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            }
+          }
+        }
+      ],
+      "checks": [
+        "native schema and batch count",
+        "full typed values and validity",
+        "exact UTF8/binary offsets and bytes"
+      ],
+      "nativeReadback": "Arrow C++ IPC V5 full readback: stream 3 batches"
+    },
+    {
+      "name": "no-null-file",
+      "format": "file",
+      "metadataVersion": "V5",
+      "compression": "uncompressed",
+      "schema": [
+        {
+          "name": "i",
+          "type": "int32",
+          "nullable": true
+        },
+        {
+          "name": "q",
+          "type": "int64",
+          "nullable": true
+        },
+        {
+          "name": "d",
+          "type": "float64",
+          "nullable": true
+        },
+        {
+          "name": "b",
+          "type": "boolean",
+          "nullable": true
+        },
+        {
+          "name": "s",
+          "type": "utf8",
+          "nullable": true
+        },
+        {
+          "name": "x",
+          "type": "binary",
+          "nullable": true
+        }
+      ],
+      "image": {
+        "bytes": 2930,
+        "sha256": "dcc41e28251f22337dd040d95e15d2ae00dd8be13d7f23da496757fdbce3262e",
+        "base64": "QVJST1cxAAD/////WAEAABAAAAAAAAoADAAGAAUACAAKAAAAAAEEAAwAAAAIAAgAAAAEAAgAAAAEAAAABgAAAPAAAACwAAAAgAAAAFQAAAAsAAAABAAAADj///8AAAEEEAAAABQAAAAEAAAAAAAAAAEAAAB4AAAAuP///1z///8AAAEFEAAAABQAAAAEAAAAAAAAAAEAAABzAAAA3P///4D///8AAAEGEAAAABgAAAAEAAAAAAAAAAEAAABiAAAABAAEAAQAAACo////AAABAxAAAAAYAAAABAAAAAAAAAABAAAAZAAGAAgABgAGAAAAAAACANT///8AAAECEAAAABQAAAAEAAAAAAAAAAEAAABxAAAAxP///wAAAAFAAAAAEAAUAAgABgAHAAwAAAAQABAAAAAAAAECEAAAABwAAAAEAAAAAAAAAAEAAABpAAAACAAMAAgABwAIAAAAAAAAASAAAAAAAAAA/////5gBAAAUAAAAAAAAAAwAFgAGAAUACAAMAAwAAAAAAwQAGAAAADAAAAAAAAAAAAAKABgADAAEAAgACgAAAPwAAAAQAAAAAQAAAAAAAAAAAAAADgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAACAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAACAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAIAAAAAAAAABgAAAAAAAAAAAAAAAAAAAAYAAAAAAAAAAEAAAAAAAAAIAAAAAAAAAAAAAAAAAAAACAAAAAAAAAACAAAAAAAAAAoAAAAAAAAAAAAAAAAAAAAKAAAAAAAAAAAAAAAAAAAACgAAAAAAAAACAAAAAAAAAAwAAAAAAAAAAAAAAAAAAAAAAAAAAYAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/////mAEAABQAAAAAAAAADAAWAAYABQAIAAwADAAAAAADBAAYAAAA8AQAAAAAAAAAAAoAGAAMAAQACAAKAAAA/AAAABAAAAAhAAAAAAAAAAAAAAAOAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAhAAAAAAAAACIAAAAAAAAAAAAAAAAAAAAiAAAAAAAAAAIAQAAAAAAAJABAAAAAAAAAAAAAAAAAACQAQAAAAAAAAgBAAAAAAAAmAIAAAAAAAAAAAAAAAAAAJgCAAAAAAAABQAAAAAAAACgAgAAAAAAAAAAAAAAAAAAoAIAAAAAAACIAAAAAAAAACgDAAAAAAAAtgAAAAAAAADgAwAAAAAAAAAAAAAAAAAA4AMAAAAAAACIAAAAAAAAAGgEAAAAAAAAhAAAAAAAAAAAAAAABgAAACEAAAAAAAAAAAAAAAAAAAAhAAAAAAAAAAAAAAAAAAAAIQAAAAAAAAAAAAAAAAAAACEAAAAAAAAAAAAAAAAAAAAhAAAAAAAAAAAAAAAAAAAAIQAAAAAAAAAAAAAAAAAAAAAAAID+//9/AgAAgPz//38EAACA+v//fwYAAID4//9/CAAAgPb//38KAACA9P//fwwAAIDy//9/DgAAgPD//38QAACA7v//fxIAAIDs//9/FAAAgOr//38WAACA6P//fxgAAIDm//9/GgAAgOT//38cAACA4v//fx4AAIDg//9/IAAAgAAAAAAAAAAAAAAAgP////////9/AQAAAAAAIAD////////f/wAAAAAAAAAAAAAAAAAAAID/////////fwEAAAAAACAA////////3/8AAAAAAAAAAAAAAAAAAACA/////////38BAAAAAAAgAP///////9//AAAAAAAAAAAAAAAAAAAAgP////////9/AQAAAAAAIAD////////f/wAAAAAAAAAAAAAAAAAAAID/////////fwEAAAAAACAA////////3/8AAAAAAAAAAAAAAAAAAACA/////////38BAAAAAAAgAP///////9//AAAAAAAAAAAAAAAAAAAAgP////////9/AQAAAAAAIAAAAAAAAAAAAAAAAAAAAACAAAAAAAAA+H8AAAAAAADwfwAAAAAAAPD/AQAAAAAAAAAYLURU+yEJQAAAAAAAAPS/AAAAAAAAAAAAAAAAAAAAgAAAAAAAAPh/AAAAAAAA8H8AAAAAAADw/wEAAAAAAAAAGC1EVPshCUAAAAAAAAD0vwAAAAAAAAAAAAAAAAAAAIAAAAAAAAD4fwAAAAAAAPB/AAAAAAAA8P8BAAAAAAAAABgtRFT7IQlAAAAAAAAA9L8AAAAAAAAAAAAAAAAAAACAAAAAAAAA+H8AAAAAAADwfwAAAAAAAPD/AQAAAAAAAAAYLURU+yEJQAAAAAAAAPS/AAAAAAAAAACqqqqqAAAAAAAAAAAAAAAABQAAAA4AAAAYAAAAHAAAABwAAAAhAAAAKgAAADQAAAA4AAAAOAAAAD0AAABGAAAAUAAAAFQAAABUAAAAWQAAAGIAAABsAAAAcAAAAHAAAAB1AAAAfgAAAIgAAACMAAAAjAAAAJEAAACaAAAApAAAAKgAAACoAAAArQAAALYAAABoZWxsb2NhZsOpLeeMq++7v2xpdGVyYWzwn6aLaGVsbG9jYWbDqS3njKvvu79saXRlcmFs8J+mi2hlbGxvY2Fmw6kt54yr77u/bGl0ZXJhbPCfpotoZWxsb2NhZsOpLeeMq++7v2xpdGVyYWzwn6aLaGVsbG9jYWbDqS3njKvvu79saXRlcmFs8J+mi2hlbGxvY2Fmw6kt54yr77u/bGl0ZXJhbPCfpotoZWxsb2NhZsOpLeeMqwAAAAAAAAAAAAAGAAAADAAAAAwAAAASAAAAGAAAABgAAAAeAAAAJAAAACQAAAAqAAAAMAAAADAAAAA2AAAAPAAAADwAAABCAAAASAAAAEgAAABOAAAAVAAAAFQAAABaAAAAYAAAAGAAAABmAAAAbAAAAGwAAAByAAAAeAAAAHgAAAB+AAAAhAAAAAD/DQqAAQD/DQqAAgD/DQqABAD/DQqABQD/DQqABwD/DQqACAD/DQqACgD/DQqACwD/DQqADQD/DQqADgD/DQqAEAD/DQqAEQD/DQqAEwD/DQqAFAD/DQqAFgD/DQqAFwD/DQqAGQD/DQqAGgD/DQqAHAD/DQqAHQD/DQqAHwD/DQqAIAAAAAD/////AAAAABAAAAAMABQABgAIAAwAEAAMAAAAAAAEAFAAAABAAAAABAAAAAIAAABoAQAAAAAAAKABAAAAAAAAMAAAAAAAAAA4AwAAAAAAAKABAAAAAAAA8AQAAAAAAAAAAAAAAAAAAAgACAAAAAQACAAAAAQAAAAGAAAA8AAAALAAAACAAAAAVAAAACwAAAAEAAAAOP///wAAAQQQAAAAFAAAAAQAAAAAAAAAAQAAAHgAAAC4////XP///wAAAQUQAAAAFAAAAAQAAAAAAAAAAQAAAHMAAADc////gP///wAAAQYQAAAAGAAAAAQAAAAAAAAAAQAAAGIAAAAEAAQABAAAAKj///8AAAEDEAAAABgAAAAEAAAAAAAAAAEAAABkAAYACAAGAAYAAAAAAAIA1P///wAAAQIQAAAAFAAAAAQAAAAAAAAAAQAAAHEAAADE////AAAAAUAAAAAQABQACAAGAAcADAAAABAAEAAAAAAAAQIQAAAAHAAAAAQAAAAAAAAAAQAAAGkAAAAIAAwACAAHAAgAAAAAAAABIAAAAJgBAABBUlJPVzE="
+      },
+      "batches": [
+        {
+          "rows": 1,
+          "originals": {
+            "i.validity": {
+              "bytes": 1,
+              "sha256": "4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459a",
+              "base64": "AQ=="
+            },
+            "i.bin": {
+              "bytes": 4,
+              "sha256": "6d58692645c9d1cfaf13541cbd258f86193ef63c2f1d38f6bbca9617372d7bd6",
+              "base64": "AAAAgA=="
+            },
+            "q.validity": {
+              "bytes": 1,
+              "sha256": "4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459a",
+              "base64": "AQ=="
+            },
+            "q.bin": {
+              "bytes": 8,
+              "sha256": "e6ad6c9a3a3b7658c35bacf6553fcb8ffe34387534a648fe18f875b8f7a86ddb",
+              "base64": "AAAAAAAAAIA="
+            },
+            "d.validity": {
+              "bytes": 1,
+              "sha256": "4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459a",
+              "base64": "AQ=="
+            },
+            "d.bin": {
+              "bytes": 8,
+              "sha256": "af5570f5a1810b7af78caf4bc70a660f0df51e42baf91d4de5b2328de0e83dfc",
+              "base64": "AAAAAAAAAAA="
+            },
+            "b.validity": {
+              "bytes": 1,
+              "sha256": "4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459a",
+              "base64": "AQ=="
+            },
+            "b.bin": {
+              "bytes": 1,
+              "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+              "base64": "AA=="
+            },
+            "s.validity": {
+              "bytes": 1,
+              "sha256": "4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459a",
+              "base64": "AQ=="
+            },
+            "s.offsets": {
+              "bytes": 8,
+              "sha256": "af5570f5a1810b7af78caf4bc70a660f0df51e42baf91d4de5b2328de0e83dfc",
+              "base64": "AAAAAAAAAAA="
+            },
+            "s.data": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "x.validity": {
+              "bytes": 1,
+              "sha256": "4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459a",
+              "base64": "AQ=="
+            },
+            "x.offsets": {
+              "bytes": 8,
+              "sha256": "af5570f5a1810b7af78caf4bc70a660f0df51e42baf91d4de5b2328de0e83dfc",
+              "base64": "AAAAAAAAAAA="
+            },
+            "x.data": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            }
+          }
+        },
+        {
+          "rows": 33,
+          "originals": {
+            "i.validity": {
+              "bytes": 33,
+              "sha256": "ce041765675ad4d93378e20bd3a7d0d97ddcf3385fb6341581b21d4bc9e3e69e",
+              "base64": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB"
+            },
+            "i.bin": {
+              "bytes": 132,
+              "sha256": "9d82b82e4c4730c1c6b9f6276fc63ca2b9f1b4eb9e660e66a760bd5e109ec429",
+              "base64": "AAAAgP7//38CAACA/P//fwQAAID6//9/BgAAgPj//38IAACA9v//fwoAAID0//9/DAAAgPL//38OAACA8P//fxAAAIDu//9/EgAAgOz//38UAACA6v//fxYAAIDo//9/GAAAgOb//38aAACA5P//fxwAAIDi//9/HgAAgOD//38gAACA"
+            },
+            "q.validity": {
+              "bytes": 33,
+              "sha256": "ce041765675ad4d93378e20bd3a7d0d97ddcf3385fb6341581b21d4bc9e3e69e",
+              "base64": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB"
+            },
+            "q.bin": {
+              "bytes": 264,
+              "sha256": "e4c61b42549aa9cf40c7419702a3e79c62866a3bdee8cc970b6ba92e164560de",
+              "base64": "AAAAAAAAAID/////////fwEAAAAAACAA////////3/8AAAAAAAAAAAAAAAAAAACA/////////38BAAAAAAAgAP///////9//AAAAAAAAAAAAAAAAAAAAgP////////9/AQAAAAAAIAD////////f/wAAAAAAAAAAAAAAAAAAAID/////////fwEAAAAAACAA////////3/8AAAAAAAAAAAAAAAAAAACA/////////38BAAAAAAAgAP///////9//AAAAAAAAAAAAAAAAAAAAgP////////9/AQAAAAAAIAD////////f/wAAAAAAAAAAAAAAAAAAAID/////////fwEAAAAAACAA"
+            },
+            "d.validity": {
+              "bytes": 33,
+              "sha256": "ce041765675ad4d93378e20bd3a7d0d97ddcf3385fb6341581b21d4bc9e3e69e",
+              "base64": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB"
+            },
+            "d.bin": {
+              "bytes": 264,
+              "sha256": "ccf9a592cefaf0573e7b8638e679fb73a78dc59434a20ba757a85ae741e6e787",
+              "base64": "AAAAAAAAAAAAAAAAAAAAgAAAAAAAAPh/AAAAAAAA8H8AAAAAAADw/wEAAAAAAAAAGC1EVPshCUAAAAAAAAD0vwAAAAAAAAAAAAAAAAAAAIAAAAAAAAD4fwAAAAAAAPB/AAAAAAAA8P8BAAAAAAAAABgtRFT7IQlAAAAAAAAA9L8AAAAAAAAAAAAAAAAAAACAAAAAAAAA+H8AAAAAAADwfwAAAAAAAPD/AQAAAAAAAAAYLURU+yEJQAAAAAAAAPS/AAAAAAAAAAAAAAAAAAAAgAAAAAAAAPh/AAAAAAAA8H8AAAAAAADw/wEAAAAAAAAAGC1EVPshCUAAAAAAAAD0vwAAAAAAAAAA"
+            },
+            "b.validity": {
+              "bytes": 33,
+              "sha256": "ce041765675ad4d93378e20bd3a7d0d97ddcf3385fb6341581b21d4bc9e3e69e",
+              "base64": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB"
+            },
+            "b.bin": {
+              "bytes": 33,
+              "sha256": "6a215d92de00b4a882662bf55b0e6744e00f79911f54f934256711f60b508085",
+              "base64": "AAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEA"
+            },
+            "s.validity": {
+              "bytes": 33,
+              "sha256": "ce041765675ad4d93378e20bd3a7d0d97ddcf3385fb6341581b21d4bc9e3e69e",
+              "base64": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB"
+            },
+            "s.offsets": {
+              "bytes": 136,
+              "sha256": "147c9b1f69523a8c3efc75bf3acb47ef83facc9d8ba36db125775e180172c674",
+              "base64": "AAAAAAAAAAAFAAAADgAAABgAAAAcAAAAHAAAACEAAAAqAAAANAAAADgAAAA4AAAAPQAAAEYAAABQAAAAVAAAAFQAAABZAAAAYgAAAGwAAABwAAAAcAAAAHUAAAB+AAAAiAAAAIwAAACMAAAAkQAAAJoAAACkAAAAqAAAAKgAAACtAAAAtgAAAA=="
+            },
+            "s.data": {
+              "bytes": 182,
+              "sha256": "3ed114ddbd2f99ed2d791cdccb3a7a03a0274fe72d1b81cb4ff85480539b349b",
+              "base64": "aGVsbG9jYWbDqS3njKvvu79saXRlcmFs8J+mi2hlbGxvY2Fmw6kt54yr77u/bGl0ZXJhbPCfpotoZWxsb2NhZsOpLeeMq++7v2xpdGVyYWzwn6aLaGVsbG9jYWbDqS3njKvvu79saXRlcmFs8J+mi2hlbGxvY2Fmw6kt54yr77u/bGl0ZXJhbPCfpotoZWxsb2NhZsOpLeeMq++7v2xpdGVyYWzwn6aLaGVsbG9jYWbDqS3njKs="
+            },
+            "x.validity": {
+              "bytes": 33,
+              "sha256": "ce041765675ad4d93378e20bd3a7d0d97ddcf3385fb6341581b21d4bc9e3e69e",
+              "base64": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB"
+            },
+            "x.offsets": {
+              "bytes": 136,
+              "sha256": "bc8da27fcac896309b593b7486cf41130623ece2435eaa19edd5022271ea5590",
+              "base64": "AAAAAAAAAAAGAAAADAAAAAwAAAASAAAAGAAAABgAAAAeAAAAJAAAACQAAAAqAAAAMAAAADAAAAA2AAAAPAAAADwAAABCAAAASAAAAEgAAABOAAAAVAAAAFQAAABaAAAAYAAAAGAAAABmAAAAbAAAAGwAAAByAAAAeAAAAHgAAAB+AAAAhAAAAA=="
+            },
+            "x.data": {
+              "bytes": 132,
+              "sha256": "82ce332a0da80e63bba1c7487b1f40b1045d7c83cdbaddef687819dd9b5051be",
+              "base64": "AP8NCoABAP8NCoACAP8NCoAEAP8NCoAFAP8NCoAHAP8NCoAIAP8NCoAKAP8NCoALAP8NCoANAP8NCoAOAP8NCoAQAP8NCoARAP8NCoATAP8NCoAUAP8NCoAWAP8NCoAXAP8NCoAZAP8NCoAaAP8NCoAcAP8NCoAdAP8NCoAfAP8NCoAg"
+            }
+          }
+        }
+      ],
+      "checks": [
+        "native schema and batch count",
+        "full typed values and validity",
+        "exact UTF8/binary offsets and bytes"
+      ],
+      "nativeReadback": "Arrow C++ IPC V5 full readback: file 2 batches"
+    },
+    {
+      "name": "no-null-stream",
+      "format": "stream",
+      "metadataVersion": "V5",
+      "compression": "uncompressed",
+      "schema": [
+        {
+          "name": "i",
+          "type": "int32",
+          "nullable": true
+        },
+        {
+          "name": "q",
+          "type": "int64",
+          "nullable": true
+        },
+        {
+          "name": "d",
+          "type": "float64",
+          "nullable": true
+        },
+        {
+          "name": "b",
+          "type": "boolean",
+          "nullable": true
+        },
+        {
+          "name": "s",
+          "type": "utf8",
+          "nullable": true
+        },
+        {
+          "name": "x",
+          "type": "binary",
+          "nullable": true
+        }
+      ],
+      "image": {
+        "bytes": 2504,
+        "sha256": "6ef7013f6973f80fd8712d67143366eb8960bcfbe8591e0132ecf547a5aeb0a9",
+        "base64": "/////1gBAAAQAAAAAAAKAAwABgAFAAgACgAAAAABBAAMAAAACAAIAAAABAAIAAAABAAAAAYAAADwAAAAsAAAAIAAAABUAAAALAAAAAQAAAA4////AAABBBAAAAAUAAAABAAAAAAAAAABAAAAeAAAALj///9c////AAABBRAAAAAUAAAABAAAAAAAAAABAAAAcwAAANz///+A////AAABBhAAAAAYAAAABAAAAAAAAAABAAAAYgAAAAQABAAEAAAAqP///wAAAQMQAAAAGAAAAAQAAAAAAAAAAQAAAGQABgAIAAYABgAAAAAAAgDU////AAABAhAAAAAUAAAABAAAAAAAAAABAAAAcQAAAMT///8AAAABQAAAABAAFAAIAAYABwAMAAAAEAAQAAAAAAABAhAAAAAcAAAABAAAAAAAAAABAAAAaQAAAAgADAAIAAcACAAAAAAAAAEgAAAAAAAAAP////+YAQAAFAAAAAAAAAAMABYABgAFAAgADAAMAAAAAAMEABgAAAAwAAAAAAAAAAAACgAYAAwABAAIAAoAAAD8AAAAEAAAAAEAAAAAAAAAAAAAAA4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAgAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAACAAAAAAAAAAYAAAAAAAAAAAAAAAAAAAAGAAAAAAAAAABAAAAAAAAACAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAAgAAAAAAAAAKAAAAAAAAAAAAAAAAAAAACgAAAAAAAAAAAAAAAAAAAAoAAAAAAAAAAgAAAAAAAAAMAAAAAAAAAAAAAAAAAAAAAAAAAAGAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/////5gBAAAUAAAAAAAAAAwAFgAGAAUACAAMAAwAAAAAAwQAGAAAAPAEAAAAAAAAAAAKABgADAAEAAgACgAAAPwAAAAQAAAAIQAAAAAAAAAAAAAADgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIQAAAAAAAAAiAAAAAAAAAAAAAAAAAAAAIgAAAAAAAAACAEAAAAAAACQAQAAAAAAAAAAAAAAAAAAkAEAAAAAAAAIAQAAAAAAAJgCAAAAAAAAAAAAAAAAAACYAgAAAAAAAAUAAAAAAAAAoAIAAAAAAAAAAAAAAAAAAKACAAAAAAAAiAAAAAAAAAAoAwAAAAAAALYAAAAAAAAA4AMAAAAAAAAAAAAAAAAAAOADAAAAAAAAiAAAAAAAAABoBAAAAAAAAIQAAAAAAAAAAAAAAAYAAAAhAAAAAAAAAAAAAAAAAAAAIQAAAAAAAAAAAAAAAAAAACEAAAAAAAAAAAAAAAAAAAAhAAAAAAAAAAAAAAAAAAAAIQAAAAAAAAAAAAAAAAAAACEAAAAAAAAAAAAAAAAAAAAAAACA/v//fwIAAID8//9/BAAAgPr//38GAACA+P//fwgAAID2//9/CgAAgPT//38MAACA8v//fw4AAIDw//9/EAAAgO7//38SAACA7P//fxQAAIDq//9/FgAAgOj//38YAACA5v//fxoAAIDk//9/HAAAgOL//38eAACA4P//fyAAAIAAAAAAAAAAAAAAAID/////////fwEAAAAAACAA////////3/8AAAAAAAAAAAAAAAAAAACA/////////38BAAAAAAAgAP///////9//AAAAAAAAAAAAAAAAAAAAgP////////9/AQAAAAAAIAD////////f/wAAAAAAAAAAAAAAAAAAAID/////////fwEAAAAAACAA////////3/8AAAAAAAAAAAAAAAAAAACA/////////38BAAAAAAAgAP///////9//AAAAAAAAAAAAAAAAAAAAgP////////9/AQAAAAAAIAD////////f/wAAAAAAAAAAAAAAAAAAAID/////////fwEAAAAAACAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAPh/AAAAAAAA8H8AAAAAAADw/wEAAAAAAAAAGC1EVPshCUAAAAAAAAD0vwAAAAAAAAAAAAAAAAAAAIAAAAAAAAD4fwAAAAAAAPB/AAAAAAAA8P8BAAAAAAAAABgtRFT7IQlAAAAAAAAA9L8AAAAAAAAAAAAAAAAAAACAAAAAAAAA+H8AAAAAAADwfwAAAAAAAPD/AQAAAAAAAAAYLURU+yEJQAAAAAAAAPS/AAAAAAAAAAAAAAAAAAAAgAAAAAAAAPh/AAAAAAAA8H8AAAAAAADw/wEAAAAAAAAAGC1EVPshCUAAAAAAAAD0vwAAAAAAAAAAqqqqqgAAAAAAAAAAAAAAAAUAAAAOAAAAGAAAABwAAAAcAAAAIQAAACoAAAA0AAAAOAAAADgAAAA9AAAARgAAAFAAAABUAAAAVAAAAFkAAABiAAAAbAAAAHAAAABwAAAAdQAAAH4AAACIAAAAjAAAAIwAAACRAAAAmgAAAKQAAACoAAAAqAAAAK0AAAC2AAAAaGVsbG9jYWbDqS3njKvvu79saXRlcmFs8J+mi2hlbGxvY2Fmw6kt54yr77u/bGl0ZXJhbPCfpotoZWxsb2NhZsOpLeeMq++7v2xpdGVyYWzwn6aLaGVsbG9jYWbDqS3njKvvu79saXRlcmFs8J+mi2hlbGxvY2Fmw6kt54yr77u/bGl0ZXJhbPCfpotoZWxsb2NhZsOpLeeMq++7v2xpdGVyYWzwn6aLaGVsbG9jYWbDqS3njKsAAAAAAAAAAAAABgAAAAwAAAAMAAAAEgAAABgAAAAYAAAAHgAAACQAAAAkAAAAKgAAADAAAAAwAAAANgAAADwAAAA8AAAAQgAAAEgAAABIAAAATgAAAFQAAABUAAAAWgAAAGAAAABgAAAAZgAAAGwAAABsAAAAcgAAAHgAAAB4AAAAfgAAAIQAAAAA/w0KgAEA/w0KgAIA/w0KgAQA/w0KgAUA/w0KgAcA/w0KgAgA/w0KgAoA/w0KgAsA/w0KgA0A/w0KgA4A/w0KgBAA/w0KgBEA/w0KgBMA/w0KgBQA/w0KgBYA/w0KgBcA/w0KgBkA/w0KgBoA/w0KgBwA/w0KgB0A/w0KgB8A/w0KgCAAAAAA/////wAAAAA="
+      },
+      "batches": [
+        {
+          "rows": 1,
+          "originals": {
+            "i.validity": {
+              "bytes": 1,
+              "sha256": "4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459a",
+              "base64": "AQ=="
+            },
+            "i.bin": {
+              "bytes": 4,
+              "sha256": "6d58692645c9d1cfaf13541cbd258f86193ef63c2f1d38f6bbca9617372d7bd6",
+              "base64": "AAAAgA=="
+            },
+            "q.validity": {
+              "bytes": 1,
+              "sha256": "4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459a",
+              "base64": "AQ=="
+            },
+            "q.bin": {
+              "bytes": 8,
+              "sha256": "e6ad6c9a3a3b7658c35bacf6553fcb8ffe34387534a648fe18f875b8f7a86ddb",
+              "base64": "AAAAAAAAAIA="
+            },
+            "d.validity": {
+              "bytes": 1,
+              "sha256": "4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459a",
+              "base64": "AQ=="
+            },
+            "d.bin": {
+              "bytes": 8,
+              "sha256": "af5570f5a1810b7af78caf4bc70a660f0df51e42baf91d4de5b2328de0e83dfc",
+              "base64": "AAAAAAAAAAA="
+            },
+            "b.validity": {
+              "bytes": 1,
+              "sha256": "4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459a",
+              "base64": "AQ=="
+            },
+            "b.bin": {
+              "bytes": 1,
+              "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+              "base64": "AA=="
+            },
+            "s.validity": {
+              "bytes": 1,
+              "sha256": "4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459a",
+              "base64": "AQ=="
+            },
+            "s.offsets": {
+              "bytes": 8,
+              "sha256": "af5570f5a1810b7af78caf4bc70a660f0df51e42baf91d4de5b2328de0e83dfc",
+              "base64": "AAAAAAAAAAA="
+            },
+            "s.data": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            },
+            "x.validity": {
+              "bytes": 1,
+              "sha256": "4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459a",
+              "base64": "AQ=="
+            },
+            "x.offsets": {
+              "bytes": 8,
+              "sha256": "af5570f5a1810b7af78caf4bc70a660f0df51e42baf91d4de5b2328de0e83dfc",
+              "base64": "AAAAAAAAAAA="
+            },
+            "x.data": {
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "base64": ""
+            }
+          }
+        },
+        {
+          "rows": 33,
+          "originals": {
+            "i.validity": {
+              "bytes": 33,
+              "sha256": "ce041765675ad4d93378e20bd3a7d0d97ddcf3385fb6341581b21d4bc9e3e69e",
+              "base64": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB"
+            },
+            "i.bin": {
+              "bytes": 132,
+              "sha256": "9d82b82e4c4730c1c6b9f6276fc63ca2b9f1b4eb9e660e66a760bd5e109ec429",
+              "base64": "AAAAgP7//38CAACA/P//fwQAAID6//9/BgAAgPj//38IAACA9v//fwoAAID0//9/DAAAgPL//38OAACA8P//fxAAAIDu//9/EgAAgOz//38UAACA6v//fxYAAIDo//9/GAAAgOb//38aAACA5P//fxwAAIDi//9/HgAAgOD//38gAACA"
+            },
+            "q.validity": {
+              "bytes": 33,
+              "sha256": "ce041765675ad4d93378e20bd3a7d0d97ddcf3385fb6341581b21d4bc9e3e69e",
+              "base64": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB"
+            },
+            "q.bin": {
+              "bytes": 264,
+              "sha256": "e4c61b42549aa9cf40c7419702a3e79c62866a3bdee8cc970b6ba92e164560de",
+              "base64": "AAAAAAAAAID/////////fwEAAAAAACAA////////3/8AAAAAAAAAAAAAAAAAAACA/////////38BAAAAAAAgAP///////9//AAAAAAAAAAAAAAAAAAAAgP////////9/AQAAAAAAIAD////////f/wAAAAAAAAAAAAAAAAAAAID/////////fwEAAAAAACAA////////3/8AAAAAAAAAAAAAAAAAAACA/////////38BAAAAAAAgAP///////9//AAAAAAAAAAAAAAAAAAAAgP////////9/AQAAAAAAIAD////////f/wAAAAAAAAAAAAAAAAAAAID/////////fwEAAAAAACAA"
+            },
+            "d.validity": {
+              "bytes": 33,
+              "sha256": "ce041765675ad4d93378e20bd3a7d0d97ddcf3385fb6341581b21d4bc9e3e69e",
+              "base64": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB"
+            },
+            "d.bin": {
+              "bytes": 264,
+              "sha256": "ccf9a592cefaf0573e7b8638e679fb73a78dc59434a20ba757a85ae741e6e787",
+              "base64": "AAAAAAAAAAAAAAAAAAAAgAAAAAAAAPh/AAAAAAAA8H8AAAAAAADw/wEAAAAAAAAAGC1EVPshCUAAAAAAAAD0vwAAAAAAAAAAAAAAAAAAAIAAAAAAAAD4fwAAAAAAAPB/AAAAAAAA8P8BAAAAAAAAABgtRFT7IQlAAAAAAAAA9L8AAAAAAAAAAAAAAAAAAACAAAAAAAAA+H8AAAAAAADwfwAAAAAAAPD/AQAAAAAAAAAYLURU+yEJQAAAAAAAAPS/AAAAAAAAAAAAAAAAAAAAgAAAAAAAAPh/AAAAAAAA8H8AAAAAAADw/wEAAAAAAAAAGC1EVPshCUAAAAAAAAD0vwAAAAAAAAAA"
+            },
+            "b.validity": {
+              "bytes": 33,
+              "sha256": "ce041765675ad4d93378e20bd3a7d0d97ddcf3385fb6341581b21d4bc9e3e69e",
+              "base64": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB"
+            },
+            "b.bin": {
+              "bytes": 33,
+              "sha256": "6a215d92de00b4a882662bf55b0e6744e00f79911f54f934256711f60b508085",
+              "base64": "AAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEA"
+            },
+            "s.validity": {
+              "bytes": 33,
+              "sha256": "ce041765675ad4d93378e20bd3a7d0d97ddcf3385fb6341581b21d4bc9e3e69e",
+              "base64": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB"
+            },
+            "s.offsets": {
+              "bytes": 136,
+              "sha256": "147c9b1f69523a8c3efc75bf3acb47ef83facc9d8ba36db125775e180172c674",
+              "base64": "AAAAAAAAAAAFAAAADgAAABgAAAAcAAAAHAAAACEAAAAqAAAANAAAADgAAAA4AAAAPQAAAEYAAABQAAAAVAAAAFQAAABZAAAAYgAAAGwAAABwAAAAcAAAAHUAAAB+AAAAiAAAAIwAAACMAAAAkQAAAJoAAACkAAAAqAAAAKgAAACtAAAAtgAAAA=="
+            },
+            "s.data": {
+              "bytes": 182,
+              "sha256": "3ed114ddbd2f99ed2d791cdccb3a7a03a0274fe72d1b81cb4ff85480539b349b",
+              "base64": "aGVsbG9jYWbDqS3njKvvu79saXRlcmFs8J+mi2hlbGxvY2Fmw6kt54yr77u/bGl0ZXJhbPCfpotoZWxsb2NhZsOpLeeMq++7v2xpdGVyYWzwn6aLaGVsbG9jYWbDqS3njKvvu79saXRlcmFs8J+mi2hlbGxvY2Fmw6kt54yr77u/bGl0ZXJhbPCfpotoZWxsb2NhZsOpLeeMq++7v2xpdGVyYWzwn6aLaGVsbG9jYWbDqS3njKs="
+            },
+            "x.validity": {
+              "bytes": 33,
+              "sha256": "ce041765675ad4d93378e20bd3a7d0d97ddcf3385fb6341581b21d4bc9e3e69e",
+              "base64": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB"
+            },
+            "x.offsets": {
+              "bytes": 136,
+              "sha256": "bc8da27fcac896309b593b7486cf41130623ece2435eaa19edd5022271ea5590",
+              "base64": "AAAAAAAAAAAGAAAADAAAAAwAAAASAAAAGAAAABgAAAAeAAAAJAAAACQAAAAqAAAAMAAAADAAAAA2AAAAPAAAADwAAABCAAAASAAAAEgAAABOAAAAVAAAAFQAAABaAAAAYAAAAGAAAABmAAAAbAAAAGwAAAByAAAAeAAAAHgAAAB+AAAAhAAAAA=="
+            },
+            "x.data": {
+              "bytes": 132,
+              "sha256": "82ce332a0da80e63bba1c7487b1f40b1045d7c83cdbaddef687819dd9b5051be",
+              "base64": "AP8NCoABAP8NCoACAP8NCoAEAP8NCoAFAP8NCoAHAP8NCoAIAP8NCoAKAP8NCoALAP8NCoANAP8NCoAOAP8NCoAQAP8NCoARAP8NCoATAP8NCoAUAP8NCoAWAP8NCoAXAP8NCoAZAP8NCoAaAP8NCoAcAP8NCoAdAP8NCoAfAP8NCoAg"
+            }
+          }
+        }
+      ],
+      "checks": [
+        "native schema and batch count",
+        "full typed values and validity",
+        "exact UTF8/binary offsets and bytes"
+      ],
+      "nativeReadback": "Arrow C++ IPC V5 full readback: stream 2 batches"
+    }
+  ]
+}
