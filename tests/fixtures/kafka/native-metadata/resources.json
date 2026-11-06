@@ -1,0 +1,388 @@
+[
+  {
+    "phase": "kafka-prestart",
+    "id": "93d1bfbd0dfa28777dbec355346eb6edc9aaa8c951059198b1a354d04ce45d50",
+    "host": {
+      "Binds": null,
+      "ContainerIDFile": "",
+      "LogConfig": {
+        "Type": "json-file",
+        "Config": {
+          "max-file": "1",
+          "max-size": "1m"
+        }
+      },
+      "NetworkMode": "43494de423c4",
+      "PortBindings": {
+        "9092/tcp": [
+          {
+            "HostIp": "",
+            "HostPort": "0"
+          }
+        ]
+      },
+      "RestartPolicy": {
+        "Name": "no",
+        "MaximumRetryCount": 0
+      },
+      "AutoRemove": false,
+      "VolumeDriver": "",
+      "VolumesFrom": null,
+      "ConsoleSize": [
+        0,
+        0
+      ],
+      "CapAdd": null,
+      "CapDrop": null,
+      "CgroupnsMode": "private",
+      "Dns": null,
+      "DnsOptions": null,
+      "DnsSearch": null,
+      "ExtraHosts": null,
+      "GroupAdd": null,
+      "IpcMode": "private",
+      "Cgroup": "",
+      "Links": null,
+      "OomScoreAdj": 0,
+      "PidMode": "",
+      "Privileged": false,
+      "PublishAllPorts": false,
+      "ReadonlyRootfs": false,
+      "SecurityOpt": null,
+      "Tmpfs": {
+        "/etc/kafka/secrets": "rw,noexec,nosuid,size=64k,mode=0777",
+        "/mnt/shared/config": "rw,noexec,nosuid,size=64k,mode=0777",
+        "/opt/kafka/logs": "rw,noexec,nosuid,size=1m,mode=0777",
+        "/tmp": "rw,noexec,nosuid,size=8m,mode=1777",
+        "/var/lib/kafka/data": "rw,noexec,nosuid,size=32m,mode=0777"
+      },
+      "UTSMode": "",
+      "UsernsMode": "",
+      "ShmSize": 67108864,
+      "Runtime": "runc",
+      "Isolation": "",
+      "CpuShares": 0,
+      "Memory": 1073741824,
+      "NanoCpus": 1000000000,
+      "CgroupParent": "",
+      "BlkioWeight": 0,
+      "BlkioWeightDevice": null,
+      "BlkioDeviceReadBps": null,
+      "BlkioDeviceWriteBps": null,
+      "BlkioDeviceReadIOps": null,
+      "BlkioDeviceWriteIOps": null,
+      "CpuPeriod": 0,
+      "CpuQuota": 0,
+      "CpuRealtimePeriod": 0,
+      "CpuRealtimeRuntime": 0,
+      "CpusetCpus": "",
+      "CpusetMems": "",
+      "Devices": null,
+      "DeviceCgroupRules": null,
+      "DeviceRequests": null,
+      "MemoryReservation": 0,
+      "MemorySwap": 1073741824,
+      "MemorySwappiness": null,
+      "OomKillDisable": false,
+      "PidsLimit": 128,
+      "Ulimits": null,
+      "CpuCount": 0,
+      "CpuPercent": 0,
+      "IOMaximumIOps": 0,
+      "IOMaximumBandwidth": 0,
+      "MaskedPaths": [
+        "/proc/acpi",
+        "/proc/asound",
+        "/proc/interrupts",
+        "/proc/kcore",
+        "/proc/keys",
+        "/proc/latency_stats",
+        "/proc/sched_debug",
+        "/proc/scsi",
+        "/proc/timer_list",
+        "/proc/timer_stats",
+        "/sys/devices/virtual/powercap",
+        "/sys/firmware"
+      ],
+      "ReadonlyPaths": [
+        "/proc/bus",
+        "/proc/fs",
+        "/proc/irq",
+        "/proc/sys",
+        "/proc/sysrq-trigger"
+      ]
+    },
+    "state": {
+      "Status": "created",
+      "Running": false,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Pid": 0,
+      "ExitCode": 0,
+      "Error": "",
+      "StartedAt": "0001-01-01T00:00:00Z",
+      "FinishedAt": "0001-01-01T00:00:00Z"
+    },
+    "mounts": [],
+    "config": {
+      "Hostname": "93d1bfbd0dfa",
+      "Domainname": "",
+      "User": "appuser",
+      "AttachStdin": false,
+      "AttachStdout": false,
+      "AttachStderr": false,
+      "ExposedPorts": {
+        "9092/tcp": {}
+      },
+      "Tty": false,
+      "OpenStdin": false,
+      "StdinOnce": false,
+      "Env": [
+        "PATH=/opt/java/openjdk/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "JAVA_HOME=/opt/java/openjdk",
+        "LANG=en_US.UTF-8",
+        "LANGUAGE=en_US:en",
+        "LC_ALL=en_US.UTF-8",
+        "JAVA_VERSION=jdk-25.0.4.1+1"
+      ],
+      "Cmd": [
+        "-c",
+        "'/usr/bin/env' '-i' 'PATH=/opt/java/openjdk/bin:/opt/kafka/bin:/usr/bin:/bin' 'HOME=/tmp' 'LANG=C.UTF-8' 'LC_ALL=C.UTF-8' 'KAFKA_HEAP_OPTS=-Xms16m -Xmx128m' 'KAFKA_JVM_PERFORMANCE_OPTS=-XX:ActiveProcessorCount=1' 'KAFKA_LOG4J_OPTS=-Dlog4j2.configurationFile=/fixture/log4j2.properties' '/opt/kafka/bin/kafka-storage.sh' 'format' '--cluster-id' 'qewy2al0Lc4BkX05GyWM0Q' '--config' '/fixture/server.properties' && exec '/usr/bin/env' '-i' 'PATH=/opt/java/openjdk/bin:/opt/kafka/bin:/usr/bin:/bin' 'HOME=/tmp' 'LANG=C.UTF-8' 'LC_ALL=C.UTF-8' 'KAFKA_HEAP_OPTS=-Xms64m -Xmx256m' 'KAFKA_JVM_PERFORMANCE_OPTS=-XX:ActiveProcessorCount=1' 'KAFKA_LOG4J_OPTS=-Dlog4j2.configurationFile=/fixture/log4j2.properties' '/opt/kafka/bin/kafka-server-start.sh' '/fixture/server.properties'"
+      ],
+      "Image": "apache/kafka@sha256:77b56ddfb7104fc5814a3d0127fcff49983220c7c7ad9bfc1f0af4d439228329",
+      "Volumes": {
+        "/etc/kafka/secrets": {},
+        "/mnt/shared/config": {},
+        "/var/lib/kafka/data": {}
+      },
+      "WorkingDir": "/",
+      "Entrypoint": [
+        "/bin/sh"
+      ],
+      "Labels": {
+        "opfs.fixture": "kafka-metadata-698ac48d-e21c-4c6c-9dc2-f3ab61bbff7f",
+        "org.label-schema.build-date": "2026-10-07",
+        "org.label-schema.description": "Apache Kafka",
+        "org.label-schema.name": "kafka",
+        "org.label-schema.vcs-url": "https://github.com/apache/kafka",
+        "org.opencontainers.image.authors": "Apache Kafka",
+        "org.testcontainers": "true",
+        "org.testcontainers.lang": "node",
+        "org.testcontainers.session-id": "37b64f8f182e",
+        "org.testcontainers.version": "12.1.0"
+      }
+    },
+    "image": "sha256:8e12eba3b69e43eeed26ccf9072d46f3fe38ce0c7f5ffe66d7d9b6198801f5cc"
+  },
+  {
+    "phase": "kafka-kernel-mounts",
+    "id": "93d1bfbd0dfa28777dbec355346eb6edc9aaa8c951059198b1a354d04ce45d50",
+    "mountinfoSha256": "d816baa93f8302bec7f1881812acf588e055eedd947dabeb01d4a3ddc50df7be",
+    "actual": [
+      {
+        "path": "/tmp",
+        "sizeBytes": "8388608",
+        "line": "198 189 0:81 / /tmp rw,nosuid,nodev,noexec,relatime - tmpfs tmpfs rw,size=8192k"
+      },
+      {
+        "path": "/etc/kafka/secrets",
+        "sizeBytes": "65536",
+        "line": "202 189 0:82 / /etc/kafka/secrets rw,nosuid,nodev,noexec,relatime - tmpfs tmpfs rw,size=64k,mode=777"
+      },
+      {
+        "path": "/mnt/shared/config",
+        "sizeBytes": "65536",
+        "line": "203 189 0:83 / /mnt/shared/config rw,nosuid,nodev,noexec,relatime - tmpfs tmpfs rw,size=64k,mode=777"
+      },
+      {
+        "path": "/opt/kafka/logs",
+        "sizeBytes": "1048576",
+        "line": "204 189 0:84 / /opt/kafka/logs rw,nosuid,nodev,noexec,relatime - tmpfs tmpfs rw,size=1024k,mode=777"
+      },
+      {
+        "path": "/var/lib/kafka/data",
+        "sizeBytes": "33554432",
+        "line": "205 189 0:85 / /var/lib/kafka/data rw,nosuid,nodev,noexec,relatime - tmpfs tmpfs rw,size=32768k,mode=777"
+      }
+    ]
+  },
+  {
+    "phase": "kafka-ready",
+    "id": "93d1bfbd0dfa28777dbec355346eb6edc9aaa8c951059198b1a354d04ce45d50",
+    "host": {
+      "Binds": null,
+      "ContainerIDFile": "",
+      "LogConfig": {
+        "Type": "json-file",
+        "Config": {
+          "max-file": "1",
+          "max-size": "1m"
+        }
+      },
+      "NetworkMode": "43494de423c4",
+      "PortBindings": {
+        "9092/tcp": [
+          {
+            "HostIp": "",
+            "HostPort": "0"
+          }
+        ]
+      },
+      "RestartPolicy": {
+        "Name": "no",
+        "MaximumRetryCount": 0
+      },
+      "AutoRemove": false,
+      "VolumeDriver": "",
+      "VolumesFrom": null,
+      "ConsoleSize": [
+        0,
+        0
+      ],
+      "CapAdd": null,
+      "CapDrop": null,
+      "CgroupnsMode": "private",
+      "Dns": null,
+      "DnsOptions": null,
+      "DnsSearch": null,
+      "ExtraHosts": null,
+      "GroupAdd": null,
+      "IpcMode": "private",
+      "Cgroup": "",
+      "Links": null,
+      "OomScoreAdj": 0,
+      "PidMode": "",
+      "Privileged": false,
+      "PublishAllPorts": false,
+      "ReadonlyRootfs": false,
+      "SecurityOpt": null,
+      "Tmpfs": {
+        "/etc/kafka/secrets": "rw,noexec,nosuid,size=64k,mode=0777",
+        "/mnt/shared/config": "rw,noexec,nosuid,size=64k,mode=0777",
+        "/opt/kafka/logs": "rw,noexec,nosuid,size=1m,mode=0777",
+        "/tmp": "rw,noexec,nosuid,size=8m,mode=1777",
+        "/var/lib/kafka/data": "rw,noexec,nosuid,size=32m,mode=0777"
+      },
+      "UTSMode": "",
+      "UsernsMode": "",
+      "ShmSize": 67108864,
+      "Runtime": "runc",
+      "Isolation": "",
+      "CpuShares": 0,
+      "Memory": 1073741824,
+      "NanoCpus": 1000000000,
+      "CgroupParent": "",
+      "BlkioWeight": 0,
+      "BlkioWeightDevice": null,
+      "BlkioDeviceReadBps": null,
+      "BlkioDeviceWriteBps": null,
+      "BlkioDeviceReadIOps": null,
+      "BlkioDeviceWriteIOps": null,
+      "CpuPeriod": 0,
+      "CpuQuota": 0,
+      "CpuRealtimePeriod": 0,
+      "CpuRealtimeRuntime": 0,
+      "CpusetCpus": "",
+      "CpusetMems": "",
+      "Devices": null,
+      "DeviceCgroupRules": null,
+      "DeviceRequests": null,
+      "MemoryReservation": 0,
+      "MemorySwap": 1073741824,
+      "MemorySwappiness": null,
+      "OomKillDisable": null,
+      "PidsLimit": 128,
+      "Ulimits": null,
+      "CpuCount": 0,
+      "CpuPercent": 0,
+      "IOMaximumIOps": 0,
+      "IOMaximumBandwidth": 0,
+      "MaskedPaths": [
+        "/proc/acpi",
+        "/proc/asound",
+        "/proc/interrupts",
+        "/proc/kcore",
+        "/proc/keys",
+        "/proc/latency_stats",
+        "/proc/sched_debug",
+        "/proc/scsi",
+        "/proc/timer_list",
+        "/proc/timer_stats",
+        "/sys/devices/virtual/powercap",
+        "/sys/firmware"
+      ],
+      "ReadonlyPaths": [
+        "/proc/bus",
+        "/proc/fs",
+        "/proc/irq",
+        "/proc/sys",
+        "/proc/sysrq-trigger"
+      ]
+    },
+    "state": {
+      "Status": "running",
+      "Running": true,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Pid": 17548,
+      "ExitCode": 0,
+      "Error": "",
+      "StartedAt": "2026-11-06T05:05:37.399819505Z",
+      "FinishedAt": "0001-01-01T00:00:00Z"
+    },
+    "mounts": [],
+    "config": {
+      "Hostname": "93d1bfbd0dfa",
+      "Domainname": "",
+      "User": "appuser",
+      "AttachStdin": false,
+      "AttachStdout": false,
+      "AttachStderr": false,
+      "ExposedPorts": {
+        "9092/tcp": {}
+      },
+      "Tty": false,
+      "OpenStdin": false,
+      "StdinOnce": false,
+      "Env": [
+        "PATH=/opt/java/openjdk/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "JAVA_HOME=/opt/java/openjdk",
+        "LANG=en_US.UTF-8",
+        "LANGUAGE=en_US:en",
+        "LC_ALL=en_US.UTF-8",
+        "JAVA_VERSION=jdk-25.0.4.1+1"
+      ],
+      "Cmd": [
+        "-c",
+        "'/usr/bin/env' '-i' 'PATH=/opt/java/openjdk/bin:/opt/kafka/bin:/usr/bin:/bin' 'HOME=/tmp' 'LANG=C.UTF-8' 'LC_ALL=C.UTF-8' 'KAFKA_HEAP_OPTS=-Xms16m -Xmx128m' 'KAFKA_JVM_PERFORMANCE_OPTS=-XX:ActiveProcessorCount=1' 'KAFKA_LOG4J_OPTS=-Dlog4j2.configurationFile=/fixture/log4j2.properties' '/opt/kafka/bin/kafka-storage.sh' 'format' '--cluster-id' 'qewy2al0Lc4BkX05GyWM0Q' '--config' '/fixture/server.properties' && exec '/usr/bin/env' '-i' 'PATH=/opt/java/openjdk/bin:/opt/kafka/bin:/usr/bin:/bin' 'HOME=/tmp' 'LANG=C.UTF-8' 'LC_ALL=C.UTF-8' 'KAFKA_HEAP_OPTS=-Xms64m -Xmx256m' 'KAFKA_JVM_PERFORMANCE_OPTS=-XX:ActiveProcessorCount=1' 'KAFKA_LOG4J_OPTS=-Dlog4j2.configurationFile=/fixture/log4j2.properties' '/opt/kafka/bin/kafka-server-start.sh' '/fixture/server.properties'"
+      ],
+      "Image": "apache/kafka@sha256:77b56ddfb7104fc5814a3d0127fcff49983220c7c7ad9bfc1f0af4d439228329",
+      "Volumes": {
+        "/etc/kafka/secrets": {},
+        "/mnt/shared/config": {},
+        "/var/lib/kafka/data": {}
+      },
+      "WorkingDir": "/",
+      "Entrypoint": [
+        "/bin/sh"
+      ],
+      "Labels": {
+        "opfs.fixture": "kafka-metadata-698ac48d-e21c-4c6c-9dc2-f3ab61bbff7f",
+        "org.label-schema.build-date": "2026-10-07",
+        "org.label-schema.description": "Apache Kafka",
+        "org.label-schema.name": "kafka",
+        "org.label-schema.vcs-url": "https://github.com/apache/kafka",
+        "org.opencontainers.image.authors": "Apache Kafka",
+        "org.testcontainers": "true",
+        "org.testcontainers.lang": "node",
+        "org.testcontainers.session-id": "37b64f8f182e",
+        "org.testcontainers.version": "12.1.0"
+      }
+    },
+    "image": "sha256:8e12eba3b69e43eeed26ccf9072d46f3fe38ce0c7f5ffe66d7d9b6198801f5cc"
+  }
+]

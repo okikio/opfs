@@ -1,0 +1,102 @@
+{
+  "scope": "Fresh owned one-broker Metadata4/Admin observation; no candidate Kafka implementation qualification.",
+  "matched": true,
+  "qualified": true,
+  "candidateKafkaParserImported": false,
+  "nativeWireErrorSemanticsQualified": false,
+  "multibrokerControllerQualified": false,
+  "topic": "opfs-metadata-725b622a-b0ab-40c7-883d-fe869037d6b1",
+  "partition": 0,
+  "milliseconds": 12547,
+  "inputs": [
+    {
+      "file": "kafka-clients-4.4.0.jar",
+      "bytes": 10925782,
+      "sha256": "9e4514622675f9b24c83373d0d5b35dd7a4dba34bad69762fe90a9e54cfb71de"
+    },
+    {
+      "file": "lz4-java-1.11.2.jar",
+      "bytes": 897831,
+      "sha256": "8a7458657938e9b692224db83aac458c13abd7a59ab75c3d3b08bd2233a646a2"
+    },
+    {
+      "file": "slf4j-api-1.7.36.jar",
+      "bytes": 41125,
+      "sha256": "d3ef575e3e4979678dc01bf1dcce51021493b4d11fb7f1be8ad982877c16a1c0"
+    },
+    {
+      "file": "snappy-java-1.1.10.7.jar",
+      "bytes": 2338496,
+      "sha256": "4c766cb3f855415ee734b2392949a0b6f12a60879334a74518deaf6270d32e36"
+    },
+    {
+      "file": "zstd-jni-1.5.7-17.jar",
+      "bytes": 6323239,
+      "sha256": "c9043e2da8a16c13b6cd7661a5cb56685a573c3546ef4bd0ead67b0b67c2e107"
+    },
+    {
+      "file": "AdminMetadataOracle$Bounded.class",
+      "bytes": 812,
+      "sha256": "f53a0ca70df1f59bd0747dd48356cd5c9b7c7d72cc908e981b03a27f08e9d6cb"
+    },
+    {
+      "file": "AdminMetadataOracle$Fault.class",
+      "bytes": 1360,
+      "sha256": "ad00c8a4a1ba9aff1594ac994c3484794f3c3582e6eb981d601919ed22d77fa7"
+    },
+    {
+      "file": "AdminMetadataOracle$Observation.class",
+      "bytes": 2067,
+      "sha256": "5fcbc4bba2084c021cf708d61b70e5ae2cd81be470abb1fc28b593b6c8da518a"
+    },
+    {
+      "file": "AdminMetadataOracle.class",
+      "bytes": 8333,
+      "sha256": "ff87d3d69505e4dd3094b16ef301ad83a38dd3398ece059fae52e12fc3d4730d"
+    }
+  ],
+  "nativeCommands": [
+    {
+      "operation": "create-topic",
+      "stdoutBytes": 4224,
+      "stdoutSha256": "8e9589ce0be41352e30e4e895db1657b7073fc53f8ef06dbec7633846c4fbca5",
+      "stderr": "",
+      "exitCode": 0
+    },
+    {
+      "operation": "admin-metadata",
+      "stdoutBytes": 155,
+      "stdoutSha256": "a6e5c21263b13a2e11094f7b0dc01cca70ba30e4cd02a1ce03ba2bdf2081dd54",
+      "stderr": "SLF4J: Failed to load class \"org.slf4j.impl.StaticLoggerBinder\".\nSLF4J: Defaulting to no-operation (NOP) logger implementation\nSLF4J: See http://www.slf4j.org/codes.html#StaticLoggerBinder for further details.\n",
+      "exitCode": 0
+    }
+  ],
+  "artifacts": [
+    {
+      "file": "wire-decoded.json",
+      "bytes": 571,
+      "sha256": "b8ff89d98de16560b7120ad8d6507be90ccf0d60ce068fcb1c3ae47f545f9143"
+    },
+    {
+      "file": "admin.bin",
+      "bytes": 155,
+      "sha256": "a6e5c21263b13a2e11094f7b0dc01cca70ba30e4cd02a1ce03ba2bdf2081dd54"
+    },
+    {
+      "file": "admin-decoded.json",
+      "bytes": 433,
+      "sha256": "7464b1f4ea45a043d22600818939b795652f5ec81449eda7c14ae4904cb0afac"
+    },
+    {
+      "file": "metadata-request.bin",
+      "bytes": 98,
+      "sha256": "341b58b33ad7afd284391beb635778cc1eff91a1d4818fb0603365dc6d574554"
+    },
+    {
+      "file": "metadata-response.bin",
+      "bytes": 154,
+      "sha256": "53e1058796a74c207f86d2252feef172068a9429c3be55aed6a372daedf7d13b"
+    }
+  ],
+  "failures": []
+}
