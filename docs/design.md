@@ -1,5 +1,9 @@
 # Architecture and invariants
 
+This is the maintainer contract. Start with [choosing a storage layer](model.md) for a runnable example and the reasons
+to choose a client, driver, adapter, filesystem or bridge. Use this document when changing those boundaries or checking
+which layer must preserve a guarantee.
+
 ## Purpose
 
 `@okikio/opfs` is a storage programming model with an OPFS-shaped filesystem frontend. The package supports storage
@@ -16,25 +20,24 @@ contracts; archive readers borrow those sources, and `view/zip` applies a separa
 publication receipt. [Sources](source.md), [archives](archive.md), [extensions](extensions.md) and
 [transfer recovery](transfer.md) explain these independently useful paths and their limits.
 
-The defining path is:
+The defining composition path is **client → driver → adapter → FileSystemType → bridge**. It separates two directions:
+an adapter brings backend storage into the file API, while a bridge lets an external consumer use the file API. The
+client remains independently useful for native protocol operations that have no file equivalent.
 
-```text
-native API / ecosystem
-        |
-        v
-      client            optional protocol client
-        |
-        v
-      driver            backend-native persistence
-        |
-        v
-      adapter           driver -> canonical filesystem primitives
-        |
-        v
-   FileSystemType       portable OPFS-shaped behavior
-        |
-        v
-      bridge            FileSystemType -> real ecosystem contract
+The diagram shows composition, not request order. Follow it from a storage provider to its consumers. A file call
+travels back toward storage through the adapter and driver. Native file or database APIs can start at the driver; they
+do not need an invented protocol client. Provider-specific retry and publication sequences are omitted here.
+
+```mermaid
+flowchart TD
+  Service["Remote storage protocol"] --> Client["Client: wire requests and receipts"]
+  Native["Native file or database API"] --> Driver["Driver: backend mechanics and limits"]
+  Client --> Driver
+  Driver --> Adapter["Adapter: canonical filesystem primitives"]
+  Adapter --> Files["FileSystemType: paths and portable operations"]
+  Files --> App["Application uses files"]
+  Files --> Bridge["Bridge: external interface and naming rules"]
+  Bridge --> Consumer["Ecosystem consumer"]
 ```
 
 `integration` definitions are separate metadata that describe which of the two directions exist. They are not executable
@@ -98,6 +101,11 @@ These families preserve stronger native concepts. They are not a forced lowest-c
 
 An adapter is deliberately smaller. It translates one driver into the filesystem primitive set consumed by
 `FileSystemType`.
+
+For example, a record driver can fetch and replace logical records. Its adapter interprets those records as files and
+directories. The driver keeps the persistence rules; the adapter supplies the file meaning. This translation can
+materialize bytes when the native unit is a complete value, so adopting the file API does not imply native streaming or
+random access.
 
 Required adapter primitives:
 
@@ -165,6 +173,12 @@ The facade must not claim that an emulated route has the atomicity, consistency,
 ### Bridge
 
 A bridge starts from an existing `FileSystemType` and implements another ecosystem's real contract.
+
+The direction matters at the call site. `createUnstorageAdapter(storage)` consumes an unstorage `Storage` to supply
+filesystem primitives. `createUnstorageBridge(fileSystem)` consumes a filesystem to supply an unstorage Driver-shaped
+interface. The bridge owns that ecosystem's key normalization and method rules; the filesystem continues to own file
+operations, and its driver continues to own persistence. The bridge does not expose every existing file as a key: the
+current key-value projection uses a dedicated, marked namespace and collision-safe key encoding.
 
 Current bridges are:
 

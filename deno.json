@@ -315,7 +315,7 @@
     "check:release": "deno check .mise/tasks/release.ts .bumpy/format.ts .mise/tasks/release-consumer.ts .mise/tasks/release_test.ts && deno check .mise/tasks/package.ts .mise/tasks/ecosystems.ts .mise/tasks/commits.ts && deno check --config deno.json scripts/schema.ts scripts/schema/compiler.ts && deno check --config scripts/deno.json --no-lock scripts/npm.ts",
     "bench:lifecycle": "node --expose-gc bench/lifecycle.bench.ts",
     "quality": "deno task deps:ci && deno task quality:source",
-    "quality:source": "deno task schema:check && deno task check && deno task lint && deno task doc && deno task fmt:check && deno task release:notes:check && deno task test:stress && deno task test:coverage && deno publish --dry-run --allow-dirty && RELEASE_VERSION=0.0.0-quality deno task pack:npm && deno task check:release && deno task test:release",
+    "quality:source": "deno task schema:check && deno task check && deno task docs:examples && deno task lint && deno task doc && deno task fmt:check && deno task release:notes:check && deno task test:stress && deno task test:coverage && deno publish --dry-run --allow-dirty && RELEASE_VERSION=0.0.0-quality deno task pack:npm && deno task check:release && deno task test:release",
     "check:ci": "deno task deps:ci && deno task check",
     "test:all": "deno task deps:ci && deno task test && deno task test:node && deno task test:bun",
     "test:linux": "node .mise/tasks/linux.mjs",
@@ -427,7 +427,8 @@
     "bench:amqp": "node --expose-gc bench/amqp.bench.ts",
     "bench:glacier": "node --expose-gc bench/glacier.bench.ts",
     "test:glacier": "deno test --no-check --allow-read=tests/fixtures/glacier --sanitize-ops --sanitize-resources --trace-leaks tests/glacier.test.ts",
-    "test:amqp-provider": "node --test tests/amqp-provider.test.ts"
+    "test:amqp-provider": "node --test tests/amqp-provider.test.ts",
+    "docs:examples": "node .mise/tasks/examples.ts"
   },
   "publish": {
     "include": [

@@ -26,6 +26,9 @@ A filesystem call travels through the adapter to the driver and, when needed, th
 separate consumer of the filesystem. Node, Deno, Bun, browser OPFS, IndexedDB, and SQLite do not need a separate
 protocol client.
 
+Start with [choosing a storage layer](docs/model.md) for a complete save/read example, an executable key-value bridge
+example, and diagrams that explain why an adapter brings storage in while a bridge exposes a filesystem outward.
+
 ## Start with the storage you own
 
 Browser OPFS has a root convenience function:
@@ -490,6 +493,8 @@ core task files delegate to Deno. Task implementation files under `.mise/tasks/`
 
 ## Read next
 
+- [Choose a storage layer](./docs/model.md) builds the client/driver/adapter/filesystem/bridge mental model with
+  complete examples and operation diagrams.
 - [Public API](./docs/api.md) explains filesystem, inspection, planning, driver, adapter, and bridge entrypoints.
 - [Architecture](./docs/design.md) explains layer ownership, invariants, partitioning, metrics, and lifecycle.
 - [Adapters and drivers](./docs/adapters.md) explains the first-party translation/backend matrix and extension

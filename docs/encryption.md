@@ -1,5 +1,15 @@
 # Authenticate selected encrypted ranges
 
+Encryption hides bytes from readers without the key. Authenticated encryption also detects changes to the encrypted
+units it verifies. A preview needs both an addressable layout and a verification boundary: the reader must know which
+ciphertext to fetch and how much it must authenticate before releasing the selected plaintext.
+
+That boundary depends on the format. Independently authenticated segments can support bounded selected reads. A format
+with one authentication tag for an entire member can require reading that member's complete ciphertext before even a
+small preview is trusted. A stream API alone does not remove that requirement. Compression inside encryption can add
+another constraint: authenticating a late encrypted segment does not recreate the decompressor state for a compressed
+member that began earlier.
+
 `crypto/tink` implements one named payload format: raw AES-GCM-HKDF streaming ciphertext with HKDF-SHA256, a 16-byte GCM
 tag, AES-128 or AES-256 derived keys, and zero first-segment offset. It uses native WebCrypto primitives through
 injected capabilities. It does not add Tink as a runtime dependency, serialize Tink keysets, implement ZIP passwords or
@@ -36,6 +46,24 @@ reuse a key and nonce, which breaks GCM's security. Test fixture randomness must
 
 ## What a preview verifies
 
+The diagram follows one plaintext interval through this profile. The interval expands to whole encrypted segments before
+authentication. Only then is it reduced to the requested output. It omits key derivation and opening's final segment
+check, which are described below; each also consumes work.
+
+```mermaid
+flowchart TD
+  Request["Requested plaintext interval"] --> Map["Locate every covering encrypted segment"]
+  Map --> Read["Read complete ciphertext segments"]
+  Read --> Verify{"Do all required GCM tags verify?"}
+  Verify -->|No| Refuse["Reject without returning selected plaintext"]
+  Verify -->|Yes| Slice["Copy selected authenticated plaintext"]
+  Slice --> Evidence["Return bytes and segment-scoped evidence"]
+```
+
+For a preview UI, show evidence at its real scope. `authenticated-segments` establishes the selected segments, not all
+unread middle segments and not the sender's identity. A successful CRC check from an inner ZIP is a separate accidental
+corruption check. Neither label is a substitute for a trusted publisher signature.
+
 Opening reads the header and authenticates the final encrypted segment. That confirms the final segment marker and
 computed plaintext length before EOF-relative access is allowed. It does not authenticate unchecked middle segments.
 Each `read()` or `readVerified()` then reads and authenticates the complete segments covering the requested range. The
@@ -53,6 +81,41 @@ ZIP reader locates directory/member ranges in the decrypted source; the envelope
 segments. ZIP decompression costs and CRC evidence remain separate from the envelope's GCM authentication. Applications
 still own rendering and path projection. This outer encryption does not create a password-compatible ZIP and does not
 imply support for encryption inside ZIP entries.
+
+This function previews the first unencrypted ZIP member inside a Tink envelope. The caller supplies the already chosen
+key and associated data. A single source budget surrounds the ciphertext, so opening the envelope, locating the ZIP
+directory and reading the member share one physical-read allowance. The returned CRC status belongs to the ZIP member;
+the outer reader authenticates each encrypted segment used to obtain those bytes.
+
+```ts
+import { createNativeTink } from "@okikio/opfs/crypto/tink";
+import { budgetSource, createBlobSource, createSourceBudget } from "@okikio/opfs/source";
+import { openZip } from "@okikio/opfs/archive/zip";
+
+export async function previewEncryptedZip(
+  ciphertext: Blob,
+  key: Uint8Array,
+  associatedData: Uint8Array,
+) {
+  const budget = createSourceBudget({ maxBytes: 32 * 1024 * 1024, maxRequests: 128 });
+  const source = budgetSource(createBlobSource(ciphertext), budget);
+  const plaintext = await createNativeTink().open(source, key, associatedData);
+  const archive = await openZip(plaintext, { maxDirectoryBytes: 2 * 1024 * 1024, maxEntries: 10_000 });
+  const member = archive.entries.find((entry) => entry.kind === "file" && !entry.encrypted);
+  if (!member) return null;
+  const result = await archive.read(member.id, {
+    length: Math.min(4096, member.size),
+    maxSourceBytes: 8 * 1024 * 1024,
+    maxDecodedBytes: 16 * 1024 * 1024,
+  });
+  return { name: member.name, ...result, ciphertextWork: budget.inspect() };
+}
+```
+
+This uses the default Tink profile on both sides. Persist the chosen parameters when encrypting if an application uses
+other segment or key sizes. A password-protected ZIP needs its own entry-encryption reader instead: see
+[ZipCrypto](password.md) and [WinZip AES](aes.md). Those formats have different security and selected-read boundaries;
+changing an import does not make their ciphertext interchangeable.
 
 ## Capability and resource ownership
 
