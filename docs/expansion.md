@@ -127,6 +127,12 @@ earliest/latest offset observations in a separate repeat. Deno record/session co
 multiple brokers, measured allocation peaks and current release package/CI gates remain separate. This advances
 `log-kafka`, not the entire `record-store` group.
 
+[Arrow IPC](arrow.md) adds indexed file and forward-stream previews for six flat uncompressed V5 little-endian types.
+Opening compares embedded/footer schemas and admits index geometry; selected reads validate only the requested column
+payloads. Streams consume bounded bodies in order, cancel on early return and do not provide durable resume state.
+Native originals cover ten file/stream profiles, including nulls, empty batches, int64 extrema, UTF8 and binary values.
+This advances `format-arrow`; it does not complete Feather, dictionary, compression or the entire dataset group.
+
 [Glacier vaults](glacier.md) add original vault/archive REST operations, explicit retrieval jobs, completed-output byte
 sources and native multipart mechanics. Retrieval is potentially billable and output availability can expire. Callers
 own durable receipts and reconcile unknown outcomes; no automatic paid job, OPFS projection, S3 Glacier storage-class

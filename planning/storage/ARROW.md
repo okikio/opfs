@@ -1,9 +1,10 @@
 # Arrow IPC: bounded column previews
 
-Status: production reader proposal with a qualified first native corpus, updated 2026-11-06. There is no IPC production
-reader or export. The catalog's `format-arrow` record remains an inventory entry, not implemented support. The separate
-[IPC native harness](../../tests/fixtures/ipc/README.md) passed ten Arrow C++ writer/reader profiles against authored
-originals. The shared [Parquet/ORC harness](../../tests/fixtures/arrow/native.cpp) remains unchanged.
+Status: implemented six-type indexed and forward-stream profile, updated 2026-11-06. Source checks, native-original
+comparisons and extracted Node/Deno/Bun consumers passed. Exact pushed-head CI remains a separate delivery gate; no
+release has been published. The catalog's `format-arrow` record describes a broader inventory than this profile. The
+separate [IPC native harness](../../tests/fixtures/ipc/README.md) passed ten Arrow C++ writer/reader profiles against
+authored originals. The shared [Parquet/ORC harness](../../tests/fixtures/arrow/native.cpp) remains unchanged.
 
 This plan is for a library maintainer implementing a preview of typed columns without loading an entire dataset. A
 caller should be able to inspect a schema, select one record batch and a few columns, and obtain their values and null
@@ -27,23 +28,23 @@ flowchart LR
 
 ## First implementation contract
 
-Implement a focused `src/dataset/arrow.ts` entry and internal files only where separate invariants justify them. A
-proposed `./dataset/arrow` subpath must be added to both manifests only with implementation and public consumer proof.
-Keep root imports inert. This is a dataset reader, not a writable filesystem driver or a bridge. A later read-only
-filesystem projection must name its path and serialization rules separately.
+The draft uses a focused `src/dataset/arrow.ts` entry and internal files with separate metadata, framing and column
+invariants. A proposed `./dataset/arrow` subpath must be added to both manifests only with implementation and public
+consumer proof. Keep root imports inert. This is a dataset reader, not a writable filesystem driver or a bridge. A later
+read-only filesystem projection must name its path and serialization rules separately.
 
 Start with these explicit admissions. This is a deliberately narrow profile, not a claim of complete Arrow or Feather
 support.
 
-| Area            | First profile                                                                                                                              | Deferred or rejected explicitly                                                                                                 |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| Envelope        | IPC file and IPC stream, V5 metadata, modern continuation framing                                                                          | V1–V4 metadata, legacy four-byte message prefixes, Feather V1, concatenated streams, Flight, tensor messages                    |
-| Physical values | Null; bit-packed Bool; signed/unsigned Int8/16/32/64; Float32/64; Binary and Utf8 with 32-bit offsets; FixedSizeBinary with admitted width | Float16, large-offset/view types, decimals, temporal and interval semantics, nested lists/structs/maps/unions, run-end encoding |
-| Nulls           | Separate validity bitmap, validate lengths and null counts; preserve null versus empty bytes/string                                        | Inferring null from a numeric sentinel                                                                                          |
-| Dictionaries    | Detect encoding during schema inspection and report its ID and value/index types                                                           | Materializing dictionary-encoded columns in the first slice                                                                     |
-| Compression     | Uncompressed bodies only                                                                                                                   | Reject a compression header before buffer decoding, including headers whose buffers all happen to use raw sentinels             |
-| Endianness      | Little-endian metadata and little-endian bodies                                                                                            | Reject big-endian bodies before materialization; never reinterpret them using host order                                        |
-| Metadata        | Preserve bounded field/schema custom metadata as data                                                                                      | Executing extension metadata or silently treating an extension type as its storage type                                         |
+| Area            | First profile                                                                                       | Deferred or rejected explicitly                                                                                                                           |
+| --------------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Envelope        | IPC file and IPC stream, V5 metadata, modern continuation framing                                   | V1–V4 metadata, legacy four-byte message prefixes, Feather V1, concatenated streams, Flight, tensor messages                                              |
+| Physical values | Signed Int32/Int64, Float64, bit-packed Bool, Binary and Utf8 with 32-bit offsets                   | Other integer widths and unsigned types, Float32/16, Null, FixedSizeBinary, large-offset/view types, decimals, temporal/interval types and nested layouts |
+| Nulls           | Separate validity bitmap, validate lengths and null counts; preserve null versus empty bytes/string | Inferring null from a numeric sentinel                                                                                                                    |
+| Dictionaries    | Detect and refuse dictionary encoding before exposing a readable dataset                            | Dictionary materialization, deltas and replacement state                                                                                                  |
+| Compression     | Uncompressed bodies only                                                                            | Reject a compression header before buffer decoding, including headers whose buffers all happen to use raw sentinels                                       |
+| Endianness      | Little-endian metadata and little-endian bodies                                                     | Reject big-endian bodies before materialization; never reinterpret them using host order                                                                  |
+| Metadata        | Preserve bounded field/schema custom metadata as data                                               | Executing extension metadata or silently treating an extension type as its storage type                                                                   |
 
 The type and feature identifiers come from
 [Schema.fbs, Arrow 21.0.0](https://github.com/apache/arrow/blob/apache-arrow-21.0.0/format/Schema.fbs). Metadata version
@@ -51,18 +52,17 @@ and columnar-format version are different concepts. An otherwise V5 schema can c
 unknown required features and unsupported fields before exposing a materialized batch. An inspection result may identify
 unsupported fields without pretending they are readable.
 
-Use `bigint` for Int64/Uint64 values and wire int64 arithmetic. Convert offsets and lengths to JavaScript numbers only
-after safe-integer and source-extent checks. Never turn an unsigned value into a signed one through a shared typed-array
-view. Preserve signed zero and NaN value semantics; do not promise preservation of NaN payload bits after numeric
-conversion. Invalid UTF-8 must fail instead of replacement-decoding. Check monotone nonnegative offsets, final extents,
-bitmap capacity, exact node/buffer cardinality and field lengths, including empty batches and absent validity buffers
-when valid.
+Use `bigint` for Int64 values and wire int64 arithmetic. Convert offsets and lengths to JavaScript numbers only after
+safe-integer and source-extent checks. Unsigned fields remain unsupported until separately qualified. Preserve signed
+zero and NaN value semantics; do not promise preservation of NaN payload bits after numeric conversion. Invalid UTF-8
+must fail instead of replacement-decoding. Check monotone nonnegative offsets, final extents, bitmap capacity, exact
+node/buffer cardinality and field lengths, including empty batches and absent validity buffers when valid.
 
-Return inspectable column records with type, length, values and validity, preserving the column-oriented programming
-model used by [ORC](../../src/dataset/orc.ts). Do not allocate an object for every row by default. An explicit row
-projection may allocate later. Returned arrays must own stable bytes; reading the next batch must not mutate an earlier
-result. Document when a caller holding results retains their buffers. Use DataView reads or a checked aligned-copy
-route, rather than assuming source offsets satisfy typed-array alignment.
+Return inspectable column records with physical type, row count, values and validity, preserving the column-oriented
+programming model used by [ORC](../../src/dataset/orc.ts). Do not allocate an object for every row by default. An
+explicit row projection may allocate later. Returned arrays must own stable bytes; reading the next batch must not
+mutate an earlier result. Document when a caller holding results retains their buffers. Use DataView reads or a checked
+aligned-copy route, rather than assuming source offsets satisfy typed-array alignment.
 
 ## Framing, file access and failure
 
@@ -91,18 +91,24 @@ policy. Place asynchronous source reads in a thin outer layer; no parser functio
 environment variables or ambient credentials. Cross-format conversion must receive an explicit loss policy for unsigned
 integers, nulls, precision and unsupported types; it must never silently turn Int64 into a JavaScript number or string.
 
-Use an explicit state machine for stream prefix, metadata, padding, body and completed batch. Carry only the bounded
-incomplete frame plus admitted state, and read the next batch on consumer demand. A consumer stopping iteration releases
-its reader lock; specify whether cancellation stops the underlying source or only releases a borrowed reader. Propagate
-AbortSignal and join owned read cleanup. Do not acquire credentials, runtimes or source resources at module import.
+Use an explicit state machine for stream prefix, metadata, padding, body and completed batch. Read the next batch on
+consumer demand. `readArrow(stream, options)` is a lazy async generator: first pull acquires its reader. After
+acquisition, abort, parse failure or early iterator return cancels the underlying stream and releases the reader lock.
+Join owned cleanup and preserve primary and cleanup faults. `openArrow(source)` instead borrows its stable byte source
+and never closes it. Stream batches return schema, rows, selected columns, `integrity: "none"`,
+`scope: "selected-columns"` and work. Do not acquire credentials, runtimes or source resources at module import.
 
-Proposed configurable implementation limits: 8 MiB metadata/footer, 64 MiB decoded batch buffers, 16 MiB single buffer,
-1,024 fields, 65,536 footer blocks, one million rows per batch, nesting depth 8 for metadata verification, and one
-in-flight batch. These are proposed safety defaults, not Arrow format maxima or performance measurements. Also cap
-string/metadata totals, FlatBuffer visited objects and stream chunk retention. Reject an oversized incoming chunk or
-charge its retained backing allocation; a tiny subarray can retain a huge ArrayBuffer. Share source byte/request
-accounting across metadata and values; retries cannot reset it. Test limits before allocation and reject each exhausted
-budget with its unit and requested value.
+The draft indexed defaults include 8 MiB metadata/footer, 16 MiB per selected buffer, 64 MiB aggregate selected buffers,
+1,024 fields, 4,096 footer blocks and 1,048,576 rows per batch. Its shared archive ledger separately defaults to 64 MiB
+source bytes, 4,096 requests, 64 MiB decoded bytes and 16 MiB admitted output across opening and subsequent reads. These
+limits overlap deliberately: passing a per-buffer check does not bypass a smaller lifetime allowance. They are
+implementation policy, not Arrow format maxima or performance measurements. Output admission includes validity masks,
+conservative UTF-16 text storage and per-row reference allowances; it does not measure actual heap headers or runtime
+allocation. A batch stream still consumes memory proportional to its admitted batch and selected output. Holding all
+returned batches defeats bounded-result retention. Also cap string/metadata totals, FlatBuffer visited objects and
+stream chunk retention. Reject an oversized incoming chunk or charge its retained backing allocation; a tiny subarray
+can retain a huge ArrayBuffer. Share source byte/request accounting across metadata and values; retries cannot reset it.
+Test limits before allocation and reject each exhausted budget with its unit and requested value.
 
 A FlatBuffers reader is required for metadata. Implement a small checked read-only accessor rather than add an
 unapproved runtime dependency. Validate root offsets, signed vtable displacements, table/vtable extents, vector
@@ -152,49 +158,54 @@ source budgets are already the closer fit for random access. No dependency is ad
 
 Extend the existing test-only native boundary, not candidate code. Its
 [artifact admission](../../tests/fixtures/arrow/artifacts.ts) pins Arrow C++ 20.0.0 libraries inside an inert wheel
-archive. No Python installation or execution is needed. The separate
-[IPC harness](../../tests/fixtures/ipc/native.cpp) now supplies writer/reader calls and full-value/mask comparison for
-its first six primitive fields. Check APIs against the admitted 20.0.0 headers; current
-[C++ IPC documentation](https://arrow.apache.org/docs/cpp/api/ipc.html) is orientation, not proof that a newer signature
-exists in that pinned build. Research consulted the 21.0.0 format definitions; fixture receipts must record the exact
-20.0.0 native producer and its supported format features.
+archive. No Python installation or execution is needed. The separate [IPC harness](../../tests/fixtures/ipc/native.cpp)
+now supplies writer/reader calls and full-value/mask comparison for its first six primitive fields. Check APIs against
+the admitted 20.0.0 headers; current [C++ IPC documentation](https://arrow.apache.org/docs/cpp/api/ipc.html) is
+orientation, not proof that a newer signature exists in that pinned build. Research consulted the 21.0.0 format
+definitions; fixture receipts must record the exact 20.0.0 native producer and its supported format features.
 
 The first native qualification passed on 6 November 2026. Its
 [retained receipt](../../tests/fixtures/ipc/native/receipt.json) identifies isolated run
 `b08cc08f-c149-47dc-a3ae-7fe1f6d00547`, an offline 1 GiB runner with one CPU and 256 PIDs, no OOM and completed
-container removal. The [producer state](../../tests/fixtures/ipc/native/native-state.json) reports code 0, no signal,
-no operation failure and no cleanup faults. The [retained corpus](../../tests/fixtures/ipc/native/independent.json)
+container removal. The [producer state](../../tests/fixtures/ipc/native/native-state.json) reports code 0, no signal, no
+operation failure and no cleanup faults. The [retained corpus](../../tests/fixtures/ipc/native/independent.json)
 contains ten uncompressed V5 images: file and stream forms of schema-only, empty-batch, mixed multibatch, all-null and
 no-null scenarios. Each has nullable int32, int64, float64, boolean, UTF8 and binary fields. Full typed values,
-validity, UTF8/binary offsets and payloads are checked against authored originals, including int64 extrema beyond
-Number precision, signed zero and NaN value semantics. NaN payload bits are not asserted.
+validity, UTF8/binary offsets and payloads are checked against authored originals, including int64 extrema beyond Number
+precision, signed zero and NaN value semantics. NaN payload bits are not asserted.
 
 Arrow C++ owns both writing and reading. This establishes same-library native round trips against authored originals,
-not independent two-engine interoperability, candidate-reader acceptance or a portable production reader. Unsigned and
-other integer widths, Float32, Null and FixedSizeBinary still need corpus coverage before the broader first profile
-above can be accepted. Dictionary and compressed images remain separate follow-ups. Exact native output hashes stay
-frozen; repeat qualification into a fresh destination instead of rewriting them.
+not independent two-engine interoperability, candidate-reader acceptance or a portable production reader. The first
+reader profile is now restricted to those six qualified physical types. Unsigned and other integer widths, Float32, Null
+and FixedSizeBinary remain later admissions requiring their own corpus coverage. Dictionary and compressed images remain
+separate follow-ups. Exact native output hashes stay frozen; repeat qualification into a fresh destination instead of
+rewriting them.
 
-The remaining qualification sequence is:
+The first profile passed strict source checks, Deno/Node/Bun indexed and stream workflows, all ten native-original
+comparisons and extracted-package consumers for all 170 public exports. The public entrypoint also passes standalone
+documentation lint. Authored controls cover malformed metadata, selected/excluded payloads, raw source errors, separate
+cleanup failures, cancellation, lock release and finite lifetime budgets. The copy/file/stream benchmark reports
+different workloads and physical read counts; it is not a peak-heap or two-engine performance comparison.
 
-1. Extend the qualified native file/stream corpus to the other admitted primitive types, including unsigned high bits,
-   Float32, Null and fixed binary. Preserve the existing multibatch, empty/all-null, extrema, BigInt, signed-zero,
-   NaN/infinity, UTF8 and binary coverage. Continue full native readback against authored originals and retain original
-   byte hashes, schema, masks, options, toolchain and library identities.
-2. Compare candidate full values and masks with originals, not with candidate serialization. Compare file-selected
-   batch/columns against full native reads. Native Arrow remains one implementation; a second native reader is a
-   separate future proof layer, not supplied by DuckDB's existing Parquet checks.
-3. Add native dictionary and LZ4/Zstd cases before enabling those profiles. Retain unsupported cases as genuine refusal
+The remaining extension and qualification sequence is:
+
+1. Preserve the six-type native-original and selected-payload regression checks. Native Arrow remains one
+   implementation; qualify a second native reader separately rather than treating DuckDB's existing Parquet checks as
+   Arrow IPC proof.
+2. Add native dictionary and LZ4/Zstd cases before enabling those profiles. Retain unsupported cases as genuine refusal
    tests. Use authored mutations for malformed offsets, vtables, cardinalities, prefixes, lengths, features, truncated
    boundaries, dictionary IDs and compression bombs; label them authored adversarial controls.
-4. Exercise chunk splits across every frame boundary, tiny/empty chunks, clean versus partial EOF, aborts, iteration
+3. Exercise chunk splits across every frame boundary, tiny/empty chunks, clean versus partial EOF, aborts, iteration
    stop, mutation and request/byte budgets. Verify failure before excess allocation or source reads. Qualify same-source
    behavior in Deno, Node, Bun and browser environments with repository tasks.
+4. Retain public package-consumer examples and import-safe export checks. The [user guide](../../docs/arrow.md) explains
+   indexed versus forward access and validity masks. Broaden primitive types only after new native originals, full
+   values/masks and refusal controls are qualified; retain the first corpus.
 5. Benchmark metadata inspection, first/last batch, projected columns, full scans, row slicing, memory retained by
    results and cancellation. Report actual requests, bytes, throughput and peak memory on fixed native corpora. A
    typed-array design alone is not evidence of cache or speed gains.
 
-Only then change the catalog/readme from research to the exact implemented profile, add dataset documentation and
-runnable examples, export the subpath, add public package-consumer tests and a release note. The acceptance result must
-show both a successful bounded preview and an understandable unsupported-profile error. Native fixture qualification
-above does not advance those production-reader, runtime, package or benchmark gates.
+Every extension needs both a successful bounded preview and an understandable unsupported-profile refusal, with docs and
+release intent updated to that exact scope. Native fixture qualification alone does not advance a production reader,
+runtime, package or benchmark gate. Dictionary, compression, additional physical types, regional row reads and durable
+stream checkpoints remain separate work.

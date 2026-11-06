@@ -211,6 +211,7 @@
     "./crypto/age": "./src/crypto/age.ts",
     "./crypto/age-node": "./src/crypto/age-node.ts",
     "./dataset/orc": "./src/dataset/orc.ts",
+    "./dataset/arrow": "./src/dataset/arrow.ts",
     "./amqp": "./src/amqp.ts",
     "./kafka": "./src/kafka.ts"
   },
