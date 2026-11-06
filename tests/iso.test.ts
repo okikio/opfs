@@ -6,6 +6,13 @@ import { createArchiveLedger, openIso } from "../src/archive/iso.ts";
 import fixtures from "./fixtures/iso/independent.json" with { type: "json" };
 
 const source = (bytes: Uint8Array) => createBlobSource(new Blob([new Uint8Array(bytes).buffer]));
+/** Compare every original byte without allocating deep-equality state for each element. */
+function equalBytes(actual: Uint8Array, expected: Uint8Array): void {
+  expect(actual.byteLength).toBe(expected.byteLength);
+  for (let at = 0; at < expected.byteLength; at++) {
+    if (actual[at] !== expected[at]) throw new Error(`ISO native original-byte mismatch at ${at}.`);
+  }
+}
 /** Independently authored minimal records isolate numeric, extent and traversal defects. */
 function image(): Uint8Array {
   const bytes = new Uint8Array(24 * 2048);
@@ -90,7 +97,7 @@ describe("bounded selected-tree ISO inspection", () => {
           const entry = archive.entries.find((entry) => pathOf(archive.entries, entry.id) === oracle.name)!;
           expect(entry).toBeDefined();
           const payload = decodeBase64(oracle.body);
-          expect((await archive.read(entry.id)).bytes).toEqual(payload);
+          equalBytes((await archive.read(entry.id)).bytes, payload);
           if (payload.length) {
             expect((await archive.read(entry.id, { offset: payload.length - 1, length: 1 })).bytes).toEqual(
               payload.slice(-1),
