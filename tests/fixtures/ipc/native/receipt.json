@@ -1,0 +1,23 @@
+{
+  "date": "2026-11-06",
+  "validationReceipt": "b08cc08f-c149-47dc-a3ae-7fe1f6d00547",
+  "image": "sha256:01f5eb8edbe75e962e78730d6258d2c01c85b1c619d7e47717eeea470148b7f5",
+  "memoryBytes": 1073741824,
+  "cpu": 1,
+  "pids": 256,
+  "network": "none",
+  "oomKilled": false,
+  "containerRemoved": true,
+  "files": [
+    {
+      "file": "independent.json",
+      "bytes": 106854,
+      "sha256": "09bac9152ccc959f35274cd8f47f3fa170517e6dd0823ea530532b73031d44d1"
+    },
+    {
+      "file": "native-state.json",
+      "bytes": 69,
+      "sha256": "fa76e29cf2aea19b4987f0d50e6e20c2dfe15025190e93012ce1b5dd16e20ed6"
+    }
+  ]
+}
