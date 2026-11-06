@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { env } from "node:process";
 
 /** Both programs are owned, bounded children. Capturing the producer avoids a shell pipe masking its failure. */
 describe("ZIP independent consumer", () => {
@@ -12,7 +13,9 @@ describe("ZIP independent consumer", () => {
     expect(produced.error).toBeUndefined();
     expect(produced.signal).toBeNull();
     expect(produced.status, produced.stderr.toString()).toBe(0);
-    const consumed = spawnSync("node", [fileURLToPath(verifier)], {
+    // Select one literal executable; an absent or broken consumer must fail.
+    const seven = env.OPFS_SEVEN ?? "7zz";
+    const consumed = spawnSync("node", [fileURLToPath(verifier), "--seven", seven], {
       input: produced.stdout,
       timeout: 30_000,
       maxBuffer: 64 * 1024,
