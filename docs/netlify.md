@@ -1,10 +1,9 @@
 # Read and write one Netlify Blobs store
 
 The implemented `@okikio/opfs/netlify` client copies one bounded blob at a time and preserves native acknowledgements.
-Its source and public export map are present, and its narrow local SDK-wire profile passed reciprocal tests against
-the official SDK and local server. Installed-package checks passed in Node, Deno and Bun. It does not mount a filesystem
-or load the Netlify SDK. An application supplies its account, transport and permission to use negotiated
-data URLs.
+Its source and public export map are present, and its narrow local SDK-wire profile passed reciprocal tests against the
+official SDK and local server. Installed-package checks passed in Node, Deno and Bun. It does not mount a filesystem or
+load the Netlify SDK. An application supplies its account, transport and permission to use negotiated data URLs.
 
 For example, this complete function creates a small report only if the key is absent, then reads its bytes. Its caller
 supplies the site, account token, transport and actual data authority approved for that deployment.
@@ -177,14 +176,13 @@ source separately, with the full-download cost visible. The
 [Netlify expansion plan](https://github.com/okikio/opfs/blob/codex/release-2026-10-06/planning/storage/NETLIFY.md)
 records the independent SDK/server fixture, its admission boundary and the further evidence needed for broader support.
 
-The authored tests in `tests/netlify.test.ts` exercise request construction, bounded parsing and failure ownership.
-They passed in Deno, Node and Bun; those injected peers are not independent service proof. Separately, the official
-SDK 11.1.7/local-server fixture passed empty and 128 KiB full-byte comparisons in both directions, Unicode metadata
-reads, conditions, credential separation and lost-reply reconciliation. Its exact candidate bundle and retained run are
+The authored tests in `tests/netlify.test.ts` exercise request construction, bounded parsing and failure ownership. They
+passed in Deno, Node and Bun; those injected peers are not independent service proof. Separately, the official SDK
+11.1.7/local-server fixture passed empty and 128 KiB full-byte comparisons in both directions, Unicode metadata reads,
+conditions, credential separation and lost-reply reconciliation. Its exact candidate bundle and retained run are
 recorded in the
-[fixture guide](https://github.com/okikio/opfs/blob/codex/release-2026-10-06/tests/fixtures/netlify/README.md).
-That Node-local result does not establish live
-service, browser SDK fallback or production consistency behavior. The extracted npm artifact passed all 171 export
-checks, Node/Deno/Bun consumers, strict declaration consumers, browser bundling, import safety and selective adoption.
-CI is a separate delivery gate; the [pull request checks](https://github.com/okikio/opfs/pull/1/checks) identify the exact
-commit they tested.
+[fixture guide](https://github.com/okikio/opfs/blob/codex/release-2026-10-06/tests/fixtures/netlify/README.md). That
+Node-local result does not establish live service, browser SDK fallback or production consistency behavior. The
+extracted npm artifact passed all 171 export checks, Node/Deno/Bun consumers, strict declaration consumers, browser
+bundling, import safety and selective adoption. CI is a separate delivery gate; the
+[pull request checks](https://github.com/okikio/opfs/pull/1/checks) identify the exact commit they tested.
