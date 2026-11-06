@@ -59,6 +59,12 @@ export interface ZipReadOptionsType extends ArchiveLimitsType {
   readonly signal?: AbortSignal;
   readonly offset?: number;
   readonly length?: number;
+  /**
+   * When true, completes the available member CRC check before returning a partial interval.
+   * Defaults to false for partial reads; complete reads check CRC when provided.
+   * Verification can read or decode the whole member despite a small output.
+   * Format-required ciphertext authentication still applies independently.
+   */
   readonly verify?: boolean;
   readonly inflate?: ZipInflateType;
   /** Optional bounded BZip2 kernel policy for unencrypted compression method 12. */
@@ -69,7 +75,7 @@ export interface ZipReadOptionsType extends ArchiveLimitsType {
   readonly password?: Uint8Array;
   /** Maximum password byte length. Default 1024. No text encoding is inferred. */
   readonly maxPasswordBytes?: number;
-  /** Explicit native capability and finite limits for the WinZip AES STORED read profile. */
+  /** Explicit native capability and finite limits for WinZip AES STORED and DEFLATE reads. */
   readonly aes?: ZipAesOptionsType;
 }
 

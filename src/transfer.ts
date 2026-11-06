@@ -78,7 +78,11 @@ export interface TransferOptionsType {
   readonly pause?: () => boolean;
 }
 
-/** Stable, machine-readable admission failure before a new upload effect. */
+/**
+ * A machine-readable identity, source, acknowledgement or publication-state failure.
+ * Some failures occur after the destination accepted bytes. The code does not
+ * establish rollback or absence of remote effects; reconcile before continuing.
+ */
 export class TransferError extends Error {
   readonly code: "identity" | "offset" | "state" | "source";
   constructor(code: TransferError["code"], message: string) {
@@ -205,7 +209,14 @@ export async function resumeTransfer(options: TransferOptionsType): Promise<Tran
   return checkpoint;
 }
 
-/** Explicit remote cancellation. A failed/unknown deletion leaves the previous checkpoint authoritative. */
+/**
+ * Terminates the remote session, then persists a cancelled checkpoint.
+ * An uncertain termination can already have deleted the upload. A failed save
+ * can also leave an old local checkpoint after confirmed deletion. Preserve the
+ * last saved checkpoint as local evidence, then reconcile remote state before
+ * recovery; it does not prove that the upload survives. The destination resource
+ * remains borrowed. See the [recovery guide](../docs/transfer.md).
+ */
 export async function cancelTransfer(
   destination: UploadDestinationType,
   checkpoint: TransferCheckpointType,
