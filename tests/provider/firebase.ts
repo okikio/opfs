@@ -34,6 +34,14 @@ const config = JSON.stringify({
 const dockerfile = `FROM ${FIREBASE_NODE_IMAGE} AS node
 FROM ${FIREBASE_JRE_IMAGE}
 COPY --from=node /usr/local/ /usr/local/
+# Node 26 links libatomic; the JRE base does not ship it. Keep the exact
+# library and license from the pinned Node image on both supported architectures.
+COPY --from=node /usr/lib/*-linux-gnu/libatomic.so.1* /usr/local/lib/
+COPY --from=node /usr/share/doc/libatomic1/copyright /fixture/receipts/libatomic.copyright
+RUN ldconfig \\
+    && ldd /usr/local/bin/node > /fixture/receipts/node-libraries.txt \\
+    && sha256sum /usr/local/lib/libatomic.so.1* > /fixture/receipts/libatomic.sha256 \\
+    && node --version && java -version
 WORKDIR /fixture
 COPY download.ts sdk.ts storage.rules firebase.json ./
 RUN node download.ts && npm install --ignore-scripts --no-audit --no-fund ./tools.tgz ./sdk.tgz && rm tools.tgz sdk.tgz

@@ -158,6 +158,8 @@ jobs:
       - name: Install independent archive consumers
         run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends 7zip libarchive-tools
       - run: deno task test:archive:interop
+        env:
+          OPFS_SEVEN: /usr/bin/7z
 
   firebase:
     name: Firebase Rules and native upload containers
