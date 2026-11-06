@@ -96,14 +96,21 @@ export async function previewEncryptedZip(
   ciphertext: Blob,
   key: Uint8Array,
   associatedData: Uint8Array,
+  signal?: AbortSignal,
 ) {
+  const request = signal === undefined ? {} : { signal };
   const budget = createSourceBudget({ maxBytes: 32 * 1024 * 1024, maxRequests: 128 });
   const source = budgetSource(createBlobSource(ciphertext), budget);
-  const plaintext = await createNativeTink().open(source, key, associatedData);
-  const archive = await openZip(plaintext, { maxDirectoryBytes: 2 * 1024 * 1024, maxEntries: 10_000 });
+  const plaintext = await createNativeTink().open(source, key, associatedData, request);
+  const archive = await openZip(plaintext, {
+    ...request,
+    maxDirectoryBytes: 2 * 1024 * 1024,
+    maxEntries: 10_000,
+  });
   const member = archive.entries.find((entry) => entry.kind === "file" && !entry.encrypted);
   if (!member) return null;
   const result = await archive.read(member.id, {
+    ...request,
     length: Math.min(4096, member.size),
     maxSourceBytes: 8 * 1024 * 1024,
     maxDecodedBytes: 16 * 1024 * 1024,
@@ -116,6 +123,14 @@ This uses the default Tink profile on both sides. Persist the chosen parameters 
 other segment or key sizes. A password-protected ZIP needs its own entry-encryption reader instead: see
 [ZipCrypto](password.md) and [WinZip AES](aes.md). Those formats have different security and selected-read boundaries;
 changing an import does not make their ciphertext interchangeable.
+
+One preview signal reaches both the envelope's opening reads and ZIP's later selected reads. Tink's `open()` signal
+controls opening; it does not become lifetime cancellation authority over the returned plaintext source. Independent
+calls to `plaintext.read()`, `readVerified()` or `verify()` must receive their own signal. ZIP forwards its active
+signal into the plaintext source when it requests a range. Aborting the preview leaves the Blob and cryptographic
+capabilities borrowed; it neither disposes them nor erases the original ciphertext. A new call can reopen that same
+snapshot with a new signal and budget. Authentication failure rejects the preview; do not retry it by disabling tag
+verification or rendering partially decrypted data.
 
 ## Capability and resource ownership
 

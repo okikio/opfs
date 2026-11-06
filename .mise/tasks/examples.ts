@@ -1,15 +1,16 @@
 /**
- * Runs selected complete Markdown examples and checks their printed values.
+ * Runs selected complete Markdown examples and checks their printed values and behavioral assertions.
  *
  * Documentation owns each executable body. This task owns only selection,
  * source-entry resolution, bounded execution and independently specified outputs.
+ * With --check, one bounded Deno compiler checks the same extracted programs without running them.
  */
 import { deepStrictEqual } from "node:assert/strict";
 import { Buffer } from "node:buffer";
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
-import { execPath, stdout } from "node:process";
+import { argv, execPath, stdout } from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 /** One complete fence selected by its enclosing heading, with its expected console arguments. */
@@ -17,10 +18,52 @@ interface ExampleType {
   readonly document: string;
   readonly heading: string;
   readonly expected: readonly (readonly unknown[])[];
+  /** Additional fixture-owned assertions invoke the extracted declarations, never a copied example. */
+  readonly check?: string;
+  readonly capture?: boolean;
+  readonly fenceIndex?: number;
 }
 
 /** Exact printed results are independent of the implementation under test. */
 const examples: readonly ExampleType[] = [
+  {
+    document: "docs/adapters.md",
+    heading: "Implement a complete record backend",
+    expected: [[false]],
+    check: "await checks.records(createRecords);",
+  },
+  {
+    document: "docs/archive.md",
+    heading: "Inspect an archive and preview one member",
+    expected: [],
+    capture: false,
+    check: "await checks.archive(preview);",
+  },
+  {
+    document: "docs/source.md",
+    heading: "Follow a remote preview",
+    expected: [],
+    check: "await checks.remote(preview);",
+  },
+  {
+    document: "docs/encryption.md",
+    heading: "What a preview verifies",
+    expected: [],
+    check: "await checks.encrypted(previewEncryptedZip);",
+  },
+  {
+    document: "docs/extensions.md",
+    heading: "Publish an independent extension",
+    fenceIndex: 0,
+    expected: [],
+    check: "await checks.extension(createBufferSource);",
+  },
+  {
+    document: "docs/transfer.md",
+    heading: "Restart with the saved checkpoint",
+    expected: [],
+    check: "await checks.transfer(startUpload, continueUpload, InitialCheckpointError);",
+  },
   {
     document: "docs/encryption.md",
     heading: "Authenticate selected encrypted ranges",
@@ -94,12 +137,13 @@ function extract(markdown: string, example: ExampleType): string {
     if (title !== null) heading = title[1]!;
   }
   if (fence !== undefined) throw new Error(`${example.document}: unterminated Markdown fence.`);
-  if (matches.length !== 1) {
+  if (example.fenceIndex === undefined && matches.length !== 1) {
     throw new Error(
       `${example.document} / ${example.heading}: expected one complete TS fence, found ${matches.length}.`,
     );
   }
-  const body = matches[0]!;
+  const body = matches[example.fenceIndex ?? 0];
+  if (body === undefined) throw new Error(`${example.document}: selected fence is absent.`);
   if (Buffer.byteLength(body) > 64 * 1024) {
     throw new Error(`${example.document}: example exceeds the 64 KiB execution budget.`);
   }
@@ -128,6 +172,11 @@ function imports(body: string, root: string, exports: Readonly<Record<string, st
   return output;
 }
 
+const arguments_ = argv.slice(2);
+if (arguments_.length > 1 || (arguments_.length === 1 && arguments_[0] !== "--check")) {
+  throw new Error("Usage: node .mise/tasks/examples.ts [--check]");
+}
+const checking = arguments_[0] === "--check";
 const root = realpathSync(resolve(dirname(fileURLToPath(import.meta.url)), "../.."));
 const sourceExports = exportsFrom(join(root, "deno.json"));
 const reports = join(root, ".tmp", "reports");
@@ -136,7 +185,8 @@ if (realpathSync(reports) !== reports) {
   throw new Error("Documentation reports must remain in the repository's physical .tmp/reports directory.");
 }
 const owned = mkdtempSync(join(reports, "docs-examples-"));
-const results: { document: string; heading: string; observed: unknown; stderr: string }[] = [];
+const results: { document: string; heading: string; observed: unknown; stderr: string; behavior?: string }[] = [];
+const scripts: string[] = [];
 try {
   for (const [index, example] of examples.entries()) {
     const body = extract(readFileSync(join(root, example.document), "utf8"), example);
@@ -145,45 +195,78 @@ try {
       script,
       [
         'import { stdout as exampleOutput } from "node:process";',
+        `import * as checks from ${JSON.stringify(pathToFileURL(join(root, "tests/fixtures/docs/examples.ts")).href)};`,
         "const observed: unknown[][] = [];",
-        "const console = { log: (...values: unknown[]) => { observed.push(values); } };",
+        `const console = { table(_data?: unknown, _properties?: readonly string[]) {}, log: (...values: unknown[]) => { ${
+          example.capture === false ? "" : "observed.push(values);"
+        } } };`,
         imports(body, root, sourceExports),
+        example.check ?? "",
         "exampleOutput.write(JSON.stringify(observed));",
         "export {};",
         "",
       ].join("\n"),
       { flag: "wx", mode: 0o600 },
     );
-    const child = spawnSync(execPath, [script], {
+    scripts.push(script);
+  }
+  if (checking) {
+    // One compiler owns the complete extracted program set. It never executes examples or fixture assertions.
+    const child = spawnSync("deno", ["check", "--config", join(root, "deno.json"), ...scripts], {
       cwd: root,
       stdio: ["ignore", "pipe", "pipe"],
-      timeout: 10_000,
-      maxBuffer: 64 * 1024,
+      timeout: 120_000,
+      maxBuffer: 1024 * 1024,
       killSignal: "SIGKILL",
     });
     if (child.error !== undefined || child.status !== 0 || child.signal !== null) {
-      throw new Error(
-        JSON.stringify({
-          document: example.document,
-          heading: example.heading,
-          status: child.status,
-          signal: child.signal,
-          error: child.error?.message,
-          stdout: child.stdout?.toString(),
-          stderr: child.stderr?.toString(),
-        }),
-      );
+      throw new Error(JSON.stringify({
+        mode: "check",
+        examples: scripts.length,
+        status: child.status,
+        signal: child.signal,
+        error: child.error?.message,
+        stdout: child.stdout?.toString(),
+        stderr: child.stderr?.toString(),
+      }));
     }
-    const observed: unknown = JSON.parse(child.stdout.toString("utf8"));
-    deepStrictEqual(observed, example.expected, `${example.document} / ${example.heading}: printed result changed.`);
-    results.push({
-      document: example.document,
-      heading: example.heading,
-      observed,
-      stderr: child.stderr.toString("utf8"),
-    });
+  } else {
+    for (const [index, example] of examples.entries()) {
+      const script = scripts[index]!;
+      const child = spawnSync(execPath, [script], {
+        cwd: root,
+        stdio: ["ignore", "pipe", "pipe"],
+        timeout: 10_000,
+        maxBuffer: 64 * 1024,
+        killSignal: "SIGKILL",
+      });
+      if (child.error !== undefined || child.status !== 0 || child.signal !== null) {
+        throw new Error(
+          JSON.stringify({
+            document: example.document,
+            heading: example.heading,
+            status: child.status,
+            signal: child.signal,
+            error: child.error?.message,
+            stdout: child.stdout?.toString(),
+            stderr: child.stderr?.toString(),
+          }),
+        );
+      }
+      const observed: unknown = JSON.parse(child.stdout.toString("utf8"));
+      deepStrictEqual(observed, example.expected, `${example.document} / ${example.heading}: printed result changed.`);
+      results.push({
+        document: example.document,
+        heading: example.heading,
+        observed,
+        stderr: child.stderr.toString("utf8"),
+        ...(example.check === undefined ? {} : { behavior: example.check }),
+      });
+    }
   }
 } finally {
   rmSync(owned, { recursive: true, force: true });
 }
-stdout.write(`${JSON.stringify({ examples: results }, null, 2)}\n`);
+stdout.write(
+  `${JSON.stringify(checking ? { mode: "check", checkedExamples: scripts.length } : { examples: results }, null, 2)}\n`,
+);

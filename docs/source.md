@@ -41,18 +41,27 @@ extent can expand into much more data.
 
 ```ts
 import { createGcsClient } from "@okikio/opfs/gcs";
+import type { FetchType } from "@okikio/opfs/request";
 import { budgetSource, createSourceBudget, openObjectSource } from "@okikio/opfs/source";
 import { openZip } from "@okikio/opfs/archive/zip";
 
 // The application supplies and refreshes this token. No environment is consulted.
-export async function preview(bucket: string, key: string, token: () => Promise<string>) {
-  const client = createGcsClient({ bucket, token });
+export async function preview(
+  bucket: string,
+  key: string,
+  token: () => Promise<string>,
+  fetch: FetchType,
+  signal?: AbortSignal,
+) {
+  const request = signal === undefined ? {} : { signal };
+  const client = createGcsClient({ bucket, token, fetch });
   const ledger = createSourceBudget({ maxBytes: 32 * 1024 * 1024, maxRequests: 100 });
-  const source = budgetSource(await openObjectSource(client, key), ledger);
-  const archive = await openZip(source);
+  const source = budgetSource(await openObjectSource(client, key, request), ledger);
+  const archive = await openZip(source, request);
   const member = archive.entries.find((entry) => entry.kind === "file" && !entry.encrypted);
   if (!member) return null;
   const result = await archive.read(member.id, {
+    ...request,
     length: Math.min(4096, member.size),
     maxSourceBytes: 8 * 1024 * 1024,
     maxDecodedBytes: 16 * 1024 * 1024,
@@ -61,9 +70,17 @@ export async function preview(bucket: string, key: string, token: () => Promise<
 }
 ```
 
-This function returns bytes and their checksum status. The application chooses a renderer and treats active content as
-untrusted. A prefix does not establish a complete member's CRC. Unsupported compression/encryption and exhausted budgets
-reject explicitly rather than extracting the whole archive or downloading a codec.
+The caller supplies Fetch as well as credentials, so tests or deployments can select their transport without changing
+global state. This function returns bytes and their checksum status. The application chooses a renderer and treats
+active content as untrusted. A prefix does not establish a complete member's CRC. Unsupported compression/encryption and
+exhausted budgets reject explicitly rather than extracting the whole archive or downloading a codec.
+
+Pass the preview controller's signal to the function and abort it when the user selects another object or closes the
+preview. `openObjectSource()` uses that signal for its opening HEAD; each later range has its own signal. Here ZIP's
+opening and member-read options carry the same cancellation authority through those ranges. Aborting does not dispose
+the borrowed client or delete the object. To try again, call the function again so it captures a fresh revision and gets
+fresh work allowances. An integrity failure must not fall back to displaying unchecked bytes; an unsupported profile
+needs another explicitly selected reader, and a budget failure needs an application-approved larger allowance.
 
 The sequence below shows why a stable revision matters. All ranges belong to the revision captured by HEAD; mixing
 directory offsets from one revision with payload bytes from another would make the preview invalid. The diagram omits
