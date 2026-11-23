@@ -161,12 +161,16 @@ describe("WebDAV file projection admission", () => {
       code: "not-supported",
     });
     await expect(driver.copy!("/one", "/two", { overwrite: false })).rejects.toMatchObject({ code: "not-supported" });
-    await using filesystem = createFileSystem(createWebdavAdapter(native));
-    await expect(filesystem.writeFile("/one", "data", { mode: "append" })).rejects.toMatchObject({
-      code: "not-supported",
-    });
-    expect(calls).toBe(0);
-    expect(driver.publication?.copy).toBe("best-effort");
+    const filesystem = createFileSystem(createWebdavAdapter(native));
+    try {
+      await expect(filesystem.writeFile("/one", "data", { mode: "append" })).rejects.toMatchObject({
+        code: "not-supported",
+      });
+      expect(calls).toBe(0);
+      expect(driver.publication?.copy).toBe("best-effort");
+    } finally {
+      await filesystem[Symbol.asyncDispose]();
+    }
   });
   it("refuses unsafe materialization size before GET and checks exact returned byte extents", async () => {
     let gets = 0;
@@ -273,8 +277,12 @@ describe("WebDAV canonical removal refusal", () => {
       },
     });
     await expect(createWebdavDriverFromClient(native).remove("/one")).rejects.toMatchObject({ code: "not-supported" });
-    await using filesystem = createFileSystem(createWebdavAdapter(native));
-    await expect(filesystem.remove("/one")).rejects.toMatchObject({ code: "not-supported" });
-    expect(calls).toBe(0);
+    const filesystem = createFileSystem(createWebdavAdapter(native));
+    try {
+      await expect(filesystem.remove("/one")).rejects.toMatchObject({ code: "not-supported" });
+      expect(calls).toBe(0);
+    } finally {
+      await filesystem[Symbol.asyncDispose]();
+    }
   });
 });

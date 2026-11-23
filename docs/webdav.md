@@ -15,13 +15,17 @@ export async function replace(endpoint: string, authorization: string, account: 
     headers: () => ({ authorization }),
     namespace: account, // Stable caller assertion including the authenticated account context.
   });
-  await using filesystem = createFileSystem(createWebdavAdapter(client));
-  await filesystem.writeFile("/notes/example.txt", "hello WebDAV", { parents: true });
-  const text = await filesystem.readText("/notes/example.txt");
+  const filesystem = createFileSystem(createWebdavAdapter(client));
+  try {
+    await filesystem.writeFile("/notes/example.txt", "hello WebDAV", { parents: true });
+    const text = await filesystem.readText("/notes/example.txt");
 
-  const source = await client.openSource("/notes/example.txt");
-  const preview = await source.read(0, Math.min(5, source.size));
-  return { text, preview, identity: source.identity };
+    const source = await client.openSource("/notes/example.txt");
+    const preview = await source.read(0, Math.min(5, source.size));
+    return { text, preview, identity: source.identity };
+  } finally {
+    await filesystem[Symbol.asyncDispose]();
+  }
 }
 ```
 
