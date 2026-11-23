@@ -238,6 +238,9 @@ try {
     import { createD1Adapter } from '@okikio/opfs/adapter/d1';
     import { createZipStream } from '@okikio/opfs/archive/write';
     import { openZip } from '@okikio/opfs/archive/zip';
+    import { createZipAdapter } from '@okikio/opfs/view/zip';
+    import { verifyArweaveTransaction } from '@okikio/opfs/content/arweave';
+    import { createArweaveClient } from '@okikio/opfs/arweave';
     import { compressStream, decompressStream } from '@okikio/opfs/archive/compress';
     import { parseCid, verifyBlock } from '@okikio/opfs/content/cid';
     import { createS3Client } from '@okikio/opfs/s3';
@@ -630,6 +633,60 @@ try {
     const zipBzipRead = await zipBzip.read(zipBzipEntry.id, { bzip: { inputChunkBytes: 3, outputChunkBytes: 7 } });
     assertBytes(zipBzipRead.bytes, Uint8Array.from(atob(zipBzipFixture.member.original.base64), (byte) => byte.charCodeAt(0)));
     if (zipBzipRead.integrity !== 'checksum-verified' || zipBzipRead.codec?.kind !== 'bzip2' || zipBzipRead.codec.integrity !== 'checksum-verified') throw new Error('Packed ZIP BZip2 verification changed');
+    const zipLzmaFixture = ${
+      JSON.stringify(
+        await (async () => {
+          const fixture = JSON.parse(
+            await readFile(new URL("../fixtures/zip-lzma/independent.json", import.meta.url), "utf8"),
+          ).fixtures.find((item) => item.name === "python");
+          return { wire: fixture.archive.base64, member: fixture.members.find((item) => item.name === "odd.bin") };
+        })(),
+      )
+    };
+    const zipLzma = await openZip(createByteSource(Uint8Array.from(atob(zipLzmaFixture.wire), (byte) => byte.charCodeAt(0))));
+    const zipLzmaEntry = zipLzma.entries.find((item) => item.name === zipLzmaFixture.member.name);
+    const zipLzmaRead = await zipLzma.read(zipLzmaEntry.id, { lzma: { inputChunkBytes: 3, maxDictionaryBytes: 8 * 1024 ** 2 } });
+    const zipLzmaOriginal = Uint8Array.from(atob(zipLzmaFixture.member.original.base64), (byte) => byte.charCodeAt(0));
+    assertBytes(zipLzmaRead.bytes, zipLzmaOriginal);
+    if (zipLzmaRead.integrity !== 'checksum-verified' || zipLzmaRead.codec?.kind !== 'lzma' || zipLzmaRead.codec.integrity !== 'none' || zipLzmaRead.codec.termination !== 'end-marker') throw new Error('Packed ZIP LZMA verification changed');
+    for (const item of [
+      { archive: zipBzip, name: zipBzipFixture.member.name, original: Uint8Array.from(atob(zipBzipFixture.member.original.base64), (byte) => byte.charCodeAt(0)), policy: { bzip: { maxSteps: 256 * 1024 ** 2 } } },
+      { archive: zipLzma, name: zipLzmaFixture.member.name, original: zipLzmaOriginal, policy: { lzma: { maxDictionaryBytes: 8 * 1024 ** 2 } } },
+    ]) {
+      const files = createFileSystem(createZipAdapter(item.archive, { ...item.policy, maxOutputBytes: 64 }));
+      try { assertBytes(await files.readFile('/' + item.name), item.original); }
+      finally { await files.close(); }
+      assertBytes((await item.archive.read(item.archive.entries.find((entry) => entry.name === item.name).id)).bytes, item.original);
+    }
+    const arweaveFixture = ${
+      JSON.stringify(
+        await (async () => {
+          const fixture = JSON.parse(
+            await readFile(new URL("../fixtures/arweave/pss32.json", import.meta.url), "utf8"),
+          );
+          return fixture.rows[1];
+        })(),
+      )
+    };
+    const arweaveHeader = new TextEncoder().encode(JSON.stringify(arweaveFixture.signed));
+    const arweaveBytes = Uint8Array.of(17); // Independent producer byte[i]=(i*131+17)%251, size=1.
+    const arweaveTransaction = await verifyArweaveTransaction(arweaveHeader, { expectedId: arweaveFixture.signed.id, expectedOwner: arweaveFixture.ownerAddress, profile: 'rsa4096-pss32-v2', subtle: globalThis.crypto.subtle });
+    const arweaveData = await arweaveTransaction.verifyData(createByteSource(arweaveBytes), { chunkProfile: 'arweave-js-1.15.7' });
+    assertBytes(await arweaveData.source.read(0, 1), arweaveBytes);
+    if (arweaveData.integrity !== 'rsa-signature-and-data-root' || arweaveData.chain !== 'not-checked' || arweaveTransaction.data !== 'not-checked' || arweaveData.source.stability !== 'immutable') throw new Error('Packed Arweave proof scopes changed');
+    let arweaveCalls = 0;
+    const arweave = createArweaveClient({ url: 'https://arweave.example', profile: 'rsa4096-pss32-v2', subtle: globalThis.crypto.subtle, fetch: async (input, init) => {
+      const url = new URL(String(input));
+      if (url.origin !== 'https://arweave.example' || init?.credentials !== 'omit' || init?.redirect !== 'manual') throw new Error('Packed Arweave authority changed');
+      const expectedPath = arweaveCalls++ === 0 ? '/tx/' + arweaveFixture.signed.id : '/' + arweaveFixture.signed.id;
+      if (url.pathname !== expectedPath) throw new Error('Packed Arweave native route changed');
+      const bytes = url.pathname.startsWith('/tx/') ? arweaveHeader : arweaveBytes;
+      return new Response(bytes, { headers: { 'content-length': String(bytes.length) } });
+    } });
+    const arweaveRemote = await arweave.open(arweaveFixture.signed.id);
+    const arweaveDownloaded = await arweaveRemote.read({ chunkProfile: 'arweave-js-1.15.7' });
+    assertBytes(await arweaveDownloaded.source.read(0, 1), arweaveBytes);
+    if (arweaveCalls !== 2 || Object.hasOwn(arweaveRemote.transaction, 'verifyData')) throw new Error('Packed Arweave ownership boundary changed');
     let gcsArchiveCalls = 0;
     const gcsArchive = createGcsClient({
       bucket: 'installed-bucket', endpoint: 'https://storage.example', token: 'explicit-token',
@@ -1240,6 +1297,9 @@ try {
     import { createZipStream } from '@okikio/opfs/archive/write';
     import type { ZipWriteEntryType } from '@okikio/opfs/archive/write';
     import { openZip } from '@okikio/opfs/archive/zip';
+    import { createZipAdapter } from '@okikio/opfs/view/zip';
+    import { verifyArweaveTransaction } from '@okikio/opfs/content/arweave';
+    import { createArweaveClient } from '@okikio/opfs/arweave';
     import { createByteSource } from '@okikio/opfs/source';
     import { createCompressedTar, readCompressedTar } from '@okikio/opfs/archive/compress';
     import { parseCid, verifyBlock } from '@okikio/opfs/content/cid';
@@ -1369,6 +1429,17 @@ try {
     const arfsFile: import('@okikio/opfs/content/arfs').ArfsFileType = arfs.file('uuid');
     const arfsRead: import('@okikio/opfs/content/arfs').ArfsReadType = await arfsFile.read({ transactionId: 'data', source: createByteSource(new Uint8Array(), { identity: 'explicit-data' }) });
     void [arfsRead];
+    const arweaveTransaction: import('@okikio/opfs/content/arweave').ArweaveTransactionType = await verifyArweaveTransaction(new Uint8Array(), { expectedId: 'type-only', profile: 'rsa4096-pss32-v2', subtle: globalThis.crypto.subtle });
+    const arweaveData: import('@okikio/opfs/content/arweave').ArweaveDataType = await arweaveTransaction.verifyData(createByteSource(new Uint8Array()), { chunkProfile: 'arweave-js-1.15.7' });
+    const arweaveClient: import('@okikio/opfs/arweave').ArweaveClientType = createArweaveClient({ url: 'https://arweave.example', fetch, subtle: globalThis.crypto.subtle, profile: 'rsa4096-pss32-v2' });
+    const arweaveRemote: import('@okikio/opfs/arweave').ArweaveRemoteTransactionType = await arweaveClient.open('type-only');
+    const zipLzmaPolicy: import('@okikio/opfs/archive/zip').ZipLzmaOptionsType = { maxDictionaryBytes: 1048576, maxSteps: 1000000 };
+    const zipCodecArchive = await openZip(createByteSource(new Uint8Array()));
+    const zipCodecRead = await zipCodecArchive.read(0, { lzma: zipLzmaPolicy });
+    if (zipCodecRead.codec?.kind === 'lzma') { const termination: 'pending' | 'end-marker' = zipCodecRead.codec.termination; void termination; }
+    const zipCodecView: import('@okikio/opfs/view/zip').ZipViewOptionsType = { lzma: zipLzmaPolicy, bzip: { maxMemoryBytes: 8388608 }, maxOutputBytes: 1024 };
+    void [arweaveData, arweaveRemote, createZipAdapter(zipCodecArchive, zipCodecView)];
+
     void [lasRead, seafileReceipt];
     void [zarrRead];
     void [fitsValues, fitsVerification, restic, resticObject, netcdfRead];
