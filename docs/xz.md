@@ -2,7 +2,7 @@
 
 XZ is a compressed byte stream, rather than a named-file archive. Open its index, then read a range of decoded bytes
 without retaining the complete decoded stream. This profile supports exactly one LZMA2 filter per block with CRC64 (the
-native XZ CLI default), CRC32, or no payload check. SHA-256 and other check identifiers remain unsupported.
+native XZ CLI default), CRC32, SHA-256 or no payload check. Reserved check identifiers remain unsupported.
 
 ```ts
 import { createBlobSource } from "@okikio/opfs/source";
@@ -63,8 +63,19 @@ original provider/abort failure.
 
 The source contains one Stream beginning at offset zero, followed by optional bounded Stream Padding. All padding is
 zero and four-byte aligned. SFX prefixes, leading padding, concatenated Streams and nonzero trailing data are refused.
-SHA-256, reserved check identifiers, Delta/BCJ filters, filter chains and external codec implementations are
-unsupported.
+Reserved check identifiers, Delta/BCJ filters, filter chains and external codec implementations are unsupported.
+
+## SHA-256 block checks
+
+`xz --check=sha256` stores a 32-byte SHA-256 digest of each block's decoded bytes. A verified complete read hashes the
+decoded chunks as the LZMA2 decoder emits them and compares the result with the stored digest. The check reports
+`integrity: "sha256-verified"` and the stored digest as `sha256`, 64 lowercase hex digits. As with CRC checks, an
+unverified read or a decoded prefix reports `pending`, and a mismatch fails with `checksum-mismatch`.
+
+The hash is incremental, so verification needs no copy of the block. Web Crypto's `digest()` takes only a complete
+buffer, so the package uses a small internal SHA-256 that tests compare with Web Crypto at every padding boundary. The
+cost is one more pass over decoded bytes. SHA-256 here detects corruption only: it is stored beside the data, so it does
+not show who produced the file.
 
 Opening reads the footer and Index to establish exact physical block ranges. It checks footer magic, CRC and Backward
 Size; matching stream flags and header CRC; canonical base128 variable-length integers; Index count, CRC and padding;
@@ -122,8 +133,9 @@ ownership transfers or global registries.
 The historical `tests/fixtures/xz/create.py.snapshot` ran genuine signed-Debian XZ Utils encoders and compared every
 output byte against the original input with Python liblzma and independent 7-Zip. Fixtures cover CRC32/CRC64/none, empty
 data, dictionary overlap and wraparound, multiple independent blocks, and threaded encoder headers containing optional
-size fields. Unsupported SHA-256 and Delta/BCJ files are genuine producer outputs accepted by independent consumers and
-refused by this profile.
+size fields. Delta/BCJ files are genuine producer outputs accepted by independent consumers and refused by this profile.
+The SHA-256 file was recorded as a refusal when it was produced; this profile now reads and verifies it, and its digest
+is compared with Web Crypto. The fixture keeps its original expectation as evidence of that checkpoint.
 
 The trailing-padding fixture is an explicitly labelled adaptation of native output. Python's convenience
 `lzma.decompress` rejected it on the recorded producer runtime. That negative observation remains in the fixture; native

@@ -50,11 +50,15 @@ function wire(
   return new Uint8Array([...header, ...block, ...raw, ...padding, ...check, ...index, ...footer]);
 }
 
+/** Native fixtures recorded as refusals when produced, whose profile this reader now supports. The fixture file
+ * keeps its original expectation as evidence of that checkpoint. */
+const now = new Set(["sha256-refusal"]);
+
 describe("bounded indexed XZ", () => {
   for (const value of fixtures.cases) {
     it(`checks independent native ${value.name}`, async () => {
       const bytes = decodeBase64(value.archive);
-      if (!value.supported) {
+      if (!value.supported && !now.has(value.name)) {
         await expect(openXz(source(bytes))).rejects.toMatchObject({ code: "unsupported-profile" });
         return;
       }
@@ -70,6 +74,8 @@ describe("bounded indexed XZ", () => {
               ? "crc32-verified"
               : archive.check === "crc64"
               ? "crc64-verified"
+              : archive.check === "sha256"
+              ? "sha256-verified"
               : "not-provided")
         ),
       ).toBe(true);
@@ -387,6 +393,45 @@ describe("XZ streaming CRC64 evidence", () => {
       bad[offset] = bad[offset]! ^ 1;
       const corrupt = await openXz(source(bad));
       await expect(corrupt.read({ length: 1 })).rejects.toMatchObject({ code: "checksum-mismatch" });
+    }
+  });
+});
+
+describe("XZ streaming SHA-256 evidence", () => {
+  const hex = (bytes: ArrayBuffer) =>
+    Array.from(new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  it("verifies the genuine native SHA-256 block check against Web Crypto", async () => {
+    const value = fixture("sha256-refusal");
+    const archive = await openXz(source(decodeBase64(value.archive)));
+    expect(archive.check).toBe("sha256");
+    const result = await archive.read();
+    const body = decodeBase64(value.body);
+    expect(result.bytes).toEqual(body);
+    expect(result.checks).toHaveLength(archive.blocks.length);
+    expect(result.checks[0]).toMatchObject({
+      decoding: "complete",
+      integrity: "sha256-verified",
+      sha256: hex(await crypto.subtle.digest("SHA-256", body)),
+    });
+    expect(result.checks[0]!.crc).toBeUndefined();
+    expect(result.checks[0]!.crc64).toBeUndefined();
+  });
+  it("checks every stored SHA-256 byte and leaves unverified reads pending", async () => {
+    const bytes = decodeBase64(fixture("sha256-refusal").archive);
+    const archive = await openXz(source(bytes));
+    const block = archive.blocks[0]!;
+    expect(block.checkBytes).toBe(32);
+    // This block is one small LZMA2 chunk, so even an unverified one-byte read decodes all of it. Without
+    // verification the check stays pending either way.
+    const unverified = await archive.read({ length: 1, verify: false });
+    expect(unverified.checks[0]!.integrity).toBe("pending");
+    expect(unverified.checks[0]!.sha256).toMatch(/^[0-9a-f]{64}$/);
+    for (let index = 0; index < 32; index++) {
+      const bad = bytes.slice();
+      bad[block.checkOffset + index] = bad[block.checkOffset + index]! ^ 0x80;
+      const corrupt = await openXz(source(bad));
+      await expect(corrupt.read({ length: 1 })).rejects.toMatchObject({ code: "checksum-mismatch" });
+      expect((await corrupt.read({ length: 1, verify: false })).checks[0]!.integrity).toBe("pending");
     }
   });
 });

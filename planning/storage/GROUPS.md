@@ -295,12 +295,12 @@ never assert authentication. Apple-profile XAR indexes bounded zlib/XML and read
 TOC/archived/extracted checks. RAR5 original-header indexing and STORED member CRC preview are supported;
 compressed/encrypted RAR and solid/encrypted/multi-coder 7z remain pending. Pure bounded LZMA Alone/raw LZMA1/raw LZMA2
 streams add explicit dictionary/reset/CPU policy and no checksum. XZ indexes single-stream LZMA2 with selected-block
-CRC32/CRC64 checks; SHA-256, filter chains and concatenation remain unsupported. Unencrypted ZIP method 12 composes
-BZip2 block verification with selected member reads and separate ZIP CRC. BZip2 adds a bounded non-randomized
-single-stream codec, verified-block replay and separate whole-stream CRC; concatenation and legacy randomization remain
-unsupported. The `format-wim` record adds ordinary stored/32 KiB XPRESS-Huffman/LZX resource and selected-image
-previews, with separate resource/metadata SHA-1 scope, parent cancellation and finite chunk/table/CPU policy. Other WIM
-codecs remain pending.
+CRC32/CRC64/SHA-256 checks; filter chains and concatenation remain unsupported. Unencrypted ZIP method 12 composes BZip2
+block verification with selected member reads and separate ZIP CRC. BZip2 adds a bounded non-randomized single-stream
+codec, verified-block replay and separate whole-stream CRC; concatenation and legacy randomization remain unsupported.
+The `format-wim` record adds ordinary stored/32 KiB XPRESS-Huffman/LZX resource and selected-image previews, with
+separate resource/metadata SHA-1 scope, parent cancellation and finite chunk/table/CPU policy. Other WIM codecs remain
+pending.
 
 ### image-view
 

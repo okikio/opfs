@@ -2,6 +2,7 @@
 import type { ByteSourceType } from "../source.ts";
 import { createLzmaDecoder } from "./lzma.ts";
 import type { LzmaLimitsType } from "./lzma.ts";
+import { Sha256 } from "./sha256.ts";
 import {
   ArchiveBudget,
   ArchiveError,
@@ -58,10 +59,12 @@ export interface XzBlockType {
 export interface XzCheckType {
   readonly blockId: number;
   readonly decoding: "complete" | "prefix";
-  readonly integrity: "crc32-verified" | "crc64-verified" | "pending" | "not-provided";
+  readonly integrity: "crc32-verified" | "crc64-verified" | "sha256-verified" | "pending" | "not-provided";
   readonly crc?: number;
   /** CRC64/XZ evidence uses exactly sixteen lowercase hex digits, preserving every bit. */
   readonly crc64?: string;
+  /** The stored SHA-256 block check as 64 lowercase hex digits. Integrity of decoded bytes, not authentication. */
+  readonly sha256?: string;
 }
 /** Retains only selected output. Counter totals include discarded decoded prefixes and LZMA2 framing. */
 export interface XzReadType {
@@ -75,7 +78,7 @@ export interface XzReadType {
 /** One borrowed single-stream container; metadata CRCs do not verify its compressed payload. */
 export interface XzArchiveType {
   readonly size: number;
-  readonly check: "crc32" | "crc64" | "none";
+  readonly check: "crc32" | "crc64" | "sha256" | "none";
   readonly paddingBytes: number;
   readonly blocks: readonly XzBlockType[];
   readonly metadata: {
@@ -205,7 +208,8 @@ function policy(options: XzLzmaOptionsType = {}): XzLzmaOptionsType {
   return result;
 }
 
-/** Parse metadata without decompressing payload. Only one LZMA2 filter and none/CRC32/CRC64 checks are supported. */
+/** Parse metadata without decompressing payload. Only one LZMA2 filter and none/CRC32/CRC64/SHA-256 checks are
+ * supported. */
 export async function openXz(input: ByteSourceType, supplied: XzOpenOptionsType = {}): Promise<XzArchiveType> {
   const options = { ...supplied, lzma: policy(supplied.lzma) };
   const { size, identity, stability } = input;
@@ -274,10 +278,11 @@ export async function openXz(input: ByteSourceType, supplied: XzOpenOptionsType 
   verifyCrc(header.subarray(6, 8), view(header).getUint32(8, true), "stream header");
   if (header[6] !== footer[8] || header[7] !== footer[9]) invalid("XZ header/footer flags differ.");
   if (header[6] !== 0 || (header[7]! & 240) !== 0) unsupported("XZ reserved stream flags are unsupported.");
-  if (header[7] !== 0 && header[7] !== 1 && header[7] !== 4) {
-    unsupported("XZ supports only none, CRC32 or CRC64 block checks.");
+  // Check IDs from the .xz format: 0 none, 1 CRC32, 4 CRC64, 10 SHA-256. Other IDs reserve sizes we do not verify.
+  if (header[7] !== 0 && header[7] !== 1 && header[7] !== 4 && header[7] !== 10) {
+    unsupported("XZ supports only none, CRC32, CRC64 or SHA-256 block checks.");
   }
-  const checkBytes = header[7] === 1 ? 4 : header[7] === 4 ? 8 : 0;
+  const checkBytes = header[7] === 1 ? 4 : header[7] === 4 ? 8 : header[7] === 10 ? 32 : 0;
   const indexBytes = (view(footer).getUint32(4, true) + 1) * 4;
   if (indexBytes > maximumIndex) throw new ArchiveError("budget-exceeded", "XZ index exceeds metadata policy.");
   if (indexBytes > end - 24) invalid("XZ backwards index size exceeds its stream.");
@@ -345,7 +350,7 @@ export async function openXz(input: ByteSourceType, supplied: XzOpenOptionsType 
   }
   const archive: XzArchiveType = {
     size: decoded,
-    check: checkBytes === 8 ? "crc64" : checkBytes === 4 ? "crc32" : "none",
+    check: checkBytes === 32 ? "sha256" : checkBytes === 8 ? "crc64" : checkBytes === 4 ? "crc32" : "none",
     paddingBytes: padding,
     blocks: Object.freeze(blocks),
     metadata: Object.freeze({
@@ -386,6 +391,7 @@ export async function openXz(input: ByteSourceType, supplied: XzOpenOptionsType 
       let steps = 0;
       let chunks = 0;
       let crc64: Crc64 | undefined;
+      let sha256: Sha256 | undefined;
       for (const block of blocks) {
         const from = Math.max(offset, block.decodedOffset);
         const until = Math.min(offset + length, block.decodedOffset + block.decodedBytes);
@@ -393,6 +399,7 @@ export async function openXz(input: ByteSourceType, supplied: XzOpenOptionsType 
           until <= from && !(offset === 0 && length === decoded && (opts.verify ?? true) && block.decodedBytes === 0)
         ) continue;
         if (block.checkBytes === 8 && !crc64) crc64 = new Crc64();
+        if (block.checkBytes === 32 && !sha256) sha256 = new Sha256();
         const result = await readBlock(
           snapshot,
           block,
@@ -409,6 +416,7 @@ export async function openXz(input: ByteSourceType, supplied: XzOpenOptionsType 
           },
           signal,
           crc64,
+          sha256,
         );
         decisions += result.decisions;
         steps += result.steps;
@@ -435,9 +443,11 @@ async function readBlock(
   options: XzLzmaOptionsType,
   signal?: AbortSignal,
   crc64?: Crc64,
+  sha256?: Sha256,
 ): Promise<{ check: XzCheckType; decisions: number; steps: number; chunks: number }> {
   let state = 0xffffffff;
   crc64?.reset();
+  sha256?.reset();
   let at = 0;
   const source: ByteSourceType = {
     size: block.compressedBytes,
@@ -482,6 +492,7 @@ async function readBlock(
       }
       const bytes = result.value;
       if (crc64) crc64.update(bytes);
+      else if (sha256) sha256.update(bytes);
       else if (block.checkBytes === 4) state = crc32(bytes, state);
       const end = add(at, bytes.length);
       const begin = Math.max(at, from);
@@ -514,10 +525,18 @@ async function readBlock(
   if (complete && at !== block.decodedBytes) invalid("XZ decoded block differs from Index size.");
   let expected: number | undefined;
   let expected64: string | undefined;
+  let expected256: string | undefined;
   if (block.checkBytes) {
-    const stored = view(await work.read(block.checkOffset, block.checkBytes));
+    const raw = await work.read(block.checkOffset, block.checkBytes);
+    const stored = view(raw);
     work.decoded(block.checkBytes);
-    if (block.checkBytes === 8) {
+    if (block.checkBytes === 32) {
+      // SHA-256 is stored big-endian, as the digest itself; CRC checks are little-endian integers.
+      expected256 = Array.from(raw, (byte) => byte.toString(16).padStart(2, "0")).join("");
+      if (verify && complete && sha256?.hex() !== expected256) {
+        throw new ArchiveError("checksum-mismatch", "XZ decoded block SHA-256 mismatch.");
+      }
+    } else if (block.checkBytes === 8) {
       expected64 = stored.getUint32(4, true).toString(16).padStart(8, "0") +
         stored.getUint32(0, true).toString(16).padStart(8, "0");
       if (verify && complete && crc64?.hex() !== expected64) {
@@ -539,10 +558,11 @@ async function readBlock(
       integrity: block.checkBytes === 0
         ? "not-provided"
         : verify && complete
-        ? block.checkBytes === 8 ? "crc64-verified" : "crc32-verified"
+        ? block.checkBytes === 32 ? "sha256-verified" : block.checkBytes === 8 ? "crc64-verified" : "crc32-verified"
         : "pending",
       ...(expected === undefined ? {} : { crc: expected }),
       ...(expected64 === undefined ? {} : { crc64: expected64 }),
+      ...(expected256 === undefined ? {} : { sha256: expected256 }),
     },
   };
 }
