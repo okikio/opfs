@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "limit": 262144,
+  "files": {
+    "tests/fixtures/archive/preview.zip": {
+      "size": 1048843,
+      "sha256": "f9a09febfc9fdd377d8d35ff1a3c8b63c82b3de0d73273fa0a455d74b29bc5bb"
+    }
+  }
+}
