@@ -2,7 +2,7 @@ import { bench, do_not_optimize } from "mitata";
 import { decodeBase64 } from "@std/encoding/base64";
 import { openCryptomator } from "../src/crypto/cryptomator.ts";
 import { createBlobSource } from "../src/source.ts";
-import { openZip } from "../src/archive/zip.ts";
+import { openZip } from "../src/archive/zip/mod.ts";
 import { expectBytes, finish, report } from "./result.ts";
 import receipt from "../tests/fixtures/cryptomator/independent.json" with { type: "json" };
 

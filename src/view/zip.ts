@@ -1,5 +1,5 @@
 import type { AdapterType } from "../adapter/definition.ts";
-import type { ZipArchiveType, ZipReadOptionsType } from "../archive/zip.ts";
+import type { ZipArchiveType, ZipReadOptionsType } from "../archive/zip/mod.ts";
 import { createArchiveAdapter } from "./tree.ts";
 
 /** Each filesystem read has finite archive limits. No streaming claim is made for buffered results. */

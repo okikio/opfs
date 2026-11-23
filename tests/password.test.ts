@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 import { decodeBase64 } from "@std/encoding/base64";
 import { createBlobSource } from "../src/source.ts";
-import { createArchiveLedger, openZip } from "../src/archive/zip.ts";
+import { createArchiveLedger, openZip } from "../src/archive/zip/mod.ts";
 import fixtures from "./fixtures/password/independent.json" with { type: "json" };
 
 const source = (bytes: Uint8Array) => createBlobSource(new Blob([new Uint8Array(bytes).buffer]));

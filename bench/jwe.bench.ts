@@ -2,7 +2,7 @@ import { bench, do_not_optimize } from "mitata";
 import { decodeBase64 } from "@std/encoding/base64";
 import { decodeBase64Url } from "@std/encoding/base64url";
 import { JweProfileSchema, openJwe } from "../src/crypto/jwe.ts";
-import { openZip } from "../src/archive/zip.ts";
+import { openZip } from "../src/archive/zip/mod.ts";
 import type { ByteSourceType } from "../src/source.ts";
 import fixture from "../tests/fixtures/jwe/independent.json" with { type: "json" };
 import zipFixture from "../tests/fixtures/arfs/zip.json" with { type: "json" };

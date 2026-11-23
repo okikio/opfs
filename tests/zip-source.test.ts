@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 import { decodeBase64 } from "@std/encoding/base64";
-import { createArchiveLedger, openZip } from "../src/archive/zip.ts";
+import { createArchiveLedger, openZip } from "../src/archive/zip/mod.ts";
 import type { ByteSourceType } from "../src/source.ts";
 import passwordFixtures from "./fixtures/password/independent.json" with { type: "json" };
 import aesFixtures from "./fixtures/aes/independent.json" with { type: "json" };

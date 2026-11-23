@@ -1,9 +1,9 @@
 /** ZIP method-12 relay: codec work and caller output have separate accounting owners. @module */
-import { createBzipDecoder } from "./bzip.ts";
-import type { BzipOptionsType, BzipResultType } from "./bzip.ts";
-import type { ArchiveBudget, ArchiveLimitsType } from "./record.ts";
-import type { ByteSourceType } from "../source.ts";
-import { close } from "../close.ts";
+import { createBzipDecoder } from "../bzip.ts";
+import type { BzipOptionsType, BzipResultType } from "../bzip.ts";
+import type { ArchiveBudget, ArchiveLimitsType } from "../record.ts";
+import type { ByteSourceType } from "../../source.ts";
+import { close } from "../../close.ts";
 
 /**
  * Optional BZip2 kernel policy; defaults and implementation ceilings match archive/bzip.

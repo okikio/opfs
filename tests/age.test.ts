@@ -4,7 +4,7 @@ import { env, versions } from "node:process";
 import { createDenoAgeOracle } from "./age-oracle.ts";
 import { expect } from "@std/expect";
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
-import { openZip } from "../src/archive/zip.ts";
+import { openZip } from "../src/archive/zip/mod.ts";
 import zipFixture from "./fixtures/arfs/zip.json" with { type: "json" };
 import { AgeError, createArchiveLedger, openAge } from "../src/crypto/age.ts";
 import type { AgeAeadType, AgeOpenOptionsType } from "../src/crypto/age.ts";

@@ -4,7 +4,7 @@ import { runInNewContext } from "node:vm";
 import { decodeBase64 } from "@std/encoding/base64";
 import { createNativeTink, createTink, TinkError } from "../src/crypto/tink.ts";
 import { createByteSource } from "../src/source.ts";
-import { openZip } from "../src/archive/zip.ts";
+import { openZip } from "../src/archive/zip/mod.ts";
 import vectors from "./fixtures/tink/vectors.json" with { type: "json" };
 
 function hex(value: string): Uint8Array {

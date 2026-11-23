@@ -4,7 +4,7 @@ import { URL } from "node:url";
 import { expect } from "@std/expect";
 import { createGcsClient } from "../src/gcs.ts";
 import { budgetSource, createSourceBudget, openObjectSource } from "../src/source.ts";
-import { openZip } from "../src/archive/zip.ts";
+import { openZip } from "../src/archive/zip/mod.ts";
 import { createZipAdapter } from "../src/view/zip.ts";
 import { createFileSystem } from "../mod.ts";
 import { GCS_BUCKET, openGcs } from "./provider/gcs.ts";

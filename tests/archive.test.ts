@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 import { decodeBase64 } from "@std/encoding/base64";
 import { runInNewContext } from "node:vm";
-import { createArchiveLedger, openZip } from "../src/archive/zip.ts";
+import { createArchiveLedger, openZip } from "../src/archive/zip/mod.ts";
 import { openTar } from "../src/archive/tar.ts";
 import type { ByteSourceType } from "../src/source.ts";
 

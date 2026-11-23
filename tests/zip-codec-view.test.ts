@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 import { decodeBase64 } from "@std/encoding/base64";
 import { createFileSystem } from "../mod.ts";
-import { openZip } from "../src/archive/zip.ts";
+import { openZip } from "../src/archive/zip/mod.ts";
 import { createZipAdapter } from "../src/view/zip.ts";
 import bzip from "./fixtures/zip-bzip/independent.json" with { type: "json" };
 import lzma from "./fixtures/zip-lzma/independent.json" with { type: "json" };

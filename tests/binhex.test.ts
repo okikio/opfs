@@ -3,7 +3,7 @@ import { expect } from "@std/expect";
 import { decodeBase64 } from "@std/encoding/base64";
 import native from "./fixtures/binhex/independent.json" with { type: "json" };
 import negatives from "./fixtures/binhex/negative.json" with { type: "json" };
-import { openZip } from "../src/archive/zip.ts";
+import { openZip } from "../src/archive/zip/mod.ts";
 import { ArchiveError, createArchiveLedger, openBinHex } from "../src/archive/binhex.ts";
 import type { ByteSourceType } from "../src/source.ts";
 

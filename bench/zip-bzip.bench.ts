@@ -1,6 +1,6 @@
 import { bench, do_not_optimize } from "mitata";
 import { decodeBase64 } from "@std/encoding/base64";
-import { openZip } from "../src/archive/zip.ts";
+import { openZip } from "../src/archive/zip/mod.ts";
 import { createBzipDecoder } from "../src/archive/bzip.ts";
 import { createBlobSource } from "../src/source.ts";
 import { expectBytes, report } from "./result.ts";

@@ -3,7 +3,7 @@ import { expect } from "@std/expect";
 import { createArchiveLedger, openArfs } from "../src/content/arfs.ts";
 import type { ArfsInputType, ArfsMetadataInputType, ArfsTagType } from "../src/content/arfs.ts";
 import { createByteSource } from "../src/source.ts";
-import { openZip } from "../src/archive/zip.ts";
+import { openZip } from "../src/archive/zip/mod.ts";
 import zipFixture from "./fixtures/arfs/zip.json" with { type: "json" };
 import nativeFixture from "./fixtures/arfs/independent.json" with { type: "json" };
 import { runInNewContext } from "node:vm";
