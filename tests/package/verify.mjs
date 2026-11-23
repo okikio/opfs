@@ -206,6 +206,10 @@ try {
     import { openBagit } from '@okikio/opfs/archive/bagit';
     import { openOcfl } from '@okikio/opfs/archive/ocfl';
     import { DropboxClient, contentHash as dropboxContentHash } from '@okikio/opfs/dropbox';
+    import { BoxClient } from '@okikio/opfs/box';
+    import { createLz4Decoder } from '@okikio/opfs/archive/lz4';
+    import { openArc } from '@okikio/opfs/archive/arc';
+    import { openGitObject, encodeGitTree } from '@okikio/opfs/content/git';
     import { createD1Adapter } from '@okikio/opfs/adapter/d1';
     import { createZipStream } from '@okikio/opfs/archive/write';
     import { openZip } from '@okikio/opfs/archive/zip';
@@ -372,16 +376,25 @@ try {
     const ocfl = await openOcfl(ocflFixture.files.map((entry) => ({ path: entry.path, source: createByteSource(Uint8Array.from(atob(entry.base64), (byte) => byte.charCodeAt(0))) })));
     if ((await ocfl.verifyInventory({ subtle: globalThis.crypto.subtle })).scope !== 'inventory-digest') throw new Error('Packed OCFL inventory proof changed');
     if ((await ocfl.verifyContent('v1', 'binary', { subtle: globalThis.crypto.subtle })).scope !== 'selected-content') throw new Error('Packed OCFL content proof changed');
-    const aesFixture = ${
+    const aesFixtures = ${
       JSON.stringify(
-        JSON.parse(await readFile(new URL("../fixtures/aes/independent.json", import.meta.url), "utf8"))["aes256-ae2"],
+        await (async () => {
+          const fixtures = JSON.parse(
+            await readFile(new URL("../fixtures/aes/independent.json", import.meta.url), "utf8"),
+          );
+          return [fixtures["aes256-ae2"], fixtures.deflate, fixtures["deflate-ae1"]];
+        })(),
       )
     };
+    for (const aesFixture of aesFixtures) {
     const aesZip = await openZip(createByteSource(Uint8Array.from(atob(aesFixture.archive), (byte) => byte.charCodeAt(0))));
-    const aesEntry = aesZip.entries.find((entry) => entry.name === 'first.bin');
-    const aesRead = await aesZip.read(aesEntry.id, { password: Uint8Array.from(atob(aesFixture.password), (byte) => byte.charCodeAt(0)), aes: { subtle: globalThis.crypto.subtle } });
-    assertBytes(aesRead.bytes, Uint8Array.from(atob(aesFixture.entries.find((entry) => entry.name === 'first.bin').body), (byte) => byte.charCodeAt(0)));
-    if (aesRead.integrity !== 'not-provided' || aesRead.encryption.authentication !== 'ciphertext-verified') throw new Error('Packed AES scope changed');
+    const aesEntry = aesZip.entries.find((entry) => entry.name === aesFixture.entries[0].name);
+    const aesRead = await aesZip.read(aesEntry.id, { verify: true, password: Uint8Array.from(atob(aesFixture.password), (byte) => byte.charCodeAt(0)), aes: { subtle: globalThis.crypto.subtle } });
+    assertBytes(aesRead.bytes, Uint8Array.from(atob(aesFixture.entries[0].body), (byte) => byte.charCodeAt(0)));
+    if (aesRead.integrity !== (aesEntry.aes.version === 1 ? 'checksum-verified' : 'not-provided') || aesRead.encryption.authentication !== 'ciphertext-verified') throw new Error('Packed AES scope changed');
+    const aesPlan = aesZip.plan(aesEntry.id, { verify: true, password: Uint8Array.from(atob(aesFixture.password), (byte) => byte.charCodeAt(0)), aes: { subtle: globalThis.crypto.subtle } });
+    if (aesEntry.aes.method === 8 && aesEntry.aes.version === 2 && aesPlan.verification !== 'full-member-decode') throw new Error('Packed AES DEFLATE plan scope changed');
+    }
     const dropbox = new DropboxClient({ token: () => 'fixture-token', fetch: async () => new Response(JSON.stringify({'.tag':'file',name:'packed',id:'id:packed',rev:'012345678',size:3}), {headers:{'Content-Type':'application/json'}}) });
     if ((await dropbox.stat('id:packed')).id !== 'id:packed') throw new Error('Packed Dropbox native metadata failed');
     if (await dropboxContentHash(new Uint8Array(), { subtle: globalThis.crypto.subtle }) !== 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855') throw new Error('Packed Dropbox empty hash failed');
@@ -396,6 +409,43 @@ try {
       catch (reason) { if (reason.code !== 'unsupported-profile') throw reason; continue; }
       assertBytes(new Uint8Array(await new Response(decoded).arrayBuffer()), Uint8Array.from(atob(nativeCodecs.payload), (byte) => byte.charCodeAt(0)));
     }
+    const lz4Fixture = ${
+      JSON.stringify(
+        JSON.parse(await readFile(new URL("../fixtures/lz4/independent.json", import.meta.url), "utf8"))
+          .frames["no-checksum"],
+      )
+    };
+    const lz4 = createLz4Decoder(new Blob([Uint8Array.from(atob(lz4Fixture.archive), (byte) => byte.charCodeAt(0))]).stream());
+    assertBytes(new Uint8Array(await new Response(lz4.stream).arrayBuffer()), Uint8Array.from(atob(lz4Fixture.body), (byte) => byte.charCodeAt(0)));
+    if ((await lz4.finished).status !== 'complete') throw new Error('Packed LZ4 completion failed');
+    const box = new BoxClient({ token: () => 'fixture-token', fetch: async () => new Response(JSON.stringify({type:'file',name:'packed',id:'1',file_version:{id:'2'},size:3}), {headers:{'Content-Type':'application/json'}}) });
+    if ((await box.statFile('1')).versionId !== '2') throw new Error('Packed Box version metadata failed');
+    const arcFixture = ${
+      JSON.stringify(
+        JSON.parse(await readFile(new URL("../fixtures/arc/independent.json", import.meta.url), "utf8")).objects[0],
+      )
+    };
+    const arc = await openArc(createByteSource(Uint8Array.from(atob(arcFixture.base64), (byte) => byte.charCodeAt(0))));
+    const arcBlock = await arc.read(1);
+    if (arcBlock.integrity !== 'none' || !new TextDecoder().decode(arcBlock.bytes).startsWith('HTTP/1.1 200 OK')) throw new Error('Packed ARC stored block changed');
+    const gitFixture = ${
+      JSON.stringify(
+        await (async () => {
+          const manifest = JSON.parse(
+            await readFile(new URL("../fixtures/git/manifest.json", import.meta.url), "utf8"),
+          );
+          const record = manifest.objects.find((entry) => entry.algorithm === "sha256" && entry.label === "blob");
+          return {
+            oid: record.oid,
+            loose: (await readFile(new URL("../fixtures/git/" + record.loose, import.meta.url))).toString("base64"),
+            payload: (await readFile(new URL("../fixtures/git/" + record.payload, import.meta.url))).toString("base64"),
+          };
+        })(),
+      )
+    };
+    const git = await openGitObject(createByteSource(Uint8Array.from(atob(gitFixture.loose), (byte) => byte.charCodeAt(0))), { algorithm: 'sha256', oid: gitFixture.oid, subtle: globalThis.crypto.subtle });
+    assertBytes(await git.read(), Uint8Array.from(atob(gitFixture.payload), (byte) => byte.charCodeAt(0)));
+    if (encodeGitTree([], { algorithm: 'sha256' }).length !== 0) throw new Error('Packed empty Git tree failed');
     const packedOciManifest = JSON.stringify({"schemaVersion":2,"mediaType":"application/vnd.oci.image.manifest.v1+json","config":{"mediaType":"application/vnd.oci.empty.v1+json","digest":"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a","size":2},"layers":[{"mediaType":"application/octet-stream","digest":"sha256:039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81","size":3}]});
     const packedOci = new OciClient({
       registry: 'https://registry.invalid/', repository: 'packed/artifact',
@@ -582,6 +632,10 @@ try {
     import { openBagit } from '@okikio/opfs/archive/bagit';
     import { openOcfl } from '@okikio/opfs/archive/ocfl';
     import { DropboxClient, contentHash as dropboxContentHash } from '@okikio/opfs/dropbox';
+    import { BoxClient } from '@okikio/opfs/box';
+    import { createLz4Decoder } from '@okikio/opfs/archive/lz4';
+    import { openArc } from '@okikio/opfs/archive/arc';
+    import { openGitObject, encodeGitTree } from '@okikio/opfs/content/git';
     import { createD1Adapter } from '@okikio/opfs/adapter/d1';
     import { createZipStream } from '@okikio/opfs/archive/write';
     import type { ZipWriteEntryType } from '@okikio/opfs/archive/write';
@@ -625,6 +679,17 @@ try {
     const dropbox = new DropboxClient({ token: () => 'types-only' });
     const dropboxHash: string = await dropboxContentHash(new Uint8Array(), { subtle: globalThis.crypto.subtle });
     void [dropbox, dropboxHash];
+    const box = new BoxClient({ token: () => 'types-only' });
+    const lz4 = createLz4Decoder(new Blob().stream());
+    const finished: Promise<import('@okikio/opfs/archive/lz4').Lz4ResultType> = lz4.finished;
+    void [box, finished];
+    const arc = await openArc(createByteSource(new Uint8Array()));
+    const gitObject = await openGitObject(createByteSource(new Uint8Array()), { algorithm: 'sha256', oid: '0'.repeat(64), subtle: globalThis.crypto.subtle });
+    const gitIntegrity: import('@okikio/opfs/content/git').GitAlgorithmType = gitObject.integrity;
+    const gitTree: Uint8Array = encodeGitTree([], { algorithm: 'sha256' });
+    void [gitIntegrity, gitTree];
+    const arcFormat: 'internet-archive-arc' = arc.format;
+    void arcFormat;
     const passwordOptions = { password: new Uint8Array(), verify: true };
     void [sftpDone, bagProof, passwordOptions];
     void [onedrive, cab, readable, mimeComplete, sevenReadable, arSource, mboxSource, ftpDone];

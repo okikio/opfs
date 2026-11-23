@@ -131,8 +131,9 @@ index, reconstruction of missing captures, ARC2WARC conversion, HTTP replay or l
 
 The primary format reference is Internet Archive's
 [ARC File Format Reference, version 1.0,15 September1996](https://archive.org/web/researcher/ArcFileFormat.php).
-Producer source and artifact byte hashes are recorded in [fixture provenance](../tests/fixtures/arc/README.md). The
-retained corpus uses native [JWAT 1.2.1](https://repo.maven.apache.org/maven2/org/jwat/jwat-arc/1.2.1/) and
+Producer source and artifact byte hashes are recorded in
+[fixture provenance](https://github.com/okikio/opfs/blob/49834d7/tests/fixtures/arc/README.md). The retained corpus uses
+native [JWAT 1.2.1](https://repo.maven.apache.org/maven2/org/jwat/jwat-arc/1.2.1/) and
 [IIPC webarchive-commons 3.0.5](https://repo.maven.apache.org/maven2/org/netpreserve/commons/webarchive-commons/3.0.5/).
 Both write authored offline blocks, including complete HTTP responses, binary data containing a fake record line,
 duplicate capture URLs and an empty block. Native consumers and warcio compare complete stored bytes against those

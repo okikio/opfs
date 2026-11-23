@@ -9,16 +9,20 @@
   "imageLimit": "Local base; signed apt installation changes filesystem. Not a publicly pullable complete-producer pin.",
   "ae1Origin": "Metadata/CRC adaptation of genuine AE-2 ciphertext, independently full-byte checked by libarchive. Not direct AE-1 producer output.",
   "files": {
-    "create.py": "19ada08d66b5fb8b20ad312a83d9c1e4307f49e1e501481fa3cd0ed1b6e5228d",
-    "independent.json": "5fe88cc90d51354cc246812c13f8b82c1d6a398371574d1026bc56700d23f0d9"
+    "create.py": "b3c242cf49e27f886ac34a2659630b2256f7051c3ba3837548ea7d70d54e0c68",
+    "independent.json": "2649fcfe74dfac91988f093333d33c0df5a849d4f9e97887a9b719eb07e46d90"
   },
   "archives": {
-    "aes128-ae2": "3e04c685b812e3977b1b5e60bec58cb9625e097df8fe8da9ee4651815fec50e2",
-    "aes128-ae1": "5b669198e7244911c7a18e7b3d867c676b2bba71516399ed65564608b7727c78",
-    "aes192-ae2": "ce2ecbf351df2e03f0a0f6af180fd2a3be263c0241ad6c0588039c9c53bc37c0",
-    "aes192-ae1": "e4b6abe6c37bccb85a08de8254614d064c6955deb72fa1ada5ca5a7fe2d884e0",
-    "aes256-ae2": "5cf1d5cfb715d5ae51aad8b5675fa01f0c54db4f1420a50d9db39c3bc4b0716f",
-    "aes256-ae1": "dfbebf7e121027f36001eace2fa353a4cc8f85be711868347ba61dcd891ddf34",
-    "deflate": "f40cf42c254a003737cd7929ff11494a55bfffa55a34652aea899815df53835f"
-  }
+    "aes128-ae2": "b738a436f0609aa0d824fd0a39b3bf7415761444d5b99dd709034d051f271a7d",
+    "aes128-ae1": "c97d8fa02b130ccc8fb0fed24e7842dd3d69b78d046ac2aeaa3e8a8a05545f21",
+    "aes192-ae2": "b4f7c17a086431cb9d22f6241363525f2e1a79af36e6250af4d7ee92558a9817",
+    "aes192-ae1": "17ebd2a42958aece663f1adaacb6034a1f574c3e7e4badc936afe859aba2c458",
+    "aes256-ae2": "8bf62545245128eab3b4ffebdf5d98443d02bed89c54efe0f632436ac998d7d1",
+    "aes256-ae1": "5b93b48664b586c8cd73c107a6261a4fd7c2dce4fae6f03208ecfd4c0b5d0110",
+    "deflate": "5d91b81a820e06c80c0b1d76d33cbd8bb3e81aa0a9d5b918939721bae05c05ca",
+    "stored-needed10": "f38465652fb201232908c777f21349dc08fe7a35933ed6c0a92eb7e6af0da01f",
+    "deflate-needed20": "7ca2a09cae34bec398a123c04437c61a60753ebb44048ea6682007d35b23b223",
+    "deflate-ae1": "b840f9b944ef34aba1a7ff25be48f4c9c961c99aceff30a8e1d08153865c0bd3"
+  },
+  "adaptedProfiles": "AE-1 version/CRC and ordinary version-needed10/20 metadata adaptations retain genuine ciphertext; all independently full-byte accepted by libarchive, not direct producer profiles."
 }

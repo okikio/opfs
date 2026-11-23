@@ -188,5 +188,6 @@ does not certify unseen content. Existing input/output/work limits, cancellation
 Independent signed Debian `brotli`1.0.9-2+deb12u1 and `zstd`1.5.4+dfsg2-5 CLIs produce and independently decode the
 retained binary/empty fixtures. Tests compare complete authored bytes across tiny chunks, reject truncated fixtures and
 excess decoded work on supported hosts, compose a TAR and exercise explicit refusal on unsupported hosts. Those cases
-establish their exercised profiles, not all dialects or native codec implementations. See the retained fixture receipt
-for source and encoded-byte hashes; no producer executable enters the package.
+establish their exercised profiles, not all dialects or native codec implementations. See the
+[retained fixture receipt](https://github.com/okikio/opfs/blob/cfa022f/tests/fixtures/compression/NATIVE.md) for
+reproduction instructions and source/encoded-byte hashes; no producer executable enters the package.
