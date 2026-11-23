@@ -62,6 +62,7 @@
     "./source": "./src/source.ts",
     "./adapter/read": "./src/adapter/read.ts",
     "./gcs": "./src/gcs.ts",
+    "./glacier": "./src/glacier.ts",
     "./driver/gcs": "./src/driver/gcs.ts",
     "./adapter/gcs": "./src/adapter/gcs.ts",
     "./tus": "./src/tus.ts",
@@ -236,9 +237,12 @@
       "tests/fixtures/orc/receipts/",
       "tests/fixtures/amqp/receipts/",
       "tests/fixtures/amqp/independent.json",
+      "tests/fixtures/glacier/",
       "tests/fixtures/age/provenance/**/*.json",
       "tests/fixtures/age/provenance/**/*.snapshot",
-      "tests/fixtures/age/provenance/**/*.mjs"
+      "tests/fixtures/age/provenance/**/*.mjs",
+      "tests/fixtures/glacier/**/*.json",
+      "tests/fixtures/glacier/**/*.snapshot"
     ]
   },
   "lint": {
@@ -260,7 +264,8 @@
     "exclude": [
       "tests/upstream/original/",
       "tests/fixtures/age/upstream/",
-      "tests/fixtures/age/provenance/"
+      "tests/fixtures/age/provenance/",
+      "tests/fixtures/glacier/"
     ]
   },
   "publish": {

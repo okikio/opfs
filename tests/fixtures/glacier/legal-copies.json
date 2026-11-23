@@ -1,0 +1,27 @@
+[
+  {
+    "file": "legal/smithy-signature-v4-LICENSE",
+    "package": "@smithy/signature-v4",
+    "sha256": "d82ceb8cbd004a2d4834085c557d55459f528e30268d95159ee1e4030a693a6e"
+  },
+  {
+    "file": "legal/smithy-core-LICENSE",
+    "package": "@smithy/core",
+    "sha256": "07364a5f7d0177a59a05a0002187431f8f899320983c0dc049d72df015e8064c"
+  },
+  {
+    "file": "legal/smithy-types-LICENSE",
+    "package": "@smithy/types",
+    "sha256": "07364a5f7d0177a59a05a0002187431f8f899320983c0dc049d72df015e8064c"
+  },
+  {
+    "file": "legal/tslib-CopyrightNotice.txt",
+    "package": "tslib",
+    "sha256": "da16ddb65f8ca390998fb99223d0112498b56b45784d00afd77ff8ce1ac4de8b"
+  },
+  {
+    "file": "legal/tslib-LICENSE.txt",
+    "package": "tslib",
+    "sha256": "210b19e543130388c68654b7497e967119ce17145f66ab7d85688fbd70f08751"
+  }
+]

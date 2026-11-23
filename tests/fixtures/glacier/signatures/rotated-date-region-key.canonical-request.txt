@@ -1,0 +1,10 @@
+GET
+/-/vaults/test-vault
+
+host:glacier.eu-west-1.amazonaws.com
+x-amz-content-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+x-amz-date:20150831T000000Z
+x-amz-glacier-version:2012-06-01
+
+host;x-amz-content-sha256;x-amz-date;x-amz-glacier-version
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855

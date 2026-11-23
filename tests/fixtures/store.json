@@ -74,6 +74,10 @@
       "size": 359325,
       "sha256": "c06a5fa6e1dee2ea93b1cfca83d894f1e2efd960a36a2e893ecbc8371406c622"
     },
+    "tests/fixtures/glacier/installed-provenance.json": {
+      "size": 296648,
+      "sha256": "064a7c92118f91f93bfcf8723e9c2f231bcfb39820c6870818ca6109cfe150e8"
+    },
     "tests/fixtures/hdf5/independent.json": {
       "size": 776740,
       "sha256": "4b38fa96e379405f48a64430d1b83fac4265a669f0367804ec2f0ccf9cdeeccb"
