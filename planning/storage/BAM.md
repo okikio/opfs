@@ -3,8 +3,8 @@
 Status: first bounded sequential profile implemented, 2026-11-06. Focused candidate tests passed on Deno, Node and Bun
 in receipt `e1990cbe-7cea-4255-8b5d-4089c5f6aa33`, including full comparisons with four authored SAM originals. The
 public `./dataset/bam` entry is wired; installed-package consumers passed in receipt
-`eb663979-e1bf-4c92-b91b-b10c3a770916`; exact-head CI remains pending. CRAM, regional indexes and the remaining BAM
-profiles are separate work.
+`eb663979-e1bf-4c92-b91b-b10c3a770916`; all 42 CI checks passed on exact pushed commit `191d439`. CRAM, regional indexes
+and the remaining BAM profiles are separate work.
 
 The [native fixture recipe](../../tests/fixtures/bam/README.md) passed native Samtools and bundled HTSlib 1.25
 production/readback in receipt `86ab95db-79e3-4541-9095-0f171e5ae0f0`. Its hash-pinned corpus retains original text,

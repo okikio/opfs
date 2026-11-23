@@ -6,8 +6,8 @@ adapter. This is a dataset reader over the [byte-source contract](source.md).
 
 Status: focused candidate tests passed on Deno, Node and Bun in receipt `e1990cbe-7cea-4255-8b5d-4089c5f6aa33`,
 including complete original SAM comparisons. The public package entry is wired; installed-package consumers passed in
-receipt `eb663979-e1bf-4c92-b91b-b10c3a770916`. Exact-head CI remains the delivery gate. Four native profiles do not
-establish support for every BAM feature.
+receipt `eb663979-e1bf-4c92-b91b-b10c3a770916`. All 42 CI checks passed on exact pushed commit `191d439`. Four native
+profiles do not establish support for every BAM feature.
 
 This complete function accepts a caller-owned immutable Blob and previews up to 20 records. Pass a revision-pinned
 object source instead when the data lives remotely. Every source must declare its stability; a name alone does not prove
