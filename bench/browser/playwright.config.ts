@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
 
 /** Same-origin benchmark server used by every browser project. */
@@ -9,7 +10,9 @@ export default defineConfig({
   testDir: ".",
   testMatch: "*.spec.ts",
   workers: 1,
-  reporter: "line",
+  reporter: [["line"], ["json", {
+    outputFile: fileURLToPath(new URL("../../.tmp/reports/browser-bench/results.json", import.meta.url)),
+  }]],
   use: { baseURL },
   webServer: {
     command: "deno run -A npm:vite@8.2.1 ../.. --host 127.0.0.1 --port 4173 --strictPort",
