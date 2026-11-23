@@ -858,3 +858,6 @@ resource's admitted bytes, operations and terminal state. Defaults are 64 MiB/64
 admission before effects while close/abort has a reserved terminal slot. Keep caller buffers unchanged until settlement.
 Native resource ordering does not replace application publication or cross-process coordination. See
 [storage ownership](storage.md).
+
+[MIME message previews](mime.md) and [7z inspection](seven.md) explain the separate costs of indexing, decoding and
+checksum verification.

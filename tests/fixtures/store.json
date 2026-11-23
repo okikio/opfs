@@ -17,6 +17,10 @@
     "tests/fixtures/cpio/independent.json": {
       "size": 354364,
       "sha256": "9393a6ee36a27b4e3dfaa25a519fc59d5a330b3ebf7614b80d55ce3e5a2beb7b"
+    },
+    "tests/fixtures/seven/independent.json": {
+      "size": 1770290,
+      "sha256": "46feab7366b3c3c6078a260bf35455e7d4891bc253e0771c8a9cd19c8a948f96"
     }
   }
 }
