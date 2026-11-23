@@ -67,6 +67,12 @@ evidence with their original hashes. Redis and Valkey also passed the native hir
 final file-admission and receipt-bound guards. See each capability guide for the exercised operations and exclusions.
 These results do not establish live-service or full-group support.
 
+[BAM](bam.md) adds sequential alignment previews over independently checked BGZF blocks. A record can cross blocks; the
+reader returns complete records and distinguishes a deliberate preview stop from observed EOF. Four native Samtools
+originals, including a 160,000-base crossing record, passed complete candidate comparisons in Deno, Node and Bun and
+installed-package consumers. Regional indexes, CRAM, writing, long CIGAR and remaining auxiliary profiles are separate
+capabilities. This reader does not complete the dataset group.
+
 ## How to continue
 
 Add each protocol as an import-safe subpath at the narrowest useful layer. A native client can stand alone when its

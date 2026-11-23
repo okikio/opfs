@@ -528,6 +528,12 @@ integrity guarantee. [AMQP](docs/amqp.md) retains native publication confirmatio
 applications own topology and recovery after uncertain mutations. Each module is optional and has its own limits and
 ownership contract.
 
+[BAM](docs/bam.md) adds a bounded sequential alignment preview over checked BGZF blocks, with a separate preview count
+and lifetime safety limits. Records may cross blocks; returned pages distinguish deliberate stops from observed EOF. The
+first profile requires a canonical physical final marker and supports ordered scalar auxiliary values. Focused candidate
+tests passed on Deno, Node and Bun; installed-package and CI gates remain pending. Regional BAI/CSI queries, CRAM and
+writing remain separate.
+
 [Arrow IPC](docs/arrow.md) reads selected columns from indexed files or yields bounded batches from forward streams. Its
 six-type uncompressed V5 profile preserves validity masks, exact int64 values and opaque metadata. Indexed reads can
 skip excluded payloads; stream reads consume bodies in order. Both report their selected validation scope and
