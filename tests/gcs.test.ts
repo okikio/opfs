@@ -9,6 +9,7 @@ import {
   GcsPublicationError,
   GcsStorageClassSchema,
 } from "../src/gcs.ts";
+import type { GcsHeadOptionsType } from "../src/gcs.ts";
 import { createGcsDriverFromClient } from "../src/driver/gcs.ts";
 import { createGcsAdapter } from "../src/adapter/gcs.ts";
 import { FileSystemError } from "../src/error.ts";
@@ -461,5 +462,372 @@ describe("GCS native storage-class intent", () => {
         .rejects.toBeInstanceOf(GcsPublicationError);
       await expect(client.queryUpload(upload)).rejects.toBeInstanceOf(GcsPublicationError);
     }
+  });
+});
+
+/** These authored responses prove parsing and wire conditions, not Google service enforcement. */
+describe("GCS native metadata observations and paired conditions", () => {
+  const metageneration = "18446744073709551615";
+  const revision = { kind: "generation" as const, value: generation };
+  const reported = {
+    ...object,
+    metageneration,
+    crc32c: "AAAAAA==",
+    metadata: { metageneration: "caller-field", crc32c: "caller-checksum" },
+  };
+
+  it("retains exact native fields through client and driver receipt paths", async () => {
+    const client = createGcsClient({
+      bucket: "test",
+      endpoint: origin,
+      fetch: async (input, init) => {
+        const url = new URL(String(input));
+        if (url.pathname.endsWith("/o")) {
+          return init?.method === "POST"
+            ? new Response(null, { headers: { location: session.url } })
+            : Response.json({ items: [reported] });
+        }
+        return Response.json(url.pathname.includes("/rewriteTo/") ? { done: true, resource: reported } : reported);
+      },
+    });
+    const driver = createGcsDriverFromClient(client);
+    const expected = {
+      key,
+      size: 3,
+      version: generation,
+      revision,
+      etag: object.etag,
+      mediaType: object.contentType,
+      metageneration,
+      crc32c: "AAAAAA==",
+      metadata: reported.metadata,
+    };
+    expect(await client.head(key)).toEqual(expected);
+    expect(await driver.head(key)).toEqual(expected);
+    expect((await driver.list({ prefix: "archive/" })).objects).toEqual([expected]);
+    expect(await driver.put(key, new Uint8Array([1, 2, 3]))).toEqual(expected);
+    expect(await driver.copy("source", key)).toEqual(expected);
+    expect(await client.writeUpload(session, new Uint8Array([1, 2, 3]), { offset: 0, final: true }))
+      .toEqual({ complete: true, offset: 3, receipt: expected });
+    expect(await client.queryUpload(session)).toEqual({ complete: true, offset: 3, receipt: expected });
+  });
+
+  it("omits unreported native fields without converting them to null or zero", async () => {
+    const client = createGcsClient({ bucket: "test", fetch: async () => Response.json(object) });
+    const stat = await client.head(key);
+    expect(Object.hasOwn(stat!, "metageneration")).toBe(false);
+    expect(Object.hasOwn(stat!, "crc32c")).toBe(false);
+  });
+
+  it("preserves decimal metadata values above the safe integer range", async () => {
+    for (const value of ["9007199254740993", metageneration, "184467440737095516150"]) {
+      const client = createGcsClient({
+        bucket: "test",
+        fetch: async () => Response.json({ ...object, metageneration: value }),
+      });
+      expect((await client.head(key))?.metageneration).toBe(value);
+    }
+  });
+
+  it("rejects malformed generation and metadata receipts while retaining unknown publication outcomes", async () => {
+    const invalid = [
+      ...[null, 1, "", "0", "01", "-1", "1e3", " 1", "1\n", "1\r\n", "١", "１"]
+        .map((value) => ({ generation: value })),
+      ...[null, 1, "", "0", "01", "-1", "1e3", " 1", "1\n", "1\r\n"].map((value) => ({ metageneration: value })),
+      ...[null, 0, "", "AAAAAA", "AAAAAA=", "AAAAAAA=", "AAAAAB==", "AAAA-A==", "AAAA_A==", " AAAAAA==", "AAAAAAAAAAAA"]
+        .map((value) => ({ crc32c: value })),
+    ];
+    for (const fields of invalid) {
+      const responses: Response[] = [];
+      let requests = 0;
+      const client = createGcsClient({
+        bucket: "test",
+        endpoint: origin,
+        request: { retries: 2, minDelayMs: 0, maxDelayMs: 0 },
+        fetch: async (input) => {
+          requests++;
+          const url = new URL(String(input));
+          const value = { ...object, ...fields };
+          const response = Response.json(
+            url.pathname.endsWith("/o")
+              ? { items: [value] }
+              : url.pathname.includes("/rewriteTo/")
+              ? { done: true, resource: value }
+              : value,
+          );
+          responses.push(response);
+          return response;
+        },
+      });
+      await expect(client.head(key)).rejects.toThrow();
+      await expect(client.list({ prefix: "" })).rejects.toThrow();
+      for (
+        const operation of [
+          () => client.queryUpload(session),
+          () => client.writeUpload(session, new Uint8Array([1, 2, 3]), { offset: 0, final: true }),
+          () => client.copy("source", key),
+        ]
+      ) {
+        let failure: unknown;
+        try {
+          await operation();
+        } catch (reason) {
+          failure = reason;
+        }
+        expect(failure).toBeInstanceOf(GcsPublicationError);
+        expect((failure as GcsPublicationError).cause).toBeInstanceOf(Error);
+      }
+      expect(requests).toBe(5); // No replay or later current HEAD can replace the invalid receipt.
+      expect(responses.every((response) => response.bodyUsed)).toBe(true);
+    }
+  });
+
+  it("admits only canonical four-byte Base64 including each possible final data character", async () => {
+    for (const crc32c of ["AAAAAA==", "AAAAAQ==", "AAAAAg==", "AAAAAw==", "/////w=="]) {
+      const client = createGcsClient({ bucket: "test", fetch: async () => Response.json({ ...object, crc32c }) });
+      expect((await client.head(key))?.crc32c).toBe(crc32c);
+    }
+  });
+
+  it("pairs metadata tokens with exact generation text for each native operation", async () => {
+    let requests = 0;
+    const client = createGcsClient({
+      bucket: "test",
+      endpoint: origin,
+      fetch: async (input, init) => {
+        const url = new URL(String(input));
+        expect(url.searchParams.get("ifGenerationMatch")).toBe(generation);
+        expect(url.searchParams.get("ifMetagenerationMatch")).toBe(metageneration);
+        requests++;
+        if (init?.method === "DELETE") return new Response(null, { status: 204 });
+        if (init?.method === "POST") return new Response(null, { headers: { location: session.url } });
+        expect(url.searchParams.get("generation")).toBe(generation);
+        return url.searchParams.get("alt") === "media"
+          ? new Response(new Uint8Array([1, 2, 3]), { headers: { "x-goog-generation": generation } })
+          : Response.json(reported);
+      },
+    });
+    const driver = createGcsDriverFromClient(client);
+    const options = { revision, ifMetagenerationMatch: metageneration };
+    expect((await driver.head(key, options))?.metageneration).toBe(metageneration);
+    expect(new Uint8Array(await new Response(await driver.get(key, options)).arrayBuffer())).toEqual(
+      new Uint8Array([1, 2, 3]),
+    );
+    await driver.delete(key, options);
+    await client.createUpload(key, options);
+    expect(requests).toBe(4);
+  });
+
+  it("sends upload guards only at initiation and retains the new publication metadata independently", async () => {
+    let requests = 0;
+    const options = { revision: { ...revision }, ifMetagenerationMatch: metageneration };
+    const client = createGcsClient({
+      bucket: "test",
+      endpoint: origin,
+      token: () => {
+        options.revision.value = "2";
+        options.ifMetagenerationMatch = "3";
+        return "token";
+      },
+      fetch: async (input, init) => {
+        const url = new URL(String(input));
+        if (requests++ === 0) {
+          expect(init?.method).toBe("POST");
+          expect(url.searchParams.get("ifGenerationMatch")).toBe(generation);
+          expect(url.searchParams.get("ifMetagenerationMatch")).toBe(metageneration);
+          return new Response(null, { headers: { location: session.url } });
+        }
+        expect(url.searchParams.get("ifMetagenerationMatch")).toBeNull();
+        expect(url.searchParams.get("ifGenerationMatch")).toBeNull();
+        return Response.json({ ...reported, metageneration: "1" });
+      },
+    });
+    const receipt = await createGcsDriverFromClient(client).put(key, new Uint8Array([1, 2, 3]), options);
+    expect(receipt.metageneration).toBe("1");
+    expect(requests).toBe(2);
+  });
+
+  it("captures both rewrite condition pairs before credentials and preserves them on continuation", async () => {
+    const options = {
+      revision: { ...revision },
+      ifMetagenerationMatch: metageneration,
+      sourceRevision: { kind: "generation" as const, value: "9007199254740993" },
+      ifSourceMetagenerationMatch: "9007199254740995",
+    };
+    let requests = 0;
+    const client = createGcsClient({
+      bucket: "test",
+      endpoint: origin,
+      token: () => {
+        options.revision.value = "2";
+        options.ifMetagenerationMatch = "3";
+        options.sourceRevision.value = "4";
+        options.ifSourceMetagenerationMatch = "5";
+        return "token";
+      },
+      fetch: async (input) => {
+        const query = new URL(String(input)).searchParams;
+        expect(query.get("ifGenerationMatch")).toBe(generation);
+        expect(query.get("ifMetagenerationMatch")).toBe(metageneration);
+        expect(query.get("ifSourceGenerationMatch")).toBe("9007199254740993");
+        expect(query.get("ifSourceMetagenerationMatch")).toBe("9007199254740995");
+        expect(query.get("rewriteToken")).toBe(requests === 0 ? null : "next");
+        return requests++ === 0
+          ? Response.json({ done: false, rewriteToken: "next" })
+          : Response.json({ done: true, resource: reported });
+      },
+    });
+    expect((await createGcsDriverFromClient(client).copy("source", key, options)).metageneration).toBe(metageneration);
+    expect(requests).toBe(2);
+  });
+
+  it("refuses invalid pairs before credentials, transport or stream acquisition", async () => {
+    let authority = 0;
+    let pulls = 0;
+    const source = new ReadableStream<Uint8Array>({
+      pull() {
+        pulls++;
+      },
+    }, { highWaterMark: 0 });
+    const client = createGcsClient({
+      bucket: "test",
+      token: () => {
+        authority++;
+        return "token";
+      },
+      fetch: async () => {
+        authority++;
+        throw new Error("Unexpected transport");
+      },
+    });
+    const invalid: Array<GcsHeadOptionsType & { readonly ifMetagenerationMatch: string }> = [
+      { ifMetagenerationMatch: "1" },
+      { revision: { kind: "etag" as const, value: "etag" }, ifMetagenerationMatch: "1" },
+      { revision: { kind: "generation" as const, value: "0" }, ifMetagenerationMatch: "1" },
+      ...["0", "01", "", "-1", "1e3", "1\n", "1\r\n", null, 1].map((value) => ({
+        revision,
+        ifMetagenerationMatch: value as string,
+      })),
+    ];
+    for (const options of invalid) {
+      await expect(client.head(key, options)).rejects.toThrow(TypeError);
+      await expect(client.get(key, { ...options, length: 0 })).rejects.toThrow(TypeError);
+      await expect(client.delete(key, options)).rejects.toThrow(TypeError);
+      await expect(client.createUpload(key, options)).rejects.toThrow(TypeError);
+      await expect(client.put(key, source, options)).rejects.toThrow(TypeError);
+      await expect(client.copy("source", key, options)).rejects.toThrow(TypeError);
+      await expect(client.copy("source", key, {
+        ...(options.revision === undefined ? {} : { sourceRevision: options.revision }),
+        ifSourceMetagenerationMatch: options.ifMetagenerationMatch,
+      })).rejects.toThrow(TypeError);
+      expect(source.locked).toBe(false);
+    }
+    await expect(client.createUpload(key, { ifNoneMatch: "*", ifMetagenerationMatch: "1" })).rejects.toThrow(TypeError);
+    await expect(client.copy("source", key, { ifNoneMatch: "*", ifMetagenerationMatch: "1" })).rejects.toThrow(
+      TypeError,
+    );
+    expect(authority).toBe(0);
+    expect(pulls).toBe(0);
+    await source.cancel();
+  });
+
+  it("refuses malformed generation-only conditions before credentials or source acquisition", async () => {
+    let authority = 0;
+    let pulls = 0;
+    const source = new ReadableStream<Uint8Array>({
+      pull() {
+        pulls++;
+      },
+    }, { highWaterMark: 0 });
+    const client = createGcsClient({
+      bucket: "test",
+      token: () => {
+        authority++;
+        return "token";
+      },
+      fetch: async () => {
+        authority++;
+        throw new Error("Unexpected transport");
+      },
+    });
+    for (const value of [null, 1, true, "", "-1", "1e3", " 1", "1 ", "1\n", "1\r\n", "١", "１"]) {
+      const revision = { kind: "generation" as const, value: value as string };
+      await expect(client.head(key, { revision })).rejects.toThrow(TypeError);
+      await expect(client.get(key, { revision, length: 0 })).rejects.toThrow(TypeError);
+      await expect(client.delete(key, { revision })).rejects.toThrow(TypeError);
+      await expect(client.createUpload(key, { revision })).rejects.toThrow(TypeError);
+      await expect(client.put(key, source, { revision })).rejects.toThrow(TypeError);
+      await expect(client.copy("source", key, { revision })).rejects.toThrow(TypeError);
+      await expect(client.copy("source", key, { sourceRevision: revision })).rejects.toThrow(TypeError);
+      expect(source.locked).toBe(false);
+    }
+    expect(authority).toBe(0);
+    expect(pulls).toBe(0);
+    await source.cancel();
+  });
+
+  it("retains zero and raw leading-zero input generation conditions without coercion", async () => {
+    const requests: string[] = [];
+    const client = createGcsClient({
+      bucket: "test",
+      endpoint: origin,
+      fetch: async (input) => {
+        requests.push(new URL(String(input)).searchParams.get("ifGenerationMatch")!);
+        return new Response(null, { headers: { location: session.url } });
+      },
+    });
+    for (const value of ["0", "00", "0001", generation]) {
+      await client.createUpload(key, { revision: { kind: "generation", value } });
+    }
+    expect(requests).toEqual(["0", "00", "0001", generation]);
+  });
+
+  it("keeps admitted empty reads local without claiming to evaluate their server guard", async () => {
+    let requests = 0;
+    const client = createGcsClient({
+      bucket: "test",
+      token: () => {
+        requests++;
+        return "token";
+      },
+    });
+    const stream = await client.get(key, { revision, ifMetagenerationMatch: metageneration, length: 0 });
+    expect((await new Response(stream).arrayBuffer()).byteLength).toBe(0);
+    expect(requests).toBe(0);
+  });
+
+  it("rejects a metadata response attributed to a different selected generation", async () => {
+    const client = createGcsClient({
+      bucket: "test",
+      fetch: async () => Response.json({ ...reported, generation: "2" }),
+    });
+    await expect(client.head(key, { revision, ifMetagenerationMatch: metageneration })).rejects.toThrow(
+      "different generation",
+    );
+  });
+
+  it("preserves provider 412 refusals without replay or publication success", async () => {
+    let requests = 0;
+    const client = createGcsClient({
+      bucket: "test",
+      request: { retries: 2, minDelayMs: 0, maxDelayMs: 0 },
+      fetch: async () => {
+        requests++;
+        return new Response(null, { status: 412 });
+      },
+    });
+    const options = { revision, ifMetagenerationMatch: metageneration };
+    for (
+      const operation of [
+        () => client.head(key, options),
+        () => client.get(key, options),
+        () => client.delete(key, options),
+        () => client.createUpload(key, options),
+        () => client.copy("source", key, { ...options, sourceRevision: revision, ifSourceMetagenerationMatch: "1" }),
+      ]
+    ) {
+      await expect(operation()).rejects.toMatchObject({ name: "GcsError", status: 412 });
+    }
+    expect(requests).toBe(5);
   });
 });

@@ -37,22 +37,54 @@ export const GcsStorageClassSchema: z.ZodEnum<{
 /** An explicitly requested native object storage class. */
 export type GcsStorageClassType = z.infer<typeof GcsStorageClassSchema>;
 
-/** Native class metadata remains separate from caller-defined object metadata. */
+/** Provider-reported native facts remain separate from caller-defined object metadata. */
 export interface GcsStatType extends ObjectStatType {
   /** Provider-reported class, including unknown or legacy values. */
   readonly storageClass?: string;
+  /** Provider metadata version for this key and generation; never a byte revision. */
+  readonly metageneration?: string;
+  /** Unverified whole stored-object CRC32C, as canonical big-endian four-byte Base64. */
+  readonly crc32c?: string;
 }
 
-/** Attributable upload or copy receipt with native storage class when reported. */
+/** Attributable upload or copy receipt, retaining reported native metadata without checksum verification. */
 export interface GcsReceiptType extends ObjectReceiptType, GcsStatType {}
 
-/** One native object-list page, retaining each object's reported class. */
+/** One native object-list page, retaining each object's reported native metadata. */
 export interface GcsListType extends ObjectListType {
   readonly objects: readonly (GcsStatType & { readonly key: string })[];
 }
 
+/** Metadata observation options; a metadata guard also requires a positive generation revision. */
+export interface GcsHeadOptionsType {
+  /** Selects the object generation; decimal text is retained without numeric coercion. */
+  readonly revision?: ObjectRevisionType;
+  /** Requires this metadata version together with the selected generation. */
+  readonly ifMetagenerationMatch?: string;
+  readonly signal?: AbortSignal;
+}
+
+/** Byte reads can require a metadata version without replacing their generation authority. */
+export interface GcsGetOptionsType extends ObjectGetOptionsType {
+  /** Requires a positive generation revision; an empty local read evaluates no server condition. */
+  readonly ifMetagenerationMatch?: string;
+}
+
+/** Deletion conditions apply to the same generation and metadata observation. */
+export interface GcsDeleteOptionsType extends GcsHeadOptionsType {}
+
+/** Rewrite source and destination metadata conditions each require their corresponding generation. */
+export interface GcsCopyOptionsType extends ObjectCopyOptionsType {
+  /** Destination metadata match, paired with revision; cannot be used with create-only intent. */
+  readonly ifMetagenerationMatch?: string;
+  /** Source metadata match, paired with sourceRevision. */
+  readonly ifSourceMetagenerationMatch?: string;
+}
+
 /** Provider upload intent. Omitting the class retains the bucket's native default. */
 export interface GcsPutOptionsType extends ObjectPutOptionsType {
+  /** Destination metadata match sent at session initiation, paired with a positive generation revision. */
+  readonly ifMetagenerationMatch?: string;
   /** Requested class must be confirmed by the final publication acknowledgement. */
   readonly storageClass?: GcsStorageClassType;
 }
@@ -106,7 +138,9 @@ export interface GcsUploadWriteOptionsType {
 /** GCS-native operations remain usable without a filesystem adapter. */
 export interface GcsClientType extends ObjectBackendType {
   getMetrics(): RequestMetricsType;
-  head(key: string, options?: { readonly signal?: AbortSignal }): Promise<GcsStatType | null>;
+  head(key: string, options?: GcsHeadOptionsType): Promise<GcsStatType | null>;
+  get(key: string, options?: GcsGetOptionsType): Promise<ReadableStream<Uint8Array>>;
+  delete(key: string, options?: GcsDeleteOptionsType): Promise<void>;
   list(options: ObjectListOptionsType): Promise<GcsListType>;
   put(key: string, body: Uint8Array | ReadableStream<Uint8Array>, options?: GcsPutOptionsType): Promise<GcsReceiptType>;
   createUpload(key: string, options?: GcsPutOptionsType): Promise<GcsUploadType>;
@@ -117,7 +151,7 @@ export interface GcsClientType extends ObjectBackendType {
     options: GcsUploadWriteOptionsType,
   ): Promise<GcsUploadStatusType>;
   cancelUpload(upload: GcsUploadType, signal?: AbortSignal): Promise<void>;
-  copy(source: string, destination: string, options?: ObjectCopyOptionsType): Promise<GcsReceiptType>;
+  copy(source: string, destination: string, options?: GcsCopyOptionsType): Promise<GcsReceiptType>;
 }
 
 /** Provider HTTP failure without credential-bearing URLs in its message. */
@@ -146,13 +180,21 @@ export class GcsPublicationError extends Error {
 const GcsMetadataSchema = z.object({
   name: z.string(),
   size: z.string().regex(/^\d+$/),
-  generation: z.string().regex(/^[1-9]\d*$/),
+  generation: z.string().refine(decimal, "Expected a positive decimal string without leading zeroes."),
+  metageneration: z.string().refine(decimal, "Expected a positive decimal string without leading zeroes.").optional(),
+  // Four bytes leave only two data bits in the sixth Base64 character; reject noncanonical pad bits.
+  crc32c: z.string().length(8).regex(/^[A-Za-z0-9+/]{5}[AQgw]==$/).optional(),
   etag: z.string().optional(),
   contentType: z.string().optional(),
   updated: z.string().optional(),
   metadata: z.record(z.string(), z.string()).optional(),
   storageClass: z.string().min(1).max(128).optional(),
 }).passthrough();
+
+/** Positive opaque decimal tokens reject every nondigit, including a final line break. */
+function decimal(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0 && value[0] !== "0" && !/\D/.test(value);
+}
 
 /** Admission uses encoded-byte safe integers before acquiring credentials or sources. */
 function integer(value: number, name: string, maximum = Number.MAX_SAFE_INTEGER): number {
@@ -162,13 +204,37 @@ function integer(value: number, name: string, maximum = Number.MAX_SAFE_INTEGER)
   return value;
 }
 
-/** Generation identifiers are opaque decimal strings, never coerced through Number. */
+/**
+ * Generation conditions retain raw ASCII decimal strings, including the existing zero condition.
+ * Unlike returned object identities, input conditions preserve leading zeroes; no
+ * Number conversion or end-anchor exception may admit other characters or values.
+ */
 function generation(revision: ObjectRevisionType | undefined): string | undefined {
   if (revision === undefined) return undefined;
-  if (revision.kind !== "generation" || !/^\d+$/.test(revision.value)) {
+  if (
+    revision.kind !== "generation" || typeof revision.value !== "string" ||
+    revision.value.length === 0 || /\D/.test(revision.value)
+  ) {
     throw new TypeError("GCS conditions require a decimal generation revision, not an ETag.");
   }
   return revision.value;
+}
+
+/**
+ * Metadata tokens identify only one object's generation, so never send an unpaired guard.
+ *
+ * Validate before credentials, transport or source borrowing. Decimal text remains
+ * opaque; zero belongs only to generation create-only conditions, not metadata guards.
+ */
+function metageneration(value: string | undefined, version: string | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  if (!decimal(value)) {
+    throw new TypeError("GCS metadata conditions require a positive decimal string.");
+  }
+  if (!decimal(version)) {
+    throw new TypeError("GCS metadata conditions require a positive generation revision.");
+  }
+  return value;
 }
 
 /** GCS JSON writes use generation preconditions; an ETag is a different contract. */
@@ -195,6 +261,8 @@ function metadata(value: unknown, key?: string): GcsReceiptType & { readonly key
     version: data.generation,
     revision: { kind: "generation", value: data.generation },
     ...(data.storageClass === undefined ? {} : { storageClass: data.storageClass }),
+    ...(data.metageneration === undefined ? {} : { metageneration: data.metageneration }),
+    ...(data.crc32c === undefined ? {} : { crc32c: data.crc32c }),
     ...(data.etag === undefined ? {} : { etag: data.etag }),
     ...(data.contentType === undefined ? {} : { mediaType: data.contentType }),
     ...(modified === undefined ? {} : { lastModified: modified }),
@@ -331,16 +399,29 @@ class GcsClient implements GcsClientType {
     });
   }
 
-  async head(key: string, options: { readonly signal?: AbortSignal } = {}): Promise<GcsStatType | null> {
-    const response = await this.#send(this.#path(key), "GET", options);
+  async head(key: string, options: GcsHeadOptionsType = {}): Promise<GcsStatType | null> {
+    options = { ...options };
+    const version = generation(options.revision);
+    const match = metageneration(options.ifMetagenerationMatch, version);
+    const response = await this.#send(this.#path(key), "GET", {
+      query: {
+        generation: version,
+        ifGenerationMatch: match === undefined ? undefined : version,
+        ifMetagenerationMatch: match,
+      },
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
+    });
     if (response.status === 404) return await readResponse(response, () => null);
-    return metadata(await this.#json(response), key);
+    const stat = metadata(await this.#json(response), key);
+    if (version !== undefined && stat.version !== version) throw new TypeError("GCS returned a different generation.");
+    return stat;
   }
 
-  async get(key: string, options: ObjectGetOptionsType = {}): Promise<ReadableStream<Uint8Array>> {
+  async get(key: string, options: GcsGetOptionsType = {}): Promise<ReadableStream<Uint8Array>> {
     options = { ...options };
     const admitted = range(options);
     const version = generation(options.revision);
+    const match = metageneration(options.ifMetagenerationMatch, version);
     if (admitted.empty) {
       return new ReadableStream({
         start(controller) {
@@ -349,7 +430,12 @@ class GcsClient implements GcsClientType {
       });
     }
     const response = await this.#send(this.#path(key), "GET", {
-      query: { alt: "media", generation: version },
+      query: {
+        alt: "media",
+        generation: version,
+        ifGenerationMatch: match === undefined ? undefined : version,
+        ifMetagenerationMatch: match,
+      },
       headers: admitted.header === undefined ? {} : { range: admitted.header },
       ...(admitted.signal === undefined ? {} : { signal: admitted.signal }),
     });
@@ -441,11 +527,13 @@ class GcsClient implements GcsClientType {
 
   async delete(
     key: string,
-    options: { readonly revision?: ObjectRevisionType; readonly signal?: AbortSignal } = {},
+    options: GcsDeleteOptionsType = {},
   ): Promise<void> {
+    options = { ...options };
     const version = generation(options.revision);
+    const match = metageneration(options.ifMetagenerationMatch, version);
     const response = await this.#send(this.#path(key), "DELETE", {
-      query: { ifGenerationMatch: version },
+      query: { ifGenerationMatch: version, ifMetagenerationMatch: match },
       ...(options.signal === undefined ? {} : { signal: options.signal }),
     });
     await readResponse(response, () => {
@@ -459,9 +547,10 @@ class GcsClient implements GcsClientType {
       ? undefined
       : GcsStorageClassSchema.parse(options.storageClass);
     const match = condition(options);
+    const metadataMatch = metageneration(options.ifMetagenerationMatch, match);
     if (options.size !== undefined) integer(options.size, "Upload size", GCS_MAX_BYTES);
     const response = await this.#send(this.#path(undefined, true), "POST", {
-      query: { uploadType: "resumable", name: key, ifGenerationMatch: match },
+      query: { uploadType: "resumable", name: key, ifGenerationMatch: match, ifMetagenerationMatch: metadataMatch },
       headers: {
         "content-type": "application/json",
         ...(options.size === undefined ? {} : { "x-upload-content-length": String(options.size) }),
@@ -595,7 +684,7 @@ class GcsClient implements GcsClientType {
       ...(options.revision === undefined ? {} : { revision: { ...options.revision } }),
       ...(options.metadata === undefined ? {} : { metadata: { ...options.metadata } }),
     };
-    condition(options);
+    metageneration(options.ifMetagenerationMatch, condition(options));
     options.signal?.throwIfAborted();
     const bytes = isBytes(body) ? toRequestBytes(body) : undefined;
     if (bytes !== undefined && options.size !== undefined && bytes.byteLength !== options.size) {
@@ -652,10 +741,12 @@ class GcsClient implements GcsClientType {
     }
   }
 
-  async copy(source: string, destination: string, options: ObjectCopyOptionsType = {}): Promise<GcsReceiptType> {
+  async copy(source: string, destination: string, options: GcsCopyOptionsType = {}): Promise<GcsReceiptType> {
     options = { ...options };
     const match = condition(options);
     const sourceMatch = generation(options.sourceRevision);
+    const metadataMatch = metageneration(options.ifMetagenerationMatch, match);
+    const sourceMetadataMatch = metageneration(options.ifSourceMetagenerationMatch, sourceMatch);
     if (
       options.sourceIfMatch !== undefined || options.sourceIfNoneMatch !== undefined ||
       options.sourceIfModifiedSince !== undefined || options.sourceIfUnmodifiedSince !== undefined
@@ -669,7 +760,13 @@ class GcsClient implements GcsClientType {
           `${this.#path(source)}/rewriteTo/b/${encodeURIComponent(this.#bucket)}/o/${encodeURIComponent(destination)}`,
           "POST",
           {
-            query: { ifGenerationMatch: match, ifSourceGenerationMatch: sourceMatch, rewriteToken: token },
+            query: {
+              ifGenerationMatch: match,
+              ifMetagenerationMatch: metadataMatch,
+              ifSourceGenerationMatch: sourceMatch,
+              ifSourceMetagenerationMatch: sourceMetadataMatch,
+              rewriteToken: token,
+            },
             onDispatch: () => {
               dispatched = true;
             },
