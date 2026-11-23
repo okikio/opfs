@@ -1,0 +1,40 @@
+# Genuine uncompressed WIM evidence
+
+`produce.py --output /tmp/wim-independent.json` requires Python 3, wimlib-imagex and 7zz/7z. It creates two ordinary
+images using native capture `--compress=none --no-acls` followed by append. It verifies and applies both images with
+wimlib, then independently extracts every authored file with 7-Zip and compares complete bytes. No candidate output
+supplies an oracle. Producers/native consumers use checked subprocesses; no shell pipe hides a producer failure.
+Complete archive bytes, SHA256, image/member oracles, listing and subprocess receipts are retained in `independent.json`
+unchanged.
+
+The original producer ran in disposable container `opfs-wim-producer-20261105`, bounded 2 GiB/2 CPUs/256 PIDs, based on
+`opfs-seven-tools:20261105` image SHA256 `527d62a5244f4fa71833b4a105a4906ec1c1c7708f64ea2967fa04d96c551dd5`. Debian
+bookworm signed apt installed wimtools/libwim15 package 1.13.6-1. The actual binary reports
+`wimlib-imagex 1.13.5 (using wimlib 1.13.5)`; both facts are retained, without claiming they are identical version
+strings. The independent consumer identifies itself as 7-Zip 26.02. The native verification receipt warns that the WIM
+has no integrity table and skips that check. It still checks individual metadata/file resources; this is not whole-file
+integrity-table evidence.
+
+Images contain shared bytes 0..255 repeated three times, duplicates under different names, an empty file, nested paths,
+a Unicode filename and differing `hello.txt` bytes. Native creation times and GUIDs are not repaired, so regeneration
+changes archive bytes/hashes. The script copies no external/private files. Source hashes are SHA256:
+
+| Primary source                            | Immutable version                               | Hash                                                             |
+| ----------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------- |
+| Microsoft Windows Imaging File Format.rtf | Official Download Center id 13096, document 1.1 | 397772cca016508194d13ac860633b56b4f2f94cbf7476e2112f557ad61cfe0c |
+| include/wimlib/header.h                   | cd5e231c348c255ae5088873b5a66ee0eb96fa07        | fde17fe304b6f154b2f8398d8c245e077d6c147fb99a3c2c43654fb3af8a73cf |
+| include/wimlib/resource.h                 | same                                            | 27512d0434dfb90491b5c3952f0f9f7ab4e65b3579a43294054ac530b8a90125 |
+| src/blob_table.c                          | same                                            | 2903517091c356d08fc81f25bf44f8f8b6b42391a50122ea9a155a3a6aad806b |
+| src/dentry.c                              | same                                            | 8956c7b2539f51bef0d725162e2789ce9782acd0bf96bccc6f61d8a030a15036 |
+| src/metadata_resource.c                   | same                                            | 69def3ecd8525517c3e73a0a60579d64304008d2d23d3e587d495f1d891769ea |
+| src/security.c                            | same                                            | 79ef186cb1df582b8f23fe160026ccd76f83fbf5cad501684a1a6f850d55decd |
+
+Microsoft source:
+https://download.microsoft.com/download/f/e/f/fefdc36e-392d-4678-9e4e-771ffa2692ab/Windows%20Imaging%20File%20Format.rtf
+wimlib source: https://github.com/ebiggers/wimlib/tree/cd5e231c348c255ae5088873b5a66ee0eb96fa07
+
+The pinned format research is not claimed to be the exact source used to build the Debian binary. wimlib source is
+LGPL2.1-or-later; the wimlib-imagex tool reports GPL3-or-later. No implementation code is copied or linked into the
+package. Test-only native tools are not runtime dependencies. Authored inputs/generator use the repository license.
+Named streams, Windows security semantics, hardlinks, reparse points, compressed resources and split/ESD variants do not
+have genuine interoperability proof in this first fixture.
