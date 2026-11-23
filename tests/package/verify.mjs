@@ -245,6 +245,9 @@ try {
     import { openArj } from '@okikio/opfs/archive/arj';
     import { openMemcachedClient, MemcachedExpirySchema } from '@okikio/opfs/memcached';
     import { openMcap } from '@okikio/opfs/dataset/mcap';
+    import { openBinHex } from '@okikio/opfs/archive/binhex';
+    import { openShapefile } from '@okikio/opfs/dataset/shapefile';
+    import { createPubsubClient, PubsubDeliverySchema } from '@okikio/opfs/pubsub';
     import { openHdf5 } from '@okikio/opfs/dataset/hdf5';
     import { createCmisClient } from '@okikio/opfs/cmis';
     import { createCouchdbClient } from '@okikio/opfs/couchdb';
@@ -785,6 +788,77 @@ try {
     assertBytes(lhaRead.bytes, lhaOriginal);
     if (lhaEntry.level !== 2 || lhaRead.integrity !== 'crc16-verified' || lhaEntry.headerIntegrity !== 'crc16-verified') throw new Error('Packed LHA scopes changed');
     assertBytes(await lha.member(lhaEntry.id).read(3, 17), lhaOriginal.slice(3, 20));
+    const binhexFixture = ${
+      JSON.stringify(
+        JSON.parse(await readFile(new URL("../fixtures/binhex/independent.json", import.meta.url), "utf8")).fixtures
+          .find((value) => value.case === "many" && value.producer === "macutils"),
+      )
+    };
+    const fromBase64=(value)=>Uint8Array.from(atob(value),(byte)=>byte.charCodeAt(0));
+    const binhex=await openBinHex(createByteSource(fromBase64(binhexFixture.archive.base64)),{preamble:'rfc1741-or-macutils'});
+    const binhexData=await binhex.read('data',{length:37});
+    assertBytes(binhexData.bytes,fromBase64(binhexFixture.data.base64).slice(0,37));
+    if(binhexData.data!=='crc16-verified'||binhexData.resource!=='pending'||binhexData.terminal!=='pending')throw new Error('Packed BinHex fork evidence changed');
+    const binhexResource=await binhex.read('resource');
+    assertBytes(binhexResource.bytes,fromBase64(binhexFixture.resource.base64));
+    if(binhexResource.terminal!=='verified'||binhexResource.terminalPaddingBytes!==0)throw new Error('Packed BinHex terminal evidence changed');
+    assertBytes(await binhex.member('data').read(17,37),fromBase64(binhexFixture.data.base64).slice(17,54));
+    const binhexPerlFixture = ${
+      JSON.stringify(
+        JSON.parse(await readFile(new URL("../fixtures/binhex/independent.json", import.meta.url), "utf8")).fixtures
+          .find((value) => value.case === "empty" && value.producer === "perl"),
+      )
+    };
+    const binhexPerl=await openBinHex(createByteSource(fromBase64(binhexPerlFixture.archive.base64)),{padding:'convert-binhex'});
+    if((await binhexPerl.verify()).terminalPaddingBytes!==1)throw new Error('Packed BinHex explicit producer padding changed');
+    // Keep original numeric lexemes: reserializing parsed JSON would turn -0 into 0.
+    const shapefileFixtures = JSON.parse(${
+      JSON.stringify(await readFile(new URL("../fixtures/shapefile/independent.json", import.meta.url), "utf8"))
+    }).fixtures;
+    for(const fixture of shapefileFixtures){
+      const sources=Object.fromEntries(Object.entries(fixture.components).map(([name,value])=>[name,createByteSource(fromBase64(value.data))]));
+      const dataset=await openShapefile(sources,{profile:'shp2d-dbf3'});
+      if(dataset.featureCount!==fixture.originals.length||dataset.index!=='cross-checked')throw new Error('Packed Shapefile physical enumeration changed');
+      for(let id=0;id<fixture.originals.length;id++){
+        const original=fixture.originals[id],result=await dataset.read(id),attributes=await dataset.attributes(id);
+        const xy=original.xy.flat();
+        if(result.xy.length!==xy.length||result.xy.some((value,at)=>!Object.is(value,xy[at]))||result.parts.length!==original.parts.length||result.parts.some((value,at)=>value!==original.parts[at]))throw new Error('Packed Shapefile coordinates or parts changed');
+        assertBytes(attributes.bytes,fromBase64(fixture.rawRows[id]));
+        assertBytes(await dataset.source(id).read(0,fixture.tuples[id].bytes),fromBase64(fixture.tuples[id].bodyBase64));
+      }
+      if(fixture.authoredDeletion){
+        const edited=await openShapefile({...sources,dbf:createByteSource(fromBase64(fixture.authoredDeletion.data))},{profile:'shp2d-dbf3'});
+        if(!(await edited.attributes(1)).deleted||(await edited.attributes(2)).id!==2)throw new Error('Packed Shapefile deleted ordinal alignment changed');
+        assertBytes((await edited.attributes(2)).bytes,fromBase64(fixture.rawRows[2]));
+      }
+    }
+    const pubsubFixture = ${
+      JSON.stringify(
+        JSON.parse(await readFile(new URL("../fixtures/pubsub/independent.json", import.meta.url), "utf8")),
+      )
+    };
+    let pubsubCalls=0;
+    const pubsubClient=createPubsubClient({endpoint:'https://pubsub-package.invalid/',project:pubsubFixture.project,fetch:async(input,init)=>{
+      if(init.method!=='POST'||init.redirect!=='manual'||init.credentials!=='omit')throw new Error('Packed Pub/Sub request policy changed');
+      const target=new URL(String(input)),body=JSON.parse(init.body),operation=target.pathname.split(':').at(-1);
+      if(target.pathname!==('/v1/projects/'+pubsubFixture.project+'/subscriptions/'+pubsubFixture.subscription+':'+operation))throw new Error('Packed Pub/Sub subscription scope changed');
+      const captured=operation==='pull'?pubsubFixture.pull:operation==='modifyAckDeadline'?pubsubFixture.deadline:operation==='acknowledge'?pubsubFixture.acknowledge:undefined;
+      if(!captured)throw new Error('Uncaptured packed Pub/Sub request');
+      const native=JSON.parse(new TextDecoder().decode(fromBase64(pubsubFixture.pull.base64))).receivedMessages[0];
+      if(operation==='pull'){if(body.maxMessages!==1)throw new Error('Packed Pub/Sub pull bound changed');}
+      else if(body.ackIds.length!==1||body.ackIds[0]!==native.ackId)throw new Error('Packed Pub/Sub delivery token changed');
+      if(operation==='modifyAckDeadline'&&body.ackDeadlineSeconds!==30)throw new Error('Packed Pub/Sub explicit deadline changed');
+      pubsubCalls++;
+      return new Response(fromBase64(captured.base64),{status:captured.status,headers:captured.headers});
+    }});
+    const pubsubDeliveries=await pubsubClient.pull(pubsubFixture.subscription,{maxMessages:1});
+    const pubsubNative=JSON.parse(new TextDecoder().decode(fromBase64(pubsubFixture.pull.base64))).receivedMessages[0];
+    if(pubsubDeliveries.length!==1||pubsubDeliveries[0].messageId!==pubsubFixture.messageId||pubsubDeliveries[0].publishTime!==pubsubNative.message.publishTime)throw new Error('Packed Pub/Sub native identity or timestamp changed');
+    assertBytes(pubsubDeliveries[0].bytes,fromBase64(pubsubFixture.oracle.base64));
+    PubsubDeliverySchema.parse(pubsubDeliveries[0]);
+    await pubsubClient.modifyAckDeadline(pubsubFixture.subscription,[pubsubDeliveries[0].ackId],30);
+    await pubsubClient.acknowledge(pubsubFixture.subscription,[pubsubDeliveries[0].ackId]);
+    if(pubsubCalls!==3)throw new Error('Packed Pub/Sub performed hidden operations');
     const memcachedFixture = ${
       JSON.stringify(
         JSON.parse(await readFile(new URL("../fixtures/memcached/independent.json", import.meta.url), "utf8")),
@@ -1564,6 +1638,9 @@ try {
     import { openArj } from '@okikio/opfs/archive/arj';
     import { openMemcachedClient, MemcachedExpirySchema } from '@okikio/opfs/memcached';
     import { openMcap } from '@okikio/opfs/dataset/mcap';
+    import { openBinHex } from '@okikio/opfs/archive/binhex';
+    import { openShapefile } from '@okikio/opfs/dataset/shapefile';
+    import { createPubsubClient, PubsubDeliverySchema } from '@okikio/opfs/pubsub';
     import { openHdf5 } from '@okikio/opfs/dataset/hdf5';
     import { createCmisClient } from '@okikio/opfs/cmis';
     import { createCouchdbClient } from '@okikio/opfs/couchdb';
@@ -1717,6 +1794,14 @@ try {
     const mcapPageTyped: import('@okikio/opfs/dataset/mcap').McapPageType = mcapTyped.messages({startLogTime:9007199254740993n});
     const mcapReadTyped: import('@okikio/opfs/dataset/mcap').McapReadType = await mcapTyped.read(0,{length:3});
     void [memcachedValue,memcachedReceipt,mcapPageTyped,mcapReadTyped];
+    const binhexTyped: import('@okikio/opfs/archive/binhex').BinHexArchiveType = await openBinHex(createByteSource(new Uint8Array()));
+    const binhexReadTyped: import('@okikio/opfs/archive/binhex').BinHexReadType = await binhexTyped.read('data');
+    const shapefileTyped: import('@okikio/opfs/dataset/shapefile').ShapefileType = await openShapefile({shp:createByteSource(new Uint8Array())},{profile:'shp2d-dbf3'});
+    const shapefileReadTyped: import('@okikio/opfs/dataset/shapefile').ShapefileReadType = await shapefileTyped.read(0);
+    const pubsubTyped: import('@okikio/opfs/pubsub').PubsubClient = createPubsubClient({endpoint:'https://pubsub.googleapis.com/',project:'type-only',fetch});
+    const pubsubDeliveryTyped: readonly import('@okikio/opfs/pubsub').PubsubDeliveryType[] = await pubsubTyped.pull('subscription',{maxMessages:1});
+    void [binhexReadTyped,shapefileReadTyped,pubsubDeliveryTyped,PubsubDeliverySchema];
+
     const hdf5Typed: import('@okikio/opfs/dataset/hdf5').Hdf5FileType = await openHdf5(createByteSource(new Uint8Array()), {profile:'classic-contiguous'});
     const hdf5Dataset: import('@okikio/opfs/dataset/hdf5').Hdf5DatasetType = await hdf5Typed.dataset('literal-name');
     const hdf5Values: import('@okikio/opfs/dataset/hdf5').Hdf5ValuesType = (await hdf5Dataset.read({offset:0,count:1})).values;

@@ -90,6 +90,10 @@
       "size": 531958,
       "sha256": "d4c4c383453caadd3dbb32ae4337d00e043a847c797577c329f7f3d77dbe10f9"
     },
+    "tests/fixtures/pubsub/sdk-notices.json": {
+      "size": 441574,
+      "sha256": "edd187d9e3488035f0d7d4c13513a3bbcbff78de3605b4e2773862cc554065e6"
+    },
     "tests/fixtures/rar/independent.json": {
       "size": 9711030,
       "sha256": "f601a16df189cf583f3624317d5449dd4d07876838271f18bc82d8f103dd83f8"

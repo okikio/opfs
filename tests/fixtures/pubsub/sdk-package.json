@@ -1,0 +1,6 @@
+{
+  "name": "opfs-pubsub-test-oracle",
+  "private": true,
+  "version": "0.0.0",
+  "dependencies": { "@google-cloud/pubsub": "6.3.2" }
+}

@@ -1,0 +1,326 @@
+{
+  "record": "queue-google-pubsub",
+  "profile": "Bounded native unary REST publish/pull/ack/deadline; no filesystem/record projection",
+  "primary": {
+    "commit": "a6151f3a9dc16e6bcce137fea69e13107f34bc6f",
+    "file": "google/pubsub/v1/pubsub.proto",
+    "bytes": 121516,
+    "sha256": "fa9b72b75c3d87a1072174abc7d18a5546af3e9b29bfd8510c6284c1225cabe7",
+    "license": "Apache-2.0"
+  },
+  "sdk": {
+    "name": "@google-cloud/pubsub",
+    "version": "6.3.2",
+    "sourceCommit": "74cd73dd26ff9409ac7661a1a1494025e932841f",
+    "sourceDirectory": "handwritten/pubsub",
+    "license": "Apache-2.0",
+    "lock": {
+      "path": "sdk-lock.json",
+      "bytes": 34724,
+      "sha256": "be831ae4d6d51f6db1cc66b0fc11db9da39f8ce07c4accf243f296d2946cfd45",
+      "packagesIncludingRoot": 84,
+      "installScriptsIgnored": [
+        "protobufjs"
+      ]
+    },
+    "stage": "Historical metadata-only lock generation was followed by approved pinned no-script npm ci installation and independent native execution in an isolated test-only container.",
+    "command": "npm install --package-lock-only --ignore-scripts --no-audit --no-fund --prefix .tmp/pubsub-oracle",
+    "log": ".tmp/pubsub-sdk-lock.log",
+    "lockToolVersions": {
+      "node": "26.13.0",
+      "npm": "11.20.0"
+    },
+    "lockedLicenses": {
+      "Apache-2.0": [
+        "node_modules/@google-cloud/paginator",
+        "node_modules/@google-cloud/precise-date",
+        "node_modules/@google-cloud/projectify",
+        "node_modules/@google-cloud/promisify",
+        "node_modules/@google-cloud/pubsub",
+        "node_modules/@google-cloud/pubsub-api",
+        "node_modules/@grpc/grpc-js",
+        "node_modules/@grpc/proto-loader",
+        "node_modules/@opentelemetry/api",
+        "node_modules/@opentelemetry/core",
+        "node_modules/@opentelemetry/semantic-conventions",
+        "node_modules/ecdsa-sig-formatter",
+        "node_modules/gaxios",
+        "node_modules/gcp-metadata",
+        "node_modules/google-auth-library",
+        "node_modules/google-gax",
+        "node_modules/google-logging-utils",
+        "node_modules/long",
+        "node_modules/proto3-json-serializer"
+      ],
+      "MIT": [
+        "node_modules/@js-sdsl/ordered-map",
+        "node_modules/@types/node",
+        "node_modules/agent-base",
+        "node_modules/ansi-regex",
+        "node_modules/ansi-styles",
+        "node_modules/arrify",
+        "node_modules/base64-js",
+        "node_modules/bignumber.js",
+        "node_modules/color-convert",
+        "node_modules/color-name",
+        "node_modules/data-uri-to-buffer",
+        "node_modules/debug",
+        "node_modules/duplexify",
+        "node_modules/emoji-regex",
+        "node_modules/end-of-stream",
+        "node_modules/escalade",
+        "node_modules/extend",
+        "node_modules/fetch-blob",
+        "node_modules/formdata-polyfill",
+        "node_modules/https-proxy-agent",
+        "node_modules/is-fullwidth-code-point",
+        "node_modules/is-stream-ended",
+        "node_modules/json-bigint",
+        "node_modules/jwa",
+        "node_modules/jws",
+        "node_modules/lodash.camelcase",
+        "node_modules/lodash.snakecase",
+        "node_modules/ms",
+        "node_modules/node-domexception",
+        "node_modules/node-fetch",
+        "node_modules/object-hash",
+        "node_modules/p-defer",
+        "node_modules/readable-stream",
+        "node_modules/require-directory",
+        "node_modules/retry-request",
+        "node_modules/safe-buffer",
+        "node_modules/stream-shift",
+        "node_modules/string_decoder",
+        "node_modules/string-width",
+        "node_modules/strip-ansi",
+        "node_modules/undici-types",
+        "node_modules/util-deprecate",
+        "node_modules/web-streams-polyfill",
+        "node_modules/wrap-ansi",
+        "node_modules/yargs"
+      ],
+      "BSD-3-Clause": [
+        "node_modules/@protobufjs/aspromise",
+        "node_modules/@protobufjs/base64",
+        "node_modules/@protobufjs/codegen",
+        "node_modules/@protobufjs/eventemitter",
+        "node_modules/@protobufjs/fetch",
+        "node_modules/@protobufjs/float",
+        "node_modules/@protobufjs/path",
+        "node_modules/@protobufjs/pool",
+        "node_modules/@protobufjs/utf8",
+        "node_modules/buffer-equal-constant-time",
+        "node_modules/heap-js",
+        "node_modules/protobufjs"
+      ],
+      "ISC": [
+        "node_modules/cliui",
+        "node_modules/get-caller-file",
+        "node_modules/inherits",
+        "node_modules/once",
+        "node_modules/wrappy",
+        "node_modules/y18n",
+        "node_modules/yargs-parser"
+      ]
+    },
+    "notices": {
+      "path": "sdk-notices.json",
+      "rawOutputBytes": 441574,
+      "rawOutputSha256": "edd187d9e3488035f0d7d4c13513a3bbcbff78de3605b4e2773862cc554065e6",
+      "packages": 83,
+      "files": 84,
+      "totalOriginalBytes": 305321,
+      "packagesWithoutNotice": [
+        "node_modules/@google-cloud/pubsub-api",
+        "node_modules/data-uri-to-buffer"
+      ],
+      "runtime": {
+        "node": "v22.22.0",
+        "platform": "linux",
+        "arch": "arm64"
+      },
+      "log": ".tmp/pubsub-notices-first.log",
+      "exitCode": 0,
+      "scope": "Installed test-only SDK LICENSE/NOTICE/COPYING/COPYRIGHT/AUTHORS/third-party notice bytes. Only lock/license metadata and these notices are redistributed, not SDK implementation. Missing files remain missing; manifest license strings are metadata, not substitute copied notices.",
+      "tools": [
+        "notices.ts",
+        "notices.cjs"
+      ],
+      "resources": {
+        "memoryBytes": 536870912,
+        "memorySwapBytes": 536870912,
+        "nanoCpus": 500000000,
+        "pidsLimit": 128,
+        "mounts": []
+      },
+      "executedWalker": {
+        "sha256": "1b03d8ce7c60d2ed72cd12db7fad3146b6d50cada32d704084dc56959a7a72b5",
+        "scope": "Executed acquisition walker before final formatter/linter-only edits; the current reproduction source may differ in formatting or explicit built-in imports."
+      }
+    }
+  },
+  "emulator": {
+    "image": "gcr.io/google.com/cloudsdktool/google-cloud-cli:592.0.0-emulators@sha256:c3b114528245d315af73d92d95d8e2fed9747ce29003ad46232f22b4542da036",
+    "sourceCommit": "1dbb5cd34663e69ab7b938c05821b106635f91b2",
+    "sourceFile": "emulators/Dockerfile",
+    "stage": "Approved immutable image pulled and executed only in a disposable private emulator fixture.",
+    "exclusions": [
+      "IAM",
+      "configurable message retention",
+      "subscription expiration",
+      "live service billing and exactly-once processing"
+    ],
+    "actualComponentVersion": "0.8.37"
+  },
+  "proof": "Sixteen authored protocol cases passed separately on Deno/Node/Bun; official emulator/SDK native test and separate raw capture both passed exit0.",
+  "native": {
+    "log": ".tmp/pubsub-provider-first.log",
+    "exitCode": 0,
+    "fullIndependentBytesEachDirection": 131072,
+    "server": {
+      "memoryBytes": 1073741824,
+      "memorySwapBytes": 1073741824,
+      "nanoCpus": 1000000000,
+      "pidsLimit": 128,
+      "mounts": []
+    },
+    "oracle": {
+      "memoryBytes": 536870912,
+      "memorySwapBytes": 536870912,
+      "nanoCpus": 500000000,
+      "pidsLimit": 128,
+      "mounts": []
+    },
+    "semantics": [
+      "SDK producer\u2192candidate complete bytes and message ID",
+      "Candidate producer\u2192SDK complete bytes and message ID",
+      "Zero acknowledgement deadline\u2192SDK redelivery",
+      "Explicit acknowledgement",
+      "Known missing topic/subscription refusal"
+    ],
+    "cleanup": "Awaited owned containers/private network cleanup before success; external host services untouched.",
+    "images": [
+      {
+        "id": "sha256:d92d88e9bab41a3a9b281471ee182cea92194e2efdcf3cdb47c673712bbaf559",
+        "architecture": "arm64",
+        "os": "linux",
+        "repoDigests": [
+          "gcr.io/google.com/cloudsdktool/google-cloud-cli@sha256:c3b114528245d315af73d92d95d8e2fed9747ce29003ad46232f22b4542da036"
+        ]
+      },
+      {
+        "id": "sha256:0b79040ecd7a7ed33835b9d02d199b2fd6ec0f51c6d14e579197394de3f3bb25",
+        "architecture": "arm64",
+        "os": "linux",
+        "repoDigests": [
+          "node@sha256:dd9d21971ec4395903fa6143c2b9267d048ae01ca6d3ea96f16cb30df6187d94"
+        ]
+      }
+    ],
+    "durableReceipts": [
+      {
+        "path": "native.log",
+        "bytes": 908,
+        "sha256": "b25d714d539dc7989096d98cb6964ad4818c8a55fffb68722145f89d1f2ca4f9"
+      },
+      {
+        "path": "native-images.txt",
+        "bytes": 5015,
+        "sha256": "e9b3ca6571f20d4a5368fea64371632eb6a4b5ae036cc08b00da3471d837dbb0"
+      }
+    ]
+  },
+  "capture": {
+    "log": ".tmp/pubsub-capture.log",
+    "exitCode": 0,
+    "fixture": "independent.json",
+    "method": "Fresh SDK six-byte publish, independent raw native REST pull/deadline/ack; no response rewriting or candidate parser used to create expectations.",
+    "rawPull": {
+      "bytes": 274,
+      "sha256": "4dbac690c5dad672052928bf018a31fd48d452735d2d9f7d445b5bf5bd69c8ec"
+    },
+    "rawEmptyReceipts": {
+      "status": 200,
+      "bytes": 4,
+      "base64": "ewp9Cg==",
+      "sha256": "d914176fd50bd7f565700006a31aa97b79d3ad17cee20c8e5ff2061d5cb74817"
+    },
+    "oracleSha256": "a09e9c5394946ab8fc1b54a0c55618a96f2057e98e89cfdc36bb4d26ed0a1708",
+    "fixtureSha256": "9d0b7da053e89c535904012e57cac8611c03671ba5832fa8bfa96d2deec43cb5"
+  },
+  "sdkIndexSource": {
+    "bytes": 5023,
+    "sha256": "4dc1027ec74679d2107539ea9d923308a26880f4b90da1b5ec6c17ae7294bf4c"
+  },
+  "emulatorDockerfileSource": {
+    "bytes": 1859,
+    "sha256": "2fa433f29a3baabff25c16608852e1e372f7e5e9721864ea557e8f41adb5d73f"
+  },
+  "benchmark": {
+    "image": "sha256:0d27d74b49afa69518cd96806ca02f697e377c997d889c27cf60c4ae724adc39",
+    "runtimeContext": {
+      "now": 1793908432349,
+      "arch": "arm64-linux",
+      "version": "26.13.0",
+      "runtime": "node"
+    },
+    "state": {
+      "Status": "exited",
+      "Running": false,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Pid": 0,
+      "ExitCode": 0,
+      "Error": "",
+      "StartedAt": "2026-11-05T19:53:51.834133835Z",
+      "FinishedAt": "2026-11-05T19:53:58.482247713Z"
+    },
+    "resources": {
+      "Memory": 1073741824,
+      "MemorySwap": 1073741824,
+      "NanoCpus": 1000000000,
+      "PidsLimit": 128,
+      "NetworkMode": "none"
+    },
+    "mounts": [],
+    "raw": {
+      "path": ".tmp/pubsub-bench-node.json",
+      "bytes": 19476917,
+      "sha256": "7bcb8bb0a559a16613c0b6edc196bdf3f7e586e1685e923513fa3622b53a2966"
+    },
+    "gzip": {
+      "path": ".tmp/pubsub-bench-node.json.gz",
+      "bytes": 72628,
+      "sha256": "87ef820b1fa88425d301baab2f50b278438cd42bd7578a4a720769b11be53473",
+      "roundTripVerified": true
+    },
+    "inputs": ".tmp/pubsub-bench-input.json",
+    "externalObservation": {
+      "start": "utils-test-quality-20261105 Up 10 minutes",
+      "end": "",
+      "scope": "Observation only; external service not modified."
+    },
+    "lanes": [
+      {
+        "name": "pubsub raw Fetch+JSON+base64 envelope=274B original=6B lower-bound validation=none transport=in-memory",
+        "nanoseconds": {
+          "avg": 12665.485746517985,
+          "p50": 7791,
+          "p99": 50333,
+          "ticks": 46094
+        }
+      },
+      {
+        "name": "pubsub client pull envelope=274B original=6B validation=delivery+UTF8+budgets transport=in-memory warm-client",
+        "nanoseconds": {
+          "avg": 76540.01456427539,
+          "p50": 47875,
+          "p99": 324791,
+          "ticks": 8308
+        }
+      }
+    ]
+  }
+}

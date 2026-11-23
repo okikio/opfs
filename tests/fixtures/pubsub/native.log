@@ -1,0 +1,15 @@
+{"sdkLockSha256":"be831ae4d6d51f6db1cc66b0fc11db9da39f8ce07c4accf243f296d2946cfd45"}
+{"fixtureResource":"ba1faf0b1a9ac551d7294ff2f6c94d7bfe7811255f93425e7a9b1002adcc4be8","memoryBytes":1073741824,"memorySwapBytes":1073741824,"nanoCpus":1000000000,"pidsLimit":128,"mounts":[]}
+{"fixtureResource":"6f3a80e6b81e0c35283958a76f8875c8570ba6b6de47b3cf51091eb0f811864b","memoryBytes":536870912,"memorySwapBytes":536870912,"nanoCpus":500000000,"pidsLimit":128,"mounts":[]}
+{"nativeVersion":"592.0.0","pubsubEmulator":"0.8.37","sdk":{"sdkVersion":"6.3.2"}}
+▶ official Pub/Sub emulator with isolated official SDK
+  ✔ exchanges complete bytes and explicit delivery settlement without a filesystem projection (64119.329167ms)
+✔ official Pub/Sub emulator with isolated official SDK (64120.066792ms)
+ℹ tests 1
+ℹ suites 1
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 64417.712541

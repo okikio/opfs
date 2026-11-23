@@ -71,3 +71,11 @@ implemented capabilities on this page.
 filesystem projection or persistence claim. [MCAP](mcap.md) adds physical major-0 uncompressed recording inspection,
 bounded sparse pages and selected payload/attachment previews. CRC scopes and replay costs remain explicit; compressed
 chunks and application payload decoding remain separate work.
+
+[BinHex](binhex.md) preserves separate data and resource forks with bounded sequential replay. A verified data prefix
+checks its whole data fork while resource and terminal evidence remain pending. [Shapefile](shapefile.md) reads
+explicitly supplied 2D geometry and raw DBF rows, retaining physical ordinals for Null and deleted records. CRS, text
+decoding and sidecar discovery remain application decisions. [Pub/Sub](pubsub.md) adds explicit unary message
+publication, pull and settlement; uncertain mutations require application recovery rather than hidden retries. Native
+qualifications and unsupported profiles are recorded in each guide; these additions do not complete their catalog
+groups.
