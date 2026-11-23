@@ -83,9 +83,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # check:secrets scans Git history, and .gitleaksignore keys each finding to the line in the commit
+      # that introduced it. A shallow clone turns HEAD into a root commit, so every reviewed value is
+      # reported again at its current line. Full history is about 4 MB more than depth 1.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
+          fetch-depth: 0
           persist-credentials: false
       # Skip the rest of this job when a trusted run already passed the same inputs.
       - name: Skip when these inputs already passed
