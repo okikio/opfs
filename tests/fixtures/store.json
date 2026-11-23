@@ -54,6 +54,10 @@
       "size": 2127666,
       "sha256": "f21a4da1c9dcbabda3fb5b40b6f706cd4410172d0eba4816ab8db2861584acf6"
     },
+    "tests/fixtures/tar-sparse/independent.json": {
+      "size": 11592189,
+      "sha256": "7c3f1eba675757ba5f243934a8e032c6c6ac46f889afa9f92f624477812467bc"
+    },
     "tests/fixtures/udf/independent.json": {
       "size": 12017417,
       "sha256": "994911ed0bcf49be31e82a57127a7db2187b5e3afbbd82fb63454a05ff10081f"
