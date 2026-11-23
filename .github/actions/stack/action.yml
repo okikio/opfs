@@ -1,0 +1,25 @@
+name: Native stack selection
+description: >-
+  Decide whether this run is the top of a native GitHub pull request stack. Only the top runs the
+  costly checks, comparing the whole stack with the base of its bottom layer. A lower layer gets
+  selected=false. Runs that are not pull requests, pull requests outside a stack, and any failure
+  to read the stack get selected=true with an empty base-sha, so they run every selected check.
+  The job must grant pull-requests read access to github.token. tools/workspace/stack.ts owns the
+  decision and its tests.
+
+outputs:
+  selected:
+    description: "'true' when this run proves the combined checks; 'false' for a lower stack layer"
+    value: ${{ steps.select.outputs.selected }}
+  base-sha:
+    description: The bottom layer's base commit for the top of a stack; empty otherwise
+    value: ${{ steps.select.outputs.base-sha }}
+
+runs:
+  using: composite
+  steps:
+    - id: select
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      run: mise exec -- node tools/workspace/stack.ts

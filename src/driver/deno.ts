@@ -15,6 +15,7 @@ import type {
 import { createLocalPath } from "./local.ts";
 import { FileSystemError, throwIfAborted, toFileSystemError } from "../error.ts";
 import type { PathType } from "../path.ts";
+import { withAbortSignal } from "../stream.ts";
 
 /**
  * Options for the Deno-native file driver.
@@ -124,11 +125,12 @@ export async function writeStreamToFile(
   let position = options.mode === "append" ? (await file.stat()).size : options.mode === "update" ? options.at ?? 0 : 0;
   await file.seek(position, Deno.SeekMode.Start);
 
-  const reader = source.getReader();
+  const reader = withAbortSignal(source, options.signal, path, "write").getReader();
   try {
     while (true) {
       throwIfAborted(options.signal, "write", path);
       const next = await reader.read();
+      throwIfAborted(options.signal, "write", path);
       if (next.done) break;
 
       let offset = 0;
@@ -367,7 +369,11 @@ export class DenoBackend implements FileBackendType {
       if (options.length === undefined) return file.readable;
       if (options.length === 0) {
         file.close();
-        return new ReadableStream<Uint8Array>({ start(controller) { controller.close(); } });
+        return new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.close();
+          },
+        });
       }
       return new ReadableStream(new DenoRangeSource(file, options.length));
     } catch (error) {
@@ -406,6 +412,7 @@ export class DenoBackend implements FileBackendType {
     source: ReadableStream<Uint8Array>,
     options: FileDriverWriteOptionsType,
   ): Promise<void> {
+    throwIfAborted(options.signal, "write", path);
     const file = await Deno.open(this.#hostPath(path), {
       read: true,
       write: true,

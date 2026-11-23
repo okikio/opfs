@@ -233,9 +233,9 @@ await writable.close();
 ```
 
 The staged image commits on close and is discarded on abort. The writable keeps the complete staged file image in
-JavaScript memory, and `keepExistingData` must first read the current complete file snapshot. Large sequential writes should
-therefore prefer `writeFile()` because that path can select a native streaming driver route. Use `openWritableFile()` when
-the selected adapter exposes direct asynchronous positional writes.
+JavaScript memory, and `keepExistingData` must first read the current complete file snapshot. Large sequential writes
+should therefore prefer `writeFile()` because that path can select a native streaming driver route. Use
+`openWritableFile()` when the selected adapter exposes direct asynchronous positional writes.
 
 `openWritableFile()` exposes a direct asynchronous positional resource only when the adapter reports that capability.
 
@@ -543,10 +543,10 @@ versionstamp returned by the initial exact read to reject stale writers before a
 parts remain outside the atomic operation.
 
 The specialized `DenoKvDriverType` also exposes `collect(options?)` for bounded, age-gated reclamation of superseded and
-unpublished physical parts. Published generations use their retirement time for the grace period, which lets an in-flight reader finish against the
-immutable generation it already resolved while that configured grace remains active. Unpublished crash leftovers use generation creation
-time. The adapter path re-exports the same provider constants, Deno KV structural contracts, and maintenance types plus
-`createDenoKvAdapter()` and `DenoKvAdapterOptionsType`.
+unpublished physical parts. Published generations use their retirement time for the grace period, which lets an
+in-flight reader finish against the immutable generation it already resolved while that configured grace remains active.
+Unpublished crash leftovers use generation creation time. The adapter path re-exports the same provider constants, Deno
+KV structural contracts, and maintenance types plus `createDenoKvAdapter()` and `DenoKvAdapterOptionsType`.
 
 ### localStorage
 
@@ -778,7 +778,8 @@ toFileSystemError
 - `RequestPolicySchema` / `RequestPolicyType`: retries, delay, jitter, and optional per-attempt timeout.
 - `FetchType`: the standard callable Fetch shape accepted for dependency injection. It intentionally does not include
   runtime-specific properties such as Bun's `fetch.preconnect()`.
-- `RequestMetrics` / `RequestMetricsType`: concrete HTTP request, retry, response, failure, and optional duration counters.
+- `RequestMetrics` / `RequestMetricsType`: concrete HTTP request, retry, response, failure, and optional duration
+  counters.
 - `sendRequest()`: shared attempt orchestration used by protocol clients. Request preparation runs before the concrete
   Fetch counter starts, so a deterministic signing or credential failure is not reported as network I/O.
 

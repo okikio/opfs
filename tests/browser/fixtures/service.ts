@@ -29,5 +29,5 @@ self.addEventListener("activate", (event: ExtendableEvent) => event.waitUntil(se
 self.addEventListener("message", (event: ExtendableMessageEvent) => {
   const port = event.ports[0];
   if (port === undefined) return;
-  event.waitUntil(runServiceRequest(port, event.data));
+  event.waitUntil(runServiceRequest(port, event.data).catch((error) => port.postMessage({ error: String(error) })));
 });

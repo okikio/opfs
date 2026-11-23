@@ -40,5 +40,8 @@ test("Chromium exposes the registered service worker to Playwright instrumentati
     )
   );
   test.skip(!result.supported, "ServiceWorker is not exposed in this Chromium context.");
+  expect(result.probe?.context).toBe("service-worker");
+  // Playwright retains the instrumented worker for this context after the
+  // message fixture unregisters its task-owned registration.
   expect(context.serviceWorkers().length).toBeGreaterThan(0);
 });

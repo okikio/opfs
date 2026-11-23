@@ -12,6 +12,12 @@ export interface RealmResultType {
   readonly syncOpened?: boolean;
   /** Native error name reported when synchronous access was exposed but could not open. */
   readonly syncError?: string;
+  /** Bytes preserved after positioned writes, flush, truncate, close and reopen. */
+  readonly syncBytes?: readonly number[];
+  /** Stable error returned by an operation after closing a synchronous file. */
+  readonly syncClosedCode?: string;
+  /** Whether closing a synchronous file released its lock for a second handle. */
+  readonly syncReopened?: boolean;
 }
 
 /** Browser record adapters exercised against their actual platform storage APIs. */
@@ -35,6 +41,12 @@ export interface BenchmarkResultType {
   readonly adapterMs: number;
   /** Elapsed milliseconds for the complete `FileSystemType` path. */
   readonly facadeMs: number;
+  /** Normalized milliseconds per requested batch, preserving repeated samples for each layer. */
+  readonly samples: {
+    readonly rawMs: readonly number[];
+    readonly adapterMs: readonly number[];
+    readonly facadeMs: readonly number[];
+  };
 }
 
 /** Browser fixture API consumed by Playwright from the containing page. */

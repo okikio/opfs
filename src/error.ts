@@ -1,4 +1,5 @@
-import { ErrorCodeSchema, type ErrorCodeType } from "./schema.ts";
+import type { ErrorCodeType } from "./_schema_types.ts";
+import { ErrorCodeSchema } from "./schema.ts";
 
 /**
  * Error returned by the high-level filesystem and first-party adapters.

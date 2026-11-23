@@ -3,16 +3,12 @@ import { createCacheAdapter } from "../../../src/adapter/cache.ts";
 import { openIndexedDbAdapter } from "../../../src/adapter/indexeddb.ts";
 import { createLocalStorageAdapter } from "../../../src/adapter/localstorage.ts";
 import { createMemoryAdapter } from "../../../src/adapter/memory.ts";
-import { createOpfsAdapter } from "../../../src/adapter/opfs.ts";
 import { createFileSystem } from "../../../src/filesystem.ts";
+import { reliability } from "./reliability.ts";
+import { within } from "../../gate.ts";
+import { benchmarkAdapter, benchmarkOpfs } from "../../../bench/browser/fixture.ts";
 
-import type {
-  AbortResultType,
-  BenchmarkResultType,
-  BrowserAdapterType,
-  BrowserTestApiType,
-  RealmResultType,
-} from "./api.ts";
+import type { AbortResultType, BrowserAdapterType, BrowserTestApiType, RealmResultType } from "./api.ts";
 
 /** Writes and reads one value through the Window realm OPFS facade. */
 async function roundTripOpfs(path: string, value: string): Promise<RealmResultType> {
@@ -44,11 +40,17 @@ async function runDedicatedWorker(url: URL, path: string, value: string): Promis
   if (typeof Worker !== "function") return { supported: false };
   const instance = new Worker(url, { type: "module" });
   try {
-    return await new Promise((resolve, reject) => {
-      instance.onmessage = ({ data }) => resolve(data as RealmResultType);
-      instance.onerror = reject;
-      instance.postMessage({ path, value });
-    });
+    return await within(
+      new Promise<RealmResultType>((resolve, reject) => {
+        instance.onmessage = ({ data }) => {
+          if (typeof data?.error === "string") reject(new Error(data.error));
+          else resolve(data as RealmResultType);
+        };
+        instance.onerror = reject;
+        instance.postMessage({ path, value });
+      }),
+      "DedicatedWorker result",
+    );
   } finally {
     instance.terminate();
   }
@@ -60,11 +62,18 @@ async function runSharedWorker(url: URL, path: string, value: string): Promise<R
   const instance = new SharedWorker(url, { type: "module" });
   instance.port.start();
   try {
-    return await new Promise((resolve, reject) => {
-      instance.port.onmessage = ({ data }) => resolve(data as RealmResultType);
-      instance.port.onmessageerror = reject;
-      instance.port.postMessage({ path, value });
-    });
+    return await within(
+      new Promise<RealmResultType>((resolve, reject) => {
+        instance.onerror = reject;
+        instance.port.onmessage = ({ data }) => {
+          if (typeof data?.error === "string") reject(new Error(data.error));
+          else resolve(data as RealmResultType);
+        };
+        instance.port.onmessageerror = reject;
+        instance.port.postMessage({ path, value });
+      }),
+      "SharedWorker result",
+    );
   } finally {
     instance.port.close();
   }
@@ -77,19 +86,25 @@ async function runServiceWorker(path: string, value: string): Promise<RealmResul
     new URL("./service.ts", import.meta.url),
     { type: "module", scope: "/tests/browser/fixtures/" },
   );
-  await navigator.serviceWorker.ready;
-  const active = registration.active ?? registration.waiting ?? registration.installing;
-  if (active === null) throw new Error("Service worker registration did not expose a worker.");
   const channel = new MessageChannel();
-  const result = new Promise<RealmResultType>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error("Service worker test timed out.")), 10_000);
-    channel.port1.onmessage = ({ data }) => {
-      clearTimeout(timer);
-      resolve(data as RealmResultType);
-    };
-  });
-  active.postMessage({ path, value }, [channel.port2]);
-  return await result;
+  try {
+    await within(navigator.serviceWorker.ready, "ServiceWorker activation");
+    const active = registration.active ?? registration.waiting ?? registration.installing;
+    if (active === null) throw new Error("Service worker registration did not expose a worker.");
+    const result = new Promise<RealmResultType>((resolve, reject) => {
+      channel.port1.onmessage = ({ data }) => {
+        if (typeof data?.error === "string") reject(new Error(data.error));
+        else resolve(data as RealmResultType);
+      };
+      channel.port1.onmessageerror = reject;
+    });
+    active.postMessage({ path, value }, [channel.port2]);
+    return await within(result, "ServiceWorker message result");
+  } finally {
+    channel.port1.close();
+    channel.port2.close();
+    await registration.unregister();
+  }
 }
 
 /** Verifies that an already-aborted signal prevents a Window OPFS write from committing. */
@@ -157,19 +172,20 @@ async function abortQueuedWebLock(): Promise<AbortResultType> {
     entered.resolve();
     await release.promise;
   });
-  await entered.promise;
-
   const fileSystem = createFileSystem(createMemoryAdapter(), {
     coordination: "web-locks",
     lockPrefix: prefix,
   });
   const controller = new AbortController();
-  const write = fileSystem.writeFile(path, "never", { signal: controller.signal });
-  await waitForPendingWebLock(lockName);
-  controller.abort(new DOMException("queued browser lock test", "AbortError"));
-
+  let write: Promise<void> | undefined;
   try {
-    await write;
+    await within(entered.promise, "blocking Web Lock admission");
+    write = fileSystem.writeFile(path, "never", { signal: controller.signal });
+    // Handle rejection even when waiting for queue observation fails first.
+    void write.catch(() => {});
+    await waitForPendingWebLock(lockName);
+    controller.abort(new DOMException("queued browser lock test", "AbortError"));
+    await within(write, "queued Web Lock cancellation");
     return { supported: true, name: "committed" };
   } catch (error) {
     const code = typeof error === "object" && error !== null && typeof Reflect.get(error, "code") === "string"
@@ -181,253 +197,26 @@ async function abortQueuedWebLock(): Promise<AbortResultType> {
       ...(code === undefined ? {} : { code }),
     };
   } finally {
+    controller.abort("test cleanup");
     release.resolve();
-    await blocker;
+    await within(Promise.allSettled(write === undefined ? [blocker] : [blocker, write]), "Web Lock fixture cleanup");
     await fileSystem.close();
   }
 }
 
-/**
- * Measures one logical benchmark batch with enough repetitions to exceed coarse browser timers.
- *
- * Some WebKit contexts quantize `performance.now()` enough that a very fast
- * localStorage batch can report exactly zero milliseconds. Repeating the same
- * batch until the accumulated sample spans several milliseconds preserves the
- * benchmark unit (milliseconds per requested batch) while preventing timer
- * resolution from becoming a false benchmark failure.
- */
-async function measure(run: () => void | Promise<void>, minimumMs = 5): Promise<number> {
-  let batches = 0;
-  const start = performance.now();
-  let elapsed = 0;
-  do {
-    await run();
-    batches += 1;
-    elapsed = performance.now() - start;
-  } while (elapsed < minimumMs && batches < 1024);
-
-  if (elapsed <= 0) {
-    throw new Error("The browser performance timer did not advance during the benchmark sample.");
-  }
-  return elapsed / batches;
-}
-
-/** Measures raw OPFS, direct adapter, and facade overhead in the same browser realm. */
-async function benchmarkOpfs(iterations: number, bytes: number): Promise<BenchmarkResultType | null> {
-  const probe = await probeOpfs();
-  if (!probe.rootAvailable) return null;
-  const payload = new Uint8Array(bytes);
-  const root = await navigator.storage.getDirectory();
-  const rawName = `bench-raw-${crypto.randomUUID()}.bin`;
-  const adapterName = `bench-adapter-${crypto.randomUUID()}.bin`;
-  const facadeName = `bench-facade-${crypto.randomUUID()}.bin`;
-  const rawFile = await root.getFileHandle(rawName, { create: true });
-
-  const rawMs = await measure(async () => {
-    for (let index = 0; index < iterations; index += 1) {
-      const writable = await rawFile.createWritable();
-      await writable.write(payload);
-      await writable.close();
-      await (await rawFile.getFile()).arrayBuffer();
-    }
-  });
-
-  const direct = createOpfsAdapter(root);
-  const adapterMs = await measure(async () => {
-    for (let index = 0; index < iterations; index += 1) {
-      await direct.writeFile(`/${adapterName}`, payload, { mode: "replace" });
-      await direct.readFile(`/${adapterName}`);
-    }
-  });
-
-  const fileSystem = await openFileSystem({ coordination: "none", metrics: "none" });
-  let facadeMs = 0;
-  try {
-    facadeMs = await measure(async () => {
-      for (let index = 0; index < iterations; index += 1) {
-        await fileSystem.writeFile(`/${facadeName}`, payload);
-        await fileSystem.readFile(`/${facadeName}`);
-      }
-    });
-  } finally {
-    await fileSystem.close();
-    await root.removeEntry(rawName).catch(() => undefined);
-    await root.removeEntry(adapterName).catch(() => undefined);
-    await root.removeEntry(facadeName).catch(() => undefined);
-  }
-  return { rawMs, adapterMs, facadeMs };
-}
-
-/** Waits for one IndexedDB request and preserves its native failure. */
-function idbRequest<T>(request: IDBRequest<T>): Promise<T> {
-  return new Promise((resolve, reject) => {
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error("IndexedDB request failed."));
-  });
-}
-
-/** Waits until all writes in one IndexedDB transaction commit. */
-function idbTransaction(transaction: IDBTransaction): Promise<void> {
-  return new Promise((resolve, reject) => {
-    transaction.oncomplete = () => resolve();
-    transaction.onabort = () => reject(transaction.error ?? new Error("IndexedDB transaction aborted."));
-    transaction.onerror = () => reject(transaction.error ?? new Error("IndexedDB transaction failed."));
-  });
-}
-
-/** Opens one raw IndexedDB database used only by the benchmark baseline. */
-function openRawIndexedDb(name: string): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(name, 1);
-    request.onupgradeneeded = () => request.result.createObjectStore("entries");
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error("IndexedDB open failed."));
-  });
-}
-
-/** Measures one browser record backend through raw, adapter, and facade paths. */
-async function benchmarkAdapter(
-  kind: BrowserAdapterType,
-  iterations: number,
-  bytes: number,
-): Promise<BenchmarkResultType | null> {
-  const payload = new Uint8Array(bytes);
-  const id = crypto.randomUUID();
-  const path = "/bench/value.bin";
-
-  if (kind === "localstorage") {
-    const rawKey = `opfs-bench:${id}:raw`;
-    const rawValue = "x".repeat(bytes);
-    const rawMs = await measure(() => {
-      for (let index = 0; index < iterations; index += 1) {
-        localStorage.setItem(rawKey, rawValue);
-        localStorage.getItem(rawKey);
-      }
-    });
-
-    const direct = createLocalStorageAdapter(localStorage, { prefix: `adapter-${id}` });
-    await direct.createDir("/bench");
-    const adapterMs = await measure(async () => {
-      for (let index = 0; index < iterations; index += 1) {
-        await direct.writeFile(path, payload, { mode: "replace" });
-        await direct.readFile(path);
-      }
-    });
-
-    const fileSystem = createFileSystem(createLocalStorageAdapter(localStorage, { prefix: `facade-${id}` }), {
-      coordination: "none",
-      metrics: "none",
-    });
-    try {
-      await fileSystem.ensureDir("/bench");
-      const facadeMs = await measure(async () => {
-        for (let index = 0; index < iterations; index += 1) {
-          await fileSystem.writeFile(path, payload);
-          await fileSystem.readFile(path);
-        }
-      });
-      return { rawMs, adapterMs, facadeMs };
-    } finally {
-      localStorage.removeItem(rawKey);
-      await fileSystem.close();
-    }
-  }
-
-  if (kind === "indexeddb") {
-    if (typeof indexedDB === "undefined") return null;
-    const rawName = `opfs-bench-raw-${id}`;
-    const rawDatabase = await openRawIndexedDb(rawName);
-    const rawMs = await measure(async () => {
-      for (let index = 0; index < iterations; index += 1) {
-        const write = rawDatabase.transaction("entries", "readwrite");
-        write.objectStore("entries").put(payload, "value");
-        await idbTransaction(write);
-        const read = rawDatabase.transaction("entries", "readonly");
-        const readCommitted = idbTransaction(read);
-        await idbRequest(read.objectStore("entries").get("value"));
-        await readCommitted;
-      }
-    });
-
-    const adapterName = `opfs-bench-adapter-${id}`;
-    const direct = await openIndexedDbAdapter({ name: adapterName });
-    await direct.createDir("/bench");
-    const adapterMs = await measure(async () => {
-      for (let index = 0; index < iterations; index += 1) {
-        await direct.writeFile(path, payload, { mode: "replace" });
-        await direct.readFile(path);
-      }
-    });
-
-    const facadeName = `opfs-bench-facade-${id}`;
-    const fileSystem = createFileSystem(await openIndexedDbAdapter({ name: facadeName }), {
-      coordination: "none",
-      metrics: "none",
-      disposeAdapter: true,
-    });
-    try {
-      await fileSystem.ensureDir("/bench");
-      const facadeMs = await measure(async () => {
-        for (let index = 0; index < iterations; index += 1) {
-          await fileSystem.writeFile(path, payload);
-          await fileSystem.readFile(path);
-        }
-      });
-      return { rawMs, adapterMs, facadeMs };
-    } finally {
-      rawDatabase.close();
-      await direct.dispose?.();
-      await fileSystem.close();
-      indexedDB.deleteDatabase(rawName);
-      indexedDB.deleteDatabase(adapterName);
-      indexedDB.deleteDatabase(facadeName);
-    }
-  }
-
-  if (typeof caches === "undefined") return null;
-  const rawName = `opfs-bench-raw-${id}`;
-  const rawCache = await caches.open(rawName);
-  const rawRequest = new Request(`https://opfs.invalid/bench/${id}`);
-  const rawMs = await measure(async () => {
-    for (let index = 0; index < iterations; index += 1) {
-      await rawCache.put(rawRequest, new Response(payload));
-      const response = await rawCache.match(rawRequest);
-      await response?.arrayBuffer();
-    }
-  });
-
-  const adapterName = `opfs-bench-adapter-${id}`;
-  const adapterCache = await caches.open(adapterName);
-  const direct = createCacheAdapter(adapterCache, { prefix: id });
-  await direct.createDir("/bench");
-  const adapterMs = await measure(async () => {
-    for (let index = 0; index < iterations; index += 1) {
-      await direct.writeFile(path, payload, { mode: "replace" });
-      await direct.readFile(path);
-    }
-  });
-
-  const facadeName = `opfs-bench-facade-${id}`;
-  const facadeCache = await caches.open(facadeName);
-  const fileSystem = createFileSystem(createCacheAdapter(facadeCache, { prefix: id }), {
-    coordination: "none",
-    metrics: "none",
-  });
-  try {
-    await fileSystem.ensureDir("/bench");
-    const facadeMs = await measure(async () => {
-      for (let index = 0; index < iterations; index += 1) {
-        await fileSystem.writeFile(path, payload);
-        await fileSystem.readFile(path);
-      }
-    });
-    return { rawMs, adapterMs, facadeMs };
-  } finally {
-    await fileSystem.close();
-    await caches.delete(rawName);
-    await caches.delete(adapterName);
-    await caches.delete(facadeName);
-  }
+/** Removes a fixture-owned IndexedDB database after every connection has closed. */
+async function deleteIndexedDb(name: string): Promise<void> {
+  await within(
+    new Promise<void>((resolve, reject) => {
+      const request = indexedDB.deleteDatabase(name);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+      // close() marks a connection pending until outstanding transactions end.
+      // A transient blocked event is not failure; the bounded success event
+      // proves the owned connection actually closed and deletion completed.
+    }),
+    "IndexedDB fixture deletion",
+  );
 }
 
 /**
@@ -444,21 +233,27 @@ async function indexedDbAppend(): Promise<string> {
     coordination: "none",
     disposeAdapter: true,
   });
-  const second = createFileSystem(await openIndexedDbAdapter({ name }), {
-    coordination: "none",
-    disposeAdapter: true,
-  });
   try {
-    await first.writeFile("/shared.txt", "base");
-    await Promise.all([
-      first.writeFile("/shared.txt", "A", { mode: "append" }),
-      second.writeFile("/shared.txt", "B", { mode: "append" }),
-    ]);
-    return await first.readText("/shared.txt");
+    const second = createFileSystem(await openIndexedDbAdapter({ name }), {
+      coordination: "none",
+      disposeAdapter: true,
+    });
+    try {
+      await first.writeFile("/shared.txt", "base");
+      await Promise.all([
+        first.writeFile("/shared.txt", "A", { mode: "append" }),
+        second.writeFile("/shared.txt", "B", { mode: "append" }),
+      ]);
+      return await first.readText("/shared.txt");
+    } finally {
+      await second.close();
+    }
   } finally {
-    await first.close();
-    await second.close();
-    indexedDB.deleteDatabase(name);
+    try {
+      await first.close();
+    } finally {
+      await deleteIndexedDb(name);
+    }
   }
 }
 
@@ -483,7 +278,7 @@ async function roundTripAdapter(kind: BrowserAdapterType): Promise<string> {
       return await fileSystem.readText(path);
     } finally {
       await fileSystem.close();
-      indexedDB.deleteDatabase(id);
+      await deleteIndexedDb(id);
     }
   }
 
@@ -519,3 +314,4 @@ const opfsTest = {
 } satisfies BrowserTestApiType;
 
 Object.assign(window, { opfsTest });
+Object.assign(window, { opfsReliability: reliability });

@@ -1,0 +1,99 @@
+name: Lane result cache
+description: >-
+  Skip a lane whose exact inputs already passed. Mode check runs right after checkout and
+  sets hit=true when a trusted run recorded a pass for the same key; the job then skips its
+  remaining steps. Mode record runs as the job's last step and writes that pass. The key is the
+  commit's tree hash, so any change to any tracked file (source, tests, lockfiles, mise.toml,
+  workflows) makes a new key. The lane name, its selection and the runner image are also in the
+  key. A hit never turns a failure into a pass: only a job whose every step succeeded records,
+  and only trusted refs write. Set bypass to 'true' (the fresh input) to run the lane anyway.
+
+inputs:
+  mode:
+    description: check (after checkout) or record (last step, after success)
+    required: true
+  lane:
+    description: Lane identity, including its runtime when it has one, for example runtimes-deno
+    required: true
+  selection:
+    description: Anything else that decides what the lane runs, such as the selected projects JSON
+    default: ''
+  bypass:
+    description: When 'true', never skip and never record
+    default: 'false'
+
+outputs:
+  hit:
+    description: "'true' when the same inputs already passed in a trusted run"
+    value: ${{ steps.restore.outputs.cache-hit == 'true' }}
+
+runs:
+  using: composite
+  steps:
+    - name: Fingerprint lane inputs
+      id: key
+      if: inputs.bypass != 'true'
+      shell: bash
+      env:
+        LANE: ${{ inputs.lane }}
+        SELECTION: ${{ inputs.selection }}
+      run: |
+        set -euo pipefail
+        # The tree hash names every tracked file's content; commit metadata and the base commit do not matter.
+        tree=$(git rev-parse 'HEAD^{tree}')
+        selection=$(printf '%s' "$SELECTION" | sha256sum | cut -c1-16)
+        # GitHub-hosted runners set ImageOS and ImageVersion, for example 20261116.88.1. Runners in one image
+        # release can carry different builds (.88.1, .202.1), so the key uses the release date only.
+        # A new weekly image release starts new keys.
+        version="${ImageVersion:-unknown}"
+        image="${ImageOS:-unknown}-${version%%.*}"
+        marker="$RUNNER_TEMP/lane-pass/${LANE//[^A-Za-z0-9._-]/_}.txt"
+        {
+          echo "key=lane-pass-v1-${RUNNER_OS}-${image}-${LANE}-${selection}-${tree}"
+          echo "marker=$marker"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Look for a recorded pass
+      id: restore
+      if: inputs.bypass != 'true' && inputs.mode == 'check'
+      continue-on-error: true
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.key.outputs.marker }}
+        key: ${{ steps.key.outputs.key }}
+
+    - name: Report the recorded pass
+      if: steps.restore.outputs.cache-hit == 'true'
+      shell: bash
+      env:
+        MARKER: ${{ steps.key.outputs.marker }}
+      run: |
+        echo "::notice title=Lane skipped::The same inputs already passed. $(tr '\n' ' ' < "$MARKER")"
+        echo "LANE_RESULT_HIT=true" >> "$GITHUB_ENV"
+
+    - name: Write the pass marker
+      id: marker
+      if: >-
+        inputs.bypass != 'true' && inputs.mode == 'record' && env.LANE_RESULT_HIT != 'true' &&
+        github.event.repository.fork == false &&
+        (
+          (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref_protected == true)) ||
+          (github.event_name == 'pull_request' && startsWith(github.ref, 'refs/pull/') && endsWith(github.ref, '/merge') &&
+           github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.repo.fork == false) ||
+          (github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/heads/'))
+        )
+      shell: bash
+      env:
+        MARKER: ${{ steps.key.outputs.marker }}
+        RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}
+      run: |
+        mkdir -p "$(dirname "$MARKER")"
+        printf 'Passed in %s for commit %s at %s.\n' "$RUN" "$GITHUB_SHA" "$(date -u +%FT%TZ)" > "$MARKER"
+
+    - name: Record the pass
+      if: steps.marker.outcome == 'success'
+      continue-on-error: true
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.key.outputs.marker }}
+        key: ${{ steps.key.outputs.key }}

@@ -7,18 +7,20 @@ type AssertTrue<T extends true> = T;
 type IsEquivalent<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
 
 import type { DriverMetricsType } from "../metrics.ts";
+import type {
+  DriverKindType,
+  DriverOptimizationType,
+  DriverOwnershipType,
+  LimitType,
+  RequirementType,
+} from "../_schema_types.ts";
 import {
   DriverKindSchema,
-  type DriverKindType,
   DriverOptimizationSchema,
-  type DriverOptimizationType,
   DriverOwnershipSchema,
-  type DriverOwnershipType,
   LimitSchema,
-  type LimitType,
   PathSchema,
   RequirementSchema,
-  type RequirementType,
   SupportModeSchema,
   WriteModeSchema,
 } from "../schema.ts";
@@ -30,7 +32,12 @@ import {
  * the right seam. For example, a driver limit may require a different backend,
  * while a filesystem problem may only require a facade policy change.
  */
-export const ProblemLayerSchema: z.ZodType<ProblemLayerType, ProblemLayerType> = z.enum(["client", "driver", "adapter", "filesystem"]);
+export const ProblemLayerSchema: z.ZodType<ProblemLayerType, ProblemLayerType> = z.enum([
+  "client",
+  "driver",
+  "adapter",
+  "filesystem",
+]);
 
 /** A validated storage problem layer. */
 export type ProblemLayerType = "client" | "driver" | "adapter" | "filesystem";
@@ -41,7 +48,11 @@ export type ProblemLayerType = "client" | "driver" | "adapter" | "filesystem";
  * These levels are presentation-friendly summaries. Callers should still use
  * the structured `code`, `layer`, and optional `limit` fields to drive policy.
  */
-export const ProblemSeveritySchema: z.ZodType<ProblemSeverityType, ProblemSeverityType> = z.enum(["info", "warning", "error"]);
+export const ProblemSeveritySchema: z.ZodType<ProblemSeverityType, ProblemSeverityType> = z.enum([
+  "info",
+  "warning",
+  "error",
+]);
 
 /** A validated storage planning problem severity. */
 export type ProblemSeverityType = "info" | "warning" | "error";
@@ -146,7 +157,15 @@ type _ActionTypeMatchesSchema = AssertTrue<IsEquivalent<ActionType, z.output<typ
  * backend-native work it understands directly, while the adapter and facade add
  * higher-level emulation and policy above it.
  */
-export const DriverOperationSchema: z.ZodType<DriverOperationType, DriverOperationType> = z.enum(["stat", "read", "write", "list", "copy", "move", "remove"]);
+export const DriverOperationSchema: z.ZodType<DriverOperationType, DriverOperationType> = z.enum([
+  "stat",
+  "read",
+  "write",
+  "list",
+  "copy",
+  "move",
+  "remove",
+]);
 
 /** A validated backend driver operation. */
 export type DriverOperationType = "stat" | "read" | "write" | "list" | "copy" | "move" | "remove";

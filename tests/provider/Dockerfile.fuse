@@ -1,0 +1,6 @@
+FROM ubuntu:22.04
+ARG DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl fuse3 libfuse2 libcurl4 libssl3 xz-utils && rm -rf /var/lib/apt/lists/*
+RUN curl -fsSL https://s3.amazonaws.com/mountpoint-s3-release/1.24.0/arm64/mount-s3-1.24.0-arm64.deb -o /tmp/mount.deb && curl -fsSL https://github.com/Azure/azure-storage-fuse/releases/download/blobfuse2-2.5.5/blobfuse2-2.5.5-Ubuntu-22.04.arm64.deb -o /tmp/blobfuse.deb && echo '23960d57dc29bcc34ac7ded9e8e6f98c902724d367a3012a48957ef6e2ecca63  /tmp/mount.deb' | sha256sum -c - && echo 'cfb6b93e22ec8871209200cfe51935b28d22f56524998ceeae9f279f67add7a5  /tmp/blobfuse.deb' | sha256sum -c - && dpkg -i /tmp/mount.deb /tmp/blobfuse.deb && rm /tmp/*.deb
+RUN curl -fsSL https://nodejs.org/dist/v24.21.0/node-v24.21.0-linux-arm64.tar.xz | tar xJ --strip-components=1 -C /usr/local && node --version && mount-s3 --version && blobfuse2 --version
+CMD ["sleep", "3600"]

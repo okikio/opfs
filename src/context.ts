@@ -1,4 +1,4 @@
-import type { OpfsContextType } from "./schema.ts";
+import type { OpfsContextType } from "./_schema_types.ts";
 
 /**
  * Small structural view of browser globals used for context classification.

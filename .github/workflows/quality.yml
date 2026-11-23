@@ -1,0 +1,796 @@
+name: Quality
+
+on:
+  workflow_call:
+    inputs:
+      full:
+        type: boolean
+        default: false
+      fresh:
+        description: Run lanes whose inputs already passed, and bypass Deno compiler state, without changing selected checks
+        type: boolean
+        default: false
+
+# Both callers run this commit with a read-only token and no inherited secrets.
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  plan:
+    name: Select affected work
+    permissions:
+      # Main pushes read earlier CI runs to find the last commit that passed.
+      actions: read
+      contents: read
+      pull-requests: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      selected: ${{ steps.stack.outputs.selected }}
+      source: ${{ steps.plan.outputs.source }}
+      runtimes: ${{ steps.plan.outputs.runtimes }}
+      platforms: ${{ steps.plan.outputs.platforms }}
+      browser: ${{ steps.plan.outputs.browser }}
+      providers: ${{ steps.plan.outputs.providers }}
+      interop: ${{ steps.plan.outputs.interop }}
+      netlify: ${{ steps.plan.outputs.netlify }}
+      package: ${{ steps.plan.outputs.package }}
+      bench: ${{ steps.plan.outputs.bench }}
+      stress: ${{ steps.plan.outputs.stress }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
+        with:
+          version: 2026.11.12
+          install_args: node
+          cache: true
+      - name: Select the combined native stack candidate
+        id: stack
+        uses: $/.github/actions/stack
+      # A main push selects work changed since the last commit whose CI passed, not since the
+      # previous push, so a failed push stays selected until it passes. No baseline selects all work.
+      - name: Find the last main commit whose CI passed
+        id: baseline
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+        run: node tools/workspace/evidence.ts baseline --head "$HEAD_SHA" --run-id "$RUN_ID"
+      - id: plan
+        env:
+          BASE_SHA: ${{ steps.stack.outputs.base-sha || github.event.pull_request.base.sha || steps.baseline.outputs.base }}
+          HEAD_SHA: ${{ github.sha }}
+          FULL: ${{ inputs.full || github.event_name == 'workflow_dispatch' }}
+        run: |
+          if [[ "$FULL" == true || -z "$BASE_SHA" || "$BASE_SHA" =~ ^0+$ ]]; then
+            mise run ci:plan -- --full
+          else
+            mise run ci:plan -- --base "$BASE_SHA" --head "$HEAD_SHA"
+          fi
+
+  source:
+    needs: plan
+    if: needs.plan.outputs.source == 'true'
+    name: Source and public contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      # Skip the rest of this job when a trusted run already passed the same inputs.
+      - name: Skip when these inputs already passed
+        id: passed
+        uses: $/.github/actions/result-cache
+        with:
+          mode: check
+          lane: source
+          selection: ''
+          bypass: ${{ inputs.fresh }}
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
+        if: steps.passed.outputs.hit != 'true'
+        with:
+          version: 2026.11.12
+          cache: true
+      - uses: $/.github/actions/dependency-cache
+        if: steps.passed.outputs.hit != 'true'
+      - run: mise run prepare:deps
+        if: steps.passed.outputs.hit != 'true'
+      # Stored fixtures are downloads keyed by their manifest; each file is still hashed before use.
+      - name: Restore stored fixtures
+        if: steps.passed.outputs.hit != 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .tmp/fixtures
+          key: opfs-fixtures-v1-${{ hashFiles('tests/fixtures/store.json') }}
+      - run: mise run prepare:fixtures
+        if: steps.passed.outputs.hit != 'true'
+      - name: Restore native Deno compiler state
+        if: steps.passed.outputs.hit != 'true'
+        uses: $/.github/actions/deno-cache
+        with:
+          mode: restore
+          cohort: opfs-source
+          bypass: ${{ inputs.fresh }}
+      - run: mise run ci:run -- --lane source
+        if: steps.passed.outputs.hit != 'true'
+        env:
+          # zizmor and pinact use the job token for their online audits; it only reads public data.
+          GH_TOKEN: ${{ github.token }}
+      - name: Save native Deno compiler state
+        if: steps.passed.outputs.hit != 'true'
+        uses: $/.github/actions/deno-cache
+        with:
+          mode: save
+          cohort: opfs-source
+          bypass: ${{ inputs.fresh }}
+      - name: Save dependency downloads after successful checks
+        if: steps.passed.outputs.hit != 'true'
+        uses: $/.github/actions/dependency-cache
+        with:
+          mode: save
+      - name: Record this pass for identical inputs
+        if: steps.passed.outputs.hit != 'true'
+        uses: $/.github/actions/result-cache
+        with:
+          mode: record
+          lane: source
+          selection: ''
+          bypass: ${{ inputs.fresh }}
+
+  runtimes:
+    needs: plan
+    if: needs.plan.outputs.selected == 'true' && needs.plan.outputs.runtimes == 'true'
+    name: Tests on ${{ matrix.runtime }}${{ matrix.node && format(' {0}', matrix.node) || '' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runtime: deno
+          - runtime: node
+          - runtime: bun
+          # Older supported Node.js releases (engines: >=22.18).
+          - runtime: node
+            node: '22'
+          - runtime: node
+            node: '24'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      RUNTIME: ${{ matrix.runtime }}
+      MISE_NODE_VERSION: ${{ matrix.node || '26.13.1' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      # Skip the rest of this job when a trusted run already passed the same inputs.
+      - name: Skip when these inputs already passed
+        id: passed
+        uses: $/.github/actions/result-cache
+        with:
+          mode: check
+          lane: runtimes-${{ matrix.runtime }}${{ matrix.node }}
+          selection: ''
+          bypass: ${{ inputs.fresh }}
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
+        if: steps.passed.outputs.hit != 'true'
+        with:
+          version: 2026.11.12
+          cache: true
+      - uses: $/.github/actions/dependency-cache
+        if: steps.passed.outputs.hit != 'true'
+      - run: mise run prepare:deps
+        if: steps.passed.outputs.hit != 'true'
+      # Stored fixtures are downloads keyed by their manifest; each file is still hashed before use.
+      - name: Restore stored fixtures
+        if: steps.passed.outputs.hit != 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .tmp/fixtures
+          key: opfs-fixtures-v1-${{ hashFiles('tests/fixtures/store.json') }}
+      - run: mise run prepare:fixtures
+        if: steps.passed.outputs.hit != 'true'
+      - name: Restore native Deno compiler state
+        if: steps.passed.outputs.hit != 'true'
+        uses: $/.github/actions/deno-cache
+        with:
+          mode: restore
+          cohort: opfs-runtime-${{ matrix.runtime }}
+          bypass: ${{ inputs.fresh }}
+      - run: mise run ci:run -- --lane runtimes --runtime "$RUNTIME"
+        if: steps.passed.outputs.hit != 'true'
+      - name: Retain reports
+        if: steps.passed.outputs.hit != 'true' && always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: runtime-${{ matrix.runtime }}${{ matrix.node }}-reports
+          path: .tmp/reports
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Save native Deno compiler state
+        if: steps.passed.outputs.hit != 'true'
+        uses: $/.github/actions/deno-cache
+        with:
+          mode: save
+          cohort: opfs-runtime-${{ matrix.runtime }}
+          bypass: ${{ inputs.fresh }}
+      - name: Save dependency downloads after successful checks
+        if: steps.passed.outputs.hit != 'true'
+        uses: $/.github/actions/dependency-cache
+        with:
+          mode: save
+      - name: Record this pass for identical inputs
+        if: steps.passed.outputs.hit != 'true'
+        uses: $/.github/actions/result-cache
+        with:
+          mode: record
+          lane: runtimes-${{ matrix.runtime }}${{ matrix.node }}
+          selection: ''
+          bypass: ${{ inputs.fresh }}
+
+  platforms:
+    needs: plan
+    if: needs.plan.outputs.selected == 'true' && needs.plan.outputs.platforms == 'true'
+    name: Tests on ${{ matrix.runtime }} / ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+        runtime: [deno, node, bun]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    env:
+      RUNTIME: ${{ matrix.runtime }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      # Skip the rest of this job when a trusted run already passed the same inputs.
+      - name: Skip when these inputs already passed
+        id: passed
+        uses: $/.github/actions/result-cache
+        with:
+          mode: check
+          lane: platforms-${{ matrix.os }}-${{ matrix.runtime }}
+          selection: ''
+          bypass: ${{ inputs.fresh }}
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
+        if: steps.passed.outputs.hit != 'true'
+        with:
+          version: 2026.11.12
+          cache: true
+      - uses: $/.github/actions/dependency-cache
+        if: steps.passed.outputs.hit != 'true'
+      - run: mise run prepare:deps
+        if: steps.passed.outputs.hit != 'true'
+      # Stored fixtures are downloads keyed by their manifest; each file is still hashed before use.
+      - name: Restore stored fixtures
+        if: steps.passed.outputs.hit != 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .tmp/fixtures
+          key: opfs-fixtures-v1-${{ hashFiles('tests/fixtures/store.json') }}
+      - run: mise run prepare:fixtures
+        if: steps.passed.outputs.hit != 'true'
+      - run: mise run ci:run -- --lane platforms --runtime "$RUNTIME"
+        if: steps.passed.outputs.hit != 'true'
+      - name: Save dependency downloads after successful checks
+        if: steps.passed.outputs.hit != 'true'
+        uses: $/.github/actions/dependency-cache
+        with:
+          mode: save
+      - name: Record this pass for identical inputs
+        if: steps.passed.outputs.hit != 'true'
+        uses: $/.github/actions/result-cache
+        with:
+          mode: record
+          lane: platforms-${{ matrix.os }}-${{ matrix.runtime }}
+          selection: ''
+          bypass: ${{ inputs.fresh }}
+
+  browser:
+    needs: plan
+    if: needs.plan.outputs.selected == 'true' && needs.plan.outputs.browser == 'true'
+    name: Browsers (${{ matrix.shard }}/3)
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SHARD: ${{ matrix.shard }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      # Skip the rest of this job when a trusted run already passed the same inputs.
+      - name: Skip when these inputs already passed
+        id: passed
+        uses: $/.github/actions/result-cache
+        with:
+          mode: check
+          lane: browser
+          selection: 'shard=${{ matrix.shard }}/3'
+          bypass: ${{ inputs.fresh }}
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
+        if: steps.passed.outputs.hit != 'true'
+        with:
+          version: 2026.11.12
+          cache: true
+      - uses: $/.github/actions/dependency-cache
+        if: steps.passed.outputs.hit != 'true'
+      - run: mise run prepare:deps
+        if: steps.passed.outputs.hit != 'true'
+      # Stored fixtures are downloads keyed by their manifest; each file is still hashed before use.
+      - name: Restore stored fixtures
+        if: steps.passed.outputs.hit != 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .tmp/fixtures
+          key: opfs-fixtures-v1-${{ hashFiles('tests/fixtures/store.json') }}
+      - run: mise run prepare:fixtures
+        if: steps.passed.outputs.hit != 'true'
+      - run: mise run ci:run -- --lane browser --shard "$SHARD/3"
+        if: steps.passed.outputs.hit != 'true'
+      - name: Retain reports
+        if: steps.passed.outputs.hit != 'true' && always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: browser-${{ matrix.shard }}-reports
+          path: .tmp/reports
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Save dependency downloads after successful checks
+        if: steps.passed.outputs.hit != 'true'
+        uses: $/.github/actions/dependency-cache
+        with:
+          mode: save
+      - name: Record this pass for identical inputs
+        if: steps.passed.outputs.hit != 'true'
+        uses: $/.github/actions/result-cache
+        with:
+          mode: record
+          lane: browser
+          selection: 'shard=${{ matrix.shard }}/3'
+          bypass: ${{ inputs.fresh }}
+
+  providers:
+    needs: plan
+    if: needs.plan.outputs.selected == 'true' && needs.plan.outputs.providers == 'true'
+    name: Provider containers (${{ matrix.shard }}/4)
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SHARD: ${{ matrix.shard }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      # Skip the rest of this job when a trusted run already passed the same inputs.
+      - name: Skip when these inputs already passed
+        id: passed
+        uses: $/.github/actions/result-cache
+        with:
+          mode: check
+          lane: providers
+          selection: 'shard=${{ matrix.shard }}/4'
+          bypass: ${{ inputs.fresh }}
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
+        if: steps.passed.outputs.hit != 'true'
+        with:
+          version: 2026.11.12
+          cache: true
+      - uses: $/.github/actions/dependency-cache
+        if: steps.passed.outputs.hit != 'true'
+      - run: mise run prepare:deps
+        if: steps.passed.outputs.hit != 'true'
+      # Stored fixtures are downloads keyed by their manifest; each file is still hashed before use.
+      - name: Restore stored fixtures
+        if: steps.passed.outputs.hit != 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .tmp/fixtures
+          key: opfs-fixtures-v1-${{ hashFiles('tests/fixtures/store.json') }}
+      - run: mise run prepare:fixtures
+        if: steps.passed.outputs.hit != 'true'
+      - run: mise run ci:run -- --lane providers --shard "$SHARD/4"
+        if: steps.passed.outputs.hit != 'true'
+      - name: Retain reports
+        if: steps.passed.outputs.hit != 'true' && always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: provider-${{ matrix.shard }}-reports
+          path: .tmp/reports
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Save dependency downloads after successful checks
+        if: steps.passed.outputs.hit != 'true'
+        uses: $/.github/actions/dependency-cache
+        with:
+          mode: save
+      - name: Record this pass for identical inputs
+        if: steps.passed.outputs.hit != 'true'
+        uses: $/.github/actions/result-cache
+        with:
+          mode: record
+          lane: providers
+          selection: 'shard=${{ matrix.shard }}/4'
+          bypass: ${{ inputs.fresh }}
+
+  interop:
+    needs: plan
+    if: needs.plan.outputs.selected == 'true' && needs.plan.outputs.interop == 'true'
+    name: Archive interoperability with native tools
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      OPFS_SEVEN: /usr/bin/7z
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      # Skip the rest of this job when a trusted run already passed the same inputs.
+      - name: Skip when these inputs already passed
+        id: passed
+        uses: $/.github/actions/result-cache
+        with:
+          mode: check
+          lane: interop
+          selection: ''
+          bypass: ${{ inputs.fresh }}
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
+        if: steps.passed.outputs.hit != 'true'
+        with:
+          version: 2026.11.12
+          cache: true
+      - uses: $/.github/actions/dependency-cache
+        if: steps.passed.outputs.hit != 'true'
+      - run: mise run prepare:deps
+        if: steps.passed.outputs.hit != 'true'
+      # Stored fixtures are downloads keyed by their manifest; each file is still hashed before use.
+      - name: Restore stored fixtures
+        if: steps.passed.outputs.hit != 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .tmp/fixtures
+          key: opfs-fixtures-v1-${{ hashFiles('tests/fixtures/store.json') }}
+      - run: mise run prepare:fixtures
+        if: steps.passed.outputs.hit != 'true'
+      - name: Install independent archive consumers
+        if: steps.passed.outputs.hit != 'true'
+        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends 7zip libarchive-tools
+      - run: mise run ci:run -- --lane interop
+        if: steps.passed.outputs.hit != 'true'
+      - name: Save dependency downloads after successful checks
+        if: steps.passed.outputs.hit != 'true'
+        uses: $/.github/actions/dependency-cache
+        with:
+          mode: save
+      - name: Record this pass for identical inputs
+        if: steps.passed.outputs.hit != 'true'
+        uses: $/.github/actions/result-cache
+        with:
+          mode: record
+          lane: interop
+          selection: ''
+          bypass: ${{ inputs.fresh }}
+
+  netlify:
+    needs: plan
+    if: needs.plan.outputs.selected == 'true' && needs.plan.outputs.netlify == 'true'
+    name: Netlify Blobs against its SDK
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      # Skip the rest of this job when a trusted run already passed the same inputs.
+      - name: Skip when these inputs already passed
+        id: passed
+        uses: $/.github/actions/result-cache
+        with:
+          mode: check
+          lane: netlify
+          selection: ''
+          bypass: ${{ inputs.fresh }}
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
+        if: steps.passed.outputs.hit != 'true'
+        with:
+          version: 2026.11.12
+          cache: true
+      - uses: $/.github/actions/dependency-cache
+        if: steps.passed.outputs.hit != 'true'
+      - run: mise run prepare:deps
+        if: steps.passed.outputs.hit != 'true'
+      # Stored fixtures are downloads keyed by their manifest; each file is still hashed before use.
+      - name: Restore stored fixtures
+        if: steps.passed.outputs.hit != 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .tmp/fixtures
+          key: opfs-fixtures-v1-${{ hashFiles('tests/fixtures/store.json') }}
+      - run: mise run prepare:fixtures
+        if: steps.passed.outputs.hit != 'true'
+      - run: mise run ci:run -- --lane netlify
+        if: steps.passed.outputs.hit != 'true'
+      - name: Save dependency downloads after successful checks
+        if: steps.passed.outputs.hit != 'true'
+        uses: $/.github/actions/dependency-cache
+        with:
+          mode: save
+      - name: Record this pass for identical inputs
+        if: steps.passed.outputs.hit != 'true'
+        uses: $/.github/actions/result-cache
+        with:
+          mode: record
+          lane: netlify
+          selection: ''
+          bypass: ${{ inputs.fresh }}
+
+  package:
+    needs: plan
+    if: needs.plan.outputs.selected == 'true' && needs.plan.outputs.package == 'true'
+    name: npm package and ecosystem consumers
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      # Skip the rest of this job when a trusted run already passed the same inputs.
+      - name: Skip when these inputs already passed
+        id: passed
+        uses: $/.github/actions/result-cache
+        with:
+          mode: check
+          lane: package
+          selection: ''
+          bypass: ${{ inputs.fresh }}
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
+        if: steps.passed.outputs.hit != 'true'
+        with:
+          version: 2026.11.12
+          cache: true
+      - uses: $/.github/actions/dependency-cache
+        if: steps.passed.outputs.hit != 'true'
+      - run: mise run prepare:deps
+        if: steps.passed.outputs.hit != 'true'
+      # Stored fixtures are downloads keyed by their manifest; each file is still hashed before use.
+      - name: Restore stored fixtures
+        if: steps.passed.outputs.hit != 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .tmp/fixtures
+          key: opfs-fixtures-v1-${{ hashFiles('tests/fixtures/store.json') }}
+      - run: mise run prepare:fixtures
+        if: steps.passed.outputs.hit != 'true'
+      - run: mise run ci:run -- --lane package
+        if: steps.passed.outputs.hit != 'true'
+      - name: Retain reports
+        if: steps.passed.outputs.hit != 'true' && always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: package-reports
+          path: .tmp/reports
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Save dependency downloads after successful checks
+        if: steps.passed.outputs.hit != 'true'
+        uses: $/.github/actions/dependency-cache
+        with:
+          mode: save
+      - name: Record this pass for identical inputs
+        if: steps.passed.outputs.hit != 'true'
+        uses: $/.github/actions/result-cache
+        with:
+          mode: record
+          lane: package
+          selection: ''
+          bypass: ${{ inputs.fresh }}
+
+  bench:
+    needs: plan
+    if: needs.plan.outputs.selected == 'true' && needs.plan.outputs.bench == 'true'
+    name: Benchmarks (${{ matrix.kind }}${{ matrix.shard && format(' {0}/3', matrix.shard) || '' }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - kind: run
+            shard: 1
+          - kind: run
+            shard: 2
+          - kind: run
+            shard: 3
+          - kind: providers
+          - kind: browser
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      KIND: ${{ matrix.kind }}
+      SHARD: ${{ matrix.shard }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      # Skip the rest of this job when a trusted run already passed the same inputs.
+      - name: Skip when these inputs already passed
+        id: passed
+        uses: $/.github/actions/result-cache
+        with:
+          mode: check
+          lane: bench-${{ matrix.kind }}${{ matrix.shard }}
+          selection: ''
+          bypass: ${{ inputs.fresh }}
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
+        if: steps.passed.outputs.hit != 'true'
+        with:
+          version: 2026.11.12
+          cache: true
+      - uses: $/.github/actions/dependency-cache
+        if: steps.passed.outputs.hit != 'true'
+      - run: mise run prepare:deps
+        if: steps.passed.outputs.hit != 'true'
+      # Stored fixtures are downloads keyed by their manifest; each file is still hashed before use.
+      - name: Restore stored fixtures
+        if: steps.passed.outputs.hit != 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .tmp/fixtures
+          key: opfs-fixtures-v1-${{ hashFiles('tests/fixtures/store.json') }}
+      - run: mise run prepare:fixtures
+        if: steps.passed.outputs.hit != 'true'
+      - run: mise run ci:run -- --lane bench --kind "$KIND" ${SHARD:+--shard "$SHARD/3"}
+        if: steps.passed.outputs.hit != 'true'
+      - name: Retain reports
+        if: steps.passed.outputs.hit != 'true' && always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: bench-${{ matrix.kind }}${{ matrix.shard }}-reports
+          path: .tmp/reports
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Save dependency downloads after successful checks
+        if: steps.passed.outputs.hit != 'true'
+        uses: $/.github/actions/dependency-cache
+        with:
+          mode: save
+      - name: Record this pass for identical inputs
+        if: steps.passed.outputs.hit != 'true'
+        uses: $/.github/actions/result-cache
+        with:
+          mode: record
+          lane: bench-${{ matrix.kind }}${{ matrix.shard }}
+          selection: ''
+          bypass: ${{ inputs.fresh }}
+
+  stress:
+    needs: plan
+    if: needs.plan.outputs.selected == 'true' && needs.plan.outputs.stress == 'true'
+    name: Shuffled repeats and coverage on Deno
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      # Skip the rest of this job when a trusted run already passed the same inputs.
+      - name: Skip when these inputs already passed
+        id: passed
+        uses: $/.github/actions/result-cache
+        with:
+          mode: check
+          lane: stress
+          selection: ''
+          bypass: ${{ inputs.fresh }}
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
+        if: steps.passed.outputs.hit != 'true'
+        with:
+          version: 2026.11.12
+          cache: true
+      - uses: $/.github/actions/dependency-cache
+        if: steps.passed.outputs.hit != 'true'
+      - run: mise run prepare:deps
+        if: steps.passed.outputs.hit != 'true'
+      # Stored fixtures are downloads keyed by their manifest; each file is still hashed before use.
+      - name: Restore stored fixtures
+        if: steps.passed.outputs.hit != 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .tmp/fixtures
+          key: opfs-fixtures-v1-${{ hashFiles('tests/fixtures/store.json') }}
+      - run: mise run prepare:fixtures
+        if: steps.passed.outputs.hit != 'true'
+      - run: mise run ci:run -- --lane stress
+        if: steps.passed.outputs.hit != 'true'
+      - name: Retain reports
+        if: steps.passed.outputs.hit != 'true' && always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: stress-reports
+          path: .tmp/reports
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Save dependency downloads after successful checks
+        if: steps.passed.outputs.hit != 'true'
+        uses: $/.github/actions/dependency-cache
+        with:
+          mode: save
+      - name: Record this pass for identical inputs
+        if: steps.passed.outputs.hit != 'true'
+        uses: $/.github/actions/result-cache
+        with:
+          mode: record
+          lane: stress
+          selection: ''
+          bypass: ${{ inputs.fresh }}
+
+  advisory:
+    name: Dependency advisories
+    needs: plan
+    if: github.event_name != 'pull_request'
+    # Advisory databases change without a commit, so this runs fresh and never blocks the merge result.
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
+        with:
+          version: 2026.11.12
+          cache: true
+      - uses: $/.github/actions/dependency-cache
+      - run: mise run check:security
+
+  result:
+    name: Required checks
+    # Lower stack layers skip this aggregate; the selected top must prove its own combined checks.
+    if: always() && (needs.plan.result != 'success' || needs.plan.outputs.selected != 'false')
+    needs: [plan, source, runtimes, platforms, browser, providers, interop, netlify, package, bench, stress]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
+        with:
+          version: 2026.11.12
+          install_args: node
+          cache: true
+      - name: Report selected checks
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: node tools/workspace/ci-result.ts

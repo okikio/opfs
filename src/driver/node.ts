@@ -15,6 +15,7 @@ import type {
 import { createLocalPath } from "./local.ts";
 import { FileSystemError, throwIfAborted, toFileSystemError } from "../error.ts";
 import type { PathType } from "../path.ts";
+import { withAbortSignal } from "../stream.ts";
 
 /** Node built-in filesystem module shape used through `process.getBuiltinModule()`. */
 export type NodeFsType = typeof import("node:fs");
@@ -67,6 +68,7 @@ export async function writeStreamToFile(
   source: ReadableStream<Uint8Array>,
   options: FileDriverWriteOptionsType,
 ): Promise<void> {
+  throwIfAborted(options.signal, "write", virtualPath);
   let file: NodeFileHandle | undefined;
   try {
     file = options.mode === "update"
@@ -79,11 +81,12 @@ export async function writeStreamToFile(
       ? (await file.stat()).size
       : options.at ?? 0;
 
-    const reader = source.getReader();
+    const reader = withAbortSignal(source, options.signal, virtualPath, "write").getReader();
     try {
       while (true) {
         throwIfAborted(options.signal, "write", virtualPath);
         const next = await reader.read();
+        throwIfAborted(options.signal, "write", virtualPath);
         if (next.done) break;
 
         let offset = 0;
@@ -105,6 +108,7 @@ export async function writeStreamToFile(
       reader.releaseLock();
     }
 
+    throwIfAborted(options.signal, "write", virtualPath);
     if (options.truncate) await file.truncate(position);
   } finally {
     await file?.close();
@@ -335,7 +339,11 @@ export class NodeBackend implements FileBackendType {
       // return the exact empty range requested by the portable contract.
       const info = await this.#fsp.stat(target);
       if (info.isDirectory()) throw new FileSystemError("type-mismatch", "read", path, `'${path}' is a directory.`);
-      return new ReadableStream<Uint8Array>({ start(controller) { controller.close(); } });
+      return new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.close();
+        },
+      });
     }
     const start = options.at ?? 0;
     const end = options.length === undefined ? undefined : start + options.length - 1;

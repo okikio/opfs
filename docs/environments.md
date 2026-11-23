@@ -130,8 +130,8 @@ Use `driver/node` and `adapter/node`. The driver uses `node:fs`/`node:fs/promise
 runtime subpath and maps virtual paths below one configured host root.
 
 Node supports native streaming, ranges, copy, rename/move, positional writes, and synchronous random access where
-implemented by the driver. The root check is lexical. Existing or concurrently created symbolic links can resolve outside
-the configured directory, so use a trusted root rather than relying on it for security isolation.
+implemented by the driver. The root check is lexical. Existing or concurrently created symbolic links can resolve
+outside the configured directory, so use a trusted root rather than relying on it for security isolation.
 
 The package engine range starts at Node 22.18. A validation host below that version can provide supplemental evidence
 but cannot stand in for the declared runtime matrix.
@@ -161,8 +161,8 @@ upstream resource and the required Web primitives are available.
 The driver describes backend requirements. The adapter/facade describes effective filesystem routes. Database-backed
 record storage generally cannot claim native streaming unless the driver implements a dedicated byte lane. A backend's
 transaction support does not make the generic adapter's read-modify-write append/update sequence atomic across tabs,
-processes, or hosts. Cross-owner safety must come from a native driver write mode, provider condition, or application-level
-serialization.
+processes, or hosts. Cross-owner safety must come from a native driver write mode, provider condition, or
+application-level serialization.
 
 ## Server coordination
 

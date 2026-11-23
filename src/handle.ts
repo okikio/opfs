@@ -1,7 +1,7 @@
 import { FileSystemError } from "./error.ts";
 import type { FileSystemType } from "./filesystem.ts";
 import { basename, isAncestorPath, joinPath, normalizePath, validateName } from "./path.ts";
-import type { EntryKindType } from "./schema.ts";
+import type { EntryKindType } from "./_schema_types.ts";
 import type { SyncFileType } from "./sync.ts";
 import { toBytes, type WriteDataType } from "./stream.ts";
 

@@ -1,6 +1,7 @@
 import { expect } from "@std/expect";
 
 import type { FileSystemType } from "../src/filesystem.ts";
+import { verifyBytes, verifyPendingAbort } from "./reliability.ts";
 
 /** Collects one host-driver stream without routing the assertion through `Response`. */
 async function bytes(source: ReadableStream<Uint8Array>): Promise<Uint8Array> {
@@ -37,6 +38,8 @@ async function bytes(source: ReadableStream<Uint8Array>): Promise<Uint8Array> {
  * exercise the runtime's actual filesystem implementation.
  */
 export async function verifyHost(fileSystem: FileSystemType): Promise<void> {
+  await verifyBytes(fileSystem);
+  await verifyPendingAbort(fileSystem);
   const rangeSource = Uint8Array.from({ length: 160 * 1024 }, (_, index) => index % 251);
   await fileSystem.writeFile("/range.bin", rangeSource);
   const range = await bytes(await fileSystem.openReadStream("/range.bin", { at: 7, length: 128 * 1024 + 13 }));

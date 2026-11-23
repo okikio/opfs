@@ -1,4 +1,3 @@
-/// <reference types="deno" />
 import { pooledMap } from "@std/async/pool";
 import { concat } from "@std/bytes";
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
@@ -49,10 +48,37 @@ export const DENO_KV_DEFAULT_COLLECT_AGE_MS = 60 * 60 * 1000;
 /** Default deletion budget for one explicit collection pass. */
 export const DENO_KV_DEFAULT_COLLECT_DELETES = 10_000;
 
+/**
+ * Native Deno KV key tuple. The package exposes this structural contract so
+ * importing its types does not require an unstable ambient Deno namespace.
+ */
+export type DenoKvKeyType = readonly (Uint8Array | string | number | bigint | boolean | symbol)[];
+
+/** Native prefix or ordered-range selector accepted by the borrowed database. */
+export type DenoKvListSelectorType =
+  | { readonly prefix: DenoKvKeyType }
+  | { readonly prefix: DenoKvKeyType; readonly start: DenoKvKeyType }
+  | { readonly prefix: DenoKvKeyType; readonly end: DenoKvKeyType }
+  | { readonly start: DenoKvKeyType; readonly end: DenoKvKeyType };
+
+/** Native list options. Consistency applies to each provider batch separately. */
+export interface DenoKvListOptionsType {
+  /** Maximum number of matching entries returned. */
+  readonly limit?: number;
+  /** Provider cursor used to resume iteration. */
+  readonly cursor?: string;
+  /** Iterates keys in descending order when enabled. */
+  readonly reverse?: boolean;
+  /** Selects strong or eventual consistency for each returned batch. */
+  readonly consistency?: "strong" | "eventual";
+  /** Requested batch size, bounded by the provider's native limit. */
+  readonly batchSize?: number;
+}
+
 /** Structural Deno KV entry used by the driver. */
 export interface DenoKvEntryType<T> {
   /** Stored tuple returned by exact reads and prefix iteration. */
-  readonly key: Deno.KvKey;
+  readonly key: DenoKvKeyType;
   /** Stored value, or null for a missing exact get. */
   readonly value: T | null;
   /** Provider version used for optimistic visibility commits. Missing entries use null. */
@@ -62,7 +88,7 @@ export interface DenoKvEntryType<T> {
 /** Version check accepted by the Deno KV atomic operation. */
 export interface DenoKvCheckType {
   /** Exact logical entry key observed before the operation started. */
-  readonly key: Deno.KvKey;
+  readonly key: DenoKvKeyType;
   /** Version observed by `get()`, or null when the logical entry did not exist. */
   readonly versionstamp: string | null;
 }
@@ -78,9 +104,9 @@ export interface DenoKvAtomicType {
   /** Requires the logical entry to retain the version observed before physical preparation. */
   check(...checks: DenoKvCheckType[]): DenoKvAtomicType;
   /** Adds one small metadata or logical-entry replacement to the transaction. */
-  set(key: Deno.KvKey, value: unknown): DenoKvAtomicType;
+  set(key: DenoKvKeyType, value: unknown): DenoKvAtomicType;
   /** Adds one logical-entry deletion to the transaction. */
-  delete(key: Deno.KvKey): DenoKvAtomicType;
+  delete(key: DenoKvKeyType): DenoKvAtomicType;
   /** Commits checks and metadata mutations atomically. */
   commit(): Promise<DenoKvCommitType>;
 }
@@ -88,11 +114,11 @@ export interface DenoKvAtomicType {
 /** Structural Deno KV subset required by this driver. */
 export interface DenoKvType {
   /** Reads one exact key. */
-  get<T = unknown>(key: Deno.KvKey): Promise<DenoKvEntryType<T>>;
+  get<T = unknown>(key: DenoKvKeyType): Promise<DenoKvEntryType<T>>;
   /** Replaces one key. */
-  set(key: Deno.KvKey, value: unknown): Promise<unknown>;
+  set(key: DenoKvKeyType, value: unknown): Promise<unknown>;
   /** Removes one key. */
-  delete(key: Deno.KvKey): Promise<void>;
+  delete(key: DenoKvKeyType): Promise<void>;
   /** Starts one optimistic transaction for the logical visibility mutation. */
   atomic(): DenoKvAtomicType;
   /**
@@ -101,7 +127,10 @@ export interface DenoKvType {
    * The driver currently uses prefix-based listing, but the wider selector type
    * keeps the structural contract compatible with the real Deno KV API.
    */
-  list<T = unknown>(selector: Deno.KvListSelector, options?: Deno.KvListOptions): AsyncIterable<DenoKvEntryType<T>>;
+  list<T = unknown>(
+    selector: DenoKvListSelectorType,
+    options?: DenoKvListOptionsType,
+  ): AsyncIterable<DenoKvEntryType<T>>;
   /** Closes the database when the caller transfers ownership. */
   close?(): void;
 }
@@ -203,22 +232,22 @@ type DenoKvStoredType = RecordType | DenoKvManifestType;
 type DenoKvStoredEntryType = DenoKvEntryType<DenoKvStoredType>;
 
 /** Maps one exact virtual path to a Deno KV entry key derived from its parent and name. */
-function key(prefix: string, path: string): Deno.KvKey {
+function key(prefix: string, path: string): DenoKvKeyType {
   return [prefix, "entry", dirname(path), basename(path)];
 }
 
 /** Prefix whose entries are exactly the direct children of one canonical parent path. */
-function listKey(prefix: string, parent: string): Deno.KvKey {
+function listKey(prefix: string, parent: string): DenoKvKeyType {
   return [prefix, "entry", parent];
 }
 
 /** Maps one logical file generation and part number to a separate raw binary key. */
-function partKey(prefix: string, path: string, generation: string, index: number): Deno.KvKey {
+function partKey(prefix: string, path: string, generation: string, index: number): DenoKvKeyType {
   return [prefix, "part", path, generation, index];
 }
 
 /** Maps one superseded generation to the time at which it stopped being visible. */
-function retiredKey(prefix: string, path: string, generation: string): Deno.KvKey {
+function retiredKey(prefix: string, path: string, generation: string): DenoKvKeyType {
   return [prefix, "retired", path, generation];
 }
 
@@ -283,7 +312,7 @@ function parts(bytes: Uint8Array, partBytes: number): Uint8Array[] {
 const keyEncoder = new TextEncoder();
 
 /** Conservatively estimates serialized tuple bytes for the key component types used here. */
-function estimateKeyBytes(value: Deno.KvKey): number {
+function estimateKeyBytes(value: DenoKvKeyType): number {
   let bytes = 0;
   for (const component of value) {
     bytes += 16;
@@ -883,7 +912,7 @@ class DenoKvBackend implements RecordBackendType {
 
     try {
       for await (
-        const written of pooledMap(this.#concurrency, split(source, this.#partBytes), async (chunk) => {
+        const written of pooledMap(this.#concurrency, split(source, this.#partBytes, options.signal), async (chunk) => {
           const index = scheduled++;
           if (index >= this.#maxParts) {
             throw new FileSystemError(
