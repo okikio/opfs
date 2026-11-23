@@ -211,7 +211,10 @@ try {
     import { openArc } from '@okikio/opfs/archive/arc';
     import { openIso } from '@okikio/opfs/archive/iso';
     import { openXar } from '@okikio/opfs/archive/xar';
+    import { openWim } from '@okikio/opfs/archive/wim';
+    import { createLzmaDecoder } from '@okikio/opfs/archive/lzma';
     import { PcloudClient } from '@okikio/opfs/pcloud';
+    import { YandexClient } from '@okikio/opfs/yandex';
     import { openGitObject, encodeGitTree } from '@okikio/opfs/content/git';
     import { createD1Adapter } from '@okikio/opfs/adapter/d1';
     import { createZipStream } from '@okikio/opfs/archive/write';
@@ -449,6 +452,8 @@ try {
     const git = await openGitObject(createByteSource(Uint8Array.from(atob(gitFixture.loose), (byte) => byte.charCodeAt(0))), { algorithm: 'sha256', oid: gitFixture.oid, subtle: globalThis.crypto.subtle });
     assertBytes(await git.read(), Uint8Array.from(atob(gitFixture.payload), (byte) => byte.charCodeAt(0)));
     if (encodeGitTree([], { algorithm: 'sha256' }).length !== 0) throw new Error('Packed empty Git tree failed');
+    const yandex = new YandexClient({ token: () => 'fixture-token', fetch: async () => Response.json({ path: 'disk:/packed', name: 'packed', type: 'file', size: 3 }) });
+    if ((await yandex.stat('disk:/packed')).size !== 3) throw new Error('Packed Yandex native resource failed');
     const pcloud = new PcloudClient({ endpoint: 'https://api.pcloud.com', token: () => 'fixture-token', fetch: async () => new Response('{"result":0,"metadata":{"isfolder":false,"id":"f7","fileid":7,"parentfolderid":0,"name":"packed","size":3,"hash":18446744073709551615}}') });
     if ((await pcloud.statFile('7')).hash !== '18446744073709551615') throw new Error('Packed pCloud uint64 was rounded');
     const isoFixture = ${
@@ -467,6 +472,41 @@ try {
     const iso = await openIso(createByteSource(Uint8Array.from(atob(isoFixture.archive), (byte) => byte.charCodeAt(0))), { namespace: 'joliet' });
     const isoHello = iso.entries.find((entry) => entry.parentId === -1 && entry.name === 'hello.txt');
     assertBytes((await iso.read(isoHello.id)).bytes, Uint8Array.from(atob(isoFixture.body), (byte) => byte.charCodeAt(0)));
+    const lzmaFixture = ${
+      JSON.stringify(
+        await (async () => {
+          const fixture = JSON.parse(
+            await readFile(new URL("../fixtures/lzma/independent.json", import.meta.url), "utf8"),
+          ).cases.find((entry) => entry.name === "lzma2-literal");
+          return { packed: fixture.packed, body: fixture.body, dictionary: fixture.dictionary };
+        })(),
+      )
+    };
+    const lzma = createLzmaDecoder(createByteSource(Uint8Array.from(atob(lzmaFixture.packed), (byte) => byte.charCodeAt(0))), { format: 'raw-lzma2', dictionary: lzmaFixture.dictionary });
+    const lzmaChunks = [];
+    for await (const bytes of lzma.stream) lzmaChunks.push(...bytes);
+    assertBytes(Uint8Array.from(lzmaChunks), Uint8Array.from(atob(lzmaFixture.body), (byte) => byte.charCodeAt(0)));
+    const lzmaEnd = await lzma.finished;
+    if (lzmaEnd.status !== 'complete' || lzmaEnd.termination !== 'lzma2-end' || lzmaEnd.integrity !== 'none') throw new Error('Packed LZMA terminal scope changed');
+    const wimFixture = ${
+      JSON.stringify(
+        await (async () => {
+          const fixture = JSON.parse(
+            await readFile(new URL("../fixtures/wim/independent.json", import.meta.url), "utf8"),
+          );
+          return {
+            archive: fixture.base64,
+            body: fixture.images[0].files.find((entry) => entry.path === "hello.txt").base64,
+          };
+        })(),
+      )
+    };
+    const wim = await openWim(createByteSource(Uint8Array.from(atob(wimFixture.archive), (byte) => byte.charCodeAt(0))), { subtle: globalThis.crypto.subtle });
+    const wimImage = await wim.image(1);
+    const wimHello = wimImage.entries.find((entry) => entry.path === 'hello.txt');
+    const wimRead = await wimImage.read(wimHello.id);
+    assertBytes(wimRead.bytes, Uint8Array.from(atob(wimFixture.body), (byte) => byte.charCodeAt(0)));
+    if (wimImage.metadataIntegrity !== 'resource-sha1-verified' || wimRead.integrity !== 'resource-sha1-verified') throw new Error('Packed WIM checksum scopes changed');
     const xarFixture = ${
       JSON.stringify(
         await (async () => {
@@ -676,7 +716,10 @@ try {
     import { openArc } from '@okikio/opfs/archive/arc';
     import { openIso } from '@okikio/opfs/archive/iso';
     import { openXar } from '@okikio/opfs/archive/xar';
+    import { openWim } from '@okikio/opfs/archive/wim';
+    import { createLzmaDecoder } from '@okikio/opfs/archive/lzma';
     import { PcloudClient } from '@okikio/opfs/pcloud';
+    import { YandexClient } from '@okikio/opfs/yandex';
     import { openGitObject, encodeGitTree } from '@okikio/opfs/content/git';
     import { createD1Adapter } from '@okikio/opfs/adapter/d1';
     import { createZipStream } from '@okikio/opfs/archive/write';
@@ -730,10 +773,20 @@ try {
     const gitIntegrity: import('@okikio/opfs/content/git').GitAlgorithmType = gitObject.integrity;
     const gitTree: Uint8Array = encodeGitTree([], { algorithm: 'sha256' });
     void [gitIntegrity, gitTree];
+    const yandex = new YandexClient({ token: () => 'types-only' });
+    const yandexPath: string = (await yandex.stat('disk:/packed')).path;
+    void yandexPath;
     const pcloud = new PcloudClient({ endpoint: 'https://api.pcloud.com', token: () => 'types-only' });
     const pcloudId: string = (await pcloud.statFile('7')).id;
     const iso = await openIso(createByteSource(new Uint8Array()));
     const isoParents: import('@okikio/opfs/archive/iso').IsoParentMismatchType[] = [...iso.parents.mismatches];
+    const lzma: import('@okikio/opfs/archive/lzma').LzmaDecoderType = createLzmaDecoder(createByteSource(new Uint8Array()), { format: 'raw-lzma2', dictionary: 8 });
+    const lzmaEnd: import('@okikio/opfs/archive/lzma').LzmaResultType = await lzma.finished;
+    void lzmaEnd;
+    const wim = await openWim(createByteSource(new Uint8Array()), { subtle: globalThis.crypto.subtle });
+    const wimProfile: 'uncompressed-1.13' = wim.profile;
+    const wimImage: import('@okikio/opfs/archive/wim').WimImageViewType = await wim.image(1);
+    void [wimProfile, wimImage];
     const xar = await openXar(createByteSource(new Uint8Array()), { verifyToc: false });
     const xarStatus: import('@okikio/opfs/archive/xar').XarChecksumStatusType = xar.toc.status;
     void [pcloudId, isoParents, xarStatus];
