@@ -31,16 +31,22 @@ describe("native revision preconditions", () => {
       await (await client.get("one", { revision }))?.cancel();
       await client.delete("one", { revision });
       expect(requests.map((request) => request.headers.get("if-match"))).toEqual(['"original"', '"original"']);
-      const wrong = { kind: "generation", value: "9007199254740993" } as const;
       for (
-        const operation of [
-          () => client.get("one", { revision: wrong }),
-          () => client.delete("one", { revision: wrong }),
-          () => client.put("one", new Uint8Array(), { revision: wrong }),
-          () => client.copy!("one", "two", { sourceRevision: wrong }),
-          () => client.copy!("one", "two", { revision: wrong }),
-        ]
-      ) await expect(operation()).rejects.toThrow(TypeError);
+        const wrong of [
+          { kind: "generation", value: "9007199254740993" },
+          { kind: "version", value: "opaque-file-version" },
+        ] as const
+      ) {
+        for (
+          const operation of [
+            () => client.get("one", { revision: wrong }),
+            () => client.delete("one", { revision: wrong }),
+            () => client.put("one", new Uint8Array(), { revision: wrong }),
+            () => client.copy!("one", "two", { sourceRevision: wrong }),
+            () => client.copy!("one", "two", { revision: wrong }),
+          ]
+        ) await expect(operation()).rejects.toThrow(TypeError);
+      }
       expect(requests.length).toBe(2);
     });
   }
