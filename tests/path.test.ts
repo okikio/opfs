@@ -4,7 +4,7 @@ import { SEPARATOR } from "@std/path";
 
 import { FileSystemError } from "../src/error.ts";
 import { basename, dirname, isAncestorPath, joinPath, normalizePath, splitPath } from "../src/path.ts";
-import { PathSchema } from "../src/schema.ts";
+import { PathSchema } from "../src/schema/mod.ts";
 
 describe("virtual paths", () => {
   it("validates canonical paths through the Standard Schema contract", async () => {
@@ -45,7 +45,7 @@ describe("virtual paths", () => {
 });
 
 it("rejects forged record identities and noncanonical or mismatched base64 before decoding", async () => {
-  const { RecordSchema, FileRecordSchema, DirectoryRecordSchema } = await import("../src/schema.ts");
+  const { RecordSchema, FileRecordSchema, DirectoryRecordSchema } = await import("../src/schema/mod.ts");
   const file = {
     version: 1,
     path: "/tree/file",

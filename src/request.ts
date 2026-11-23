@@ -28,7 +28,7 @@ export const RequestPolicySchema: z.ZodType<RequestPolicyType, RequestPolicyType
 }).strict();
 
 /** A validated direct-client request policy. */
-export type RequestPolicyType = import("./_schema_types.ts").RequestPolicyType;
+export type RequestPolicyType = import("./schema/types.ts").RequestPolicyType;
 
 /**
  * Callable Web Fetch contract used by storage clients.

@@ -5,8 +5,8 @@ import { retire } from "../stream.ts";
 import { z } from "zod";
 
 import type { PathType } from "../path.ts";
-import type { DirectoryRecordType, FileRecordType, RecordType, WriteModeType } from "../schema.ts";
-import { RecordMetadataSchema, RecordSchema, WriteModeSchema } from "../schema.ts";
+import type { DirectoryRecordType, FileRecordType, RecordType, WriteModeType } from "../schema/mod.ts";
+import { RecordMetadataSchema, RecordSchema, WriteModeSchema } from "../schema/mod.ts";
 import type { FileDriverReadOptionsType, FileDriverWriteOptionsType } from "./file.ts";
 import {
   defineDriver,
@@ -40,7 +40,7 @@ export const RecordReplacementSchema: z.ZodType<RecordReplacementType, RecordRep
 ]);
 
 /** A validated record replacement guarantee. */
-export type RecordReplacementType = import("../_schema_types.ts").RecordReplacementType;
+export type RecordReplacementType = import("../schema/types.ts").RecordReplacementType;
 
 /**
  * Native byte/data behavior exposed by a record driver.
@@ -76,7 +76,7 @@ export const RecordDriverCapabilitiesSchema: z.ZodType<RecordDriverCapabilitiesT
   }).strict();
 
 /** A validated record-driver capability description. */
-export type RecordDriverCapabilitiesType = import("../_schema_types.ts").RecordDriverCapabilitiesType;
+export type RecordDriverCapabilitiesType = import("../schema/types.ts").RecordDriverCapabilitiesType;
 
 /**
  * Required persistence mechanics for value, document, and SQL record drivers.

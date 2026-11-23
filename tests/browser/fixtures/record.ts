@@ -4,7 +4,7 @@ import { createCacheDriver } from "../../../src/driver/cache.ts";
 import { createLocalStorageDriver } from "../../../src/driver/localstorage.ts";
 import type { RecordDriverType } from "../../../src/driver/record.ts";
 import { FileSystemError } from "../../../src/error.ts";
-import type { FileRecordType } from "../../../src/schema.ts";
+import type { FileRecordType } from "../../../src/schema/mod.ts";
 import { withReleases } from "../../close.ts";
 
 /** Independently authored data and record identities used in actual browser persistence. */

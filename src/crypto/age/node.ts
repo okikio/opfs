@@ -1,8 +1,8 @@
 /** Explicit Node crypto capability for the age v1 payload reader. @module */
-import { isBytes, toView } from "../bytes.ts";
-import type { SourceReadOptionsType } from "../source.ts";
-import { AgeError } from "./age.ts";
-import type { AgeAeadType } from "./age.ts";
+import { isBytes, toView } from "../../bytes.ts";
+import type { SourceReadOptionsType } from "../../source.ts";
+import { AgeError } from "./mod.ts";
+import type { AgeAeadType } from "./mod.ts";
 
 /** Borrowed native cipher instance. Authentication must succeed in final(). */
 export interface AgeNodeDecipherType {

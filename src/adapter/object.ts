@@ -2,7 +2,7 @@ import type { DriverPlanInputType, DriverPlanType } from "../driver/definition.t
 import { toBytes as readStreamBytes } from "@std/streams/to-bytes";
 import { FileSystemError, throwIfAborted } from "../error.ts";
 import { joinPath, type PathType, ROOT_PATH, validateName } from "../path.ts";
-import type { AdapterLimitsType, WriteModeType } from "../schema.ts";
+import type { AdapterLimitsType, WriteModeType } from "../schema/mod.ts";
 import type { AdapterType } from "./definition.ts";
 import { defineAdapter } from "./definition.ts";
 import type {

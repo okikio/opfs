@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 import { AzureCommitError, AzureError, createAzureClient } from "../src/azure.ts";
 import { createAzureSession, createAzureUploadDestination } from "../src/transfer/azure.ts";
-import { createTransferCheckpoint, resumeTransfer } from "../src/transfer.ts";
+import { createTransferCheckpoint, resumeTransfer } from "../src/transfer/mod.ts";
 
 // Authored protocol fixture. Azure SDK/Azurite proof belongs to azure-transfer-provider.test.ts.
 function fixture() {

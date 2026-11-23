@@ -1,5 +1,5 @@
 import { FileSystemError, throwIfAborted, toFileSystemError } from "./error.ts";
-import type { CoordinationModeType } from "./schema.ts";
+import type { CoordinationModeType } from "./schema/mod.ts";
 
 /** Lock access required for one operation. */
 type LockModeType = "shared" | "exclusive";

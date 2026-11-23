@@ -1,7 +1,7 @@
 import { defineRecordDriver, type RecordBackendType, type RecordDriverType } from "./record.ts";
 import type { AnyColumn } from "drizzle-orm";
 import { Column, eq, is } from "drizzle-orm";
-import { RecordSchema, type RecordType } from "../schema.ts";
+import { RecordSchema, type RecordType } from "../schema/mod.ts";
 
 /**
  * Column data contract retained from a caller's dialect-specific Drizzle table.

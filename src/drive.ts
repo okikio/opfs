@@ -5,7 +5,7 @@ import { assertRangeResponse, range } from "./range.ts";
 import { RequestMetrics, sendRequest } from "./request.ts";
 import type { FetchType, RequestPolicyType } from "./request.ts";
 import { readResponse } from "./response.ts";
-import type { UploadDestinationType } from "./transfer.ts";
+import type { UploadDestinationType } from "./transfer/mod.ts";
 
 /** Nonfinal resumable extents must be multiples of this protocol alignment. */
 export const DRIVE_CHUNK_BYTES = 256 * 1024;

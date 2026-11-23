@@ -5,7 +5,7 @@ import { expectBytes, finish, payload as createPayload, report } from "./result.
 import { createFileSystem } from "../mod.ts";
 import { createMemoryAdapter } from "../src/adapter/memory.ts";
 import { createMemoryDriver } from "../src/driver/memory.ts";
-import type { RecordType } from "../src/schema.ts";
+import type { RecordType } from "../src/schema/mod.ts";
 
 /** Fixed 64 KiB payload shared by all in-memory benchmark paths. */
 const payload = createPayload(64 * 1024);

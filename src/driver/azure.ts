@@ -1,5 +1,5 @@
 import { type AzureClientOptionsType, type AzureClientType, createAzureClient } from "../azure.ts";
-import type { DriverOwnershipType } from "../schema.ts";
+import type { DriverOwnershipType } from "../schema/mod.ts";
 import { defineObjectDriver, type ObjectDriverType } from "./object.ts";
 
 /** Options for the configured Azure Blob object driver. */

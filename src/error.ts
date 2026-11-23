@@ -1,5 +1,5 @@
-import type { ErrorCodeType } from "./_schema_types.ts";
-import { ErrorCodeSchema } from "./schema.ts";
+import type { ErrorCodeType } from "./schema/types.ts";
+import { ErrorCodeSchema } from "./schema/mod.ts";
 import { getPrimary } from "./close.ts";
 import { getCancellation } from "./abort.ts";
 

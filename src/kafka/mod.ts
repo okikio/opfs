@@ -1,11 +1,11 @@
 /** Explicit-partition Kafka classic APIs. No transport, credentials, retry loop or filesystem is discovered. @module */
-import { Reader, Writer } from "./kafka/wire.ts";
-import { decodeRecords, encodeBatch, recordLimits, snapshotRecords } from "./kafka/records.ts";
-import type { KafkaRecordLimitsType, KafkaRecordType } from "./kafka/records.ts";
-import { withKafkaSession } from "./kafka/session.ts";
-import type { KafkaSession, KafkaSessionOptionsType } from "./kafka/session.ts";
-export type { KafkaChannelType } from "./kafka/session.ts";
-export type { KafkaFetchedRecordType, KafkaHeaderType, KafkaRecordType } from "./kafka/records.ts";
+import { Reader, Writer } from "./wire.ts";
+import { decodeRecords, encodeBatch, recordLimits, snapshotRecords } from "./records.ts";
+import type { KafkaRecordLimitsType, KafkaRecordType } from "./records.ts";
+import { withKafkaSession } from "./session.ts";
+import type { KafkaSession, KafkaSessionOptionsType } from "./session.ts";
+export type { KafkaChannelType } from "./session.ts";
+export type { KafkaFetchedRecordType, KafkaHeaderType, KafkaRecordType } from "./records.ts";
 
 /** The caller authorizes one topic, partition and broker on an already authenticated exclusive channel. */
 export interface KafkaOptionsType extends KafkaSessionOptionsType, KafkaRecordLimitsType {

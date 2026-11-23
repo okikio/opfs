@@ -13,7 +13,7 @@ import type {
   DriverOwnershipType,
   LimitType,
   RequirementType,
-} from "../_schema_types.ts";
+} from "../schema/types.ts";
 import {
   DriverKindSchema,
   DriverOptimizationSchema,
@@ -23,7 +23,7 @@ import {
   RequirementSchema,
   SupportModeSchema,
   WriteModeSchema,
-} from "../schema.ts";
+} from "../schema/mod.ts";
 
 /**
  * Layer that identified one storage planning problem.

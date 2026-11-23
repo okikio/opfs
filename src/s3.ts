@@ -24,7 +24,7 @@ import {
   type RequestPolicyType,
   sendRequest,
 } from "./request.ts";
-import { type AdapterLimitsType, MetricsModeSchema, type MetricsModeType } from "./schema.ts";
+import { type AdapterLimitsType, MetricsModeSchema, type MetricsModeType } from "./schema/mod.ts";
 import {
   createXmlElement,
   createXmlText,
@@ -53,7 +53,7 @@ import type {
 export const S3AddressingSchema: z.ZodType<S3AddressingType, S3AddressingType> = z.enum(["path", "virtual"]);
 
 /** Validated S3 URL addressing shape. */
-export type S3AddressingType = import("./_schema_types.ts").S3AddressingType;
+export type S3AddressingType = import("./schema/types.ts").S3AddressingType;
 
 /** Decoding policy for URL-encoded listing identities; percent is the Amazon S3 default. */
 export type S3ListEncodingType = "percent" | "form";
@@ -71,7 +71,7 @@ export const S3CredentialsSchema: z.ZodType<S3CredentialsType, S3CredentialsType
 });
 
 /** Validated AWS Signature Version 4 credentials. */
-export type S3CredentialsType = import("./_schema_types.ts").S3CredentialsType;
+export type S3CredentialsType = import("./schema/types.ts").S3CredentialsType;
 
 /** Credential value or refresh function used by long-lived S3 clients. */
 export type S3CredentialSourceType = S3CredentialsType | (() => S3CredentialsType | Promise<S3CredentialsType>);

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { basename, dirname, validateName } from "./path.ts";
+import { basename, dirname, validateName } from "../path.ts";
 
 /**
  * Canonical virtual path stored and exchanged by adapters.
@@ -22,13 +22,13 @@ export const PathSchema: z.ZodType<PathType, PathType> = z.string().refine(
 );
 
 /** A validated canonical virtual filesystem path. */
-export type PathType = import("./_schema_types.ts").PathType;
+export type PathType = import("./types.ts").PathType;
 
 /** Stable non-empty diagnostic name assigned to one adapter implementation. */
 export const AdapterNameSchema: z.ZodType<AdapterNameType, AdapterNameType> = z.string().min(1);
 
 /** A validated adapter diagnostic name. */
-export type AdapterNameType = import("./_schema_types.ts").AdapterNameType;
+export type AdapterNameType = import("./types.ts").AdapterNameType;
 
 /**
  * Valid entry kinds exposed by the filesystem facade and every adapter.
@@ -39,7 +39,7 @@ export type AdapterNameType = import("./_schema_types.ts").AdapterNameType;
 export const EntryKindSchema: z.ZodType<EntryKindType, EntryKindType> = z.enum(["file", "directory"]);
 
 /** A validated filesystem entry kind. */
-export type EntryKindType = import("./_schema_types.ts").EntryKindType;
+export type EntryKindType = import("./types.ts").EntryKindType;
 
 /**
  * Execution contexts that can host browser storage access.
@@ -59,7 +59,7 @@ export const OpfsContextSchema: z.ZodType<OpfsContextType, OpfsContextType> = z.
 ]);
 
 /** A validated browser execution context classification. */
-export type OpfsContextType = import("./_schema_types.ts").OpfsContextType;
+export type OpfsContextType = import("./types.ts").OpfsContextType;
 
 /**
  * Mutation coordination policies supported by {@link createFileSystem}.
@@ -76,7 +76,7 @@ export const CoordinationModeSchema: z.ZodType<CoordinationModeType, Coordinatio
 ]);
 
 /** A validated mutation coordination policy. */
-export type CoordinationModeType = import("./_schema_types.ts").CoordinationModeType;
+export type CoordinationModeType = import("./types.ts").CoordinationModeType;
 
 /**
  * Write modes shared by the facade and adapters.
@@ -87,7 +87,7 @@ export type CoordinationModeType = import("./_schema_types.ts").CoordinationMode
 export const WriteModeSchema: z.ZodType<WriteModeType, WriteModeType> = z.enum(["replace", "append", "update"]);
 
 /** A validated file write mode. */
-export type WriteModeType = import("./_schema_types.ts").WriteModeType;
+export type WriteModeType = import("./types.ts").WriteModeType;
 
 /**
  * How one operation is provided by the selected storage stack.
@@ -106,7 +106,7 @@ export const SupportModeSchema: z.ZodType<SupportModeType, SupportModeType> = z.
 ]);
 
 /** A validated storage support mode. */
-export type SupportModeType = import("./_schema_types.ts").SupportModeType;
+export type SupportModeType = import("./types.ts").SupportModeType;
 
 /**
  * Metrics collection cost selected for one filesystem or protocol client.
@@ -118,7 +118,7 @@ export type SupportModeType = import("./_schema_types.ts").SupportModeType;
 export const MetricsModeSchema: z.ZodType<MetricsModeType, MetricsModeType> = z.enum(["none", "basic", "timing"]);
 
 /** A validated metrics collection mode. */
-export type MetricsModeType = import("./_schema_types.ts").MetricsModeType;
+export type MetricsModeType = import("./types.ts").MetricsModeType;
 
 /**
  * Physical partition policy for backends with a smaller value limit than the
@@ -127,7 +127,7 @@ export type MetricsModeType = import("./_schema_types.ts").MetricsModeType;
 export const PartitionModeSchema: z.ZodType<PartitionModeType, PartitionModeType> = z.enum(["never", "auto", "always"]);
 
 /** A validated physical partition policy. */
-export type PartitionModeType = import("./_schema_types.ts").PartitionModeType;
+export type PartitionModeType = import("./types.ts").PartitionModeType;
 
 /**
  * Inspectable physical layout used when one logical file spans provider values.
@@ -153,7 +153,7 @@ export const AdapterPartitionSchema: z.ZodType<AdapterPartitionType, AdapterPart
 }).strict();
 
 /** A validated physical partition layout. */
-export type AdapterPartitionType = import("./_schema_types.ts").AdapterPartitionType;
+export type AdapterPartitionType = import("./types.ts").AdapterPartitionType;
 
 /**
  * Optional backend limits that can be inspected before work begins.
@@ -186,7 +186,7 @@ export const AdapterLimitsSchema: z.ZodType<AdapterLimitsType, AdapterLimitsType
 }).strict();
 
 /** Portable hard limits known by one configured adapter. */
-export type AdapterLimitsType = import("./_schema_types.ts").AdapterLimitsType;
+export type AdapterLimitsType = import("./types.ts").AdapterLimitsType;
 
 /**
  * Performance routes that the filesystem facade can deliberately bypass.
@@ -212,7 +212,7 @@ export const OptimizationSchema: z.ZodType<OptimizationType, OptimizationType> =
 }).strict();
 
 /** Resolved performance-route policy for one filesystem facade. */
-export type OptimizationType = import("./_schema_types.ts").OptimizationType;
+export type OptimizationType = import("./types.ts").OptimizationType;
 
 /**
  * Stable adapter capability description.
@@ -253,7 +253,7 @@ export const AdapterCapabilitiesSchema: z.ZodType<AdapterCapabilitiesType, Adapt
 });
 
 /** Native operations implemented by one adapter. */
-export type AdapterCapabilitiesType = import("./_schema_types.ts").AdapterCapabilitiesType;
+export type AdapterCapabilitiesType = import("./types.ts").AdapterCapabilitiesType;
 
 /**
  * Stable error categories exposed by the package.
@@ -279,13 +279,13 @@ export const ErrorCodeSchema: z.ZodType<ErrorCodeType, ErrorCodeType> = z.enum([
 ]);
 
 /** A validated package error category. */
-export type ErrorCodeType = import("./_schema_types.ts").ErrorCodeType;
+export type ErrorCodeType = import("./types.ts").ErrorCodeType;
 
 /** Version stored with record-backed filesystem entries. */
 export const RecordVersionSchema: z.ZodType<RecordVersionType, RecordVersionType> = z.literal(1);
 
 /** Persisted record format version. */
-export type RecordVersionType = import("./_schema_types.ts").RecordVersionType;
+export type RecordVersionType = import("./types.ts").RecordVersionType;
 
 /**
  * Fields shared by every persisted record-store entry.
@@ -340,7 +340,7 @@ export const DirectoryRecordSchema: z.ZodType<DirectoryRecordType, DirectoryReco
   DirectoryRecordSchemaDefinition.refine(recordIdentity, "Record path, parent and name must agree.");
 
 /** A validated persisted directory record. */
-export type DirectoryRecordType = import("./_schema_types.ts").DirectoryRecordType;
+export type DirectoryRecordType = import("./types.ts").DirectoryRecordType;
 
 /** Persisted file record used by record-store adapters. */
 const FileRecordSchemaDefinition = RecordBaseSchema.extend({
@@ -366,10 +366,10 @@ export const RecordMetadataSchema: z.ZodType<RecordMetadataType, RecordMetadataT
 ]).refine(recordIdentity, "Record path, parent and name must agree.");
 
 /** Validated listing metadata with no file body. */
-export type RecordMetadataType = import("./_schema_types.ts").RecordMetadataType;
+export type RecordMetadataType = import("./types.ts").RecordMetadataType;
 
 /** A validated persisted file record. */
-export type FileRecordType = import("./_schema_types.ts").FileRecordType;
+export type FileRecordType = import("./types.ts").FileRecordType;
 
 /**
  * Persisted record format shared by RxDB, unstorage, db0, and Drizzle record drivers.
@@ -388,7 +388,7 @@ const RecordSchemaDefinition = z.discriminatedUnion("kind", [
 export const RecordSchema: z.ZodType<RecordType, RecordType> = RecordSchemaDefinition;
 
 /** A validated record-store filesystem entry. */
-export type RecordType = import("./_schema_types.ts").RecordType;
+export type RecordType = import("./types.ts").RecordType;
 
 /** SQL dialects currently exposed by db0's public Database contract. */
 export const Db0DialectSchema: z.ZodType<Db0DialectType, Db0DialectType> = z.enum([
@@ -399,7 +399,7 @@ export const Db0DialectSchema: z.ZodType<Db0DialectType, Db0DialectType> = z.enu
 ]);
 
 /** A validated db0 SQL dialect. */
-export type Db0DialectType = import("./_schema_types.ts").Db0DialectType;
+export type Db0DialectType = import("./types.ts").Db0DialectType;
 
 /** Safe unqualified SQL identifier used for adapter-owned table names. */
 export const SqlIdentifierSchema: z.ZodType<SqlIdentifierType, SqlIdentifierType> = z.string().regex(
@@ -407,19 +407,19 @@ export const SqlIdentifierSchema: z.ZodType<SqlIdentifierType, SqlIdentifierType
 );
 
 /** A validated unqualified SQL identifier. */
-export type SqlIdentifierType = import("./_schema_types.ts").SqlIdentifierType;
+export type SqlIdentifierType = import("./types.ts").SqlIdentifierType;
 
 /** Storage family owned by one backend driver. */
 export const DriverKindSchema: z.ZodType<DriverKindType, DriverKindType> = z.enum(["file", "record", "object"]);
 
 /** A validated backend driver family. */
-export type DriverKindType = import("./_schema_types.ts").DriverKindType;
+export type DriverKindType = import("./types.ts").DriverKindType;
 
 /** Why one driver limit exists. */
 export const LimitKindSchema: z.ZodType<LimitKindType, LimitKindType> = z.enum(["hard", "policy", "dynamic"]);
 
 /** A validated limit kind. */
-export type LimitKindType = import("./_schema_types.ts").LimitKindType;
+export type LimitKindType = import("./types.ts").LimitKindType;
 
 /** Layer that supplied one limit value. */
 export const LimitSourceSchema: z.ZodType<LimitSourceType, LimitSourceType> = z.enum([
@@ -430,7 +430,7 @@ export const LimitSourceSchema: z.ZodType<LimitSourceType, LimitSourceType> = z.
 ]);
 
 /** A validated limit source. */
-export type LimitSourceType = import("./_schema_types.ts").LimitSourceType;
+export type LimitSourceType = import("./types.ts").LimitSourceType;
 
 /** Unit used by one numeric limit. */
 export const LimitUnitSchema: z.ZodType<LimitUnitType, LimitUnitType> = z.enum([
@@ -441,7 +441,7 @@ export const LimitUnitSchema: z.ZodType<LimitUnitType, LimitUnitType> = z.enum([
 ]);
 
 /** A validated limit unit. */
-export type LimitUnitType = import("./_schema_types.ts").LimitUnitType;
+export type LimitUnitType = import("./types.ts").LimitUnitType;
 
 /**
  * One inspectable storage limit with explicit provenance.
@@ -470,7 +470,7 @@ export const LimitSchema: z.ZodType<LimitType, LimitType> = z.object({
 });
 
 /** A validated storage limit. */
-export type LimitType = import("./_schema_types.ts").LimitType;
+export type LimitType = import("./types.ts").LimitType;
 
 /** Current state of one driver requirement. */
 export const RequirementStateSchema: z.ZodType<RequirementStateType, RequirementStateType> = z.enum([
@@ -480,7 +480,7 @@ export const RequirementStateSchema: z.ZodType<RequirementStateType, Requirement
 ]);
 
 /** A validated requirement state. */
-export type RequirementStateType = import("./_schema_types.ts").RequirementStateType;
+export type RequirementStateType = import("./types.ts").RequirementStateType;
 
 /**
  * One runtime, provider, permission, or configuration requirement.
@@ -502,7 +502,7 @@ export const RequirementSchema: z.ZodType<RequirementType, RequirementType> = z.
 });
 
 /** A validated driver requirement. */
-export type RequirementType = import("./_schema_types.ts").RequirementType;
+export type RequirementType = import("./types.ts").RequirementType;
 
 /** Ownership state for one configured driver backend resource. */
 export const DriverOwnershipSchema: z.ZodType<DriverOwnershipType, DriverOwnershipType> = z.enum([
@@ -512,7 +512,7 @@ export const DriverOwnershipSchema: z.ZodType<DriverOwnershipType, DriverOwnersh
 ]);
 
 /** A validated configured-driver backend ownership state. */
-export type DriverOwnershipType = import("./_schema_types.ts").DriverOwnershipType;
+export type DriverOwnershipType = import("./types.ts").DriverOwnershipType;
 
 /**
  * One independently controllable driver optimization.
@@ -539,4 +539,4 @@ export const DriverOptimizationSchema: z.ZodType<DriverOptimizationType, DriverO
 });
 
 /** A validated driver optimization declaration. */
-export type DriverOptimizationType = import("./_schema_types.ts").DriverOptimizationType;
+export type DriverOptimizationType = import("./types.ts").DriverOptimizationType;

@@ -35,7 +35,7 @@ import {
   type RequestPolicyType,
   sendRequest,
 } from "./request.ts";
-import { type AdapterLimitsType, MetricsModeSchema, type MetricsModeType } from "./schema.ts";
+import { type AdapterLimitsType, MetricsModeSchema, type MetricsModeType } from "./schema/mod.ts";
 import { toByteStream } from "./stream.ts";
 import {
   createXmlElement,
@@ -56,7 +56,7 @@ export const AzureStorageVersionSchema: z.ZodType<AzureStorageVersionType, Azure
 );
 
 /** Validated Azure Storage REST service version. */
-export type AzureStorageVersionType = import("./_schema_types.ts").AzureStorageVersionType;
+export type AzureStorageVersionType = import("./schema/types.ts").AzureStorageVersionType;
 
 /**
  * Azure Blob authorization strategy.

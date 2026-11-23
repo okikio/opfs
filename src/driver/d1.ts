@@ -1,7 +1,7 @@
 /** Borrowed Cloudflare D1 bindings with a versioned, bounded record layout. @module */
 import { z } from "zod";
-import { RecordMetadataSchema, RecordSchema, SqlIdentifierSchema } from "../schema.ts";
-import type { RecordType } from "../schema.ts";
+import { RecordMetadataSchema, RecordSchema, SqlIdentifierSchema } from "../schema/mod.ts";
+import type { RecordType } from "../schema/mod.ts";
 import type { PathType } from "../path.ts";
 import { defineRecordDriver } from "./record.ts";
 import type { RecordBackendType, RecordDriverType, RecordListType } from "./record.ts";

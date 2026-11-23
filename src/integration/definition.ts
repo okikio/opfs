@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import type { AdapterType } from "../adapter/definition.ts";
 import type { FileSystemType } from "../filesystem.ts";
-import { AdapterNameSchema } from "../schema.ts";
+import { AdapterNameSchema } from "../schema/mod.ts";
 
 /**
  * Support declaration for one bridge direction.
@@ -23,7 +23,7 @@ export const IntegrationDirectionSchema: z.ZodType<IntegrationDirectionType, Int
 });
 
 /** A validated bridge-direction support declaration. */
-export type IntegrationDirectionType = import("../_schema_types.ts").IntegrationDirectionType;
+export type IntegrationDirectionType = import("../schema/types.ts").IntegrationDirectionType;
 
 /**
  * Directions one ecosystem integration can expose.
@@ -39,7 +39,7 @@ export const IntegrationDirectionsSchema: z.ZodType<IntegrationDirectionsType, I
 }).strict();
 
 /** Validated bridge direction declaration. */
-export type IntegrationDirectionsType = import("../_schema_types.ts").IntegrationDirectionsType;
+export type IntegrationDirectionsType = import("../schema/types.ts").IntegrationDirectionsType;
 
 /**
  * Import-safe integration definition for ecosystems that support one or both directions.

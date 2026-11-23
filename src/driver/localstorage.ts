@@ -1,5 +1,5 @@
 import { normalizePath, type PathType, splitPath } from "../path.ts";
-import { RecordSchema, type RecordType } from "../schema.ts";
+import { RecordSchema, type RecordType } from "../schema/mod.ts";
 import { defineRecordDriver, type RecordBackendType, type RecordDriverType } from "./record.ts";
 
 /**

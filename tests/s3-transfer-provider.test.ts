@@ -8,7 +8,7 @@ import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { withReleases } from "./close.ts";
 import { createS3Client } from "../src/s3.ts";
 import { createS3Session, createS3UploadDestination } from "../src/transfer/s3.ts";
-import { createTransferCheckpoint } from "../src/transfer.ts";
+import { createTransferCheckpoint } from "../src/transfer/mod.ts";
 import { openProviders, S3_ACCESS_KEY, S3_LIST_ENCODING, S3_SECRET_KEY, STORAGE_NAME } from "./provider/fixture.ts";
 
 /** Waits for an owned child; a timeout kills it and close confirms its retirement. */
@@ -80,7 +80,7 @@ describe("S3 continuation after process loss", () => {
         import { createS3UploadDestination } from ${
         JSON.stringify(new URL("../src/transfer/s3.ts", import.meta.url).href)
       };
-        import { resumeTransfer } from ${JSON.stringify(new URL("../src/transfer.ts", import.meta.url).href)};
+        import { resumeTransfer } from ${JSON.stringify(new URL("../src/transfer/mod.ts", import.meta.url).href)};
         const input = readFileSync(${JSON.stringify(inputPath)});
         const checkpointPath = ${JSON.stringify(checkpointPath)};
         const mode = process.argv[1];

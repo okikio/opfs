@@ -9,7 +9,7 @@ import { createMemoryAdapter } from "../src/adapter/memory.ts";
 import { createNodeAdapter } from "../src/adapter/node.ts";
 import { createMemoryDriver } from "../src/driver/memory.ts";
 import { createNodeDriver } from "../src/driver/node.ts";
-import type { RecordType } from "../src/schema.ts";
+import type { RecordType } from "../src/schema/mod.ts";
 import { expectBytes, finish } from "./result.ts";
 
 /** Each lane performs replacement followed by a fully consumed byte read. */

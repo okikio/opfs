@@ -1,8 +1,13 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 import { runInNewContext } from "node:vm";
-import { cancelTransfer, createTransferCheckpoint, resumeTransfer, TransferCheckpointSchema } from "../src/transfer.ts";
-import type { TransferCheckpointType, UploadDestinationType } from "../src/transfer.ts";
+import {
+  cancelTransfer,
+  createTransferCheckpoint,
+  resumeTransfer,
+  TransferCheckpointSchema,
+} from "../src/transfer/mod.ts";
+import type { TransferCheckpointType, UploadDestinationType } from "../src/transfer/mod.ts";
 
 /** In-memory replay source and exclusively owned destination with observable effects. */
 function fixture() {

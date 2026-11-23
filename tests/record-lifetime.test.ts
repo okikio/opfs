@@ -3,7 +3,7 @@ import { expect } from "@std/expect";
 import { createRecordAdapter } from "../src/adapter/record.ts";
 import { defineRecordDriver } from "../src/driver/record.ts";
 import type { RecordDriverType } from "../src/driver/record.ts";
-import type { FileRecordType } from "../src/schema.ts";
+import type { FileRecordType } from "../src/schema/mod.ts";
 import { FileSystemError } from "../src/error.ts";
 
 const record: FileRecordType = {

@@ -10,8 +10,8 @@ export type { WritableInspectionType, WritableOptionsType } from "./writable.ts"
 import { z } from "zod";
 
 import type { PathType } from "../path.ts";
-import type { FileDriverCapabilitiesType, WriteModeType } from "../_schema_types.ts";
-import { WriteModeSchema } from "../schema.ts";
+import type { FileDriverCapabilitiesType, WriteModeType } from "../schema/types.ts";
+import { WriteModeSchema } from "../schema/mod.ts";
 import type { DriverType } from "./definition.ts";
 
 /** Native operations implemented by a file-shaped backend driver. */
@@ -38,7 +38,7 @@ export const FileDriverCapabilitiesSchema: z.ZodType<FileDriverCapabilitiesType,
   },
 ).strict();
 
-export type { FileDriverCapabilitiesType } from "../_schema_types.ts";
+export type { FileDriverCapabilitiesType } from "../schema/types.ts";
 
 /** Options shared by file-driver operations that can stop early. */
 export interface FileDriverSignalOptionsType {

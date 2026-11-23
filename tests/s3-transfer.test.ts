@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 import { createS3Client, S3Error } from "../src/s3.ts";
 import { createS3Session, createS3UploadDestination, S3SessionSchema } from "../src/transfer/s3.ts";
-import { createTransferCheckpoint, resumeTransfer } from "../src/transfer.ts";
+import { createTransferCheckpoint, resumeTransfer } from "../src/transfer/mod.ts";
 
 const partBytes = 5 * 1024 * 1024;
 const token = "unique_session_token_123456789";

@@ -18,8 +18,8 @@ import {
   type ProblemType,
 } from "./driver/definition.ts";
 import { normalizePath } from "./path.ts";
-import type { OptimizationType, SupportModeType } from "./_schema_types.ts";
-import { SupportModeSchema, WriteModeSchema } from "./schema.ts";
+import type { OptimizationType, SupportModeType } from "./schema/types.ts";
+import { SupportModeSchema, WriteModeSchema } from "./schema/mod.ts";
 
 /** Validated read preflight input after defaults are applied. */
 interface ReadPlanInputResolvedType {

@@ -8,7 +8,7 @@ import { createD1Adapter } from "../src/adapter/d1.ts";
 import { createFileSystem } from "../mod.ts";
 import { withReleases } from "./close.ts";
 import { normalizePath, ROOT_PATH } from "../src/path.ts";
-import type { RecordType } from "../src/schema.ts";
+import type { RecordType } from "../src/schema/mod.ts";
 
 /** Independent native SQLite engine; D1 result envelopes are authored and do not prove deployed D1 behavior. */
 function fixture() {

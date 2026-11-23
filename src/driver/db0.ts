@@ -5,7 +5,7 @@ import {
   RecordSchema,
   type RecordType,
   SqlIdentifierSchema,
-} from "../schema.ts";
+} from "../schema/mod.ts";
 
 /** Primitive parameter values accepted by db0 prepared statements. */
 export type Db0PrimitiveType = string | number | boolean | undefined | null;

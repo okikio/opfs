@@ -12,7 +12,7 @@ import { createMemoryAdapter } from "../src/adapter/memory.ts";
 import { createRxDbAdapter, RxDbRecordJsonSchema } from "../src/adapter/rxdb.ts";
 import { createKeyValueBridge } from "../src/bridge/kv.ts";
 import { createUnstorageBridge } from "../src/bridge/unstorage.ts";
-import { Db0Integration, DrizzleIntegration, RxDbIntegration, UnstorageIntegration } from "../src/integration.ts";
+import { Db0Integration, DrizzleIntegration, RxDbIntegration, UnstorageIntegration } from "../src/integration/mod.ts";
 import { defineIntegration } from "../src/integration/definition.ts";
 
 /** Minimal RxDocument-shaped value that preserves JSON reads and incremental removal. */

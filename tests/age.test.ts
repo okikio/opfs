@@ -6,11 +6,11 @@ import { expect } from "@std/expect";
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
 import { openZip } from "../src/archive/zip/mod.ts";
 import zipFixture from "./fixtures/arfs/zip.json" with { type: "json" };
-import { AgeError, createArchiveLedger, openAge } from "../src/crypto/age.ts";
-import type { AgeAeadType, AgeOpenOptionsType } from "../src/crypto/age.ts";
-import { createNodeAgeAead } from "../src/crypto/age-node.ts";
+import { AgeError, createArchiveLedger, openAge } from "../src/crypto/age/mod.ts";
+import type { AgeAeadType, AgeOpenOptionsType } from "../src/crypto/age/mod.ts";
+import { createNodeAgeAead } from "../src/crypto/age/node.ts";
 import type { ByteSourceType } from "../src/source.ts";
-import type { AgeOpenedType } from "../src/crypto/age.ts";
+import type { AgeOpenedType } from "../src/crypto/age/mod.ts";
 import native from "./fixtures/age/independent.json" with { type: "json" };
 import cctv from "./fixtures/age/cctv.json" with { type: "json" };
 

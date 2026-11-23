@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 import { withKafkaSession } from "../src/kafka/session.ts";
 import type { KafkaChannelType, KafkaSession } from "../src/kafka/session.ts";
-import { KafkaClient, KafkaCompletionError, KafkaError, KafkaOutcomeError } from "../src/kafka.ts";
+import { KafkaClient, KafkaCompletionError, KafkaError, KafkaOutcomeError } from "../src/kafka/mod.ts";
 
 /** Test-only network integers use DataView directly, with no candidate Writer, Reader or framing imports. */
 function number(value: number, width: 2 | 4): Uint8Array<ArrayBuffer> {

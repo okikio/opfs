@@ -1,6 +1,6 @@
 import { defineRecordDriver, type RecordBackendType, type RecordDriverType } from "./record.ts";
 import { FileSystemError } from "../error.ts";
-import { RecordSchema, type RecordType } from "../schema.ts";
+import { RecordSchema, type RecordType } from "../schema/mod.ts";
 
 /**
  * Maximum canonical path length encoded in the exported RxDB primary/index schema.

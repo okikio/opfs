@@ -40,7 +40,7 @@ import {
   SqlIdentifierSchema,
   SupportModeSchema,
   WriteModeSchema,
-} from "../../src/schema.ts";
+} from "../../src/schema/mod.ts";
 import { FileDriverCapabilitiesSchema } from "../../src/driver/file.ts";
 import { RecordDriverCapabilitiesSchema, RecordReplacementSchema } from "../../src/driver/record.ts";
 import { ObjectDriverCapabilitiesSchema } from "../../src/driver/object.ts";
@@ -93,7 +93,7 @@ const entries = [
 ] as const satisfies readonly (readonly [SchemaEntryType["schema"], string])[];
 
 const content = compileSchemas(entries.map(([schema, name]) => ({ schema, name })));
-const target = new URL("../../src/_schema_types.ts", import.meta.url);
+const target = new URL("../../src/schema/types.ts", import.meta.url);
 const check = Deno.args.includes("--check");
 
 if (check) {
@@ -104,7 +104,7 @@ if (check) {
     if (!(error instanceof Deno.errors.NotFound)) throw error;
   }
   if (current !== content) {
-    console.error("src/_schema_types.ts is stale. Run `mise run build:schema`.");
+    console.error("src/schema/types.ts is stale. Run `mise run build:schema`.");
     Deno.exit(1);
   }
 } else {
