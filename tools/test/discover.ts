@@ -32,11 +32,19 @@ export type FamilyType =
   | "netlify"
   | "interop";
 
+/** Operating systems, spelled as `process.platform` reports them. */
+export type PlatformType = "linux" | "darwin" | "win32";
+
 /** A discovered test file and the reason it is not portable, when it is not. */
 export interface TestFileType {
   readonly path: string;
   readonly family: FamilyType;
   readonly reason: string;
+  /**
+   * Operating systems the test can run on, when it cannot run on all of them. `reason` says why. The suite reports
+   * a file it leaves out for this, so the limit is visible in every run instead of a skip inside the test.
+   */
+  readonly platforms?: readonly PlatformType[];
 }
 
 /** The runtimes each family runs on. A family absent from a runtime's list is never run there. */
@@ -60,10 +68,14 @@ const ignored = new Set(["node_modules", ".tmp", ".git", "original", "upstream-r
  * Tests kept beside the fixture they check. Most of `tests/fixtures/` is data, so only these run; each one
  * compares a fixture against the native producer it was built from.
  */
-const fixtureTests: Readonly<Record<string, { family: FamilyType; reason: string }>> = {
+const fixtureTests: Readonly<
+  Record<string, { family: FamilyType; reason: string; platforms?: readonly PlatformType[] }>
+> = {
   "tests/fixtures/arrow/runner.test.ts": {
     family: "node",
-    reason: "Supervises the Arrow fixture producer with Node child-process signals.",
+    reason: "Supervises the Arrow fixture producer with Node child-process signals and reads `/proc/<pid>/stat`, " +
+      "which only Linux provides.",
+    platforms: ["linux"],
   },
   "tests/fixtures/bam/dictionary.test.ts": {
     family: "node",
@@ -157,14 +169,24 @@ export async function discover(root: string): Promise<TestFileType[]> {
   return found;
 }
 
-/** The discovered files one runtime runs, optionally narrowed to a set of families. */
+/** True when a file can run on `platform`. A file with no `platforms` runs everywhere. */
+export function runsOn(file: TestFileType, platform: string): boolean {
+  return !file.platforms || (file.platforms as readonly string[]).includes(platform);
+}
+
+/**
+ * The discovered files one runtime runs, optionally narrowed to a set of families and to one operating system.
+ * Leave `platform` out to ignore platform limits, for example when listing the full inventory.
+ */
 export function select(
   files: readonly TestFileType[],
   runtime: RuntimeType,
   families?: readonly FamilyType[],
+  platform?: string,
 ): TestFileType[] {
   return files.filter((file) =>
-    runtimes[file.family].includes(runtime) && (!families || families.includes(file.family))
+    runtimes[file.family].includes(runtime) && (!families || families.includes(file.family)) &&
+    (platform === undefined || runsOn(file, platform))
   );
 }
 

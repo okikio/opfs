@@ -24,7 +24,7 @@ import { spawnSync } from "node:child_process";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { discover, type FamilyType, runtimes, type RuntimeType, select, shard } from "./discover.ts";
+import { discover, type FamilyType, runsOn, runtimes, type RuntimeType, select, shard } from "./discover.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 
@@ -97,11 +97,13 @@ if (import.meta.main) {
   for (const family of named ?? []) {
     if (!(family in runtimes)) throw new TypeError(`Unknown test family ${family}.`);
   }
-  let files = select(
-    await discover(root),
-    runtime,
-    named ?? Object.keys(runtimes).filter((family) => !external.includes(family as FamilyType)) as FamilyType[],
-  );
+  const families = named ??
+    Object.keys(runtimes).filter((family) => !external.includes(family as FamilyType)) as FamilyType[];
+  const inventory = select(await discover(root), runtime, families);
+  let files = inventory.filter((file) => runsOn(file, process.platform));
+  for (const file of inventory) {
+    if (!runsOn(file, process.platform)) console.log(`Not on ${process.platform}: ${file.path}. ${file.reason}`);
+  }
   if (selectors.length) {
     const wanted = selectors.map((selector) => selector.replace(/^\.\//u, "").replace(/\/$/u, ""));
     for (const selector of wanted) {

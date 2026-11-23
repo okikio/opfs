@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { classify, shard } from "./discover.ts";
+import { classify, select, shard } from "./discover.ts";
 
 describe("test discovery", () => {
   it("classifies by file name so a new test needs no manifest edit", () => {
@@ -17,6 +17,14 @@ describe("test discovery", () => {
   });
   it("gives every classified test a reason a reader can check", () => {
     expect(classify("tests/gcs-provider.test.ts").reason).toMatch(/Testcontainers/);
+  });
+  it("leaves a platform-bound test out only on other operating systems", () => {
+    const files = [classify("tests/fixtures/arrow/runner.test.ts"), classify("tests/node.test.ts")];
+    expect(files[0]!.platforms).toEqual(["linux"]);
+    expect(files[0]!.reason).toMatch(/\/proc/);
+    expect(select(files, "node", undefined, "linux").map((file) => file.path)).toHaveLength(2);
+    expect(select(files, "node", undefined, "darwin").map((file) => file.path)).toEqual(["tests/node.test.ts"]);
+    expect(select(files, "node").map((file) => file.path)).toHaveLength(2);
   });
   it("splits files into disjoint shards that together cover every file", () => {
     const files = Array.from({ length: 11 }, (_, index) => ({ path: `tests/${index}.test.ts` }));
