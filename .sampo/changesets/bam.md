@@ -29,7 +29,7 @@ empty marker is not EOF.
 The source always remains caller-owned. Opening's signal applies only to opening; pass the same signal to iteration when
 both stages should share cancellation. Returned quality arrays own their bytes and remain caller-mutable. Missing
 sequence and missing quality are explicit null values. Ordered scalar auxiliary entries retain wire encodings;
-unsupported auxiliary values and long-CIGAR `CG` records fail before partial output escapes.
+unsupported auxiliary values and long-CIGAR `CG` records fail before any part of that record escapes.
 
 See the [BAM guide](../docs/bam.md) for coordinates, page endings, limits, recovery and native proof boundaries.
 Regional BAI/CSI queries, CRAM, writing, checkpoint resume and remaining auxiliary profiles are not included. Focused
