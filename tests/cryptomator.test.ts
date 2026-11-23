@@ -5,7 +5,7 @@ import { expectBytes } from "./bytes.ts";
 import { decodeBase64 } from "@std/encoding/base64";
 import { openCryptomator } from "../src/crypto/cryptomator.ts";
 import { createArchiveLedger } from "../src/archive/record.ts";
-import { openZip } from "../src/archive/zip.ts";
+import { openZip } from "../src/archive/zip/mod.ts";
 import type { ByteSourceType } from "../src/source.ts";
 import fixtures from "./fixtures/cryptomator/independent.json" with { type: "json" };
 

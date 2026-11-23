@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 import { createZipStream } from "../src/archive/write.ts";
 import type { ZipWriteEntryType } from "../src/archive/write.ts";
-import { openZip } from "../src/archive/zip.ts";
+import { openZip } from "../src/archive/zip/mod.ts";
 import { createByteSource } from "../src/source.ts";
 
 const encode = (value: string) => new TextEncoder().encode(value);

@@ -1,6 +1,6 @@
 import { bench, do_not_optimize } from "mitata";
 import { createBlobSource } from "../src/source.ts";
-import { openZip } from "../src/archive/zip.ts";
+import { openZip } from "../src/archive/zip/mod.ts";
 import { createZipStream } from "../src/archive/write.ts";
 import type { ZipWriteEntryType } from "../src/archive/write.ts";
 import { expectBytes, report } from "./result.ts";

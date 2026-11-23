@@ -6,7 +6,7 @@ import { runInNewContext } from "node:vm";
 import { createArchiveLedger, JweError, JweProfileSchema, JweProtectedSchema, openJwe } from "../src/crypto/jwe.ts";
 import type { JweOpenOptionsType } from "../src/crypto/jwe.ts";
 import type { ByteSourceType } from "../src/source.ts";
-import { openZip } from "../src/archive/zip.ts";
+import { openZip } from "../src/archive/zip/mod.ts";
 import official from "./fixtures/jwe/rfc7520.json" with { type: "json" };
 import zipFixture from "./fixtures/arfs/zip.json" with { type: "json" };
 import native from "./fixtures/jwe/independent.json" with { type: "json" };

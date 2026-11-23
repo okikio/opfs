@@ -1,6 +1,6 @@
 /** Internal legacy ZIP password state. This cipher is obsolete and provides no authentication. @module */
-import { isBytes, toView } from "../bytes.ts";
-import { ArchiveError, integer } from "./record.ts";
+import { isBytes, toView } from "../../bytes.ts";
+import { ArchiveError, integer } from "../record.ts";
 
 /** One sequential legacy cipher state; independent reads must never reuse it. */
 export interface ZipCryptoType {

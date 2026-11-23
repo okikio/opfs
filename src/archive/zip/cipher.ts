@@ -1,5 +1,5 @@
 /** Internal WinZip AES native primitives. Format framing and resource admission remain in the ZIP reader. @module */
-import { ArchiveError } from "./record.ts";
+import { ArchiveError } from "../record.ts";
 
 /** Native cryptography is explicitly supplied; no import-time global capability is acquired. */
 export interface ZipAesOptionsType {

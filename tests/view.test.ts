@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 import { createFileSystem } from "../mod.ts";
 import { createZipAdapter } from "../src/view/zip.ts";
-import type { ZipArchiveType, ZipEntryType } from "../src/archive/zip.ts";
+import type { ZipArchiveType, ZipEntryType } from "../src/archive/zip/mod.ts";
 
 /** Structural external reader proves the view does not depend on a private parser class. */
 function archive(names: readonly string[]): ZipArchiveType & { reads: number[] } {
