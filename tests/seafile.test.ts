@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { SeafileClient, SeafileError } from "../src/seafile.ts";
+import { SeafileClient, SeafileError } from "../src/backend/seafile/client.ts";
 import type { FetchType } from "../src/request.ts";
 const origin = "https://seafile.example.test";
 const library = "c854e71b-cf14-46b3-9353-e675c131a5d7";

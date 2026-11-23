@@ -1,7 +1,7 @@
 import { Buffer } from "node:buffer";
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { SeafileClient, SeafileError } from "../src/seafile.ts";
+import { SeafileClient, SeafileError } from "../src/backend/seafile/client.ts";
 import { close } from "../src/close.ts";
 import { startSeafile } from "./provider/seafile.ts";
 

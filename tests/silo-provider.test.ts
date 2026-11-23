@@ -1,7 +1,7 @@
 import { it } from "node:test";
 import { expect } from "@std/expect";
 import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
-import { createS3Client } from "../src/s3.ts";
+import { createS3Client } from "../src/backend/s3/client.ts";
 import { openObjectSource } from "../src/source.ts";
 import { openSilo } from "./provider/silo.ts";
 

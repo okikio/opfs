@@ -1,10 +1,10 @@
 import { after, before, describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { createWebdavClient } from "../src/webdav.ts";
-import type { WebdavClientType } from "../src/webdav.ts";
-import { createWebdavAdapter } from "../src/adapter/webdav.ts";
+import { createWebdavClient } from "../src/backend/webdav/client.ts";
+import type { WebdavClientType } from "../src/backend/webdav/client.ts";
+import { createWebdavAdapter } from "../src/backend/webdav/adapter.ts";
 import { createFileSystem } from "../mod.ts";
-import { openHttpSource } from "../src/http.ts";
+import { openHttpSource } from "../src/backend/http/client.ts";
 import { openWebdav } from "./provider/webdav.ts";
 import type { WebdavFixture } from "./provider/webdav.ts";
 
@@ -52,7 +52,7 @@ describe("WsgiDAV Testcontainers native and filesystem profile", () => {
     await expect(source.read(0, 1)).rejects.toMatchObject({ status: 412 });
   });
   it("refuses canonical removal without issuing any request", async () => {
-    const { createWebdavDriverFromClient } = await import("../src/driver/webdav.ts");
+    const { createWebdavDriverFromClient } = await import("../src/backend/webdav/driver.ts");
     let calls = 0;
     const observed = createWebdavClient({
       endpoint: fixture.endpoint,

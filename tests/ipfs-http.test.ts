@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { once } from "node:events";
 import { close } from "../src/close.ts";
-import { openIpfsSource } from "../src/ipfs.ts";
+import { openIpfsSource } from "../src/backend/ipfs/client.ts";
 
 const hello = "f015512202cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
 const raw = "bafkreifw7plhl6mofk6sfvhnfh64qmkq73oeqwl6sloru6rehaoujituke";

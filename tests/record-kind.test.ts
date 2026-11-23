@@ -5,8 +5,8 @@ import { drizzle } from "drizzle-orm/sqlite-proxy";
 
 import { createFileSystem } from "../mod.ts";
 import { createRecordAdapter } from "../src/adapter/record.ts";
-import { Db0Backend, type Db0DatabaseType, type Db0StatementType } from "../src/driver/db0.ts";
-import { createDrizzleDriver } from "../src/driver/drizzle.ts";
+import { Db0Backend, type Db0DatabaseType, type Db0StatementType } from "../src/backend/db0/driver.ts";
+import { createDrizzleDriver } from "../src/backend/drizzle/driver.ts";
 import { defineRecordDriver } from "../src/driver/record.ts";
 import type { RecordDriverType } from "../src/driver/record.ts";
 import { withReleases } from "./close.ts";

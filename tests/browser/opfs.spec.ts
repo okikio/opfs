@@ -14,8 +14,8 @@ test("native OPFS writes count intrinsic offset bytes and ignore caller metadata
     const { probeOpfs } = await import(probeUrl) as typeof import("../../src/probe.ts");
     const capabilities = await probeOpfs();
     if (!capabilities.rootAvailable) return { available: false as const, capabilities };
-    const moduleUrl = new URL("/src/driver/opfs.ts", location.href).href;
-    const { createOpfsDriver } = await import(moduleUrl) as typeof import("../../src/driver/opfs.ts");
+    const moduleUrl = new URL("/src/backend/opfs/driver.ts", location.href).href;
+    const { createOpfsDriver } = await import(moduleUrl) as typeof import("../../src/backend/opfs/driver.ts");
     const origin = await navigator.storage.getDirectory();
     const name = `intrinsic-${crypto.randomUUID()}`;
     const root = await origin.getDirectoryHandle(name, { create: true });

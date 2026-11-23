@@ -4,8 +4,8 @@ import { Buffer } from "node:buffer";
 import { runInNewContext } from "node:vm";
 import { parse } from "@std/xml/parse";
 
-import { AZURE_LIMITS, AzureError, createAzureClient } from "../src/azure.ts";
-import { createAzureDriver, createAzureDriverFromClient } from "../src/driver/azure.ts";
+import { AZURE_LIMITS, AzureError, createAzureClient } from "../src/backend/azure/client.ts";
+import { createAzureDriver, createAzureDriverFromClient } from "../src/backend/azure/driver.ts";
 import { RequestCapture } from "./http.ts";
 import { changeStreamPrototype, streamBytes } from "./stream.ts";
 import { within } from "./gate.ts";

@@ -1,7 +1,7 @@
 import { it } from "node:test";
 import { Buffer } from "node:buffer";
 import { expect } from "@std/expect";
-import { AmqpClient, AmqpError, AmqpOutcomeError } from "../src/amqp.ts";
+import { AmqpClient, AmqpError, AmqpOutcomeError } from "../src/backend/amqp/client.ts";
 import { expectBytes } from "./reliability.ts";
 import { withAmqpFixture } from "./provider/amqp.ts";
 

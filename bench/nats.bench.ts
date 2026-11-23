@@ -1,7 +1,7 @@
 import { bench, do_not_optimize } from "mitata";
 import { decodeBase64 } from "@std/encoding/base64";
-import { NatsClient } from "../src/nats.ts";
-import type { NatsChannelType } from "../src/nats.ts";
+import { NatsClient } from "../src/backend/nats/client.ts";
+import type { NatsChannelType } from "../src/backend/nats/client.ts";
 import { expectBytes, finish, report } from "./result.ts";
 import fixture from "../tests/fixtures/nats/independent.json" with { type: "json" };
 

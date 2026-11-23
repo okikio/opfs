@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { NatsClient, NatsCompletionError, NatsError, NatsPublicationError } from "../src/nats.ts";
-import type { NatsChannelType, NatsOptionsType } from "../src/nats.ts";
+import { NatsClient, NatsCompletionError, NatsError, NatsPublicationError } from "../src/backend/nats/client.ts";
+import type { NatsChannelType, NatsOptionsType } from "../src/backend/nats/client.ts";
 
 const encode = (value: string): Uint8Array<ArrayBuffer> => new TextEncoder().encode(value);
 const inbox = "_INBOX.owned.request";

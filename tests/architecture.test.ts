@@ -1,4 +1,4 @@
-import { createBunDriver } from "../src/driver/bun.ts";
+import { createBunDriver } from "../src/backend/bun/driver.ts";
 import { HOST_PROFILES } from "../src/driver/host.ts";
 import type { FileHandle as NodeFileHandle } from "node:fs/promises";
 import {
@@ -19,12 +19,12 @@ import { withReleases } from "./close.ts";
 import { within } from "./gate.ts";
 import { expect } from "@std/expect";
 import { createFileSystem, FileSystemError, toFileSystemError } from "../mod.ts";
-import { createNodeDriver } from "../src/driver/node.ts";
-import { createDenoDriver, DenoRangeSource } from "../src/driver/deno.ts";
+import { createNodeDriver } from "../src/backend/node/driver.ts";
+import { createDenoDriver, DenoRangeSource } from "../src/backend/deno/driver.ts";
 import { setImmediate } from "node:timers/promises";
 import { createFileAdapter } from "../src/adapter/file.ts";
-import { createMemoryAdapter } from "../src/adapter/memory.ts";
-import { createLocalStorageAdapter } from "../src/adapter/localstorage.ts";
+import { createMemoryAdapter } from "../src/backend/memory/adapter.ts";
+import { createLocalStorageAdapter } from "../src/backend/localstorage/adapter.ts";
 import { createKeyValueBridge } from "../src/bridge/kv.ts";
 import { QueuedWritableFile } from "../src/driver/writable.ts";
 import type {

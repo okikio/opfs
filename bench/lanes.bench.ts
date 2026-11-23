@@ -5,10 +5,10 @@ import { env, memoryUsage, versions } from "node:process";
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
 import { bench, do_not_optimize, group, run } from "mitata";
 import { createFileSystem } from "../mod.ts";
-import { createMemoryAdapter } from "../src/adapter/memory.ts";
-import { createNodeAdapter } from "../src/adapter/node.ts";
-import { createMemoryDriver } from "../src/driver/memory.ts";
-import { createNodeDriver } from "../src/driver/node.ts";
+import { createMemoryAdapter } from "../src/backend/memory/adapter.ts";
+import { createNodeAdapter } from "../src/backend/node/adapter.ts";
+import { createMemoryDriver } from "../src/backend/memory/driver.ts";
+import { createNodeDriver } from "../src/backend/node/driver.ts";
 import type { RecordType } from "../src/schema/mod.ts";
 import { expectBytes, finish } from "./result.ts";
 

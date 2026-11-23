@@ -3,7 +3,7 @@ import type { BrowserContext, Frame } from "@playwright/test";
 import { admit, open, READY_TIMEOUT, remaining, test as base } from "./ready.ts";
 import { withReleases } from "../close.ts";
 
-import type { OpfsDirectoryHandleType } from "../../src/driver/opfs.ts";
+import type { OpfsDirectoryHandleType } from "../../src/backend/opfs/driver.ts";
 import type { BrowserTestGlobalType } from "./fixtures/api.ts";
 
 /** File-local Window shape after the iframe fixture installs its Playwright API. */

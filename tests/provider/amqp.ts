@@ -6,7 +6,7 @@ import type { WaitStrategy } from "testcontainers";
 import { createConnection } from "node:net";
 import type { Socket } from "node:net";
 import { close } from "../../src/close.ts";
-import type { AmqpChannelType } from "../../src/amqp.ts";
+import type { AmqpChannelType } from "../../src/backend/amqp/client.ts";
 import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
 

@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { createFileSystem } from "../mod.ts";
-import { createNodeAdapter } from "../src/adapter/node.ts";
+import { createNodeAdapter } from "../src/backend/node/adapter.ts";
 
 /** Temporary benchmark root that keeps raw, adapter, and facade data isolated. */
 const root = await mkdtemp(join(tmpdir(), "okikio-opfs-bench-"));

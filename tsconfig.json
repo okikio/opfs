@@ -38,8 +38,8 @@
     "tests/node.test.ts"
   ],
   "exclude": [
-    "src/adapter/deno.ts",
-    "src/adapter/bun.ts",
+    "src/backend/deno/adapter.ts",
+    "src/backend/bun/adapter.ts",
     "tests/browser/**",
     "tests/deno.test.ts",
     "tests/deno-kv.test.ts",

@@ -8,7 +8,7 @@ import { expectBytes, finish, payload as makePayload, report } from "./result.ts
 
 import { createFileSystem } from "../mod.ts";
 import { createFileAdapter } from "../src/adapter/file.ts";
-import { createNodeDriver } from "../src/driver/node.ts";
+import { createNodeDriver } from "../src/backend/node/driver.ts";
 
 /** Payload small enough to keep abstraction overhead visible while still exercising real I/O. */
 const payload = makePayload(256 * 1024);

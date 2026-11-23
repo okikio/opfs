@@ -1,10 +1,10 @@
-import type { OpfsAdapterType } from "../../src/adapter/opfs.ts";
+import type { OpfsAdapterType } from "../../src/backend/opfs/adapter.ts";
 import type {
   OpfsDirectoryHandleType,
   OpfsDriverType,
   OpfsFileHandleType,
   OpfsWritableFileStreamType,
-} from "../../src/driver/opfs.ts";
+} from "../../src/backend/opfs/driver.ts";
 
 /**
  * The Playwright fixture API must stay opt-in instead of becoming an ambient Window member.

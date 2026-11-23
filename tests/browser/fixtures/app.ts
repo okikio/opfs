@@ -1,8 +1,8 @@
 import { openFileSystem, probeOpfs } from "../../../mod.ts";
-import { createCacheAdapter } from "../../../src/adapter/cache.ts";
-import { openIndexedDbAdapter } from "../../../src/adapter/indexeddb.ts";
-import { createLocalStorageAdapter } from "../../../src/adapter/localstorage.ts";
-import { createMemoryAdapter } from "../../../src/adapter/memory.ts";
+import { createCacheAdapter } from "../../../src/backend/cache/adapter.ts";
+import { openIndexedDbAdapter } from "../../../src/backend/indexeddb/adapter.ts";
+import { createLocalStorageAdapter } from "../../../src/backend/localstorage/adapter.ts";
+import { createMemoryAdapter } from "../../../src/backend/memory/adapter.ts";
 import { createFileSystem } from "../../../src/filesystem.ts";
 import { reliability } from "./reliability.ts";
 import { within } from "../../gate.ts";

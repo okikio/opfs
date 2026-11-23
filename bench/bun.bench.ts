@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { createFileSystem } from "../mod.ts";
-import { createBunAdapter } from "../src/adapter/bun.ts";
+import { createBunAdapter } from "../src/backend/bun/adapter.ts";
 
 /** Minimal Bun file surface used by this benchmark without ambient Bun declarations. */
 interface BunBenchFileType extends Blob {

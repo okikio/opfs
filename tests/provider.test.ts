@@ -7,10 +7,10 @@ import { parse } from "@std/xml/parse";
 
 import { createFileSystem } from "../mod.ts";
 import { createObjectAdapter } from "../src/adapter/object.ts";
-import { type AzureClientOptionsType, createAzureClient } from "../src/azure.ts";
-import { createAzureDriverFromClient } from "../src/driver/azure.ts";
-import { createS3DriverFromClient } from "../src/driver/s3.ts";
-import { createS3Client, type S3ClientOptionsType } from "../src/s3.ts";
+import { type AzureClientOptionsType, createAzureClient } from "../src/backend/azure/client.ts";
+import { createAzureDriverFromClient } from "../src/backend/azure/driver.ts";
+import { createS3DriverFromClient } from "../src/backend/s3/driver.ts";
+import { createS3Client, type S3ClientOptionsType } from "../src/backend/s3/client.ts";
 import {
   AZURE_ACCOUNT,
   AZURE_KEY,

@@ -1,5 +1,5 @@
 import { createFileSystem, probeOpfs } from "../../../mod.ts";
-import { createOpfsAdapter } from "../../../src/adapter/opfs.ts";
+import { createOpfsAdapter } from "../../../src/backend/opfs/adapter.ts";
 import { withReleases } from "../../close.ts";
 import { unavailable } from "../../upstream/capability.ts";
 import { directoryCases, runDirectoryCase } from "../../upstream/wpt.ts";

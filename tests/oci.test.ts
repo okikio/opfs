@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { OciClient, OciError } from "../src/oci.ts";
+import { OciClient, OciError } from "../src/backend/oci/client.ts";
 import type { FetchType } from "../src/request.ts";
 
 const image = "application/vnd.oci.image.manifest.v1+json";

@@ -4,8 +4,8 @@ import { Buffer } from "node:buffer";
 import { runInNewContext } from "node:vm";
 import { parse } from "@std/xml/parse";
 
-import { createS3Client, S3_LIMITS, S3CommitError, S3Error } from "../src/s3.ts";
-import { createS3Driver, createS3DriverFromClient } from "../src/driver/s3.ts";
+import { createS3Client, S3_LIMITS, S3CommitError, S3Error } from "../src/backend/s3/client.ts";
+import { createS3Driver, createS3DriverFromClient } from "../src/backend/s3/driver.ts";
 import { RequestCapture } from "./http.ts";
 import { changeStreamPrototype, streamBytes } from "./stream.ts";
 import { within } from "./gate.ts";

@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { createWebdavClient, WebdavPublicationError } from "../src/webdav.ts";
+import { createWebdavClient, WebdavPublicationError } from "../src/backend/webdav/client.ts";
 const endpoint = "https://dav.example/root/";
 function resource(
   href = "/root/one",
@@ -139,8 +139,8 @@ describe("WebDAV namespace and path admission", () => {
   });
 });
 
-import { createWebdavDriverFromClient } from "../src/driver/webdav.ts";
-import { createWebdavAdapter } from "../src/adapter/webdav.ts";
+import { createWebdavDriverFromClient } from "../src/backend/webdav/driver.ts";
+import { createWebdavAdapter } from "../src/backend/webdav/adapter.ts";
 import { createFileSystem } from "../mod.ts";
 
 describe("WebDAV file projection admission", () => {

@@ -4,7 +4,7 @@ import { expect } from "@std/expect";
 import { createFileSystem, FileSystemError, probeOpfs, toFileSystemError } from "../mod.ts";
 import type { AdapterType, FileSystemOptionsType } from "../src/adapter/definition.ts";
 import { defineAdapter } from "../src/adapter/definition.ts";
-import { createMemoryAdapter } from "../src/adapter/memory.ts";
+import { createMemoryAdapter } from "../src/backend/memory/adapter.ts";
 import { collectBytes, observeBytes, openBytes, retire, toByteStream, withAbortSignal } from "../src/stream.ts";
 import { withReleases } from "./close.ts";
 import { verifyBytes, verifyPendingAbort, withFileSystem, within } from "./reliability.ts";

@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import { webcrypto } from "node:crypto";
 import { runInNewContext } from "node:vm";
 import { expect } from "@std/expect";
-import { contentHash, DropboxClient, DropboxError, DropboxPublicationError } from "../src/dropbox.ts";
+import { contentHash, DropboxClient, DropboxError, DropboxPublicationError } from "../src/backend/dropbox/client.ts";
 import type { FetchType } from "../src/request.ts";
 
 const rev = "abcdef012345";

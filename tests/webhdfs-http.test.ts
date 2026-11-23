@@ -4,9 +4,9 @@ import { createServer } from "node:http";
 import type { Server } from "node:http";
 import { once } from "node:events";
 import { close } from "../src/close.ts";
-import { createWebhdfsClient } from "../src/webhdfs.ts";
-import { createWebhdfsDriverFromClient } from "../src/driver/webhdfs.ts";
-import { createWebhdfsAdapter } from "../src/adapter/webhdfs.ts";
+import { createWebhdfsClient } from "../src/backend/webhdfs/client.ts";
+import { createWebhdfsDriverFromClient } from "../src/backend/webhdfs/driver.ts";
+import { createWebhdfsAdapter } from "../src/backend/webhdfs/adapter.ts";
 import { createFileSystem } from "../mod.ts";
 
 /** A protocol fixture, not an HDFS emulator or proof of provider conformance. */

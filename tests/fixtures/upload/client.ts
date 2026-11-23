@@ -4,13 +4,13 @@ import { createHash } from "node:crypto";
 import { readFileSync, renameSync, writeFileSync } from "node:fs";
 import { Buffer } from "node:buffer";
 import process from "node:process";
-import type { UploadSessionType } from "../../../src/upload.ts";
+import type { UploadSessionType } from "../../../src/transfer/upload.ts";
 
 const [moduleURL, phase, target, directory] = process.argv.slice(2);
 if (!moduleURL || !phase || !target || !directory) throw new Error("Module URL, phase, target and directory required.");
 if (!["append-kill", "finish-kill", "unknown", "replay"].includes(phase)) throw new Error("Unknown fixture phase.");
 // The provider fixture supplies the actual candidate module; no untyped API escapes this import boundary.
-const implementation: typeof import("../../../src/upload.ts") = await import(moduleURL);
+const implementation: typeof import("../../../src/transfer/upload.ts") = await import(moduleURL);
 const { createUploadClient, UploadSessionSchema, UploadError } = implementation;
 const input = readFileSync(directory + "/input.bin");
 const identity = "sha256:" + createHash("sha256").update(input).digest("hex");

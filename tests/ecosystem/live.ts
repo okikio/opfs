@@ -9,17 +9,17 @@ import { pathToFileURL } from "node:url";
 import { DatabaseSync } from "node:sqlite";
 import type { SQLInputValue } from "node:sqlite";
 import { createFileSystem } from "../../mod.ts";
-import { createMemoryAdapter } from "../../src/adapter/memory.ts";
-import { createUnstorageAdapter } from "../../src/adapter/unstorage.ts";
+import { createMemoryAdapter } from "../../src/backend/memory/adapter.ts";
+import { createUnstorageAdapter } from "../../src/backend/unstorage/adapter.ts";
 import { createUnstorageBridge } from "../../src/bridge/unstorage.ts";
-import { createDb0Adapter } from "../../src/adapter/db0.ts";
-import { createDrizzleAdapter } from "../../src/adapter/drizzle.ts";
-import { createRxDbAdapter, RxDbRecordJsonSchema } from "../../src/adapter/rxdb.ts";
+import { createDb0Adapter } from "../../src/backend/db0/adapter.ts";
+import { createDrizzleAdapter } from "../../src/backend/drizzle/adapter.ts";
+import { createRxDbAdapter, RxDbRecordJsonSchema } from "../../src/backend/rxdb/adapter.ts";
 import { expectBytes, fixtureBytes, verifyBytes } from "../reliability.ts";
 
-import type { UnstorageStorageType } from "../../src/driver/unstorage.ts";
-import type { Db0DatabaseType } from "../../src/driver/db0.ts";
-import type { RxDbCollectionType, RxDbRecordJsonSchemaType } from "../../src/driver/rxdb.ts";
+import type { UnstorageStorageType } from "../../src/backend/unstorage/driver.ts";
+import type { Db0DatabaseType } from "../../src/backend/db0/driver.ts";
+import type { RxDbCollectionType, RxDbRecordJsonSchemaType } from "../../src/backend/rxdb/driver.ts";
 
 /** The native test exercises these public methods; this is not an SDK substitute. */
 interface StorageType extends UnstorageStorageType {

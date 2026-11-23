@@ -4,7 +4,7 @@ import type { Socket } from "node:net";
 import { connect as secureConnection, TLSSocket } from "node:tls";
 import { fileURLToPath } from "node:url";
 import type { StartedTestContainer } from "testcontainers";
-import type { FtpOptionsType, FtpSocketType, FtpTransportType } from "../../src/ftp.ts";
+import type { FtpOptionsType, FtpSocketType, FtpTransportType } from "../../src/backend/ftp/client.ts";
 import { close } from "../close.ts";
 
 export const FTP_BYTES = "independent native libcurl bytes";

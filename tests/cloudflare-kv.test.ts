@@ -1,8 +1,8 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { CloudflareKvPublicationError, createCloudflareKvDriver } from "../src/driver/cloudflare-kv.ts";
-import type { CloudflareKvBindingType } from "../src/driver/cloudflare-kv.ts";
-import { createCloudflareKvAdapter } from "../src/adapter/cloudflare-kv.ts";
+import { CloudflareKvPublicationError, createCloudflareKvDriver } from "../src/backend/cloudflare-kv/driver.ts";
+import type { CloudflareKvBindingType } from "../src/backend/cloudflare-kv/driver.ts";
+import { createCloudflareKvAdapter } from "../src/backend/cloudflare-kv/adapter.ts";
 
 // Authored binding contract; fixture visibility is immediate, while real KV is explicitly eventual.
 function fixture() {

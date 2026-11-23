@@ -7,8 +7,8 @@ import {
   RedisExpirySchema,
   RedisProtocolError,
   RedisPublicationError,
-} from "../src/redis.ts";
-import type { RedisChannelType, RedisOptionsType, RedisPutType } from "../src/redis.ts";
+} from "../src/backend/redis/client.ts";
+import type { RedisChannelType, RedisOptionsType, RedisPutType } from "../src/backend/redis/client.ts";
 import { decodeBase64 } from "@std/encoding/base64";
 import native from "./fixtures/redis/independent.json" with { type: "json" };
 

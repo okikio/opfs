@@ -4,7 +4,7 @@ import { expect } from "@std/expect";
 import { createFileSystem, FileSystemError } from "../mod.ts";
 import type { ReadOptionsType } from "../src/filesystem.ts";
 import type { AdapterType } from "../src/adapter/definition.ts";
-import { createMemoryAdapter } from "../src/adapter/memory.ts";
+import { createMemoryAdapter } from "../src/backend/memory/adapter.ts";
 import { withFileSystem, within } from "./reliability.ts";
 
 /** Immediately observe actual outcomes, including raw rejection values. */

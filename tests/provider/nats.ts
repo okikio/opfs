@@ -5,7 +5,7 @@ import { execFileSync } from "node:child_process";
 import { createConnection } from "node:net";
 import type { Socket } from "node:net";
 import { close } from "../../src/close.ts";
-import type { NatsChannelType } from "../../src/nats.ts";
+import type { NatsChannelType } from "../../src/backend/nats/client.ts";
 import type { StartedTestContainer } from "testcontainers";
 
 export const NATS_IMAGE = "nats:2.15.2@sha256:991242c32d2738ffd358fd6614dd96c735017b4b3b34bfdb2c52a072d66db211";

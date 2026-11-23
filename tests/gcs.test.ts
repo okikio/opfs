@@ -8,10 +8,10 @@ import {
   GcsError,
   GcsPublicationError,
   GcsStorageClassSchema,
-} from "../src/gcs.ts";
-import type { GcsHeadOptionsType } from "../src/gcs.ts";
-import { createGcsDriverFromClient } from "../src/driver/gcs.ts";
-import { createGcsAdapter } from "../src/adapter/gcs.ts";
+} from "../src/backend/gcs/client.ts";
+import type { GcsHeadOptionsType } from "../src/backend/gcs/client.ts";
+import { createGcsDriverFromClient } from "../src/backend/gcs/driver.ts";
+import { createGcsAdapter } from "../src/backend/gcs/adapter.ts";
 import { FileSystemError } from "../src/error.ts";
 
 const origin = "https://storage.example.test";

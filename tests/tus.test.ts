@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { createTusClient, TusError } from "../src/tus.ts";
+import { createTusClient, TusError } from "../src/transfer/tus.ts";
 import type { FetchType } from "../src/request.ts";
 import { createTransferCheckpoint, resumeTransfer } from "../src/transfer/mod.ts";
 

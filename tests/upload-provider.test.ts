@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { close } from "../src/close.ts";
-import { UploadSessionSchema } from "../src/upload.ts";
+import { UploadSessionSchema } from "../src/transfer/upload.ts";
 import pin from "./fixtures/upload/upstream.json" with { type: "json" };
 
 /** Full source verification occurs before the borrowed code is reconstructed inside a disposable container. */
@@ -32,7 +32,7 @@ async function nativeFiles() {
 async function client(phase: string, target: string, directory: string) {
   const process = spawn("node", [
     fileURLToPath(new URL("./fixtures/upload/client.ts", import.meta.url).href),
-    new URL("../src/upload.ts", import.meta.url).href,
+    new URL("../src/transfer/upload.ts", import.meta.url).href,
     phase,
     target,
     directory,

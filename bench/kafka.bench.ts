@@ -2,7 +2,7 @@
 import { bench, do_not_optimize } from "mitata";
 import { createHash } from "node:crypto";
 import { lstatSync, readFileSync } from "node:fs";
-import { decodeRecords } from "../src/kafka/records.ts";
+import { decodeRecords } from "../src/backend/kafka/records.ts";
 import { originals } from "../tests/fixtures/kafka/manifest.ts";
 import { expectBytes, report } from "./result.ts";
 

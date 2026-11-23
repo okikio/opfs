@@ -5,11 +5,11 @@ import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { drizzle } from "drizzle-orm/sqlite-proxy";
 
 import { createFileSystem } from "../mod.ts";
-import { createDb0Adapter } from "../src/adapter/db0.ts";
-import { createDrizzleAdapter } from "../src/adapter/drizzle.ts";
-import { createDrizzleDriver, type DrizzleColumnType, type DrizzleTableType } from "../src/driver/drizzle.ts";
-import { createMemoryAdapter } from "../src/adapter/memory.ts";
-import { createRxDbAdapter, RxDbRecordJsonSchema } from "../src/adapter/rxdb.ts";
+import { createDb0Adapter } from "../src/backend/db0/adapter.ts";
+import { createDrizzleAdapter } from "../src/backend/drizzle/adapter.ts";
+import { createDrizzleDriver, type DrizzleColumnType, type DrizzleTableType } from "../src/backend/drizzle/driver.ts";
+import { createMemoryAdapter } from "../src/backend/memory/adapter.ts";
+import { createRxDbAdapter, RxDbRecordJsonSchema } from "../src/backend/rxdb/adapter.ts";
 import { createKeyValueBridge } from "../src/bridge/kv.ts";
 import { createUnstorageBridge } from "../src/bridge/unstorage.ts";
 import { Db0Integration, DrizzleIntegration, RxDbIntegration, UnstorageIntegration } from "../src/integration/mod.ts";

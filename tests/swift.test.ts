@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { createSwiftClient, SwiftError, SwiftPublicationError } from "../src/swift.ts";
+import { createSwiftClient, SwiftError, SwiftPublicationError } from "../src/backend/swift/client.ts";
 import type { FetchType } from "../src/request.ts";
 import { openObjectSource } from "../src/source.ts";
 const hash = "0123456789abcdef0123456789abcdef";

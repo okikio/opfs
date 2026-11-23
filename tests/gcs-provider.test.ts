@@ -2,8 +2,8 @@ import { after, before, describe, it } from "node:test";
 import { expect } from "@std/expect";
 
 import { createFileSystem } from "../mod.ts";
-import { createGcsAdapter } from "../src/adapter/gcs.ts";
-import { createGcsClient, GCS_CHUNK_BYTES, type GcsClientType, GcsError } from "../src/gcs.ts";
+import { createGcsAdapter } from "../src/backend/gcs/adapter.ts";
+import { createGcsClient, GCS_CHUNK_BYTES, type GcsClientType, GcsError } from "../src/backend/gcs/client.ts";
 import { GCS_BUCKET, type GcsFixture, openGcs } from "./provider/gcs.ts";
 
 /** Real HTTP against a pinned emulator proves this profile, not Google's IAM or durability. */

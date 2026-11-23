@@ -6,8 +6,8 @@ import { env } from "node:process";
 import { deepStrictEqual } from "node:assert/strict";
 import { bench, do_not_optimize, group } from "mitata";
 import { createFileSystem } from "../mod.ts";
-import { createNodeDriver } from "../src/driver/node.ts";
-import { createNodeAdapter } from "../src/adapter/node.ts";
+import { createNodeDriver } from "../src/backend/node/driver.ts";
+import { createNodeAdapter } from "../src/backend/node/adapter.ts";
 import { finish, report } from "./result.ts";
 import { inspect } from "../tests/upstream/provenance.ts";
 

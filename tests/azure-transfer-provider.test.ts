@@ -6,8 +6,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BlobServiceClient, StorageSharedKeyCredential } from "@azure/storage-blob";
 import { withReleases } from "./close.ts";
-import { createAzureClient } from "../src/azure.ts";
-import { createAzureSession, createAzureUploadDestination } from "../src/transfer/azure.ts";
+import { createAzureClient } from "../src/backend/azure/client.ts";
+import { createAzureSession, createAzureUploadDestination } from "../src/backend/azure/transfer.ts";
 import { createTransferCheckpoint } from "../src/transfer/mod.ts";
 import { AZURE_ACCOUNT, AZURE_KEY, openProviders, STORAGE_NAME } from "./provider/fixture.ts";
 
@@ -76,9 +76,11 @@ describe("Azure continuation after process loss", () => {
       );
       const code = `
         import { readFileSync, writeFileSync, renameSync } from "node:fs";
-        import { createAzureClient } from ${JSON.stringify(new URL("../src/azure.ts", import.meta.url).href)};
+        import { createAzureClient } from ${
+        JSON.stringify(new URL("../src/backend/azure/client.ts", import.meta.url).href)
+      };
         import { createAzureUploadDestination } from ${
-        JSON.stringify(new URL("../src/transfer/azure.ts", import.meta.url).href)
+        JSON.stringify(new URL("../src/backend/azure/transfer.ts", import.meta.url).href)
       };
         import { resumeTransfer } from ${JSON.stringify(new URL("../src/transfer/mod.ts", import.meta.url).href)};
         const input = readFileSync(${JSON.stringify(inputPath)});

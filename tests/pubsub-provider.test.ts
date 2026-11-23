@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 import { openPubsub } from "./provider/pubsub.ts";
-import { createPubsubClient, PubsubError } from "../src/pubsub.ts";
+import { createPubsubClient, PubsubError } from "../src/backend/pubsub/client.ts";
 import { expectBytes } from "./reliability.ts";
 import { close } from "./close.ts";
 

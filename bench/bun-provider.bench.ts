@@ -8,8 +8,8 @@ import { expectBytes, finish, payload as makePayload, report } from "./result.ts
 
 import { createFileSystem } from "../mod.ts";
 import { createObjectAdapter } from "../src/adapter/object.ts";
-import { createS3DriverFromClient } from "../src/driver/s3.ts";
-import { createS3Client } from "../src/s3.ts";
+import { createS3DriverFromClient } from "../src/backend/s3/driver.ts";
+import { createS3Client } from "../src/backend/s3/client.ts";
 
 import { S3_ACCESS_KEY, S3_LIST_ENCODING, S3_SECRET_KEY, STORAGE_NAME } from "../tests/provider/fixture.ts";
 

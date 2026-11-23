@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { openIpfsSource } from "../src/ipfs.ts";
+import { openIpfsSource } from "../src/backend/ipfs/client.ts";
 import type { FetchType } from "../src/request.ts";
 
 const hello = "f015512202cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";

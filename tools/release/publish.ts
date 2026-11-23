@@ -28,7 +28,7 @@ function isPublished(name: string, version: string): boolean {
 
 /** Build the npm tarball at the release version and return its path; `pack.ts` prints it last. */
 function packTarball(): string {
-  const built = spawnSync("deno", ["run", "--frozen", "-A", "tools/npm/pack.ts"], {
+  const built = spawnSync("deno", ["run", "--frozen", "--config", "deno.json", "-A", "tools/npm/pack.ts"], {
     cwd: root,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "inherit"],

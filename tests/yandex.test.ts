@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { YandexClient, YandexPublicationError } from "../src/yandex.ts";
+import { YandexClient, YandexPublicationError } from "../src/backend/yandex/client.ts";
 import type { FetchType } from "../src/request.ts";
 const apiBase = "https://cloud-api.yandex.net/v1/disk/";
 const file = (path = "disk:/file.bin", size = 4): object => ({

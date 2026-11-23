@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 
 import { createFileSystem } from "../mod.ts";
-import { createSqliteAdapter, type SqliteStatementType } from "../src/adapter/sqlite.ts";
+import { createSqliteAdapter, type SqliteStatementType } from "../src/backend/sqlite/adapter.ts";
 
 /**
  * Portable SQLite-shaped test double. Real Node SQLite execution lives in

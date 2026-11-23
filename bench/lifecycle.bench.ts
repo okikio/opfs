@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getActiveResourcesInfo, memoryUsage, versions } from "node:process";
 import { createFileSystem } from "../mod.ts";
-import { createNodeAdapter } from "../src/adapter/node.ts";
+import { createNodeAdapter } from "../src/backend/node/adapter.ts";
 import { expectBytes, finish, payload } from "./result.ts";
 
 /** Heap observations need explicit collection and are never presented as a universal memory SLA. */

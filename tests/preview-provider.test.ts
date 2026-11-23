@@ -2,7 +2,7 @@ import { it } from "node:test";
 import { readFile } from "node:fs/promises";
 import { URL } from "node:url";
 import { expect } from "@std/expect";
-import { createGcsClient } from "../src/gcs.ts";
+import { createGcsClient } from "../src/backend/gcs/client.ts";
 import { budgetSource, createSourceBudget, openObjectSource } from "../src/source.ts";
 import { openZip } from "../src/archive/zip/mod.ts";
 import { createZipAdapter } from "../src/view/zip.ts";

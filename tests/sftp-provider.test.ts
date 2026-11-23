@@ -1,6 +1,6 @@
 import { after, before, describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { openSftpClient, SftpError } from "../src/sftp.ts";
+import { openSftpClient, SftpError } from "../src/backend/sftp/client.ts";
 import { openSftp, SFTP_BYTES, SFTP_ROOT } from "./provider/sftp.ts";
 import type { SftpFixture } from "./provider/sftp.ts";
 import { withReleases } from "./close.ts";

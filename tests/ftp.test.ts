@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { FtpError, FtpPublicationError, openFtpClient } from "../src/ftp.ts";
-import type { FtpOptionsType, FtpSocketType, FtpTransportType } from "../src/ftp.ts";
+import { FtpError, FtpPublicationError, openFtpClient } from "../src/backend/ftp/client.ts";
+import type { FtpOptionsType, FtpSocketType, FtpTransportType } from "../src/backend/ftp/client.ts";
 
 const encoder = new TextEncoder();
 /** Scripted wire peer; its replies are independent protocol bytes, not client helpers. */

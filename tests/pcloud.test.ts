@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { PcloudClient, PcloudError, PcloudPublicationError } from "../src/pcloud.ts";
+import { PcloudClient, PcloudError, PcloudPublicationError } from "../src/backend/pcloud/client.ts";
 import type { FetchType } from "../src/request.ts";
 
 const big = "18446744073709551615";

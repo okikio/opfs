@@ -1,8 +1,8 @@
 import { after, before, describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { createSwiftClient } from "../src/swift.ts";
-import type { SwiftClientType } from "../src/swift.ts";
-import { createSwiftAdapter } from "../src/adapter/swift.ts";
+import { createSwiftClient } from "../src/backend/swift/client.ts";
+import type { SwiftClientType } from "../src/backend/swift/client.ts";
+import { createSwiftAdapter } from "../src/backend/swift/adapter.ts";
 import { createFileSystem } from "../mod.ts";
 import { openObjectSource } from "../src/source.ts";
 import { openSwift, SWIFT_CONTAINER } from "./provider/swift.ts";

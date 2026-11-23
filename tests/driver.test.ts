@@ -7,15 +7,15 @@ import { within } from "./gate.ts";
 import { createFileSystem } from "../mod.ts";
 import { createRecordAdapter } from "../src/adapter/record.ts";
 import { createKeyValueBridge } from "../src/bridge/kv.ts";
-import { createCacheDriver } from "../src/driver/cache.ts";
-import { createUnstorageDriver, type UnstorageStorageType } from "../src/driver/unstorage.ts";
+import { createCacheDriver } from "../src/backend/cache/driver.ts";
+import { createUnstorageDriver, type UnstorageStorageType } from "../src/backend/unstorage/driver.ts";
 import { defineDriver } from "../src/driver/definition.ts";
 import {
   createOpfsDriver,
   type OpfsDirectoryHandleType,
   type OpfsFileHandleType,
   type OpfsWritableFileStreamType,
-} from "../src/driver/opfs.ts";
+} from "../src/backend/opfs/driver.ts";
 import { defineRecordDriver, type RecordBackendType } from "../src/driver/record.ts";
 import type { PathType } from "../src/schema/mod.ts";
 import type { RecordType } from "../src/schema/mod.ts";

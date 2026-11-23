@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { ResticClient, ResticError, ResticPublicationError } from "../src/restic.ts";
+import { ResticClient, ResticError, ResticPublicationError } from "../src/backend/restic/client.ts";
 import { startRestic } from "./provider/restic.ts";
 import { withReleases } from "./close.ts";
 

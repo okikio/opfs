@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { FirebaseClient, FirebaseError, FirebasePublicationError } from "../src/firebase.ts";
+import { FirebaseClient, FirebaseError, FirebasePublicationError } from "../src/backend/firebase/client.ts";
 import { FIREBASE_BUCKET, FIREBASE_BYTES, FIREBASE_TEST_TOKEN, openFirebaseFixture } from "./provider/firebase.ts";
 import { withReleases } from "./close.ts";
 describe("official Firebase Storage emulator and independent SDK", () => {

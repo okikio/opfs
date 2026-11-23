@@ -1,8 +1,8 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { createWebdavClient } from "../src/webdav.ts";
-import { createWebdavAdapter } from "../src/adapter/webdav.ts";
-import { createWebdavDriverFromClient } from "../src/driver/webdav.ts";
+import { createWebdavClient } from "../src/backend/webdav/client.ts";
+import { createWebdavAdapter } from "../src/backend/webdav/adapter.ts";
+import { createWebdavDriverFromClient } from "../src/backend/webdav/driver.ts";
 import { createFileSystem } from "../src/filesystem.ts";
 import { close } from "./close.ts";
 import { openOcis } from "./provider/ocis.ts";

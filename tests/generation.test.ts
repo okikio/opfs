@@ -10,9 +10,9 @@ import {
   type DenoKvListOptionsType,
   type DenoKvListSelectorType,
   type DenoKvType,
-} from "../src/driver/deno-kv.ts";
-import { KvGeneration } from "../src/driver/generation.ts";
-import type { KvPinType } from "../src/driver/generation.ts";
+} from "../src/backend/deno-kv/driver.ts";
+import { KvGeneration } from "../src/backend/deno-kv/generation.ts";
+import type { KvPinType } from "../src/backend/deno-kv/generation.ts";
 import { withReleases } from "./close.ts";
 import { within } from "./gate.ts";
 

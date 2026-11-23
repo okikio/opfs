@@ -3,7 +3,7 @@ import { expect } from "@std/expect";
 import { platform } from "node:os";
 
 import { createFileSystem } from "../mod.ts";
-import { createDenoAdapter } from "../src/adapter/deno.ts";
+import { createDenoAdapter } from "../src/backend/deno/adapter.ts";
 import { verifyFileAdmission, verifyHost, verifyWindowsNames } from "./host.ts";
 import { verifySync } from "./reliability.ts";
 import { withReleases } from "./close.ts";

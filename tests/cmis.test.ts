@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { CmisPublicationError, createCmisClient } from "../src/cmis.ts";
-import type { CmisClientOptionsType } from "../src/cmis.ts";
+import { CmisPublicationError, createCmisClient } from "../src/backend/cmis/client.ts";
+import type { CmisClientOptionsType } from "../src/backend/cmis/client.ts";
 
 const BASE = {
   repository: "A1",

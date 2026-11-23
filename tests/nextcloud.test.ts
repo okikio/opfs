@@ -6,8 +6,8 @@ import {
   NextcloudError,
   NextcloudPublicationError,
   NextcloudUploadSchema,
-} from "../src/nextcloud.ts";
-import type { NextcloudUploadType } from "../src/nextcloud.ts";
+} from "../src/backend/nextcloud/client.ts";
+import type { NextcloudUploadType } from "../src/backend/nextcloud/client.ts";
 
 const endpoint = "https://cloud.example/installation/";
 const descriptor: NextcloudUploadType = {

@@ -2,7 +2,7 @@ import { bench, do_not_optimize } from "mitata";
 import { expectBytes, finish, payload as createPayload, report } from "./result.ts";
 
 import { createFileSystem } from "../mod.ts";
-import { createDenoAdapter } from "../src/adapter/deno.ts";
+import { createDenoAdapter } from "../src/backend/deno/adapter.ts";
 
 /** Temporary benchmark root that keeps raw, adapter, and facade data isolated. */
 const root = await Deno.makeTempDir({ prefix: "okikio-opfs-bench-" });

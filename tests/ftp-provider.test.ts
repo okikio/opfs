@@ -1,6 +1,6 @@
 import { after, before, describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { openFtpClient } from "../src/ftp.ts";
+import { openFtpClient } from "../src/backend/ftp/client.ts";
 import { FTP_BYTES, openFtp } from "./provider/ftp.ts";
 import type { FtpFixture } from "./provider/ftp.ts";
 import { withReleases } from "./close.ts";

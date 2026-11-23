@@ -11,10 +11,10 @@ import { phase } from "./provider-phase.ts";
 
 import { createFileSystem } from "../mod.ts";
 import { createObjectAdapter } from "../src/adapter/object.ts";
-import { createAzureClient } from "../src/azure.ts";
-import { createAzureDriverFromClient } from "../src/driver/azure.ts";
-import { createS3DriverFromClient } from "../src/driver/s3.ts";
-import { createS3Client } from "../src/s3.ts";
+import { createAzureClient } from "../src/backend/azure/client.ts";
+import { createAzureDriverFromClient } from "../src/backend/azure/driver.ts";
+import { createS3DriverFromClient } from "../src/backend/s3/driver.ts";
+import { createS3Client } from "../src/backend/s3/client.ts";
 
 import {
   AZURE_ACCOUNT,

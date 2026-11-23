@@ -6,8 +6,8 @@ import {
   MemcachedProtocolError,
   MemcachedPublicationError,
   openMemcachedClient,
-} from "../src/memcached.ts";
-import type { MemcachedChannelType, MemcachedOptionsType, MemcachedPutType } from "../src/memcached.ts";
+} from "../src/backend/memcached/client.ts";
+import type { MemcachedChannelType, MemcachedOptionsType, MemcachedPutType } from "../src/backend/memcached/client.ts";
 const encode = (value: string): Uint8Array<ArrayBuffer> => new TextEncoder().encode(value);
 function join(...parts: Uint8Array[]): Uint8Array<ArrayBuffer> {
   const result = new Uint8Array(parts.reduce((size, bytes) => size + bytes.length, 0));

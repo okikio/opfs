@@ -13,8 +13,8 @@ import {
   type DenoKvCommitType,
   type DenoKvEntryType,
   type DenoKvType,
-} from "../src/adapter/deno-kv.ts";
-import { createDenoKvDriver } from "../src/driver/deno-kv.ts";
+} from "../src/backend/deno-kv/adapter.ts";
+import { createDenoKvDriver } from "../src/backend/deno-kv/driver.ts";
 import { withFileSystem, within } from "./reliability.ts";
 
 /** Stable JSON-ish key string used only by the in-memory Deno KV contract double. */

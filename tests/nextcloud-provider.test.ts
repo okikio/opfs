@@ -1,7 +1,11 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { NEXTCLOUD_MIN_CHUNK_BYTES, NextcloudClient, NextcloudPublicationError } from "../src/nextcloud.ts";
-import { createWebdavClient } from "../src/webdav.ts";
+import {
+  NEXTCLOUD_MIN_CHUNK_BYTES,
+  NextcloudClient,
+  NextcloudPublicationError,
+} from "../src/backend/nextcloud/client.ts";
+import { createWebdavClient } from "../src/backend/webdav/client.ts";
 import { NEXTCLOUD_ORACLE_BYTES, startNextcloud } from "./provider/nextcloud.ts";
 import { withReleases } from "./close.ts";
 

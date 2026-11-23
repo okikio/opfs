@@ -1,6 +1,6 @@
 /** Authored Fetch-contract costs; these workloads exclude sockets, provider storage and publication. */
 import { bench, do_not_optimize } from "mitata";
-import { createUploadClient } from "../src/upload.ts";
+import { createUploadClient } from "../src/transfer/upload.ts";
 import type { FetchType } from "../src/request.ts";
 import { readDictionary } from "../src/transfer/fields.ts";
 import { expectBytes, report } from "./result.ts";

@@ -26,7 +26,7 @@ const candidate = ".tmp/netlify-candidate.ts";
 const sha256 = (path: string) => createHash("sha256").update(readFileSync(`${root}/${path}`)).digest("hex");
 
 spawn("node", ["tests/fixtures/netlify/acquire.ts", "--output", artifacts]);
-spawn("deno", ["bundle", "--frozen", "--platform=browser", "src/netlify.ts", "--output", candidate], {
+spawn("deno", ["bundle", "--frozen", "--platform=browser", "src/backend/netlify/client.ts", "--output", candidate], {
   env: { DENO_V8_FLAGS: "--max-old-space-size=1536" },
 });
 spawn("node", ["tools/test/suite.ts", "deno", "--family", "netlify", ...process.argv.slice(2)], {

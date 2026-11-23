@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { openMemcachedClient } from "../src/memcached.ts";
+import { openMemcachedClient } from "../src/backend/memcached/client.ts";
 import { openMemcached } from "./provider/memcached.ts";
 import { close } from "./close.ts";
 

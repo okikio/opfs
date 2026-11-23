@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { createUploadClient, UploadSessionSchema } from "../src/upload.ts";
+import { createUploadClient, UploadSessionSchema } from "../src/transfer/upload.ts";
 import { readDictionary, readField } from "../src/transfer/fields.ts";
 import type { FetchType } from "../src/request.ts";
 

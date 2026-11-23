@@ -7,10 +7,10 @@ import { DatabaseSync } from "node:sqlite";
 import type { SQLInputValue } from "node:sqlite";
 
 import { createFileSystem } from "../mod.ts";
-import { createDb0Adapter } from "../src/adapter/db0.ts";
-import { createNodeAdapter } from "../src/adapter/node.ts";
-import { createSqliteAdapter } from "../src/adapter/sqlite.ts";
-import type { Db0PrimitiveType } from "../src/driver/db0.ts";
+import { createDb0Adapter } from "../src/backend/db0/adapter.ts";
+import { createNodeAdapter } from "../src/backend/node/adapter.ts";
+import { createSqliteAdapter } from "../src/backend/sqlite/adapter.ts";
+import type { Db0PrimitiveType } from "../src/backend/db0/driver.ts";
 import { verifyFileAdmission, verifyHost, verifyWindowsNames } from "./host.ts";
 import { verifySync } from "./reliability.ts";
 import { withReleases } from "./close.ts";

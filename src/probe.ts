@@ -1,6 +1,6 @@
 import { getOpfsContext } from "./context.ts";
 import { getErrorMessage, getErrorName } from "./error.ts";
-import type { OpfsDirectoryHandleType } from "./driver/opfs.ts";
+import type { OpfsDirectoryHandleType } from "./backend/opfs/driver.ts";
 import type { OpfsContextType } from "./schema/types.ts";
 
 /** A platform error captured while probing OPFS without throwing. */

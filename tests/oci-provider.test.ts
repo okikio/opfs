@@ -1,6 +1,6 @@
 import { after, before, describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { OciClient } from "../src/oci.ts";
+import { OciClient } from "../src/backend/oci/client.ts";
 import { close } from "./close.ts";
 import { OCI_BLOB, OCI_REPOSITORY, openOci } from "./provider/oci.ts";
 import type { OciFixture } from "./provider/oci.ts";

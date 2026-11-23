@@ -3,8 +3,8 @@ import { bench, do_not_optimize, group } from "mitata";
 import { expectBytes, finish, payload as createPayload, report } from "./result.ts";
 
 import { createFileSystem } from "../mod.ts";
-import { createDenoKvAdapter } from "../src/adapter/deno-kv.ts";
-import { createDenoKvDriver } from "../src/driver/deno-kv.ts";
+import { createDenoKvAdapter } from "../src/backend/deno-kv/adapter.ts";
+import { createDenoKvDriver } from "../src/backend/deno-kv/driver.ts";
 
 /** One owned directory contains the database and any SQLite journal sidecars. */
 const root = await Deno.makeTempDir({ prefix: "okikio-opfs-kv-bench-" });

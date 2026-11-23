@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { PocketbaseClient, PocketbaseError, PocketbasePublicationError } from "../src/pocketbase.ts";
+import { PocketbaseClient, PocketbaseError, PocketbasePublicationError } from "../src/backend/pocketbase/client.ts";
 import { openPocketbaseFixture, POCKETBASE_BYTES } from "./provider/pocketbase.ts";
 import { withReleases } from "./close.ts";
 

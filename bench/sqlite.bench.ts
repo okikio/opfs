@@ -3,8 +3,8 @@ import { expectBytes, finish, payload as createPayload, report } from "./result.
 import { DatabaseSync } from "node:sqlite";
 
 import { createFileSystem } from "../mod.ts";
-import { createSqliteAdapter } from "../src/adapter/sqlite.ts";
-import type { SqliteDatabaseType } from "../src/driver/sqlite.ts";
+import { createSqliteAdapter } from "../src/backend/sqlite/adapter.ts";
+import type { SqliteDatabaseType } from "../src/backend/sqlite/driver.ts";
 
 /** Fixed 64 KiB payload shared by raw SQLite, adapter, and facade measurements. */
 const payload = createPayload(64 * 1024);

@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { SupabaseClient, SupabaseError, SupabasePublicationError } from "../src/supabase.ts";
+import { SupabaseClient, SupabaseError, SupabasePublicationError } from "../src/backend/supabase/client.ts";
 import { openSupabaseFixture, SUPABASE_BYTES } from "./provider/supabase.ts";
 import { withReleases } from "./close.ts";
 

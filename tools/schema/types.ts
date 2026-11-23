@@ -46,8 +46,8 @@ import { RecordDriverCapabilitiesSchema, RecordReplacementSchema } from "../../s
 import { ObjectDriverCapabilitiesSchema } from "../../src/driver/object.ts";
 import { RequestPolicySchema } from "../../src/request.ts";
 import { IntegrationDirectionSchema, IntegrationDirectionsSchema } from "../../src/integration/definition.ts";
-import { S3AddressingSchema, S3CredentialsSchema } from "../../src/s3.ts";
-import { AzureStorageVersionSchema } from "../../src/azure.ts";
+import { S3AddressingSchema, S3CredentialsSchema } from "../../src/backend/s3/client.ts";
+import { AzureStorageVersionSchema } from "../../src/backend/azure/client.ts";
 
 const entries = [
   [PathSchema, "PathType"],

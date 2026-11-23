@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 import { setImmediate as nextTurn } from "node:timers/promises";
 import { createFileSystem } from "../mod.ts";
-import { createMemoryAdapter } from "../src/adapter/memory.ts";
+import { createMemoryAdapter } from "../src/backend/memory/adapter.ts";
 import { FileSystemError } from "../src/error.ts";
 import { drain, stalled } from "./provider/stalled.ts";
 import { within } from "./gate.ts";

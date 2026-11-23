@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { createS3Client } from "../src/s3.ts";
-import { createAzureClient } from "../src/azure.ts";
+import { createS3Client } from "../src/backend/s3/client.ts";
+import { createAzureClient } from "../src/backend/azure/client.ts";
 import { createObjectAdapter } from "../src/adapter/object.ts";
 import { defineObjectDriver, type ObjectBackendType, type ObjectPutOptionsType } from "../src/driver/object.ts";
 
