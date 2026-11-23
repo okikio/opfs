@@ -1,0 +1,19 @@
+{
+  "producerPackages": {
+    "binutils": "2.40-2",
+    "llvm": "1:14.0-55.7~deb12u1",
+    "llvm-14": "1:14.0.6-12",
+    "libarchive-tools": "3.6.2-1+deb12u5"
+  },
+  "architecture": "arm64",
+  "localToolsImage": "sha256:8c39a57d8b46ec7a906faf9bd37bb8969bb848123e0e4082145dd2902b42199f",
+  "imageLimit": "Local installed-tools snapshot, not a publicly pullable full-producer pin.",
+  "files": {
+    "create.py": "ef35720e9e2cf3cbda0542a0a4a336a3cb3df60e4b0e8b9f3eea15f5c2739a39",
+    "independent.json": "094869d0495772e41191a97b026013efcb484abb23f0d3a15458136580010f77"
+  },
+  "archives": {
+    "gnu": "1f76618cf687db73568db9df8f3304a2d183f3e75706c5ad06d1979a07b41c57",
+    "bsd": "39dae243eb0199e35fee753386670c17f4761ac584f02f85ae0c537293e253f5"
+  }
+}
