@@ -41,7 +41,8 @@ and forward-stream reader, its ten-profile native corpus and remaining qualifica
 [Arrow guide](../../docs/arrow.md) explains selected-payload validation and resource ownership. These are separate
 capabilities; none completes its wider catalog group.
 
-The [BAM sequence](BAM.md) adds bounded sequential alignment previews over checked BGZF blocks.
+The [BAM sequence](BAM.md) adds bounded sequential alignment previews over checked BGZF blocks. The
+[Vercel Blob sequence](VERCEL.md) starts with inert SDK/emulator acquisition before executable fixture admission.
 
 Each next profile needs source review, independent full-byte fixtures, bounded failure and recovery tests, runtime and
 type gates, packed public-import checks, applicable benchmarks, a readable capability guide and release note, then the
