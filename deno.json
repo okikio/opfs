@@ -164,7 +164,11 @@
     "./redis": "./src/redis.ts",
     "./crypto/jwe": "./src/crypto/jwe.ts",
     "./nats": "./src/nats.ts",
-    "./dataset/parquet": "./src/dataset/parquet.ts"
+    "./dataset/parquet": "./src/dataset/parquet.ts",
+    "./crypto/age": "./src/crypto/age.ts",
+    "./crypto/age-node": "./src/crypto/age-node.ts",
+    "./dataset/orc": "./src/dataset/orc.ts",
+    "./amqp": "./src/amqp.ts"
   },
   "imports": {
     "@okikio/undent": "jsr:@okikio/undent@^0.3.3",
@@ -225,14 +229,16 @@
     "exclude": [
       "tests/upstream/original/",
       "tests/fixtures/age/upstream/",
-      "tests/fixtures/age/provenance/**/*.json",
-      "tests/fixtures/age/provenance/**/*.snapshot",
-      "tests/fixtures/age/provenance/**/*.mjs",
+      "tests/fixtures/age/provenance/",
       "tests/fixtures/age/independent.json",
       "tests/fixtures/age/cctv.json",
       "tests/fixtures/orc/independent.json",
       "tests/fixtures/orc/receipts/",
-      "tests/fixtures/amqp/independent.json"
+      "tests/fixtures/amqp/receipts/",
+      "tests/fixtures/amqp/independent.json",
+      "tests/fixtures/age/provenance/**/*.json",
+      "tests/fixtures/age/provenance/**/*.snapshot",
+      "tests/fixtures/age/provenance/**/*.mjs"
     ]
   },
   "lint": {
@@ -252,7 +258,9 @@
       "tools/"
     ],
     "exclude": [
-      "tests/upstream/original/"
+      "tests/upstream/original/",
+      "tests/fixtures/age/upstream/",
+      "tests/fixtures/age/provenance/"
     ]
   },
   "publish": {
