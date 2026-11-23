@@ -34,6 +34,10 @@
       "size": 4372032,
       "sha256": "9368e3a5f17c03a8213308f8e44e139ee9d54d29adf6e59d61e1ea9d57caedc0"
     },
+    "tests/fixtures/bai/native/corpus.json": {
+      "size": 1295742,
+      "sha256": "35f60bd3912bcdf2e1acc31dfa8b3fc055ff0826e8466de2632082b7ece2f158"
+    },
     "tests/fixtures/bam/native/corpus.json": {
       "size": 325349,
       "sha256": "4b18297001bdc669a16801340dcb7e5847c073a5aa577cd6baf0c59de5297ebf"

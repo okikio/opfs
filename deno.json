@@ -242,6 +242,7 @@
       "tests/fixtures/orc/receipts/",
       "tests/fixtures/ipc/native/",
       "tests/fixtures/bam/native/",
+      "tests/fixtures/bai/native/",
       "tests/fixtures/amqp/receipts/",
       "tests/fixtures/amqp/independent.json",
       "tests/fixtures/glacier/**/*.json",
