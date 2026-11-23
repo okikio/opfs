@@ -21,33 +21,50 @@ metrics, provider-specific operations, or a custom translation.
 
 ## First-party matrix
 
-| Storage                  | Driver                | Adapter                | Native family |
-| ------------------------ | --------------------- | ---------------------- | ------------- |
-| browser OPFS             | `driver/opfs`         | `adapter/opfs`         | file          |
-| Node filesystem          | `driver/node`         | `adapter/node`         | file          |
-| Deno filesystem          | `driver/deno`         | `adapter/deno`         | file          |
-| Bun filesystem           | `driver/bun`          | `adapter/bun`          | file          |
-| memory                   | `driver/memory`       | `adapter/memory`       | record        |
-| Deno KV                  | `driver/deno-kv`      | `adapter/deno-kv`      | record        |
-| localStorage             | `driver/localstorage` | `adapter/localstorage` | record        |
-| IndexedDB                | `driver/indexeddb`    | `adapter/indexeddb`    | record        |
-| Cache Storage            | `driver/cache`        | `adapter/cache`        | record        |
-| SQLite rows              | `driver/sqlite`       | `adapter/sqlite`       | record        |
-| unstorage Storage        | `driver/unstorage`    | `adapter/unstorage`    | record        |
-| RxDB collection          | `driver/rxdb`         | `adapter/rxdb`         | record        |
-| db0 Database             | `driver/db0`          | `adapter/db0`          | record        |
-| Drizzle database + table | `driver/drizzle`      | `adapter/drizzle`      | record        |
-| S3                       | `driver/s3`           | `adapter/s3`           | object        |
-| Azure Blob               | `driver/azure`        | `adapter/azure`        | object        |
-| Google Cloud Storage     | `driver/gcs`          | `adapter/gcs`          | object        |
-| Backblaze B2 native      | `driver/b2`           | `adapter/b2`           | object        |
-| OpenStack Swift          | `driver/swift`        | `adapter/swift`        | object        |
-| WebDAV                   | `driver/webdav`       | `adapter/webdav`       | file          |
+| Storage                  | Driver                 | Adapter                 | Native family |
+| ------------------------ | ---------------------- | ----------------------- | ------------- |
+| browser OPFS             | `driver/opfs`          | `adapter/opfs`          | file          |
+| Node filesystem          | `driver/node`          | `adapter/node`          | file          |
+| Deno filesystem          | `driver/deno`          | `adapter/deno`          | file          |
+| Bun filesystem           | `driver/bun`           | `adapter/bun`           | file          |
+| memory                   | `driver/memory`        | `adapter/memory`        | record        |
+| Deno KV                  | `driver/deno-kv`       | `adapter/deno-kv`       | record        |
+| localStorage             | `driver/localstorage`  | `adapter/localstorage`  | record        |
+| IndexedDB                | `driver/indexeddb`     | `adapter/indexeddb`     | record        |
+| Cache Storage            | `driver/cache`         | `adapter/cache`         | record        |
+| SQLite rows              | `driver/sqlite`        | `adapter/sqlite`        | record        |
+| unstorage Storage        | `driver/unstorage`     | `adapter/unstorage`     | record        |
+| RxDB collection          | `driver/rxdb`          | `adapter/rxdb`          | record        |
+| db0 Database             | `driver/db0`           | `adapter/db0`           | record        |
+| Drizzle database + table | `driver/drizzle`       | `adapter/drizzle`       | record        |
+| S3                       | `driver/s3`            | `adapter/s3`            | object        |
+| Azure Blob               | `driver/azure`         | `adapter/azure`         | object        |
+| Google Cloud Storage     | `driver/gcs`           | `adapter/gcs`           | object        |
+| Backblaze B2 native      | `driver/b2`            | `adapter/b2`            | object        |
+| OpenStack Swift          | `driver/swift`         | `adapter/swift`         | object        |
+| WebDAV                   | `driver/webdav`        | `adapter/webdav`        | file          |
+| WebHDFS                  | `driver/webhdfs`       | `adapter/webhdfs`       | file          |
+| R2 binding               | `driver/r2`            | `adapter/r2`            | object        |
+| Workers KV binding       | `driver/cloudflare-kv` | `adapter/cloudflare-kv` | record        |
+| D1 binding               | `driver/d1`            | `adapter/d1`            | record        |
 
 These rows identify implemented entrypoints, not identical capabilities or hosted-service certification. See the
 [GCS](gcs.md), [B2](b2.md), [Swift](swift.md) and [WebDAV](webdav.md) guides for exact profile and concurrency limits.
 WebDAV refuses canonical removal because its native DELETE can recursively remove a collection; the native client
 exposes that operation explicitly. [HTTP](http.md) is a single-resource byte source without a filesystem listing.
+
+[Bindings](bindings.md) documents R2's native conditions and Workers KV's eventual consistency. [D1](d1.md) stores
+bounded small records with metadata-only keyset pages. [WebHDFS](webhdfs.md) guards NameNode/DataNode handoff and
+refuses canonical primitives whose native semantics do not fit. None of these rows implies identical atomicity, range or
+stream capabilities.
+
+Opened [ZIP](archive.md), [TAR](tar.md) and [CPIO](cpio.md) archives have optional `view/zip`, `view/tar` and
+`view/cpio` read-only adapters. These borrow their archive/source and validate the complete projected namespace before
+member reads. The format reader owns payload verification; a filesystem byte result does not add integrity evidence.
+
+[Drive](drive.md), [OneDrive](onedrive.md) and [OCI](oci.md) expose native clients without filesystem projections. IDs,
+mutable tag names, sparse upload receipts and provider-specific deletion cannot be translated into canonical file
+primitives merely by adding a driver flag. Use their direct contracts until an explicit projection defines those rules.
 
 Reusable family translators:
 
