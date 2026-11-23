@@ -1,7 +1,8 @@
-/** Bounded Microsoft Cabinet directory inspection and uncompressed-folder reads. @module */
+/** Bounded Microsoft Cabinet inspection and NONE/MSZIP folder previews. @module */
 import type { ByteSourceType } from "../source.ts";
-import { ArchiveBudget, ArchiveError, integer, invalid, unsupported, view } from "./record.ts";
-import type { ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
+import { readMszip } from "./mszip.ts";
+import { ArchiveBudget, ArchiveError, createArchiveLedger, integer, invalid, unsupported, view } from "./record.ts";
+import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
 export { ArchiveError, createArchiveLedger } from "./record.ts";
 export type { ArchiveErrorCodeType, ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
 
@@ -38,7 +39,7 @@ export interface CabFolderType {
   /** Original typeCompress, including algorithm parameters. */
   readonly compressionCode: number;
   readonly size: number;
-  /** Only exact NONE compression with no CFDATA reserved area is currently readable. */
+  /** Exact NONE or MSZIP compression with no CFDATA reserved area is readable. */
   readonly readable: boolean;
   /** Per-block opaque reserve length; checksum coverage is not assumed for nonzero lengths. */
   readonly blockReserveBytes: number;
@@ -64,19 +65,24 @@ export interface CabReadOptionsType extends ArchiveLimitsType {
   readonly signal?: AbortSignal;
   readonly offset?: number;
   readonly length?: number;
-  /** Default true: verify complete covering blocks with nonzero checksums. */
+  /** Default true: verify complete required blocks, including MSZIP history prerequisites. */
   readonly verify?: boolean;
+  /** Cumulative MSZIP DEFLATE blocks across this replay. Default 8192; implementation maximum 65536. */
+  readonly maxDeflateBlocks?: number;
 }
 
-/** Each status names a physical covering block, including bytes outside the selected file/range. */
+/** Each status names a physical required block, including MSZIP history outside the selected file/range. */
 export interface CabBlockReadType {
   readonly blockId: number;
+  readonly role: "covering" | "history";
   readonly status: "checksum-verified" | "checksum-absent" | "pending";
 }
 
 export interface CabReadType {
   readonly bytes: Uint8Array;
-  /** Verified only when every covering block has a present, matching checksum; empty ranges have none. */
+  /** Raw DEFLATE blocks processed across the required MSZIP units; zero for NONE and empty reads. */
+  readonly deflateBlocks: number;
+  /** Verified only when every required block has a present, matching checksum; empty ranges have none. */
   readonly integrity: "block-checksum-verified" | "pending" | "none";
   readonly blocks: readonly CabBlockReadType[];
   readonly work: ArchiveWorkType;
@@ -106,9 +112,19 @@ function parity(bytes: Uint8Array, seed = 0): number {
   return (sum ^ remainder) >>> 0;
 }
 
-/** A bounded standalone v1.3 cabinet: listing accepts known codecs, but only NONE folders are readable. */
+/** A bounded standalone v1.3 cabinet: listing accepts known codecs; NONE and MSZIP folders are readable. */
 export async function openCab(source: ByteSourceType, options: CabOpenOptionsType = {}): Promise<CabArchiveType> {
-  if (!source.stability && !options.allowUnverifiedSource) {
+  options = { ...options };
+  const archiveSignal = options.signal;
+  const { size, identity, stability } = source;
+  integer(size, "CAB source size");
+  if (stability !== undefined && !["immutable", "provider", "caller"].includes(stability)) {
+    throw new TypeError("Unknown CAB source stability evidence.");
+  }
+  if (identity !== undefined && (typeof identity !== "string" || identity.length > 8192)) {
+    throw new TypeError("CAB source identity must be a string of at most 8192 UTF16 code units.");
+  }
+  if (!stability && !options.allowUnverifiedSource) {
     unsupported("CAB index reads require declared source stability or explicit unverified-source acceptance.");
   }
   const maxFolders = options.maxFolders ?? 256;
@@ -121,12 +137,21 @@ export async function openCab(source: ByteSourceType, options: CabOpenOptionsTyp
   }
   if (maxNameBytes > 256) throw new RangeError("CAB profile filename limit is 256 encoded bytes including NUL.");
   const snapshot: ByteSourceType = {
-    size: source.size,
-    ...(source.identity === undefined ? {} : { identity: source.identity }),
-    ...(source.stability === undefined ? {} : { stability: source.stability }),
+    size,
+    ...(identity === undefined ? {} : { identity }),
+    ...(stability === undefined ? {} : { stability }),
     read: source.read.bind(source),
   };
-  const budget = new ArchiveBudget(snapshot, options, options.signal);
+  const localLedger = createArchiveLedger(options);
+  const openingLedger = options.ledger;
+  const lifetime: ArchiveLedgerType = {
+    reserve(kind, count) {
+      localLedger.reserve(kind, count);
+      openingLedger?.reserve(kind, count);
+    },
+    inspect: () => localLedger.inspect(),
+  };
+  const budget = new ArchiveBudget(snapshot, { ...options, ledger: lifetime }, archiveSignal);
   let metadata = 0;
   // Reserve metadata before source allocation; bytes read ahead within the file table count too.
   const readMetadata = async (offset: number, length: number): Promise<Uint8Array> => {
@@ -245,7 +270,10 @@ export async function openCab(source: ByteSourceType, options: CabOpenOptionsTyp
       const plainSize = block.getUint16(6, true);
       if (plainSize === 0) unsupported("Split/zero-output CAB blocks are not supported.");
       if (plainSize > 32768) invalid("CAB uncompressed block exceeds 32 KiB.");
-      if (storedSize === 0 || (descriptor.code === 0 && storedSize !== plainSize)) {
+      if (
+        storedSize === 0 || (descriptor.code === 0 && storedSize !== plainSize) ||
+        (descriptor.code === 1 && (storedSize < 3 || storedSize > 32780))
+      ) {
         invalid("CAB block sizes do not match the folder profile.");
       }
       position += 8 + blockReserve;
@@ -274,7 +302,7 @@ export async function openCab(source: ByteSourceType, options: CabOpenOptionsTyp
         compression,
         compressionCode: descriptor.code,
         size,
-        readable: descriptor.code === 0 && blockReserve === 0,
+        readable: (descriptor.code === 0 || descriptor.code === 1) && blockReserve === 0,
         blockReserveBytes: blockReserve,
         blocks: Object.freeze(blocks),
       }),
@@ -302,11 +330,17 @@ export async function openCab(source: ByteSourceType, options: CabOpenOptionsTyp
       stability: snapshot.stability ?? "unverified",
     }),
     async read(id: number, readOptions: CabReadOptionsType = {}): Promise<CabReadType> {
+      readOptions = { ...readOptions };
+      const maxDeflateBlocks = readOptions.maxDeflateBlocks ?? 8192;
+      integer(maxDeflateBlocks, "MSZIP DEFLATE block limit");
+      if (maxDeflateBlocks > 65536) throw new RangeError("MSZIP DEFLATE block limit exceeds 65536.");
       integer(id, "Entry ID");
       const entry = entries[id];
       if (!entry) throw new RangeError("CAB entry ID does not exist.");
       const folder = folders[entry.folderId]!;
-      if (folder.compressionCode !== 0) unsupported("Only uncompressed CAB folder payloads can be read.");
+      if (folder.compressionCode !== 0 && folder.compressionCode !== 1) {
+        unsupported("Only exact NONE and MSZIP CAB folder payloads can be read.");
+      }
       if (folder.blockReserveBytes !== 0) {
         unsupported("CAB CFDATA reserved-area checksum scope is not supported for payload reads.");
       }
@@ -322,44 +356,97 @@ export async function openCab(source: ByteSourceType, options: CabOpenOptionsTyp
       const selected = length === 0
         ? []
         : folder.blocks.filter((block) => block.folderOffset < end && block.folderOffset + block.size > start);
+      const compressed = folder.compressionCode === 1;
+      const required = compressed && selected.length > 0
+        ? folder.blocks.filter((block) => block.folderOffset < end)
+        : selected;
       const verify = readOptions.verify ?? true;
-      const readBudget = new ArchiveBudget(snapshot, readOptions, readOptions.signal);
+      // An operation signal may add cancellation authority but cannot replace opening authority.
+      const signals = [archiveSignal, readOptions.signal].filter((signal): signal is AbortSignal => !!signal);
+      const signal = signals.length > 1 ? AbortSignal.any(signals) : signals[0];
+      signal?.throwIfAborted();
+      const extra = readOptions.ledger;
+      const ledger: ArchiveLedgerType = {
+        reserve(kind, count) {
+          lifetime.reserve(kind, count);
+          if (extra && extra !== openingLedger) extra.reserve(kind, count);
+        },
+        inspect: () => lifetime.inspect(),
+      };
+      // The complete known source/request cost is reserved below before allocating output.
+      // Actual reads consume that admission locally without charging external ledgers twice.
+      const readBudget = new ArchiveBudget(snapshot, {
+        ...readOptions,
+        ledger: {
+          reserve(kind, count) {
+            if (kind !== "sourceBytes" && kind !== "requests") ledger.reserve(kind, count);
+          },
+          inspect: () => ledger.inspect(),
+        },
+      }, signal);
       let workLength = 0;
-      for (const block of selected) {
-        workLength += verify && block.checksum !== 0
+      let sourceLength = 0;
+      for (const block of required) {
+        const decoded = compressed
+          ? block.size + (block === required.at(-1) ? 0 : Math.min(32768, block.folderOffset + block.size))
+          : verify && block.checksum !== 0
           ? block.size
           : Math.min(end, block.folderOffset + block.size) - Math.max(start, block.folderOffset);
+        workLength += decoded;
+        sourceLength += compressed ? block.storedSize : decoded;
       }
-      if (workLength > readBudget.limits.maxSourceBytes || selected.length > readBudget.limits.maxRequests) {
+      if (sourceLength > readBudget.limits.maxSourceBytes || required.length > readBudget.limits.maxRequests) {
         throw new ArchiveError("budget-exceeded", "CAB selected block work exceeds source limits.");
       }
+      ledger.reserve("sourceBytes", sourceLength);
+      ledger.reserve("requests", required.length);
       readBudget.output(length);
       readBudget.decoded(workLength);
-      readOptions.signal?.throwIfAborted();
+      signal?.throwIfAborted();
       const bytes = new Uint8Array(length);
       const evidence: CabBlockReadType[] = [];
-      for (const block of selected) {
+      let history = new Uint8Array(0);
+      let deflateBlocks = 0;
+      for (const block of required) {
         const from = Math.max(start, block.folderOffset);
         const until = Math.min(end, block.folderOffset + block.size);
         const check = verify && block.checksum !== 0;
-        const readAt = check ? block.folderOffset : from;
+        const readAt = compressed || check ? block.folderOffset : from;
         const body = await readBudget.read(
-          block.offset + readAt - block.folderOffset,
-          check ? block.size : until - from,
+          compressed ? block.offset : block.offset + readAt - block.folderOffset,
+          compressed ? block.storedSize : check ? block.size : until - from,
         );
         if (check && parity(suffixes[block.id]!, parity(body)) !== block.checksum) {
-          throw new ArchiveError("checksum-mismatch", "CAB covering block parity checksum mismatch.");
+          throw new ArchiveError("checksum-mismatch", "CAB required block parity checksum mismatch.");
         }
-        bytes.set(body.subarray(from - readAt, until - readAt), from - start);
+        const decoded = compressed
+          ? readMszip(body, block.size, history, signal, () => {
+            if (deflateBlocks === maxDeflateBlocks) {
+              throw new ArchiveError("budget-exceeded", "MSZIP cumulative DEFLATE block limit exceeded.");
+            }
+            deflateBlocks++;
+          })
+          : body;
+        if (until > from) bytes.set(decoded.subarray(from - readAt, until - readAt), from - start);
+        if (compressed && block !== required.at(-1)) {
+          const next = new Uint8Array(Math.min(32768, history.length + decoded.length));
+          const retained = Math.max(0, next.length - decoded.length);
+          next.set(history.subarray(history.length - retained));
+          next.set(decoded.subarray(Math.max(0, decoded.length - next.length)), retained);
+          history = next;
+        }
         evidence.push(
           Object.freeze({
             blockId: block.id,
+            role: block.folderOffset < end && block.folderOffset + block.size > start ? "covering" : "history",
             status: block.checksum === 0 ? "checksum-absent" : check ? "checksum-verified" : "pending",
           }),
         );
       }
+      signal?.throwIfAborted();
       return {
         bytes,
+        deflateBlocks,
         blocks: Object.freeze(evidence),
         work: readBudget.inspect(),
         integrity: evidence.length > 0 && evidence.every((block) => block.status === "checksum-verified")

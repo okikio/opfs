@@ -1,7 +1,18 @@
-/** Bounded unencoded 7z indexing and exact single-stream COPY reads. @module */
+/** Bounded 7z indexing with COPY and single-stream LZMA reads. @module */
+import { createLzmaDecoder } from "./lzma.ts";
+import type { LzmaFormatType, LzmaLimitsType } from "./lzma.ts";
 import type { ByteSourceType } from "../source.ts";
-import { ArchiveBudget, ArchiveError, crc32, integer, invalid, unsupported, view } from "./record.ts";
-import type { ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
+import {
+  ArchiveBudget,
+  ArchiveError,
+  crc32,
+  createArchiveLedger,
+  integer,
+  invalid,
+  unsupported,
+  view,
+} from "./record.ts";
+import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
 export { ArchiveError, createArchiveLedger } from "./record.ts";
 export type { ArchiveErrorCodeType, ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
 
@@ -45,8 +56,15 @@ export interface SevenEntryType {
   /** Raw Windows FILETIME units: 100 ns since 1601-01-01 UTC. Not Unix milliseconds. */
   readonly mtime?: bigint;
 }
+/** Codec allocation/CPU limits apply independently to each header/member decode; archive ledgers aggregate bytes. */
+export type SevenLzmaOptionsType = Pick<
+  LzmaLimitsType,
+  "maxDictionaryBytes" | "maxMemoryBytes" | "maxDecisions" | "maxSteps" | "maxChunks" | "inputChunkBytes" | "yield"
+>;
 /** Finite index admission. No decoder, registry or source lifetime is acquired. */
 export interface SevenOpenOptionsType extends ArchiveLimitsType {
+  /** Defaults match the bounded LZMA engine; opening policy is inherited by member reads. */
+  readonly lzma?: SevenLzmaOptionsType;
   readonly signal?: AbortSignal;
   /** Signature/next-header bytes plus admitted string copies. Default 8 MiB; not a JS heap bound. */
   readonly maxHeaderBytes?: number;
@@ -67,13 +85,15 @@ export interface SevenOpenOptionsType extends ArchiveLimitsType {
 }
 /** Selected output range with independent work limits; verification can scan the whole file. */
 export interface SevenReadOptionsType extends ArchiveLimitsType {
+  /** Override inherited codec limits for this decode, without replacing aggregate byte ownership. */
+  readonly lzma?: SevenLzmaOptionsType;
   readonly signal?: AbortSignal;
   readonly offset?: number;
   readonly length?: number;
-  /** Default true; present CRCs require examining the complete selected COPY extent. */
+  /** Default true; compressed reads drain and validate the complete selected member, including present CRCs. */
   readonly verify?: boolean;
 }
-/** These scopes share one exact byte extent only in the admitted single-stream COPY profile. */
+/** Checks retain packed-byte versus decoded-byte scopes; CRC is never authentication. */
 export interface SevenCheckType {
   readonly scope: "pack" | "folder" | "substream";
   readonly crc: number;
@@ -84,6 +104,8 @@ export interface SevenReadType {
   readonly bytes: Uint8Array;
   readonly integrity: "crc32-verified" | "pending" | "none";
   readonly checks: readonly SevenCheckType[];
+  /** Present for a decoded compressed member; a prefix has no complete terminal evidence. */
+  readonly decoding?: "complete" | "prefix";
   readonly work: ArchiveWorkType;
 }
 /** Immutable index over a borrowed replayable source. No file is extracted or source closed. */
@@ -92,13 +114,22 @@ export interface SevenArchiveType {
   readonly folders: readonly SevenFolderType[];
   readonly packs: readonly SevenPackType[];
   /** Header CRC evidence is mandatory and distinct from payload checks or authentication. */
-  readonly headers: { readonly start: "crc32-verified"; readonly next: "crc32-verified" };
+  readonly headers: {
+    readonly start: "crc32-verified";
+    readonly next: "crc32-verified";
+    /** Present only after decoding an encoded header; these checks describe metadata, not file payloads. */
+    readonly decoded?: {
+      readonly method: string;
+      readonly integrity: "crc32-verified";
+      readonly checks: readonly SevenCheckType[];
+    };
+  };
   readonly work: ArchiveWorkType;
   readonly source: {
     readonly identity?: string;
     readonly stability: "immutable" | "provider" | "caller" | "unverified";
   };
-  /** Read a regular COPY/empty file by ID; absent CRCs report none, unchecked present CRCs pending. */
+  /** Read a regular supported single-substream/empty file by ID; absent CRCs report none, unchecked present CRCs pending. */
   read(id: number, options?: SevenReadOptionsType): Promise<SevenReadType>;
 }
 
@@ -476,20 +507,186 @@ function files(
   return { names, empty, emptyFile, anti, attributes, mtime };
 }
 
-/** Index an unencoded 7z header; encoded headers are refused after mandatory bounded header CRC checks. */
-export async function openSeven(source: ByteSourceType, options: SevenOpenOptionsType = {}): Promise<SevenArchiveType> {
-  if (!source.stability && !options.allowUnverifiedSource) {
+/** Select a frozen codec from exact method properties; no registry or caller-supplied decoder runs. */
+function codec(coder: SevenCoderType): Exclude<LzmaFormatType, { format: "alone" }> | undefined {
+  const count = coder.method === "030101" ? 5 : coder.method === "21" ? 1 : 0;
+  if (count === 0) return undefined;
+  if (coder.properties.length !== count * 2) invalid("7z LZMA coder property length is invalid.");
+  const bytes = new Uint8Array(count);
+  for (let at = 0; at < count; at++) bytes[at] = Number.parseInt(coder.properties.slice(at * 2, at * 2 + 2), 16);
+  if (coder.method === "030101") {
+    if (bytes.length !== 5 || bytes[0]! >= 225) invalid("7z LZMA1 properties must contain five valid bytes.");
+    const lc = bytes[0]! % 9;
+    const lp = Math.floor(bytes[0]! / 9) % 5;
+    if (lc + lp > 4) return undefined;
+    return { format: "raw-lzma1", properties: bytes, marker: "optional" };
+  }
+  if (coder.method === "21") {
+    if (bytes.length !== 1 || bytes[0]! > 40) invalid("7z LZMA2 properties must contain one valid dictionary byte.");
+    return { format: "raw-lzma2", dictionary: bytes[0]! };
+  }
+  return undefined;
+}
+
+/** Retain only codec policy fields. Container framing and work owners cannot be overwritten by foreign options. */
+function codecPolicy(options: SevenLzmaOptionsType = {}): SevenLzmaOptionsType {
+  const result: Record<string, unknown> = {};
+  for (
+    const key of [
+      "maxDictionaryBytes",
+      "maxMemoryBytes",
+      "maxDecisions",
+      "maxSteps",
+      "maxChunks",
+      "inputChunkBytes",
+      "yield",
+    ] as const
+  ) {
+    if (options[key] !== undefined) result[key] = options[key];
+  }
+  return result;
+}
+
+/** Decoding visits one packed extent from its start. Packed and plaintext CRCs never share an accumulator.
+ * The container charges source operations and selected output; the codec charges decoded work through the relay.
+ * Decoder output is bounded scan work, not a second charge against returned archive bytes. */
+async function decode(
+  snapshot: ByteSourceType,
+  pack: SevenPackType,
+  coder: SevenCoderType,
+  size: number,
+  offset: number,
+  length: number,
+  verify: boolean,
+  budget: ArchiveBudget,
+  policy: SevenLzmaOptionsType,
+  signal?: AbortSignal,
+  selectedOutput = true,
+  decodedCredit = 0,
+): Promise<{ bytes: Uint8Array; complete: boolean; packed: number; plain: number }> {
+  const framing = codec(coder);
+  if (!framing) unsupported("7z coder is outside the supported LZMA profile.");
+  if (selectedOutput) budget.output(length);
+  signal?.throwIfAborted();
+  const output = new Uint8Array(length);
+  if (!verify && length === 0) return { bytes: output, complete: false, packed: 0, plain: 0 };
+  let packedState = 0xffffffff;
+  let plainState = 0xffffffff;
+  let packedRead = 0;
+  const source: ByteSourceType = {
+    size: pack.size,
+    stability: snapshot.stability ?? "caller",
+    async read(at, count) {
+      if (at !== packedRead) invalid("7z decoder requested a nonsequential packed range.");
+      const bytes = await budget.read(add(pack.offset, at), count);
+      packedState = crc32(bytes, packedState);
+      packedRead += count;
+      return bytes;
+    },
+  };
+  const relay: ArchiveLedgerType = {
+    reserve(kind, count) {
+      if (kind === "decodedBytes") {
+        const credit = Math.min(decodedCredit, count);
+        decodedCredit -= credit;
+        budget.decoded(count - credit);
+      }
+    },
+    inspect: () => budget.inspect(),
+  };
+  const decoder = createLzmaDecoder(source, {
+    ...policy,
+    ...framing,
+    size,
+    maxSourceBytes: budget.limits.maxSourceBytes,
+    maxRequests: budget.limits.maxRequests,
+    maxDecodedBytes: budget.limits.maxDecodedBytes,
+    maxOutputBytes: size,
+    ledger: relay,
+    ...(signal === undefined ? {} : { signal }),
+  });
+  const reader = decoder.stream.getReader();
+  let at = 0;
+  let complete = false;
+  let failed = false;
+  let primary: unknown;
+  const retain = (reason: unknown): void => {
+    if (failed && reason === primary) return; // A second observation of this decoder's single terminal promise.
+    primary = failed ? new AggregateError([primary, reason], "7z decode and retirement failed.") : reason;
+    failed = true;
+  };
+  try {
+    while (true) {
+      const result = await reader.read();
+      if (result.done) {
+        complete = true;
+        break;
+      }
+      const bytes = result.value;
+      plainState = crc32(bytes, plainState);
+      const end = add(at, bytes.length);
+      const from = Math.max(at, offset);
+      const until = Math.min(end, offset + length);
+      if (until > from) output.set(bytes.subarray(from - at, until - at), from - offset);
+      at = end;
+      if (!verify && offset + length < size && at >= offset + length) break;
+    }
+  } catch (reason) {
+    retain(reason);
+  }
+  if (!complete) {
+    try {
+      await reader.cancel();
+    } catch (reason) {
+      retain(reason);
+    }
+  }
+  try {
+    const terminal = await decoder.finished;
+    if (terminal.status === "complete") complete = true;
+  } catch (reason) {
+    retain(reason);
+  }
+  reader.releaseLock();
+  if (failed) throw primary;
+  if (complete && (at !== size || packedRead !== pack.size)) invalid("7z decoded extent is incomplete.");
+  return { bytes: output, complete, packed: (packedState ^ 0xffffffff) >>> 0, plain: (plainState ^ 0xffffffff) >>> 0 };
+}
+
+/** Index plain or bounded single-coder encoded headers; mandatory metadata CRCs remain separate from member checks. */
+export async function openSeven(
+  source: ByteSourceType,
+  supplied: SevenOpenOptionsType = {},
+): Promise<SevenArchiveType> {
+  const options = { ...supplied, lzma: codecPolicy(supplied.lzma) };
+  const { size, identity, stability } = source;
+  if (stability !== undefined && !["immutable", "provider", "caller"].includes(stability)) {
+    throw new TypeError("Unknown 7z source stability.");
+  }
+  if (identity !== undefined && (typeof identity !== "string" || identity.length > 8192)) {
+    throw new TypeError("7z source identity must be a bounded string.");
+  }
+  if (!stability && !options.allowUnverifiedSource) {
     unsupported("7z requires source stability or explicit unverified-source acceptance.");
   }
   const admission = new Admission(options);
   admission.copies(32);
   const snapshot: ByteSourceType = {
-    size: source.size,
-    ...(source.identity === undefined ? {} : { identity: source.identity }),
-    ...(source.stability === undefined ? {} : { stability: source.stability }),
+    size,
+    ...(identity === undefined ? {} : { identity: identity }),
+    ...(stability === undefined ? {} : { stability: stability }),
     read: source.read.bind(source),
   };
-  const budget = new ArchiveBudget(snapshot, options, options.signal);
+  const local = createArchiveLedger(options);
+  const openingLedger = options.ledger;
+  const lifetime: ArchiveLedgerType = {
+    reserve(kind, count) {
+      local.reserve(kind, count);
+      openingLedger?.reserve(kind, count);
+    },
+    inspect: () => local.inspect(),
+  };
+  const budget = new ArchiveBudget(snapshot, { ...options, ledger: lifetime }, options.signal);
   const signature = await budget.read(0, 32);
   budget.decoded(32);
   const start = view(signature);
@@ -506,10 +703,68 @@ export async function openSeven(source: ByteSourceType, options: SevenOpenOption
     invalid("7z next header must fit and end at the full source extent.");
   }
   admission.copies(headerSize);
-  const bytes = await budget.read(headerAt, headerSize);
+  let bytes = await budget.read(headerAt, headerSize);
   budget.decoded(headerSize);
   if (checksum(bytes) !== start.getUint32(28, true)) {
     throw new ArchiveError("checksum-mismatch", "7z next-header CRC mismatch.");
+  }
+  let payloadEnd = headerAt;
+  let decodedHeader: SevenArchiveType["headers"]["decoded"];
+  if (headerSize > 0 && bytes[0] === 23) {
+    const encoded = new Cursor(bytes);
+    encoded.expect(23);
+    const data = streams(encoded, admission);
+    encoded.end();
+    if (data.folders.length !== 1 || data.sizes.length !== 1) {
+      unsupported("7z encoded header requires one folder/pack.");
+    }
+    const item = data.folders[0]!;
+    if (item.coders.length !== 1 || item.streams.length !== 1 || !codec(item.coders[0]!)) {
+      unsupported("7z encoded header requires one supported LZMA coder/substream.");
+    }
+    const offset = add(32, data.position);
+    const size = data.sizes[0]!;
+    if (offset > headerAt || size !== headerAt - offset) {
+      invalid("7z encoded header pack must end at its outer header.");
+    }
+    const checks: { scope: SevenCheckType["scope"]; crc: number }[] = [];
+    if (data.crcs[0] !== undefined) checks.push({ scope: "pack", crc: data.crcs[0]! });
+    if (item.crc !== undefined) checks.push({ scope: "folder", crc: item.crc });
+    if (item.streams[0]!.crc !== undefined && item.streams[0]!.origin !== "folder") {
+      checks.push({ scope: "substream", crc: item.streams[0]!.crc! });
+    }
+    if (!checks.some((check) => check.scope !== "pack")) unsupported("7z encoded header requires a decoded CRC.");
+    admission.copies(add(size, item.size));
+    // Reserve the retained decoded header before allocation, including aggregate admission.
+    // The relay consumes this credit, then charges any additional LZMA2 framing work once.
+    budget.decoded(item.size);
+    const result = await decode(
+      snapshot,
+      { id: 0, offset, size },
+      item.coders[0]!,
+      item.size,
+      0,
+      item.size,
+      true,
+      budget,
+      options.lzma,
+      options.signal,
+      false,
+      item.size,
+    );
+    for (const check of checks) {
+      if (check.crc !== (check.scope === "pack" ? result.packed : result.plain)) {
+        throw new ArchiveError("checksum-mismatch", "7z encoded header CRC mismatch.");
+      }
+    }
+    bytes = result.bytes;
+    if (bytes[0] !== 1) unsupported("7z decoded header must be one unencoded Header.");
+    decodedHeader = Object.freeze({
+      method: item.coders[0]!.method,
+      integrity: "crc32-verified",
+      checks: Object.freeze(checks.map((check) => Object.freeze({ ...check, status: "crc32-verified" as const }))),
+    });
+    payloadEnd = offset;
   }
   const packs: SevenPackType[] = [];
   const publicFolders: SevenFolderType[] = [];
@@ -517,7 +772,7 @@ export async function openSeven(source: ByteSourceType, options: SevenOpenOption
   if (headerSize > 0) {
     const cursor = new Cursor(bytes);
     const marker = cursor.number();
-    if (marker === 23) unsupported("7z encoded/encrypted headers require an unsupported header decoder.");
+    if (marker === 23) unsupported("7z recursively encoded headers are unsupported.");
     if (marker !== 1) unsupported("7z next-header profile is unsupported.");
     let tag = cursor.number();
     if (tag === 2) {
@@ -540,10 +795,10 @@ export async function openSeven(source: ByteSourceType, options: SevenOpenOption
     cursor.expect(0);
     cursor.end();
     let physical = add(32, streamData.position);
-    if (physical > headerAt) invalid("7z pack base exceeds the payload region.");
+    if (physical > payloadEnd) invalid("7z pack base exceeds the payload region.");
     for (let id = 0; id < streamData.sizes.length; id++) {
       const size = streamData.sizes[id]!;
-      if (physical > headerAt || size > headerAt - physical) {
+      if (physical > payloadEnd || size > payloadEnd - physical) {
         invalid("7z packed stream exceeds the pre-header payload region.");
       }
       const crc = streamData.crcs[id];
@@ -555,6 +810,7 @@ export async function openSeven(source: ByteSourceType, options: SevenOpenOption
       const pack = packs[id]!;
       const copy = item.coders.length === 1 && item.coders[0]!.method === "00" && item.coders[0]!.properties === "";
       if (copy && item.size !== pack.size) invalid("7z COPY folder has different packed and unpacked sizes.");
+      const compressed = item.coders.length === 1 && codec(item.coders[0]!) !== undefined;
       const known = item.coders.every((coder) => ["00", "21", "030101", "040108", "040202"].includes(coder.method));
       const encrypted = item.coders.some((coder) => coder.method === "06f10701") ? true : known ? false : "unknown";
       publicFolders.push(
@@ -566,7 +822,7 @@ export async function openSeven(source: ByteSourceType, options: SevenOpenOption
           substreams: item.streams.length,
           solid: item.streams.length > 1,
           encrypted,
-          readable: copy && item.streams.length === 1,
+          readable: (copy || compressed) && item.streams.length === 1,
           ...(item.crc === undefined ? {} : { crc: item.crc }),
         }),
       );
@@ -620,18 +876,34 @@ export async function openSeven(source: ByteSourceType, options: SevenOpenOption
     entries: Object.freeze(entries),
     folders: Object.freeze(publicFolders),
     packs: Object.freeze(packs),
-    headers: Object.freeze({ start: "crc32-verified", next: "crc32-verified" }),
+    headers: Object.freeze({
+      start: "crc32-verified",
+      next: "crc32-verified",
+      ...(decodedHeader === undefined ? {} : { decoded: decodedHeader }),
+    }),
     work: budget.inspect(),
     source: Object.freeze({
       ...(snapshot.identity === undefined ? {} : { identity: snapshot.identity }),
       stability: snapshot.stability ?? "unverified",
     }),
     async read(id: number, readOptions: SevenReadOptionsType = {}): Promise<SevenReadType> {
+      const active = options.signal && readOptions.signal
+        ? AbortSignal.any([options.signal, readOptions.signal])
+        : options.signal ?? readOptions.signal;
+      const extra = readOptions.ledger;
+      const ledger: ArchiveLedgerType = {
+        reserve(kind, count) {
+          lifetime.reserve(kind, count);
+          if (extra && extra !== openingLedger) extra.reserve(kind, count);
+        },
+        inspect: () => lifetime.inspect(),
+      };
+      readOptions = { ...readOptions, ledger, ...(active === undefined ? {} : { signal: active }) };
       integer(id, "Entry ID");
       const entry = entries[id];
       if (!entry) throw new RangeError("7z entry ID does not exist.");
       if (!entry.readable || entry.kind !== "file") {
-        unsupported("7z payload requires a regular single-substream COPY file or an empty file.");
+        unsupported("7z payload requires a regular supported single-substream file or an empty file.");
       }
       const offset = readOptions.offset ?? 0;
       const length = readOptions.length ?? entry.size - offset;
@@ -646,9 +918,42 @@ export async function openSeven(source: ByteSourceType, options: SevenOpenOption
       if (pack?.crc !== undefined) checks.push({ scope: "pack", crc: pack.crc });
       if (item?.crc !== undefined) checks.push({ scope: "folder", crc: item.crc });
       if (entry.crc !== undefined && entry.crcSource !== "folder") checks.push({ scope: "substream", crc: entry.crc });
+      const readBudget = new ArchiveBudget(snapshot, readOptions, readOptions.signal);
+      if (item && pack && item.coders[0]!.method !== "00") {
+        const result = await decode(
+          snapshot,
+          pack,
+          item.coders[0]!,
+          entry.size,
+          offset,
+          length,
+          readOptions.verify ?? true,
+          readBudget,
+          { ...options.lzma, ...codecPolicy(readOptions.lzma) },
+          readOptions.signal,
+        );
+        const verified = (readOptions.verify ?? true) && result.complete;
+        if (verified) {
+          for (const check of checks) {
+            if (check.crc !== (check.scope === "pack" ? result.packed : result.plain)) {
+              throw new ArchiveError("checksum-mismatch", "7z compressed member CRC mismatch.");
+            }
+          }
+        }
+        return {
+          bytes: result.bytes,
+          decoding: result.complete ? "complete" : "prefix",
+          integrity: checks.length === 0 ? "none" : verified ? "crc32-verified" : "pending",
+          checks: Object.freeze(
+            checks.map((check) =>
+              Object.freeze({ ...check, status: verified ? "crc32-verified" as const : "pending" as const })
+            ),
+          ),
+          work: readBudget.inspect(),
+        };
+      }
       const verify = (readOptions.verify ?? true) && checks.length > 0;
       const workLength = verify ? entry.size : length;
-      const readBudget = new ArchiveBudget(snapshot, readOptions, readOptions.signal);
       if (
         workLength > readBudget.limits.maxSourceBytes || Math.ceil(workLength / 65536) > readBudget.limits.maxRequests
       ) throw new ArchiveError("budget-exceeded", "7z selected COPY work exceeds source limits.");

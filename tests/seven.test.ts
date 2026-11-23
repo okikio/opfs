@@ -24,7 +24,7 @@ function repair(bytes: Uint8Array): void {
 }
 
 /** Original small wire fixtures isolate graph and CRC scopes without relying on parser serialization. */
-function wire(header: number[], payload = new Uint8Array([42])): Uint8Array {
+function wire(header: number[], payload: Uint8Array = new Uint8Array([42])): Uint8Array {
   const bytes = new Uint8Array(32 + payload.length + header.length);
   bytes.set([55, 122, 188, 175, 39, 28, 0, 4]);
   bytes.set(payload, 32);
@@ -39,7 +39,7 @@ const file = [5, 1, 17, 5, 0, 120, 0, 0, 0, 0, 0]; // Inline UTF-16LE "x", Files
 const word = (value: number): number[] => [value & 255, value >>> 8 & 255, value >>> 16 & 255, value >>> 24];
 
 describe("bounded 7z inspection", () => {
-  for (const profile of ["copy", "lzma2", "solid", "encrypted"] as const) {
+  for (const profile of ["copy", "lzma1", "lzma2", "solid", "encrypted"] as const) {
     it(`indexes genuine 7-Zip ${profile} without reading packed bodies`, async () => {
       const fixture = fixtures[profile];
       const bytes = decodeBase64(fixture.archive);
@@ -59,7 +59,7 @@ describe("bounded 7z inspection", () => {
         expect(entry).toBeDefined();
         expect(entry.kind).toBe(expected.kind);
         expect(entry.size).toBe(decodeBase64(expected.body).length);
-        if (profile === "copy" && entry.kind === "file") {
+        if ((profile === "copy" || profile === "lzma1" || profile === "lzma2") && entry.kind === "file") {
           expect((await archive.read(entry.id)).bytes).toEqual(decodeBase64(expected.body));
         } else if (entry.size > 0) {
           expect(entry.readable).toBe(false);
@@ -85,7 +85,7 @@ describe("bounded 7z inspection", () => {
       expect(fixture.independentPayloadVerified).toBe(!profile.startsWith("encrypted"));
     }
   });
-  for (const profile of ["encoded", "encrypted-header"] as const) {
+  for (const profile of ["encrypted-header"] as const) {
     it(`refuses ${profile} names after checking next-header CRC`, async () => {
       const bytes = decodeBase64(fixtures[profile].archive);
       await expect(openSeven(source(bytes))).rejects.toMatchObject({ code: "unsupported-profile" });
@@ -283,5 +283,210 @@ describe("bounded 7z inspection", () => {
     bytes[at] = 3;
     repair(bytes);
     await expect(openSeven(source(bytes))).rejects.toMatchObject({ code: "unsupported-profile" });
+  });
+});
+
+describe("7z bounded LZMA integration", () => {
+  it("decodes a genuine encoded header before indexing its payloads", async () => {
+    for (const fixture of [fixtures.encoded, fixtures["encoded-lzma1"]]) {
+      const archive = await openSeven(source(decodeBase64(fixture.archive)));
+      expect(archive.headers.decoded?.integrity).toBe("crc32-verified");
+      expect(archive.headers.decoded?.checks.some((check) => check.scope === "folder")).toBe(true);
+      for (const expected of fixture.entries) {
+        const entry = archive.entries.find((entry) => entry.name === expected.name)!;
+        expect(entry).toBeDefined();
+        if (entry.kind === "file") expect((await archive.read(entry.id)).bytes).toEqual(decodeBase64(expected.body));
+      }
+    }
+  });
+  it("decodes selected LZMA2 prefixes with pending checks and full verification independently", async () => {
+    const fixture = fixtures.lzma2;
+    const archive = await openSeven(source(decodeBase64(fixture.archive)));
+    const entry = archive.entries.find((entry) => entry.name === "large.bin")!;
+    const expected = decodeBase64(fixture.entries.find((entry) => entry.name === "large.bin")!.body);
+    const prefix = await archive.read(entry.id, { length: 13, verify: false });
+    expect(prefix.bytes).toEqual(expected.subarray(0, 13));
+    expect(prefix.integrity).toBe("pending");
+    expect(prefix.decoding).toBe("prefix");
+    const tail = await archive.read(entry.id, { offset: 100000, length: 13 });
+    expect(tail.bytes).toEqual(expected.subarray(100000, 100013));
+    expect(tail.integrity).toBe("crc32-verified");
+    expect(tail.work.outputBytes).toBe(13);
+    expect(tail.work.decodedBytes).toBeGreaterThanOrEqual(entry.size);
+    for (const limit of [{ lzma: { maxSteps: 0 } }, { maxDecodedBytes: 1 }, { maxOutputBytes: 12 }]) {
+      await expect(archive.read(entry.id, { length: 13, ...limit })).rejects.toMatchObject({ code: "budget-exceeded" });
+    }
+  });
+  it("preserves opening aggregate limits and abort through later reads", async () => {
+    const ledger = createArchiveLedger({ maxOutputBytes: 1 });
+    const archive = await openSeven(source(original), { ledger });
+    const entry = archive.entries.find((entry) => entry.name === "large.bin")!;
+    await expect(archive.read(entry.id, { length: 2 })).rejects.toMatchObject({ code: "budget-exceeded" });
+    const abort = new AbortController();
+    const cancelled = await openSeven(source(original), { signal: abort.signal });
+    const reason = new Error("Opening lifetime ended");
+    abort.abort(reason);
+    await expect(cancelled.read(entry.id, { length: 1 })).rejects.toBe(reason);
+  });
+});
+
+/** Authored framing controls use a native-format uncompressed LZMA2 block and independent bitwise CRC oracle. */
+function lzmaStreams(
+  position: number,
+  packed: Uint8Array,
+  size: number,
+  decodedCrc?: number,
+  packCrc = crc(packed),
+): number[] {
+  return [
+    6,
+    position,
+    1,
+    9,
+    packed.length,
+    10,
+    1,
+    ...word(packCrc),
+    0,
+    7,
+    11,
+    1,
+    0,
+    1,
+    0x21,
+    0x21,
+    1,
+    8,
+    12,
+    size,
+    ...(decodedCrc === undefined ? [] : [10, 1, ...word(decodedCrc)]),
+    0,
+    0,
+  ];
+}
+function rawLzma2(body: Uint8Array): Uint8Array {
+  if (body.length < 1 || body.length > 128) throw new Error("Control fixture length outside authored bounds");
+  return new Uint8Array([1, 0, body.length - 1, ...body, 0]);
+}
+
+describe("7z compressed integrity scopes", () => {
+  it("checks distinct packed and decoded CRCs without borrowing COPY equivalence", async () => {
+    const body = new Uint8Array([42]);
+    const packed = rawLzma2(body);
+    expect(crc(body)).not.toBe(crc(packed));
+    const header = [1, 4, ...lzmaStreams(0, packed, body.length, crc(body)), ...file];
+    const archive = await openSeven(source(wire(header, packed)));
+    const result = await archive.read(0);
+    expect(result.bytes).toEqual(body);
+    expect(result.decoding).toBe("complete");
+    expect(result.checks.map((check) => check.scope)).toEqual(["pack", "folder"]);
+    expect(result.checks.every((check) => check.status === "crc32-verified")).toBe(true);
+    expect(result.work.sourceBytes).toBe(packed.length);
+    expect(result.work.outputBytes).toBe(1);
+    expect(result.work.decodedBytes).toBe(5); // Four framing bytes plus one plaintext byte.
+    for (const [plain, packedCrc] of [[crc(packed), crc(packed)], [crc(body), crc(body)]]) {
+      const corrupt = await openSeven(
+        source(wire([1, 4, ...lzmaStreams(0, packed, 1, plain, packedCrc), ...file], packed)),
+      );
+      await expect(corrupt.read(0)).rejects.toMatchObject({ code: "checksum-mismatch" });
+    }
+  });
+  it("requires a decoded encoded-header CRC before exposing any names", async () => {
+    const inner = new Uint8Array([1, 5, 1, 14, 1, 128, 15, 1, 128, 17, 5, 0, 120, 0, 0, 0, 0, 0]);
+    const packed = rawLzma2(inner);
+    const outer = [23, ...lzmaStreams(0, packed, inner.length, crc(inner))];
+    const archive = await openSeven(source(wire(outer, packed)));
+    expect(archive.entries[0]!.name).toBe("x");
+    expect(archive.headers.decoded?.checks.map((check) => check.scope)).toEqual(["pack", "folder"]);
+    expect(archive.work.outputBytes).toBe(0);
+    for (const expected of [undefined, (crc(inner) + 1) >>> 0]) {
+      await expect(openSeven(source(wire([23, ...lzmaStreams(0, packed, inner.length, expected)], packed))))
+        .rejects.toMatchObject({ code: expected === undefined ? "unsupported-profile" : "checksum-mismatch" });
+    }
+    for (
+      const policy of [
+        { maxHeaderBytes: 32 + outer.length + packed.length + inner.length - 1 },
+        { ledger: createArchiveLedger({ maxDecodedBytes: 32 + outer.length + inner.length - 1 }) },
+      ]
+    ) {
+      const bytes = wire(outer, packed);
+      let packedReads = 0;
+      await expect(openSeven({
+        size: bytes.length,
+        stability: "immutable",
+        async read(offset, length) {
+          if (offset === 32) packedReads++;
+          return bytes.subarray(offset, offset + length);
+        },
+      }, policy)).rejects.toMatchObject({ code: "budget-exceeded" });
+      expect(packedReads).toBe(0);
+    }
+  });
+  it("rejects decoded-header payload extents overlapping their encoded-header pack", async () => {
+    const inner = new Uint8Array([1, 4, 6, 0, 1, 9, 1, 0, 7, 11, 1, 0, 1, 1, 0, 12, 1, 0, 0, ...file]);
+    const packed = rawLzma2(inner);
+    await expect(openSeven(source(wire([23, ...lzmaStreams(0, packed, inner.length, crc(inner))], packed))))
+      .rejects.toMatchObject({ code: "invalid-archive" });
+  });
+  it("retains a provider failure during aborted compressed read retirement", async () => {
+    const fixture = fixtures.lzma2;
+    const bytes = decodeBase64(fixture.archive);
+    const abort = new AbortController();
+    let entered!: () => void;
+    let release!: () => void;
+    let readingPayload = false;
+    const ready = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const wait = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const primary = new Error("Independent packed provider failure");
+    const archive = await openSeven({
+      size: bytes.length,
+      stability: "immutable",
+      async read(offset, length) {
+        if (readingPayload) {
+          entered();
+          await wait;
+          throw primary;
+        }
+        return bytes.subarray(offset, offset + length);
+      },
+    });
+    const entry = archive.entries.find((entry) => entry.name === "large.bin")!;
+    readingPayload = true;
+    const operation = archive.read(entry.id, { length: 1, signal: abort.signal });
+    await ready;
+    abort.abort(new Error("Caller aborted while provider pending"));
+    release();
+    await expect(operation).rejects.toBe(primary);
+  });
+});
+
+describe("7z inherited policy admission", () => {
+  it("does not double-charge a repeated opening ledger and adds a distinct operation ledger", async () => {
+    const opening = createArchiveLedger({ maxOutputBytes: 2 });
+    const archive = await openSeven(source(original), { ledger: opening });
+    const entry = archive.entries.find((entry) => entry.name === "large.bin")!;
+    expect((await archive.read(entry.id, { length: 1, verify: false, ledger: opening })).bytes.length).toBe(1);
+    expect(opening.inspect().outputBytes).toBe(1);
+    const operation = createArchiveLedger({ maxOutputBytes: 1 });
+    await archive.read(entry.id, { length: 1, verify: false, ledger: operation });
+    expect(opening.inspect().outputBytes).toBe(2);
+    expect(operation.inspect().outputBytes).toBe(1);
+    await expect(archive.read(entry.id, { length: 1, verify: false })).rejects.toMatchObject({
+      code: "budget-exceeded",
+    });
+  });
+  it("captures codec policy before opening awaits its first source operation", async () => {
+    const bytes = decodeBase64(fixtures.lzma2.archive);
+    const lzma = { maxSteps: 0 };
+    const opening = openSeven(source(bytes), { lzma });
+    lzma.maxSteps = 1000000;
+    const archive = await opening;
+    const entry = archive.entries.find((entry) => entry.name === "large.bin")!;
+    await expect(archive.read(entry.id, { length: 1 })).rejects.toMatchObject({ code: "budget-exceeded" });
+    expect((await archive.read(entry.id, { length: 1, lzma: { maxSteps: 1000000 } })).bytes.length).toBe(1);
   });
 });

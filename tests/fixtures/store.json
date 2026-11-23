@@ -14,6 +14,10 @@
       "size": 529730,
       "sha256": "0d4b787d50404d3fbfc233e8302440520627df8cffb9595360b6a710a5202975"
     },
+    "tests/fixtures/cab/mszip.json": {
+      "size": 868528,
+      "sha256": "9a3bf55229c45549b9925825df6153c8c52069e2df91f11bc1a75b8572f3a0bb"
+    },
     "tests/fixtures/cpio/gnu.json": {
       "size": 709295,
       "sha256": "1f9e8817b646fb582403e9f1af1b40feeed7e5ea99744a072bbf4085fcc5d51a"
@@ -39,8 +43,8 @@
       "sha256": "d4c4c383453caadd3dbb32ae4337d00e043a847c797577c329f7f3d77dbe10f9"
     },
     "tests/fixtures/seven/independent.json": {
-      "size": 1770290,
-      "sha256": "46feab7366b3c3c6078a260bf35455e7d4891bc253e0771c8a9cd19c8a948f96"
+      "size": 2127666,
+      "sha256": "f21a4da1c9dcbabda3fb5b40b6f706cd4410172d0eba4816ab8db2861584acf6"
     }
   }
 }
