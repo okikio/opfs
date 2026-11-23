@@ -83,7 +83,8 @@ export function getSteps(lane: LaneType, options: LaneOptionsType = {}): StepTyp
       return [step("check:package"), step("test:ecosystems")];
     case "bench":
       if (options.kind === "providers") return [step("bench:providers")];
-      if (options.kind === "browser") return [step("prepare:browser", "chromium"), step("bench:browser")];
+      // bench/browser/playwright.config.ts runs Chromium, Firefox and WebKit, so install all three.
+      if (options.kind === "browser") return [step("prepare:browser"), step("bench:browser")];
       return [step("bench:local", ...shard)];
     case "stress":
       return [step("test:stress", ...shard), step("test:coverage")];

@@ -18,6 +18,6 @@ describe("CI lane steps", () => {
   });
   it("installs browsers before the steps that need them", () => {
     expect(tasks(getSteps("browser", { shard: "2/3" }))).toEqual(["prepare:browser", "test:browser --shard 2/3"]);
-    expect(tasks(getSteps("bench", { kind: "browser" }))).toEqual(["prepare:browser chromium", "bench:browser"]);
+    expect(tasks(getSteps("bench", { kind: "browser" }))).toEqual(["prepare:browser", "bench:browser"]);
   });
 });
