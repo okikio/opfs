@@ -3,6 +3,8 @@
 This directory preserves the planning inputs for maintainers implementing the remaining storage protocols and formats.
 Start with [current implementation status](../../docs/expansion.md), then use the [research plan](research/PLAN.md),
 [extension contracts](research/EXTENSIONS.md) and [preview routing](research/PREVIEW.md) to find a proposed capability.
+The [group index](GROUPS.md) shows all 45 proposed owners and their remaining boundaries without changing historical
+catalog records or treating one implementation as completion of a whole family.
 
 The research files are retained byte-for-byte from the local `storage-expansion-20261105` handoff. They describe proposals
 at that checkpoint, not current support. The catalog has 895 records; the focused archive/encryption inventory has 136
