@@ -1,0 +1,13 @@
+{
+  "focusedCases": 27,
+  "runtimes": {
+    "Deno": "exit 0: --no-check",
+    "Node": "exit 0: node --test",
+    "Bun": "exit 0: bun test"
+  },
+  "lint": "3 files passed",
+  "typeChecking": "Owned source not locally typechecked; parent owns isolated strict/package gates.",
+  "scope": "Five genuine native geometry profiles; exact original coordinates, part arrays, complete geometry bodies and raw DBF rows. Same-project producer/reader plus independent struct checks.",
+  "lastRegression": "Replacing source methods, sizes, identities and supplied component objects after first callback cannot change captured capabilities.",
+  "benchmarkPreflight": "Every native geometry body, coordinate, part index and raw row checked before timing."
+}

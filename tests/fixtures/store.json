@@ -26,6 +26,10 @@
       "size": 4372032,
       "sha256": "9368e3a5f17c03a8213308f8e44e139ee9d54d29adf6e59d61e1ea9d57caedc0"
     },
+    "tests/fixtures/binhex/independent.json": {
+      "size": 578634,
+      "sha256": "803e77d8fa7c5c3b1d5ddef61844b12c28d8a521eb42e4c78a6b7c56a80d6d51"
+    },
     "tests/fixtures/bzip/independent.json": {
       "size": 3329505,
       "sha256": "bbd802e7f8b091333def46ab44188f11ef74d3dc568e623fafa31acaebf83dac"

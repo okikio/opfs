@@ -1,0 +1,10 @@
+Python 3.13.18
+1073741824
+0
+100000 100000
+128
+Traceback (most recent call last):
+  File "/produce.py", line 34, in <module>
+    assert list(nativeShapes[i].parts)==shape['parts'],(name,i,'parts')
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ('multipoint', 0, 'parts')
