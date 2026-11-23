@@ -3,7 +3,7 @@ import { drain, stalled } from "./stalled.ts";
 /** Exact byte workflows against real, container-owned FUSE mounts. */
 import { appendFile, mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { diagnostic } from "../../tools/testing/command.ts";
+import { diagnostic } from "../../tools/test/command.ts";
 import { createFileSystem } from "../../mod.ts";
 import { createFileAdapter } from "../../src/adapter/file.ts";
 import { createNodeDriver } from "../../src/driver/node.ts";

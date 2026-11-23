@@ -163,12 +163,12 @@ checksum-scope evidence without deriving expected values from the candidate's tw
 
 ## Read costs and benchmarks
 
-`mise run bench:run -- bench/xz.bench.ts` runs 21 workloads after comparing complete decoded bytes with the independent
-originals. It separates cold metadata opening, whole-stream verification, early and late selected-block reads, and
-unchecked prefixes for CRC32, CRC64 and no-check fixtures. The CRC32/CRC64 workloads include multiple blocks; the small
-no-check fixture is single-block. Labels retain observed source, decoded and selected-output work. A decoded native Blob
-range is a copy-only lower bound, not a competing native XZ decoder. Encoder and block-layout differences prevent
-treating the CRC32/CRC64 lanes as an isolated checksum speed comparison.
+`mise run bench:local -- bench/xz.bench.ts` runs 21 workloads after comparing complete decoded bytes with the
+independent originals. It separates cold metadata opening, whole-stream verification, early and late selected-block
+reads, and unchecked prefixes for CRC32, CRC64 and no-check fixtures. The CRC32/CRC64 workloads include multiple blocks;
+the small no-check fixture is single-block. Labels retain observed source, decoded and selected-output work. A decoded
+native Blob range is a copy-only lower bound, not a competing native XZ decoder. Encoder and block-layout differences
+prevent treating the CRC32/CRC64 lanes as an isolated checksum speed comparison.
 
 The benchmark uses an explicit finite opening lifetime allowance for repeated sampling while keeping ordinary read
 policies. CI retains raw distributions and runtime details. These bounded workload observations do not establish

@@ -490,7 +490,7 @@ mise run check
 mise run test
 mise run prepare:browser && mise run test:browser
 mise run test:providers
-mise run bench:run
+mise run bench:local
 mise run bench:providers
 mise run prepare:browser && mise run bench:browser
 OPFS_FUSE_BENCH=1 mise run test:clients   # requires external mounts

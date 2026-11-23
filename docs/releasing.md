@@ -32,14 +32,14 @@ workload, runtime, input size, units, baseline, variability, and correctness evi
 specification in a standards family because one profile passed.
 
 For this pre-1.0 package, compatible repairs are patch releases; new capabilities and intentional programming-model
-replacements use a minor increment with an explicit migration note. `mise run release -- --operation plan` previews the
-next version and changelog; pull requests run it too.
+replacements use a minor increment with an explicit migration note. `mise run release:plan` previews the next version
+and changelog; pull requests run it too.
 
 ## Prepare the version
 
 A push to `main` that adds changesets starts the **Release** workflow's `prepare` job. It runs
-`mise run release -- --operation version`: Sampo consumes the changesets into `package.json` and `CHANGELOG.md`, and
-`tools/releases/versions.ts` copies the version into `deno.json`. The job pushes the result to `release/versions` and
+`mise run release:version`: Sampo consumes the changesets into `package.json` and `CHANGELOG.md`, and
+`tools/release/manifest.ts` copies the version into `deno.json`. The job pushes the result to `release/versions` and
 opens a pull request. A pull request opened by the workflow token does not start CI by itself; dispatch **CI** on
 `release/versions`, review the changelog, then merge.
 
@@ -48,7 +48,7 @@ opens a pull request. A pull request opened by the workflow token does not start
 Dispatch **Release** on `main` with `operation: publish`. Three conditions gate both registry jobs:
 
 - **Recorded evidence.** The latest CI run for a push to `main` on this exact commit must have succeeded
-  (`tools/workspace/evidence.ts release`). An older pass does not count when a newer run on the same commit failed.
+  (`tools/ci/evidence.ts release`). An older pass does not count when a newer run on the same commit failed.
 - **This run's checks.** The full Quality workflow runs on the same commit; lanes whose exact inputs already passed skip
   their steps through the result cache.
 - **No pending changesets.** The version must already be prepared and merged.
@@ -56,7 +56,7 @@ Dispatch **Release** on `main` with `operation: publish`. Three conditions gate 
 The npm job builds the tarball at the release version, checks that exact tarball from a clean consumer
 (`tests/package/verify.ts`), and publishes it with provenance through npm trusted publishing. The JSR job runs
 `deno publish`. Both authenticate with the workflow's OIDC token; no registry token is stored. Each job then installs
-the published version in a fresh consumer (`tools/releases/consumer.ts`). A registry that already has the version is
+the published version in a fresh consumer (`tools/release/verify.ts`). A registry that already has the version is
 skipped, so a partial failure can be retried with `target: npm` or `target: jsr` at the same commit. After both succeed,
 the workflow tags the commit `v<version>` and creates a GitHub release from the changelog section.
 

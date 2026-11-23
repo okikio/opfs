@@ -2,4 +2,4 @@
 #MISE description="Run discovered tests on Deno; optional files, --family, --shard"
 #MISE depends=["prepare:deps", "prepare:fixtures"]
 set -euo pipefail
-exec node tools/testing/run.ts deno "$@"
+exec node tools/test/suite.ts deno "$@"

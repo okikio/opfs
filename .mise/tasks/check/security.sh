@@ -2,4 +2,4 @@
 #MISE description="Check dependency advisories against reviewed, expiring exceptions"
 #MISE depends=["prepare:deps"]
 set -euo pipefail
-exec node tools/security/check.ts
+exec node tools/check/security.ts

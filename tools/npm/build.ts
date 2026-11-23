@@ -1,3 +1,13 @@
+/**
+ * Build the npm package directory from the Deno source with dnt: `deno run -A tools/npm/build.ts <version> <out>`.
+ *
+ * Every subpath in `deno.json` `exports` becomes an entry point, so npm consumers import the same subpaths as JSR
+ * consumers. The output directory is emptied first. dnt's own test step is off: `tests/package/verify.ts` checks
+ * the packed tarball from a clean consumer instead. `tools/npm/pack.ts` calls this with its own config
+ * (`tools/npm/deno.json`), because dnt needs import-map entries the package itself does not.
+ *
+ * @module
+ */
 import { build, emptyDir } from "@deno/dnt";
 import { fromFileUrl, join, resolve } from "jsr:@std/path@1.1.6";
 

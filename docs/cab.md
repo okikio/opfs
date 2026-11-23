@@ -183,7 +183,7 @@ folders and header/folder reserve placement; these are explicitly not additional
 Focused source/runtime tests, installed package/type gates and benchmark timings prove different things. This reader
 does not claim browser/provider performance or support for an untested codec from directory recognition alone.
 
-`mise run bench:run -- bench/cab.bench.ts` preflights complete native fixture payloads and selected intervals before
+`mise run bench:local -- bench/cab.bench.ts` preflights complete native fixture payloads and selected intervals before
 sampling 23 workloads. STORED compares native preindexed Blob reads with unchecked/CRC previews and cold indexing. MSZIP
 compares warm unchecked, warm block-checked and cold-index-plus-read operations at prefixes and a late range in the 128
 KiB member. Labels record actual source/decoded/output bytes and required blocks. The native Blob baseline exists only

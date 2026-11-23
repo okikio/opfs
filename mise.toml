@@ -30,18 +30,3 @@ run = "mise run 'check:**'"
 [tasks."test"]
 description = "Run the discovered suite on Deno, Node.js and Bun"
 run = ["mise run test:deno", "mise run test:node", "mise run test:bun"]
-
-[tasks."ci:plan"]
-description = "Select affected CI lanes from exact Git revisions"
-raw_args = true
-run = "node tools/workspace/ci.ts plan"
-
-[tasks."ci:run"]
-description = "Run one selected CI lane with the same tasks as a local run"
-raw_args = true
-run = "node tools/workspace/ci.ts run"
-
-[tasks."release"]
-description = "Plan Sampo versions, write them, or publish one registry target"
-raw_args = true
-run = "node tools/releases/release.ts"

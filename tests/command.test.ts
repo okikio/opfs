@@ -6,9 +6,9 @@ import { join } from "node:path";
 import { execPath, versions } from "node:process";
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { capture, diagnostic, observation, retain } from "../tools/testing/command.ts";
-import type { DiagnosticType } from "../tools/testing/command.ts";
-import { own } from "../tools/testing/container.ts";
+import { capture, diagnostic, observation, retain } from "../tools/test/command.ts";
+import type { DiagnosticType } from "../tools/test/command.ts";
+import { own } from "../tools/test/container/staging.ts";
 import { withReleases } from "./close.ts";
 
 /** One shared native program; each runtime uses its documented ESM evaluator. */

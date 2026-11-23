@@ -202,7 +202,7 @@ Protocol sources: [checksums](https://docs.aws.amazon.com/amazonglacier/latest/d
 
 ## Benchmark workload
 
-`mise run bench:run -- bench/glacier.bench.ts` samples one fixed 4 MiB + 13 byte image after complete-byte and
+`mise run bench:local -- bench/glacier.bench.ts` samples one fixed 4 MiB + 13 byte image after complete-byte and
 independent Node SHA tree preflight. Lanes separate a copy-only lower bound, native Node SHA tree reduction without a
 snapshot, WebCrypto linear SHA without a tree, the public snapshotting tree utility, signed multipart upload, and
 completed-output reads with or without a service checksum. The native and WebCrypto lanes use different crypto

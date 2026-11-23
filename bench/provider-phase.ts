@@ -1,4 +1,4 @@
-import { diagnostic } from "../tools/testing/command.ts";
+import { diagnostic } from "../tools/test/command.ts";
 
 /** One untimed setup observation; origins omit credentials, account paths and signed query data. */
 export interface ProviderPhaseType {

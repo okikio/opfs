@@ -77,8 +77,8 @@ subjects. Group by consumer behavior. State supported standards and limitations 
 units, and evidence to any performance claim. Verify examples against the exact release artifacts.
 
 Deno owns the source implementation. Sampo owns release intent, versions and changelog rendering.
-`mise run release -- --operation version` writes the version and copies it into `deno.json`; `mise run check:versions`
-rejects mismatched metadata before packing or publishing. Keep local release receipts under ignored `.tmp/`.
+`mise run release:version` writes the version and copies it into `deno.json`; `mise run check:versions` rejects
+mismatched metadata before packing or publishing. Keep local release receipts under ignored `.tmp/`.
 
 ## Readability and ownership
 

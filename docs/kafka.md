@@ -273,7 +273,7 @@ boundaries; [the Apache format description](https://kafka.apache.org/44/implemen
 primary schemas define the wire layout.
 
 The later combined record/session run passed 52 steps in isolated receipt `d3db3cd4-b0f2-4eda-9bbe-72aba03a717f`.
-`mise run bench:run -- bench/kafka.bench.ts` measures full CRC/record admission against an owned-byte copy of the same
+`mise run bench:local -- bench/kafka.bench.ts` measures full CRC/record admission against an owned-byte copy of the same
 hash-checked native page. Fixture I/O and full original-value checks run before sampling. The copy lane omits validation
 deliberately, so the comparison describes local parser cost rather than equivalent validation or network throughput. It
 measures neither the caller's opener nor broker, TCP, TLS or retention performance.

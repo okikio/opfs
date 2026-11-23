@@ -56,14 +56,14 @@ Mise tasks own repository commands, and `mise.toml` pins the runtimes they use.
 
 ```sh
 mise run prepare:deps
-node tools/workspace/examples.ts
+node tools/check/examples.ts
 mise run check
 mise run test
 mise run test:node
 mise run test:bun
 mise run prepare:browser && mise run test:browser
 mise run test:providers
-mise run bench:run
+mise run bench:local
 mise run bench:providers
 mise run prepare:browser && mise run bench:browser
 OPFS_FUSE_BENCH=1 mise run test:clients
@@ -72,7 +72,7 @@ OPFS_FUSE_BENCH=1 mise run test:clients
 GitHub Actions owns only GitHub-specific orchestration: triggers, permissions, matrices, secrets, outputs, immutable
 release refs, and calls those same Mise tasks.
 
-`node tools/workspace/examples.ts` executes five complete examples directly from their Markdown fences: both examples in
+`node tools/check/examples.ts` executes five complete examples directly from their Markdown fences: both examples in
 [the storage model](model.md), the four-byte range example in [sources](source.md), the authenticated-range example in
 [encryption](encryption.md), and the truncate/seek example in [the API reference](api.md). The task selects exact
 headings and fails if a selected example is missing or duplicated. It resolves public OPFS imports through `deno.json`
@@ -243,7 +243,7 @@ bytes are the independent oracle across runtimes.
 | `tests/provider/fixture.ts`               | Testcontainers resources borrowed by provider tests and benchmarks.                                                          |
 | `tests/provider/fuse*`, `Dockerfile.fuse` | Mountpoint/BlobFuse correctness and measurement through `mise run test:clients`, in isolated Linux containers.               |
 | `tests/package/verify.ts`                 | Clean installed archive consumers through `mise run check:package`.                                                          |
-| `tools/testing/linux.ts`                  | Named, bounded containers for `mise run test:linux`; failed lanes retain diagnostics and clean up independently.             |
+| `tools/test/linux.ts`                     | Named, bounded containers for `mise run test:linux`; failed lanes retain diagnostics and clean up independently.             |
 | `bench/`                                  | Durable workload definitions; each result needs its semantic oracle and measurement conditions.                              |
 
 Slower provider, browser, ecosystem, FUSE, package, and Linux lanes remain reusable tests even though they are not run
