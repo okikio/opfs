@@ -3,7 +3,6 @@ import type { ByteSourceType } from "../source.ts";
 import {
   ArchiveBudget,
   ArchiveError,
-  crc32,
   createArchiveLedger,
   integer,
   invalid,
@@ -11,6 +10,7 @@ import {
   view,
 } from "../archive/record.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
+import { crc32 } from "../hash.ts";
 export { ArchiveError, createArchiveLedger } from "../archive/record.ts";
 export type { ArchiveErrorCodeType, ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
 

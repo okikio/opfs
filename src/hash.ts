@@ -1,27 +1,91 @@
 /**
- * Incremental SHA-256 (FIPS 180-4) for checks that must follow streamed bytes.
+ * Checksums and digests that format readers compute over bytes as they stream.
  *
- * Web Crypto's `digest()` needs the whole message in one buffer. A format check that covers a decoded block, such as
- * an XZ SHA-256 block check, would then have to retain the complete block only to hash it. This hasher consumes the
- * same chunks the decoder emits and keeps 64 bytes of pending input plus eight state words.
+ * Archive, compression and dataset readers verify a stored check against the bytes they decode. Each format names
+ * one algorithm, and several formats share one, so the algorithms live here rather than in the first format that
+ * needed them:
  *
- * `@std/crypto` does accept an iterable for `digest()`, but it lists only Deno and browsers as supported, and it pulls
- * chunks from an iterator while the XZ decoder pushes them. Node and Bun are supported targets here, so the package keeps
- * this one internal module. It is not a public entrypoint. The result is an integrity check of bytes, not
- * authentication: anyone who can change the data can also recompute the digest.
+ * | Export   | Algorithm                                  | Used by                                     |
+ * | -------- | ------------------------------------------ | ------------------------------------------- |
+ * | `crc32`  | CRC-32 (ISO-HDLC, reflected `0xEDB88320`)  | ZIP read and write, gzip, 7z, RAR, ARJ, XZ, BGZF, MCAP, Parquet |
+ * | `Crc64`  | CRC-64/XZ (reflected `0xC96C5795D7870F42`) | XZ block checks                             |
+ * | `Sha256` | SHA-256 (FIPS 180-4), incremental          | XZ block checks                             |
  *
- * @example
- * ```ts
- * import { Sha256 } from "./sha256.ts";
+ * All three follow the bytes in chunks, so a reader never keeps a copy of a block only to check it. None of them
+ * authenticates anything: whoever can change the bytes can also recompute the check.
  *
- * const hash = new Sha256();
- * hash.update(new TextEncoder().encode("ab"));
- * hash.update(new TextEncoder().encode("c"));
- * hash.hex(); // "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
- * ```
+ * Three related algorithms stay with their only owner, because their callers add format rules around the
+ * arithmetic: Kafka's CRC-32C (frame-size admission), and the CRC-16 variants in LHA and UDF. AWS request signing
+ * uses Web Crypto through `aws.ts`, since it needs HMAC and awaits a key import anyway.
  *
  * @module
  */
+
+/**
+ * Advance a CRC-32 register over `bytes` and return the new register.
+ *
+ * The register starts at `0xffffffff` and the caller applies the final XOR, so one value can follow a member
+ * across many chunks: `state = crc32(chunk, state)`, then `(state ^ 0xffffffff) >>> 0` at the end. No table is
+ * kept, so importing this module allocates nothing.
+ */
+export function crc32(bytes: Uint8Array, state = 0xffffffff): number {
+  for (const byte of bytes) {
+    state ^= byte;
+    for (let bit = 0; bit < 8; bit++) state = (state >>> 1) ^ (0xedb88320 & -(state & 1));
+  }
+  return state >>> 0;
+}
+
+/** CRC64/XZ keeps a reflected 64-bit register in two uint32 words.
+ * A read owns one 2 KiB interleaved low/high table, built only when CRC64 is needed.
+ * This replaces eight bit iterations per input byte with one byte recurrence,
+ * without per-byte BigInt values or a retained body buffer. It is not authentication. */
+export class Crc64 {
+  /** 256 entries of (low, high) words, interleaved so one byte reads two adjacent slots. */
+  readonly #table = new Uint32Array(512);
+  /** The 64-bit register, split into its low and high 32-bit words. */
+  #low = 0xffffffff;
+  #high = 0xffffffff;
+  constructor() {
+    for (let value = 0; value < 256; value++) {
+      let low = value;
+      let high = 0;
+      for (let bit = 0; bit < 8; bit++) {
+        const carry = low & 1;
+        low = (low >>> 1 | high << 31) >>> 0;
+        high >>>= 1;
+        if (carry) {
+          low = (low ^ 0xd7870f42) >>> 0;
+          high = (high ^ 0xc96c5795) >>> 0;
+        }
+      }
+      this.#table[value * 2] = low;
+      this.#table[value * 2 + 1] = high;
+    }
+  }
+  /** Start a new message. */
+  reset(): void {
+    this.#low = 0xffffffff;
+    this.#high = 0xffffffff;
+  }
+  /** Add the next bytes of the message. */
+  update(bytes: Uint8Array): void {
+    let low = this.#low;
+    let high = this.#high;
+    for (const byte of bytes) {
+      const index = ((low ^ byte) & 255) * 2;
+      low = (this.#table[index]! ^ (low >>> 8 | high << 24)) >>> 0;
+      high = (this.#table[index + 1]! ^ high >>> 8) >>> 0;
+    }
+    this.#low = low;
+    this.#high = high;
+  }
+  /** The check as sixteen lowercase hex digits, high word first; the register is not reset. */
+  hex(): string {
+    return ((this.#high ^ 0xffffffff) >>> 0).toString(16).padStart(8, "0") +
+      ((this.#low ^ 0xffffffff) >>> 0).toString(16).padStart(8, "0");
+  }
+}
 
 /** Round constants K0 to K63: the first 32 bits of the fractional parts of the cube roots of the first 64 primes. */
 const K = new Uint32Array([
@@ -96,7 +160,13 @@ const INITIAL = [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9
 /** Rotate a 32-bit word right by `bits`; the FIPS 180-4 ROTR operation. */
 const rotate = (value: number, bits: number): number => value >>> bits | value << (32 - bits);
 
-/** Streaming SHA-256. Call {@link Sha256.update} per chunk, then {@link Sha256.hex} once; `reset` reuses it. */
+/**
+ * Streaming SHA-256. Call {@link Sha256.update} per chunk, then {@link Sha256.hex} once; `reset` reuses it.
+ *
+ * Web Crypto's `digest()` takes only a complete buffer. `@std/crypto` accepts an iterable, but it lists only Deno and
+ * browsers as supported and pulls chunks while a decoder pushes them, so the package keeps this implementation.
+ * Tests compare it with Web Crypto at every padding boundary.
+ */
 export class Sha256 {
   /** The eight working hash words (H0 to H7 in FIPS 180-4), updated once per 64-byte block. */
   readonly #state = new Uint32Array(8);

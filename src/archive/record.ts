@@ -176,12 +176,3 @@ export function uint64(data: DataView, offset: number): number {
   if (value > BigInt(Number.MAX_SAFE_INTEGER)) unsupported("Archive offset or size exceeds exact JavaScript integers.");
   return Number(value);
 }
-
-/** Incremental CRC state is private to one read; no mutable table or global registry is needed. */
-export function crc32(bytes: Uint8Array, state = 0xffffffff): number {
-  for (const byte of bytes) {
-    state ^= byte;
-    for (let bit = 0; bit < 8; bit++) state = (state >>> 1) ^ (0xedb88320 & -(state & 1));
-  }
-  return state >>> 0;
-}

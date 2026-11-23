@@ -3,8 +3,9 @@ import type { ByteSourceType } from "../../source.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../../archive/record.ts";
 import { sourceRange } from "../../source.ts";
 import { isBytes, toView } from "../../bytes.ts";
-import { ArchiveError, crc32, createArchiveLedger, integer, invalid, unsupported, view } from "../../archive/record.ts";
+import { ArchiveError, createArchiveLedger, integer, invalid, unsupported, view } from "../../archive/record.ts";
 import { readDeflate } from "../../archive/deflate.ts";
+import { crc32 } from "../../hash.ts";
 
 /** Separate format maxima and finite lifetime policy: failed reservations are never refunded. */
 export interface BamLimitsType extends ArchiveLimitsType {

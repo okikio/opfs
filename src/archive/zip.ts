@@ -8,12 +8,22 @@ export type { ZipBzipOptionsType } from "./zip-bzip.ts";
 import { readZipLzma } from "./zip-lzma.ts";
 import type { ZipLzmaOptionsType } from "./zip-lzma.ts";
 export type { ZipLzmaOptionsType } from "./zip-lzma.ts";
-import { createArchiveLedger } from "./record.ts";
 import type { ByteSourceType } from "../source.ts";
 import { close } from "../close.ts";
 import { isBytes, toRequestBytes, toView } from "../bytes.ts";
-import { ArchiveBudget, ArchiveError, crc32, integer, invalid, limitsOf, uint64, unsupported, view } from "./record.ts";
+import {
+  ArchiveBudget,
+  ArchiveError,
+  createArchiveLedger,
+  integer,
+  invalid,
+  limitsOf,
+  uint64,
+  unsupported,
+  view,
+} from "./record.ts";
 import type { ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
+import { crc32 } from "../hash.ts";
 export { ArchiveError, createArchiveLedger } from "./record.ts";
 export type { ArchiveErrorCodeType, ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
 

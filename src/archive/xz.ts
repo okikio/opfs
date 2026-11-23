@@ -2,18 +2,9 @@
 import type { ByteSourceType } from "../source.ts";
 import { createLzmaDecoder } from "./lzma.ts";
 import type { LzmaLimitsType } from "./lzma.ts";
-import { Sha256 } from "./sha256.ts";
-import {
-  ArchiveBudget,
-  ArchiveError,
-  crc32,
-  createArchiveLedger,
-  integer,
-  invalid,
-  unsupported,
-  view,
-} from "./record.ts";
+import { ArchiveBudget, ArchiveError, createArchiveLedger, integer, invalid, unsupported, view } from "./record.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
+import { crc32, Crc64, Sha256 } from "../hash.ts";
 export { ArchiveError, createArchiveLedger } from "./record.ts";
 export type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
 
@@ -112,52 +103,6 @@ function verifyCrc(bytes: Uint8Array, expected: number, label: string): void {
 }
 function zeros(bytes: Uint8Array, label: string): void {
   if (bytes.some((byte) => byte !== 0)) invalid(`XZ ${label} must contain only zero bytes.`);
-}
-
-/** CRC64/XZ keeps a reflected 64-bit register in two uint32 words.
- * A read owns one 2 KiB interleaved low/high table, built only when CRC64 is needed.
- * This replaces eight bit iterations per input byte with one byte recurrence,
- * without per-byte BigInt values or a retained body buffer. It is not authentication. */
-class Crc64 {
-  readonly #table = new Uint32Array(512);
-  #low = 0xffffffff;
-  #high = 0xffffffff;
-  constructor() {
-    for (let value = 0; value < 256; value++) {
-      let low = value;
-      let high = 0;
-      for (let bit = 0; bit < 8; bit++) {
-        const carry = low & 1;
-        low = (low >>> 1 | high << 31) >>> 0;
-        high >>>= 1;
-        if (carry) {
-          low = (low ^ 0xd7870f42) >>> 0;
-          high = (high ^ 0xc96c5795) >>> 0;
-        }
-      }
-      this.#table[value * 2] = low;
-      this.#table[value * 2 + 1] = high;
-    }
-  }
-  reset(): void {
-    this.#low = 0xffffffff;
-    this.#high = 0xffffffff;
-  }
-  update(bytes: Uint8Array): void {
-    let low = this.#low;
-    let high = this.#high;
-    for (const byte of bytes) {
-      const index = ((low ^ byte) & 255) * 2;
-      low = (this.#table[index]! ^ (low >>> 8 | high << 24)) >>> 0;
-      high = (this.#table[index + 1]! ^ high >>> 8) >>> 0;
-    }
-    this.#low = low;
-    this.#high = high;
-  }
-  hex(): string {
-    return ((this.#high ^ 0xffffffff) >>> 0).toString(16).padStart(8, "0") +
-      ((this.#low ^ 0xffffffff) >>> 0).toString(16).padStart(8, "0");
-  }
 }
 
 /** Canonical base128, at most nine bytes/63 bits. No truncated or zero-extended encoding is accepted. */
