@@ -1,0 +1,117 @@
+{
+  "python": "3.14.7",
+  "warcio": "1.7.5",
+  "java": "openjdk version \"17.0.21\" 2026-10-20\nOpenJDK Runtime Environment Temurin-17.0.21+9 (build 17.0.21+9)\nOpenJDK 64-Bit Server VM Temurin-17.0.21+9 (build 17.0.21+9, mixed mode, sharing)\n",
+  "artifacts": {
+    "webarchive-commons-3.0.5.jar": "e67e1e997c9ac396c90f8acb8a2116bc8127fc6c946ff725c98a0d7b7b643a89",
+    "webarchive-commons-3.0.5-sources.jar": "d81fecd132712248c03a2f072fd5f79a37d3739adbb3e7b9c91e8f5afe396b60",
+    "commons-io-2.22.0.jar": "2b9a7b1f726fb86216dbd2c8321eabe0221dbd5b1be81c18e1cb53811b104758",
+    "commons-lang3-3.20.0.jar": "69e5c9fa35da7a51a5fd2099dfe56a2d8d32cf233e2f6d770e796146440263f4",
+    "commons-codec-1.22.1.jar": "78a5d732fbd715e2d10bd7150d2f8030bae57267f8aacc5c88f642cb6c2e5d3f",
+    "guava-33.7.1-jre.jar": "796d8e28ac64e83a47c4c5935a8fecc4682650a04bbdead738ef0f5a3a0e6c46",
+    "jwat-arc-1.2.1.jar": "413a37eae5562a809c6478edc4d36201913008331165d2b09afa137cd37ab86c",
+    "jwat-arc-1.2.1-sources.jar": "fcb4af819482ae8e491ff4a453a52e766b096f16d93259a4d6854d4f19ce8625",
+    "jwat-common-1.2.1.jar": "e1f12634718c24d35f57a05e28c45590cb7e18b8a0a5398a793257d39f34e43c",
+    "jwat-gzip-1.2.1.jar": "4d465df87676b12d4c43b2691e52435db0a7d5d98fb43663166db13dec721908",
+    "jwat-archive-common-1.2.1.jar": "4a7faa11a48ba89c230e94d46adb747b9aa4a5c288d5b6a47def9bfabbb4278f",
+    "bcprov-jdk15to18-1.65.jar": "2dea4d470c07e29315a5b60a11a4fb377793f36e16fde15640db1f028f01b818"
+  },
+  "commands": [
+    {
+      "harness": "Produce.java",
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "harness": "ProduceJwat.java",
+      "stdout": "jwat-output0 filedesc://jwat.arc 72 compliant=true errors=[] warnings=[]\njwat-output1 http://example.test/capture 44 compliant=true errors=[] warnings=[]\njwat-output2 dns:example.test 316 compliant=true errors=[] warnings=[]\njwat-output3 http://example.test/capture 38 compliant=true errors=[] warnings=[]\njwat-output4 urn:example:empty 0 compliant=true errors=[] warnings=[]\niipc-output0 filedesc://fixture.arc 76 compliant=true errors=[] warnings=[]\niipc-output1 http://example.test/capture 44 compliant=true errors=[] warnings=[]\niipc-output2 dns:example.test 316 compliant=true errors=[] warnings=[]\niipc-output3 http://example.test/capture 38 compliant=true errors=[] warnings=[]\niipc-output4 urn:example:empty 0 compliant=true errors=[] warnings=[]\niipc-strict-output0 filedesc://fixture.arc 77 compliant=false errors=[org.jwat.common.Diagnosis@fd622082, org.jwat.common.Diagnosis@e2865ebc] warnings=[]\niipc-strict-output1 http://example.test/capture 44 compliant=true errors=[] warnings=[]\niipc-strict-output2 dns:example.test 316 compliant=true errors=[] warnings=[]\niipc-strict-output3 http://example.test/capture 38 compliant=true errors=[] warnings=[]\niipc-strict-output4 urn:example:empty 0 compliant=true errors=[] warnings=[]\n",
+      "stderr": ""
+    }
+  ],
+  "objects": [
+    {
+      "producer": "JWAT1.2.1",
+      "separator": "outside-length",
+      "base64": "ZmlsZWRlc2M6Ly9qd2F0LmFyYyAxOTIuMC4yLjEgMjAyNjAxMDIwMzA0MDUgdGV4dC9wbGFpbiA3MgoxIDAgT1BGU0ZpeHR1cmUKVVJMIElQLWFkZHJlc3MgQXJjaGl2ZS1kYXRlIENvbnRlbnQtdHlwZSBBcmNoaXZlLWxlbmd0aAoKaHR0cDovL2V4YW1wbGUudGVzdC9jYXB0dXJlIDE5Mi4wLjIuMSAyMDI2MDEwMjAzMDQwNSB0ZXh0L3BsYWluIDQ0CkhUVFAvMS4xIDIwMCBPSw0KQ29udGVudC1MZW5ndGg6IDYNCg0KaGVsbG8KCmRuczpleGFtcGxlLnRlc3QgMTkyLjAuMi4xIDIwMjYwMTAyMDMwNDA1IGFwcGxpY2F0aW9uL29jdGV0LXN0cmVhbSAzMTYKAAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/wpodHRwOi8vZmFrZS5pbnZhbGlkLyAxOTIuMC4yLjIgMjAyNjAxMDIwMzA0MDUgdGV4dC9wbGFpbiAwCgpodHRwOi8vZXhhbXBsZS50ZXN0L2NhcHR1cmUgMTkyLjAuMi4xIDIwMjYwMTAyMDMwNDA1IHRleHQvcGxhaW4gMzgKSFRUUC8xLjEgMjAwIE9LDQpDb250ZW50LUxlbmd0aDogMA0KDQoKdXJuOmV4YW1wbGU6ZW1wdHkgMTkyLjAuMi4xIDIwMjYwMTAyMDMwNDA1IGFwcGxpY2F0aW9uL29jdGV0LXN0cmVhbSAwCgo=",
+      "sha256": "62d5ae421b17787d568116aca1e9c1c21fe0734e7df49450cba64256d5893877",
+      "descriptor": {
+        "base64": "MSAwIE9QRlNGaXh0dXJlClVSTCBJUC1hZGRyZXNzIEFyY2hpdmUtZGF0ZSBDb250ZW50LXR5cGUgQXJjaGl2ZS1sZW5ndGgK",
+        "sha256": "b0b90f922af7355d20afec9115dc5dc1c17cbb44b20bc152c7ab526da3c71f69"
+      },
+      "nativeJwat": {
+        "strict": true,
+        "status": "0 true 0 0\n1 true 0 0\n2 true 0 0\n3 true 0 0\n4 true 0 0\n"
+      },
+      "warcio": {
+        "accepted": true,
+        "records": 5,
+        "warnings": "",
+        "failure": null
+      }
+    },
+    {
+      "producer": "IIPC3.0.5",
+      "separator": "inside-length",
+      "base64": "ZmlsZWRlc2M6Ly9maXh0dXJlLmFyYyAwLjAuMC4wIDIwMjYxMTA1MTAyOTAwIHRleHQvcGxhaW4gNzcKMSAwIEludGVybmV0QXJjaGl2ZQpVUkwgSVAtYWRkcmVzcyBBcmNoaXZlLWRhdGUgQ29udGVudC10eXBlIEFyY2hpdmUtbGVuZ3RoCgpodHRwOi8vZXhhbXBsZS50ZXN0L2NhcHR1cmUgMTkyLjAuMi4xIDIwMjYwMTAyMDMwNDA1IHRleHQvcGxhaW4gNDQKSFRUUC8xLjEgMjAwIE9LDQpDb250ZW50LUxlbmd0aDogNg0KDQpoZWxsbwoKZG5zOmV4YW1wbGUudGVzdCAxOTIuMC4yLjEgMjAyNjAxMDIwMzA0MDUgYXBwbGljYXRpb24vb2N0ZXQtc3RyZWFtIDMxNgoAAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMkJSYnKCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4/QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl9gYWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXp7fH1+f4CBgoOEhYaHiImKi4yNjo+QkZKTlJWWl5iZmpucnZ6foKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr/AwcLDxMXGx8jJysvMzc7P0NHS09TV1tfY2drb3N3e3+Dh4uPk5ebn6Onq6+zt7u/w8fLz9PX29/j5+vv8/f7/Cmh0dHA6Ly9mYWtlLmludmFsaWQvIDE5Mi4wLjIuMiAyMDI2MDEwMjAzMDQwNSB0ZXh0L3BsYWluIDAKCmh0dHA6Ly9leGFtcGxlLnRlc3QvY2FwdHVyZSAxOTIuMC4yLjEgMjAyNjAxMDIwMzA0MDUgdGV4dC9wbGFpbiAzOApIVFRQLzEuMSAyMDAgT0sNCkNvbnRlbnQtTGVuZ3RoOiAwDQoNCgp1cm46ZXhhbXBsZTplbXB0eSAxOTIuMC4yLjEgMjAyNjAxMDIwMzA0MDUgYXBwbGljYXRpb24vb2N0ZXQtc3RyZWFtIDAKCg==",
+      "sha256": "432a5650b6939238c731fbef17796c7c7e60a927684c175584cd4b8c39884a98",
+      "descriptor": {
+        "base64": "MSAwIEludGVybmV0QXJjaGl2ZQpVUkwgSVAtYWRkcmVzcyBBcmNoaXZlLWRhdGUgQ29udGVudC10eXBlIEFyY2hpdmUtbGVuZ3RoCgo=",
+        "sha256": "51bbd6ea7611e01a30150df99b2b57aa7ca83333302cc2c71048483c3c7f32d8"
+      },
+      "nativeJwat": {
+        "strict": false,
+        "status": "0 true 0 0\n1 true 0 0\n2 true 0 0\n3 true 0 0\n4 true 0 0\n"
+      },
+      "warcio": {
+        "accepted": false,
+        "records": 1,
+        "warnings": "    WARNING: Record not followed by newline, perhaps Content-Length is invalid\n    Offset: 137\n    Remainder: b'http://example.test/capture 192.0.2.1 20260102030405 text/plain 44\\n'\n",
+        "failure": {
+          "type": "ArchiveLoadFailed",
+          "message": "Invalid ARC record, first line: ['HTTP/1.1', '200', 'OK']"
+        }
+      }
+    }
+  ],
+  "records": [
+    {
+      "url": "http://example.test/capture",
+      "contentType": "text/plain",
+      "date": "20260102030405",
+      "ip": "192.0.2.1",
+      "base64": "SFRUUC8xLjEgMjAwIE9LDQpDb250ZW50LUxlbmd0aDogNg0KDQpoZWxsbwo=",
+      "sha256": "0dfdc6a4f46802f04849869591b999617f728759e5a0bba561875d1143a0bbd3"
+    },
+    {
+      "url": "dns:example.test",
+      "contentType": "application/octet-stream",
+      "date": "20260102030405",
+      "ip": "192.0.2.1",
+      "base64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/wpodHRwOi8vZmFrZS5pbnZhbGlkLyAxOTIuMC4yLjIgMjAyNjAxMDIwMzA0MDUgdGV4dC9wbGFpbiAwCg==",
+      "sha256": "f25f905b981817b4c890c8c89516d7fe822f869f18a0cc4add47f445ebe29598"
+    },
+    {
+      "url": "http://example.test/capture",
+      "contentType": "text/plain",
+      "date": "20260102030405",
+      "ip": "192.0.2.1",
+      "base64": "SFRUUC8xLjEgMjAwIE9LDQpDb250ZW50LUxlbmd0aDogMA0KDQo=",
+      "sha256": "c1cd0d06b3083293e0a44494a5e4b11e2e65e48fd28c7f87c2646e4a4d9157c1"
+    },
+    {
+      "url": "urn:example:empty",
+      "contentType": "application/octet-stream",
+      "date": "20260102030405",
+      "ip": "192.0.2.1",
+      "base64": "",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "iipcStrictJwat": "0 false 2 0\n1 true 0 0\n2 true 0 0\n3 true 0 0\n4 true 0 0\n",
+  "sourceReceipts": {
+    "webarchive-commons-3.0.5-sources.jar:org/archive/io/arc/ARCWriter.java": "0055b736b0ae8f7e00dfb4931d296ca049fb886ada5a2ba62606b6f083898d26",
+    "jwat-arc-1.2.1-sources.jar:org/jwat/arc/ArcVersionHeader.java": "3101b190eb49e87d52e65f13b3b7aae5c27da1856b6543218410675d9a0a7ce9",
+    "jwat-arc-1.2.1-sources.jar:org/jwat/arc/ArcWriter.java": "ef910b844b8cf98ffad74776f745515b72583aee6ccce67da2107388de1a31ff",
+    "jwat-arc-1.2.1-sources.jar:org/jwat/arc/ArcVersionBlock.java": "355a58f2ff23f1f02dac7f8df5f317a5d3d72027d1a246cfc1f3ddfed2e88468"
+  }
+}
