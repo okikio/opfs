@@ -1,8 +1,9 @@
-/** Ordinary uncompressed WIM resource and selected-image inspection; no Windows restoration. @module */
+/** Ordinary stored/XPRESS WIM resource and selected-image inspection; no Windows restoration. @module */
 import type { XmlElement } from "@std/xml/types";
 import type { ByteSourceType } from "../source.ts";
 import { sourceRange } from "../source.ts";
 import { parseXmlRoot } from "../xml.ts";
+import { decodeXpress } from "./xpress.ts";
 import { ArchiveBudget, ArchiveError, createArchiveLedger, integer, invalid, unsupported } from "./record.ts";
 import type { ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
 export { ArchiveError, createArchiveLedger } from "./record.ts";
@@ -13,7 +14,9 @@ export interface WimResourceType {
   readonly id: number;
   readonly kind: "metadata" | "data";
   readonly offset: number;
-  readonly size: number;
+  /** Logical decoded resource bytes. */ readonly size: number;
+  /** Physical bytes including a compressed resource's chunk table. */ readonly storedSize: number;
+  readonly compression: "stored" | "xpress-huffman";
   readonly sha1: string;
   readonly references: number;
 }
@@ -51,6 +54,9 @@ export interface WimOpenOptionsType extends ArchiveLimitsType {
   /** Default 16 MiB estimate, 256 bytes per retained resource. */ readonly maxResourceIndexBytes?: number;
   /** Default 4 MiB, hard 8 MiB. */ readonly maxTableBytes?: number;
   /** Default 1 MiB, hard 8 MiB. */ readonly maxXmlBytes?: number;
+  /** Per-resource chunk table: default 256 KiB, hard 2 MiB. */ readonly maxChunkTableBytes?: number;
+  /** Per-resource chunks: default 65536, hard 262144. */ readonly maxXpressChunks?: number;
+  /** Per-read data-dependent codec work: default 16 Mi, hard 64 Mi steps. */ readonly maxXpressSteps?: number;
   /** Whole-buffer SHA1 input: default 1 MiB, hard 16 MiB. */ readonly maxVerifyBytes?: number;
 }
 /** Full verification can read/hash the complete resource even when only a prefix is returned. */
@@ -65,6 +71,7 @@ export interface WimReadType {
   readonly bytes: Uint8Array;
   readonly integrity: "resource-sha1-verified" | "pending" | "not-provided";
   readonly work: ArchiveWorkType;
+  /** Cumulative codec work in this operation; zero for stored resources. */ readonly xpressSteps: number;
 }
 /** The entire selected metadata resource is buffered; other image metadata is not parsed. */
 export interface WimImageOptionsType extends ArchiveLimitsType {
@@ -85,6 +92,8 @@ export interface WimImageViewType {
   readonly image: WimImageType;
   readonly entries: readonly WimEntryType[];
   readonly metadataIntegrity: "resource-sha1-verified" | "pending";
+  /** Codec work for this image's metadata read; later file reads report their own work. */
+  readonly xpressSteps: number;
   readonly work: ArchiveWorkType;
   read(id: number, options?: WimReadOptionsType): Promise<WimReadType>;
   source(id: number, options?: Omit<WimReadOptionsType, "verify">): ByteSourceType;
@@ -92,7 +101,7 @@ export interface WimImageViewType {
 /** The original source remains borrowed. Integrity-table presence is not verification. */
 export interface WimArchiveType {
   readonly format: "wim";
-  readonly profile: "uncompressed-1.13";
+  readonly profile: "uncompressed-1.13" | "xpress-huffman-32k-1.13";
   readonly images: readonly WimImageType[];
   readonly resources: readonly WimResourceType[];
   readonly integrityTable: "absent" | "present-unverified";
@@ -103,13 +112,14 @@ export interface WimArchiveType {
   readonly work: ArchiveWorkType;
   image(index: number, options?: WimImageOptionsType): Promise<WimImageViewType>;
   read(id: number, options?: WimReadOptionsType): Promise<WimReadType>;
-  /** Exact stored bytes, with no per-read resource checksum guarantee. */
+  /** Exact logical resource bytes; compressed reads decode intersecting chunks without SHA1 verification. */
   source(id: number, options?: Omit<WimReadOptionsType, "verify">): ByteSourceType;
 }
 interface ExtentType {
   readonly offset: number;
   readonly size: number;
   readonly flags: number;
+  readonly decoded: number;
 }
 /** Parent cancellation authority cannot be replaced by a fresh narrower-operation signal. */
 function signals(...values: readonly (AbortSignal | undefined)[]): AbortSignal | undefined {
@@ -128,18 +138,18 @@ function hex(bytes: Uint8Array): string {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 /** The first seven bytes are a 56-bit stored size, followed by flags, not a single 64-bit size. */
-function extent(view: DataView, offset: number, sourceSize: number): ExtentType {
+function extent(view: DataView, offset: number, sourceSize: number, xpress = false): ExtentType {
   const word = view.getBigUint64(offset, true), stored = word & 0xffffffffffffffn;
   if (stored > BigInt(Number.MAX_SAFE_INTEGER)) unsupported("WIM resource size exceeds exact JavaScript integers.");
   const size = Number(stored),
     flags = Number(word >> 56n),
     at = wide(view, offset + 8),
     decoded = wide(view, offset + 16);
-  if (flags & ~2) unsupported("Compressed, split, free and solid WIM resources are outside this profile.");
-  if (size !== decoded) invalid("Uncompressed WIM resource lengths disagree.");
+  if (flags & ~(xpress ? 6 : 2)) unsupported("This WIM resource encoding is outside the selected profile.");
+  if (!(flags & 4) && size !== decoded) invalid("Uncompressed WIM resource lengths disagree.");
   sourceRange(sourceSize, at, size);
   if (size && at < 208) invalid("WIM resource overlaps the fixed header.");
-  return { offset: at, size, flags };
+  return { offset: at, size, flags, decoded };
 }
 function children(node: XmlElement, name: string): XmlElement[] {
   return node.children.filter((part): part is XmlElement => part.type === "element" && part.name.raw === name);
@@ -177,14 +187,18 @@ class WimBudget {
       },
     }, signal);
   }
+  /** Reserve a complete payload plan before allocating its result, then consume credits during collection. */
+  prepare(length: number, requests = Math.ceil(length / 65536)): void {
+    const bytes = Math.max(0, length - this.#bytes), count = Math.max(0, requests - this.#requests);
+    cap(bytes, this.work.limits.maxSourceBytes - this.work.inspect().sourceBytes - this.#bytes, "WIM source bytes");
+    cap(count, this.work.limits.maxRequests - this.work.inspect().requests - this.#requests, "WIM requests");
+    this.#reserve("sourceBytes", bytes);
+    this.#bytes += bytes;
+    this.#reserve("requests", count);
+    this.#requests += count;
+  }
   async collect(offset: number, length: number): Promise<Uint8Array> {
-    cap(length, this.work.limits.maxSourceBytes - this.work.inspect().sourceBytes, "WIM source bytes");
-    const requests = Math.ceil(length / 65536);
-    cap(requests, this.work.limits.maxRequests - this.work.inspect().requests, "WIM requests");
-    this.#reserve("sourceBytes", length);
-    this.#bytes += length;
-    this.#reserve("requests", requests);
-    this.#requests += requests;
+    this.prepare(length);
     const out = new Uint8Array(length);
     for (let done = 0; done < length;) {
       const part = await this.work.read(offset + done, Math.min(65536, length - done));
@@ -194,7 +208,7 @@ class WimBudget {
     return out;
   }
 }
-/** Parse an ordinary uncompressed WIM, then open only the image metadata selected by the caller. */
+/** Parse an ordinary stored/XPRESS WIM, then open only the image metadata selected by the caller. */
 export async function openWim(input: ByteSourceType, options: WimOpenOptionsType = {}): Promise<WimArchiveType> {
   options = { ...options };
   const { size, identity, stability } = input;
@@ -222,9 +236,15 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
     table: options.maxTableBytes ?? 4194304,
     xml: options.maxXmlBytes ?? 1048576,
     verify: options.maxVerifyBytes ?? 1048576,
+    chunkTable: options.maxChunkTableBytes ?? 262144,
+    chunks: options.maxXpressChunks ?? 65536,
+    steps: options.maxXpressSteps ?? 16777216,
   };
   for (const [name, value] of Object.entries(policy)) integer(value, name);
-  if (policy.table > 8388608 || policy.xml > 8388608 || policy.verify > 16777216) {
+  if (
+    policy.table > 8388608 || policy.xml > 8388608 || policy.verify > 16777216 ||
+    policy.chunkTable > 2097152 || policy.chunks > 262144 || policy.steps > 67108864
+  ) {
     throw new RangeError("WIM implementation ceiling exceeded.");
   }
   const openingLedger = createArchiveLedger(options);
@@ -247,8 +267,10 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
   if (view.getUint32(8, true) !== 208 || view.getUint32(12, true) !== 0x10d00) {
     unsupported("Only 208-byte ordinary WIM version 1.13 is supported.");
   }
-  if (view.getUint32(16, true) & ~0x84 || view.getUint32(20, true) !== 0) {
-    unsupported("Compressed, split, writing or resource-only WIM variants are unsupported.");
+  const flags = view.getUint32(16, true), mode = flags & 0x20002;
+  const xpress = mode === 0x20002;
+  if (flags & ~0x20086 || (mode !== 0 && !xpress) || view.getUint32(20, true) !== (xpress ? 32768 : 0)) {
+    unsupported("Only stored or ordinary 32 KiB XPRESS-Huffman WIM resources are supported.");
   }
   if (view.getUint16(40, true) !== 1 || view.getUint16(42, true) !== 1) {
     unsupported("Split WIM parts require a separate profile.");
@@ -258,7 +280,7 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
   if (!count) unsupported("This WIM profile requires at least one image.");
   const table = extent(view, 48, size),
     xml = extent(view, 72, size),
-    boot = extent(view, 96, size),
+    boot = extent(view, 96, size, xpress),
     integrity = extent(view, 124, size);
   const bootIndex = view.getUint32(120, true);
   if (bootIndex > count || (!bootIndex && boot.size)) invalid("WIM boot metadata index is inconsistent.");
@@ -271,14 +293,18 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
   const tableBytes = await opening.collect(table.offset, table.size), tableView = new DataView(tableBytes.buffer);
   const resources: WimResourceType[] = [], metadata: number[] = [], hashes = new Map<string, number>();
   for (let offset = 0; offset < table.size; offset += 50) {
-    const item = extent(tableView, offset, size), sha1 = hex(tableBytes.subarray(offset + 30, offset + 50));
+    const item = extent(tableView, offset, size, xpress), sha1 = hex(tableBytes.subarray(offset + 30, offset + 50));
     if (tableView.getUint16(offset + 24, true) !== 1) unsupported("WIM resource references another part.");
-    if (sha1 === "0".repeat(40) || !item.size) invalid("WIM blob table contains an empty hash/resource.");
+    if (sha1 === "0".repeat(40) || !item.size || !item.decoded) {
+      invalid("WIM blob table contains an empty hash/resource.");
+    }
     const resource: WimResourceType = Object.freeze({
       id: resources.length,
       kind: item.flags & 2 ? "metadata" : "data",
       offset: item.offset,
-      size: item.size,
+      size: item.decoded,
+      storedSize: item.size,
+      compression: item.flags & 4 ? "xpress-huffman" : "stored",
       sha1,
       references: tableView.getUint32(offset + 26, true),
     });
@@ -292,7 +318,10 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
   if (metadata.length !== count) invalid("WIM image count disagrees with metadata resources.");
   if (bootIndex) {
     const resource = resources[metadata[bootIndex - 1]!]!;
-    if (resource.offset !== boot.offset || resource.size !== boot.size || !(boot.flags & 2)) {
+    if (
+      resource.offset !== boot.offset || resource.storedSize !== boot.size || resource.size !== boot.decoded ||
+      resource.compression !== (boot.flags & 4 ? "xpress-huffman" : "stored") || !(boot.flags & 2)
+    ) {
       invalid("WIM boot metadata differs from indexed image.");
     }
   }
@@ -337,6 +366,68 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
     if (!value) throw new RangeError("Unknown WIM resource ID.");
     return value;
   }
+  /** Validate the complete ordinary chunk table, then reserve all selected work before the result buffer. */
+  async function compressed(
+    item: WimResourceType,
+    offset: number,
+    length: number,
+    work: WimBudget,
+    signal: AbortSignal | undefined,
+  ): Promise<{ bytes: Uint8Array; steps: number }> {
+    if (!length) return { bytes: new Uint8Array(0), steps: 0 };
+    const chunks = Math.ceil(item.size / 32768), width = item.size < 4294967296 ? 4 : 8;
+    cap(chunks, policy.chunks, "WIM resource chunks");
+    const tableLength = (chunks - 1) * width;
+    cap(tableLength, policy.chunkTable, "WIM chunk table bytes");
+    if (tableLength >= item.storedSize) invalid("WIM chunk table exceeds its resource.");
+    work.work.decoded(tableLength);
+    const table = await work.collect(item.offset, tableLength), view = new DataView(table.buffer);
+    const packedSize = item.storedSize - tableLength;
+    const boundary = (index: number): number =>
+      index === 0
+        ? 0
+        : index === chunks
+        ? packedSize
+        : width === 4
+        ? view.getUint32((index - 1) * width, true)
+        : wide(view, (index - 1) * width);
+    const plan: { offset: number; packed: number; decoded: number; logical: number }[] = [];
+    let start = 0, sourceBytes = 0, decodedBytes = 0;
+    for (let index = 0; index < chunks; index++) {
+      signal?.throwIfAborted();
+      const end = boundary(index + 1), logical = index * 32768, decoded = Math.min(32768, item.size - logical);
+      if (end <= start || end > packedSize || end - start > decoded) {
+        invalid("WIM chunk offsets or lengths are invalid.");
+      }
+      if (logical < offset + length && logical + decoded > offset) {
+        plan.push({ offset: item.offset + tableLength + start, packed: end - start, decoded, logical });
+        sourceBytes += end - start;
+        decodedBytes += decoded;
+      }
+      start = end;
+    }
+    work.work.decoded(decodedBytes);
+    work.prepare(sourceBytes, plan.length);
+    const bytes = new Uint8Array(length);
+    let steps = 0;
+    for (const part of plan) {
+      signal?.throwIfAborted();
+      const packed = await work.collect(part.offset, part.packed);
+      let decoded = packed;
+      if (part.packed !== part.decoded) {
+        decoded = new Uint8Array(part.decoded);
+        decodeXpress(packed, decoded, (count) => {
+          signal?.throwIfAborted();
+          cap(count, policy.steps - steps, "WIM XPRESS steps");
+          steps += count;
+        });
+      }
+      signal?.throwIfAborted();
+      const start = Math.max(offset, part.logical), end = Math.min(offset + length, part.logical + part.decoded);
+      bytes.set(decoded.subarray(start - part.logical, end - part.logical), start - offset);
+    }
+    return { bytes, steps };
+  }
   async function read(id: number, call: WimReadOptionsType = {}, internal = false): Promise<WimReadType> {
     call = { ...call };
     const item = resourceOf(id), offset = call.offset ?? 0, length = call.length ?? item.size - offset;
@@ -352,8 +443,16 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
     cap(verify ? item.size : length, 16777216, "WIM buffered read bytes");
     const work = operation(call);
     work.work.output(internal ? 0 : length);
-    work.work.decoded((verify ? item.size : length) + (verify ? item.size : 0));
-    const bytes = await work.collect(item.offset + (verify ? 0 : offset), verify ? item.size : length);
+    let bytes: Uint8Array, xpressSteps = 0;
+    if (item.compression === "stored") {
+      work.work.decoded((verify ? item.size : length) + (verify ? item.size : 0));
+      bytes = await work.collect(item.offset + (verify ? 0 : offset), verify ? item.size : length);
+    } else {
+      if (verify) work.work.decoded(item.size);
+      const result = await compressed(item, verify ? 0 : offset, verify ? item.size : length, work, signal);
+      bytes = result.bytes;
+      xpressSteps = result.steps;
+    }
     if (verify) {
       const actual = new Uint8Array(await digest!("SHA-1", new Uint8Array(bytes).buffer));
       signal?.throwIfAborted();
@@ -364,6 +463,7 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
       bytes: internal ? bytes : verify ? bytes.slice(offset, offset + length) : bytes,
       integrity: verify ? "resource-sha1-verified" : "pending",
       work: work.work.inspect(),
+      xpressSteps,
     };
   }
   function rawSource(id: number, call: Omit<WimReadOptionsType, "verify"> = {}): ByteSourceType {
@@ -374,9 +474,9 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
     signal?.throwIfAborted();
     return Object.freeze({
       size: length,
-      ...(identity === undefined
-        ? {}
-        : { identity: JSON.stringify([identity, "wim-uncompressed-1.13", id, item.offset + offset, length]) }),
+      ...(identity === undefined ? {} : {
+        identity: JSON.stringify([identity, "wim-resource-1.13", item.compression, id, item.offset, offset, length]),
+      }),
       ...(stability === undefined ? {} : { stability }),
       async read(at: number, count: number, option: { signal?: AbortSignal } = {}) {
         sourceRange(length, at, count);
@@ -400,7 +500,7 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
   }
   return Object.freeze({
     format: "wim",
-    profile: "uncompressed-1.13",
+    profile: xpress ? "xpress-huffman-32k-1.13" : "uncompressed-1.13",
     resources: Object.freeze(resources),
     images: Object.freeze(images),
     integrityTable: integrity.size ? "present-unverified" : "absent",
@@ -609,6 +709,7 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
         return {
           bytes: new Uint8Array(),
           integrity: "not-provided",
+          xpressSteps: 0,
           work: { sourceBytes: 0, requests: 0, decodedBytes: 0, outputBytes: 0 },
         };
       };
@@ -616,6 +717,7 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
         image,
         entries: Object.freeze(entries),
         metadataIntegrity: result.integrity === "resource-sha1-verified" ? "resource-sha1-verified" : "pending",
+        xpressSteps: result.xpressSteps,
         work: result.work,
         async read(id: number, call: WimReadOptionsType = {}): Promise<WimReadType> {
           const entry = selected(id);
