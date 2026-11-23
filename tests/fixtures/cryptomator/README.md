@@ -70,7 +70,10 @@ their POMs from same-origin official Maven Central HTTPS. It validates repositor
 inspects class versions and bounded embedded licenses, and does not execute downloaded code. Repository sidecars are
 acquisition corroboration, not an independently verified signing-key chain. The optional separate BC artifact is
 inspected/retained in receipts but omitted from the actual six-JAR classpath because the Cryptomator JARs already
-relocate BC. Actual acquired POMs and pinned license texts are under `licenses/`.
+relocate BC. Actual acquired POMs and pinned license texts are under `licenses/`. The POMs keep their exact bytes with a
+`.pom.txt` suffix, like `bc-LICENSE.html.txt`, so dependency scanners do not read them as a Maven project of this
+repository. They are license evidence for a historical producer, not dependencies: nothing here builds or runs Bouncy
+Castle, and the producer omitted the separate BC 1.80 JAR from its classpath.
 
 The native recipe uses signed Debian OpenJDK 17 and python3-pycryptodome. Acquisition runs with network access; the
 authored Java/Python producer then runs in a separate container with **no network**, no host mounts, 1 GiB memory, one
