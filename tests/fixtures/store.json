@@ -46,6 +46,10 @@
       "size": 8067679,
       "sha256": "a1c97ad4189710b5edfd72a0b8e07986d6c3f7bef2b1269dd1f8cdef97ca3029"
     },
+    "tests/fixtures/netcdf/independent.json": {
+      "size": 5401140,
+      "sha256": "001651837ccfaac094e7643e4c5ff713040e2e194094431eb05b5fad360d69eb"
+    },
     "tests/fixtures/password/independent.json": {
       "size": 531958,
       "sha256": "d4c4c383453caadd3dbb32ae4337d00e043a847c797577c329f7f3d77dbe10f9"
@@ -65,6 +69,10 @@
     "tests/fixtures/udf/independent.json": {
       "size": 12017417,
       "sha256": "994911ed0bcf49be31e82a57127a7db2187b5e3afbbd82fb63454a05ff10081f"
+    },
+    "tests/fixtures/unixfs/independent.json": {
+      "size": 1010209,
+      "sha256": "41f437d34da41a29e10d8897c93abf2b7192c4d69291df7feb1aef7d6aa8f55f"
     },
     "tests/fixtures/wim/lzx-authored-tail.json": {
       "size": 627861,

@@ -1,0 +1,30 @@
+{
+  "standards": {
+    "commit": "3a6b1debf1557f07b606ce3653e44f0d711203be",
+    "tag": "v4.9.3",
+    "grammarSha256": "c787c63a8d6e1dcf0e600c7a5e0c8826200a6eada7e45ce4c5fb4ce6f04e170f",
+    "attributeConventionsSha256": "62de78fa58de26f65d80f5df7869b910e74b1f2f851eff40088099fe9da876d0",
+    "grammarUrl": "https://github.com/Unidata/netcdf-c/blob/3a6b1debf1557f07b606ce3653e44f0d711203be/docs/file_format_specifications.md"
+  },
+  "producer": {
+    "container": "opfs-netcdf-producer-20261105",
+    "base": "opfs-seven-tools:20261105",
+    "baseImageSha256": "527d62a5244f4fa71833b4a105a4906ec1c1c7708f64ea2967fa04d96c551dd5",
+    "note": "Signed Debian packages installed in bounded 1GiB/1CPU/128pids disposable producer; local base does not pin complete apt-mutated producer image.",
+    "packages": "gcc\t4:12.2.0-3\nlibc6-dev:arm64\t2.36-9+deb12u14\nlibnetcdf-dev\t1:4.9.0-3+b1\nnetcdf-bin\t1:4.9.0-3+b1\npython3-scipy\t1.10.1-2\n",
+    "native": "4.9.0 of Aug  7 2022 23:34:27 $\n",
+    "scipy": "1.10.1",
+    "numpy": "1.24.2",
+    "command": "/usr/bin/python3 /produce.py --source /native.c --output /tmp/independent.json"
+  },
+  "sources": {
+    "create.py": "6852a1ea5ce8187304bf9c5cba6dcc850fa9265d7c55022d595f8df52a687f80",
+    "native.c": "0523d513bff4edcbb91f6e34b80ef439dcafc2fdb36373b4e1b0aef7c184d495"
+  },
+  "producerFixtureSha256": "bdf04f88516e10e8c48b392d31be540e86a49dd997197c66b505aec5360d8ef7",
+  "oracles": "SciPy and netCDF-C reciprocal full raw native-byte equality for all22fixtures, plus independent nc_get_vara two-record subset reads.",
+  "compatibility": "SciPy1.10.1 sole BYTE/CHAR/SHORT record variables have unpadded vsize; zero records declare0. Original bytes retained; strict default refuses, explicit allow-unpadded records mismatches. Native netCDF-C4.9.0 fixtures cover canonical cases.",
+  "largeOffsets": "No native >2GiB sparse producer claim; high-offset tests are explicitly authored segmented sources.",
+  "successLog": ".tmp/implementation/netcdf-producer-large-20261105.log",
+  "formattedFixtureSha256": "001651837ccfaac094e7643e4c5ff713040e2e194094431eb05b5fad360d69eb"
+}

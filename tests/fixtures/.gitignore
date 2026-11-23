@@ -11,11 +11,13 @@
 /iso/independent.json
 /lz4/independent.json
 /lzma/independent.json
+/netcdf/independent.json
 /password/independent.json
 /rar/independent.json
 /seven/independent.json
 /tar-sparse/independent.json
 /udf/independent.json
+/unixfs/independent.json
 /wim/lzx-authored-tail.json
 /wim/lzx-authored.json
 /wim/lzx-independent.json
