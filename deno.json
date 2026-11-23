@@ -240,6 +240,7 @@
       "tests/fixtures/amqp/independent.json",
       "tests/fixtures/glacier/**/*.json",
       "tests/fixtures/glacier/**/*.snapshot",
+      "tests/fixtures/ipc/native/",
       "tests/fixtures/age/provenance/**/*.mjs"
     ]
   },

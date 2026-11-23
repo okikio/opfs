@@ -1,0 +1,23 @@
+{
+  "qualified": true,
+  "isolatedReceipt": "943cf8ea-38b7-4488-81cd-4e3553a57cdc",
+  "image": "sha256:01f5eb8edbe75e962e78730d6258d2c01c85b1c619d7e47717eeea470148b7f5",
+  "snapshotSha256": "222656eeb93fceef2e06384a0f410991f8e05fef03b6d6f605f5fb631366bb67",
+  "memoryBytes": 1073741824,
+  "network": "none",
+  "oomKilled": false,
+  "removed": true,
+  "scope": "Ten Arrow C++ IPC file/stream authored-original profiles; same-library writer/readback only; no production reader claim",
+  "artifacts": [
+    {
+      "file": "independent.json",
+      "bytes": 106854,
+      "sha256": "f5947405024bc938ede55dac110c48576e25a358b7f4ff8e0beb9b1d51f703db"
+    },
+    {
+      "file": "native-state.json",
+      "bytes": 69,
+      "sha256": "fa76e29cf2aea19b4987f0d50e6e20c2dfe15025190e93012ce1b5dd16e20ed6"
+    }
+  ]
+}
