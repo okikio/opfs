@@ -1,0 +1,41 @@
+{
+  "scope": "Six native-produced ZIPs; 20 actual method-12 members and four native STORED tiny/empty members. Every original byte cross-consumed by Python zipfile, 7-Zip and libarchive.",
+  "packages": [
+    "7zip\t22.01+really26.02+dfsg-0+deb12u1",
+    "libarchive-tools\t3.6.2-1+deb12u5",
+    "python3\t3.11.2-1+b1"
+  ],
+  "pythonRuntime": "3.11.2",
+  "baseImage": {
+    "name": "opfs-seven-tools:20261105",
+    "sha256": "527d62a5244f4fa71833b4a105a4906ec1c1c7708f64ea2967fa04d96c551dd5",
+    "scope": "Local cached test-tools image, not a publicly pullable complete producer pin."
+  },
+  "limits": {
+    "memoryBytes": 1073741824,
+    "cpus": 1,
+    "pids": 128
+  },
+  "command": "python3 /produce.py --seven /usr/bin/7zz --bsdtar /usr/bin/bsdtar --output /tmp/independent.json",
+  "initialFailure": "Inherited sh entrypoint treated python3 as shell file; exit2 before producer execution. Corrected explicit Python entrypoint succeeds; diagnostic retained in task log.",
+  "exitCode": 0,
+  "oomKilled": false,
+  "specification": {
+    "url": "https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT",
+    "version": "6.3.10",
+    "date": "2022-11-01",
+    "sha256": "0b993022a7d320a0bf704e6980bea36fafd17a6066ab994db0a0c16278a50cd6",
+    "sections": [
+      "4.4.3.2",
+      "4.4.5",
+      "5.7"
+    ],
+    "scope": "Primary method/version metadata reviewed; no specification text or upstream implementation copied into production."
+  },
+  "files": {
+    "create.py": "a363e2aea6093a88d7d8eb8337a7b0cee71632b75f73fabcf00b5669f0e4e194",
+    "independent.json": "2c3fde502bb8fa879a429105bbdd14bba4c79a8a456402c0eaf2ed5b250aafdc"
+  },
+  "nativeCompactJsonSha256": "7b0f7808d8f227e22be6dec26e055c3b42b4f01838606a7f04a2e31dac17bebb",
+  "checkedPayloadDigests": 30
+}

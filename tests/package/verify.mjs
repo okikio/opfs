@@ -615,6 +615,21 @@ try {
     assertBytes(Uint8Array.from(lzmaChunks), Uint8Array.from(atob(lzmaFixture.body), (byte) => byte.charCodeAt(0)));
     const lzmaEnd = await lzma.finished;
     if (lzmaEnd.status !== 'complete' || lzmaEnd.termination !== 'lzma2-end' || lzmaEnd.integrity !== 'none') throw new Error('Packed LZMA terminal scope changed');
+    const zipBzipFixture = ${
+      JSON.stringify(
+        await (async () => {
+          const fixture = JSON.parse(
+            await readFile(new URL("../fixtures/zip-bzip/independent.json", import.meta.url), "utf8"),
+          ).fixtures.find((item) => item.name === "python-1");
+          return { wire: fixture.archive.base64, member: fixture.members.find((item) => item.name === "odd.bin") };
+        })(),
+      )
+    };
+    const zipBzip = await openZip(createByteSource(Uint8Array.from(atob(zipBzipFixture.wire), (byte) => byte.charCodeAt(0))));
+    const zipBzipEntry = zipBzip.entries.find((item) => item.name === zipBzipFixture.member.name);
+    const zipBzipRead = await zipBzip.read(zipBzipEntry.id, { bzip: { inputChunkBytes: 3, outputChunkBytes: 7 } });
+    assertBytes(zipBzipRead.bytes, Uint8Array.from(atob(zipBzipFixture.member.original.base64), (byte) => byte.charCodeAt(0)));
+    if (zipBzipRead.integrity !== 'checksum-verified' || zipBzipRead.codec?.kind !== 'bzip2' || zipBzipRead.codec.integrity !== 'checksum-verified') throw new Error('Packed ZIP BZip2 verification changed');
     let gcsArchiveCalls = 0;
     const gcsArchive = createGcsClient({
       bucket: 'installed-bucket', endpoint: 'https://storage.example', token: 'explicit-token',
