@@ -194,8 +194,8 @@
     "@aws-sdk/client-s3": "npm:@aws-sdk/client-s3@^3.1175.0",
     "@aws-sdk/lib-storage": "npm:@aws-sdk/lib-storage@^3.1175.0",
     "@azure/storage-blob": "npm:@azure/storage-blob@^12.34.0",
-    "testcontainers": "npm:testcontainers@^12.2.2",
-    "@testcontainers/azurite": "npm:@testcontainers/azurite@^12.2.2",
+    "testcontainers": "npm:testcontainers@12.1.0",
+    "@testcontainers/azurite": "npm:@testcontainers/azurite@12.1.0",
     "@google-cloud/storage": "npm:@google-cloud/storage@7.19.0"
   },
   "nodeModulesDir": "auto",
