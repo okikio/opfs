@@ -141,7 +141,9 @@
     "./dataset/netcdf": "./src/dataset/netcdf.ts",
     "./lakefs": "./src/lakefs.ts",
     "./dataset/zarr": "./src/dataset/zarr.ts",
-    "./dataset/las": "./src/dataset/las.ts"
+    "./dataset/las": "./src/dataset/las.ts",
+    "./seafile": "./src/seafile.ts",
+    "./content/arfs": "./src/content/arfs.ts"
   },
   "imports": {
     "@okikio/undent": "jsr:@okikio/undent@^0.3.3",
