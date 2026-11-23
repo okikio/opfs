@@ -1,0 +1,25 @@
+{
+  "standards": {
+    "commit": "ad8fc8df42441c84039c94569980e485e4c09870",
+    "v2Url": "https://github.com/zarr-developers/zarr-specs/blob/ad8fc8df42441c84039c94569980e485e4c09870/docs/v2/v2.0.rst",
+    "v2Sha256": "422bd5f5fb27269bcc30da125f0b116c29e5008a5360bb5a5bb77f14b93acea7",
+    "excludedV3Sha256": "9b3c10ddd850beec99b66a980ac504490580d0974aedef123063a6dafbaffdd1"
+  },
+  "producer": {
+    "container": "opfs-zarr-producer-20261105",
+    "base": "opfs-seven-tools:20261105",
+    "baseImageSha256": "527d62a5244f4fa71833b4a105a4906ec1c1c7708f64ea2967fa04d96c551dd5",
+    "note": "Signed Debian packages installed in bounded 1GiB/1CPU/128pids disposable producer; local base does not pin complete apt-mutated producer image.",
+    "packages": "python3-numpy\t1:1.24.2-1+deb12u1\npython3-zarr\t2.13.6+ds-1\n",
+    "zarr": "2.13.6+ds",
+    "numpy": "1.24.2",
+    "command": "/usr/bin/python3 /produce.py --output /tmp/independent.json"
+  },
+  "sources": {
+    "create.py": "26e343bf5a74ea76da81e4fb68fa4ecdc99791bb4731c3e49791e90addc5a990"
+  },
+  "producerFixtureSha256": "2b86b847dd6a20805eae1e141b528bbf6bf3424bccfe73355f3c8a4c26dd80bd",
+  "formattedFixtureSha256": "73ddddd4584288663f979de7a37d22bd5efded982232687bdb24812edff1ee54",
+  "oracles": "82 Zarr 2.13.6 / NumPy 1.24.2 fixtures. Native Zarr writer and authored uncompressed chunk writer both independently consumed by Python Zarr and compared to full original NumPy numeric bytes. Noncanonical boolean bytes0,2,255,1 accepted and normalizedFalse,True,True,True. No production candidate imported.",
+  "successLog": ".tmp/implementation/zarr-producer-20261105.log"
+}

@@ -1,0 +1,61 @@
+{
+  "profile": "kubo-fanout-256",
+  "status": "genuine Kubo native producer/full/range/list receipt exit0; independent original public-domain hash reference executed",
+  "sources": [
+    {
+      "url": "https://raw.githubusercontent.com/ipfs/specs/b4ad54e3a8baa8a395c2d17b7eab123099efb228/src/unixfs.md",
+      "bytes": 73991,
+      "sha256": "385f09505b79b6845e274035b6175fcd4780246ec850eaf45138b4bbcce301fa"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ipfs/boxo/d133242046c3fb796050017089ae581d8f54a38c/ipld/unixfs/hamt/hamt.go",
+      "bytes": 25330,
+      "sha256": "df8d81c617c26a5cc2c8054e2d455e4309b777fb479e42265d2f6b78a2dd30f2"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ipfs/boxo/d133242046c3fb796050017089ae581d8f54a38c/ipld/unixfs/hamt/util.go",
+      "bytes": 1804,
+      "sha256": "381aaebf4942c0a166decf1e3044e154374366e99a4cdc1c275d1ef91fa613f4"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ipfs/boxo/d133242046c3fb796050017089ae581d8f54a38c/go.mod",
+      "bytes": 7699,
+      "sha256": "1ed8f476d9615d40e8268f6fdabfa9ae04d7d06f5afdd4da3c2a4621231c7216"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ipfs/go-bitfield/345bb295b923068375b7b171ffc4b0923abd1c11/bitfield.go",
+      "bytes": 2644,
+      "sha256": "c5c51f8cad95b79e071ef00600063f1927292e023ed16e1e6c116375b4c134fd"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/spaolacci/murmur3/f09979ecbc725b9e6d41a297405f65e7e8804acc/murmur64.go",
+      "bytes": 1528,
+      "sha256": "eaea6aaaf2880c361383e1880f706e035b097ed29bacbdc0ec2f4e755f59fb50"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/spaolacci/murmur3/f09979ecbc725b9e6d41a297405f65e7e8804acc/murmur128.go",
+      "bytes": 4214,
+      "sha256": "54845eb6bf7aca5728aa3eb43c2e55b7f6cfe796e49e20887fb987e87bf3e595"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/aappleby/smhasher/07bb4de10a63e8cc2e1724865454eba635742383/src/MurmurHash3.cpp",
+      "bytes": 7901,
+      "sha256": "30f121ed155ebf336af398aabb7d8d157afdfafc8d981e7b48d2a1ceb4b63e4e"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ipfs/kubo/acc53c093810a8fe9a4bc2f023f0b1e0c1d629b5/core/commands/ls.go",
+      "bytes": 15029,
+      "sha256": "ff05a40b19ef936bda8502d11c9f0a7b99351ac7434094e65fe0da748c0e1361"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/aappleby/smhasher/07bb4de10a63e8cc2e1724865454eba635742383/src/MurmurHash3.h",
+      "bytes": 1106,
+      "sha256": "9af2003e3885c841fa0ac08cb5d5f31541ee9d793f8a9c4a4f771f43fb0d6f41"
+    }
+  ],
+  "nativeRawReceiptSha256": "0266207736d4bc63419f2c6b5454ce1468b5a9ae2d566bf77e8cc123460e62cc",
+  "draftDifferences": [
+    "draft describes fixed-length little-endian bitmap; native right-aligns up to32 serialized high-bucket-first bytes",
+    "draft describes least-significant routing; native consumes big-endian h1 digest bytes in order"
+  ]
+}

@@ -97,6 +97,10 @@
     "tests/fixtures/xz/independent.json": {
       "size": 2275829,
       "sha256": "c564d196b6b1b4a23c6d14e28cd51c6466e31e17c0e7f3b70dd5c6e0a30478cf"
+    },
+    "tests/fixtures/zarr/independent.json": {
+      "size": 1754404,
+      "sha256": "73ddddd4584288663f979de7a37d22bd5efded982232687bdb24812edff1ee54"
     }
   }
 }

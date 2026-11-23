@@ -1,0 +1,20 @@
+{
+  "attempts": [
+    {
+      "case": "unixfs-hamt-producer-20261105.log",
+      "classification": "test-recipe expected bare base64; native emits DAG-JSON bytes wrapper",
+      "sha256": "e67f596a8f6681a8373c9759752fdaa2c7b24aacda6789683d81ce6a2c2ae4f4",
+      "bytes": 594,
+      "stderr": "Traceback (most recent call last):\n  File \"/produce.py\", line 176, in <module>\n    main()\n  File \"/produce.py\", line 121, in main\n    metadata = fields(base64.b64decode(node[\"Data\"]))\n                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib/python3.11/base64.py\", line 83, in b64decode\n    s = _bytes_from_decode_data(s)\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib/python3.11/base64.py\", line 45, in _bytes_from_decode_data\n    raise TypeError(\"argument should be a bytes-like object or ASCII \"\nTypeError: argument should be a bytes-like object or ASCII string, not 'dict'\n",
+      "successfulReceiptCopied": false
+    },
+    {
+      "case": "unixfs-hamt-dagjson-20261105.log",
+      "classification": "test-recipe expected JSON; native CLI ls post-run emits a table",
+      "sha256": "3dd6db1f5b97a6ccb18de82603731cb696f3bf4edeee06134b5d7da9c371cf3a",
+      "bytes": 773,
+      "stderr": "Traceback (most recent call last):\n  File \"/produce.py\", line 184, in <module>\n    main()\n  File \"/produce.py\", line 160, in main\n    listing = json.loads(run(\"ls\", \"--enc=json\", target))\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib/python3.11/json/__init__.py\", line 346, in loads\n    return _default_decoder.decode(s)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib/python3.11/json/decoder.py\", line 337, in decode\n    obj, end = self.raw_decode(s, idx=_w(s, 0).end())\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib/python3.11/json/decoder.py\", line 355, in raw_decode\n    raise JSONDecodeError(\"Expecting value\", s, err.value) from None\njson.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)\n",
+      "successfulReceiptCopied": false
+    }
+  ]
+}
