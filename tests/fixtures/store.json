@@ -62,6 +62,22 @@
       "size": 12017417,
       "sha256": "994911ed0bcf49be31e82a57127a7db2187b5e3afbbd82fb63454a05ff10081f"
     },
+    "tests/fixtures/wim/lzx-authored-tail.json": {
+      "size": 627861,
+      "sha256": "d3d9b7c1d877c07517e7c6a18586a9ededef37fbd7f0c00d35c424025dddd90d"
+    },
+    "tests/fixtures/wim/lzx-authored.json": {
+      "size": 2298031,
+      "sha256": "2c02c896bfa1b3e77ef62e6e41fc3dc27e14924a8484973064c469e7cf5e195b"
+    },
+    "tests/fixtures/wim/lzx-independent.json": {
+      "size": 2313900,
+      "sha256": "ea4e1105d868c359a2a43d41ee3123f34a2395175da84a9579c3860b9311f8ff"
+    },
+    "tests/fixtures/wim/lzx-tail-receipt.json": {
+      "size": 627774,
+      "sha256": "27794a315b771f64fc7bf8fa9d25d8e44df6a429ff978e779dfbf803d8179878"
+    },
     "tests/fixtures/wim/xpress-independent.json": {
       "size": 1645820,
       "sha256": "ff1d38c1568fd479a1ad387c040a6877eadb55028366f8a3f2c06305c2aa552c"

@@ -133,7 +133,8 @@ multi-block-map, empty and ordinary members. Python `tarfile` and libarchive 3.6
 original byte. 7zz 26.02 returns success with different bytes for sparse members; the producer receipt records that
 behavior explicitly rather than counting it as interoperability evidence. Genuine 0.0/0.1 fixtures are refusal controls.
 [The primary GNU manual](https://www.gnu.org/software/tar/manual/html_section/Sparse-Formats.html) describes the map
-grammar; [fixture provenance](../tests/fixtures/tar-sparse/provenance.json) pins its hash and tool receipts.
+grammar; [fixture provenance](https://github.com/okikio/opfs/blob/827bdbe/tests/fixtures/tar-sparse/provenance.json)
+pins its hash and tool receipts.
 
 ## Supported records and limits
 
