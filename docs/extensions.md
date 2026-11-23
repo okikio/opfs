@@ -5,11 +5,8 @@ private OPFS files. Choose the narrow contract that matches its real behavior. A
 filesystem, and a codec is not a storage driver.
 
 Keep portable decisions separate from host acquisition. Accept Fetch, cryptography, clocks and storage capabilities as
-explicit inputs; a named native factory can acquire them when called. The existing Node driver resolves built-ins inside
-construction through [`process.getBuiltinModule()`](https://nodejs.org/api/process.html#processgetbuiltinmoduleid),
-which avoids a static Node-only import in a portable entrypoint. That function still needs a Node capability; it does
-not make host access pure. Access Deno through an explicit native boundary when needed, and keep either runtime outside
-a portable root's import graph. The new archive, source and transfer cores need no Node or Deno runtime imports.
+explicit inputs; a named native factory can acquire them when called. The runtime boundary below explains how Node and
+Deno capabilities enter an extension. The archive, source and transfer cores need no Node or Deno runtime imports.
 
 This complete source implementation works on caller-provided bytes. It shows the public contract without a provider SDK
 or ambient runtime. Its identity is a caller assertion: use a stable digest or immutable application version when
@@ -98,6 +95,19 @@ Keep pure detection/parsing/planning separate from effectful Fetch, keys, host f
 capability explicitly. Runtime globals belong in an explicit host factory; spelling an ambient lookup `globalThis.Deno`
 does not make it pure. Do not register plugins at import, scan installed packages, accept executable module names from
 untrusted archives or automatically import URLs.
+
+For a Node-only entrypoint, an explicit `node:` import is a visible dependency on the host runtime. Keep that import
+behind the Node subpath. For a portable entrypoint, accept the particular file, clock, Fetch, crypto or transport
+operation the caller intends to grant. A function that parses bytes should not discover those capabilities itself. This
+also lets tests supply deterministic operations without changing process-wide state.
+
+Node's [`process.getBuiltinModule()`](https://nodejs.org/api/process.html#processgetbuiltinmoduleid) is the optional
+built-in loader discussed during the expansion design. It is available from Node 20.16 and 22.3 and can load a built-in
+synchronously without a static runtime import. Calling it through an ambient `process` still reads a global, however. An
+explicit Node host factory can receive that loader from its caller, resolve the required built-in there, then pass only
+the operations the core needs. This is an available composition technique, not a requirement to replace clear Node-only
+imports with hidden discovery. The same boundary applies to Deno: reading `globalThis.Deno` belongs in an explicit host
+factory, while portable parsing, planning and serialization remain independent of the runtime.
 
 Each release must name a maintenance owner, exact protocol/profile versions, tested OPFS range, fixtures, excluded
 capabilities, dependency/licenses, cancellation and cleanup behavior, and durable-layout migrations where relevant.

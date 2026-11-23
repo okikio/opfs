@@ -175,7 +175,13 @@ class WriteSession {
     this.#position = position;
   }
 
-  /** Resizes the staged image and clamps the cursor when it falls past the new end. */
+  /**
+   * Replaces the staged image with an exact-size allocation, preserving its prefix.
+   * Growing zero-fills the extension; shrinking clamps the next write position.
+   * The previous image can remain live until collection, so this operation does
+   * not provide a constant-memory way to truncate a large backend file. Only
+   * closing the session publishes the staged bytes to its owning filesystem.
+   */
   truncate(size: number): void {
     this.#assertOpen();
     assertOffset(size, "size");
@@ -236,7 +242,12 @@ export class WritableFileStream extends WritableStream<WritableChunkType> {
     await this.write({ type: "seek", position });
   }
 
-  /** Changes staged file length without committing. */
+  /**
+   * Sets the staged length in bytes without changing the committed file.
+   * Shrinking discards the tail and clamps the cursor. Growing adds zero bytes.
+   * The complete staged image stays in memory; use an admitted direct positional
+   * resource when a backend operation is needed without that full image.
+   */
   async truncate(size: number): Promise<void> {
     if (this.locked) throw new TypeError("Writable file stream is locked by another writer.");
     await this.write({ type: "truncate", size });

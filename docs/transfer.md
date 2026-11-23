@@ -4,6 +4,22 @@ Use `tus` for an upload endpoint and `transfer` for checkpoint-resumable copying
 filesystem: it need not support downloads, directories or listing. The source and destination remain independently
 usable. Both modules require explicit construction and perform no network work on import.
 
+A readable stream answers “what bytes arrive next?” A resumable upload must also answer “which exact source are these
+bytes from, which bytes did the remote service retain, and what does completion mean?” A network connection can close
+after the server accepts bytes but before the client receives the reply. The saved local position is therefore a record
+of the last confirmed progress, not automatic authority to send the next chunk.
+
+| Guarantee            | What the application can recover                                            | Required state                                                                           |
+| -------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Streaming            | Continue the current connected operation with bounded application buffering | Live reader, writer and codec state                                                      |
+| Restartable          | Start the operation again from its beginning                                | A way to reopen the original input and safely replace or abandon prior output            |
+| Checkpoint-resumable | Continue one retained remote attempt after interruption                     | The same replayable source, remote session, acknowledged progress and durable checkpoint |
+
+`transfer` coordinates the third row. It does not make arbitrary streams replayable or supply a durable database. The
+application owns checkpoint storage and exclusive session ownership; the protocol client owns the remote acknowledgment
+rules. See [byte sources](source.md) for stable ranges and [encryption](encryption.md) for why a fresh encryption
+attempt cannot replace a partially uploaded ciphertext.
+
 This complete in-memory example creates a tus upload and saves its acknowledged checkpoints. Replace the URL with your
 endpoint and supply its authentication headers explicitly. The remote server must advertise the creation extension.
 
@@ -50,9 +66,32 @@ authentication policy; an upload URL itself can be a bearer secret. Do not log c
 The continuation checks source identity, size, destination URL, protocol and checkpoint version before reading the
 source or contacting the destination. It then reads the server's retained offset. Each chunk follows this order:
 
-```text
-read exact source range -> send chunk -> check exact acknowledgment -> atomically save checkpoint
+```mermaid
+sequenceDiagram
+  participant App as Application storage
+  participant Transfer as Transfer coordinator
+  participant Source as Stable source
+  participant Remote as Upload destination
+  App->>Transfer: Saved checkpoint and exclusive session
+  Transfer->>Remote: Query retained offset and completion
+  Remote-->>Transfer: Confirmed remote state
+  Transfer->>App: Save reconciled checkpoint
+  loop Each acknowledged chunk
+    Transfer->>Source: Read exact range
+    Source-->>Transfer: Owned bytes
+    Transfer->>Remote: Write at confirmed offset
+    Remote-->>Transfer: Exact acknowledged next offset
+    Transfer->>App: Atomically save checkpoint
+  end
+  Transfer->>Remote: Confirm or finish publication
+  Remote-->>Transfer: Publication confirmation
+  Transfer->>App: Save completed checkpoint
 ```
+
+Time runs downward. Each saved checkpoint follows remote acknowledgment; saving before the write would claim bytes that
+might never arrive. A failed save stops the next read. The diagram shows the normal path and omits session creation,
+pause and cancellation. It does not imply a transaction between application storage and the remote service; the status
+query repairs the acknowledgment-to-save gap under the exclusive-owner rule below.
 
 After the last chunk, the library separately confirms final publication. A destination can acknowledge every byte while
 still staging an unpublished object. Its status must report `complete: true`, or its explicit `finish()` must publish
@@ -117,3 +156,30 @@ Portable tests cover protocol admission, changed identities, rollback, failed sa
 and acknowledgment mismatches. A separate process test exits after persisting destination bytes but before the
 checkpoint, then starts a fresh process and verifies continuation without duplicate output. These tests use authored
 fixtures; they do not establish interoperability with a hosted tus service or a real cloud provider.
+
+## Choose the native recovery model
+
+“Resumable stream” is often shorthand for several different protocols. Their retained state is not interchangeable. The
+table records the implementation boundaries in this checkout; primary sources describe the upstream protocols, not proof
+that every extension or deployment has been tested. The HTTP draft status was checked on 6 November 2026.
+
+| Protocol or mechanism                                                                                          | Remote progress and publication                                                             | Current OPFS route                                                                                                                                |
+| -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [tus 1.0](https://tus.io/protocols/resumable-upload)                                                           | One retained offset; extensions add creation, termination, checksums or concatenation       | `tus` plus `transfer`; core, known-length creation and negotiated termination only                                                                |
+| [HTTP resumable upload draft-15](https://datatracker.ietf.org/doc/html/draft-ietf-httpbis-resumable-upload-15) | Upload resource and offset; terminal target response has application-specific meaning       | [`upload`](upload.md), explicit draft profile; not a generic `UploadDestinationType` because terminal response does not prove storage publication |
+| [GCS resumable upload](https://docs.cloud.google.com/storage/docs/performing-resumable-uploads)                | Session URI, persisted offset and separate final object receipt                             | [`gcs`](gcs.md) low-level sessions; `createGcsUploadDestination()` also composes with `transfer` for known sizes                                  |
+| [S3 multipart](https://docs.aws.amazon.com/AmazonS3/latest/userguide/mpuoverview.html)                         | Upload ID and independently staged numbered parts; explicit completion assembles the object | [`s3`](s3.md) native multipart operations; retain native part receipts rather than reducing them to an invented contiguous offset                 |
+| [Azure block blobs](https://learn.microsoft.com/en-us/rest/api/storageservices/put-block-list)                 | Staged block IDs and explicit ordered block-list commit                                     | [`azure`](azure.md) native block operations; staged blocks and published blob are distinct states                                                 |
+| [FTP REST STREAM](https://www.rfc-editor.org/rfc/rfc3659.html#section-5)                                       | Restart marker positions a later transfer                                                   | [`ftp`](ftp.md) does not currently expose restart/checkpoint recovery; a marker alone supplies neither snapshot identity nor safe publication     |
+| [HTTP range requests](https://www.rfc-editor.org/rfc/rfc9110.html#name-range-requests)                         | Retrieve an interval of an existing representation                                          | Read-side mechanism used by stable object sources; no upload session or durable writer checkpoint is created                                      |
+
+The tus checksum and concatenation extensions remain future work here. Further native destination bindings need their
+own checkpoint schema, independent protocol fixtures, unknown-outcome recovery and final-publication evidence before
+admission. SFTP positional writes likewise do not by themselves establish an immutable replay source or an exclusive
+resumable session; the [SFTP guide](sftp.md) states the current handle-level boundary. These gaps remain part of the
+[expansion plan](expansion.md).
+
+Compression and encryption formats introduce another kind of restart boundary. A decoder may need its earlier history,
+and an encoder may use fresh randomness. A byte offset in the _output_ does not reconstruct that internal state. Resume
+by reopening the exact encoded bytes, or implement and verify a format-specific checkpoint contract; do not treat a
+newly created `ReadableStream` as proof of replay equivalence.

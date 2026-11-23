@@ -38,10 +38,16 @@ import type {
  * translates. Driver metadata therefore remains independently inspectable even
  * when the facade chooses an adapter fallback or optimization route.
  *
- * Think of the adapter as the narrow waist of the architecture. Below it, the
- * driver keeps native storage semantics honest. Above it, `FileSystemType`
- * decides which OPFS-shaped routes are native, emulated, partitioned, or
- * intentionally unsupported.
+ * For example, an object driver knows how to get and replace object bodies.
+ * Its adapter decides how those objects represent files and directories. The
+ * filesystem then adds paths, handles and recursive operations above these
+ * primitives. Keeping that translation here lets different object providers
+ * reuse it without copying their authentication or multipart upload mechanics.
+ *
+ * A bridge works in the other direction: it consumes an existing filesystem to
+ * supply an external API. It does not provide the storage primitives below it.
+ * Adapter capabilities describe actual routes; `FileSystemType` separately
+ * decides which missing routes can be emulated within the caller's policy.
  */
 export interface AdapterType {
   /** Stable translation name such as `opfs`, `record`, or `object`. */
