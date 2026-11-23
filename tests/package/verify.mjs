@@ -184,6 +184,9 @@ try {
     import { createFileSystem } from '@okikio/opfs';
     import { createMemoryAdapter } from '@okikio/opfs/adapter/memory';
     import { normalizePath } from '@okikio/opfs/path';
+    import { createByteSource } from '@okikio/opfs/source';
+    import { testByteSource } from '@okikio/opfs/testing/source';
+    import { createNativeTink } from '@okikio/opfs/crypto/tink';
     ${finish.toString()}
     const failures = [], releases = [];
     let writer;
@@ -191,6 +194,20 @@ try {
     const fileSystem = createFileSystem(createMemoryAdapter(), { coordination: 'local' });
     releases.push(() => fileSystem.close());
     const bytes = Uint8Array.from({ length: 65537 }, (_, index) => index % 251);
+    await testByteSource(() => ({
+      source: createByteSource(new Uint8Array([2, 3, 5, 7])),
+      expected: new Uint8Array([2, 3, 5, 7]),
+      close() {},
+    }));
+    const profile = createNativeTink();
+    const key = globalThis.crypto.getRandomValues(new Uint8Array(32));
+    const aad = new TextEncoder().encode('packed-consumer-v1');
+    const ciphertext = new Uint8Array(await new Response(profile.encrypt(createByteSource(bytes), key, aad)).arrayBuffer());
+    const encrypted = await profile.open(createByteSource(ciphertext), key, aad);
+    const selected = await encrypted.readVerified(65530, 7);
+    if (selected.scope !== 'authenticated-segments' || selected.bytes.some((value, index) => value !== bytes[65530 + index])) {
+      throw new Error('Packed authenticated range mismatch');
+    }
     await fileSystem.writeFile('/state/file.bin', bytes, { parents: true });
     const assertBytes = (actual, expected) => {
       if (actual.length !== expected.length || actual.some((value, index) => value !== expected[index])) {

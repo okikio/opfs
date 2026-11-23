@@ -34,7 +34,20 @@ export interface UploadDestinationType {
 }
 
 /** Versioned durable admission data. Upload URLs can contain bearer credentials; protect the checkpoint. */
-export const TransferCheckpointSchema = z.strictObject({
+export const TransferCheckpointSchema: z.ZodObject<{
+  version: z.ZodLiteral<1>;
+  protocol: z.ZodString;
+  destination: z.ZodString;
+  source: z.ZodString;
+  size: z.ZodNumber;
+  offset: z.ZodNumber;
+  state: z.ZodEnum<{
+    active: "active";
+    paused: "paused";
+    completed: "completed";
+    cancelled: "cancelled";
+  }>;
+}, z.core.$strict> = z.strictObject({
   version: z.literal(1),
   protocol: z.string().min(1),
   destination: z.string().url(),

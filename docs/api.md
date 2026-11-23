@@ -12,6 +12,12 @@ client -> driver -> adapter -> FileSystemType -> bridge
 
 No public constructor requires a global registry.
 
+Optional byte sources, resumable transfers, GCS and selected archive/encryption views have separate guides:
+[sources](source.md), [extensions](extensions.md), [GCS](gcs.md), [transfers](transfer.md),
+[archive preview](archive.md) and [authenticated encryption](encryption.md). Their current boundaries and remaining
+protocols are recorded in [the expansion status](expansion.md). These subpaths are opt-in; the root remains the
+filesystem facade.
+
 ## Filesystem root
 
 ### `openFileSystem(options?)`

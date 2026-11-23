@@ -99,6 +99,20 @@ The first-party integration set is broad, but each layer has one job.
 `adapter/file`, `adapter/record`, and `adapter/object` are reusable translators for third-party drivers. `driver/file`,
 `driver/record`, and `driver/object` are the corresponding backend-native contracts.
 
+Native Google Cloud Storage is available through `gcs`, `driver/gcs`, and `adapter/gcs`. Its generation conditions stay
+distinct from ETags. The optional `tus` and `transfer` modules support known-length, checkpoint-resumable uploads with
+explicit session and source ownership. See [GCS](docs/gcs.md) and [transfer recovery](docs/transfer.md) for complete
+examples and verification limits.
+
+To inspect selected archive members, compose a revision-bound [byte source](docs/source.md) with `archive/zip` or the
+range-based ustar reader in `archive/tar`. `view/zip` projects an opened ZIP into a read-only filesystem and refuses
+ambiguous paths. [Archive documentation](docs/archive.md) explains supported profiles, work budgets and checksum scope;
+partial bytes do not establish whole-member integrity. [Independent extensions](docs/extensions.md) can supply public
+driver/source contracts, read-only adapters, bridges or codecs without global registration.
+
+The optional [encryption profile](docs/encryption.md) authenticates selected ciphertext segments before archive access.
+See [expansion status](docs/expansion.md) for implemented capabilities and the protocols and formats still planned.
+
 ## Drivers are independently useful
 
 A driver is not an adapter with a new name. It owns backend mechanics that remain meaningful without `FileSystemType`.
