@@ -74,6 +74,85 @@ driver/record -> adapter/record
 driver/object -> adapter/object
 ```
 
+## Implement a complete record backend
+
+This runnable example implements a process-local store without a service SDK. It defines the complete backend before
+attaching driver metadata and filesystem translation. Replace the four persistence operations with your service's
+operations when publishing an extension; keep their returned record and direct-child listing contracts.
+
+```ts
+import { createFileSystem } from "@okikio/opfs";
+import { createRecordAdapter } from "@okikio/opfs/adapter/record";
+import { defineRecordDriver } from "@okikio/opfs/driver/record";
+import type { RecordBackendType } from "@okikio/opfs/driver/record";
+import type { RecordType } from "@okikio/opfs/schema";
+
+function createRecords(): RecordBackendType {
+  const records = new Map<string, RecordType>();
+  return {
+    capabilities: {
+      rangeRead: false,
+      streamRead: false,
+      write: true,
+      writeModes: [],
+      streamWriteModes: [],
+      replacement: "atomic",
+      binary: false,
+      transactions: false,
+    },
+    async get(path) {
+      const record = records.get(path);
+      return record === undefined ? null : structuredClone(record);
+    },
+    async set(record) {
+      records.set(record.path, structuredClone(record));
+    },
+    async delete(path) {
+      records.delete(path);
+    },
+    async *list(parent) {
+      for (const record of records.values()) {
+        if (record.parent === parent) yield structuredClone(record);
+      }
+    },
+    dispose() {
+      records.clear();
+    },
+  };
+}
+
+const driver = defineRecordDriver(createRecords(), {
+  name: "example-records",
+  disposeBackend: true,
+});
+const adapter = createRecordAdapter(driver, { disposeDriver: true });
+await using files = createFileSystem(adapter, { disposeAdapter: true, coordination: "local" });
+
+await files.writeFile("/notes/draft.txt", "First draft", { parents: true });
+if (await files.readText("/notes/draft.txt") !== "First draft") {
+  throw new Error("The backend did not preserve the independently supplied text.");
+}
+await files.remove("/notes/draft.txt");
+console.log(await files.exists("/notes/draft.txt")); // false
+```
+
+The backend stores complete canonical records, including directory records, and returns copies. The root is implicit.
+`list(parent)` returns only direct children, not every record below a prefix. The record adapter owns the file-byte
+encoding and reconstructs complete values for portable range, append and update fallbacks. This backend therefore
+advertises no native range or stream route and no native byte-write modes. Its one `Map.set()` replaces a complete
+record atomically within this process; it supplies no cross-process durability or multi-operation transaction.
+
+Disposal transfers explicitly through filesystem → adapter → driver → backend. Closing this example clears the map; none
+of its values survives the scope. An extension that borrows an application-owned database should leave `disposeBackend`
+off and document who closes that database. These record methods accept no signal: facade admission can refuse a
+pre-aborted operation, but cannot preempt an in-flight database call through this minimal contract. Add native byte
+methods only when their actual cancellation and publication rules fit those optional contracts.
+
+For a read-only extension, pass `readOnly: true` to `defineRecordDriver()`; the driver and generic adapter refuse
+mutation instead of advertising successful no-op writes. Verify your extension with independent original values,
+direct-child listing, replacement, refusal and cleanup cases, then run it through the exact installed package. A local
+map exercise does not qualify a remote service's receipts, concurrent writers or failure recovery.
+
 ## File drivers
 
 `FileDriverType` preserves real file-like operations. Required primitives are metadata, materialized read/write,
@@ -86,26 +165,19 @@ A third-party file driver can be created with `defineFileDriver()`:
 import { createFileSystem } from "@okikio/opfs";
 import { createFileAdapter } from "@okikio/opfs/adapter/file";
 import { defineFileDriver } from "@okikio/opfs/driver/file";
+import type { FileBackendType } from "@okikio/opfs/driver/file";
 
-const driver = defineFileDriver(backend, {
-  name: "my-files",
-  capabilities: {
-    read: true,
-    write: true,
-    streamRead: true,
-    streamWriteModes: ["replace"],
-    rangeRead: true,
-    nativeCopy: false,
-    nativeMove: false,
-    positionalWrite: false,
-    syncAccess: false,
-  },
-});
+export function createFiles(backend: FileBackendType) {
+  const driver = defineFileDriver(backend, {
+    name: backend.name,
+  });
 
-const fileSystem = createFileSystem(createFileAdapter(driver));
+  return createFileSystem(createFileAdapter(driver));
+}
 ```
 
-The backend must implement every capability it advertises. The adapter does not fabricate a native method from a flag.
+Here the caller supplies an already implemented file backend and retains its disposal ownership. The backend must
+implement every capability it advertises. The adapter does not fabricate a native method from a flag.
 
 ### Browser OPFS
 

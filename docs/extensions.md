@@ -57,7 +57,9 @@ the extension, using isolated resources and exact released-package consumers.
 For file, record or object storage, implement the matching backend from `driver/file`, `driver/record` or
 `driver/object`, then attach metadata with its `define*Driver()` function. Reuse `createFileAdapter()`,
 `createRecordAdapter()` or `createObjectAdapter()` instead of copying filesystem translation. The application can use
-the native driver without creating a filesystem. See [adapters](adapters.md) for those required operations and
+the native driver without creating a filesystem. Start with the
+[complete record backend](adapters.md#implement-a-complete-record-backend) for a runnable backend → driver → adapter
+composition, capability limits and disposal ownership. See [adapters](adapters.md) for the other required operations and
 [GCS](gcs.md) for a native protocol implementation followed by its driver and adapter.
 
 Object metadata can carry a discriminated `revision`. An ETag and a GCS generation are different preconditions. If your
