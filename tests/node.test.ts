@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { platform, tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { SQLInputValue } from "node:sqlite";
@@ -11,7 +11,7 @@ import { createDb0Adapter } from "../src/adapter/db0.ts";
 import { createNodeAdapter } from "../src/adapter/node.ts";
 import { createSqliteAdapter } from "../src/adapter/sqlite.ts";
 import type { Db0PrimitiveType } from "../src/driver/db0.ts";
-import { verifyHost } from "./host.ts";
+import { verifyHost, verifyWindowsNames } from "./host.ts";
 import { verifySync } from "./reliability.ts";
 
 /** Normalizes db0-style parameters to Node SQLite's narrower accepted input set. */
@@ -43,6 +43,17 @@ class SqliteDb0Database {
 }
 
 describe("Node adapter", () => {
+  it("preserves Windows native filename rejection and remains usable", { skip: platform() !== "win32" }, async () => {
+    const root = await mkdtemp(join(tmpdir(), "okikio-opfs-windows-"));
+    const fileSystem = createFileSystem(createNodeAdapter({ root }), { coordination: "local" });
+    try {
+      await verifyWindowsNames(fileSystem);
+    } finally {
+      await fileSystem.close();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("preserves host range, directory removal, and overwrite semantics", async () => {
     const root = await mkdtemp(join(tmpdir(), "okikio-opfs-"));
     const fileSystem = createFileSystem(createNodeAdapter({ root }), { coordination: "local" });
