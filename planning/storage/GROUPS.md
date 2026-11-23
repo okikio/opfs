@@ -341,7 +341,10 @@ proof. Classic GeoTIFF adds selected uncompressed strip/tile windows and raw geo
 interpretation, compressed TIFF and COG qualification remain unsupported. Parquet adds flat physical numeric
 PLAIN/uncompressed v1/v2 data pages with selected row ranges and separate validity bytes. Signed full-width integer
 annotations that preserve the physical representation are accepted; other logical conversions, dictionaries, codecs and
-nested records remain separate.
+nested records remain separate. ORC adds selected uncompressed numeric stripe columns with explicit null masks. Arrow
+IPC adds indexed file and forward-stream batches for six flat uncompressed V5 little-endian types, including UTF8 and
+binary columns. Its selected-payload scope does not establish whole-file integrity; dictionary, nested and compressed
+Arrow profiles remain separate. See the [Arrow guide](../../docs/arrow.md) and [remaining profile plan](ARROW.md).
 
 ### format-view
 
