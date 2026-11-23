@@ -1,4 +1,5 @@
 import { after, before, describe, it } from "node:test";
+import { withReleases } from "./close.ts";
 import { expect } from "@std/expect";
 import { toBytes } from "@std/streams/to-bytes";
 
@@ -218,102 +219,108 @@ describe("Testcontainers-backed object providers", () => {
     }
   });
 
-  it("exercises S3 signing, ranges, conditions, multipart upload, copy, listing, and filesystem translation", async () => {
-    const client = getS3Client();
-    const prefix = getPrefix("s3");
-    const basic = `${prefix}/basic.txt`;
-    const large = `${prefix}/large.bin`;
-    const copied = `${prefix}/copied.txt`;
-    const facadeKey = `${prefix}/facade/state.txt`;
-
-    try {
-      const original = new TextEncoder().encode("0123456789");
-      const written = await client.put(basic, original, { mediaType: "text/plain", ifNoneMatch: "*" });
-      expect(written.size).toBe(original.byteLength);
-      if (written.etag === undefined) {
-        throw new Error("S3 provider did not return an ETag for a completed object write.");
-      }
-      expect((await client.head(basic))?.etag).toBe(written.etag);
-      expect(new TextDecoder().decode(await toBytes(await client.get(basic, { at: 3, length: 4 })))).toBe("3456");
-      await expect(client.put(basic, original, { ifNoneMatch: "*" })).rejects.toBeDefined();
-
-      const first = new Uint8Array(S3_PART_SIZE);
-      first.fill(7);
-      const second = new Uint8Array(31);
-      second.fill(9);
-      await client.put(large, streamBytes([first, second]), { size: first.byteLength + second.byteLength });
-      expect((await client.head(large))?.size).toBe(first.byteLength + second.byteLength);
-      expectBytes(await toBytes(await client.get(large)), Uint8Array.from([...first, ...second]));
-
-      await client.copy!(basic, copied, { sourceIfMatch: written.etag });
-      expect(new TextDecoder().decode(await toBytes(await client.get(copied)))).toBe("0123456789");
-      const page = await client.list({ prefix: `${prefix}/`, delimiter: "/" });
-      expect(page.objects.some((entry) => entry.key === basic)).toBe(true);
-
-      const fileSystem = createFileSystem(createObjectAdapter(createS3DriverFromClient(client), { prefix }), {
-        coordination: "none",
-      });
-      try {
-        await fileSystem.writeFile("/facade/state.txt", "through facade", { parents: true });
-        expect(await fileSystem.readText("/facade/state.txt")).toBe("through facade");
-        expect((await client.head(facadeKey))?.size).toBe(14);
-      } finally {
-        await fileSystem.close();
-      }
-    } finally {
+  it("exercises S3 signing, ranges, conditions, multipart upload, copy, listing, and filesystem translation", async () =>
+    await withReleases(async (releases) => {
+      const client = getS3Client();
+      const prefix = getPrefix("s3");
+      const basic = `${prefix}/basic.txt`;
+      const large = `${prefix}/large.bin`;
+      const copied = `${prefix}/copied.txt`;
+      const facadeKey = `${prefix}/facade/state.txt`;
+      // Every key deletion is attempted and retained beside an original failure.
       for (const key of [basic, large, copied, facadeKey, `${prefix}/facade/`]) {
-        await client.delete(key).catch(() => undefined);
+        releases.push(() => client.delete(key));
       }
-    }
-  });
 
-  it("exercises Azure Shared Key, ranges, conditions, block upload, copy, listing, and filesystem translation", async () => {
-    await ensureAzureContainer();
-    const client = getAzureClient();
-    const prefix = getPrefix("azure");
-    const basic = `${prefix}/basic.txt`;
-    const large = `${prefix}/large.bin`;
-    const copied = `${prefix}/copied.txt`;
-    const facadeKey = `${prefix}/facade/state.txt`;
+      {
+        const original = new TextEncoder().encode("0123456789");
+        const written = await client.put(basic, original, { mediaType: "text/plain", ifNoneMatch: "*" });
+        expect(written.size).toBe(original.byteLength);
+        if (written.etag === undefined) {
+          throw new Error("S3 provider did not return an ETag for a completed object write.");
+        }
+        expect((await client.head(basic))?.etag).toBe(written.etag);
+        expect(new TextDecoder().decode(await toBytes(await client.get(basic, { at: 3, length: 4 })))).toBe("3456");
+        await expect(client.put(basic, new TextEncoder().encode("must not replace"), { ifNoneMatch: "*" })).rejects
+          .toMatchObject({ status: 412 });
+        expectBytes(await toBytes(await client.get(basic)), original);
 
-    try {
-      const original = new TextEncoder().encode("0123456789");
-      const written = await client.put(basic, original, { mediaType: "text/plain", ifNoneMatch: "*" });
-      expect(written.size).toBe(original.byteLength);
-      if (written.etag === undefined) {
-        throw new Error("Azure provider did not return an ETag for a completed blob write.");
+        const first = new Uint8Array(S3_PART_SIZE);
+        first.fill(7);
+        const second = new Uint8Array(31);
+        second.fill(9);
+        await client.put(large, streamBytes([first, second]), { size: first.byteLength + second.byteLength });
+        expect((await client.head(large))?.size).toBe(first.byteLength + second.byteLength);
+        expectBytes(await toBytes(await client.get(large)), Uint8Array.from([...first, ...second]));
+
+        await client.copy!(basic, copied, { sourceIfMatch: written.etag });
+        expect(new TextDecoder().decode(await toBytes(await client.get(copied)))).toBe("0123456789");
+        const page = await client.list({ prefix: `${prefix}/`, delimiter: "/" });
+        expect(page.objects.some((entry) => entry.key === basic)).toBe(true);
+
+        const fileSystem = createFileSystem(createObjectAdapter(createS3DriverFromClient(client), { prefix }), {
+          coordination: "none",
+        });
+        try {
+          await fileSystem.writeFile("/facade/state.txt", "through facade", { parents: true });
+          expect(await fileSystem.readText("/facade/state.txt")).toBe("through facade");
+          expect((await client.head(facadeKey))?.size).toBe(14);
+        } finally {
+          await fileSystem.close();
+        }
       }
-      expect((await client.head(basic))?.etag).toBe(written.etag);
-      expect(new TextDecoder().decode(await toBytes(await client.get(basic, { at: 3, length: 4 })))).toBe("3456");
-      await expect(client.put(basic, original, { ifNoneMatch: "*" })).rejects.toBeDefined();
+    }));
 
-      const first = new Uint8Array(1024 * 1024);
-      first.fill(3);
-      const second = new Uint8Array(1024 * 1024 + 17);
-      second.fill(4);
-      await client.put(large, streamBytes([first, second]), { size: first.byteLength + second.byteLength });
-      expect((await client.head(large))?.size).toBe(first.byteLength + second.byteLength);
-      expectBytes(await toBytes(await client.get(large)), Uint8Array.from([...first, ...second]));
-
-      await client.copy!(basic, copied, { sourceIfMatch: written.etag });
-      expect(new TextDecoder().decode(await toBytes(await client.get(copied)))).toBe("0123456789");
-      const page = await client.list({ prefix: `${prefix}/`, delimiter: "/" });
-      expect(page.objects.some((entry) => entry.key === basic)).toBe(true);
-
-      const fileSystem = createFileSystem(createObjectAdapter(createAzureDriverFromClient(client), { prefix }), {
-        coordination: "none",
-      });
-      try {
-        await fileSystem.writeFile("/facade/state.txt", "through facade", { parents: true });
-        expect(await fileSystem.readText("/facade/state.txt")).toBe("through facade");
-        expect((await client.head(facadeKey))?.size).toBe(14);
-      } finally {
-        await fileSystem.close();
-      }
-    } finally {
+  it("exercises Azure Shared Key, ranges, conditions, block upload, copy, listing, and filesystem translation", async () =>
+    await withReleases(async (releases) => {
+      await ensureAzureContainer();
+      const client = getAzureClient();
+      const prefix = getPrefix("azure");
+      const basic = `${prefix}/basic.txt`;
+      const large = `${prefix}/large.bin`;
+      const copied = `${prefix}/copied.txt`;
+      const facadeKey = `${prefix}/facade/state.txt`;
+      // Every key deletion is attempted and retained beside an original failure.
       for (const key of [basic, large, copied, facadeKey, `${prefix}/facade/`]) {
-        await client.delete(key).catch(() => undefined);
+        releases.push(() => client.delete(key));
       }
-    }
-  });
+
+      {
+        const original = new TextEncoder().encode("0123456789");
+        const written = await client.put(basic, original, { mediaType: "text/plain", ifNoneMatch: "*" });
+        expect(written.size).toBe(original.byteLength);
+        if (written.etag === undefined) {
+          throw new Error("Azure provider did not return an ETag for a completed blob write.");
+        }
+        expect((await client.head(basic))?.etag).toBe(written.etag);
+        expect(new TextDecoder().decode(await toBytes(await client.get(basic, { at: 3, length: 4 })))).toBe("3456");
+        await expect(client.put(basic, new TextEncoder().encode("must not replace"), { ifNoneMatch: "*" })).rejects
+          .toMatchObject({ status: 409, code: "BlobAlreadyExists" });
+        expectBytes(await toBytes(await client.get(basic)), original);
+
+        const first = new Uint8Array(1024 * 1024);
+        first.fill(3);
+        const second = new Uint8Array(1024 * 1024 + 17);
+        second.fill(4);
+        await client.put(large, streamBytes([first, second]), { size: first.byteLength + second.byteLength });
+        expect((await client.head(large))?.size).toBe(first.byteLength + second.byteLength);
+        expectBytes(await toBytes(await client.get(large)), Uint8Array.from([...first, ...second]));
+
+        await client.copy!(basic, copied, { sourceIfMatch: written.etag });
+        expect(new TextDecoder().decode(await toBytes(await client.get(copied)))).toBe("0123456789");
+        const page = await client.list({ prefix: `${prefix}/`, delimiter: "/" });
+        expect(page.objects.some((entry) => entry.key === basic)).toBe(true);
+
+        const fileSystem = createFileSystem(createObjectAdapter(createAzureDriverFromClient(client), { prefix }), {
+          coordination: "none",
+        });
+        try {
+          await fileSystem.writeFile("/facade/state.txt", "through facade", { parents: true });
+          expect(await fileSystem.readText("/facade/state.txt")).toBe("through facade");
+          expect((await client.head(facadeKey))?.size).toBe(14);
+        } finally {
+          await fileSystem.close();
+        }
+      }
+    }));
 });

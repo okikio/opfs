@@ -57,7 +57,7 @@ test("cross-origin iframe reports partition/policy behavior instead of guessing 
   if (!probe.rootAvailable) expect(probe.rootError).toBeDefined();
 });
 
-test("opaque sandbox reports the platform result without browser-name assumptions", async ({ page }) => {
+test("opaque sandbox cannot obtain an OPFS storage root", async ({ page }) => {
   await page.goto(APP_URL);
   const framePromise = page.waitForEvent("framenavigated", {
     predicate: (frame) => frame !== page.mainFrame() && frame.url() === "about:srcdoc",
@@ -72,14 +72,17 @@ test("opaque sandbox reports the platform result without browser-name assumption
   await frame.waitForFunction(() => (window as unknown as { ready?: boolean }).ready === true);
   const result = await frame.evaluate(async () => {
     const storage = navigator.storage as StorageManager & { getDirectory?: () => Promise<OpfsDirectoryHandleType> };
-    if (typeof storage?.getDirectory !== "function") return { available: false, name: "NotSupportedError" };
+    if (typeof storage?.getDirectory !== "function") return { supported: false, available: false, name: null };
     try {
       await storage.getDirectory();
-      return { available: true, name: null };
+      return { supported: true, available: true, name: null };
     } catch (error) {
-      return { available: false, name: error instanceof DOMException ? error.name : "Error" };
+      return { supported: true, available: false, name: error instanceof DOMException ? error.name : "Error" };
     }
   });
-  expect(typeof result.available).toBe("boolean");
-  if (!result.available) expect(typeof result.name).toBe("string");
+  test.skip(!result.supported, "This opaque realm does not expose StorageManager.getDirectory.");
+  // File System getDirectory rejects failed storage-key acquisition; opaque
+  // origins cannot obtain storage keys (WHATWG Storage §4.2 / File System §3.6).
+  expect(result.available).toBe(false);
+  expect(result.name).toBe("SecurityError");
 });

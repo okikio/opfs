@@ -1,5 +1,6 @@
 import { openFileSystem, probeOpfs } from "../../../mod.ts";
 import { within } from "../../gate.ts";
+import { close } from "../../close.ts";
 
 /** Exercises byte semantics against real OPFS rather than memory handle doubles. */
 export async function bytes() {
@@ -42,20 +43,23 @@ export async function failure() {
   const controller = new AbortController();
   let pendingController: ReadableStreamDefaultController<Uint8Array> | undefined;
   let write: Promise<void> | undefined;
+  let failed = false;
+  let primary: unknown;
   try {
     await fileSystem.writeFile(path, "original");
     let pulls = 0;
+    const producerFailure = new Error("producer-failure");
     const source = new ReadableStream<Uint8Array>({
       pull(controller) {
         if (pulls++ === 0) controller.enqueue(new Uint8Array([1, 2, 3]));
-        else controller.error(new Error("producer-failure"));
+        else controller.error(producerFailure);
       },
     });
-    let error = "";
+    let sourcePreserved = false;
     try {
       await fileSystem.writeFile(path, source);
     } catch (failure) {
-      error = failure instanceof Error ? failure.message : String(failure);
+      sourcePreserved = failure === producerFailure || Reflect.get(Object(failure), "cause") === producerFailure;
     }
     const preserved = await fileSystem.readText(path);
     let signalRead!: () => void;
@@ -84,18 +88,31 @@ export async function failure() {
     }
     const aborted = await fileSystem.readText(path);
     await fileSystem.writeFile(path, "recovered");
-    return { supported: true, error, preserved, code, cancelled, aborted, recovered: await fileSystem.readText(path) };
+    return {
+      supported: true,
+      sourcePreserved,
+      preserved,
+      code,
+      cancelled,
+      aborted,
+      recovered: await fileSystem.readText(path),
+    };
+  } catch (error) {
+    failed = true;
+    primary = error;
+    throw error;
   } finally {
     controller.abort("browser fixture cleanup");
     try {
       pendingController?.close();
     } catch { /* Cancellation already closed the stream. */ }
-    if (write !== undefined) await within(Promise.allSettled([write]), "browser stalled writer cleanup");
-    try {
-      await fileSystem.remove(path);
-    } finally {
-      await fileSystem.close();
-    }
+    await close([
+      async () => {
+        if (write !== undefined) await within(Promise.allSettled([write]), "browser stalled writer cleanup");
+      },
+      () => fileSystem.remove(path),
+      () => fileSystem.close(),
+    ], failed ? [primary] : []);
   }
 }
 

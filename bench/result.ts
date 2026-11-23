@@ -1,5 +1,5 @@
 import { deepStrictEqual } from "node:assert/strict";
-import { env } from "node:process";
+import { env, stdout } from "node:process";
 import { run } from "mitata";
 
 /** Exact nonzero bytes reveal stale content, truncation and offsets before timing begins. */
@@ -14,7 +14,23 @@ export function expectBytes(actual: Uint8Array, expected: Uint8Array, lane: stri
 
 /** Native Mitata JSON retains distributions for repeatable reports instead of terminal averages. */
 export async function report(): Promise<void> {
-  await run(env.BENCH_JSON === "1" ? { format: "json", throw: true } : { throw: true });
+  if (env.BENCH_JSON !== "1") {
+    await run({ throw: true });
+    return;
+  }
+  // Mitata's default console printer can leave a large piped Bun report
+  // unfinished at process exit. Keep its native serializer, then await I/O.
+  let output = "";
+  await run({
+    format: "json",
+    throw: true,
+    print: (value) => {
+      output += `${value}\n`;
+    },
+  });
+  await new Promise<void>((resolve, reject) => {
+    stdout.write(output, (error) => error ? reject(error) : resolve());
+  });
 }
 
 /**

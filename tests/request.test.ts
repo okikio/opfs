@@ -49,11 +49,12 @@ describe("request policy", () => {
     const metrics = new RequestMetrics();
     let fetches = 0;
     let preparations = 0;
+    const reason = new TypeError("invalid signing input");
 
     await expect(sendRequest(
       async () => {
         preparations += 1;
-        throw new TypeError("invalid signing input");
+        throw reason;
       },
       {
         fetch: async () => {
@@ -63,7 +64,7 @@ describe("request policy", () => {
         policy: { retries: 4, minDelayMs: 0, maxDelayMs: 0, jitter: 0 },
         metrics,
       },
-    )).rejects.toThrow("invalid signing input");
+    )).rejects.toBe(reason);
 
     expect(preparations).toBe(1);
     expect(fetches).toBe(0);

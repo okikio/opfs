@@ -24,7 +24,7 @@ test("binary ranges, append, update, copy and move preserve real OPFS bytes", as
 test("producer failure and pending-read cancellation preserve committed bytes and release locks", async ({ page }) => {
   const result = await page.evaluate(() => (globalThis as FixtureType).opfsReliability.failure());
   test.skip(!result.supported, "OPFS is unavailable in the actual Window realm.");
-  expect(result.error).toContain("producer-failure");
+  expect(result.sourcePreserved).toBe(true);
   expect(result.preserved).toBe("original");
   expect(result.code).toBe("aborted");
   expect(result.cancelled).toBe(1);
