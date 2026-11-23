@@ -222,7 +222,7 @@ export class FtpFixture implements AsyncDisposable {
 
 export async function openFtp(): Promise<FtpFixture> {
   const { GenericContainer, Wait } = await import("testcontainers");
-  const built = await GenericContainer.fromDockerfile(fileURLToPath(new URL("../fixtures/ftp/", import.meta.url)))
+  const built = await GenericContainer.fromDockerfile(fileURLToPath(new URL("../fixtures/ftp/", import.meta.url).href))
     .build();
   const container = await built.withExposedPorts(PORT, PASSIVE)
     .withDroppedCapabilities("ALL").withSecurityOpt("no-new-privileges")

@@ -861,3 +861,6 @@ Native resource ordering does not replace application publication or cross-proce
 
 [MIME message previews](mime.md) and [7z inspection](seven.md) explain the separate costs of indexing, decoding and
 checksum verification.
+
+[FTP and explicit FTPS](ftp.md) require caller-supplied transports. [MBOX](mbox.md) and [ar](ar.md) provide bounded
+sources for nested previews without host extraction.
