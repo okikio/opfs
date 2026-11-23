@@ -8,29 +8,19 @@
  *
  * @module
  */
-import { spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import process from "node:process";
-import { fileURLToPath } from "node:url";
+import { spawn } from "../workspace/spawn.ts";
 
 /** The consumer versions under test. Raise them together with the adapters that support them. */
 export const consumers = ["unstorage@1.17.5", "db0@0.4.1", "drizzle-orm@0.45.2", "rxdb@17.6.0"];
-
-const root = fileURLToPath(new URL("../../", import.meta.url));
-
-/** Run one command and stop on failure. */
-function run(program: string, args: readonly string[], env: NodeJS.ProcessEnv = {}): void {
-  const result = spawnSync(program, args, { cwd: root, stdio: "inherit", env: { ...process.env, ...env } });
-  if (result.status !== 0) throw new Error(`${program} ${args.join(" ")} exited with ${result.status}.`);
-}
 
 if (import.meta.main) {
   const prefix = mkdtempSync(join(tmpdir(), "opfs-ecosystems-"));
   try {
     // Lifecycle scripts never run: the consumers are data for the test, not trusted build steps.
-    run("npm", [
+    spawn("npm", [
       "install",
       "--package-lock=false",
       "--ignore-scripts",
@@ -42,7 +32,7 @@ if (import.meta.main) {
       join(prefix, "cache"),
       ...consumers,
     ]);
-    run("node", ["--test", "tests/ecosystem/live.ts"], { OPFS_ECOSYSTEM_ROOT: prefix });
+    spawn("node", ["--test", "tests/ecosystem/live.ts"], { env: { OPFS_ECOSYSTEM_ROOT: prefix } });
   } finally {
     rmSync(prefix, { recursive: true, force: true });
   }

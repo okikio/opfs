@@ -15,10 +15,11 @@
  *
  * @module
  */
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { spawn } from "./spawn.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 
@@ -35,12 +36,13 @@ export interface GroupType {
   readonly files: string[];
 }
 
+/** Tracked paths matching `patterns`, from `git ls-files`, so ignored and generated files are never checked. */
 const list = (base: string, ...patterns: string[]) =>
   execFileSync("git", ["-C", base, "ls-files", "-z", "--", ...patterns], { encoding: "utf8" }).split("\0")
     .filter(Boolean);
 
 /** Tracked TypeScript files, grouped by Deno configuration and by whether they load Bun's types. */
-export function groups(base = root): GroupType[] {
+export function groupFiles(base = root): GroupType[] {
   const configs = list(base, "*/deno.json", "*/deno.jsonc").map((file) => file.slice(0, file.lastIndexOf("/") + 1));
   const result = new Map<string, GroupType>();
   for (const file of list(base, "*.ts", "*.mts")) {
@@ -58,18 +60,21 @@ export function groups(base = root): GroupType[] {
   return [...result.values()];
 }
 
-/** Run one checker; return whether it passed. */
-function run(program: string, args: readonly string[]): boolean {
-  console.log(
-    `==> ${program} ${args.length > 6 ? `${args.slice(0, 3).join(" ")} … (${args.length} arguments)` : args.join(" ")}`,
-  );
-  return spawnSync(program, args, { cwd: root, stdio: "inherit" }).status === 0;
+/** Run one checker and report whether it passed, so every group still runs after one fails. */
+function passes(program: string, args: readonly string[]): boolean {
+  try {
+    spawn(program, args);
+    return true;
+  } catch (reason) {
+    console.error((reason as Error).message);
+    return false;
+  }
 }
 
 if (import.meta.main) {
   const results = [
-    ...groups().map((group) =>
-      run("deno", [
+    ...groupFiles().map((group) =>
+      passes("deno", [
         "check",
         "--quiet",
         // A nested configuration has no lockfile of its own; `--no-lock` keeps the check from writing one.
@@ -77,8 +82,8 @@ if (import.meta.main) {
         ...group.files,
       ])
     ),
-    run("node", ["node_modules/typescript/bin/tsc", "-p", "tsconfig.opfs-dom.json"]),
-    run("node", ["node_modules/typescript/bin/tsc", "-p", "tsconfig.opfs-worker.json"]),
+    passes("node", ["node_modules/typescript/bin/tsc", "-p", "tsconfig.opfs-dom.json"]),
+    passes("node", ["node_modules/typescript/bin/tsc", "-p", "tsconfig.opfs-worker.json"]),
   ];
   process.exitCode = results.every(Boolean) ? 0 : 1;
 }

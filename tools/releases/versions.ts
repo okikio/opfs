@@ -14,8 +14,11 @@ import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 
-/** Compare the manifests; with `write`, update `deno.json`. Returns the version. */
-export function versions(base = root, write = false): string {
+/**
+ * Compare the two manifests and return the package version. With `write`, copy a differing version from
+ * `package.json` into `deno.json` instead of failing; a differing name always fails.
+ */
+export function syncVersion(base = root, { write = false }: { readonly write?: boolean } = {}): string {
   const npm = JSON.parse(readFileSync(`${base}/package.json`, "utf8")) as { name: string; version: string };
   const text = readFileSync(`${base}/deno.json`, "utf8");
   const deno = JSON.parse(text) as { name: string; version: string };
@@ -33,6 +36,6 @@ export function versions(base = root, write = false): string {
 }
 
 if (import.meta.main) {
-  const version = versions(root, process.argv.includes("--write"));
+  const version = syncVersion(root, { write: process.argv.includes("--write") });
   console.log(`package.json and deno.json agree on ${version}.`);
 }

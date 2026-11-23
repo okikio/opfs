@@ -18,7 +18,7 @@
 import { appendFile, readFile } from "node:fs/promises";
 
 /** The part of a stack member that the decision reads. */
-export interface Member {
+export interface MemberType {
   /** Pull request number. */
   readonly number: number;
   /** `open`, or `closed` for a merged or abandoned layer. */
@@ -28,7 +28,7 @@ export interface Member {
 }
 
 /** What one run should do. */
-export interface Selection {
+export interface SelectionType {
   /** Whether this run executes the costly checks and the required aggregate. */
   readonly selected: boolean;
   /** The comparison base for the planner; empty keeps the event's own base. */
@@ -38,7 +38,7 @@ export interface Selection {
 }
 
 /** Inputs from the Actions runner. Tests pass them directly. */
-export interface Context {
+export interface ContextType {
   /** `GITHUB_EVENT_NAME`, for example `pull_request` or `push`. */
   readonly event: string;
   /** The pull request number from the event payload, when the event has one. */
@@ -52,24 +52,24 @@ export interface Context {
 }
 
 /** The subset of `fetch` the program uses, so tests can answer without a network. */
-export type Request = (url: string, init: { headers: Record<string, string> }) => Promise<{
+export type RequestType = (url: string, init: { headers: Record<string, string> }) => Promise<{
   readonly ok: boolean;
   readonly status: number;
   json(): Promise<unknown>;
 }>;
 
 /** Selected with the event's own base: the safe answer whenever the stack is unknown. */
-const Everything = (reason: string): Selection => ({ selected: true, baseSha: "", reason });
+const selectAll = (reason: string): SelectionType => ({ selected: true, baseSha: "", reason });
 
 /**
  * Choose from the stack's members, ordered from the bottom layer to the top.
  * Closed layers are ignored, so a stack whose bottom already merged is judged by its open layers.
  */
-export function choose(current: number, members: readonly Member[]): Selection {
+export function choose(current: number, members: readonly MemberType[]): SelectionType {
   const open = members.filter((member) => member.state === "open");
   const top = open.at(-1);
   if (!top || !open.some((member) => member.number === current)) {
-    return Everything(`#${current} is not an open layer of its stack; checking it on its own base.`);
+    return selectAll(`#${current} is not an open layer of its stack; checking it on its own base.`);
   }
   if (top.number !== current) {
     return {
@@ -87,9 +87,9 @@ export function choose(current: number, members: readonly Member[]): Selection {
 }
 
 /** Read the stack of the event's pull request and choose. Never throws: errors select everything. */
-export async function resolve(context: Context, request: Request = fetch): Promise<Selection> {
+export async function resolve(context: ContextType, request: RequestType = fetch): Promise<SelectionType> {
   if (context.event !== "pull_request" || context.pull === undefined) {
-    return Everything(`A ${context.event} run is not part of a pull request stack.`);
+    return selectAll(`A ${context.event} run is not part of a pull request stack.`);
   }
   const headers = {
     Accept: "application/vnd.github+json",
@@ -100,30 +100,30 @@ export async function resolve(context: Context, request: Request = fetch): Promi
   try {
     const pull = await read(request, `${root}/pulls/${context.pull}`, headers);
     const stack = (pull as { stack?: { number?: unknown } | null }).stack?.number;
-    if (typeof stack !== "number") return Everything(`#${context.pull} is not in a stack.`);
+    if (typeof stack !== "number") return selectAll(`#${context.pull} is not in a stack.`);
     const body = await read(request, `${root}/stacks/${stack}`, headers);
     const members = (body as { pull_requests?: unknown }).pull_requests;
     if (!Array.isArray(members) || !members.every(isMember)) {
-      return Everything(`Stack ${stack} has an unexpected shape; checking #${context.pull} on its own base.`);
+      return selectAll(`Stack ${stack} has an unexpected shape; checking #${context.pull} on its own base.`);
     }
     return choose(context.pull, members);
   } catch (error) {
-    return Everything(
+    return selectAll(
       `Could not read the stack (${(error as Error).message}); checking #${context.pull} on its own base.`,
     );
   }
 }
 
 /** Fetch JSON or throw with the HTTP status, which `resolve` turns into a safe selection. */
-async function read(request: Request, url: string, headers: Record<string, string>): Promise<unknown> {
+async function read(request: RequestType, url: string, headers: Record<string, string>): Promise<unknown> {
   const response = await request(url, { headers });
   if (!response.ok) throw new Error(`HTTP ${response.status} from ${new URL(url).pathname}`);
   return response.json();
 }
 
 /** Accept only members with the three fields `choose` reads. */
-function isMember(value: unknown): value is Member {
-  const member = value as Partial<Member> | null;
+function isMember(value: unknown): value is MemberType {
+  const member = value as Partial<MemberType> | null;
   return typeof member?.number === "number" && typeof member.state === "string" &&
     typeof member.base?.sha === "string";
 }

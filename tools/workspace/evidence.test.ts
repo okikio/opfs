@@ -70,7 +70,7 @@ test("baseline skips failed runs, the current run and runs created after it", ()
     run(3, c, { created_at: "2026-11-01T00:10:00.000Z" }),
     run(4, d),
   ];
-  // Run 4 is the current run; run 3 started after it, so only a remains.
+  // RunType 4 is the current run; run 3 started after it, so only a remains.
   assert.equal(baseline(list, { ...scope, head: d, current: 4 }, () => true), a);
 });
 

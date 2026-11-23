@@ -48,7 +48,7 @@ export interface ModeType {
 }
 
 /** The command that runs `files` on `runtime`. Exported so tests can check flags without starting a runtime. */
-export function command(
+export function createCommand(
   runtime: RuntimeType,
   files: readonly string[],
   families: ReadonlySet<FamilyType>,
@@ -124,7 +124,7 @@ if (import.meta.main) {
     console.log(`No ${runtime} tests in this selection.`);
   } else {
     const mode = { stress: values.stress ?? false, coverage: values.coverage ?? false };
-    const [program, ...args] = command(
+    const [program, ...args] = createCommand(
       runtime,
       files.map((file) => file.path),
       new Set(files.map((file) => file.family)),

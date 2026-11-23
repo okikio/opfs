@@ -10,7 +10,7 @@ import process from "node:process";
 import { parseArgs } from "node:util";
 
 /** The repository, branch and workflow whose push runs count as evidence. */
-export interface Scope {
+export interface ScopeType {
   /** `owner/name`. Runs from forks never count. */
   readonly repository: string;
   /** Only pushes to this branch count. */
@@ -18,14 +18,15 @@ export interface Scope {
 }
 
 /** The run fields that admission reads. GitHub sends more; the rest is ignored. */
-interface Run {
+interface RunType {
   readonly id: number;
   readonly sha: string;
   readonly created: number;
   readonly passed: boolean;
 }
 
-const Sha = /^[0-9a-f]{40}$/u;
+/** A full 40-digit commit SHA; abbreviated or malformed head SHAs from the API are not evidence. */
+const sha = /^[0-9a-f]{40}$/u;
 
 /** Inspect provider JSON without trusting its shape. */
 const record = (value: unknown): Record<string, unknown> | undefined =>
@@ -35,7 +36,7 @@ const record = (value: unknown): Record<string, unknown> | undefined =>
  * Keep push runs on the scope's branch whose source and head are both this repository. The API
  * filters by these fields too, but a filter is a request, not proof, so each run is checked again.
  */
-function pushes(runs: readonly unknown[], { repository, branch }: Scope): Run[] {
+function pushes(runs: readonly unknown[], { repository, branch }: ScopeType): RunType[] {
   const same = (value: unknown) => typeof value === "string" && value.toLowerCase() === repository.toLowerCase();
   return runs.flatMap((value) => {
     const run = record(value);
@@ -46,7 +47,7 @@ function pushes(runs: readonly unknown[], { repository, branch }: Scope): Run[] 
     const created = typeof run.created_at === "string" ? Date.parse(run.created_at) : Number.NaN;
     if (
       typeof run.id !== "number" || !Number.isSafeInteger(run.id) || run.id < 1 ||
-      typeof run.head_sha !== "string" || !Sha.test(run.head_sha) || !Number.isFinite(created)
+      typeof run.head_sha !== "string" || !sha.test(run.head_sha) || !Number.isFinite(created)
     ) throw new TypeError("GitHub returned a push run without a valid id, commit or creation time.");
     return [{
       id: run.id,
@@ -61,7 +62,7 @@ function pushes(runs: readonly unknown[], { repository, branch }: Scope): Run[] 
  * Return the id of the latest main-push run for `revision` when that run passed. An older passing
  * run does not count when a newer run on the same commit failed or is still running.
  */
-export function admit(runs: readonly unknown[], scope: Scope & { readonly revision: string }): number {
+export function admit(runs: readonly unknown[], scope: ScopeType & { readonly revision: string }): number {
   const [latest] = pushes(runs, scope).filter((run) => run.sha === scope.revision).sort((a, b) => b.id - a.id);
   if (!latest) throw new Error(`No CI run for a push to ${scope.branch} exists for ${scope.revision}.`);
   if (!latest.passed) throw new Error(`The latest CI run for ${scope.revision} (${latest.id}) has not passed.`);
@@ -75,7 +76,7 @@ export function admit(runs: readonly unknown[], scope: Scope & { readonly revisi
  */
 export function baseline(
   runs: readonly unknown[],
-  scope: Scope & { readonly head: string; readonly current?: number },
+  scope: ScopeType & { readonly head: string; readonly current?: number },
   ancestor: (base: string, head: string) => boolean,
 ): string | undefined {
   const passed = pushes(runs, scope).filter((run) => run.passed).sort((a, b) => b.created - a.created || b.id - a.id);
@@ -89,7 +90,7 @@ export function baseline(
 
 /** Read one page of up to 100 runs for a workflow. Every filter is checked again by the caller. */
 export async function runs(
-  scope: Scope & { readonly workflow: string; readonly token: string },
+  scope: ScopeType & { readonly workflow: string; readonly token: string },
   query: Readonly<Record<string, string>>,
   request: typeof fetch = fetch,
 ): Promise<unknown[]> {
@@ -127,13 +128,13 @@ if (import.meta.main) {
   }
   if (command === "release") {
     const revision = values.sha ?? "";
-    if (!Sha.test(revision)) throw new TypeError("Pass --sha with a full lowercase commit SHA.");
+    if (!sha.test(revision)) throw new TypeError("Pass --sha with a full lowercase commit SHA.");
     const id = admit(await runs(scope, { head_sha: revision }), { ...scope, revision });
     console.log(`CI run ${id} passed on a push to main for ${revision}.`);
   } else if (command === "baseline") {
     const head = values.head ?? "";
     const current = Number(values["run-id"]);
-    if (!Sha.test(head) || !Number.isSafeInteger(current) || current < 1) {
+    if (!sha.test(head) || !Number.isSafeInteger(current) || current < 1) {
       throw new TypeError("Pass --head with a full commit SHA and --run-id with the current run id.");
     }
     let base: string | undefined;

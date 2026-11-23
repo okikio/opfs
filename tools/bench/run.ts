@@ -33,7 +33,7 @@ export interface BenchType {
 }
 
 /** The command for one benchmark file, chosen by its name. */
-export function command(path: string): string[] {
+export function createCommand(path: string): string[] {
   const name = path.slice(path.lastIndexOf("/") + 1);
   if (name.startsWith("deno") || name === "memory.bench.ts") {
     return [
@@ -55,7 +55,7 @@ export function discover(base = root): BenchType[] {
   return readdirSync(`${base}/bench`)
     .filter((name) => name.endsWith(".bench.ts") && !containers.has(name))
     .sort()
-    .map((name) => ({ path: `bench/${name}`, command: command(`bench/${name}`) }));
+    .map((name) => ({ path: `bench/${name}`, command: createCommand(`bench/${name}`) }));
 }
 
 if (import.meta.main) {

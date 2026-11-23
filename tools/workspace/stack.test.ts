@@ -1,10 +1,10 @@
 /** Only the top of a native stack runs the costly checks, and an unreadable stack must never skip them. */
 import { it } from "node:test";
 import { expect } from "@std/expect";
-import { choose, type Member, type Request, resolve } from "./stack.ts";
+import { choose, type MemberType, type RequestType, resolve } from "./stack.ts";
 
 /** A three-layer stack on main: #1 at the bottom, #3 at the top. */
-const layers: Member[] = [
+const layers: MemberType[] = [
   { number: 1, state: "open", base: { sha: "main-sha" } },
   { number: 2, state: "open", base: { sha: "one-sha" } },
   { number: 3, state: "open", base: { sha: "two-sha" } },
@@ -13,7 +13,7 @@ const layers: Member[] = [
 const context = { event: "pull_request", pull: 3, repository: "okikio/utils", api: "https://api.test", token: "t" };
 
 /** Answer each URL path from a table; any other path is a 404. */
-function answers(table: Record<string, unknown>): Request {
+function answers(table: Record<string, unknown>): RequestType {
   return (url) => {
     const body = table[new URL(url).pathname];
     return Promise.resolve({
@@ -64,7 +64,7 @@ it("selects everything when the stack cannot be read", async () => {
   expect(await resolve(context, unstacked)).toMatchObject({ selected: true, baseSha: "" });
   const missingStack = answers({ "/repos/okikio/utils/pulls/3": { number: 3, stack: { number: 7 } } });
   expect(await resolve(context, missingStack)).toMatchObject({ selected: true, baseSha: "" });
-  const offline: Request = () => Promise.reject(new Error("offline"));
+  const offline: RequestType = () => Promise.reject(new Error("offline"));
   expect(await resolve(context, offline)).toMatchObject({ selected: true, baseSha: "" });
   const odd = answers({
     "/repos/okikio/utils/pulls/3": { stack: { number: 7 } },
@@ -74,6 +74,6 @@ it("selects everything when the stack cannot be read", async () => {
 });
 
 it("selects every run that is not a pull request", async () => {
-  const never: Request = () => Promise.reject(new Error("must not be called"));
+  const never: RequestType = () => Promise.reject(new Error("must not be called"));
   expect(await resolve({ ...context, event: "push", pull: undefined }, never)).toMatchObject({ selected: true });
 });

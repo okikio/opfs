@@ -21,22 +21,15 @@
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync } from "node:fs";
-import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { versions } from "./versions.ts";
+import { syncVersion } from "./versions.ts";
+import { spawn } from "../workspace/spawn.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 
-/** Run a command in the repository and stop on failure. */
-function run(program: string, args: readonly string[], env: NodeJS.ProcessEnv = {}): void {
-  console.log(`==> ${program} ${args.join(" ")}`);
-  const result = spawnSync(program, args, { cwd: root, stdio: "inherit", env: { ...process.env, ...env } });
-  if (result.status !== 0) throw new Error(`${program} exited with ${result.status}.`);
-}
-
 /** True when `npm view` finds this exact version on the public registry. */
-function published(name: string, version: string): boolean {
+function isPublished(name: string, version: string): boolean {
   const result = spawnSync("npm", ["view", `${name}@${version}`, "version", "--registry=https://registry.npmjs.org/"], {
     cwd: root,
     encoding: "utf8",
@@ -44,10 +37,12 @@ function published(name: string, version: string): boolean {
   return result.status === 0 && result.stdout.trim() === version;
 }
 
-const pending = () =>
+/** True when `.sampo/changesets/` holds at least one changeset that Sampo has not released yet. */
+const hasChangesets = () =>
   existsSync(`${root}/.sampo/changesets`) &&
   readdirSync(`${root}/.sampo/changesets`).some((name) => name.endsWith(".md"));
 
+/** Sampo from the locked npm dev dependencies, so local and CI releases use one version. */
 const sampo = `${root}/node_modules/.bin/sampo`;
 
 if (import.meta.main) {
@@ -60,25 +55,27 @@ if (import.meta.main) {
   }
   switch (values.operation) {
     case "plan":
-      versions(root);
-      if (!pending()) console.log("No pending changesets. The version is unchanged.");
+      syncVersion(root);
+      if (!hasChangesets()) console.log("No pending changesets. The version is unchanged.");
       // Stacked pull requests target the branch below them; every stack lands on main.
-      else run(sampo, ["release", "--dry-run"], { SAMPO_RELEASE_BRANCH: "main" });
+      else spawn(sampo, ["release", "--dry-run"], { env: { SAMPO_RELEASE_BRANCH: "main" } });
       break;
     case "version":
-      if (!pending()) {
+      if (!hasChangesets()) {
         console.log("No pending changesets.");
         break;
       }
-      run(sampo, ["release"]);
-      versions(root, true);
+      spawn(sampo, ["release"]);
+      syncVersion(root, { write: true });
       break;
     case "publish": {
-      if (pending()) throw new Error("Prepare and merge the release version before publishing pending changesets.");
-      const version = versions(root);
+      if (hasChangesets()) {
+        throw new Error("Prepare and merge the release version before publishing pending changesets.");
+      }
+      const version = syncVersion(root);
       for (const target of targets) {
         if (target === "npm") {
-          if (published("@okikio/opfs", version)) {
+          if (isPublished("@okikio/opfs", version)) {
             console.log(`@okikio/opfs@${version} is already on npm.`);
             continue;
           }
@@ -92,16 +89,16 @@ if (import.meta.main) {
           if (built.status !== 0 || !tarball?.endsWith(".tgz")) {
             throw new Error("tools/npm/pack.ts did not build a tarball.");
           }
-          run("node", ["tests/package/verify.ts", tarball]);
-          run("npm", ["publish", tarball, "--provenance", "--access", "public"]);
+          spawn("node", ["tests/package/verify.ts", tarball]);
+          spawn("npm", ["publish", tarball, "--provenance", "--access", "public"]);
         } else {
-          run("deno", ["publish", "--frozen"]);
+          spawn("deno", ["publish", "--frozen"]);
         }
       }
       break;
     }
     case "verify":
-      for (const target of targets) run("deno", ["run", "-A", "tools/releases/consumer.ts", target]);
+      for (const target of targets) spawn("deno", ["run", "-A", "tools/releases/consumer.ts", target]);
       break;
     default:
       throw new TypeError("--operation is plan, version, publish or verify.");
