@@ -185,6 +185,11 @@ explicit codec capabilities without global registration. The [expansion status](
 summary of implemented profiles, proof levels and remaining groups. A container or authored protocol fixture does not
 establish live-service IAM, CORS, durability or universal format compatibility.
 
+[Netlify Blobs](docs/netlify.md) has a first-party client for bounded complete objects, metadata observations, one
+listing page and conditional writes. The account API negotiates data URLs that the application must approve; account
+credentials stay off those data requests. The versioned SDK-wire profile does not supply a filesystem adapter or
+resumable upload.
+
 For a retained log rather than files, [Kafka](docs/kafka.md) appends binary records and reads explicit offsets in one
 selected partition. The application supplies authenticated exclusive channels and retains acknowledgments or reconciles
 unknown append outcomes. It does not create a filesystem projection or manage consumer-group offsets.
