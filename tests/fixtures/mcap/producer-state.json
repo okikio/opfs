@@ -1,0 +1,24 @@
+{
+  "image": "sha256:477646de1150726fc3301fe3d9136f5e42f68ee1a6597eae767cbd74b6cfdcc5",
+  "container": "/opfs-mcap-producer-20261105",
+  "state": {
+    "Status": "exited",
+    "Running": false,
+    "Paused": false,
+    "Restarting": false,
+    "OOMKilled": false,
+    "Dead": false,
+    "Pid": 0,
+    "ExitCode": 0,
+    "Error": "",
+    "StartedAt": "2026-11-05T19:05:43.466090967Z",
+    "FinishedAt": "2026-11-05T19:05:43.652616467Z"
+  },
+  "memory": 1073741824,
+  "nanoCpus": 1000000000,
+  "pids": 128,
+  "network": "none",
+  "mounts": [],
+  "ports": {},
+  "rawProducerSha256": "2606def430cd78c19ac9098b0fd8f294cabd0b52b004a3bf2fb9668ff2c6eb8d"
+}

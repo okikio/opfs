@@ -1,0 +1,1 @@
+Before execution docker cp tests/fixtures/mcap/independent.json failed because /work/tests/fixtures/mcap did not exist. No timed job had started. Copied the owned fixture directory instead; source bytes unchanged.

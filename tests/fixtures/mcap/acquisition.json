@@ -1,0 +1,103 @@
+{
+  "url": "https://files.pythonhosted.org/packages/cd/15/fa7ff687a128ec51084a48fb1e039b247a9add47b974c125278d97f370be/mcap-1.6.0-py3-none-any.whl",
+  "sha256": "7cd37fba2cf51d033f2139ca837d2ed3024dcec3cd9f8ecdf3d4d15930df6e17",
+  "bytes": 21955,
+  "python": "3.11.2 (main, Oct  7 2026, 12:35:07) [GCC 12.2.0]",
+  "entries": [
+    {
+      "name": "mcap/__init__.py",
+      "bytes": 22,
+      "sha256": "f048c80bc12be019fc3e112b8b34d7ad95584e06fab47823d342ebac154d6170"
+    },
+    {
+      "name": "mcap/_chunk_builder.py",
+      "bytes": 1603,
+      "sha256": "f5fff0ba4e91dd79f42f12e37b789f4b34e35f6ccdaa66f8e441fa041a2a9fde"
+    },
+    {
+      "name": "mcap/_message_queue.py",
+      "bytes": 4431,
+      "sha256": "ffc20e5f35481dee6eb42338318fd654e927ea8fc397d39eebdd18fe9e8047d7"
+    },
+    {
+      "name": "mcap/data_stream.py",
+      "bytes": 2807,
+      "sha256": "c17407301150feafc1b13cdefe7ca21f17cbb29ced258455e179748832331bd1"
+    },
+    {
+      "name": "mcap/decoder.py",
+      "bytes": 686,
+      "sha256": "78522f6ca9b854582318665c5e56f015183ed7bf5a3a3d072e54d33637e499f0"
+    },
+    {
+      "name": "mcap/exceptions.py",
+      "bytes": 934,
+      "sha256": "313627763c3cdca276d35e3b91470c2cd57bf57a72bc0e379d740c77ac8c8ea7"
+    },
+    {
+      "name": "mcap/opcode.py",
+      "bytes": 387,
+      "sha256": "2174526ad2e6914df3c206285dd92cfdccf8b854c76341a32aa2bb44fa4ee570"
+    },
+    {
+      "name": "mcap/py.typed",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "mcap/reader.py",
+      "bytes": 26012,
+      "sha256": "364760096dfd79fc6392fefee18184b53b8bb6cdd3269e8a46d090a4798665be"
+    },
+    {
+      "name": "mcap/records.py",
+      "bytes": 16257,
+      "sha256": "e174cbe82619470ce204228a547a58377e589655cfa5ddf7cb86c220592e2d3f"
+    },
+    {
+      "name": "mcap/serialization.py",
+      "bytes": 626,
+      "sha256": "7463b1df6443e2b4295146fbe2353f09559c6f17ce281846e6c286171da7c5e9"
+    },
+    {
+      "name": "mcap/stream_reader.py",
+      "bytes": 8319,
+      "sha256": "00dbcc49116c1323e6341ef48f56832a289ee78885c1465f23ed2a3b6da375c7"
+    },
+    {
+      "name": "mcap/summary.py",
+      "bytes": 1127,
+      "sha256": "eafee5ccecbe6d0cb4e3cedc1eec457709005373dbe1aa6a786123d3d425240d"
+    },
+    {
+      "name": "mcap/well_known.py",
+      "bytes": 1016,
+      "sha256": "d0e2e6eb7378d63de4404dc9b849fb6771ef90b27dca0f9cd1393c5c4cd0da03"
+    },
+    {
+      "name": "mcap/writer.py",
+      "bytes": 18736,
+      "sha256": "27b4ccb8b72fe36e49e30a2c61aba3f95d4ebefdaf78fac5de5ef3ca9e4e9802"
+    },
+    {
+      "name": "mcap-1.6.0.dist-info/METADATA",
+      "bytes": 380,
+      "sha256": "1893c28c8aefd5c828cd196cd81f0ba74f90cd6607617a4169c87868f6bd8b59"
+    },
+    {
+      "name": "mcap-1.6.0.dist-info/WHEEL",
+      "bytes": 91,
+      "sha256": "61532836a2b3111b7ec23519c09df7c41180c27165fb872a6d8913b566b88ad1"
+    },
+    {
+      "name": "mcap-1.6.0.dist-info/top_level.txt",
+      "bytes": 5,
+      "sha256": "5aaecd151cca2150bca2f5e0381c3226aefd0ad5171fc3d63f20ffce28039d68"
+    },
+    {
+      "name": "mcap-1.6.0.dist-info/RECORD",
+      "bytes": 1390,
+      "sha256": "47370467aca754ce961e763c260c9e83e884f960074f3ccef99d7571552aeb09"
+    }
+  ]
+}
