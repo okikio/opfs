@@ -5,7 +5,8 @@
  * an XZ SHA-256 block check, would then have to retain the complete block only to hash it. This hasher consumes the
  * same chunks the decoder emits and keeps 64 bytes of pending input plus eight state words.
  *
- * Web Crypto and `@std/*` have no incremental SHA-256 for every runtime this package supports, so the package keeps
+ * `@std/crypto` does accept an iterable for `digest()`, but it lists only Deno and browsers as supported, and it pulls
+ * chunks from an iterator while the XZ decoder pushes them. Node and Bun are supported targets here, so the package keeps
  * this one internal module. It is not a public entrypoint. The result is an integrity check of bytes, not
  * authentication: anyone who can change the data can also recompute the digest.
  *
@@ -22,7 +23,7 @@
  * @module
  */
 
-/** Round constants: the first 32 bits of the fractional parts of the cube roots of the first 64 primes. */
+/** Round constants K0 to K63: the first 32 bits of the fractional parts of the cube roots of the first 64 primes. */
 const K = new Uint32Array([
   0x428a2f98,
   0x71374491,
@@ -92,13 +93,18 @@ const K = new Uint32Array([
 /** Initial state: the first 32 bits of the fractional parts of the square roots of the first eight primes. */
 const INITIAL = [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19];
 
+/** Rotate a 32-bit word right by `bits`; the FIPS 180-4 ROTR operation. */
 const rotate = (value: number, bits: number): number => value >>> bits | value << (32 - bits);
 
 /** Streaming SHA-256. Call {@link Sha256.update} per chunk, then {@link Sha256.hex} once; `reset` reuses it. */
 export class Sha256 {
+  /** The eight working hash words (H0 to H7 in FIPS 180-4), updated once per 64-byte block. */
   readonly #state = new Uint32Array(8);
+  /** The 64-word message schedule (W0 to W63), reused for every block so hashing allocates nothing per chunk. */
   readonly #words = new Uint32Array(64);
+  /** Input bytes that do not yet fill a 64-byte block. Only the first `#pending` bytes are meaningful. */
   readonly #block = new Uint8Array(64);
+  /** How many bytes of `#block` hold input, from 0 to 63 between calls. */
   #pending = 0;
   /** Total input length in bytes. A safe integer covers every block this package can admit. */
   #length = 0;
@@ -155,6 +161,7 @@ export class Sha256 {
     return Array.from(this.digest(), (byte) => byte.toString(16).padStart(2, "0")).join("");
   }
 
+  /** Mix one 64-byte block that starts at `at` into the state; `bytes` is read, never kept. */
   #compress(bytes: Uint8Array, at: number): void {
     const w = this.#words;
     for (let index = 0; index < 16; index++) {
