@@ -5,6 +5,12 @@ import { aggregate } from "./close.ts";
 /** Implementation safety bound for provider XML and error bodies, independent of file payloads. */
 export const MAX_CONTROL_BYTES = 8 * 1024 * 1024;
 
+/** Finite control-body read attempts, including empty chunks, failures and EOF. */
+export const MAX_CONTROL_READS = 65_536;
+
+/** Consecutive empty chunks cannot consume unbounded CPU without byte progress. */
+export const MAX_CONTROL_EMPTY_READS = 16;
+
 /** Awaitable whole-text capability bound to one internally owned response. */
 export type ResponseTextType = () => PromiseLike<string>;
 
@@ -42,7 +48,10 @@ function fail(reasons: readonly unknown[]): void {
  * before a runtime marks bodyUsed. Conversion failure is not stream settlement:
  * cancel the still-readable source, then release the acquired lock. An unused
  * header response never enters this materializing path. Like Response.text(),
- * this returns complete control text within the implementation byte ceiling.
+ * this returns complete control text within finite byte and read-attempt
+ * ceilings. Empty chunks consume reads, and consecutive empty chunks have a
+ * separate bound so an immediately producing source cannot evade byte admission.
+ * A sufficiently fragmented valid control body can therefore be refused.
  * File payloads use their separate streamed read path.
  */
 async function readBody(response: Response, state: ResponseReadType): Promise<string> {
@@ -57,9 +66,13 @@ async function readBody(response: Response, state: ResponseReadType): Promise<st
   let failure: { readonly reason: unknown } | undefined;
   let text = "";
   let bytes = 0;
+  let reads = 0;
+  let empty = 0;
   try {
     const decoder = new TextDecoder("utf-8", { ignoreBOM: true });
     while (true) {
+      if (reads >= MAX_CONTROL_READS) throw new RangeError(`Provider control body exceeds ${MAX_CONTROL_READS} reads.`);
+      reads += 1;
       let chunk: ReadableStreamReadResult<Uint8Array>;
       try {
         chunk = await reader.read();
@@ -74,6 +87,12 @@ async function readBody(response: Response, state: ResponseReadType): Promise<st
       if (!isBytes(chunk.value)) {
         throw new TypeError("A response body chunk must be a Uint8Array.");
       }
+      if (chunk.value.byteLength === 0) {
+        empty += 1;
+        if (empty > MAX_CONTROL_EMPTY_READS) {
+          throw new RangeError(`Provider control body exceeds ${MAX_CONTROL_EMPTY_READS} consecutive empty chunks.`);
+        }
+      } else empty = 0;
       bytes += chunk.value.byteLength;
       if (bytes > MAX_CONTROL_BYTES) throw new RangeError(`Provider control body exceeds ${MAX_CONTROL_BYTES} bytes.`);
       text += decoder.decode(chunk.value, { stream: true });

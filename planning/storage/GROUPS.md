@@ -354,9 +354,9 @@ Arrow profiles remain separate. See the [Arrow guide](../../docs/arrow.md) and [
 The first [BAM prefix reader](../../docs/bam.md) is implemented for bounded sequential previews with checked BGZF
 members and ordered scalar auxiliary values. Focused Deno/Node/Bun candidate tests passed in receipt
 `e1990cbe-7cea-4255-8b5d-4089c5f6aa33`; installed-package consumers passed in receipt
-`eb663979-e1bf-4c92-b91b-b10c3a770916`; exact-head CI remains pending. Its four native Samtools/HTSlib originals passed
-full readback, including one crossing record. This does not close BAM regional indexes, CRAM, writing, long CIGAR or
-other auxiliary profiles; see the [BAM plan](BAM.md).
+`eb663979-e1bf-4c92-b91b-b10c3a770916`; all 42 CI checks passed on exact pushed commit `191d439`. Its four native
+Samtools/HTSlib originals passed full readback, including one crossing record. This does not close BAM regional indexes,
+CRAM, writing, long CIGAR or other auxiliary profiles; see the [BAM plan](BAM.md).
 
 ### format-view
 

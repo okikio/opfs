@@ -10,7 +10,16 @@ node_modules/
 /.release/
 /.tmp/
 /tmp/
-/.agents/
+# Version the bounded agent validation owner; other agent scratch stays local.
+!/.agents/
+/.agents/*
+!/.agents/validation/
+/.agents/validation/*
+!/.agents/validation/run.ts
+!/.agents/validation/snapshot.ts
+!/.agents/validation/snapshot.test.ts
+!/.agents/validation/README.md
+!/.agents/validation/.npmignore
 /.coverage/
 /coverage/
 /.test-results/

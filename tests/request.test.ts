@@ -1465,3 +1465,82 @@ it("cancels oversized provider control text and rejects deep or excessive XML", 
   expect(() => parseXmlRoot("<x>".repeat(65) + "</x>".repeat(65))).toThrow();
   expect(() => parseXmlRoot("<root>" + "<x/>".repeat(100_000) + "</root>")).toThrow(RangeError);
 });
+
+describe("provider control text work admission", () => {
+  it("refuses finite empty-chunk flooding and releases its reader", async () => {
+    let pulls = 0, cancels = 0;
+    const source = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (++pulls <= 100_000) controller.enqueue(new Uint8Array());
+        else controller.close();
+      },
+      cancel() {
+        cancels++;
+      },
+    }, { highWaterMark: 0 });
+    await expect(readText(new Response(source))).rejects.toBeInstanceOf(RangeError);
+    expect(pulls).toBe(17);
+    expect(cancels).toBe(1);
+    expect(source.locked).toBe(false);
+  });
+
+  it("accepts sixteen empty chunks and resets the counter after byte progress", async () => {
+    let step = 0;
+    const source = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        const at = step++;
+        if (at >= 34) controller.close();
+        else controller.enqueue(at === 16 || at === 33 ? Uint8Array.of(65) : new Uint8Array());
+      },
+    }, { highWaterMark: 0 });
+    expect(await readText(new Response(source))).toBe("AA");
+    expect(source.locked).toBe(false);
+  });
+
+  it("counts EOF against total reads and cancels before an excessive acquisition", async () => {
+    for (const length of [65_535, 65_536]) {
+      let pulls = 0, cancels = 0;
+      const source = new ReadableStream<Uint8Array>({
+        pull(controller) {
+          if (++pulls <= length) controller.enqueue(Uint8Array.of(65));
+          else controller.close();
+        },
+        cancel() {
+          cancels++;
+        },
+      }, { highWaterMark: 0 });
+      const result = readText(new Response(source));
+      if (length === 65_535) {
+        expect((await result).length).toBe(length);
+        expect(cancels).toBe(0);
+      } else {
+        await expect(result).rejects.toBeInstanceOf(RangeError);
+        expect(cancels).toBe(1);
+      }
+      expect(pulls).toBe(65_536);
+      expect(source.locked).toBe(false);
+    }
+  });
+
+  it("keeps a budget failure beside independent undefined source cleanup failure", async () => {
+    let pulls = 0, cancels = 0;
+    const source = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (++pulls <= 100) controller.enqueue(new Uint8Array());
+        else controller.close();
+      },
+      cancel() {
+        cancels++;
+        throw undefined;
+      },
+    }, { highWaterMark: 0 });
+    const reason = await rejectedResponse(readText(new Response(source)));
+    expect(reason).toBeInstanceOf(AggregateError);
+    const aggregate = reason as AggregateError;
+    expect(aggregate.errors.length).toBe(2);
+    expect(aggregate.errors[0]).toBeInstanceOf(RangeError);
+    expect(aggregate.errors[1]).toBeUndefined();
+    expect(cancels).toBe(1);
+    expect(source.locked).toBe(false);
+  });
+});
