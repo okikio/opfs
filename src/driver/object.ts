@@ -33,6 +33,11 @@ export const ObjectDriverCapabilitiesSchema: z.ZodType<ObjectDriverCapabilitiesT
 /** A validated native object-driver capability description. */
 export type ObjectDriverCapabilitiesType = import("../_schema_types.ts").ObjectDriverCapabilitiesType;
 
+/** Provider-specific precondition. Generations are opaque strings, never ETags or JS numbers. */
+export type ObjectRevisionType =
+  | { readonly kind: "etag"; readonly value: string }
+  | { readonly kind: "generation"; readonly value: string };
+
 /** Portable object metadata returned by {@link ObjectBackendType.head}. */
 export interface ObjectStatType {
   /** Object length in bytes. */
@@ -41,8 +46,10 @@ export interface ObjectStatType {
   readonly lastModified?: number;
   /** Media type retained by the provider when known. */
   readonly mediaType?: string;
-  /** Entity tag or equivalent provider revision token. */
+  /** Entity tag; provider generations must not be stored here. */
   readonly etag?: string;
+  /** Native conditional revision when ETag write conditions do not express it. */
+  readonly revision?: ObjectRevisionType;
   /** Provider version identifier when versioning is enabled. */
   readonly version?: string;
   /** Provider metadata retained with the object when available. */
@@ -80,6 +87,8 @@ export interface ObjectListType {
 
 /** Options for one object GET. */
 export interface ObjectGetOptionsType {
+  /** Binds reads to the specified provider revision. Unsupported kinds must reject before I/O. */
+  readonly revision?: ObjectRevisionType;
   /** Zero-based byte offset. */
   readonly at?: number;
   /** Maximum bytes to return. */
@@ -90,6 +99,8 @@ export interface ObjectGetOptionsType {
 
 /** Options for one object PUT. */
 export interface ObjectPutOptionsType {
+  /** Native destination revision condition, distinct from the ETag-only ifMatch field. */
+  readonly revision?: ObjectRevisionType;
   /** Media type retained with the object when the provider supports it. */
   readonly mediaType?: string;
   /** Provider metadata stored with the object when supported. */
@@ -106,6 +117,10 @@ export interface ObjectPutOptionsType {
 
 /** Options for one provider-side object copy. */
 export interface ObjectCopyOptionsType {
+  /** Native destination revision condition. */
+  readonly revision?: ObjectRevisionType;
+  /** Native source revision condition. */
+  readonly sourceRevision?: ObjectRevisionType;
   /** Conditional precondition on the destination object. */
   readonly ifMatch?: string;
   /** Destination precondition that rejects matching objects. */
@@ -119,6 +134,14 @@ export interface ObjectCopyOptionsType {
   /** Source precondition that requires an older or equal modification time. */
   readonly sourceIfUnmodifiedSince?: Date;
   /** Stops provider work before the server-side copy completes. */
+  readonly signal?: AbortSignal;
+}
+
+/** Delete admission that can prevent removal of a concurrent replacement. */
+export interface ObjectDeleteOptionsType {
+  /** Removes only a matching native revision. */
+  readonly revision?: ObjectRevisionType;
+  /** Stops provider work. */
   readonly signal?: AbortSignal;
 }
 
@@ -147,6 +170,8 @@ export interface ObjectBackendType {
   /** Pure concrete input-route admission; called after adapter key translation. */
   admit?(input: DriverPlanInputType): DriverPlanType;
   readonly name: string;
+  /** Stable service/account/bucket namespace, excluding credentials. Required for automatic replay identity. */
+  readonly identity?: string;
   readonly capabilities: {
     readonly rangeRead: boolean;
     readonly streamRead: boolean;
@@ -165,7 +190,7 @@ export interface ObjectBackendType {
     body: Uint8Array | ReadableStream<Uint8Array>,
     options?: ObjectPutOptionsType,
   ): Promise<ObjectReceiptType>;
-  delete(key: string, options?: { readonly signal?: AbortSignal }): Promise<void>;
+  delete(key: string, options?: ObjectDeleteOptionsType): Promise<void>;
   list(options: ObjectListOptionsType): Promise<ObjectListType>;
   copy?(source: string, destination: string, options?: ObjectCopyOptionsType): Promise<ObjectReceiptType>;
   dispose?(): void | Promise<void>;
@@ -287,6 +312,7 @@ export function defineObjectDriver(
     ...base,
     kind: "object",
     capabilities,
+    ...(backend.identity === undefined ? {} : { identity: backend.identity }),
     ...(backend.limits === undefined ? {} : { portableLimits: structuredClone(backend.limits) }),
     head: (key, requestOptions) => backend.head(key, requestOptions),
     get: (key, requestOptions) => backend.get(key, requestOptions),

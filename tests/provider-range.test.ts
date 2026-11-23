@@ -55,7 +55,10 @@ for (const provider of ["s3", "azure"] as const) {
               return;
             }
             const end = match[2] === "" ? bytes.length : Number(match[2]) + 1;
-            response.writeHead(206).end(bytes.subarray(start, end));
+            response.writeHead(206, {
+              "content-range": `bytes ${start}-${Math.min(end, bytes.length) - 1}/${bytes.length}`,
+            })
+              .end(bytes.subarray(start, end));
           });
           releases.push(async () => {
             server.closeAllConnections();

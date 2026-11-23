@@ -322,6 +322,9 @@ export class FileHandle extends BaseHandle implements FileHandleType {
    * for large streaming writes that should reach a streaming adapter directly.
    */
   async createWritable(options: CreateWritableOptionsType = {}): Promise<WritableFileStreamType> {
+    if (!this.fileSystem.adapter.capabilities.write) {
+      throw new FileSystemError("not-supported", "write", this.path, "This filesystem is read-only.");
+    }
     const bytes = options.keepExistingData ? await this.fileSystem.readFile(this.path) : new Uint8Array();
     return new WritableFileStream(new WriteSession(this.fileSystem, this.path, bytes));
   }
