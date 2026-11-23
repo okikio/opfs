@@ -1,0 +1,35 @@
+{
+  "scope": "Candidate-free native Go CLI producer/consumer, test-only Node file-key extraction, and eight upstream successful vectors. No negative native-conformance claim.",
+  "node": "v26.13.0",
+  "platform": "linux",
+  "architecture": "arm64",
+  "nativeVersion": "v1.3.2",
+  "records": 8,
+  "corpus": 8,
+  "commands": 25,
+  "bytes": 2645064,
+  "sha256": "8b28b2fc60c175c506c0e970e2a1685556be26464da801487313416a06996dbf",
+  "originalLengths": [
+    0,
+    1,
+    65535,
+    65536,
+    65537,
+    131072,
+    131089,
+    182
+  ],
+  "launch": {
+    "container": "opfs-age-producer-20261105",
+    "stage": "producer",
+    "exitCode": 0,
+    "primary": [],
+    "cleanupFaults": [],
+    "elapsedSeconds": 0.403098417,
+    "logBytes": 326,
+    "outerDeadlineSeconds": 180,
+    "maxLogBytes": 1048576
+  },
+  "secretIdentityIncludedInFixture": false,
+  "identityScope": "identity.txt remains only in the stopped owned producer container until retirement; file keys intentionally public fixture data."
+}

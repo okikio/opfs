@@ -251,6 +251,9 @@ try {
     import { openQcow2 } from '@okikio/opfs/image/qcow2';
     import { createPubsubClient, PubsubDeliverySchema } from '@okikio/opfs/pubsub';
     import { openRedisClient, RedisExpirySchema } from '@okikio/opfs/redis';
+    import { openJwe, JweProtectedSchema } from '@okikio/opfs/crypto/jwe';
+    import { NatsClient } from '@okikio/opfs/nats';
+    import { openParquet } from '@okikio/opfs/dataset/parquet';
     import { openHdf5 } from '@okikio/opfs/dataset/hdf5';
     import { createCmisClient } from '@okikio/opfs/cmis';
     import { createCouchdbClient } from '@okikio/opfs/couchdb';
@@ -951,6 +954,107 @@ try {
     await pubsubClient.modifyAckDeadline(pubsubFixture.subscription,[pubsubDeliveries[0].ackId],30);
     await pubsubClient.acknowledge(pubsubFixture.subscription,[pubsubDeliveries[0].ackId]);
     if(pubsubCalls!==3)throw new Error('Packed Pub/Sub performed hidden operations');
+    const jweNative = ${
+      JSON.stringify(JSON.parse(await readFile(new URL("../fixtures/jwe/independent.json", import.meta.url), "utf8")))
+    };
+    const jweZip = ${
+      JSON.stringify(JSON.parse(await readFile(new URL("../fixtures/arfs/zip.json", import.meta.url), "utf8")))
+    };
+    if(jweNative.cases.length!==8)throw new Error('Packed JWE native coverage changed');
+    for(const vector of jweNative.cases){
+      const original=fromBase64(vector.originalBase64),wire=new TextEncoder().encode(vector.compact);
+      const message=await openJwe(createByteSource(wire),{profile:vector.profile,key:fromBase64(vector.keyBase64),subtle:globalThis.crypto.subtle});
+      try{
+        if(message.integrity!=='whole-jwe-message-authenticated'||message.source.size!==vector.originalBytes||message.work.authenticatedBytes!==original.length)throw new Error('Packed JWE authentication scope changed');
+        if(message.header.encoded!==vector.compact.split('.')[0]||Object.keys(message.header.protected).length!==Object.keys(vector.protected).length||Object.entries(vector.protected).some(([key,value])=>message.header.protected[key]!==value))throw new Error('Packed JWE protected header changed');
+        assertBytes((await message.read(0,original.length)).bytes,original);
+        assertBytes(await message.source.read(original.length,0),new Uint8Array());
+        if(vector.id.endsWith('-zip')){
+          const archive=await openZip(message.source),entry=archive.entries.find(value=>value.name===jweZip.name);
+          if(!entry)throw new Error('Packed JWE nested ZIP member missing');
+          assertBytes((await archive.read(entry.id,{offset:3,length:19})).bytes,fromBase64(jweZip.originalBase64).slice(3,22));
+        }
+      }finally{message.dispose();}
+      let refused=false;
+      try{await message.source.read(0,0);}catch(error){if(error?.code!=='disposed')throw error;refused=true;}
+      if(!refused)throw new Error('Packed disposed JWE source remained readable');
+    }
+    const natsNative = ${
+      JSON.stringify(JSON.parse(await readFile(new URL("../fixtures/nats/independent.json", import.meta.url), "utf8")))
+    };
+    const natsEncode=value=>new TextEncoder().encode(value),natsCrlf=String.fromCharCode(13,10);
+    for(const operation of ['get','publish']){
+      const record=natsNative[operation],oracle=fromBase64(natsNative.oracle.base64);
+      const authCommands=record.authControls.flatMap(control=>control.command?[control.command]:[]),replyCommands=record.controls.flatMap(control=>control.command?[control.command]:[]);
+      let controller,stage=0,authAt=0,replyAt=0,closes=0;
+      const channel={security:'plaintext',readable:new ReadableStream({start(value){controller=value;controller.enqueue(fromBase64(record.initial.base64));}}),
+        writable:new WritableStream({write(value){
+          if(stage===0){
+            assertBytes(value,natsEncode('CONNECT '+JSON.stringify({verbose:false,pedantic:true,protocol:1,headers:true,no_responders:true,lang:'typescript',version:'opfs-nats/1',user:'opfs',pass:'fixture-only-nats',tls_required:false})+natsCrlf+'PING'+natsCrlf));
+            stage++;for(const control of record.authControls)controller.enqueue(fromBase64(control.response.base64));controller.enqueue(fromBase64(record.pong.base64));
+          }else if(authAt<authCommands.length)assertBytes(value,fromBase64(authCommands[authAt++].base64));
+          else if(stage===1){assertBytes(value,fromBase64(record.subscription.base64));stage++;}
+          else if(stage===2){assertBytes(value,fromBase64(record.request.base64));stage++;controller.enqueue(fromBase64(record.replyWire.base64));}
+          else assertBytes(value,fromBase64(replyCommands[replyAt++].base64));
+        }}),close(){closes++;controller.close();if(stage!==3||authAt!==authCommands.length||replyAt!==replyCommands.length)throw new Error('Packed NATS replay left commands incomplete');return Promise.resolve();}};
+      const client=new NatsClient({openChannel:()=>Promise.resolve(channel),auth:{user:'opfs',password:'fixture-only-nats'}});
+      const envelope=JSON.parse(new TextDecoder().decode(fromBase64(record.body.base64)));
+      if(operation==='get'){
+        const result=await client.get(natsNative.stream,natsNative.sequence,{inbox:natsNative.getInbox});
+        assertBytes(result.bytes,oracle);
+        if(result.sequence!==natsNative.sequence||result.subject!=='owned.data'||result.time!==envelope.message.time)throw new Error('Packed NATS native message identity changed');
+      }else{
+        const receipt=await client.publish(natsNative.stream,'owned.data',oracle,{inbox:natsNative.publishInbox,messageId:'independent-capture'});
+        if(receipt.stream!==natsNative.stream||receipt.sequence!==String(envelope.seq)||receipt.duplicate!==false)throw new Error('Packed NATS publication receipt changed');
+      }
+      if(closes!==1)throw new Error('Packed NATS did not close its exclusive channel once');
+    }
+    const parquetNative = ${
+      JSON.stringify(
+        JSON.parse(await readFile(new URL("../fixtures/parquet/independent.json", import.meta.url), "utf8")),
+      )
+    };
+    if(parquetNative.fixtures.length!==22)throw new Error('Packed Parquet native coverage changed');
+    // Decode the retained original physical bytes independently of the reader.
+    const parquetExpected=(name,bytes)=>{
+      const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength),width=name==='b'?1:name==='i'||name==='f'?4:8;
+      return Array.from({length:bytes.length/width},(_,index)=>{
+        const at=index*width;
+        return name==='b'?view.getUint8(at):name==='i'?view.getInt32(at,true):name==='q'?view.getBigInt64(at,true):name==='f'?view.getFloat32(at,true):view.getFloat64(at,true);
+      });
+    };
+    const parquetCompare=(result,expected,mask)=>{
+      if(result.values.length!==expected.length||result.integrity!=='selected-pages')throw new Error('Packed Parquet output scope changed');
+      assertBytes(result.validity,mask);
+      for(let index=0;index<expected.length;index++)if(!Object.is(result.values[index],expected[index]))throw new Error('Packed Parquet original value changed at '+index);
+    };
+    for(const fixture of parquetNative.fixtures){
+      const dataset=await openParquet(createByteSource(fromBase64(fixture.file.base64)));
+      if(dataset.rows!==fixture.rows||dataset.rowGroups.length!==fixture.rowGroups.length||dataset.integrity!=='metadata-unverified')throw new Error('Packed Parquet metadata changed');
+      if(!fixture.supported){
+        if(dataset.columns[0].readable)throw new Error('Packed Parquet unsupported column became readable');
+        let refused=false;try{await dataset.read(0);}catch(error){if(error?.code!=='unsupported-profile')throw error;refused=true;}
+        if(!refused)throw new Error('Packed Parquet unsupported decoding admitted');
+        continue;
+      }
+      if(dataset.columns.length!==5)throw new Error('Packed Parquet column count changed');
+      for(const column of fixture.columns){
+        const descriptor=dataset.columns.find(value=>value.name===column.name);
+        if(!descriptor?.readable)throw new Error('Packed Parquet physical column missing');
+        const expected=parquetExpected(column.name,fromBase64(column.physicalLittleEndian.base64)),mask=fromBase64(column.validity.base64);
+        const whole=await dataset.read(descriptor.id);
+        const constructor=column.name==='b'?Uint8Array:column.name==='i'?Int32Array:column.name==='q'?BigInt64Array:column.name==='f'?Float32Array:Float64Array;
+        if(!(whole.values instanceof constructor))throw new Error('Packed Parquet physical array type changed');
+        parquetCompare(whole,expected,mask);
+        const checksum=fixture.producer==='PyArrow'&&fixture.case.endsWith('True')?'crc32-verified':'not-provided';
+        if(!whole.pages.every(page=>page.selected&&page.checksum===checksum))throw new Error('Packed Parquet whole page scope changed');
+        const offset=fixture.rows>100?2000:fixture.rows>8?6:0,length=Math.min(fixture.rows-offset,fixture.rows>100?100:20);
+        const selected=await dataset.read(descriptor.id,{offset,length});
+        parquetCompare(selected,expected.slice(offset,offset+length),mask.slice(offset,offset+length));
+        if(!selected.pages.every(page=>page.checksum===(page.selected?checksum:'not-read')))throw new Error('Packed Parquet selected page scope changed');
+        if(fixture.case.includes('many-pages')&&new Set(selected.pages.filter(page=>page.selected).map(page=>page.rowGroup)).size!==2)throw new Error('Packed Parquet selection no longer crosses row groups');
+      }
+    }
     const redisFixture = ${
       JSON.stringify(JSON.parse(await readFile(new URL("../fixtures/redis/independent.json", import.meta.url), "utf8")))
     };
@@ -1779,6 +1883,9 @@ try {
     import { openQcow2 } from '@okikio/opfs/image/qcow2';
     import { createPubsubClient, PubsubDeliverySchema } from '@okikio/opfs/pubsub';
     import { openRedisClient, RedisExpirySchema } from '@okikio/opfs/redis';
+    import { openJwe, JweProtectedSchema } from '@okikio/opfs/crypto/jwe';
+    import { NatsClient } from '@okikio/opfs/nats';
+    import { openParquet } from '@okikio/opfs/dataset/parquet';
     import { openHdf5 } from '@okikio/opfs/dataset/hdf5';
     import { createCmisClient } from '@okikio/opfs/cmis';
     import { createCouchdbClient } from '@okikio/opfs/couchdb';
@@ -1965,6 +2072,22 @@ try {
     const redisReceiptTyped: import('@okikio/opfs/redis').RedisReceiptType = await redisTyped.put(new Uint8Array(),new Uint8Array(),{mode:'absent',expiry:{kind:'persist'}});
     const redisTtlTyped: import('@okikio/opfs/redis').RedisTtlType = await redisTyped.ttl(new Uint8Array());
     void [redisValueTyped,redisReceiptTyped,redisTtlTyped,RedisExpirySchema];
+    const jweOptionsTyped: import('@okikio/opfs/crypto/jwe').JweOpenOptionsType = {
+      profile:'jwe-compact-dir-a256gcm',key:new Uint8Array(32),subtle:crypto.subtle,
+    };
+    const jweTyped: import('@okikio/opfs/crypto/jwe').JweOpenedType = await openJwe(createByteSource(new Uint8Array()),jweOptionsTyped);
+    const jweSourceTyped: import('@okikio/opfs/crypto/jwe').JweSourceType = jweTyped.source;
+    const jweReadTyped: import('@okikio/opfs/crypto/jwe').JweReadType = await jweTyped.read(0,0);
+    const jweIntegrityTyped: 'whole-jwe-message-authenticated' = jweReadTyped.integrity;
+    jweTyped.dispose();
+    const natsTyped: NatsClient = new NatsClient({openChannel:async()=>{throw new Error('type-only');}});
+    const natsReceiptTyped: import('@okikio/opfs/nats').NatsReceiptType = await natsTyped.publish('OWNED','owned.data',new Uint8Array(),{inbox:'_INBOX.package.publish'});
+    const natsMessageTyped: import('@okikio/opfs/nats').NatsMessageType = await natsTyped.get('OWNED',natsReceiptTyped.sequence,{inbox:'_INBOX.package.read'});
+    const parquetTyped: import('@okikio/opfs/dataset/parquet').ParquetDatasetType = await openParquet(createByteSource(new Uint8Array()),{maxRows:16});
+    const parquetReadTyped: import('@okikio/opfs/dataset/parquet').ParquetReadType = await parquetTyped.read(0,{offset:0,length:1});
+    const parquetValuesTyped: import('@okikio/opfs/dataset/parquet').ParquetValuesType = parquetReadTyped.values;
+    const parquetIntegrityTyped: 'metadata-unverified' = parquetTyped.integrity;
+    void [jweSourceTyped,jweIntegrityTyped,JweProtectedSchema,natsMessageTyped,parquetValuesTyped,parquetIntegrityTyped];
 
 
     const hdf5Typed: import('@okikio/opfs/dataset/hdf5').Hdf5FileType = await openHdf5(createByteSource(new Uint8Array()), {profile:'classic-contiguous'});
@@ -2155,6 +2278,41 @@ try {
       "browser-bundle.js",
       "browser.mjs",
     ], { cwd: consumer });
+    await writeFile(
+      join(consumer, "optional-browser.mjs"),
+      undent`
+      export { openJwe } from '@okikio/opfs/crypto/jwe';
+      export { NatsClient } from '@okikio/opfs/nats';
+      export { openParquet } from '@okikio/opfs/dataset/parquet';
+    `,
+    );
+    await command("deno", [
+      "bundle",
+      "--no-config",
+      "--platform=browser",
+      "--node-modules-dir=manual",
+      "--output",
+      "optional-browser-bundle.js",
+      "optional-browser.mjs",
+    ], { cwd: consumer });
+    const browserBundle = await readFile(join(consumer, "browser-bundle.js"), "utf8");
+    for (const marker of ["jwe-compact-dir-a128gcm", "Nats-Expected-Stream", "Parquet Compact"]) {
+      if (browserBundle.includes(marker)) throw new Error("Memory-only bundle retained optional protocol: " + marker);
+    }
+    await writeFile(
+      join(consumer, "browser-bundle-smoke.mjs"),
+      undent`
+      import { smoke } from './browser-bundle.js';
+      const [fileSystem] = smoke();
+      try {
+        await fileSystem.writeFile('/bundle.txt', 'memory-only');
+        if (new TextDecoder().decode(await fileSystem.readFile('/bundle.txt')) !== 'memory-only') throw new Error('Memory-only bundle behavior changed');
+      } finally {
+        await fileSystem[Symbol.asyncDispose]();
+      }
+    `,
+    );
+    await command("node", ["browser-bundle-smoke.mjs"], { cwd: consumer });
   }
 
   await command(
@@ -2184,6 +2342,37 @@ try {
     });
   }
   if (hasBun) await command("bun", ["drizzle.mjs"], { cwd: consumer });
+
+  // Each runner is a fresh process: guarded capabilities cannot be bypassed by cached candidate imports.
+  await writeFile(
+    join(consumer, "optional-imports.mjs"),
+    undent`
+    const descriptors = new Map();
+    const touched = [];
+    try {
+      for (const name of ['crypto', 'fetch', 'WebSocket']) {
+        descriptors.set(name, Object.getOwnPropertyDescriptor(globalThis, name));
+        Object.defineProperty(globalThis, name, {configurable: true, get() {
+          touched.push(name);
+          throw new Error('Optional import discovered ambient capability: ' + name);
+        }});
+      }
+      for (const spec of ['crypto/jwe', 'nats', 'dataset/parquet']) await import('@okikio/opfs/' + spec);
+      if (touched.length) throw new Error('Optional import touched ambient capabilities: ' + touched.join(','));
+    } finally {
+      for (const [name, descriptor] of descriptors) {
+        if (descriptor) Object.defineProperty(globalThis, name, descriptor);
+        else delete globalThis[name];
+      }
+    }
+    console.log('Imported JWE, NATS and Parquet without ambient crypto, fetch or sockets');
+  `,
+  );
+  await command("node", ["optional-imports.mjs"], { cwd: consumer });
+  await command("deno", ["run", "--no-config", "--allow-read", "--node-modules-dir=manual", "optional-imports.mjs"], {
+    cwd: consumer,
+  });
+  await command("bun", ["optional-imports.mjs"], { cwd: consumer });
 
   const specs = Object.keys(manifest.exports).map((key) =>
     key === "." ? "@okikio/opfs" : `@okikio/opfs/${key.slice(2)}`

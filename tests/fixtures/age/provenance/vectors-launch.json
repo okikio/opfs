@@ -1,0 +1,11 @@
+{
+  "container": "opfs-age-vectors-20261105",
+  "stage": "vectors",
+  "exitCode": 0,
+  "primary": [],
+  "cleanupFaults": [],
+  "elapsedSeconds": 19.90296675,
+  "logBytes": 0,
+  "outerDeadlineSeconds": 180,
+  "maxLogBytes": 1048576
+}

@@ -161,7 +161,10 @@
     "./pubsub": "./src/pubsub.ts",
     "./dataset/geotiff": "./src/dataset/geotiff.ts",
     "./image/qcow2": "./src/image/qcow2.ts",
-    "./redis": "./src/redis.ts"
+    "./redis": "./src/redis.ts",
+    "./crypto/jwe": "./src/crypto/jwe.ts",
+    "./nats": "./src/nats.ts",
+    "./dataset/parquet": "./src/dataset/parquet.ts"
   },
   "imports": {
     "@okikio/undent": "jsr:@okikio/undent@^0.3.3",
@@ -220,7 +223,13 @@
       "tools/"
     ],
     "exclude": [
-      "tests/upstream/original/"
+      "tests/upstream/original/",
+      "tests/fixtures/age/upstream/",
+      "tests/fixtures/age/provenance/**/*.json",
+      "tests/fixtures/age/provenance/**/*.snapshot",
+      "tests/fixtures/age/provenance/**/*.mjs",
+      "tests/fixtures/age/independent.json",
+      "tests/fixtures/age/cctv.json"
     ]
   },
   "lint": {
