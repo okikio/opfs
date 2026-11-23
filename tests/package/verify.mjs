@@ -245,6 +245,7 @@ try {
     import { openHdf5 } from '@okikio/opfs/dataset/hdf5';
     import { createCmisClient } from '@okikio/opfs/cmis';
     import { createCouchdbClient } from '@okikio/opfs/couchdb';
+    import { openCryptomator } from '@okikio/opfs/crypto/cryptomator';
     import { compressStream, decompressStream } from '@okikio/opfs/archive/compress';
     import { parseCid, verifyBlock } from '@okikio/opfs/content/cid';
     import { createS3Client } from '@okikio/opfs/s3';
@@ -676,6 +677,43 @@ try {
     if (couchdbDocument.id !== couchdbFixture.documentId || couchdbDocument.attachments[0].length !== couchdbOriginal.length) throw new Error('Packed CouchDB native metadata changed');
     assertBytes(await couchdb.read(couchdbFixture.documentId, couchdbFixture.attachmentName, {revision:couchdbDocument.revision}), couchdbOriginal);
     if ((await couchdb.stat(couchdbFixture.documentId, couchdbFixture.attachmentName)).etag !== couchdbFixture.content.headers.etag) throw new Error('Packed CouchDB attachment ETag changed');
+    const cryptomatorFixture = ${
+      JSON.stringify(
+        await (async () => {
+          const fixture = JSON.parse(
+            await readFile(new URL("../fixtures/cryptomator/independent.json", import.meta.url), "utf8"),
+          );
+          const nested = fixture.fixtures.find((row) => row.id === "nested-zip");
+          const named = fixture.fixtures.find((row) => row.id === "unicode");
+          return {
+            key: fixture.key,
+            configuration: fixture.configuration,
+            nested: { ciphertext: nested.ciphertext },
+            named: { encryptedName: named.encryptedName, parent: named.parent, name: named.name },
+          };
+        })(),
+      )
+    };
+    const cryptomatorBytes = (value) => Uint8Array.from(atob(value),(byte)=>byte.charCodeAt(0));
+    const cryptomator = await openCryptomator(new TextEncoder().encode(cryptomatorFixture.configuration),cryptomatorBytes(cryptomatorFixture.key),{subtle:globalThis.crypto.subtle});
+    let cryptomatorFile;
+    try {
+      const named = await cryptomator.decryptName(cryptomatorFixture.named.encryptedName,cryptomatorFixture.named.parent);
+      if(named.name!==cryptomatorFixture.named.name || named.scope!=='name-and-parent-authenticated') throw new Error('Packed Cryptomator name authentication changed');
+      const ciphertext = cryptomatorBytes(cryptomatorFixture.nested.ciphertext);
+      const encrypted = createByteSource(ciphertext);
+      let physicalBytes=0;
+      cryptomatorFile = await cryptomator.open({size:encrypted.size,stability:'immutable',read:async(at,length,options)=>{physicalBytes+=length;return await encrypted.read(at,length,options);}});
+      const nestedZip = await openZip(cryptomatorFile);
+      const member = nestedZip.entries.find((entry)=>entry.name==='selected.txt');
+      if(!member) throw new Error('Packed Cryptomator nested ZIP member is absent');
+      const selected = await nestedZip.read(member.id);
+      assertBytes(selected.bytes,new TextEncoder().encode('authenticated nested archive preview\\n'));
+      if(cryptomatorFile.header!=='authenticated' || cryptomatorFile.originalLength!=='not-authenticated' || physicalBytes>=ciphertext.length/2) throw new Error('Packed Cryptomator preview scope or selected-read cost changed');
+    } finally {
+      try { if(cryptomatorFile) await cryptomatorFile[Symbol.asyncDispose](); }
+      finally { await cryptomator[Symbol.asyncDispose](); }
+    }
     const lhaFixture = ${
       JSON.stringify(
         await (async () => {
@@ -1403,6 +1441,7 @@ try {
     import { openHdf5 } from '@okikio/opfs/dataset/hdf5';
     import { createCmisClient } from '@okikio/opfs/cmis';
     import { createCouchdbClient } from '@okikio/opfs/couchdb';
+    import { openCryptomator } from '@okikio/opfs/crypto/cryptomator';
     import { createByteSource } from '@okikio/opfs/source';
     import { createCompressedTar, readCompressedTar } from '@okikio/opfs/archive/compress';
     import { parseCid, verifyBlock } from '@okikio/opfs/content/cid';
@@ -1546,7 +1585,12 @@ try {
     const couchdbTyped: import('@okikio/opfs/couchdb').CouchdbClient = createCouchdbClient({endpoint:'https://couchdb.example/',database:'type-only'});
     const couchdbDocument: import('@okikio/opfs/couchdb').CouchdbDocumentType = await couchdbTyped.document('doc');
     const couchdbReceipt: import('@okikio/opfs/couchdb').CouchdbReceiptType = await couchdbTyped.put('doc','file',new Uint8Array(),{revision:couchdbDocument.revision});
-    void [lhaTypedRead, hdf5Values, cmisPage, couchdbReceipt];
+    const cryptomatorTyped: import('@okikio/opfs/crypto/cryptomator').CryptomatorVaultType = await openCryptomator(new Uint8Array(),new Uint8Array(),{subtle:globalThis.crypto.subtle});
+    const cryptomatorSource: import('@okikio/opfs/crypto/cryptomator').CryptomatorSourceType = await cryptomatorTyped.open(createByteSource(new Uint8Array()));
+    const cryptomatorRead: import('@okikio/opfs/crypto/cryptomator').CryptomatorReadType = await cryptomatorSource.readVerified(0,1);
+    await cryptomatorSource[Symbol.asyncDispose]();
+    await cryptomatorTyped[Symbol.asyncDispose]();
+    void [lhaTypedRead, hdf5Values, cmisPage, couchdbReceipt, cryptomatorRead];
     const zipLzmaPolicy: import('@okikio/opfs/archive/zip').ZipLzmaOptionsType = { maxDictionaryBytes: 1048576, maxSteps: 1000000 };
     const zipCodecArchive = await openZip(createByteSource(new Uint8Array()));
     const zipCodecRead = await zipCodecArchive.read(0, { lzma: zipLzmaPolicy });
