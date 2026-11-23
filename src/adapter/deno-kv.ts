@@ -28,7 +28,7 @@ import {
   type DenoKvType,
   type DenoKvUsageType,
 } from "../driver/deno-kv.ts";
-import { PartitionModeSchema } from "../schema.ts";
+import { PartitionModeSchema } from "../schema/mod.ts";
 
 /** Documented provider ceilings and conservative project defaults used by the Deno KV driver. */
 export {

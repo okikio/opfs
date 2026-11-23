@@ -5,7 +5,7 @@ import type { AzureClientType } from "../azure.ts";
 import { isBytes, toView } from "../bytes.ts";
 import { readResponse } from "../response.ts";
 import { createXmlElement, createXmlText, getXmlElements, getXmlScalar, parseXmlRoot, stringifyXml } from "../xml.ts";
-import type { UploadDestinationType, UploadRequestOptionsType, UploadStatusType } from "../transfer.ts";
+import type { UploadDestinationType, UploadRequestOptionsType, UploadStatusType } from "./mod.ts";
 
 /** Implementation bounds keep remote XML within the shared control-document ceiling and support old service versions. */
 export const AZURE_TRANSFER_BLOCKS = 10_000;

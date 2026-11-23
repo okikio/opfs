@@ -1,6 +1,6 @@
 import { defineRecordDriver, type RecordBackendType, type RecordDriverType } from "./record.ts";
 import { type PathType, splitPath } from "../path.ts";
-import { PathSchema, RecordSchema } from "../schema.ts";
+import { PathSchema, RecordSchema } from "../schema/mod.ts";
 
 /**
  * Options for a Cache API-backed record driver.

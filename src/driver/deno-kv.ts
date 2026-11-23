@@ -28,7 +28,7 @@ import {
   RecordSchema,
   type RecordType,
   type WriteModeType,
-} from "../schema.ts";
+} from "../schema/mod.ts";
 
 /** Maximum serialized Deno KV key size documented by the runtime. */
 export const DENO_KV_MAX_KEY_BYTES = 2 * 1024;

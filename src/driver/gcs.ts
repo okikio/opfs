@@ -1,6 +1,6 @@
 import { createGcsClient, GCS_CHUNK_BYTES, GCS_MAX_BYTES } from "../gcs.ts";
 import type { GcsClientOptionsType, GcsClientType } from "../gcs.ts";
-import type { DriverOwnershipType } from "../schema.ts";
+import type { DriverOwnershipType } from "../schema/mod.ts";
 import { defineObjectDriver } from "./object.ts";
 import type { ObjectDriverType } from "./object.ts";
 

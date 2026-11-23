@@ -8,7 +8,7 @@ import { BlobServiceClient, StorageSharedKeyCredential } from "@azure/storage-bl
 import { withReleases } from "./close.ts";
 import { createAzureClient } from "../src/azure.ts";
 import { createAzureSession, createAzureUploadDestination } from "../src/transfer/azure.ts";
-import { createTransferCheckpoint } from "../src/transfer.ts";
+import { createTransferCheckpoint } from "../src/transfer/mod.ts";
 import { AZURE_ACCOUNT, AZURE_KEY, openProviders, STORAGE_NAME } from "./provider/fixture.ts";
 
 /** Waits for an owned child; a timeout kills it and close confirms its retirement. */
@@ -80,7 +80,7 @@ describe("Azure continuation after process loss", () => {
         import { createAzureUploadDestination } from ${
         JSON.stringify(new URL("../src/transfer/azure.ts", import.meta.url).href)
       };
-        import { resumeTransfer } from ${JSON.stringify(new URL("../src/transfer.ts", import.meta.url).href)};
+        import { resumeTransfer } from ${JSON.stringify(new URL("../src/transfer/mod.ts", import.meta.url).href)};
         const input = readFileSync(${JSON.stringify(inputPath)});
         const checkpointPath = ${JSON.stringify(checkpointPath)};
         const session = JSON.parse(readFileSync(${JSON.stringify(sessionPath)}, "utf8"));

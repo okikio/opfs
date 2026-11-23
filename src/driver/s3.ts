@@ -1,5 +1,5 @@
 import { createS3Client, type S3ClientOptionsType, type S3ClientType } from "../s3.ts";
-import type { DriverOwnershipType } from "../schema.ts";
+import type { DriverOwnershipType } from "../schema/mod.ts";
 import { defineObjectDriver, type ObjectDriverType } from "./object.ts";
 
 /** Options for the configured S3 object driver. */

@@ -1,6 +1,6 @@
 import { defineRecordDriver, type RecordBackendType, type RecordDriverType } from "./record.ts";
 import { normalizePath, type PathType, splitPath } from "../path.ts";
-import { RecordSchema } from "../schema.ts";
+import { RecordSchema } from "../schema/mod.ts";
 
 /**
  * Structural subset of unstorage's current `Storage` API used by this driver.

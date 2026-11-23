@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 import { createTusClient, TusError } from "../src/tus.ts";
 import type { FetchType } from "../src/request.ts";
-import { createTransferCheckpoint, resumeTransfer } from "../src/transfer.ts";
+import { createTransferCheckpoint, resumeTransfer } from "../src/transfer/mod.ts";
 
 /** Authored protocol fixture; no hosted credentials or network connection. */
 function fixture() {

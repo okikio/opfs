@@ -2,8 +2,8 @@
 import { env } from "node:process";
 import { fileURLToPath } from "node:url";
 import { createDenoAgeOracle as createOracle } from "./fixtures/age/provider.ts";
-import { AgeError } from "../src/crypto/age.ts";
-import type { AgeAeadType } from "../src/crypto/age.ts";
+import { AgeError } from "../src/crypto/age/mod.ts";
+import type { AgeAeadType } from "../src/crypto/age/mod.ts";
 
 export interface AgeTestCipherType extends AgeAeadType {
   encrypt(

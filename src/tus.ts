@@ -1,5 +1,5 @@
 import type { FetchType } from "./request.ts";
-import type { UploadDestinationType, UploadStatusType } from "./transfer.ts";
+import type { UploadDestinationType, UploadStatusType } from "./transfer/mod.ts";
 import { isBytes, toView } from "./bytes.ts";
 
 /** Options for one tus request; cancellation never terminates remote upload state. */

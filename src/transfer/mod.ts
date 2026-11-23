@@ -1,6 +1,6 @@
 import { z } from "zod";
-import type { ByteSourceType } from "./source.ts";
-import { isBytes, toView } from "./bytes.ts";
+import type { ByteSourceType } from "../source.ts";
+import { isBytes, toView } from "../bytes.ts";
 
 /** Cancellation for one destination operation; it never implies remote deletion. */
 export interface UploadRequestOptionsType {

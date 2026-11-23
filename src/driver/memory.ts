@@ -1,5 +1,5 @@
 import type { PathType } from "../path.ts";
-import type { RecordType } from "../schema.ts";
+import type { RecordType } from "../schema/mod.ts";
 import { defineRecordDriver, type RecordBackendType, type RecordDriverType } from "./record.ts";
 
 /** In-memory record driver with test-friendly inspection helpers. */

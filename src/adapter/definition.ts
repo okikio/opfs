@@ -4,7 +4,7 @@ import {
   AdapterLimitsSchema,
   AdapterNameSchema,
   AdapterPartitionSchema,
-} from "../schema.ts";
+} from "../schema/mod.ts";
 import type {
   AdapterCapabilitiesType,
   AdapterLimitsType,
@@ -12,7 +12,7 @@ import type {
   CoordinationModeType,
   MetricsModeType,
   OptimizationType,
-} from "../_schema_types.ts";
+} from "../schema/types.ts";
 import type { PathType } from "../path.ts";
 import type { DriverPlanInputType, DriverPlanType, DriverType } from "../driver/definition.ts";
 import type {

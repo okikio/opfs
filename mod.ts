@@ -138,7 +138,7 @@ export type {
   RequirementType,
   SupportModeType,
   WriteModeType,
-} from "./src/_schema_types.ts";
+} from "./src/schema/types.ts";
 export type {
   ActionKindType,
   ActionType,

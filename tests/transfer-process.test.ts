@@ -26,7 +26,7 @@ describe("transfer process-loss recovery", () => {
       );
       const code = `
         import { readFileSync, writeFileSync, renameSync } from "node:fs";
-        import { resumeTransfer } from ${JSON.stringify(new URL("../src/transfer.ts", import.meta.url).href)};
+        import { resumeTransfer } from ${JSON.stringify(new URL("../src/transfer/mod.ts", import.meta.url).href)};
         const checkpointPath = ${JSON.stringify(checkpoint)};
         const outputPath = ${JSON.stringify(output)};
         const input = new Uint8Array([1, 2, 3, 4, 5]);

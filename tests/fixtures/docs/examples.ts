@@ -12,7 +12,7 @@ import { createByteSource } from "../../../src/source.ts";
 import { createNativeTink } from "../../../src/crypto/tink.ts";
 import type { FetchType } from "../../../src/request.ts";
 import type { TusClientOptionsType } from "../../../src/tus.ts";
-import type { TransferCheckpointType } from "../../../src/transfer.ts";
+import type { TransferCheckpointType } from "../../../src/transfer/mod.ts";
 
 /** Frozen Python-stdlib ZIP is an independent container oracle, not a candidate-writer round trip. */
 function zip(): Uint8Array {

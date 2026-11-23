@@ -7,7 +7,7 @@ import { createCacheDriver } from "../src/driver/cache.ts";
 import { Db0Backend, type Db0DatabaseType, type Db0PrimitiveType, type Db0StatementType } from "../src/driver/db0.ts";
 import { createLocalStorageDriver, type LocalStorageType } from "../src/driver/localstorage.ts";
 import type { RecordDriverType } from "../src/driver/record.ts";
-import type { FileRecordType } from "../src/schema.ts";
+import type { FileRecordType } from "../src/schema/mod.ts";
 
 /** Authored three-byte record; expected decoded bytes do not come from a candidate read. */
 function record(path: string): FileRecordType {

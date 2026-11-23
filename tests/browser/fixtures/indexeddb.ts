@@ -1,6 +1,6 @@
 import { committed, IndexedDbBackend, openIndexedDbDriver, result } from "../../../src/driver/indexeddb.ts";
 import { FileSystemError } from "../../../src/error.ts";
-import type { FileRecordType } from "../../../src/schema.ts";
+import type { FileRecordType } from "../../../src/schema/mod.ts";
 import type { FileDriverWriteOptionsType } from "../../../src/driver/file.ts";
 import type { IndexedDbOpenOptionsType } from "../../../src/driver/indexeddb.ts";
 import { withReleases } from "../../close.ts";

@@ -1,14 +1,14 @@
 /** Authenticated age v1 payload ranges with an application-unlocked file key. @module */
 import { z } from "zod";
 import { decodeBase64 } from "@std/encoding/base64";
-import { isBuffer, isBytes, toView } from "../bytes.ts";
-import { aggregate } from "../close.ts";
-import { sourceRange } from "../source.ts";
-import type { ByteSourceType, SourceReadOptionsType } from "../source.ts";
-import { createArchiveLedger, integer } from "../archive/record.ts";
-import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
-export { createArchiveLedger } from "../archive/record.ts";
-export type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
+import { isBuffer, isBytes, toView } from "../../bytes.ts";
+import { aggregate } from "../../close.ts";
+import { sourceRange } from "../../source.ts";
+import type { ByteSourceType, SourceReadOptionsType } from "../../source.ts";
+import { createArchiveLedger, integer } from "../../archive/record.ts";
+import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../../archive/record.ts";
+export { createArchiveLedger } from "../../archive/record.ts";
+export type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../../archive/record.ts";
 
 /** Recipient unlocking, ASCII armor and encryption are separate profiles. */
 export const AgeProfileSchema: z.ZodLiteral<"age-v1-file-key"> = z.literal("age-v1-file-key");

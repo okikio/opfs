@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { AdapterLimitsType } from "../schema.ts";
+import type { AdapterLimitsType } from "../schema/mod.ts";
 import {
   defineDriver,
   type DefineDriverOptionsType,
@@ -31,7 +31,7 @@ export const ObjectDriverCapabilitiesSchema: z.ZodType<ObjectDriverCapabilitiesT
   }).strict();
 
 /** A validated native object-driver capability description. */
-export type ObjectDriverCapabilitiesType = import("../_schema_types.ts").ObjectDriverCapabilitiesType;
+export type ObjectDriverCapabilitiesType = import("../schema/types.ts").ObjectDriverCapabilitiesType;
 
 /** Provider-specific precondition. Generations and immutable version IDs remain strings, separate from ETags. */
 export type ObjectRevisionType =

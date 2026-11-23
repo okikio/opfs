@@ -8,7 +8,7 @@ import type {
   OptimizationType,
   SupportModeType,
   WriteModeType,
-} from "./_schema_types.ts";
+} from "./schema/types.ts";
 
 /**
  * Effective support for one write mode.

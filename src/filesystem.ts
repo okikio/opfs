@@ -22,14 +22,14 @@ import {
   MetricsModeSchema,
   OptimizationSchema,
   WriteModeSchema,
-} from "./schema.ts";
+} from "./schema/mod.ts";
 import type {
   EntryKindType,
   MetricsModeType,
   OptimizationType,
   SupportModeType,
   WriteModeType,
-} from "./_schema_types.ts";
+} from "./schema/types.ts";
 import { getSupport, type InspectionType } from "./capability.ts";
 import { Metrics, type MetricsType } from "./metrics.ts";
 import { createPlan, getDriverInput, type PlanInputType, type PlanType } from "./plan.ts";

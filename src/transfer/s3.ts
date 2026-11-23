@@ -2,7 +2,7 @@ import { z } from "zod";
 import { isBytes, toView } from "../bytes.ts";
 import { S3_LIMITS, S3Error } from "../s3.ts";
 import type { S3ClientType, S3StoredPartType } from "../s3.ts";
-import type { UploadDestinationType, UploadRequestOptionsType, UploadStatusType } from "../transfer.ts";
+import type { UploadDestinationType, UploadRequestOptionsType, UploadStatusType } from "./mod.ts";
 
 /** Refuse replacement encoding, so a persisted key cannot alias a different UTF-8 object name. */
 function name(value: string): boolean {

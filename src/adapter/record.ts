@@ -14,7 +14,12 @@ import { close } from "../close.ts";
 import { project } from "../iteration.ts";
 import { retire } from "../stream.ts";
 import { basename, dirname, type PathType, ROOT_PATH } from "../path.ts";
-import { type AdapterLimitsType, type AdapterPartitionType, RecordMetadataSchema, RecordSchema } from "../schema.ts";
+import {
+  type AdapterLimitsType,
+  type AdapterPartitionType,
+  RecordMetadataSchema,
+  RecordSchema,
+} from "../schema/mod.ts";
 
 import { mutates, readOnlyPlan, type RecordDriverType } from "../driver/record.ts";
 import type { DriverPlanInputType, DriverPlanType } from "../driver/definition.ts";

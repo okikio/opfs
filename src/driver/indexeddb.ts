@@ -5,7 +5,7 @@ import type { FileDriverWriteOptionsType } from "./file.ts";
 import { FileSystemError, throwIfAborted } from "../error.ts";
 import { aggregate } from "../close.ts";
 import { basename, dirname, type PathType } from "../path.ts";
-import { RecordSchema, type RecordType } from "../schema.ts";
+import { RecordSchema, type RecordType } from "../schema/mod.ts";
 
 /**
  * Options for an existing IndexedDB database.

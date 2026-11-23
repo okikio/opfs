@@ -1,9 +1,9 @@
 import { bench, do_not_optimize } from "mitata";
 import { createDecipheriv, hkdfSync } from "node:crypto";
 import { decodeBase64 } from "@std/encoding/base64";
-import { AgeError, openAge } from "../src/crypto/age.ts";
-import type { AgeOpenedType, AgeReadOptionsType } from "../src/crypto/age.ts";
-import { createNodeAgeAead } from "../src/crypto/age-node.ts";
+import { AgeError, openAge } from "../src/crypto/age/mod.ts";
+import type { AgeOpenedType, AgeReadOptionsType } from "../src/crypto/age/mod.ts";
+import { createNodeAgeAead } from "../src/crypto/age/node.ts";
 import { openZip } from "../src/archive/zip/mod.ts";
 import type { ByteSourceType } from "../src/source.ts";
 import fixture from "../tests/fixtures/age/independent.json" with { type: "json" };

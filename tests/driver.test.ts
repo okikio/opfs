@@ -17,8 +17,8 @@ import {
   type OpfsWritableFileStreamType,
 } from "../src/driver/opfs.ts";
 import { defineRecordDriver, type RecordBackendType } from "../src/driver/record.ts";
-import type { PathType } from "../src/schema.ts";
-import type { RecordType } from "../src/schema.ts";
+import type { PathType } from "../src/schema/mod.ts";
+import type { RecordType } from "../src/schema/mod.ts";
 
 /** Minimal deterministic record backend used to prove the public driver extension seam. */
 class TestRecordBackend implements RecordBackendType {

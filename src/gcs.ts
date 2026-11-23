@@ -19,7 +19,7 @@ import { range } from "./range.ts";
 import { RequestMetrics, sendRequest } from "./request.ts";
 import type { FetchType, RequestMetricsType, RequestPolicyType } from "./request.ts";
 import { readResponse } from "./response.ts";
-import type { UploadDestinationType, UploadStatusType } from "./transfer.ts";
+import type { UploadDestinationType, UploadStatusType } from "./transfer/mod.ts";
 
 /** Google Cloud Storage upload alignment, independent of caller buffering policy. */
 export const GCS_CHUNK_BYTES = 256 * 1024;

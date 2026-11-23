@@ -3,7 +3,7 @@ import { createSwiftClient } from "../swift.ts";
 import type { SwiftClientOptionsType, SwiftClientType } from "../swift.ts";
 import { defineObjectDriver } from "./object.ts";
 import type { ObjectDriverType } from "./object.ts";
-import type { DriverOwnershipType } from "../schema.ts";
+import type { DriverOwnershipType } from "../schema/mod.ts";
 
 /** Same explicit account, transport and token policy as the independently useful client. */
 export interface SwiftDriverOptionsType extends SwiftClientOptionsType {}
