@@ -2,6 +2,7 @@
 # These fixtures are downloads; `mise run prepare:fixtures` puts them back.
 /ar/independent.json
 /archive/preview.zip
+/bzip/independent.json
 /cab/independent.json
 /cab/mszip.json
 /cpio/gnu.json
@@ -11,4 +12,5 @@
 /lzma/independent.json
 /password/independent.json
 /seven/independent.json
+/udf/independent.json
 /xz/independent.json
