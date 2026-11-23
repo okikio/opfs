@@ -90,3 +90,7 @@ CLI producer, exact raw payload oracles, immutable source revision, and file has
 SHA-256 objects and tree encodings byte for byte, then exercise corrupt checksums, wrong IDs, malformed extents,
 budgets, aborts, and mutable caller buffers. This proves the documented loose-object profile; it does not certify Git
 interoperability beyond those profiles or authenticate fixture authors.
+
+Native `.loose`, `.raw` and `.ls-tree` fixture files are marked `-text` in `.gitattributes`. Some commit/tag payloads
+look like text, but line-ending conversion changes their exact bytes and object hashes. Keep these checkout attributes
+when adding fixtures; compare recorded digests on Windows as well as Unix runtimes.
