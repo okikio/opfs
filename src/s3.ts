@@ -225,6 +225,17 @@ export interface S3PartType {
   readonly etag: string;
 }
 
+/** One retained multipart part, including the provider's acknowledged byte count. */
+export interface S3StoredPartType extends S3PartType {
+  readonly size: number;
+}
+
+/** A bounded provider page; a cursor is present only when another page is required. */
+export interface S3PartPageType {
+  readonly parts: readonly S3StoredPartType[];
+  readonly cursor?: number;
+}
+
 /** Parsed S3 service failure with provider request identities retained. */
 export class S3Error extends Error {
   /** HTTP status returned by the provider. */
@@ -296,6 +307,8 @@ export interface S3ClientType extends ObjectBackendType {
   createUpload(key: string, options?: ObjectPutOptionsType): Promise<S3UploadType>;
   /** Uploads one multipart part. */
   uploadPart(upload: S3UploadType, number: number, bytes: Uint8Array, signal?: AbortSignal): Promise<S3PartType>;
+  /** Reads one page of retained parts for explicit restart reconciliation. */
+  listParts(upload: S3UploadType, cursor?: number, signal?: AbortSignal): Promise<S3PartPageType>;
   /** Atomically assembles already uploaded parts into the object. */
   completeUpload(
     upload: S3UploadType,
@@ -1215,6 +1228,59 @@ class S3Client implements S3ClientType {
       const etag = response.headers.get("etag");
       if (etag === null) throw new S3Error(`UploadPart ${number} response did not contain ETag.`, response);
       return { number, etag };
+    });
+  }
+
+  /** Reads at most 1,000 retained parts without treating an empty page as completion. */
+  async listParts(upload: S3UploadType, cursor = 0, signal?: AbortSignal): Promise<S3PartPageType> {
+    if (!Number.isSafeInteger(cursor) || cursor < 0 || cursor >= S3_LIMITS.maxParts) {
+      throw new RangeError("Invalid S3 multipart listing cursor.");
+    }
+    const response = await this.request({
+      method: "GET",
+      key: upload.key,
+      query: { uploadId: upload.id, "max-parts": "1000", "part-number-marker": String(cursor) },
+      ...(signal === undefined ? {} : { signal }),
+    });
+    return await readResponse(response, async (text) => {
+      await assertResponse(response, `ListParts ${upload.key}`, text);
+      const root = parseXmlRoot(await text());
+      if (root.name.local !== "ListPartsResult" || getXmlScalar(root, "UploadId") !== upload.id) {
+        throw new SyntaxError("Multipart listing does not identify this upload.");
+      }
+      const keys = getXmlElements(root, "Key");
+      if (
+        keys.length !== 1 || !root.children.includes(keys[0]!) ||
+        keys[0]!.children.some((node) => node.type === "element") || getXmlText(root, "Key") !== upload.key
+      ) throw new SyntaxError("Multipart listing identifies a different object key.");
+      const integer = (value: string): number => {
+        if (!/^(0|[1-9][0-9]*)$/.test(value) || !Number.isSafeInteger(Number(value))) {
+          throw new SyntaxError("Invalid multipart listing integer.");
+        }
+        return Number(value);
+      };
+      const nodes = getXmlElements(root, "Part");
+      if (nodes.length > 1000 || nodes.some((node) => !root.children.includes(node))) {
+        throw new SyntaxError("Multipart listing exceeds one direct provider page.");
+      }
+      let previous = cursor;
+      const parts = nodes.map((node): S3StoredPartType => {
+        const number = integer(getXmlScalar(node, "PartNumber"));
+        const size = integer(getXmlScalar(node, "Size"));
+        if (number <= previous || number > S3_LIMITS.maxParts || size > S3_LIMITS.maxPartBytes) {
+          throw new SyntaxError("Multipart listing contains unordered or out-of-range parts.");
+        }
+        previous = number;
+        return { number, size, etag: getXmlScalar(node, "ETag") };
+      });
+      const truncated = getXmlScalar(root, "IsTruncated");
+      if (truncated === "false") return { parts };
+      if (truncated !== "true") throw new SyntaxError("Invalid multipart truncation flag.");
+      const next = integer(getXmlScalar(root, "NextPartNumberMarker"));
+      if (next <= cursor || next < previous || next >= S3_LIMITS.maxParts) {
+        throw new SyntaxError("Multipart listing cursor did not advance within the part limit.");
+      }
+      return { parts, cursor: next };
     });
   }
 

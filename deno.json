@@ -91,7 +91,12 @@
     "./content/cid": "./src/content/cid.ts",
     "./content/car": "./src/content/car.ts",
     "./ipfs": "./src/ipfs.ts",
-    "./archive/compress": "./src/archive/compress.ts"
+    "./archive/compress": "./src/archive/compress.ts",
+    "./transfer/s3": "./src/transfer/s3.ts",
+    "./transfer/azure": "./src/transfer/azure.ts",
+    "./webhdfs": "./src/webhdfs.ts",
+    "./driver/webhdfs": "./src/driver/webhdfs.ts",
+    "./adapter/webhdfs": "./src/adapter/webhdfs.ts"
   },
   "imports": {
     "@okikio/undent": "jsr:@okikio/undent@^0.3.3",
