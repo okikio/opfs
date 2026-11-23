@@ -1,0 +1,17 @@
+Package: libbrotli1
+Source: brotli
+Version: 1.0.9-2+deb12u1
+Installed-Size: 798
+Maintainer: Tomasz Buchert <tomasz@debian.org>
+Architecture: arm64
+Depends: libc6 (>= 2.29)
+Description: library implementing brotli encoder and decoder (shared libraries)
+Description-md5: 907235dad2acd28ce4f1a8b4e1a35321
+Homepage: https://github.com/google/brotli
+Multi-Arch: same
+Section: libs
+Priority: optional
+Filename: pool/updates/main/b/brotli/libbrotli1_1.0.9-2+deb12u1_arm64.deb
+Size: 266740
+SHA256: 131e62b9708da9aea88be990d275cb5c7b119e40beccf174c23ac8dc7246bb0f
+

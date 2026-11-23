@@ -1,0 +1,122 @@
+{
+  "scope": "Independent Python struct audit of genuine producer bytes, not candidate-reader output",
+  "fileSha256": "12010a3edee7ad78b99909ed02dfea1316616440e93c0c5682f70f814a6e13c8",
+  "superblockVersion": 0,
+  "addressWidth": 8,
+  "lengthWidth": 8,
+  "base": 0,
+  "endOfAllocation": 21312,
+  "sourceBytes": 21312,
+  "rootObjectAddress": 96,
+  "rootObjectPrefixBytes": 16,
+  "treeAddress": 136,
+  "treeLevel": 0,
+  "heapAddress": 680,
+  "heapDataAddress": 9552,
+  "children": [
+    {
+      "address": 1072,
+      "lower": "",
+      "upper": "f64_le",
+      "names": [
+        "alias",
+        "empty",
+        "f32_be",
+        "f32_le",
+        "f64_be",
+        "f64_le"
+      ],
+      "upperEqualsLast": true
+    },
+    {
+      "address": 9904,
+      "lower": "f64_le",
+      "upper": "i32_le",
+      "names": [
+        "grid",
+        "i16_be",
+        "i16_le",
+        "i32_be",
+        "i32_le"
+      ],
+      "upperEqualsLast": true
+    },
+    {
+      "address": 5904,
+      "lower": "i32_le",
+      "upper": "pad00",
+      "names": [
+        "i64_be",
+        "i64_le",
+        "i8_le",
+        "nested",
+        "pad00"
+      ],
+      "upperEqualsLast": true
+    },
+    {
+      "address": 15592,
+      "lower": "pad00",
+      "upper": "pad04",
+      "names": [
+        "pad01",
+        "pad02",
+        "pad03",
+        "pad04"
+      ],
+      "upperEqualsLast": true
+    },
+    {
+      "address": 17008,
+      "lower": "pad04",
+      "upper": "pad08",
+      "names": [
+        "pad05",
+        "pad06",
+        "pad07",
+        "pad08"
+      ],
+      "upperEqualsLast": true
+    },
+    {
+      "address": 18424,
+      "lower": "pad08",
+      "upper": "pad12",
+      "names": [
+        "pad09",
+        "pad10",
+        "pad11",
+        "pad12"
+      ],
+      "upperEqualsLast": true
+    },
+    {
+      "address": 19840,
+      "lower": "pad12",
+      "upper": "u16_be",
+      "names": [
+        "pad13",
+        "pad14",
+        "pad15",
+        "scalar",
+        "soft",
+        "u16_be"
+      ],
+      "upperEqualsLast": true
+    },
+    {
+      "address": 7320,
+      "lower": "u16_be",
+      "upper": "u8_le",
+      "names": [
+        "u16_le",
+        "u32_be",
+        "u32_le",
+        "u64_be",
+        "u64_le",
+        "u8_le"
+      ],
+      "upperEqualsLast": true
+    }
+  ]
+}

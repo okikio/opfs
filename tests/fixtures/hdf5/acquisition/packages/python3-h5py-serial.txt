@@ -1,0 +1,19 @@
+Package: python3-h5py-serial
+Source: h5py
+Version: 3.7.0-8
+Installed-Size: 4381
+Maintainer: Debian Science Maintainers <debian-science-maintainers@lists.alioth.debian.org>
+Architecture: arm64
+Depends: python3 (<< 3.12), python3 (>= 3.11~), python3-numpy (>= 1:1.22.0), python3-numpy-abi9, python3:any, libc6 (>= 2.17), libhdf5-103-1, libhdf5-hl-100, liblzf1 (>= 1.5)
+Suggests: python3-h5py, python-h5py-doc
+Conflicts: python3-h5py (<< 2.10.0-3~)
+Description: general-purpose Python interface to hdf5 (Python 3 serial)
+Description-md5: 6a6d79c4682ca50ade0b56b9a907dcc7
+Homepage: https://www.h5py.org/
+Section: python
+Priority: optional
+Filename: pool/main/h/h5py/python3-h5py-serial_3.7.0-8_arm64.deb
+Size: 733852
+MD5sum: 0e1c0759ba77fe14e76d487441832f17
+SHA256: c9cb55a890b0fdfa1c26440ddc00f5796b15c8f69c92cf8b37b1531e508d33a4
+

@@ -1,0 +1,17 @@
+Package: libssl3
+Source: openssl
+Version: 3.0.22-1~deb12u2
+Installed-Size: 5990
+Maintainer: Debian OpenSSL Team <pkg-openssl-devel@alioth-lists.debian.net>
+Architecture: arm64
+Depends: libc6 (>= 2.34)
+Description: Secure Sockets Layer toolkit - shared libraries
+Description-md5: 88547c6206c7fbc4fcc7d09ce100d210
+Homepage: https://www.openssl.org/
+Multi-Arch: same
+Section: libs
+Priority: optional
+Filename: pool/updates/main/o/openssl/libssl3_3.0.22-1~deb12u2_arm64.deb
+Size: 1829128
+SHA256: 3d04ecd8d0f57fed50d205abaeedfcc84c1960073ea085719c00add44b0ccd7f
+

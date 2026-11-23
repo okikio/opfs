@@ -1,0 +1,18 @@
+Package: libpython3.11-minimal
+Source: python3.11
+Version: 3.11.2-6+deb12u9
+Installed-Size: 5259
+Maintainer: Matthias Klose <doko@debian.org>
+Architecture: arm64
+Depends: libc6 (>= 2.17), libssl3 (>= 3.0.0)
+Conflicts: binfmt-support (<< 1.1.2)
+Description: Minimal subset of the Python language (version 3.11)
+Description-md5: 5d240c86f46ea535e307b897fc938672
+Multi-Arch: same
+Recommends: libpython3.11-stdlib
+Section: python
+Priority: optional
+Filename: pool/updates/main/p/python3.11/libpython3.11-minimal_3.11.2-6+deb12u9_arm64.deb
+Size: 813684
+SHA256: dd9847d2f77c5a924b1d3dd953b81f161db9374c94d03b9216191925350928c3
+

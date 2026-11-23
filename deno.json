@@ -146,7 +146,9 @@
     "./content/arfs": "./src/content/arfs.ts",
     "./arweave": "./src/arweave.ts",
     "./content/arweave": "./src/content/arweave.ts",
-    "./cmis": "./src/cmis.ts"
+    "./cmis": "./src/cmis.ts",
+    "./archive/lha": "./src/archive/lha.ts",
+    "./dataset/hdf5": "./src/dataset/hdf5.ts"
   },
   "imports": {
     "@okikio/undent": "jsr:@okikio/undent@^0.3.3",

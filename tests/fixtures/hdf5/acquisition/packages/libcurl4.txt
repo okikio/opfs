@@ -1,0 +1,22 @@
+Package: libcurl4
+Source: curl
+Version: 7.88.1-10+deb12u15
+Installed-Size: 860
+Maintainer: Alessandro Ghedini <ghedo@debian.org>
+Architecture: arm64
+Replaces: libcurl3
+Depends: libbrotli1 (>= 0.6.0), libc6 (>= 2.34), libgssapi-krb5-2 (>= 1.17), libidn2-0 (>= 0.6), libldap-2.5-0 (>= 2.5.4), libnghttp2-14 (>= 1.50.0), libpsl5 (>= 0.16.0), librtmp1 (>= 2.3), libssh2-1 (>= 1.7.0), libssl3 (>= 3.0.0), libzstd1 (>= 1.5.2), zlib1g (>= 1:1.1.4)
+Recommends: ca-certificates
+Conflicts: libcurl3
+Description: easy-to-use client-side URL transfer library (OpenSSL flavour)
+Description-md5: f1c7f18aba2d8ab7a7e32acea1dc61e7
+Multi-Arch: same
+Homepage: https://curl.se/
+Tag: role::shared-lib
+Section: libs
+Priority: optional
+Filename: pool/main/c/curl/libcurl4_7.88.1-10+deb12u15_arm64.deb
+Size: 367496
+MD5sum: e42740a24706fa7be320bf05bb7ec2c0
+SHA256: e54bdd269c960b643ded903c3dbde36fe5d4d5f5b6389b47a0344d4a711cf70a
+

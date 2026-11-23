@@ -1,0 +1,19 @@
+Package: libnghttp2-14
+Source: nghttp2
+Version: 1.52.0-1+deb12u3
+Installed-Size: 228
+Maintainer: Tomasz Buchert <tomasz@debian.org>
+Architecture: arm64
+Depends: libc6 (>= 2.17)
+Description: library implementing HTTP/2 protocol (shared library)
+Description-md5: e959c1ba3df5439ba338e7e50ed40e05
+Multi-Arch: same
+Homepage: https://nghttp2.org/
+Tag: role::shared-lib
+Section: libs
+Priority: optional
+Filename: pool/main/n/nghttp2/libnghttp2-14_1.52.0-1+deb12u3_arm64.deb
+Size: 68976
+MD5sum: c84a66e19c9fee0d0f6e5b16d7b6698f
+SHA256: 7767833033739adb2e2e374f2c4b36134d9f36fcdfe8e2aab7029bf850146da9
+

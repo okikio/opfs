@@ -1,0 +1,21 @@
+Package: libhdf5-hl-100
+Source: hdf5
+Version: 1.10.8+repack1-1
+Installed-Size: 180
+Maintainer: Gilles Filippini <pini@debian.org>
+Architecture: arm64
+Replaces: libhdf5-100, libhdf5-101, libhdf5-102, libhdf5-103 (<< 1.10.5)
+Depends: libc6 (>= 2.17), libhdf5-103-1
+Conflicts: libhdf5-100, libhdf5-101, libhdf5-102, libhdf5-103 (<< 1.10.5)
+Description: HDF5 High Level runtime files - serial version
+Description-md5: c9045d102978306f9b038586e565d46d
+Multi-Arch: same
+Homepage: http://hdfgroup.org/HDF5/
+Tag: role::shared-lib
+Section: libs
+Priority: optional
+Filename: pool/main/h/hdf5/libhdf5-hl-100_1.10.8+repack1-1_arm64.deb
+Size: 64044
+MD5sum: 0ca989d0d5d1f05e5342abcd4bdbb680
+SHA256: 6bfe7689d619d6d8ed2c806bcf63aff463cfa2f69a82863f5ed759e6eddedd34
+

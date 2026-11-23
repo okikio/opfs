@@ -1,0 +1,22 @@
+Package: libkrb5-3
+Source: krb5
+Version: 1.20.1-2+deb12u5
+Installed-Size: 1164
+Maintainer: Sam Hartman <hartmans@debian.org>
+Architecture: arm64
+Depends: libc6 (>= 2.34), libcom-err2 (>= 1.43.9), libk5crypto3 (>= 1.20), libkeyutils1 (>= 1.5.9), libkrb5support0 (= 1.20.1-2+deb12u5), libssl3 (>= 3.0.0)
+Recommends: krb5-locales
+Suggests: krb5-doc, krb5-user
+Breaks: libapache2-mod-auth-kerb (<= 5.4-2.4), libsmbclient (<= 2:3.6.1-2), sssd (<= 1.2.1-4.3)
+Description: MIT Kerberos runtime libraries
+Description-md5: 07bb931a85fb24c6a0ef0f62a94bb26c
+Multi-Arch: same
+Homepage: https://web.mit.edu/kerberos/
+Tag: role::shared-lib
+Section: libs
+Priority: optional
+Filename: pool/main/k/krb5/libkrb5-3_1.20.1-2+deb12u5_arm64.deb
+Size: 315528
+MD5sum: 60efaab427adb54ff21f904ee3a00575
+SHA256: c3c7227f5db903a7a8b8936d47d1d79643edcda36365c4c992e1a96bcc2d4c7e
+

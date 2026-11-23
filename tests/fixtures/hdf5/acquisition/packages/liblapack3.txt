@@ -1,0 +1,20 @@
+Package: liblapack3
+Source: lapack
+Version: 3.11.0-2
+Installed-Size: 5536
+Maintainer: Debian Science Team <debian-science-maintainers@lists.alioth.debian.org>
+Architecture: arm64
+Provides: liblapack.so.3
+Depends: libblas3 | libblas.so.3, libc6 (>= 2.29), libgcc-s1 (>= 4.0), libgfortran5 (>= 8)
+Description: Library of linear algebra routines 3 - shared version
+Description-md5: d3387c768425e0a5796929e19b4a90a0
+Multi-Arch: same
+Homepage: https://www.netlib.org/lapack/
+Tag: role::shared-lib
+Section: libs
+Priority: optional
+Filename: pool/main/l/lapack/liblapack3_3.11.0-2_arm64.deb
+Size: 1664496
+MD5sum: cafbc14f3ea594ff93a8a746eb604b04
+SHA256: 7f6310fbd910326a63dedd87da046cd6eff3f644e9c00173f3afce20b7b2a93e
+
