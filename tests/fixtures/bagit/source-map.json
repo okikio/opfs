@@ -1,0 +1,13 @@
+{
+  "purpose": "Preserve historical independent producer source without executing Python; new TypeScript output is separate evidence.",
+  "historical": {
+    "path": "produce.py",
+    "snapshot": "produce.py.snapshot",
+    "bytes": 3205,
+    "sha256": "23ede966ea3acafd14a09f9e34840a737cbab0fc014fac0c1640313f873b397e"
+  },
+  "current": {
+    "path": "produce.ts",
+    "proof": "authored controls; historical independent evidence remains unchanged"
+  }
+}

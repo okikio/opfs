@@ -1,0 +1,145 @@
+"""SOURCE ONLY: independent literal Kafka framing capture, never imports OPFS.
+
+Explicit disposable loopback endpoint only. Parent must admit source, artifacts,
+broker and exact launch before execution. This captures framing, not semantic
+success: official Java consumer/producer agreement is a separate required proof.
+"""
+import argparse, hashlib, json, pathlib, re, socket, struct, time
+
+CAP = 4 * 1024 * 1024
+TIMESTAMP = 1700000000000
+VERSIONS = {18: 0, 3: 4, 0: 3, 1: 4, 2: 1}
+def i16(n): return struct.pack('>h', n)
+def i32(n): return struct.pack('>i', n)
+def i64(n): return struct.pack('>q', n)
+def text(value):
+    raw = value.encode('utf-8')
+    if len(raw) > 32767: raise ValueError('String extent')
+    return i16(len(raw)) + raw
+def varint(value):
+    """Signed zigzag, used for record lengths/deltas, not classic array lengths."""
+    if not -(1 << 63) <= value < (1 << 63): raise ValueError('Varint range')
+    n = value * 2 if value >= 0 else -value * 2 - 1; out = bytearray()
+    while n >= 128: out.append((n & 127) | 128); n >>= 7
+    out.append(n); return bytes(out)
+def field(raw): return varint(-1) if raw is None else varint(len(raw)) + raw
+def crc32c(raw):
+    """Slow independent reflected Castagnoli reference, never production reuse."""
+    crc = 0xffffffff
+    for byte in raw:
+        crc ^= byte
+        for _ in range(8): crc = (crc >> 1) ^ (0x82f63b78 if crc & 1 else 0)
+    return crc ^ 0xffffffff
+def payloads():
+    # Independently restated fixed inputs also supplied to official Java oracle.
+    return [(None, bytes(range(256)) * 512, [('dup', b'\x00\xff'), ('dup', None), ('dup', b'')]),
+            (b'', None, []), (b'\x00\xff\x00', b'', [('trace', b'\r\n\x00\x80')])]
+def batch():
+    records = []
+    for index, (key, value, headers) in enumerate(payloads()):
+        body = b'\x00' + varint(index) + varint(index) + field(key) + field(value) + varint(len(headers))
+        for name, item in headers: body += field(name.encode('utf-8')) + field(item)
+        records.append(varint(len(body)) + body)
+    # Attributes=0: CreateTime, no compression/transaction/control/idempotence.
+    crc_input = i16(0) + i32(2) + i64(TIMESTAMP) + i64(TIMESTAMP + 2) \
+        + i64(-1) + i16(-1) + i32(-1) + i32(3) + b''.join(records)
+    tail = i32(-1) + b'\x02' + struct.pack('>I', crc32c(crc_input)) + crc_input
+    return i64(0) + i32(len(tail)) + tail, crc_input
+def request(key, correlation, body):
+    # Classic RequestHeader v1; all chosen APIs are pre-flexible versions.
+    content = i16(key) + i16(VERSIONS[key]) + i32(correlation) + text('opfs-literal') + body
+    if len(content) > CAP: raise ValueError('Request extent')
+    return i32(len(content)) + content
+def versions(raw):
+    """ApiVersions v0 has error+i32 count+exact six-byte triples, no throttle."""
+    if len(raw) < 6: raise ValueError('Truncated ApiVersions')
+    error, count = struct.unpack('>hi', raw[:6])
+    if error or not 0 <= count <= 1024 or len(raw) != 6 + count * 6:
+        raise ValueError('ApiVersions envelope/error')
+    found = {}
+    for at in range(6, len(raw), 6):
+        key, low, high = struct.unpack('>hhh', raw[at:at+6])
+        if key in found or low < 0 or high < low: raise ValueError('API range/duplicate')
+        found[key] = (low, high)
+    for key, version in VERSIONS.items():
+        if key not in found or not found[key][0] <= version <= found[key][1]:
+            raise ValueError('Pinned API version not advertised')
+    return found
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('mode', choices=['read', 'append'])
+    parser.add_argument('--port', type=int, required=True)
+    parser.add_argument('--topic', required=True)
+    parser.add_argument('--partition', type=int, required=True)
+    parser.add_argument('--offset', type=int, required=True)
+    parser.add_argument('--output', required=True)
+    args = parser.parse_args()
+    if not 1 <= args.port <= 65535 or not re.fullmatch(r'opfs-[A-Za-z0-9._-]{1,200}', args.topic) \
+            or not 0 <= args.partition <= 2147483647 or not 0 <= args.offset < (1 << 63):
+        parser.error('Explicit owned topic/partition/loopback port/offset required')
+    out = pathlib.Path(args.output); out.mkdir(exist_ok=False)
+    deadline = time.monotonic() + 45; receipts = []; attempted = False; fault = None
+    def save(name, raw):
+        (out / name).write_bytes(raw)
+        return {'file': name, 'bytes': len(raw), 'sha256': hashlib.sha256(raw).hexdigest()}
+    def exchange(name, key, correlation, body):
+        nonlocal attempted
+        wire = request(key, correlation, body)
+        record = {'api': key, 'version': VERSIONS[key], 'correlation': correlation,
+                  'request': save(name + '-request.bin', wire), 'sendAttempted': False}
+        receipts.append(record)
+        def left():
+            remaining = deadline - time.monotonic()
+            if remaining <= 0: raise TimeoutError('Capture deadline')
+            return min(5, remaining)
+        with socket.create_connection(('127.0.0.1', args.port), timeout=left()) as connection:
+            record['sendAttempted'] = True
+            if key == 0: attempted = True
+            connection.settimeout(left()); connection.sendall(wire)
+            response_path = out / (name + '-response.bin')
+            response_path.touch(exist_ok=False)
+            def receive(n):
+                raw = bytearray()
+                while len(raw) < n:
+                    connection.settimeout(left())
+                    chunk = connection.recv(min(n - len(raw), 65536))
+                    if not chunk: raise EOFError('Truncated native response')
+                    with response_path.open('ab') as retained: retained.write(chunk)
+                    raw.extend(chunk)
+                return bytes(raw)
+            try:
+                prefix = receive(4); size = struct.unpack('>i', prefix)[0]
+                if not 4 <= size <= CAP: raise ValueError('Response preallocation extent')
+                raw = receive(size)
+            finally:
+                original = response_path.read_bytes()
+                record['response'] = {'file': response_path.name, 'bytes': len(original),
+                    'sha256': hashlib.sha256(original).hexdigest()}
+            if struct.unpack('>i', raw[:4])[0] != correlation: raise ValueError('Response correlation')
+            record['framingComplete'] = True
+            return raw[4:]
+    try:
+        advertised = exchange('versions', 18, 3101, b''); versions(advertised)
+        exchange('metadata', 3, 3102, i32(1) + text(args.topic) + b'\x00')
+        if args.mode == 'append':
+            raw_batch, crc_input = batch()
+            save('produce-batch.bin', raw_batch); save('produce-crc-input.bin', crc_input)
+            body = i16(-1) + i16(-1) + i32(5000) + i32(1) + text(args.topic) \
+                + i32(1) + i32(args.partition) + i32(len(raw_batch)) + raw_batch
+            exchange('produce', 0, 3103, body)
+        for name, timestamp, correlation in [('earliest', -2, 3104), ('latest', -1, 3105)]:
+            exchange(name, 2, correlation, i32(-1) + i32(1) + text(args.topic)
+                + i32(1) + i32(args.partition) + i64(timestamp))
+        exchange('fetch', 1, 3106, i32(-1) + i32(1000) + i32(1) + i32(CAP) + b'\x00'
+            + i32(1) + text(args.topic) + i32(1) + i32(args.partition) + i64(args.offset) + i32(CAP))
+    except BaseException as error: fault = type(error).__name__
+    finally:
+        # Framing alone cannot classify broker Produce errors/acknowledgments.
+        receipt = {'mode': args.mode, 'topic': args.topic, 'partition': args.partition,
+            'fetchOffset': str(args.offset), 'fixedTimestamp': str(TIMESTAMP), 'exchanges': receipts,
+            'produceAttempted': attempted, 'appendOutcomeRequiresOracleReview': attempted,
+            'faultClass': fault, 'semanticSuccessClaimed': False, 'sourceOnlyUntilParentGO': True}
+        (out / 'receipt.json').write_text(json.dumps(receipt, indent=2) + '\n')
+    if fault: raise SystemExit(1)
+if __name__ == '__main__': main()

@@ -1,0 +1,73 @@
+# Immutable Kafka dependency and upstream attribution evidence
+
+2026-11-05. Inert source/legal text only. No build, Maven, Gradle, compiler,
+Java, codec or image execution. All files below are under `kafka-admission/`.
+The original image inventory and wrong protobuf notice remain unchanged.
+
+Browser cache misses and sandbox DNS failures were followed by authorized bounded
+curl reads: HTTPS only, TLS>=1.2, no redirect option, no credentials/auth headers,
+connect10s, total20s, individual maximum1MiB. All successful commands exited0;
+their178737B total is below1MiB. No response-header/status artifact was captured,
+so success is command exit evidence, not a retained HTTP transcript. The attempted
+OTel tag `v1.3.2-alpha` returned404; the actual tag is `v1.3.2`. Tag discovery is
+not immutable; the retained tag object then anchors the exact commit for source
+and license reads. Both upstream annotated tags report unsigned verification.
+
+URL bases:
+
+- K: `https://raw.githubusercontent.com/apache/kafka/1156b2752aaa28eafc0b4c4d387e63356793268d/`
+- P: `https://raw.githubusercontent.com/protocolbuffers/protobuf/9d0ec0f92b5b5fdeeda11f9dcecc1872ff378014/`
+- O: `https://raw.githubusercontent.com/open-telemetry/opentelemetry-proto-java/e2efe5f05effb7f6dfee3c2d108a2490e93bacf3/`
+- A: `https://api.github.com/repos/`
+
+| Retained file | Exact URL suffix/base | Bytes | SHA256 |
+| --- | --- | ---: | --- |
+| build.gradle | K build.gradle | 143297 | 30891aa30f709cc591ded9aa8e6cddd66e74ef4b5f00ff370d5063cdcaea8f4c |
+| dependencies.gradle | K gradle/dependencies.gradle | 13059 | e5af389e8e318b90504576379b19a47dd3e76bbdfe47d322631ff6825800a94e |
+| kafka-source-protobuf-license.txt | K licenses/protobuf-java-BSD-3-clause | 1519 | 42e972d1d5bd3c02caa548c08ad0ea27f722bfb753802fc9effbcd723ad8a5cc |
+| protobuf-tag.json | A protocolbuffers/protobuf/git/ref/tags/v3.25.5 | 392 | db8272859311135f2f25402bc30a99684a9bfa8dc63aa952f025cb8dec56793f |
+| protobuf-tag-object.json | A protocolbuffers/protobuf/git/tags/c2fac5994d72dd63723b03c9407e8a546f532c78 | 802 | 4369214399c4e4e6a6d96c51c4e1d69d2889915c02d59a8795d7bb0787b589b6 |
+| protobuf-upstream-LICENSE.txt | P LICENSE | 1732 | 6e5e117324afd944dcf67f36cf329843bc1a92229a8cd9bb573d7a83130fea7d |
+| otel-tag.json | A open-telemetry/opentelemetry-proto-java/git/ref/tags/v1.3.2 | 412 | a68072921571d909a6960f63b466fe21454b0f2a75cb32a933abd7efce6c9d53 |
+| otel-tag-object.json | A open-telemetry/opentelemetry-proto-java/git/tags/5f8a1aae4b20c48b89fd3204976e7b380fc1121b | 870 | d86caa92241f0fc1fb408acdfa53b0c558e0247eb6475b943440b16b7ec2ab90 |
+| otel-upstream-LICENSE.txt | O LICENSE | 11357 | c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4 |
+| otel-upstream-build.gradle.kts | O build.gradle.kts | 2950 | 63813fee3fc2e0df3db686db038ee6a9c3da77766321516eb830edef27866456 |
+| otel-upstream-gradle.properties | O gradle.properties | 498 | 311de6256bb24bbf36219782ad505a55825f8353e7fdc0c5b0710a427ec265db |
+| otel-pom.xml | https://repo.maven.apache.org/maven2/io/opentelemetry/proto/opentelemetry-proto/1.3.2-alpha/opentelemetry-proto-1.3.2-alpha.pom | 1849 | 9a316af795f0db9c2695a721daf8bbcdf61117b1b98113e5a59720bc575c3d40 |
+
+Kafka build.gradle2004–2035 declares zstd, lz4, snappy, OTel proto, protobuf,
+SLF4J and Commons Net implementations, explicitly excluding Commons IO. Its
+`shadowed` runtime dependency set is exactly zstd/lz4/snappy/SLF4J. Lines2082–2103
+relocate OTel proto/protobuf/Commons Net into `org.apache.kafka.shaded` and exclude
+those four external runtime libraries from the final client JAR. This matches the
+actual five-JAR list and all three observed shaded package roots. The generated
+POM publication code409–420 explicitly appends those four as runtime dependencies
+instead of a manifest Class-Path.
+No external Commons IO, Commons Net, OTel, protobuf, Jackson or JOSE4J is required
+for this explicit PLAINTEXT byte-serializer fixture. Jackson/JOSE4J are compile-only
+OAuth contracts outside this profile, not newly approved dependencies.
+
+dependencies.gradle pins Commons Net3.13.0, OTel proto1.3.2-alpha, protobuf3.25.5,
+lz4-java1.11.2, SLF4J1.7.36, snappy1.1.10.7 and zstd1.5.7-17. This source declaration
+plus actual package indexes establishes expected closure, not reproduced bytecode.
+OTel's retained Maven POM independently identifies1.3.2-alpha and its official
+source repository; its protobuf3.23.4 API dependency agrees with that repository's
+immutable build source, while Kafka explicitly selects3.25.5. No resolver was run.
+The OTel v1.3.2 source tag relationship is repository/release provenance, not proof
+that the published Maven artifact was reproduced from that commit.
+
+The exact Kafka source protobuf license is byte-identical to the image's wrong
+JLine notice. Protobuf's own immutable3.25.5 LICENSE instead contains Copyright2008
+Google Inc., BSD3 conditions and a generated-code clarification. Retain it as a
+separate upstream attribution supplement. OTel's immutable LICENSE is Apache2.0.
+Neither changes the original distribution or proves that its notices were correct.
+
+Disposition: source/attribution investigation no longer blocks preparing the
+bounded offline compiler gate for this isolated test-only oracle. Keep original
+notices plus the upstream supplement and exact mismatch in the research evidence;
+do not redistribute/relabel the image or claim corrected upstream legal closure.
+The root can now review the exact compiler launcher and choose the normal narrow
+test execution gate without asking the user to approve these test dependencies
+again. Codec execution, production SDK inclusion, general auth and public
+redistribution remain outside the proposed gate. No compiler or native GO is
+conferred by this source receipt.

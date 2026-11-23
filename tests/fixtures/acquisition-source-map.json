@@ -1,0 +1,36 @@
+{
+  "authority": "Byte-identical historical Python sources remain inert. The current TypeScript recipes require new qualification and do not replace old execution receipts.",
+  "replacementStatus": "source-only; not executed",
+  "sources": [
+    {
+      "historicalPath": "age/provenance/age-acquire.py",
+      "snapshotPath": "age/provenance/age-acquire.py.snapshot",
+      "sha256": "0779340af909edc41caee666848c2d58d4b81cdd465781a8ee5ca231ba8e7da7",
+      "replacementPath": "age/provenance/age-acquire.ts"
+    },
+    {
+      "historicalPath": "age/provenance/age-run.py",
+      "snapshotPath": "age/provenance/age-run.py.snapshot",
+      "sha256": "e15912f717f518572ea658e81665ed8c4f1fa9339c78ee84e9b869a3eab68a82",
+      "replacementPath": "age/provenance/age-run.ts"
+    },
+    {
+      "historicalPath": "jwe/acquire.py",
+      "snapshotPath": "jwe/acquire.py.snapshot",
+      "sha256": "bd02fa39fcd2750ca4ce0cf77b4827e634bab29f58b23a299da900a15a3a81a8",
+      "replacementPath": "jwe/acquire.ts"
+    },
+    {
+      "historicalPath": "jwe/producer-run.py",
+      "snapshotPath": "jwe/producer-run.py.snapshot",
+      "sha256": "76f007a81509af9268b4948d04294870b208b2ac03898327230e88ec53d4bdcd",
+      "replacementPath": "jwe/producer-run.ts"
+    },
+    {
+      "historicalPath": "upload/acquire.py",
+      "snapshotPath": "upload/acquire.py.snapshot",
+      "sha256": "c2379c73ae771b7b47e5d7ec05cca239f7a62ddb03b95c21fea350c812f01551",
+      "replacementPath": "upload/acquire.ts"
+    }
+  ]
+}

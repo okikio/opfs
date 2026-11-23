@@ -91,6 +91,23 @@ even with `verify: false`. No persistent decoded cache is created. A one-byte pr
 therefore exceed default request or decoded-work limits; raise those policies deliberately or choose a smaller preview
 earlier in the folder. Empty ranges perform no replay.
 
+For a late preview, the arrows below show work done during that read. The reader retains a small history window while it
+passes through earlier blocks. It copies only the requested interval into the returned array; the diagram omits header
+indexing, which already happened when the cabinet was opened.
+
+```mermaid
+flowchart TD
+  Request["Preview a late file interval"] --> Locate["Locate its folder and logical range"]
+  Locate --> Prior["Read and decode earlier folder blocks"]
+  Prior --> History["Retain at most 32 KiB of history"]
+  History --> Cover["Decode covering blocks and copy the selected bytes"]
+  Cover --> Return["Return bounded bytes and block evidence"]
+```
+
+Each required present checksum is checked before its packed bytes become decoder input. A checksum failure or exhausted
+replay budget stops this flow without returning a partial preview. A later read repeats the necessary replay because the
+archive does not retain a decoded folder cache.
+
 The internal decoder reads stored, fixed-Huffman and dynamic-Huffman DEFLATE blocks directly. Web
 `DecompressionStream("deflate-raw")` has no preset-dictionary parameter, and native EOF alone is not used as evidence of
 exact compressed consumption. Each packed unit must be at most 32,780 bytes including `CK`, decode to its declared
@@ -149,19 +166,19 @@ and [Cabinet Format reference](https://learn.microsoft.com/en-us/previous-versio
 [libmspack CAB reader](https://github.com/kyz/libmspack/blob/master/libmspack/mspack/cabd.c) provided an independent
 comparison for the reserved-checksum discrepancy. No upstream implementation source is copied into production.
 
-`tests/fixtures/cab/create.py` invokes genuine gcab v1.5 to produce STORED and MSZIP archives and cabextract v1.9 to
-independently consume every original input payload. The corpus includes shared/crossing blocks, a 128 KiB binary file,
-empty files, a late member and a UTF-8 filename. Debian bookworm packages were `gcab 1.5-1` and `cabextract 1.9-3` in
-the disposable arm64 runner. The
+The historical `tests/fixtures/cab/create.py.snapshot` invoked genuine gcab v1.5 to produce STORED and MSZIP archives
+and cabextract v1.9 to independently consume every original input payload. The corpus includes shared/crossing blocks, a
+128 KiB binary file, empty files, a late member and a UTF-8 filename. Debian bookworm packages were `gcab 1.5-1` and
+`cabextract 1.9-3` in the disposable arm64 runner. The
 [producer receipt](https://github.com/okikio/opfs/blob/9f2db24/tests/fixtures/cab/provenance.json) pins archive, script
 and JSON digests. Its local base image is not publicly pullable; apt modified the producer environment, so the base ID
 is not a complete immutable producer image.
 
-`vectors.py` constructs four original mathematical vectors for payload remainder lengths 1, 2, 3 and 0. cabextract must
-consume each complete payload successfully. The separate 24 reserved-area diagnostics record both checksum conventions,
-consumer success/failure and stderr. Failed cases are not accepted golden format fixtures. Tests list those bounded
-records but refuse their payload reads. Local structural adaptations also exercise multiple folders and header/folder
-reserve placement; these are explicitly not additional independent producer profiles.
+The historical `vectors.py.snapshot` constructed four original mathematical vectors for payload remainder lengths 1, 2,
+3 and 0. cabextract had to consume each complete payload successfully. The separate 24 reserved-area diagnostics record
+both checksum conventions, consumer success/failure and stderr. Failed cases are not accepted golden format fixtures.
+Tests list those bounded records but refuse their payload reads. Local structural adaptations also exercise multiple
+folders and header/folder reserve placement; these are explicitly not additional independent producer profiles.
 
 Focused source/runtime tests, installed package/type gates and benchmark timings prove different things. This reader
 does not claim browser/provider performance or support for an untested codec from directory recognition alone.
@@ -183,12 +200,20 @@ and [RFC 1951](https://www.rfc-editor.org/rfc/rfc1951). The
 [Compression Standard](https://compression.spec.whatwg.org/#dom-decompressionstream-decompressionstream) documents the
 native API's format-only constructor; this decoder does not depend on host dictionary or consumption behavior.
 
-[`mszip.py`](../tests/fixtures/cab/mszip.py) separately constructs CAB framing around Python zlib 1.2.12 streams. The
-[fixture receipt](../tests/fixtures/cab/mszip.md) identifies retained `mszip.json`, which includes complete original
-payloads, packed blocks, archive hashes, native 7zz 26.02 receipts and dictionary-dependence checks. Dynamic,
-fixed-Huffman, stored and overlapping-copy profiles pass native full-byte consumption. The genuine gcab MSZIP fixture
-also passes complete-byte reads, but its blocks happen to decode independently and do not prove dictionary support. The
-new zdict profiles fail independent raw decoding without prior history and supply that proof. A three-short-block
-history vector passes Python zlib but native 7zz rejects its CAB; that negative receipt is retained and is not a
-native-interoperability claim. MS-MCI permits each block to contain at most 32 KiB, so the reader retains cumulative
-history across those short units without silently imposing 7zz's observed restriction.
+[`mszip.py.snapshot`](../tests/fixtures/cab/mszip.py.snapshot) retains the historical producer that constructed CAB
+framing around Python zlib 1.2.12 streams. The [fixture receipt](../tests/fixtures/cab/mszip.md) identifies retained
+`mszip.json`, which includes complete original payloads, packed blocks, archive hashes, native 7zz 26.02 receipts and
+dictionary-dependence checks. Dynamic, fixed-Huffman, stored and overlapping-copy profiles pass native full-byte
+consumption. The genuine gcab MSZIP fixture also passes complete-byte reads, but its blocks happen to decode
+independently and do not prove dictionary support. The new zdict profiles fail independent raw decoding without prior
+history and supply that proof. A three-short-block history vector passes Python zlib but native 7zz rejects its CAB;
+that negative receipt is retained and is not a native-interoperability claim. MS-MCI permits each block to contain at
+most 32 KiB, so the reader retains cumulative history across those short units without silently imposing 7zz's observed
+restriction.
+
+Current producer tooling is TypeScript: `create.ts` calls gcab and cabextract, `vectors.ts` constructs mathematical
+checksum controls, and `mszip.ts` uses Node's built-in zlib with native 7zz as a separate CAB consumer. They import no
+candidate reader and require a new output path. The old JSON, receipt hashes and Python source snapshots remain
+historical evidence; the TypeScript ports have not retroactively produced those results. The
+[fixture guide](../tests/fixtures/cab/README.md) gives the commands and explains which new controls intentionally use
+different original bytes.

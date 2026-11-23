@@ -230,19 +230,17 @@
     "exclude": [
       "tests/upstream/original/",
       "tests/fixtures/age/upstream/",
-      "tests/fixtures/age/provenance/",
+      "tests/fixtures/age/provenance/**/*.json",
+      "tests/fixtures/age/provenance/**/*.snapshot",
       "tests/fixtures/age/independent.json",
       "tests/fixtures/age/cctv.json",
       "tests/fixtures/orc/independent.json",
       "tests/fixtures/orc/receipts/",
       "tests/fixtures/amqp/receipts/",
       "tests/fixtures/amqp/independent.json",
-      "tests/fixtures/glacier/",
-      "tests/fixtures/age/provenance/**/*.json",
-      "tests/fixtures/age/provenance/**/*.snapshot",
-      "tests/fixtures/age/provenance/**/*.mjs",
       "tests/fixtures/glacier/**/*.json",
-      "tests/fixtures/glacier/**/*.snapshot"
+      "tests/fixtures/glacier/**/*.snapshot",
+      "tests/fixtures/age/provenance/**/*.mjs"
     ]
   },
   "lint": {
@@ -264,8 +262,10 @@
     "exclude": [
       "tests/upstream/original/",
       "tests/fixtures/age/upstream/",
-      "tests/fixtures/age/provenance/",
-      "tests/fixtures/glacier/"
+      "tests/fixtures/age/provenance/**/*.json",
+      "tests/fixtures/age/provenance/**/*.snapshot",
+      "tests/fixtures/glacier/**/*.json",
+      "tests/fixtures/glacier/**/*.snapshot"
     ]
   },
   "publish": {

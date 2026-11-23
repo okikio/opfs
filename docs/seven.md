@@ -94,11 +94,16 @@ dependencies are installed. `mtime` is a bigint Windows FILETIME value (100 ns s
 
 ## Interoperability evidence
 
-`tests/fixtures/seven/create.py` invokes genuine 7-Zip 26.02 from signed Debian package
-`7zip 22.01+really26.02+dfsg-0+deb12u1` and independent `bsdtar` from `libarchive-tools 3.6.2-1+deb12u5`, arm64. COPY,
-LZMA1, LZMA2, solid and encoded-header fixtures were extracted by bsdtar and every payload compared to the original
-binary input. Encrypted fixtures record consumer failure and are used only for metadata/refusal tests; they do not
-establish independent decryption support.
+The historical executed producer, retained as inert `tests/fixtures/seven/create.py.snapshot`, invoked genuine 7-Zip
+26.02 from signed Debian package `7zip 22.01+really26.02+dfsg-0+deb12u1` and independent `bsdtar` from
+`libarchive-tools 3.6.2-1+deb12u5`, arm64. COPY, LZMA1, LZMA2, solid and encoded-header fixtures were extracted by
+bsdtar and every payload compared to the original binary input. Encrypted fixtures record consumer failure and are used
+only for metadata/refusal tests; they do not establish independent decryption support.
+
+[`create.ts`](../tests/fixtures/seven/create.ts) is the current project-owned producer port. It retains native writing
+and full original-payload comparisons, but has not yet run. The
+[producer instructions](../tests/fixtures/seven/README.md) explain how to qualify a separate output without changing
+attribution of the committed native evidence.
 
 The receipt pins producer script, JSON and individual archive hashes. The local producer base was
 `opfs-cab-tools:20261105`, image ID `sha256:205a6b2ff80a9c72b8d3df0e9abc98970fde7edbbfcca91967bcf9a153e3bc79`. Package

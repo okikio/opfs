@@ -73,3 +73,63 @@ formatting, every first failure, source script SHA, actual packages/tools/licens
 original-raw/QEMU oracle independent of the TypeScript candidate, not two unrelated QCOW2 implementations. Remove only
 these task-owned containers after evidence is copied. Benchmarks need a separate quiet-window approval and are not part
 of this recipe.
+
+## Current TypeScript acquisition and producer
+
+The recipe above records the historical Python execution. Its exact producer and process owner now remain inert as
+`create.py.snapshot` and `producer-run.py.snapshot`. Their hashes are in `source-map.json`; the old native JSON,
+provenance and image/runtime receipts are unchanged. Do not execute a snapshot or relabel those receipts as TypeScript.
+
+The current native producer is `create.ts`, with its whole-process owner in `producer-run.ts`. A new run requires a
+separately reviewed Linux Node image containing the admitted QEMU tools and Debian `/bin/dash`; the historical Python
+tools image is not a current Node recipe. Copy the relative fixture layout, including the imported `../acquire.ts` and
+`../group.ts`, without mounting the worktree or adding candidate library sources. From that copied tree run:
+
+```sh
+node /tool/qcow2/producer-run.ts --producer /tool/qcow2/create.ts \
+  --output /tmp/qcow2-review/independent.json --receipts /tmp/qcow2-review/receipts
+```
+
+Both destinations must be fresh. The wrapper creates the receipt directory, retains the first bounded diagnostic bytes,
+kills only its own new Linux process group on a limit/fault, and records retirement faults separately. The producer uses
+one fresh temporary directory and removes that owned directory after the run. It compares all native readback bytes
+before publishing JSON through a fresh `.next` file and rename. Failed evidence never replaces the checked-in fixture.
+Output is capped at 32 MiB; raw plus base64 fixture content is capped at 16 MiB. Each QEMU command inherits an 8 MiB
+individual-file hard/soft limit, has a 60-second deadline and contributes to the 4 MiB native diagnostic budget. The
+wrapper retains the separate 210-second/4 MiB whole-process limits.
+
+The file limit comes from Debian dash's
+[documented 512-byte `ulimit -f` units](https://manpages.debian.org/bookworm/dash/dash.1.en.html): 16,384 blocks is 8
+MiB. `/bin/dash` and a constant command apply the bound before `exec`; QEMU filenames/options remain separate argv
+values. A failure to set the limit prevents QEMU from running. Substituting another shell can change the units and is
+not part of this recipe.
+
+The current acquisition is `acquire-run.ts`, `acquire.sh` and shared `../apt.ts`. The shell retains native signed APT
+operations; Node performs inert archive admission, complete offline archive byte/set rechecks, notice collection and
+receipt inventory. No current QCOW2 tool invokes Python. Copy `apt.ts`, `acquire.ts` and `group.ts` under `/tool` and
+preserve the `qcow2/` source directory. Start from the official
+`node:26.13.0-bookworm-slim@sha256:add5c17c14752c54d2f3d519ec46a3815684d41c33f198bcb09fb998f7dcbf68` image, inspecting
+its actual platform/config and recording each derived image ID as described in the
+[shared acquisition guide](../acquisition.md). Use these commands in separate created/copied containers with the
+resource envelope above:
+
+```sh
+node /tool/qcow2/acquire-run.ts download --script /tool/qcow2/acquire.sh \
+  --admission /tool/apt.ts --receipts /receipts
+# Retain admission, resource and terminal state; commit only the exact owned successful download image.
+node /tool/qcow2/acquire-run.ts install --script /tool/qcow2/acquire.sh \
+  --admission /tool/apt.ts --receipts /receipts
+```
+
+Download requires a fresh receipt directory. Installation requires the successful retained download receipt with no
+cleanup faults, then debits the same 180-second/4 MiB combined allowance. Its container must have `--network none`; the
+wrapper does not create or inspect containers. Each shell process inherits the same 64 MiB file cap as before. APT
+retries are disabled and each HTTP/HTTPS transport has a 20-second timeout. Native signed index, keyring, effective
+configuration, before/after package/source versions, exact retained archive SHA/extent and notice evidence remain. The
+new runtime receipt records the actual Node executable SHA and complete Node license instead of claiming a Python
+runtime. The current `source-map.json` binds original shell/Python sources to their inert snapshots.
+
+These new recipes have not produced the old acquisition or native receipts. Qualify the TS and shell sources, run the
+two controlled stages, record the actual new closure, tools, image and resources, then run the independent producer.
+Signed Debian repositories can publish new package revisions; the new manifest must state what was actually admitted. Do
+not claim byte-identical output or reuse an old package/runtime receipt merely because the requests are unchanged.

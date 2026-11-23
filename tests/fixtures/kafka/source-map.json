@@ -1,0 +1,354 @@
+{
+  "scope": "Immutable previous independent source and attribution; old Python is inert. New TS tools have not yet qualified execution. The original native failed terminal and separate semantic recovery are both retained.",
+  "files": [
+    {
+      "original": ".tmp/implementation/kafka-admission/probe.py",
+      "file": "history/probe.py.snapshot",
+      "bytes": 8086,
+      "sha256": "54dec3674d58b2d9e04f9a0066fcf274edbdf6e9abca417bd336a5eb717fa79c"
+    },
+    {
+      "original": ".tmp/implementation/kafka-admission/native_verify.py",
+      "file": "history/native_verify.py.snapshot",
+      "bytes": 8780,
+      "sha256": "df32b4a7ec80cde0b55edf067ee9ba771314e0eb88b1f159a5444f8285adc9bb"
+    },
+    {
+      "original": ".tmp/implementation/kafka-admission/manifest.py",
+      "file": "history/manifest.py.snapshot",
+      "bytes": 4720,
+      "sha256": "df1b7482f3dd559153734482c7be7a0b5799fa8351ebc880038f6409d1de0833"
+    },
+    {
+      "original": ".tmp/implementation/kafka-admission/KafkaOracle.java",
+      "file": "oracle/KafkaOracle.java",
+      "bytes": 17042,
+      "sha256": "827323a1da00dd8fe4e1be1a9352738745367b25538d7edf7d77d9720e629744"
+    },
+    {
+      "original": ".tmp/implementation/kafka-admission/CrcOracle.java",
+      "file": "oracle/CrcOracle.java",
+      "bytes": 972,
+      "sha256": "dc78549f0152518b2537597e741897db9e14832b0b1488a3af004c730a6fcd4d"
+    },
+    {
+      "original": ".tmp/implementation/kafka-admission/LICENSE",
+      "file": "history/LICENSE.snapshot",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "original": ".tmp/implementation/kafka-admission/NOTICE",
+      "file": "history/NOTICE.snapshot",
+      "bytes": 707,
+      "sha256": "e10a1d2b5812b6eeac08ec087512bbf649739ca23cb7ee610702acb976f42936"
+    },
+    {
+      "original": ".tmp/implementation/kafka-admission/ProduceRequest.json",
+      "file": "history/ProduceRequest.json.snapshot",
+      "bytes": 4011,
+      "sha256": "779c104bdd1753731b946384ea1fc1af08c6c6fd47f2496eadc6530a2db35966"
+    },
+    {
+      "original": ".tmp/implementation/kafka-admission/ProduceResponse.json",
+      "file": "history/ProduceResponse.json.snapshot",
+      "bytes": 6128,
+      "sha256": "ea483c690ec06f83b3dcd95c5ec53f239702f754a16963d62300b156a233614a"
+    },
+    {
+      "original": ".tmp/implementation/kafka-admission/FetchRequest.json",
+      "file": "history/FetchRequest.json.snapshot",
+      "bytes": 8063,
+      "sha256": "40d679a103935abe707055c2f3dde3aefcdb0eb13a00e51a71f2e0832d2033ba"
+    },
+    {
+      "original": ".tmp/implementation/kafka-admission/FetchResponse.json",
+      "file": "history/FetchResponse.json.snapshot",
+      "bytes": 7753,
+      "sha256": "102c7b46666469d29d9810d2437ed10cb66cd90ee1050820405b6acfff94e002"
+    },
+    {
+      "original": ".tmp/implementation/kafka-admission/MetadataRequest.json",
+      "file": "history/MetadataRequest.json.snapshot",
+      "bytes": 2958,
+      "sha256": "4dd85dfe9585b9f59210ba78bc60b5c86d7684614c3a8829b8dea343f22a1d36"
+    },
+    {
+      "original": ".tmp/implementation/kafka-admission/MetadataResponse.json",
+      "file": "history/MetadataResponse.json.snapshot",
+      "bytes": 6026,
+      "sha256": "482b7171b2c41172213b9d8c7842998938c386872a0c89f209cc0e0427d4b4d8"
+    },
+    {
+      "original": ".tmp/implementation/kafka-admission/ApiVersionsRequest.json",
+      "file": "history/ApiVersionsRequest.json.snapshot",
+      "bytes": 2084,
+      "sha256": "22d9d577e79f6088f3cc3a23f88bf7536021473f7ebbc1ccfe7ddd14035df18d"
+    },
+    {
+      "original": ".tmp/implementation/kafka-admission/ApiVersionsResponse.json",
+      "file": "history/ApiVersionsResponse.json.snapshot",
+      "bytes": 4582,
+      "sha256": "ddd7e266763919dd68dbd900b6f8521bc5316cf2ea3ffefeeee99d3f91d68428"
+    },
+    {
+      "original": ".tmp/implementation/kafka-admission/ListOffsetsRequest.json",
+      "file": "history/ListOffsetsRequest.json.snapshot",
+      "bytes": 3727,
+      "sha256": "7949a78fdbf56d0436c34239475b04be2db24007b2942aa016f37408aa3ea13b"
+    },
+    {
+      "original": ".tmp/implementation/kafka-admission/ListOffsetsResponse.json",
+      "file": "history/ListOffsetsResponse.json.snapshot",
+      "bytes": 3372,
+      "sha256": "7ab8384fb66fc588169e15d49d0a098e43186f17bdfefddc7c3cde056f158eeb"
+    },
+    {
+      "original": ".tmp/implementation/kafka-admission/RequestHeader.json",
+      "file": "history/RequestHeader.json.snapshot",
+      "bytes": 2117,
+      "sha256": "2f4fb9b826ab490879d9412f76e9ac177ec2af917f686d890d57c8f190d5185f"
+    },
+    {
+      "original": ".tmp/implementation/kafka-admission/ResponseHeader.json",
+      "file": "history/ResponseHeader.json.snapshot",
+      "bytes": 1087,
+      "sha256": "0bf02cc9a7663f05848117537e9cf22879770e03a74555ab1c3dd5ab0b517b88"
+    },
+    {
+      "original": ".tmp/implementation/kafka-admission/TimestampType.java",
+      "file": "history/TimestampType.java.snapshot",
+      "bytes": 1627,
+      "sha256": "89e55d22dd3bfa0d2090ca0fd8a2b35dd5f1cb14bbbdbdc1c07964b4336484f8"
+    },
+    {
+      "original": ".tmp/implementation/kafka-admission/protobuf-upstream-LICENSE.txt",
+      "file": "history/protobuf-upstream-LICENSE.txt.snapshot",
+      "bytes": 1732,
+      "sha256": "6e5e117324afd944dcf67f36cf329843bc1a92229a8cd9bb573d7a83130fea7d"
+    },
+    {
+      "original": ".tmp/implementation/kafka-admission/otel-upstream-LICENSE.txt",
+      "file": "history/otel-upstream-LICENSE.txt.snapshot",
+      "bytes": 11357,
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "original": ".tmp/implementation/kafka-admission/kafka-source-protobuf-license.txt",
+      "file": "history/kafka-source-protobuf-license.txt.snapshot",
+      "bytes": 1519,
+      "sha256": "42e972d1d5bd3c02caa548c08ad0ea27f722bfb753802fc9effbcd723ad8a5cc"
+    },
+    {
+      "original": ".tmp/implementation/kafka-artifact-review.md",
+      "file": "history/kafka-artifact-review.md.snapshot",
+      "bytes": 11194,
+      "sha256": "da77a80655e42889da9b2a5339c18b19bbcbb94b13c5579e6692376041cd7e28"
+    },
+    {
+      "original": ".tmp/implementation/kafka-artifact-verdict.md",
+      "file": "history/kafka-artifact-verdict.md.snapshot",
+      "bytes": 12045,
+      "sha256": "a1b8db91eb49532a67d0df926f90148c85400d496108ab3c76bf6abea61fd1bb"
+    },
+    {
+      "original": ".tmp/implementation/kafka-attribution-receipt.md",
+      "file": "history/kafka-attribution-receipt.md.snapshot",
+      "bytes": 5758,
+      "sha256": "8f03428378cfbcc3f2552cb329e1e81e997f05a2c71ebb866e9249a85d26d875"
+    },
+    {
+      "original": ".tmp/implementation/kafka-native-recipe.md",
+      "file": "history/kafka-native-recipe.md.snapshot",
+      "bytes": 10599,
+      "sha256": "59d35aee411dc49de715e1b4a0cc34ce5d981ac100dde4156ac70bbb28c5d406"
+    }
+  ],
+  "nativeOutputs": [
+    {
+      "file": "native-second/append/earliest-request.bin",
+      "bytes": 69,
+      "sha256": "7d1c4de9685e0040320bd473d41c086835b199ef5afdcdc9ba1e335508c996db"
+    },
+    {
+      "file": "native-second/append/earliest-response.bin",
+      "bytes": 57,
+      "sha256": "a01304d13f83aae73137627f53ff1964bbcd3d79cd7a2dda85bf74177d9be461"
+    },
+    {
+      "file": "native-second/append/fetch-request.bin",
+      "bytes": 86,
+      "sha256": "68a4dd438bb49bb4809a1917b7c870d0ad7f599963b4a585df728721f7efaf2f"
+    },
+    {
+      "file": "native-second/append/fetch-response.bin",
+      "bytes": 131258,
+      "sha256": "c70802ff45d705538d5a0668826468cf77f4405bcae43e93f5346bde9c5f286c"
+    },
+    {
+      "file": "native-second/append/latest-request.bin",
+      "bytes": 69,
+      "sha256": "e661a25000ea0f2edd17edd61be08c92dddc26538059c73e7ae714dadc61e3d9"
+    },
+    {
+      "file": "native-second/append/latest-response.bin",
+      "bytes": 57,
+      "sha256": "a2bedb99d8e5a555e2d338a0a1d25a6d20fd30e309583ce3a9b71d5ed20cbc06"
+    },
+    {
+      "file": "native-second/append/metadata-request.bin",
+      "bytes": 50,
+      "sha256": "5df0d49076d24c62583c274eaca0a1377cc80ebc48f1041f6729160fb4da34cc"
+    },
+    {
+      "file": "native-second/append/metadata-response.bin",
+      "bytes": 121,
+      "sha256": "304cb80da3c5372cad8718c71456eb8a438bf0c4b932a34febdf33100a231070"
+    },
+    {
+      "file": "native-second/append/produce-batch.bin",
+      "bytes": 131189,
+      "sha256": "e57663f3a2ee7fad59b09267bf6654968187f7ed06c34442f73b908b87c064d9"
+    },
+    {
+      "file": "native-second/append/produce-crc-input.bin",
+      "bytes": 131168,
+      "sha256": "5b61cf7e58fa3ebeaf41acbd160a363e4894491c0621bb17dc674ea67d422d9a"
+    },
+    {
+      "file": "native-second/append/produce-request.bin",
+      "bytes": 131258,
+      "sha256": "e232d2be242d2869934dc32412b919449bf0ef0e274d6d4dd08b1a1afe10b76d"
+    },
+    {
+      "file": "native-second/append/produce-response.bin",
+      "bytes": 61,
+      "sha256": "489b8904f8f1581d37b8f99e2e9d7389b8407cb6b92565380d5a335c7cd0d9e0"
+    },
+    {
+      "file": "native-second/append/receipt.json.snapshot",
+      "bytes": 3227,
+      "sha256": "ac5e1146b15796898a5f6da3cccc5cebceac0dfe5d98e553f04df117547efdc1"
+    },
+    {
+      "file": "native-second/append/versions-request.bin",
+      "bytes": 26,
+      "sha256": "5f65d54afe47c5fd77ac284dcb5275c9dd7f2cb94bce89db8890dfa66e1a6cf9"
+    },
+    {
+      "file": "native-second/append/versions-response.bin",
+      "bytes": 476,
+      "sha256": "051f5ba63a0fe01a81ff3846d733c5f8b3525a965f9f36088b4c6661a576b6d8"
+    },
+    {
+      "file": "native-second/crc-input.bin",
+      "bytes": 131168,
+      "sha256": "5b61cf7e58fa3ebeaf41acbd160a363e4894491c0621bb17dc674ea67d422d9a"
+    },
+    {
+      "file": "native-second/crc.txt",
+      "bytes": 9,
+      "sha256": "d77f1a5cbfe9af23c47dbb34b0136ca1a44b944f7c4b6451ed19fad26da4575d"
+    },
+    {
+      "file": "native-second/fixture-terminal.json.snapshot",
+      "bytes": 434,
+      "sha256": "9ae247afeb073adf85e18195994d4271b6259238193da0bc7444f1c9a766508b"
+    },
+    {
+      "file": "native-second/inputs.json.snapshot",
+      "bytes": 680,
+      "sha256": "9f118a8f411a9b711c82e46fb2b166819f224d7b200371cee2043604997b2e27"
+    },
+    {
+      "file": "native-second/original-byte-freeze.json.snapshot",
+      "bytes": 3953,
+      "sha256": "0faedfa486664ff679573d2adcf58021e5f7a32a645ea7c2a7d27e75c011f0de"
+    },
+    {
+      "file": "native-second/read/earliest-request.bin",
+      "bytes": 69,
+      "sha256": "7d1c4de9685e0040320bd473d41c086835b199ef5afdcdc9ba1e335508c996db"
+    },
+    {
+      "file": "native-second/read/earliest-response.bin",
+      "bytes": 57,
+      "sha256": "a01304d13f83aae73137627f53ff1964bbcd3d79cd7a2dda85bf74177d9be461"
+    },
+    {
+      "file": "native-second/read/fetch-request.bin",
+      "bytes": 86,
+      "sha256": "64efa481b5e9f4bfa10a1803dbce1bb5a6ebae72b8a9aa9435e42a13a06411b8"
+    },
+    {
+      "file": "native-second/read/fetch-response.bin",
+      "bytes": 131380,
+      "sha256": "d79d756497f3ae3f62f8dcdce69afdafb8a8a727e40f67b405a9e1b5dc00e16a"
+    },
+    {
+      "file": "native-second/read/latest-request.bin",
+      "bytes": 69,
+      "sha256": "e661a25000ea0f2edd17edd61be08c92dddc26538059c73e7ae714dadc61e3d9"
+    },
+    {
+      "file": "native-second/read/latest-response.bin",
+      "bytes": 57,
+      "sha256": "cd3e962a33a2d8e34cf056e51fda75e76c538c4bde243edc0e5759ae9396e80e"
+    },
+    {
+      "file": "native-second/read/metadata-request.bin",
+      "bytes": 50,
+      "sha256": "5df0d49076d24c62583c274eaca0a1377cc80ebc48f1041f6729160fb4da34cc"
+    },
+    {
+      "file": "native-second/read/metadata-response.bin",
+      "bytes": 121,
+      "sha256": "304cb80da3c5372cad8718c71456eb8a438bf0c4b932a34febdf33100a231070"
+    },
+    {
+      "file": "native-second/read/receipt.json.snapshot",
+      "bytes": 2740,
+      "sha256": "abda2553fa7f6c13a2c6a0a390f75120af1569bf11aee575edb98e1b4119ca19"
+    },
+    {
+      "file": "native-second/read/versions-request.bin",
+      "bytes": 26,
+      "sha256": "5f65d54afe47c5fd77ac284dcb5275c9dd7f2cb94bce89db8890dfa66e1a6cf9"
+    },
+    {
+      "file": "native-second/read/versions-response.bin",
+      "bytes": 476,
+      "sha256": "051f5ba63a0fe01a81ff3846d733c5f8b3525a965f9f36088b4c6661a576b6d8"
+    },
+    {
+      "file": "native-second/recovery.json.snapshot",
+      "bytes": 976,
+      "sha256": "5f0af31519558311b4448ae20b169967d7f0b0ffb8e0e4e1d82d90d74cf0b4f2"
+    },
+    {
+      "file": "native-second/sdk-append-input.bin",
+      "bytes": 131239,
+      "sha256": "875fae7719e94b724f385db241f345c25a4915dcdac7bd8c2afdd7b734034363"
+    },
+    {
+      "file": "native-second/sdk-append.bin",
+      "bytes": 109,
+      "sha256": "6185111a661e706e78047fb225a383ff360c4003661b73135f97ff41e52e1d71"
+    },
+    {
+      "file": "native-second/sdk-fetch-input.bin",
+      "bytes": 64,
+      "sha256": "cbea3e6dcbab3feb45899fe9e6503f760b435d5af4fc5fc9770ab2c4b7e92351"
+    },
+    {
+      "file": "native-second/sdk-fetch.bin",
+      "bytes": 131305,
+      "sha256": "50ffdf44efb0c59b5f827db4679b10eff32921be4cf7e3a04011f8943a6ebb42"
+    },
+    {
+      "file": "native-second/terminal.json.snapshot",
+      "bytes": 1683,
+      "sha256": "d87cf00a6c1d8bb3172ca75b9bc9293803e121ac1ef9d48261fd7ab041b9c648"
+    }
+  ]
+}

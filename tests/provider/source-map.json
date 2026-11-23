@@ -1,0 +1,20 @@
+{
+  "purpose": "Exact pre-migration tracked FUSE harness source retained as inert evidence. These are project-owned command harnesses, not independent native corpus receipts.",
+  "adaptations": "Imports and copied worker/client command paths change from .mjs to .ts only in the current typed sources. Snapshots preserve the original index bytes; the current TypeScript sources retain their separate runtime, quota and protocol qualification requirements.",
+  "sources": [
+    {
+      "original": "tests/provider/fuse.mjs",
+      "snapshot": "fuse.mjs.snapshot",
+      "current": "fuse.ts",
+      "bytes": 20018,
+      "sha256": "fdeb83cadbd928cfb1c63e29168b88562c0a302bc4c3c8bb2dfec75d1192c321"
+    },
+    {
+      "original": "tests/provider/fuse-client.mjs",
+      "snapshot": "fuse-client.mjs.snapshot",
+      "current": "fuse-client.ts",
+      "bytes": 8616,
+      "sha256": "26c3609b0e8241fdea408f9a330cb3c3ca9e15abb8870f87cf266cf13d71a7c6"
+    }
+  ]
+}

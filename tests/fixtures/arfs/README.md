@@ -1,13 +1,13 @@
 # ArFS independent evidence
 
-`produce.cjs` is a test-only ArDrive core 5.1.1 and Arweave 1.15.7 producer/consumer recipe. It is not imported by the
-library. The tool wallet is ephemeral; private key material is never written to the receipt. Transactions are locally
-signed with explicit anchor/reward inputs, checked by the native SDK and **never submitted or funded**. Native ArFS
-builders consume the resulting exact metadata bytes through an injected map. No result proves chain inclusion or
+`produce.cjs.snapshot` is a test-only ArDrive core 5.1.1 and Arweave 1.15.7 producer/consumer recipe. It is not imported
+by the library. The tool wallet is ephemeral; private key material is never written to the receipt. Transactions are
+locally signed with explicit anchor/reward inputs, checked by the native SDK and **never submitted or funded**. Native
+ArFS builders consume the resulting exact metadata bytes through an injected map. No result proves chain inclusion or
 production-reader signature verification.
 
-`tool-package.json`, the original npm `tool-lock.json` and `acquire.cjs` pin the tool-only dependency graph. The
-acquisition runs both npm operations with `--ignore-scripts --no-audit --no-fund`; the validator checks the direct
+`tool-package.json`, the original npm `tool-lock.json` and `acquire.cjs.snapshot` pin the tool-only dependency graph.
+The acquisition runs both npm operations with `--ignore-scripts --no-audit --no-fund`; the validator checks the direct
 artifact integrity, URL and version before installation. Transitive package sources and integrity are recorded in the
 lock. The tool uses AGPL-3.0-or-later ArDrive core and MIT Arweave as test tooling only; no upstream implementation code
 is copied into production or adopted as a production dependency.
@@ -25,23 +25,54 @@ after successful state/image/fixture verification. The large test-only tool imag
 storage; its recorded SHA is provenance, not a claim that the image remains installed. Reproduction installs the pinned
 lock in a fresh disposable tool.
 
-To reproduce in an explicitly authorized disposable container, copy `tool-package.json` to `/tool/package.json`, create
-the original lock using `npm install --package-lock-only --ignore-scripts --no-audit --no-fund`, run `acquire.cjs`, then
-run `npm ci --ignore-scripts --no-audit --no-fund`. For an exact existing graph, copy `tool-lock.json` to
-`/tool/package-lock.json` and use `npm ci` directly after checking direct pins. Snapshot the successful tool and run
-`node /tool/produce.cjs /tmp/arfs-independent.json` with networking disabled. Copy the JSON only after zero exit,
-retaining the command, image, resource, source/lock hashes, stderr/stdout and any failures. Do not retain wallet keys.
+The historical acquisition copied the tool package into a fresh disposable container, admitted direct pins, installed
+with lifecycle scripts disabled, then ran the native SDK producer in a separate offline container. Its exact recipe
+sources are now inert snapshots. The current TypeScript command below uses the retained package/lock graph and requires
+a new output receipt.
 
-`zip.json` is separate independent Python 3.9.6 standard-library `zipfile` evidence. `zip-produce.py` writes a stored
-`preview.txt` member with fixed metadata, then the independent Python consumer reads and compares the full authored
-original bytes. `tests/arfs.test.ts` supplies that archive through an authored ArFS metadata/data binding and reads the
-selected member with the package ZIP reader. This proves byte-source composition, not native ArFS signature or network
-interoperability. The exact ZIP byte hash and original bytes are in the fixture; regeneration uses only Python's
-standard library:
+`zip.json` preserves independent Python 3.9.6 standard-library ZIP evidence. Its exact producer is now inert
+`zip-produce.py.snapshot`; the historical archive and hashes remain unchanged. The package test supplies that image
+through an authored ArFS metadata/data binding and reads the selected member. This proves byte-source composition, not
+ArFS signature, chain inclusion or network interoperability.
+
+For a new candidate-free native run, use the TypeScript launcher with installed InfoZIP and libarchive:
 
 ```sh
-python3 tests/fixtures/arfs/zip-produce.py tests/fixtures/arfs/zip.json
+node tests/fixtures/arfs/zip-produce.ts --output /tmp/arfs-zip-new.json
 ```
+
+InfoZIP writes a STORED member and libarchive compares every authored payload byte. This changes the producer profile;
+it does not replay the Python ZIP or replace historical evidence. The launcher admits at most 1 MiB of archive bytes,
+uses the shared 90-second/16-MiB native command bounds, removes its owned temporary directory, and refuses to overwrite
+an existing receipt. These bounds are not a filesystem quota. The new command still needs independent qualification.
 
 `receipt.json` records acquired tool/source hashes. Mutable primary documentation is pinned by immutable upstream
 commits in `docs/arfs.md`; the selected public-0.15 profile is deliberately narrower than universal ArFS support.
+
+## Current TypeScript tooling
+
+The executable sources are now `acquire.ts` and `produce.ts`. `*.cjs.snapshot` retains the exact historical source
+bytes; `source-map.json` maps those identities without changing old fixture/receipt hashes. Use new output paths;
+current producers refuse to overwrite a receipt. The native SDKs, signing and full original-byte checks are retained,
+rather than replacing their output with a project encoder or parser.
+
+After the reviewed acquisition has placed the pinned package/lock in a fresh `/tool` directory and admitted it with
+`node /tool/acquire.ts`, use the same `npm ci --ignore-scripts --no-audit --no-fund` installation policy. Copy the
+selected producer beside those installed dependencies. Its type-only SDK interfaces are erased at runtime; no SDK
+implementation is copied into the library. Run in an isolated container with networking disabled and the existing 2
+GiB/two CPU/256 PID limits:
+
+```sh
+node /tool/produce.ts /tmp/new-arfs-receipt.json
+```
+
+Node 22.18 or later strips these erasable TypeScript annotations directly. The producers still replace SDK API methods
+and Fetch with throwing monitors, require zero network calls, and never submit/fund a transaction or retain a private
+wallet in their output. ArDrive native builders still consume exact metadata through the injected byte gateway and check
+names, file sizes, data transaction IDs and dates.
+
+Acquisition validators admit at most 4 MiB of package-lock input. The output receipt limit is 4 MiB and producer inputs
+remain the fixed authored case set. The enclosing runner owns time, native memory, process and filesystem quotas; a JSON
+byte limit alone does not bound SDK key generation. New random wallets and signatures change receipt hashes. Review new
+exit/resource receipts and complete native verification before replacing any historical JSON. A successful local SDK run
+still proves neither chain inclusion nor publication.

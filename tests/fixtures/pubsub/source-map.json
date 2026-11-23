@@ -1,0 +1,23 @@
+{
+  "commonjsMigration": {
+    "purpose": "Exact inert historical sources; TypeScript runs require new separate receipts and preserve native SDK identities.",
+    "entries": [
+      {
+        "historical": "notices.cjs",
+        "snapshot": "notices.cjs.snapshot",
+        "bytes": 4346,
+        "sha256": "d81b23a169460ffbe82ab450293a18c82de0c2d174bc03e65afc3e1df9700c59",
+        "current": "notices-worker.ts"
+      }
+    ]
+  },
+  "providerMigration": {
+    "historical": {
+      "path": "tests/provider/pubsub.ts",
+      "snapshot": "provider.ts.snapshot",
+      "bytes": 12778,
+      "sha256": "a142b2ba8a363355bdebe4c3799d8c0aa5694f03caaab9e3efe65a23616b5557"
+    },
+    "current": "Owned runner code is maintained as TypeScript; original SDK/artifact pins and proof remain historical rather than relabeled."
+  }
+}

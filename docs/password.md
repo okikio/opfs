@@ -76,13 +76,18 @@ runtime dependencies or automatic extraction are installed.
 
 ## Independent evidence
 
-`tests/fixtures/password/create.py` creates genuine 7-Zip ZipCrypto STORED/DEFLATE archives, then independently decrypts
-and compares every payload using Python's standard `zipfile` reader. An InfoZIP stdin producer supplies an actual
-data-descriptor member whose password verifier uses its timestamp. The script retains the 7-Zip stdin `E_NOTIMPL`
-diagnostic instead of treating that unsupported producer path as evidence. Empty, odd-size, binary and 128 KiB payloads
-have original full-byte oracles; malformed controls cover wrong passwords, later ciphertext corruption, local/central
-disagreements, limits, caller mutation and cancellation. Native producers are test tools, not package runtime
-dependencies.
+The historical executed producer, now inert `tests/fixtures/password/create.py.snapshot`, created genuine 7-Zip
+ZipCrypto STORED/DEFLATE archives, then independently decrypted and compares every payload using Python's standard
+`zipfile` reader. An InfoZIP stdin producer supplies an actual data-descriptor member whose password verifier uses its
+timestamp. The script retains the 7-Zip stdin `E_NOTIMPL` diagnostic instead of treating that unsupported producer path
+as evidence. Empty, odd-size, binary and 128 KiB payloads have original full-byte oracles; malformed controls cover
+wrong passwords, later ciphertext corruption, local/central disagreements, limits, caller mutation and cancellation.
+Native producers are test tools, not package runtime dependencies.
+
+The current [TypeScript producer](../tests/fixtures/password/README.md) replaces Python consumption with reciprocal
+native consumers: InfoZIP unzip reads 7-Zip archives, and 7-Zip reads the InfoZIP stdin descriptor archive. Authored
+central-directory flag checks remain separate from native format acceptance. The port has not yet run; its new consumer
+profile needs a separate qualification and does not change attribution of the historical fixtures.
 
 The checked-in `provenance.json` pins the script, fixture JSON and each archive SHA-256. The producer used signed Debian
 `7zip` package `22.01+really26.02+dfsg-0+deb12u1` and `zip` package `3.0-13+deb12u1` on arm64. The recorded local base

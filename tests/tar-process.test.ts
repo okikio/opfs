@@ -1,11 +1,14 @@
 import { describe, it } from "node:test";
 import { spawnSync } from "node:child_process";
 import { expect } from "@std/expect";
-import { encodeBase64 } from "@std/encoding/base64";
+import { lstatSync, mkdtempSync, readFileSync, readlinkSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { env } from "node:process";
 import { createTarStream } from "../src/archive/stream.ts";
 
 describe("independent TAR consumers", () => {
-  it("Python tarfile reads PAX writer paths, links, directory metadata and every payload byte", async () => {
+  it("system tar extracts PAX writer paths, links, directories and every original payload byte", async () => {
     const payload = Uint8Array.from({ length: 513 }, (_, index) => index % 256);
     const name = "caf\u00e9/" + "long-name-".repeat(20);
     const link = "target/" + "q".repeat(130);
@@ -22,29 +25,41 @@ describe("independent TAR consumers", () => {
         { name: "empty/", kind: "directory", size: 0 },
       ])).arrayBuffer(),
     );
-    const code = `
-import base64, io, json, sys, tarfile
-result = []
-with tarfile.open(fileobj=io.BytesIO(sys.stdin.buffer.read()), mode="r:") as archive:
-    for entry in archive:
-        result.append({"name": entry.name, "size": entry.size, "link": entry.linkname,
-                       "kind": "file" if entry.isfile() else "symbolic-link" if entry.issym() else "directory",
-                       "body": base64.b64encode(archive.extractfile(entry).read()).decode() if entry.isfile() else ""})
-print(json.dumps(result))
-`;
-    const result = spawnSync("python3", ["-c", code], {
+    // GNU tar escapes non-ASCII names under the C locale. The Linux interop
+    // runner supplies C.UTF-8 so this assertion checks the actual Unicode name.
+    const locale = { ...env, LANG: "C.UTF-8", LC_ALL: "C.UTF-8" };
+    const listing = spawnSync("tar", ["-tf", "-"], {
       input: output,
+      env: locale,
       encoding: "utf8",
       timeout: 10_000,
       maxBuffer: 64 * 1024,
     });
-    expect(result.error).toBeUndefined();
-    expect(result.status, result.stderr).toBe(0);
-    expect(JSON.parse(result.stdout)).toEqual([
-      { name, size: payload.length, kind: "file", link: "", body: encodeBase64(payload) },
-      { name: "link", size: 0, kind: "symbolic-link", link, body: "" },
-      { name: "empty", size: 0, kind: "directory", link: "", body: "" },
-    ]);
+    expect(listing.error).toBeUndefined();
+    expect(listing.status, listing.stderr).toBe(0);
+    expect(listing.stdout.trimEnd().split(/\r?\n/u)).toEqual([name, "link", "empty/"]);
+    const owned = mkdtempSync(join(tmpdir(), "opfs-tar-consumer-"));
+    try {
+      // Only the three authored safe names are selected. The created link is
+      // inspected as a link and is never followed to a target during verification.
+      const result = spawnSync("tar", ["-xf", "-", "-C", owned, "--", name, "link", "empty/"], {
+        input: output,
+        env: locale,
+        encoding: "utf8",
+        timeout: 10_000,
+        maxBuffer: 64 * 1024,
+      });
+      expect(result.error).toBeUndefined();
+      expect(result.status, result.stderr).toBe(0);
+      expect(lstatSync(join(owned, name)).isFile()).toBe(true);
+      expect(lstatSync(join(owned, name)).size).toBe(payload.length);
+      expect(new Uint8Array(readFileSync(join(owned, name)))).toEqual(payload);
+      expect(lstatSync(join(owned, "link")).isSymbolicLink()).toBe(true);
+      expect(readlinkSync(join(owned, "link"))).toBe(link);
+      expect(lstatSync(join(owned, "empty")).isDirectory()).toBe(true);
+    } finally {
+      rmSync(owned, { recursive: true, force: true });
+    }
   });
 
   it("the system BSD/GNU tar consumer extracts the selected writer member to stdout without host extraction", async () => {

@@ -1,0 +1,13 @@
+{
+  "purpose": "Frozen native reciprocal corpus remains authoritative; new TypeScript controls are explicitly authored and do not execute the old native Python libraries.",
+  "historical": {
+    "path": "create.py",
+    "snapshot": "create.py.snapshot",
+    "bytes": 6820,
+    "sha256": "455b122466157af22d66b9512e465db2522861092f9b0c6f812e267b819f9222"
+  },
+  "current": {
+    "path": "create.ts",
+    "independentNativeRerun": false
+  }
+}

@@ -157,19 +157,30 @@ Twelve authored protocol cases passed on Deno, Node and Bun. They cover fragment
 values, uint64 CAS/uint32 flags, native outcomes, caller snapshots, invalid framing/budgets, cancellation, exclusive
 admission and cleanup failures. These protocol cases are not native-server qualification by themselves.
 
-The native Testcontainers proof uses a pinned official Memcached server with UDP disabled, a private network and
-ephemeral mapped TCP port. A separately implemented, test-only pinned `pymemcache` 4.0.0 oracle runs in an isolated
-Python container with a hash-required, no-index/no-dependency wheel installation. Its default `noreply=True` is
-explicitly disabled so writes must receive native acknowledgements. The exact wheel is hashed before bounded inert ZIP
-inspection; existing project ZIP/native zlib are acquisition tooling, not an independent Memcached protocol oracle.
-Inert acquisition passed: the exact 60,772-byte wheel contains 28 safe members totaling 258,914 expanded bytes, with
-CRC/member hashes, matching Apache-2.0 license bytes and no declared dependencies. The native test passed with complete
-128 KiB SDK-to-client and client-to-SDK bytes, maximum uint32 flags, real CAS/add outcomes, empty versus missing values
-and unconditional deletion that preserves unrelated keys. Actual Docker readback confirmed a 128 MiB server and 512 MiB
-oracle, each with 0.5 CPU and PID limit 128. All owned resources closed before successful return. A separate capture
-preserves the exact 43-byte native `gets` reply and all six independent SDK bytes in
-`tests/fixtures/memcached/independent.json`; raw hashes and acquisition history remain in provenance. No persistence,
-production authentication/TLS, eviction ordering or sleep-based TTL behavior is qualified.
+The current native Testcontainers harness starts the same pinned official Memcached server with UDP disabled, a private
+network and an ephemeral mapped TCP port. A separate native `libmemcached` implementation performs seed/read operations
+through its public C API. The small test-only `tests/fixtures/memcached/oracle.c` program passes bytes to that library;
+it does not serialize or parse the Memcached protocol. It selects classic ASCII, enables CAS, disables noreply, bounds
+values to 1 MiB and requires acknowledged writes and the terminal fetch result. The existing complete-byte, maximum
+uint32 flags, CAS/add, empty/missing and deletion tests continue to compare two independently implemented clients.
+
+The oracle Dockerfile reuses the reviewed immutable Node26 base used by the FTP fixture. Only inherited signed Debian
+repositories acquire GCC, libc headers and libmemcached development/runtime packages. Each actual image build retains
+package versions, downloaded package SHA-256 values, signed repository metadata, OS, compiler and source/binary hashes
+under `/oracle/receipts/`. The test prints bounded acquisition receipts; a successful build alone does not prove
+protocol behavior. Testcontainers owns the disposable image, containers and network. Docker readback still checks a 128
+MiB server and 512 MiB oracle, each with 0.5 CPU and PID limit 128. No Python wheel is acquired or executed in the
+current harness. The current native libmemcached provider case passed complete binary values, flags, CAS staleness,
+creation outcomes and unconditional deletion. This is a separate local native qualification from the historical run
+below.
+
+Historical qualification used independent `pymemcache` 4.0.0 with noreply disabled. Its exact 60,772-byte wheel
+inspection and successful complete 128 KiB cross-client run remain in `tests/fixtures/memcached/provenance.json`. The
+old provider, including its embedded Python source, is retained unchanged as inert `provider.ts.snapshot`;
+`source-map.json` records its length/hash. A separate historical capture preserves the exact 43-byte native `gets` reply
+and all six independent SDK bytes in `independent.json`. These frozen receipts establish the historical profile and are
+not relabeled as a libmemcached run. No persistence, production authentication/TLS, eviction ordering or sleep-based TTL
+behavior is qualified.
 
 `bench/memcached.bench.ts` measures one warm `gets` over this captured 43-byte reply against raw Webstream write/read.
 Both lanes compare complete bytes with the independent six-byte original before timing. The raw lane returns a trusted

@@ -1,0 +1,13 @@
+{
+  "purpose": "Preserve exact historical source and execution evidence; new TypeScript runs require separate receipts.",
+  "historical": {
+    "path": "produce.py",
+    "snapshot": "produce.py.snapshot",
+    "bytes": 5675,
+    "sha256": "e7610ff2a504a97f3e449c34afaefcf53ff8409b54106a22edd3f1ba61da306c"
+  },
+  "current": {
+    "path": "produce.ts",
+    "proof": "native producers/full extracted bytes plus Node header/TOC checks; no new Python XML member-checksum walk"
+  }
+}

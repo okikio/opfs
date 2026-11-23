@@ -141,6 +141,16 @@ reading does not establish CRS correctness. [Fixture provenance and reproduction
 retain the original bytes, primary grammar pins, complete native comparisons, two acquisition failures, package notices
 and process limits. No compiler or package-artifact result is claimed by these focused checks.
 
+The [current reproduction recipe](../tests/fixtures/geotiff/README.md#current-native-only-recipe) replaces Python
+orchestration with TypeScript and direct GDAL/libtiff C++ calls. Nine GDAL writer profiles retain the same scalar,
+byte-order, block and overview cases. Two explicitly authored TypeScript writers replace the old tifffile writer cases;
+GDAL, libtiff and an authored physical-word reader compare the resulting bytes. This new recipe does not repeat the
+independent tifffile implementation proof. Its separate offline native qualification passed all eleven files and twelve
+main-chain pages with GDAL 3.6.2 and libtiff 4.5.0 in a network-disabled 1 GiB runner, without OOM. The two authored
+writer profiles remain authored inputs checked by native consumers; they are not GDAL-produced files. The old corpus and
+receipts remain unchanged. Producer qualification does not establish candidate-reader acceptance of the new output,
+authoritative CRS resolution or COG conformance.
+
 The seven Node benchmark lanes separately measure a borrowed 64-byte physical copy, cold metadata indexing, early and
 late float32 windows, a complete logical raster, a complete raw tile and a pure plan. The full native sample and block
 oracles run before sampling. Their different validation, conversion and allocation contracts prevent a direct speed

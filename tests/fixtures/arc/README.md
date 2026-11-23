@@ -3,8 +3,8 @@
 `independent.json` retains two complete unmodified ARC files, their exact SHA-256 receipts, full file-description
 blocks, authored stored-block expectations, native consumer diagnostics and tool/source hashes. `Produce.java` invokes
 IIPC's real ARCWriter. `ProduceJwat.java` invokes JWAT's real writer and reader. Neither implements an ARC encoder. The
-Python program compares every native-consumer stored block to authored bytes and runs the independent warcio consumer;
-no candidate OPFS code participates in generation.
+historical Python program compared every native-consumer stored block to authored bytes and ran the independent warcio
+consumer; no candidate OPFS code participates in generation.
 
 The payloads are authored offline: a complete HTTP response, binary bytes containing a false ARC record header, a second
 response at the same URL and an empty non-HTTP block. There is no network crawl, third-party captured content or copied
@@ -24,10 +24,10 @@ fixture retains the warning and failure. It does not add or remove a newline to 
 
 JWAT's lax implementation explicitly treats excessive newline bytes in a version 1 descriptor as compatibility metadata.
 It omits that counted byte from its reconstructed descriptor payload. Therefore its descriptor output is **not** the
-oracle for the physical descriptor extent. The Python fixture generator separately checks the unchanged producer's raw
-bytes against the exact authored two-line descriptor layout plus the producer-specific counted LF. Normal reader tests
-compare `read(0)` with that entire raw declared descriptor block, not the native consumer's trimmed reconstruction.
-JWAT's strict diagnostics and both producer files remain separate evidence.
+oracle for the physical descriptor extent. The historical Python fixture generator separately checked the unchanged
+producer's raw bytes against the exact authored two-line descriptor layout plus the producer-specific counted LF. Normal
+reader tests compare `read(0)` with that entire raw declared descriptor block, not the native consumer's trimmed
+reconstruction. JWAT's strict diagnostics and both producer files remain separate evidence.
 
 Warcio's [primary documentation](https://github.com/webrecorder/warcio#arc-files) explicitly says it reads but does not
 write ARC. It is used only as a consumer here. Full stored blocks use `ArchiveIterator(no_record_parse=True)` so an HTTP
@@ -40,10 +40,10 @@ The native producer artifacts are published by their primary projects on Maven C
 - [IIPC webarchive-commons 3.0.5](https://repo.maven.apache.org/maven2/org/netpreserve/commons/webarchive-commons/3.0.5/)
 - [JWAT ARC1.2.1](https://repo.maven.apache.org/maven2/org/jwat/jwat-arc/1.2.1/)
 
-Every acquired jar used by the harness has an exact SHA-256 in `independent.json` and `produce.py`. This includes the
-source jars, IIPC's selected runtime dependencies, JWAT's archive/common/gzip jars and its pinned Bouncy Castle tool
-dependency. They remain test-only tools; none appears in production imports or package manifests. A fixed artifact hash
-identifies tested bytes; it is not a claim that every dependency has received a security audit.
+Every acquired jar used by the harness has an exact SHA-256 in `independent.json` and `produce.py.snapshot`. This
+includes the source jars, IIPC's selected runtime dependencies, JWAT's archive/common/gzip jars and its pinned Bouncy
+Castle tool dependency. They remain test-only tools; none appears in production imports or package manifests. A fixed
+artifact hash identifies tested bytes; it is not a claim that every dependency has received a security audit.
 
 Relevant exact source-file SHA-256 values, read directly from the pinned source jars:
 
@@ -71,55 +71,46 @@ installation or production dependency was added. Each producer JVM uses `-Xmx64m
 
 ## Reproduce
 
-Use a caller-selected JDK 17+ executable and a tools directory containing the pinned jars. `produce.py` verifies every
-jar hash before it starts either producer. For example, the following explicit acquisition uses the retained artifact
-names and hashes; it does not discover credentials or install a runtime globally:
+The historical command used CPython, pinned warcio/six and a caller-selected JDK. Its exact source is now inert
+`produce.py.snapshot`. The current command below requires pre-acquired, hash-admitted jars; it performs no network
+acquisition and does not execute Python.
 
-```sh
-python3 - <<'PY'
-import hashlib
-import json
-from pathlib import Path
-import urllib.request
-
-receipts = json.loads(Path("tests/fixtures/arc/independent.json").read_text())["artifacts"]
-tools = Path("/tmp/opfs-arc-tools")
-tools.mkdir(exist_ok=True)
-coordinates = {
-    "webarchive-commons": ("org/netpreserve/commons", "3.0.5"),
-    "commons-io": ("commons-io", "2.22.0"),
-    "commons-lang3": ("org/apache/commons", "3.20.0"),
-    "commons-codec": ("commons-codec", "1.22.1"),
-    "guava": ("com/google/guava", "33.7.1-jre"),
-    "bcprov-jdk15to18": ("org/bouncycastle", "1.65"),
-    "jwat-arc": ("org/jwat", "1.2.1"),
-    "jwat-common": ("org/jwat", "1.2.1"),
-    "jwat-gzip": ("org/jwat", "1.2.1"),
-    "jwat-archive-common": ("org/jwat", "1.2.1"),
-}
-for name, expected in receipts.items():
-    artifact = next(key for key, (_, version) in coordinates.items()
-                    if name.startswith(key + "-" + version + ".")
-                    or name.startswith(key + "-" + version + "-"))
-    group, version = coordinates[artifact]
-    url = f"https://repo.maven.apache.org/maven2/{group}/{artifact}/{version}/{name}"
-    data = urllib.request.urlopen(url).read()
-    assert hashlib.sha256(data).hexdigest() == expected, name
-    (tools / name).write_bytes(data)
-PY
-
-uv run --no-project --with warcio==1.7.5 --with six==1.17.0 python tests/fixtures/arc/produce.py \
-  --java /path/to/jdk/bin/java --tools /tmp/opfs-arc-tools
-```
-
-Subprocess failures propagate through `check=True`; neither producer runs in an unchecked shell pipeline. Payload bytes,
-URLs and dates are fixed. IIPC's native descriptor uses its own current timestamp; that timestamp and the whole-file
-hash can change on regeneration. No timestamp or descriptor bytes are rewritten to hide that difference. JWAT's authored
-metadata and bytes are deterministic for the pinned tools. The runtime provenance field also changes with the selected
-interpreter/JDK. A regenerated receipt is new evidence and should be reviewed before replacing the retained fixture.
+In the historical run, subprocess failures propagated through `check=True`; neither producer ran in an unchecked shell
+pipeline. Payload bytes, URLs and dates are fixed. IIPC's native descriptor uses its own current timestamp; that
+timestamp and the whole-file hash can change on regeneration. No timestamp or descriptor bytes are rewritten to hide
+that difference. JWAT's authored metadata and bytes are deterministic for the pinned tools. The runtime provenance field
+also changes with the selected interpreter/JDK. A regenerated receipt is new evidence and should be reviewed before
+replacing the retained fixture.
 
 Both IIPC webarchive-commons and JWAT are distributed under Apache-2.0; warcio is Apache-2.0, six is MIT and the pinned
 Bouncy Castle jar has its own MIT-style license. The official Temurin build is GPLv2 with the Classpath Exception. No
 upstream implementation source or captured third-party web pages are embedded in this fixture. The Java and Python
 harnesses and all payload bytes are authored here. Retained output/diagnostics identify the independent tools without
 claiming full historical ARC conformance or deployed-provider behavior.
+
+## Current TypeScript harness
+
+Use Node 22.18 or later with the selected native tools already available:
+
+```sh
+node --max-old-space-size=128 tests/fixtures/arc/produce.ts --java /path/to/jdk/bin/java --tools /tmp/opfs-arc-tools --output /tmp/new-arc-receipt.json
+```
+
+The source imports no candidate parser, installs no packages and never mounts an image. It creates one fresh temporary
+root, runs native tools with a 45-second command deadline and a 4 MiB quota on each captured pipe, admits regular files
+before reading them, and retains both primary and cleanup errors. It writes only to a new output path with exclusive
+creation. A signalled or unstarted child cannot count as a native format refusal. The outer runner owns
+whole-process/native memory, CPU and filesystem quotas. The command above caps V8 heap at 128 MiB; that is not a native
+process memory limit.
+
+All 12 runtime/source jars must match the retained SHA-256 identities before either Java harness runs. Each JVM retains
+`-Xmx64m` and `-XX:MaxMetaspaceSize=128m`. Native JWAT checks all four complete authored stored blocks for both
+producers, while the TypeScript harness separately checks the physical descriptor extent and retained strict/lax status
+distinction. Jar files are limited to 32 MiB, archives to 16 MiB, diagnostics/source files to 1 MiB and the receipt to 4
+MiB. No warcio run or source-jar extraction is claimed: `warcioRerun: false` and `historicalSourceReceipts` make those
+evidence boundaries explicit. The source jars themselves are hash-admitted.
+
+Keep each new receipt separate from `independent.json` and review native versions, complete byte comparisons and
+resource receipts before replacing any historical evidence. Native timestamps/metadata can change wire hashes. The
+source mapping preserves old bytes and hashes without claiming that TypeScript produced the old output, or that these
+cases establish whole-format conformance.

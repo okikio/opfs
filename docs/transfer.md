@@ -1,8 +1,10 @@
 # Upload, pause and resume a fixed source
 
-Use `tus` for an upload endpoint and `transfer` for checkpoint-resumable copying. An upload endpoint is not a
+Use `tus` for a tus 1.0 upload endpoint and `transfer` for checkpoint-resumable copying. An upload endpoint is not a
 filesystem: it need not support downloads, directories or listing. The source and destination remain independently
-usable. Both modules require explicit construction and perform no network work on import.
+usable. Both modules require explicit construction and perform no network work on import. For an endpoint implementing
+the separate [HTTP resumable upload draft](upload.md), use its versioned descriptor and reconciliation contract instead
+of the tus client. The comparison near the end of this guide locates the provider-specific continuation bindings.
 
 A readable stream answers “what bytes arrive next?” A resumable upload must also answer “which exact source are these
 bytes from, which bytes did the remote service retain, and what does completion mean?” A network connection can close

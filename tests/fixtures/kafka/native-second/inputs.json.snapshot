@@ -1,0 +1,19 @@
+{
+  "files": {
+    "sdk-append-input.bin": {
+      "bytes": 131239,
+      "sha256": "875fae7719e94b724f385db241f345c25a4915dcdac7bd8c2afdd7b734034363"
+    },
+    "sdk-fetch-input.bin": {
+      "bytes": 64,
+      "sha256": "cbea3e6dcbab3feb45899fe9e6503f760b435d5af4fc5fc9770ab2c4b7e92351"
+    },
+    "crc-input.bin": {
+      "bytes": 131168,
+      "sha256": "5b61cf7e58fa3ebeaf41acbd160a363e4894491c0621bb17dc674ea67d422d9a"
+    }
+  },
+  "compileQualification": "recovery.json",
+  "compileQualificationSha256": "eeca0a794b96ee7ae6a5fa9fbfbaaf85735ba72a671a5a51d009994ab21461ba",
+  "compileDirectory": "/Users/okikio/Other/Code/opfs/.tmp/implementation/opfs-kafka-compile-first"
+}

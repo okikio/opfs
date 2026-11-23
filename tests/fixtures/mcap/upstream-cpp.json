@@ -1,0 +1,78 @@
+{
+  "repository": "foxglove/mcap",
+  "commit": "23d6c627a27ac089d418d9e7f8cdcef9ed86dac1",
+  "version": "2.2.0",
+  "scope": "Exact primary Git tree identities; inert acquisition only. New native execution requires its own receipt.",
+  "files": [
+    {
+      "path": "cpp/mcap/include/mcap/crc32.hpp",
+      "bytes": 12382,
+      "gitBlob": "8fbc5a42f63e75fbe18923c52da8bbc9e2fd4696"
+    },
+    {
+      "path": "cpp/mcap/include/mcap/errors.hpp",
+      "bytes": 2947,
+      "gitBlob": "8c61b8d60a73f110f5d8a9c690dba9b25196ada8"
+    },
+    {
+      "path": "cpp/mcap/include/mcap/internal.hpp",
+      "bytes": 7778,
+      "gitBlob": "c021c1f220be7de80c5736148ef66ad5c4ffe100"
+    },
+    {
+      "path": "cpp/mcap/include/mcap/intervaltree.hpp",
+      "bytes": 8957,
+      "gitBlob": "267eb7a45f733d39cefdc52e2b0f118d078d958b"
+    },
+    {
+      "path": "cpp/mcap/include/mcap/mcap.hpp",
+      "bytes": 58,
+      "gitBlob": "71f479cd83cf537ef73f43891955e81643aafc48"
+    },
+    {
+      "path": "cpp/mcap/include/mcap/read_job_queue.hpp",
+      "bytes": 4260,
+      "gitBlob": "7faf4468ad6c432bf1bf9750ea27d26d88087ca9"
+    },
+    {
+      "path": "cpp/mcap/include/mcap/reader.hpp",
+      "bytes": 35026,
+      "gitBlob": "34be7526f212eeb5dc0217fb95d25a68ce4a56e6"
+    },
+    {
+      "path": "cpp/mcap/include/mcap/reader.inl",
+      "bytes": 74204,
+      "gitBlob": "68552bfe7258d649bfc747874bc75d2126b87d12"
+    },
+    {
+      "path": "cpp/mcap/include/mcap/types.hpp",
+      "bytes": 13730,
+      "gitBlob": "45ed5d0284274c8a08715e2e1682d54827ff0e2d"
+    },
+    {
+      "path": "cpp/mcap/include/mcap/types.inl",
+      "bytes": 2190,
+      "gitBlob": "7bafcf4a6df6a4ff3dca690cc549b3ad1b995b76"
+    },
+    {
+      "path": "cpp/mcap/include/mcap/visibility.hpp",
+      "bytes": 1464,
+      "gitBlob": "41ae453e66db4af20adedb183f8994738ad94dfe"
+    },
+    {
+      "path": "cpp/mcap/include/mcap/writer.hpp",
+      "bytes": 18903,
+      "gitBlob": "dc0d69aeb7f10a5b6d08026dc26c2abc4af21312"
+    },
+    {
+      "path": "cpp/mcap/include/mcap/writer.inl",
+      "bytes": 41772,
+      "gitBlob": "8a6f0e6e91e11bf800467f20fd92fca42c6b1e29"
+    },
+    {
+      "path": "LICENSE",
+      "bytes": 1077,
+      "gitBlob": "0aa593ea8c2888c2015f0aec7e6d6a1c42cfeba1"
+    }
+  ]
+}

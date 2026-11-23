@@ -117,12 +117,18 @@ before settling. A source that ignores cancellation and never returns prevents t
 
 ## Independent evidence
 
-[`tests/fixtures/bzip/produce.py`](https://github.com/okikio/opfs/blob/68189c7/tests/fixtures/bzip/produce.py)
-alternates genuine native bzip2 1.0.8 and Python `bz2` producers. Native bzip2, Python and 7zz 26.02 independently
-consume every complete original payload. The corpus covers all nine levels, empty input, binary data, multiple blocks,
-run boundaries and a two-million-byte expansion. The
+The [historical producer](https://github.com/okikio/opfs/blob/68189c7/tests/fixtures/bzip/produce.py) alternated genuine
+native bzip2 1.0.8 and Python `bz2` producers. Native bzip2, Python and 7zz 26.02 independently consume every complete
+original payload. The corpus covers all nine levels, empty input, binary data, multiple blocks, run boundaries and a
+two-million-byte expansion. The
 [fixture receipt](https://github.com/okikio/opfs/blob/68189c7/tests/fixtures/bzip/README.md) pins source/tool/file
 evidence and the padding discrepancy. No expected payload is obtained from this decoder.
+
+Current `tests/fixtures/bzip/produce.ts` uses native bzip2 and reciprocal 7-Zip consumption without Python. It records a
+new deterministic xorshift input recipe and native-only producer labels. The padding diagnostic retains the actual 7-Zip
+exit and complete output, without presuming that another version must reproduce the historical refusal. The old source
+remains inert as `produce.py.snapshot`; dated fixture hashes and receipts still describe that original execution, not a
+new TypeScript run.
 
 The format and CRC contracts were reconciled against the official
 [bzip2 1.0.8 source release](https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz) and

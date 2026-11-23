@@ -1,0 +1,36 @@
+{
+  "scope": "Exact prior active sources retained as inert data; .first.snapshot and all old corpus/receipts remain unchanged. New native recipe does not claim the old tifffile execution.",
+  "files": [
+    {
+      "original": "produce.py",
+      "snapshot": "produce.py.snapshot",
+      "sha256": "c51c18f5751bbd5535848aa87451df097af2901cd0bdaad0ffb317cc27f5ce03"
+    },
+    {
+      "original": "produce-run.py",
+      "snapshot": "produce-run.py.snapshot",
+      "sha256": "00dd5733e56254d95067e74c34034666dad2dc1ba5a0387030ca1fffe27adecb"
+    },
+    {
+      "original": "acquire-run.py",
+      "snapshot": "acquire-run.py.snapshot",
+      "sha256": "084461ffa8c96b62d01d8433aac5499b147fb1d71a42f0c26569817f390ecc92"
+    },
+    {
+      "original": "continue-run.py",
+      "snapshot": "continue-run.py.snapshot",
+      "sha256": "5dbc64a6d82c0648300203a1be7dd7655d7f5dd5f23d3b3fa097f420ffa5d6a3"
+    },
+    {
+      "original": "continue.sh",
+      "snapshot": "continue.sh.snapshot",
+      "sha256": "8649e4c525b3844692f0a7ed0cea07416f5ea80f6b82ef76b30dd1b349f218db"
+    },
+    {
+      "original": "acquire.sh",
+      "snapshot": "acquire.sh.snapshot",
+      "sha256": "d89d57e1aa3184a721a4c2d50be9576f44a1651575832abe8854ce7e97e73ff7",
+      "origin": "Unchanged committed source before the native-only recipe replacement"
+    }
+  ]
+}

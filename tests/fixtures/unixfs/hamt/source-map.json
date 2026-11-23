@@ -1,0 +1,28 @@
+{
+  "pythonMigration": {
+    "purpose": "Exact inert source snapshots; native proof stays independent and new execution receipts stay separate.",
+    "entries": [
+      {
+        "historical": "produce.py",
+        "snapshot": "produce.py.snapshot",
+        "bytes": 10637,
+        "sha256": "3aea7e7f4e7b5a9887131e6d61749ab99975027325189eed291954341f83d20b",
+        "current": "produce.ts"
+      },
+      {
+        "historical": "adapt.py",
+        "snapshot": "adapt.py.snapshot",
+        "bytes": 5945,
+        "sha256": "0eca2d70e72e9d7cb4b98339d850e5b6e1e7601cabc2a5c576b236d0a962d498",
+        "current": "adapt.ts"
+      },
+      {
+        "historical": "hash-produce.py",
+        "snapshot": "hash-produce.py.snapshot",
+        "bytes": 3151,
+        "sha256": "fb2a4f490046a8188a21199bd53e37da55b85fb2edd70f797cc8277ee620201e",
+        "current": "hash-produce.ts"
+      }
+    ]
+  }
+}

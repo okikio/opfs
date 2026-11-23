@@ -1,0 +1,13 @@
+{
+  "purpose": "Preserve exact historical source and execution evidence; new TypeScript runs require separate receipts.",
+  "historical": {
+    "path": "produce.py",
+    "snapshot": "produce.py.snapshot",
+    "bytes": 6667,
+    "sha256": "1685c89c47f3c52dc177dbe5753ec6426edfc9f216151200dac9b62199899046"
+  },
+  "current": {
+    "path": "produce.ts",
+    "proof": "native Java producers and JWAT reader; no new warcio run"
+  }
+}

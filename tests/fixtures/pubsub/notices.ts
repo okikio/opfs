@@ -11,7 +11,7 @@ if (
   createHash("sha256").update(lockBytes).digest("hex") !==
     "be831ae4d6d51f6db1cc66b0fc11db9da39f8ce07c4accf243f296d2946cfd45"
 ) throw new Error("Notice lock differs.");
-const source = await readFile("tests/fixtures/pubsub/notices.cjs");
+const source = await readFile("tests/fixtures/pubsub/notices-worker.ts");
 const runtime = await getContainerRuntimeClient(), resources: (() => Promise<unknown>)[] = [], ids: string[] = [];
 let primary: readonly unknown[] = [];
 class OwnedContainer extends GenericContainer {
@@ -42,11 +42,11 @@ try {
     .withCopyContentToContainer([{ content: packageBytes, target: "/oracle/package.json" }, {
       content: lockBytes,
       target: "/oracle/package-lock.json",
-    }, { content: source, target: "/oracle/notices.cjs" }])
+    }, { content: source, target: "/oracle/notices-worker.ts" }])
     .withCommand([
       "sh",
       "-c",
-      "timeout 120 npm ci --ignore-scripts --no-audit --no-fund --cache /tmp/npm-cache && node /oracle/notices.cjs && touch /oracle/ready && exec sleep 600",
+      "timeout 120 npm ci --ignore-scripts --no-audit --no-fund --cache /tmp/npm-cache && node /oracle/notices-worker.ts && touch /oracle/ready && exec sleep 600",
     ])
     .withResourcesQuota({ memory: 0.5, cpu: 0.5 }).withWaitStrategy(Wait.forSuccessfulCommand("test -f /oracle/ready"))
     .withStartupTimeout(150000).start();

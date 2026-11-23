@@ -110,13 +110,19 @@ cleared where possible, but JavaScript/native copies and garbage collection prev
 
 ## Independent format evidence
 
-`tests/fixtures/aes/create.py` uses genuine 7-Zip AES-128/192/256 STORED output and compares all original payload bytes
-through independent libarchive `bsdtar` extraction with the public fixture password. Its AE-1 controls explicitly change
-AE-2 version/CRC metadata over genuine producer ciphertext; they are not claimed as direct AE-1 producer output.
-Libarchive must accept and compare those adapted archives too. Genuine AES DEFLATE output and explicit
-AE-1/ordinary-version metadata adaptations are independently accepted and compared through libarchive too; lowered
-STORED 1.0 and DEFLATE 2.0 headers retain genuine ciphertext. Inputs cover empty, odd, binary and 8197-byte members,
-including a preview across the little-endian counter carry at block 256.
+The historical executed producer, retained as inert `tests/fixtures/aes/create.py.snapshot`, used genuine 7-Zip
+AES-128/192/256 STORED output and compared all original payload bytes through independent libarchive `bsdtar` extraction
+with the public fixture password. Its AE-1 controls explicitly change AE-2 version/CRC metadata over genuine producer
+ciphertext; they are not claimed as direct AE-1 producer output. Libarchive must accept and compare those adapted
+archives too. Genuine AES DEFLATE output and explicit AE-1/ordinary-version metadata adaptations are independently
+accepted and compared through libarchive too; lowered STORED 1.0 and DEFLATE 2.0 headers retain genuine ciphertext.
+Inputs cover empty, odd, binary and 8197-byte members, including a preview across the little-endian counter carry at
+block 256.
+
+The current [TypeScript producer](../tests/fixtures/aes/README.md) preserves the independent libarchive consumer and
+metadata adaptations. It adds OpenSSL CLI primitive checks with authored WinZip envelope/counter glue; those checks are
+distinct from independent native ZIP parsing. This port and its OpenSSL route have not yet run. Existing fixtures and
+receipts retain their original executed-producer attribution.
 
 The producer used 7-Zip 26.02 (signed Debian `7zip` package `22.01+really26.02+dfsg-0+deb12u1`) and libarchive 3.6.2
 (`libarchive-tools` package `3.6.2-1+deb12u5`) on arm64. `provenance.json` pins script, fixture JSON and each archive
