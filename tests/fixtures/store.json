@@ -94,6 +94,10 @@
       "size": 5401140,
       "sha256": "001651837ccfaac094e7643e4c5ff713040e2e194094431eb05b5fad360d69eb"
     },
+    "tests/fixtures/parquet/independent.json": {
+      "size": 1448407,
+      "sha256": "fcd431fbf4f2ed29c0cedbc1c9f479d3fa4a23b4e4bcd265d9f6a1714115b1c2"
+    },
     "tests/fixtures/password/independent.json": {
       "size": 531958,
       "sha256": "d4c4c383453caadd3dbb32ae4337d00e043a847c797577c329f7f3d77dbe10f9"

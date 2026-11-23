@@ -1,0 +1,92 @@
+import { readFileSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { Buffer } from "node:buffer";
+import { openNats } from "../tests/provider/nats.ts";
+import { close } from "../src/close.ts";
+
+// Candidate-independent literal NATS producer. The production client/parser is
+// never imported. Only six-byte records are captured; no CONNECT secret packet
+// is retained. Transport and SDK lifecycle remain owned by reviewed fixture.
+const fixture = await openNats(new Uint8Array(readFileSync(".tmp/nats-wheel.whl"))), original = new Uint8Array([0, 255, 13, 10, 128, 9]);
+const encode = (value: string) => new TextEncoder().encode(value);
+const capture = (bytes: Uint8Array) => ({ bytes: bytes.length, base64: Buffer.from(bytes).toString("base64"), sha256: createHash("sha256").update(bytes).digest("hex") });
+function same(actual: Uint8Array, expected: Uint8Array): void {
+  if (actual.length !== expected.length || actual.some((value, index) => value !== expected[index])) throw new Error("Independent native NATS full-byte oracle differs.");
+}
+function wait<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) { promise.catch(() => {}); return Promise.reject(signal.reason); }
+  return new Promise<T>((resolve, reject) => {
+    const abort = () => reject(signal.reason);
+    signal.addEventListener("abort", abort, { once: true });
+    promise.then(resolve, reject).finally(() => signal.removeEventListener("abort", abort));
+  });
+}
+async function request(inbox: string, operation: Uint8Array) {
+  const signal = AbortSignal.timeout(30000), channel = await fixture.openChannel({ signal });
+  let reader: ReadableStreamDefaultReader<Uint8Array> | undefined, writer: WritableStreamDefaultWriter<Uint8Array> | undefined;
+  const failures: unknown[] = [];
+  let pending = new Uint8Array(), at = 0;
+  try {
+    reader = channel.readable.getReader(); writer = channel.writable.getWriter();
+    async function take(size: number): Promise<Uint8Array<ArrayBuffer>> {
+      signal.throwIfAborted();
+      if (!Number.isSafeInteger(size) || size < 0 || size > 16384) throw new Error("Capture extent exceeds selected six-byte fixture.");
+      const bytes = new Uint8Array(size); let position = 0, empty = 0;
+      while (position < size) {
+        signal.throwIfAborted();
+        if (at === pending.length) {
+          const next = await wait(reader!.read(), signal); signal.throwIfAborted();
+          if (next.done) throw new Error("Native capture ended early.");
+          const chunk = next.value; signal.throwIfAborted();
+          if (chunk.length > 65536) throw new Error("Native capture chunk exceeds policy.");
+          if (!chunk.length) { if (++empty > 16) throw new Error("Capture made no byte progress."); continue; }
+          empty = 0; pending = new Uint8Array(chunk); at = 0;
+        }
+        const count = Math.min(size - position, pending.length - at);
+        bytes.set(pending.subarray(at, at + count), position); position += count; at += count;
+      }
+      return bytes;
+    }
+    async function line(): Promise<Uint8Array<ArrayBuffer>> {
+      const values: number[] = [];
+      while (values.length < 8192) {
+        const byte = (await take(1))[0]!; values.push(byte);
+        if (byte === 13) { const lf = (await take(1))[0]!; if (lf !== 10) throw new Error("Capture CRLF differs."); values.push(lf); return new Uint8Array(values); }
+        if (byte === 10) throw new Error("Capture bare LF.");
+      }
+      throw new Error("Native capture line exceeds policy.");
+    }
+    const initial = await line();
+    if (!new TextDecoder().decode(initial).startsWith("INFO ")) throw new Error("Capture lacks native INFO.");
+    signal.throwIfAborted();
+    await wait(writer.write(encode('CONNECT {"verbose":false,"pedantic":true,"protocol":1,"headers":true,"no_responders":true,"lang":"capture","version":"1","tls_required":false,"user":"opfs","pass":"fixture-only-nats"}\r\nPING\r\n')), signal);
+    const pong = await line(); same(pong, encode("PONG\r\n"));
+    const subscription = encode(`SUB ${inbox} 1\r\nUNSUB 1 1\r\n`);
+    signal.throwIfAborted(); await wait(writer.write(subscription), signal); signal.throwIfAborted(); await wait(writer.write(operation), signal);
+    const header = await line(), text = new TextDecoder().decode(header), match = /^MSG ([!-~]+) 1 ([0-9]{1,5})\r\n$/.exec(text);
+    if (!match || match[1] !== inbox) throw new Error("Capture reply identity differs.");
+    const body = await take(Number(match[2])), ending = await take(2); same(ending, encode("\r\n"));
+    const wire = new Uint8Array(header.length + body.length + 2); wire.set(header); wire.set(body, header.length); wire.set(ending, wire.length - 2);
+    return { initial: capture(initial), pong: capture(pong), subscription: capture(subscription), request: capture(operation), response: capture(wire), body: capture(body) };
+  } catch (reason) { failures.push(reason); throw reason; }
+  finally { await close([() => channel.close(), () => reader?.releaseLock(), () => writer?.releaseLock()], failures); }
+}
+const failures: unknown[] = [];
+try {
+  const sequence = await fixture.seed(original); same(await fixture.read(sequence), original);
+  const getInbox = "_INBOX.capture.get", getBody = encode(`{"seq":${sequence}}`);
+  const get = await request(getInbox, encode(`PUB $JS.API.STREAM.MSG.GET.OWNED ${getInbox} ${getBody.length}\r\n${new TextDecoder().decode(getBody)}\r\n`));
+  const value = JSON.parse(Buffer.from(get.body.base64, "base64").toString("utf8"));
+  if (String(value.message.seq) !== sequence || value.message.subject !== "owned.data") throw new Error("Native stored identity differs.");
+  same(new Uint8Array(Buffer.from(value.message.data, "base64")), original);
+  const pubInbox = "_INBOX.capture.publish", headers = encode("NATS/1.0\r\nNats-Expected-Stream: OWNED\r\nNats-Msg-Id: independent-capture\r\n\r\n");
+  const prefix = encode(`HPUB owned.data ${pubInbox} ${headers.length} ${headers.length + original.length}\r\n`), packet = new Uint8Array(prefix.length + headers.length + original.length + 2);
+  packet.set(prefix); packet.set(headers, prefix.length); packet.set(original, prefix.length + headers.length); packet.set([13, 10], packet.length - 2);
+  const publish = await request(pubInbox, packet), ack = JSON.parse(Buffer.from(publish.body.base64, "base64").toString("utf8"));
+  if (ack.stream !== "OWNED" || !Number.isSafeInteger(ack.seq) || ack.seq < 1) throw new Error("Native publish identity differs.");
+  same(await fixture.read(String(ack.seq)), original);
+  const result = { profile: "Candidate-independent native NATS JetStream sequence-get and expected-stream publication", stream: "OWNED", sequence, getInbox, publishInbox: pubInbox, oracle: capture(original), get, publish };
+  writeFileSync(".tmp/nats-captured.json", JSON.stringify(result, null, 2) + "\n");
+  console.log(JSON.stringify({ nativeCapture: ".tmp/nats-captured.json", oracle: result.oracle, getBytes: get.response.bytes, publishBytes: publish.response.bytes }));
+} catch (reason) { failures.push(reason); throw reason; }
+finally { await close([() => fixture.close()], failures); }

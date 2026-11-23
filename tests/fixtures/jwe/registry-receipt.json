@@ -1,0 +1,8 @@
+{
+  "url": "https://registry.npmjs.org/jose/6.2.15",
+  "bytes": 3810,
+  "sha256": "58d6f03d2fa924a83d2c5a1cf9e91226da16a52d533f8809a53bee7c51e03c10",
+  "integrity": "sha512-qdF6ewcZARtef63fJ9AKKZPgxw+t7USH6HLXYcD4CrdmSvDp79rpJSPFEKc90QBeGS63u1KQtN2MZQHC0yDIzA==",
+  "artifact": "https://registry.npmjs.org/jose/-/jose-6.2.15.tgz",
+  "scope": "Metadata only; artifact not downloaded or executed."
+}
