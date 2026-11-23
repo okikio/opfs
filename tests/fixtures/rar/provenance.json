@@ -1,0 +1,43 @@
+{
+  "profile": "RAR5 physical original headers and regular STORED members; unsupported native archives are refusal controls",
+  "producer": {
+    "vendor": "RARLAB RAR 7.23 macOS arm64, ephemeral explicitly authorized trial for this task only",
+    "url": "https://www.rarlab.com/rar/rarmacos-arm-723.tar.gz",
+    "archiveSha256": "68b393c000758d477fde43c955ff7542f12f76f3f5e87cdda923152fc791bd4d",
+    "binarySha256": "fd6c7db73c659a28b50408354f4a4845c53a67f929f37fd99df92aa77b9f5153",
+    "licenseSha256": "0420a0c2cd464466c13ddac80c2efd083163ca82c193fa59df068d8386c3f141",
+    "redistribution": "Neither vendor package nor executable is committed, published, or required by CI."
+  },
+  "standards": [
+    {
+      "url": "https://www.rarlab.com/technote.htm",
+      "sha256": "37fe890e2c02c4d3bc6f5e8c617f368175ebbb924e0608c52a99b986cea4dc96"
+    },
+    {
+      "url": "https://www.rarlab.com/license.htm",
+      "sha256": "370d2961ca494ba887baeee544253bd6c0e1185d5acbed3b62623af3b428668c"
+    }
+  ],
+  "consumers": {
+    "seven": "7-Zip 26.02 arm64; forced -tRar5, exact stdout for every authored STORED/quick-open member",
+    "libarchive": "macOS /usr/bin/tar bsdtar3.5.3 libarchive3.7.4; owned extraction of the safe authored files, every file full-byte compared. Explicit NFC name lookup mapping retained, archive names unmodified."
+  },
+  "command": "python3 tests/fixtures/rar/create.py --rar /private/tmp/opfs-rar-research/rar/rar --seven /opt/homebrew/bin/7zz --tar /usr/bin/tar --output tests/fixtures/rar/independent.json",
+  "scriptSha256": "5d509754d3dbbe8e06901570e773c71e87f6d6f58555ec05e531331065041821",
+  "fixtureSha256": "f601a16df189cf583f3624317d5449dd4d07876838271f18bc82d8f103dd83f8",
+  "archives": {
+    "stored": "6f66b094d75ea1354c7084742c8a17e9e48e6c5985e65aa20d2004c1ec613a13",
+    "quick-open": "c9e144bec238d1955a9efcda4e83329415f0b31aba65130609aaa04f77a4e634",
+    "compressed": "4dfed77c9bad9e946c854eaf316344bed3de5e96f42fb533c23b8c4fdd1f0bf6",
+    "solid": "a2554af23e558218a0ebc5ec8d55fc898b93ce62909e0bfc331de98808677c9a",
+    "encrypted": "0172def2fd3818f22ac009d8daffcf6bd2708e8a694b6af8eebdbec92cf44180",
+    "header-encrypted": "fce8f45e51352bb64b5656db79eae40064070dd62259d820efb3821f71cf09f1",
+    "volume": "aa2b75604af39af49ee9c70e811d0c5d858206f7e61d2793c560e2ac067eb16d",
+    "link": "831c7a49a5f5ee0fe2bdd2befb8853e67709ba4cf7bc4ce8aafb746c7b7780b0"
+  },
+  "diagnostics": [
+    ".tmp/implementation/rar-producer-20261105.log: libarchive exact Unicode selection missed decomposed extracted name; final producer records explicit extracted-name mapping.",
+    ".tmp/implementation/rar-producer-extract-20261105.log: 7zz returned Unsupported Method for newer genuine compressed member. It remains a refusal control, without full-byte consumer claim."
+  ],
+  "evidenceLimits": "Original payload full-byte evidence covers STORED and quick-open profiles only. Other genuine archives exercise refusal. Authored malformed headers are parser controls, not interoperability fixtures. Binary packages were not added as runtime or test dependencies. Commands reproduce behavior, not necessarily identical timestamp-bearing archive bytes."
+}
