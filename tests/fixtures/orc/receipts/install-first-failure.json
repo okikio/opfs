@@ -1,0 +1,163 @@
+{
+  "stage": "install",
+  "name": "opfs-orc-install-20261105",
+  "image": "sha256:5ae62b8a656b92aebda2441c1b4b872da0799b4deabca9f6c476f5940624ebef",
+  "launcherSha256": "eb9d4dcda5db8162ff8ac69ba0a8f2aeee68e44e3aa05c78039553aefd809a16",
+  "deadlineSeconds": 150,
+  "failures": [
+    "AssertionError('Attached stage failed')"
+  ],
+  "commands": [
+    {
+      "label": "image-inspect",
+      "argv": [
+        "docker",
+        "image",
+        "inspect",
+        "sha256:5ae62b8a656b92aebda2441c1b4b872da0799b4deabca9f6c476f5940624ebef"
+      ],
+      "exit": 0,
+      "bytes": {
+        "stdout": 2242,
+        "stderr": 0
+      },
+      "seconds": 0.018617375
+    },
+    {
+      "label": "create",
+      "argv": [
+        "docker",
+        "create",
+        "--pull",
+        "never",
+        "--name",
+        "opfs-orc-install-20261105",
+        "--network",
+        "none",
+        "--memory",
+        "1g",
+        "--memory-swap",
+        "1g",
+        "--cpus",
+        "1",
+        "--pids-limit",
+        "128",
+        "--cap-drop",
+        "ALL",
+        "--security-opt",
+        "no-new-privileges=true",
+        "--restart",
+        "no",
+        "--entrypoint",
+        "/usr/local/bin/python3",
+        "sha256:5ae62b8a656b92aebda2441c1b4b872da0799b4deabca9f6c476f5940624ebef",
+        "-I",
+        "/install.py"
+      ],
+      "exit": 0,
+      "bytes": {
+        "stdout": 65,
+        "stderr": 0
+      },
+      "seconds": 0.045340708
+    },
+    {
+      "label": "copy-install.py",
+      "argv": [
+        "docker",
+        "cp",
+        "/Users/okikio/Other/Code/opfs/tests/fixtures/orc/install.py",
+        "opfs-orc-install-20261105:/install.py"
+      ],
+      "exit": 0,
+      "bytes": {
+        "stdout": 0,
+        "stderr": 0
+      },
+      "seconds": 0.025118791999999987
+    },
+    {
+      "label": "copy-receipts",
+      "argv": [
+        "docker",
+        "cp",
+        "/Users/okikio/Other/Code/opfs/.tmp/research/orc/install-stage/receipts",
+        "opfs-orc-install-20261105:/receipts"
+      ],
+      "exit": 0,
+      "bytes": {
+        "stdout": 0,
+        "stderr": 0
+      },
+      "seconds": 0.589995625
+    },
+    {
+      "label": "created-inspect",
+      "argv": [
+        "docker",
+        "inspect",
+        "opfs-orc-install-20261105"
+      ],
+      "exit": 0,
+      "bytes": {
+        "stdout": 6956,
+        "stderr": 0
+      },
+      "seconds": 0.018161790999999927
+    },
+    {
+      "label": "stop",
+      "argv": [
+        "docker",
+        "stop",
+        "--time",
+        "1",
+        "opfs-orc-install-20261105"
+      ],
+      "exit": 0,
+      "bytes": {
+        "stdout": 81,
+        "stderr": 0
+      },
+      "seconds": 0.01916337500000065
+    },
+    {
+      "label": "final-inspect",
+      "argv": [
+        "docker",
+        "inspect",
+        "opfs-orc-install-20261105"
+      ],
+      "exit": 0,
+      "bytes": {
+        "stdout": 7338,
+        "stderr": 0
+      },
+      "seconds": 0.01729899999999951
+    }
+  ],
+  "scripts": {
+    "install.py": "6bc958c471b2f5d5ea79aea85a973e6c59b56cd022989e1258262d1959b5d518"
+  },
+  "acquisitionSha256": "ad71e5c6d23eca72b6be640d51fb74205fd5deb3679ebc557b390bbeaace3d4d",
+  "preflight": "passed-before-start",
+  "attachmentBytes": {
+    "stdout": 0,
+    "stderr": 596
+  },
+  "finalStatus": {
+    "Status": "exited",
+    "Running": false,
+    "Paused": false,
+    "Restarting": false,
+    "OOMKilled": false,
+    "Dead": false,
+    "Pid": 0,
+    "ExitCode": 1,
+    "Error": "",
+    "StartedAt": "2026-11-05T22:55:53.592298597Z",
+    "FinishedAt": "2026-11-05T22:55:56.027525834Z"
+  },
+  "exit": 1,
+  "seconds": 4.146160917
+}
