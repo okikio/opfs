@@ -40,14 +40,14 @@ export default defineConfig({
   webServer: [
     {
       command:
-        "deno run -A npm:vite@8.2.1 --configLoader native --config tests/browser/vite.config.ts --host 127.0.0.1 --port 4173 --strictPort",
+        "deno run -A --frozen npm:vite@^8.3.8 --configLoader native --config tests/browser/vite.config.ts --host 127.0.0.1 --port 4173 --strictPort",
       cwd: fileURLToPath(new URL("../..", import.meta.url)),
       url: firstReady,
       reuseExistingServer: false,
     },
     {
       command:
-        "deno run -A npm:vite@8.2.1 --configLoader native --config tests/browser/vite.config.ts --host 127.0.0.1 --port 4174 --strictPort",
+        "deno run -A --frozen npm:vite@^8.3.8 --configLoader native --config tests/browser/vite.config.ts --host 127.0.0.1 --port 4174 --strictPort",
       cwd: fileURLToPath(new URL("../..", import.meta.url)),
       url: secondReady,
       reuseExistingServer: false,
