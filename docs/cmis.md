@@ -137,6 +137,10 @@ single-value properties and arrays of multi-value properties.
 The prepared fixture uses the official InMemory WAR and the independent official Java client ZIP, whose acquired bytes
 were inspected before extraction:
 
+The client ZIP now downloads from Maven Central after repeated Apache archive-server connection timeouts in CI. Its
+6,198,654 bytes exactly match the previously inspected ZIP and the pinned SHA-256 below. The fixture admits the same
+archive contents and native client; changing the download host does not broaden its qualification.
+
 | Artifact                                                                           | SHA-256                                                            |
 | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
 | Maven `org.apache.chemistry.opencmis:chemistry-opencmis-server-inmemory:war:1.1.0` | `e64213571d416a5ff03a923693b97bb32d680b353af40d6807ce007197ae71d9` |

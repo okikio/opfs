@@ -1,0 +1,10 @@
+{
+  "script": "/produce.py",
+  "exit": 0,
+  "reason": null,
+  "logBytes": 0,
+  "maxLogBytes": 4194304,
+  "deadlineSeconds": 90,
+  "elapsedSeconds": 0.25731887500000994,
+  "scope": "test-only candidate-free native fixture production; original log prefix retained on bound failure"
+}

@@ -1,0 +1,12 @@
+{
+  "publicManifest": "sha256:a5a7017efc5969e00ae2b91c8eb0631049a569652aa4ffc4501769049ae45c72",
+  "publicArm64Image": "sha256:8353ef33b6dea0ccf6eaf7d09905c675d0bd8f3bd38ac43d7171cf62f0e35e79",
+  "partialAcquisitionImage": "sha256:b657410cf0832b7b6bc4546cec4fc2cfe4cde4ed93c9438d5357f3d756b9642f",
+  "toolImage": "sha256:3a54a562fa82928e49787be93b9ac85184ebe7f0a7398f345a7bf0c5af20a7c9",
+  "originalBaselineSha256": "71a64dc8ea99a4dcb570a00ce38152c59f3dd6d4dfa0af7e1ef7f2fe730c7eec",
+  "originalBaselinePreserved": true,
+  "archiveCount": 102,
+  "networkDuringRepair": "none",
+  "licenseBytes": 1754924,
+  "nativeProducerExecuted": false
+}

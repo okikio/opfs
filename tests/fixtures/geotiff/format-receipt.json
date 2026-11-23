@@ -1,0 +1,13 @@
+{
+  "rawProducer": {
+    "path": "independent.json.snapshot",
+    "bytes": 359325,
+    "sha256": "c06a5fa6e1dee2ea93b1cfca83d894f1e2efd960a36a2e893ecbc8371406c622"
+  },
+  "formattedCopy": {
+    "path": "independent.json",
+    "bytes": 359325,
+    "sha256": "c06a5fa6e1dee2ea93b1cfca83d894f1e2efd960a36a2e893ecbc8371406c622"
+  },
+  "comparison": "Parsed JSON values deep-strict equal; original producer bytes preserved separately."
+}

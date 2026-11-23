@@ -14,6 +14,8 @@
 /cpio/independent.json
 /cryptomator/independent.json
 /fits/independent.json
+/geotiff/independent.json
+/geotiff/independent.json.snapshot
 /hdf5/independent.json
 /iso/independent.json
 /las/independent.json
@@ -23,6 +25,7 @@
 /netcdf/independent.json
 /password/independent.json
 /pubsub/sdk-notices.json
+/qcow2/independent.json
 /rar/independent.json
 /seven/independent.json
 /tar-sparse/independent.json

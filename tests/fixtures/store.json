@@ -58,6 +58,14 @@
       "size": 3279318,
       "sha256": "e1fd0fc980e6704c32d0d61590fcf5e955d9156ceb83dd953138822f24d7ec98"
     },
+    "tests/fixtures/geotiff/independent.json": {
+      "size": 359325,
+      "sha256": "c06a5fa6e1dee2ea93b1cfca83d894f1e2efd960a36a2e893ecbc8371406c622"
+    },
+    "tests/fixtures/geotiff/independent.json.snapshot": {
+      "size": 359325,
+      "sha256": "c06a5fa6e1dee2ea93b1cfca83d894f1e2efd960a36a2e893ecbc8371406c622"
+    },
     "tests/fixtures/hdf5/independent.json": {
       "size": 776740,
       "sha256": "4b38fa96e379405f48a64430d1b83fac4265a669f0367804ec2f0ccf9cdeeccb"
@@ -93,6 +101,10 @@
     "tests/fixtures/pubsub/sdk-notices.json": {
       "size": 441574,
       "sha256": "edd187d9e3488035f0d7d4c13513a3bbcbff78de3605b4e2773862cc554065e6"
+    },
+    "tests/fixtures/qcow2/independent.json": {
+      "size": 3780718,
+      "sha256": "19d870dfa7e4f1bd8362b23c168d1c3795983f6c2468765adfe3d4eb94daf6db"
     },
     "tests/fixtures/rar/independent.json": {
       "size": 9711030,
