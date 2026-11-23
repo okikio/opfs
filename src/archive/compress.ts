@@ -1,6 +1,6 @@
 import { isBytes, toRequestBytes, toView } from "../bytes.ts";
 import { close } from "../close.ts";
-import { ArchiveError, crc32, createArchiveLedger, integer, invalid, unsupported } from "./record.ts";
+import { ArchiveError, createArchiveLedger, integer, invalid, unsupported } from "./record.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
 import { createTarStream, readTarStream } from "./stream.ts";
 import type {
@@ -10,6 +10,7 @@ import type {
   TarWriteEntryType,
   TarWriteOptionsType,
 } from "./stream.ts";
+import { crc32 } from "../hash.ts";
 
 /** Native Web codecs, selected explicitly. Unsupported host formats fail without a fallback dependency. */
 export type CompressionFormatType = "gzip" | "deflate" | "deflate-raw" | "brotli" | "zstd";

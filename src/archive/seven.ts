@@ -2,17 +2,9 @@
 import { createLzmaDecoder } from "./lzma.ts";
 import type { LzmaFormatType, LzmaLimitsType } from "./lzma.ts";
 import type { ByteSourceType } from "../source.ts";
-import {
-  ArchiveBudget,
-  ArchiveError,
-  crc32,
-  createArchiveLedger,
-  integer,
-  invalid,
-  unsupported,
-  view,
-} from "./record.ts";
+import { ArchiveBudget, ArchiveError, createArchiveLedger, integer, invalid, unsupported, view } from "./record.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
+import { crc32 } from "../hash.ts";
 export { ArchiveError, createArchiveLedger } from "./record.ts";
 export type { ArchiveErrorCodeType, ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
 

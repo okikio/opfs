@@ -2,7 +2,8 @@ import { isBytes, toView } from "../bytes.ts";
 import { aggregate, close } from "../close.ts";
 import { openBytes } from "../stream.ts";
 import type { ByteReaderType } from "../stream.ts";
-import { crc32, integer } from "./record.ts";
+import { integer } from "./record.ts";
+import { crc32 } from "../hash.ts";
 
 /** A source is consumed only after its name and limits are admitted. No link entries are accepted. */
 export interface ZipWriteEntryType {

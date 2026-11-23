@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { Sha256 } from "../src/archive/sha256.ts";
+import { crc32, Crc64, Sha256 } from "../src/hash.ts";
 
 const hex = (bytes: ArrayBuffer | Uint8Array) =>
   Array.from(bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, "0"))
@@ -53,5 +53,21 @@ describe("incremental SHA-256", () => {
     hash.reset();
     hash.update(new TextEncoder().encode("abc"));
     expect(hex(hash.digest())).toBe("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+  });
+});
+
+describe("CRC check values", () => {
+  const check = new TextEncoder().encode("123456789");
+  it("CRC-32 gives the catalogued check value and follows a split message", () => {
+    expect((crc32(check) ^ 0xffffffff) >>> 0).toBe(0xcbf43926);
+    expect((crc32(check.subarray(4), crc32(check.subarray(0, 4))) ^ 0xffffffff) >>> 0).toBe(0xcbf43926);
+  });
+  it("CRC-64/XZ gives the catalogued check value and starts again after reset", () => {
+    const crc = new Crc64();
+    crc.update(check.subarray(0, 5));
+    crc.update(check.subarray(5));
+    expect(crc.hex()).toBe("995dc9bbdf1939fa");
+    crc.reset();
+    expect(crc.hex()).toBe("0000000000000000");
   });
 });

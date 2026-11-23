@@ -1,8 +1,9 @@
 /** Inspect bounded, uncompressed MCAP major-0 recordings over an explicit borrowed source. @module */
 import { isBytes, toView } from "../bytes.ts";
 import type { ByteSourceType } from "../source.ts";
-import { ArchiveError, crc32, createArchiveLedger, integer, invalid, unsupported, view } from "../archive/record.ts";
+import { ArchiveError, createArchiveLedger, integer, invalid, unsupported, view } from "../archive/record.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
+import { crc32 } from "../hash.ts";
 export { ArchiveError, createArchiveLedger } from "../archive/record.ts";
 export type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
 
