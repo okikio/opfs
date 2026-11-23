@@ -48,6 +48,7 @@ function getChecks(): StepType[] {
     "check:schema",
     "check:fixtures",
     "check:jsr",
+    "check:exports",
     "check:versions",
     "check:tasks",
     "check:shell",

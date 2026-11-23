@@ -17,7 +17,7 @@ a folder named after the task family that runs them, so `check:types` runs `tool
 
 ```text
 tools/
-  check/     types, commits, examples, security      (check:* tasks with a program of their own)
+  check/     types, exports, commits, examples, security   (check:* tasks with a program of their own)
   test/      suite, discover, netlify, ecosystems, linux, command, attest, container/
   bench/     local                                    (bench:local)
   ci/        plan, lane, result, stack, evidence      (ci:plan, ci:lane and the Quality workflow)
@@ -41,6 +41,7 @@ tools/
 | `check:schema`                             | JSON Schemas match their Zod sources (`build:schema` rewrites them)                           |
 | `check:fixtures`                           | No tracked fixture is over 256 KiB, and the fixture manifest is consistent                    |
 | `check:jsr`, `check:package`               | JSR dry run; npm tarball built and tested from a clean consumer                               |
+| `check:exports`                            | Public symbols per subpath match `tests/package/exports.json` (`build:exports` rewrites it)   |
 | `check:versions`                           | `package.json` and `deno.json` carry the same version                                         |
 | `check:actions`                            | Workflows and local actions: jactionlint, zizmor and pinact                                   |
 | `check:shell`, `check:tasks`               | shellcheck on shell scripts; `mise tasks validate`                                            |
