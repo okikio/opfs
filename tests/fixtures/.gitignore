@@ -9,6 +9,7 @@
 /cpio/independent.json
 /fits/independent.json
 /iso/independent.json
+/las/independent.json
 /lz4/independent.json
 /lzma/independent.json
 /netcdf/independent.json

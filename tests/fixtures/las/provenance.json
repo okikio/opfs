@@ -1,0 +1,32 @@
+{
+  "standards": {
+    "title": "ASPRS LAS1.2 approved2008-09-02",
+    "originalUrl": "https://www.asprs.org/wp-content/uploads/2010/12/asprs_las_format_v12.pdf",
+    "mirrorUrl": "https://liblas.org/_static/files/specifications/asprs_las_format_v12.pdf",
+    "pdfBytes": 114694,
+    "pdfSha256": "e7f3e6a93c883db5cfbc3b74c2dc3ad143ad49e8ac06c997cf3c62d9cdbfb38e",
+    "note": "Live official URL404. Recognized libLAS archival artifact title/approval/header+VLR tables/layout/scaling/GPS clauses compared to indexed official text; no byte equality with unavailable live original claimed."
+  },
+  "producer": {
+    "container": "opfs-las-producer-20261105",
+    "image": "debian:trixie-slim",
+    "manifestDigest": "a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2",
+    "platformImageSha256": "37e6c80085f82a8a7f1cea2b83f036d9c084a2cd3d5be1aa6fd56d7c6f8ad7ba",
+    "note": "Official base manifest pinned; signed apt package install mutates producer filesystem. Manifest is not a pin of complete post-install image. Test-only1GiB1CPU128pids, no production dependency.",
+    "packages": "python3-laspy\t2.5.4-1\npython3-numpy\t1:2.2.4+ds-1\n",
+    "laspy": "2.5.4",
+    "numpy": "2.2.4",
+    "command": "/usr/bin/python3 /produce.py --output /tmp/independent.json",
+    "exitCode": 0,
+    "oomKilled": false,
+    "cleanup": "Stopped disposable producer removed after successful fixture copy and retained state receipt."
+  },
+  "sources": {
+    "create.py": "455b122466157af22d66b9512e465db2522861092f9b0c6f812e267b819f9222"
+  },
+  "producerFixtureSha256": "dccf855ce1cd5e3822e03a84bf3af70114c1fc7ec48d7ecd02aeff119f9dab34",
+  "oracles": "32 fixtures:4pointformats x(empty,37ordinary,37opaqueextensions,12000large) x nativeLaspy and independentstruct writers. Both consumed by laspy with complete native stored-column and scaledXYZ equality plus selectedsubsetreads, fullrawrecordbytes and selectedextents. No candidate imports. Signedscan bytes corroborated by nativeInt8 columns.",
+  "successLog": ".tmp/implementation/las-producer-20261105.log",
+  "stateReceipt": ".tmp/implementation/las-producer-state.json",
+  "formattedFixtureSha256": "e261422e570c6de25b3656c849ecfffbcf064f237c20d5cc7895a62a37f0f539"
+}
