@@ -172,6 +172,12 @@ recovery.
 filesystem. [Legacy ZIP password previews](docs/password.md) accept explicit password bytes; CRC success provides no
 authentication.
 
+[OCFL](docs/ocfl.md) resolves logical version states to explicit content sources and separates inventory/content fixity.
+[WinZip AES STORED](docs/aes.md) checks complete ciphertext before decrypting selected blocks; names remain
+unauthenticated. [Dropbox](docs/dropbox.md) keeps native revision and upload-offset evidence. Optional native
+Brotli/Zstandard streams use available host codecs without a fallback dependency; see
+[compression](docs/compression.md).
+
 ## Drivers are independently useful
 
 A driver is not an adapter with a new name. It owns backend mechanics that remain meaningful without `FileSystemType`.

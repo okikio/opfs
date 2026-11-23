@@ -868,3 +868,9 @@ sources for nested previews without host extraction.
 [SFTP v3](sftp.md) uses an injected authenticated SSH subsystem for finite reads and acknowledged writes.
 [BagIt](bagit.md) separates supplied-inventory coverage from selected-file digest verification.
 [Legacy ZIP password previews](password.md) describe explicit password bytes and unauthenticated ZipCrypto evidence.
+
+[OCFL](ocfl.md) separates exact inventory verification from selected physical-content verification.
+[WinZip AES STORED](aes.md) authenticates bounded ciphertext before selected-block decryption. [Dropbox](dropbox.md)
+exposes native revisions and upload-session offset evidence.
+[Optional native codecs](compression.md#optional-brotli-and-zstandard) depend on the host constructor and add no
+independent checksum claim.

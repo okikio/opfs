@@ -204,6 +204,8 @@ try {
     import { FtpClient } from '@okikio/opfs/ftp';
     import { SftpClient } from '@okikio/opfs/sftp';
     import { openBagit } from '@okikio/opfs/archive/bagit';
+    import { openOcfl } from '@okikio/opfs/archive/ocfl';
+    import { DropboxClient, contentHash as dropboxContentHash } from '@okikio/opfs/dropbox';
     import { createD1Adapter } from '@okikio/opfs/adapter/d1';
     import { createZipStream } from '@okikio/opfs/archive/write';
     import { openZip } from '@okikio/opfs/archive/zip';
@@ -362,6 +364,38 @@ try {
     if (passwordRead.encryption.authentication !== 'none' || passwordRead.integrity !== 'checksum-verified') throw new Error('Packed ZipCrypto evidence changed');
     const sftp = new SftpClient({ openChannel() { throw new Error('SFTP construction acquired a channel'); } });
     await sftp.close();
+    const ocflFixture = ${
+      JSON.stringify(
+        JSON.parse(await readFile(new URL("../fixtures/ocfl/independent.json", import.meta.url), "utf8")).objects[0],
+      )
+    };
+    const ocfl = await openOcfl(ocflFixture.files.map((entry) => ({ path: entry.path, source: createByteSource(Uint8Array.from(atob(entry.base64), (byte) => byte.charCodeAt(0))) })));
+    if ((await ocfl.verifyInventory({ subtle: globalThis.crypto.subtle })).scope !== 'inventory-digest') throw new Error('Packed OCFL inventory proof changed');
+    if ((await ocfl.verifyContent('v1', 'binary', { subtle: globalThis.crypto.subtle })).scope !== 'selected-content') throw new Error('Packed OCFL content proof changed');
+    const aesFixture = ${
+      JSON.stringify(
+        JSON.parse(await readFile(new URL("../fixtures/aes/independent.json", import.meta.url), "utf8"))["aes256-ae2"],
+      )
+    };
+    const aesZip = await openZip(createByteSource(Uint8Array.from(atob(aesFixture.archive), (byte) => byte.charCodeAt(0))));
+    const aesEntry = aesZip.entries.find((entry) => entry.name === 'first.bin');
+    const aesRead = await aesZip.read(aesEntry.id, { password: Uint8Array.from(atob(aesFixture.password), (byte) => byte.charCodeAt(0)), aes: { subtle: globalThis.crypto.subtle } });
+    assertBytes(aesRead.bytes, Uint8Array.from(atob(aesFixture.entries.find((entry) => entry.name === 'first.bin').body), (byte) => byte.charCodeAt(0)));
+    if (aesRead.integrity !== 'not-provided' || aesRead.encryption.authentication !== 'ciphertext-verified') throw new Error('Packed AES scope changed');
+    const dropbox = new DropboxClient({ token: () => 'fixture-token', fetch: async () => new Response(JSON.stringify({'.tag':'file',name:'packed',id:'id:packed',rev:'012345678',size:3}), {headers:{'Content-Type':'application/json'}}) });
+    if ((await dropbox.stat('id:packed')).id !== 'id:packed') throw new Error('Packed Dropbox native metadata failed');
+    if (await dropboxContentHash(new Uint8Array(), { subtle: globalThis.crypto.subtle }) !== 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855') throw new Error('Packed Dropbox empty hash failed');
+    const nativeCodecs = ${
+      JSON.stringify(
+        JSON.parse(await readFile(new URL("../fixtures/compression/native.json", import.meta.url), "utf8")),
+      )
+    };
+    for (const format of ['brotli', 'zstd']) {
+      let decoded;
+      try { decoded = decompressStream(new Blob([Uint8Array.from(atob(nativeCodecs.formats[format].bytes), (byte) => byte.charCodeAt(0))]).stream(), format); }
+      catch (reason) { if (reason.code !== 'unsupported-profile') throw reason; continue; }
+      assertBytes(new Uint8Array(await new Response(decoded).arrayBuffer()), Uint8Array.from(atob(nativeCodecs.payload), (byte) => byte.charCodeAt(0)));
+    }
     const packedOciManifest = JSON.stringify({"schemaVersion":2,"mediaType":"application/vnd.oci.image.manifest.v1+json","config":{"mediaType":"application/vnd.oci.empty.v1+json","digest":"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a","size":2},"layers":[{"mediaType":"application/octet-stream","digest":"sha256:039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81","size":3}]});
     const packedOci = new OciClient({
       registry: 'https://registry.invalid/', repository: 'packed/artifact',
@@ -546,6 +580,8 @@ try {
     import { FtpClient } from '@okikio/opfs/ftp';
     import { SftpClient } from '@okikio/opfs/sftp';
     import { openBagit } from '@okikio/opfs/archive/bagit';
+    import { openOcfl } from '@okikio/opfs/archive/ocfl';
+    import { DropboxClient, contentHash as dropboxContentHash } from '@okikio/opfs/dropbox';
     import { createD1Adapter } from '@okikio/opfs/adapter/d1';
     import { createZipStream } from '@okikio/opfs/archive/write';
     import type { ZipWriteEntryType } from '@okikio/opfs/archive/write';
@@ -583,6 +619,12 @@ try {
     const sftpDone: Promise<void> = sftp.close();
     const bag = await openBagit([]);
     const bagProof: 'supplied-inventory' = bag.coverage.scope;
+    const ocfl = await openOcfl([]);
+    const ocflProof: 'supplied-object-files' = ocfl.coverage.scope;
+    void ocflProof;
+    const dropbox = new DropboxClient({ token: () => 'types-only' });
+    const dropboxHash: string = await dropboxContentHash(new Uint8Array(), { subtle: globalThis.crypto.subtle });
+    void [dropbox, dropboxHash];
     const passwordOptions = { password: new Uint8Array(), verify: true };
     void [sftpDone, bagProof, passwordOptions];
     void [onedrive, cab, readable, mimeComplete, sevenReadable, arSource, mboxSource, ftpDone];
