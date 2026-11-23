@@ -2,4 +2,4 @@
 #MISE description="Check that package.json, deno.json and Sampo agree on versions"
 #MISE depends=["prepare:deps"]
 set -euo pipefail
-exec node tools/releases/versions.ts
+exec node tools/release/manifest.ts

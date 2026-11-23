@@ -125,11 +125,11 @@ The implementation is written from those format rules; it does not copy an upstr
 
 ## Reproduce the decoder workloads
 
-Run `BENCH_JSON=1 mise run bench:run -- bench/lz4.bench.ts` on a quiet machine to retain Mitata distributions for twelve
-warm workloads. The fixtures cover independent blocks, dependent history, overlapping matches and raw blocks. Each
-complete decode compares 4 KiB and 64 KiB output chunks, while a separate 4 KiB-prefix workload awaits cancellation.
-Full-byte and terminal-state oracles run before timing, and timed consumers discard output without retaining a complete
-decoded file. Labels include actual source, decoded and returned byte counts.
+Run `BENCH_JSON=1 mise run bench:local -- bench/lz4.bench.ts` on a quiet machine to retain Mitata distributions for
+twelve warm workloads. The fixtures cover independent blocks, dependent history, overlapping matches and raw blocks.
+Each complete decode compares 4 KiB and 64 KiB output chunks, while a separate 4 KiB-prefix workload awaits
+cancellation. Full-byte and terminal-state oracles run before timing, and timed consumers discard output without
+retaining a complete decoded file. Labels include actual source, decoded and returned byte counts.
 
 The 4 KiB policy is a comparison baseline for chunk policy, not an independent codec or a performance acceptance target.
 Prefix cancellation and complete footer verification perform different work. These fixed fixtures do not measure cold

@@ -136,7 +136,7 @@ shares one native library. Candidate tests compare complete reconstructed SAM wi
 comparisons and the corruption, cancellation and lifetime controls passed in Deno, Node and Bun in receipt
 `e1990cbe-7cea-4255-8b5d-4089c5f6aa33`.
 
-Maintainers can run `mise run bench:run -- bench/bam.bench.ts` inside the bounded test runner. It checks the native
+Maintainers can run `mise run bench:local -- bench/bam.bench.ts` inside the bounded test runner. It checks the native
 fixture and original sequence/qualities before timing three different workloads: native whole-file gzip decoding without
 BAM grammar, opening plus an empty preview, and opening plus one complete 160,000-base crossing record. Labels include
 source bytes, requests, decoded bytes and checked blocks. They explain where the work goes; the different workloads are

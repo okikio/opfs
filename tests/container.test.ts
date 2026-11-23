@@ -18,9 +18,9 @@ import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
 import { platform } from "node:process";
 import { expect } from "@std/expect";
-import { changes, copy, open, own, pack } from "../tools/testing/container.ts";
-import { locate, verify } from "../tools/testing/container-worker.ts";
-import type { EntryType, ManifestType } from "../tools/testing/container-worker.ts";
+import { changes, copy, open, own, pack } from "../tools/test/container/staging.ts";
+import { locate, verify } from "../tools/test/container/verify.ts";
+import type { EntryType, ManifestType } from "../tools/test/container/verify.ts";
 import { withReleases } from "./close.ts";
 
 /** Windows host modes/link privileges do not prove the mandatory private Linux guard. */

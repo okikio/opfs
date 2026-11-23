@@ -55,7 +55,7 @@ jobs:
       - uses: $/.github/actions/dependency-cache
       - run: mise run prepare:deps
       - name: Write versions and changelog from the pending changesets
-        run: mise run release -- --operation version
+        run: mise run release:version
       - name: Propose the generated release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -97,7 +97,7 @@ jobs:
       - env:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ github.sha }}
-        run: node tools/workspace/evidence.ts release --sha "$SHA"
+        run: node tools/ci/evidence.ts release --sha "$SHA"
 
   tested:
     if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && (inputs.operation == 'validate' || inputs.operation == 'publish')
@@ -131,9 +131,9 @@ jobs:
       - uses: $/.github/actions/dependency-cache
       - run: mise run prepare:deps
       - name: Build, check and publish the npm tarball for this revision
-        run: mise run release -- --operation publish --target npm
+        run: mise run release:publish -- --target npm
       - name: Install the published version in a clean consumer
-        run: mise run release -- --operation verify --target npm
+        run: mise run release:verify -- npm
 
   jsr:
     if: inputs.operation == 'publish' && inputs.target != 'npm'
@@ -156,9 +156,9 @@ jobs:
       - uses: $/.github/actions/dependency-cache
       - run: mise run prepare:deps
       - name: Publish the source package for this revision
-        run: mise run release -- --operation publish --target jsr
+        run: mise run release:publish -- --target jsr
       - name: Import the published version in a clean consumer
-        run: mise run release -- --operation verify --target jsr
+        run: mise run release:verify -- jsr
 
   tags:
     name: Tag the published revision

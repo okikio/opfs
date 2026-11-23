@@ -3,8 +3,8 @@ import { lstat, mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { arch, cpus, platform } from "node:os";
 import { validateMitata } from "../../bench/validate.ts";
 import { inputs as identity, verifyInputs } from "../../bench/input.ts";
-import { open, own } from "../../tools/testing/container.ts";
-import { capture, diagnostic, observation, retain } from "../../tools/testing/command.ts";
+import { open, own } from "../../tools/test/container/staging.ts";
+import { capture, diagnostic, observation, retain } from "../../tools/test/command.ts";
 import { within } from "../gate.ts";
 import { GenericContainer, Network, Wait } from "testcontainers";
 import type { StartedNetwork, StartedTestContainer } from "testcontainers";
@@ -170,7 +170,7 @@ try {
     client.exec([
       "sh",
       "-c",
-      `set -e; mkdir -p ${copiedRoot}; tar --no-same-owner -xf /tmp/opfs-inputs.tar -C ${copiedRoot}; rm /tmp/opfs-inputs.tar; node ${copiedRoot}/source/tools/testing/container-worker.ts ${copiedRoot} --admit --privileged-source; mount --bind ${copiedRoot} ${copiedRoot}; mount -o remount,bind,ro ${copiedRoot}`,
+      `set -e; mkdir -p ${copiedRoot}; tar --no-same-owner -xf /tmp/opfs-inputs.tar -C ${copiedRoot}; rm /tmp/opfs-inputs.tar; node ${copiedRoot}/source/tools/test/container/verify.ts ${copiedRoot} --admit --privileged-source; mount --bind ${copiedRoot} ${copiedRoot}; mount -o remount,bind,ro ${copiedRoot}`,
     ]),
     "FUSE owned input extraction",
     180_000,
@@ -390,7 +390,7 @@ async function copied(client: StartedTestContainer) {
   const result = await within(
     client.exec([
       "node",
-      `${copiedRoot}/source/tools/testing/container-worker.ts`,
+      `${copiedRoot}/source/tools/test/container/verify.ts`,
       copiedRoot,
       "--verify",
       "--privileged-source",

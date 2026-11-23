@@ -67,7 +67,7 @@ turn native `writeFile()` or positional writes into transactions.
 
 ```sh
 OPFS_UPSTREAM_VERIFY=1 node --expose-gc bench/upstream.bench.ts
-BENCH_JSON=1 mise run bench:run -- bench/upstream.bench.ts
+BENCH_JSON=1 mise run bench:local -- bench/upstream.bench.ts
 ```
 
 The benchmark adapts the valid branch of Node's pinned

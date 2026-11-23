@@ -4,7 +4,7 @@ description: >-
   costly checks, comparing the whole stack with the base of its bottom layer. A lower layer gets
   selected=false. Runs that are not pull requests, pull requests outside a stack, and any failure
   to read the stack get selected=true with an empty base-sha, so they run every selected check.
-  The job must grant pull-requests read access to github.token. tools/workspace/stack.ts owns the
+  The job must grant pull-requests read access to github.token. tools/ci/stack.ts owns the
   decision and its tests.
 
 outputs:
@@ -22,4 +22,4 @@ runs:
       shell: bash
       env:
         GITHUB_TOKEN: ${{ github.token }}
-      run: mise exec -- node tools/workspace/stack.ts
+      run: mise exec -- node tools/ci/stack.ts

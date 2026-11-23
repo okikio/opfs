@@ -118,8 +118,8 @@ not copy decoder code from the SDK.
 
 ## Benchmark workload
 
-`mise run bench:run -- bench/seven.bench.ts` preflights complete fixture bytes and selected intervals before sampling 29
-workloads. COPY compares exact preindexed Blob reads with unchecked/CRC previews and cold indexing. LZMA1, LZMA2 and
+`mise run bench:local -- bench/seven.bench.ts` preflights complete fixture bytes and selected intervals before sampling
+29 workloads. COPY compares exact preindexed Blob reads with unchecked/CRC previews and cold indexing. LZMA1, LZMA2 and
 encoded-header LZMA1 profiles compare warm prefix decoding with complete-member CRC decoding at an early and late
 offset. Names record actual source, decoded and selected-output bytes, plus prefix termination. The compressed lanes
 have no independent native-codec timing baseline and establish no speedup claim. Cold indexing of compressed headers

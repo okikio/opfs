@@ -63,7 +63,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.sha }}
           RUN_ID: ${{ github.run_id }}
-        run: node tools/workspace/evidence.ts baseline --head "$HEAD_SHA" --run-id "$RUN_ID"
+        run: node tools/ci/evidence.ts baseline --head "$HEAD_SHA" --run-id "$RUN_ID"
       - id: plan
         env:
           BASE_SHA: ${{ steps.stack.outputs.base-sha || github.event.pull_request.base.sha || steps.baseline.outputs.base }}
@@ -125,7 +125,7 @@ jobs:
           mode: restore
           cohort: opfs-source
           bypass: ${{ inputs.fresh }}
-      - run: mise run ci:run -- --lane source
+      - run: mise run ci:lane -- source
         if: steps.passed.outputs.hit != 'true'
         env:
           # zizmor and pinact use the job token for their online audits; it only reads public data.
@@ -211,7 +211,7 @@ jobs:
           mode: restore
           cohort: opfs-runtime-${{ matrix.runtime }}
           bypass: ${{ inputs.fresh }}
-      - run: mise run ci:run -- --lane runtimes --runtime "$RUNTIME"
+      - run: mise run ci:lane -- runtimes --runtime "$RUNTIME"
         if: steps.passed.outputs.hit != 'true'
       - name: Retain reports
         if: steps.passed.outputs.hit != 'true' && always()
@@ -288,7 +288,7 @@ jobs:
           key: opfs-fixtures-v1-${{ hashFiles('tests/fixtures/store.json') }}
       - run: mise run prepare:fixtures
         if: steps.passed.outputs.hit != 'true'
-      - run: mise run ci:run -- --lane platforms --runtime "$RUNTIME"
+      - run: mise run ci:lane -- platforms --runtime "$RUNTIME"
         if: steps.passed.outputs.hit != 'true'
       - name: Save dependency downloads after successful checks
         if: steps.passed.outputs.hit != 'true'
@@ -348,7 +348,7 @@ jobs:
           key: opfs-fixtures-v1-${{ hashFiles('tests/fixtures/store.json') }}
       - run: mise run prepare:fixtures
         if: steps.passed.outputs.hit != 'true'
-      - run: mise run ci:run -- --lane browser --shard "$SHARD/3"
+      - run: mise run ci:lane -- browser --shard "$SHARD/3"
         if: steps.passed.outputs.hit != 'true'
       - name: Retain reports
         if: steps.passed.outputs.hit != 'true' && always()
@@ -417,7 +417,7 @@ jobs:
           key: opfs-fixtures-v1-${{ hashFiles('tests/fixtures/store.json') }}
       - run: mise run prepare:fixtures
         if: steps.passed.outputs.hit != 'true'
-      - run: mise run ci:run -- --lane providers --shard "$SHARD/4"
+      - run: mise run ci:lane -- providers --shard "$SHARD/4"
         if: steps.passed.outputs.hit != 'true'
       - name: Retain reports
         if: steps.passed.outputs.hit != 'true' && always()
@@ -485,7 +485,7 @@ jobs:
       - name: Install independent archive consumers
         if: steps.passed.outputs.hit != 'true'
         run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends 7zip libarchive-tools
-      - run: mise run ci:run -- --lane interop
+      - run: mise run ci:lane -- interop
         if: steps.passed.outputs.hit != 'true'
       - name: Save dependency downloads after successful checks
         if: steps.passed.outputs.hit != 'true'
@@ -539,8 +539,11 @@ jobs:
           key: opfs-fixtures-v1-${{ hashFiles('tests/fixtures/store.json') }}
       - run: mise run prepare:fixtures
         if: steps.passed.outputs.hit != 'true'
-      - run: mise run ci:run -- --lane netlify
+      - run: mise run ci:lane -- netlify
         if: steps.passed.outputs.hit != 'true'
+        env:
+          # Fixture acquisition reads public GitHub API records; the read-only token avoids the shared IP limit.
+          GITHUB_TOKEN: ${{ github.token }}
       - name: Save dependency downloads after successful checks
         if: steps.passed.outputs.hit != 'true'
         uses: $/.github/actions/dependency-cache
@@ -593,7 +596,7 @@ jobs:
           key: opfs-fixtures-v1-${{ hashFiles('tests/fixtures/store.json') }}
       - run: mise run prepare:fixtures
         if: steps.passed.outputs.hit != 'true'
-      - run: mise run ci:run -- --lane package
+      - run: mise run ci:lane -- package
         if: steps.passed.outputs.hit != 'true'
       - name: Retain reports
         if: steps.passed.outputs.hit != 'true' && always()
@@ -671,7 +674,7 @@ jobs:
           key: opfs-fixtures-v1-${{ hashFiles('tests/fixtures/store.json') }}
       - run: mise run prepare:fixtures
         if: steps.passed.outputs.hit != 'true'
-      - run: mise run ci:run -- --lane bench --kind "$KIND" ${SHARD:+--shard "$SHARD/3"}
+      - run: mise run ci:lane -- bench --kind "$KIND" ${SHARD:+--shard "$SHARD/3"}
         if: steps.passed.outputs.hit != 'true'
       - name: Retain reports
         if: steps.passed.outputs.hit != 'true' && always()
@@ -734,7 +737,7 @@ jobs:
           key: opfs-fixtures-v1-${{ hashFiles('tests/fixtures/store.json') }}
       - run: mise run prepare:fixtures
         if: steps.passed.outputs.hit != 'true'
-      - run: mise run ci:run -- --lane stress
+      - run: mise run ci:lane -- stress
         if: steps.passed.outputs.hit != 'true'
       - name: Retain reports
         if: steps.passed.outputs.hit != 'true' && always()
@@ -797,4 +800,4 @@ jobs:
       - name: Report selected checks
         env:
           RESULTS: ${{ toJSON(needs) }}
-        run: node tools/workspace/ci-result.ts
+        run: node tools/ci/result.ts

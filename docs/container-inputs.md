@@ -13,12 +13,13 @@ bind-mount ownership view can differ from the outer checkout's ownership. Even m
 that Git will admit that mounted repository. Source admission therefore consults Git only in the ordinary outer
 checkout, rather than configuring `safe.directory`, changing the checkout owner, or relaxing its write protection.
 
-`tools/testing/container.ts` owns one identity-guarded private temporary copy and uncompressed archive per invocation.
-The maintained catalog comes from outer `git ls-files --cached --others --exclude-standard`. Repository administration,
-ignored task outputs and output trees are excluded. Installed `node_modules` is copied separately; Linux also copies the
-manual Deno cache. Installed package `dist` and `build` directories remain runtime inputs; the source-output exclusion
-rule does not remove those dependency implementations. No dependency installation or network access occurs in a Linux
-lane. The cache and dependencies must remain unchanged during the invocation, just like source files.
+`tools/test/container/staging.ts` owns one identity-guarded private temporary copy and uncompressed archive per
+invocation. The maintained catalog comes from outer `git ls-files --cached --others --exclude-standard`. Repository
+administration, ignored task outputs and output trees are excluded. Installed `node_modules` is copied separately; Linux
+also copies the manual Deno cache. Installed package `dist` and `build` directories remain runtime inputs; the
+source-output exclusion rule does not remove those dependency implementations. No dependency installation or network
+access occurs in a Linux lane. The cache and dependencies must remain unchanged during the invocation, just like source
+files.
 
 Files are copied independently, even when the package manager hard-linked the original files. A symbolic alias must
 resolve inside an admitted source, dependency or cache tree. Absolute internal aliases are rebased to relative targets

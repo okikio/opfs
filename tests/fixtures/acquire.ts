@@ -1,4 +1,5 @@
 /** Candidate-free inert acquisition. No downloaded module, hook or archived executable is run. */
+import process from "node:process";
 import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, renameSync, writeFileSync } from "node:fs";
@@ -103,7 +104,15 @@ export async function fetchBytes(
       redirect: "manual",
       credentials: "omit",
       signal: AbortSignal.timeout(Math.min(20_000, remaining)),
-      headers: { "User-Agent": "opfs-inert-fixture-review" },
+      headers: {
+        "User-Agent": "opfs-inert-fixture-review",
+        // Unauthenticated GitHub API calls share 60 requests an hour per IP, and CI runners share IPs, so
+        // acquisition failed with 403 when another job had used them. The job's read-only token raises the limit.
+        // It is sent only while the current URL is api.github.com, never across a redirect to another host.
+        ...(url.host === "api.github.com" && process.env.GITHUB_TOKEN
+          ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` }
+          : {}),
+      },
     });
     if ([301, 302, 303, 307, 308].includes(response.status)) {
       const location = response.headers.get("location");

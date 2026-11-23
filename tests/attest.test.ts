@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { platform } from "node:process";
 import { execFile } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { approval } from "../tools/testing/attest.ts";
+import { approval } from "../tools/test/attest.ts";
 import { withReleases } from "./close.ts";
 
 /** Real gate controls are host POSIX observations, not Docker runtime/capability claims. */
@@ -49,7 +49,7 @@ describe("independent native runtime attestation gate", () => {
       execFile(
         "/bin/sh",
         [
-          fileURLToPath(new URL("../tools/testing/attest.sh", import.meta.url)),
+          fileURLToPath(new URL("../tools/test/attest.sh", import.meta.url)),
           "ordinary",
           directory,
           crypto.randomUUID(),

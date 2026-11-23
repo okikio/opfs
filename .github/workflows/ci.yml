@@ -58,4 +58,4 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: mise run check:commits
       - name: Preview the Sampo release plan
-        run: mise run release -- --operation plan
+        run: mise run release:plan

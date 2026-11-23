@@ -27,7 +27,15 @@ function state(pid: number): { readonly group: number; readonly status: string }
     throw reason;
   }
   try {
-    const bytes = new Uint8Array(4096), length = readSync(descriptor, bytes);
+    const bytes = new Uint8Array(4096);
+    let length: number;
+    try {
+      length = readSync(descriptor, bytes);
+    } catch (reason) {
+      // The process can exit between open and read; Linux then fails the read with ESRCH. That is absence too.
+      if (reason !== null && typeof reason === "object" && "code" in reason && reason.code === "ESRCH") return;
+      throw reason;
+    }
     if (length === bytes.length) throw new Error("Owned worker stat exceeds its read budget.");
     const text = new TextDecoder().decode(bytes.subarray(0, length)), end = text.lastIndexOf(")");
     const fields = text.slice(end + 2).split(" ");

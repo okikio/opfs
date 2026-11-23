@@ -11,8 +11,22 @@ mise run check          # every check
 mise run test           # the discovered suite on Deno, Node.js and Bun
 ```
 
-Task files live in `.mise/tasks/<family>/<kind>.sh`. Each one only selects a program; the programs live in `tools/`.
-`mise tasks` lists them with their descriptions.
+Task files live in `.mise/tasks/<family>/<kind>.sh`. Each one only selects a program; the programs live in `tools/`, in
+a folder named after the task family that runs them, so `check:types` runs `tools/check/types.ts` and `ci:plan` runs
+`tools/ci/plan.ts`. `mise tasks` lists every task with its description.
+
+```text
+tools/
+  check/     types, commits, examples, security      (check:* tasks with a program of their own)
+  test/      suite, discover, netlify, ecosystems, linux, command, attest, container/
+  bench/     local                                    (bench:local)
+  ci/        plan, lane, result, stack, evidence      (ci:plan, ci:lane and the Quality workflow)
+  release/   plan, version, publish, verify, manifest, sampo
+  fixtures/  store                                    (prepare:fixtures, check:fixtures, build:fixtures)
+  npm/       build, pack                              (build:npm, check:package)
+  schema/    types, compiler                          (build:schema, check:schema)
+  spawn.ts   runs one child program from the repository root; the other tools share it
+```
 
 ## Tasks
 
@@ -40,14 +54,16 @@ Task files live in `.mise/tasks/<family>/<kind>.sh`. Each one only selects a pro
 | `test:browser`                             | Playwright browser tests (Chromium, Firefox, WebKit)                                          |
 | `test:stress`, `test:coverage`             | Shuffled repeats of the portable suite; Deno coverage                                         |
 | `test:ecosystems`                          | unstorage, db0, Drizzle and RxDB installed fresh at pinned versions                           |
-| `bench:run`                                | Every container-free benchmark once, as a correctness check; reports in `.tmp/reports/bench/` |
+| `bench:local`                              | Every container-free benchmark once, as a correctness check; reports in `.tmp/reports/bench/` |
 | `bench:providers`, `bench:browser`         | Provider baselines and browser OPFS benchmarks                                                |
-| `release`                                  | Sampo plan, version and publication; see [releasing](releasing.md)                            |
+| `release:plan`, `release:version`          | Preview, then write, the next version from Sampo changesets; see [releasing](releasing.md)    |
+| `release:publish`, `release:verify`        | Publish to one registry (`--target npm\|jsr`); install it back in a fresh consumer            |
+| `ci:plan`, `ci:lane`                       | Select the lanes a change needs; run one lane's tasks in order                                |
 
 ## Tests are discovered
 
 A file named `*.test.ts` under `tests/` or `tools/` is a test. It runs on Deno, Node.js and Bun unless its name puts it
-in a family with other needs; `tools/testing/discover.ts` holds those rules, each with its reason:
+in a family with other needs; `tools/test/discover.ts` holds those rules, each with its reason:
 
 | Family                      | Files                                            | Runs on                             |
 | --------------------------- | ------------------------------------------------ | ----------------------------------- |
@@ -63,13 +79,13 @@ use, with each file's family.
 
 ## CI runs the same tasks
 
-`.github/workflows/ci.yml` calls the Quality workflow, which plans and then runs lanes with
-`mise run ci:run -- --lane
-<name>`. Every job has a 10-minute limit; long suites are split into shards.
+`.github/workflows/ci.yml` calls the Quality workflow. Its first job runs `mise run ci:plan`; each selected job then
+runs `mise run ci:lane -- <lane>`, which calls the same tasks listed above in order. Every job has a 10-minute limit;
+long suites are split into shards.
 
-- **Selection.** `tools/workspace/ci.ts plan` compares the base and head commits. A change limited to Markdown or
-  planning records runs only the source checks; any other change runs every lane whose tests exist. In a native pull
-  request stack only the top layer runs the full lanes; lower layers run the source checks.
+- **Selection.** `tools/ci/plan.ts` compares the base and head commits. A change limited to Markdown or planning records
+  runs only the source checks; any other change runs every lane whose tests exist. In a native pull request stack only
+  the top layer runs the full lanes; lower layers run the source checks.
 - **Result cache.** A lane records a pass under its exact inputs: the commit's tree, the lane, its shard and the runner
   image release. A later run with the same key skips that lane. The cache never decides what is selected, and a fresh
   dispatch (`fresh: true`) bypasses it.
