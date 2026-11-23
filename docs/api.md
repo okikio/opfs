@@ -864,3 +864,7 @@ checksum verification.
 
 [FTP and explicit FTPS](ftp.md) require caller-supplied transports. [MBOX](mbox.md) and [ar](ar.md) provide bounded
 sources for nested previews without host extraction.
+
+[SFTP v3](sftp.md) uses an injected authenticated SSH subsystem for finite reads and acknowledged writes.
+[BagIt](bagit.md) separates supplied-inventory coverage from selected-file digest verification.
+[Legacy ZIP password previews](password.md) describe explicit password bytes and unauthenticated ZipCrypto evidence.
