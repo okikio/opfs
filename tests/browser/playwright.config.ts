@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
 import { env } from "node:process";
+import { create } from "./environment.ts";
 
 /** Primary same-origin fixture server. */
 const first = "http://127.0.0.1:4173";
@@ -14,10 +15,17 @@ const secondReady = `${second}/tests/browser/fixtures/frame.html`;
 const ci = Boolean(env.CI);
 
 export default defineConfig({
+  globalSetup: fileURLToPath(new URL("./setup.ts", import.meta.url)),
+  // Cleanup and artifact recreation stay inside the writable task-owned namespace.
+  outputDir: fileURLToPath(new URL("../../.tmp/reports/browser/artifacts", import.meta.url)),
   testDir: ".",
   testMatch: "*.spec.ts",
   fullyParallel: true,
+  // Bound browser processes independently from host CPU count and container CPU quotas.
+  workers: 1,
   forbidOnly: ci,
+  // Retries collect diagnostics; a flaky capability must still fail the gate.
+  failOnFlakyTests: true,
   retries: ci ? 2 : 0,
   reporter: ci
     ? [["github"], ["json", {
@@ -27,17 +35,22 @@ export default defineConfig({
   use: {
     baseURL: first,
     trace: "retain-on-failure",
+    launchOptions: { env: create() },
   },
   webServer: [
     {
-      command: "deno run -A npm:vite@8.2.1 ../.. --host 127.0.0.1 --port 4173 --strictPort",
+      command:
+        "deno run -A npm:vite@8.2.1 --configLoader native --config tests/browser/vite.config.ts --host 127.0.0.1 --port 4173 --strictPort",
+      cwd: fileURLToPath(new URL("../..", import.meta.url)),
       url: firstReady,
-      reuseExistingServer: !ci,
+      reuseExistingServer: false,
     },
     {
-      command: "deno run -A npm:vite@8.2.1 ../.. --host 127.0.0.1 --port 4174 --strictPort",
+      command:
+        "deno run -A npm:vite@8.2.1 --configLoader native --config tests/browser/vite.config.ts --host 127.0.0.1 --port 4174 --strictPort",
+      cwd: fileURLToPath(new URL("../..", import.meta.url)),
       url: secondReady,
-      reuseExistingServer: !ci,
+      reuseExistingServer: false,
     },
   ],
   projects: [

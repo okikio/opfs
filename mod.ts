@@ -72,6 +72,7 @@ export type {
   WalkOptionsType,
   WriteOptionsType,
 } from "./src/filesystem.ts";
+export type { HostProfileType } from "./src/driver/host.ts";
 export type { AdapterType, FileSystemOptionsType } from "./src/adapter/definition.ts";
 export type { OpenFileSystemOptionsType } from "./src/adapter/opfs.ts";
 export type {
@@ -107,6 +108,11 @@ export type {
   FileDriverType,
   FileDriverWritableFileType,
   FileDriverWriteOptionsType,
+  FileEntryKindType,
+  FileEntryType,
+  PublicationType,
+  WritableInspectionType,
+  WritableOptionsType,
 } from "./src/driver/file.ts";
 export type {
   AdapterCapabilitiesType,

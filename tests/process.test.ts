@@ -5,22 +5,25 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runProgram } from "../bench/process.ts";
 import { finish } from "../bench/result.ts";
+import { withReleases } from "./close.ts";
 
 describe("benchmark program ownership", () => {
-  it("waits for successful output to close before releasing its owned file", async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "opfs-process-"));
-    t.after(() => rm(root, { recursive: true, force: true }));
-    const path = join(root, "result.txt");
-    const output = await open(path, "wx");
-    try {
-      await runProgram("node", ["--input-type=module", "-e", "process.stdout.write('complete')"], {
-        stdio: ["ignore", output.fd, "ignore"],
-      });
-    } finally {
-      await output.close();
-    }
-    expect(await readFile(path, "utf8")).toBe("complete");
-  });
+  it("waits for successful output to close before releasing its owned file", async () =>
+    await withReleases(async (releases) => {
+      const root = await mkdtemp(join(tmpdir(), "opfs-process-"));
+      releases.push(() => rm(root, { recursive: true, force: true }));
+      const path = join(root, "result.txt");
+      const output = await open(path, "wx");
+      releases.push(() => output.close());
+      try {
+        await runProgram("node", ["--input-type=module", "-e", "process.stdout.write('complete')"], {
+          stdio: ["ignore", output.fd, "ignore"],
+        });
+      } finally {
+        await output.close();
+      }
+      expect(await readFile(path, "utf8")).toBe("complete");
+    }));
 
   it("retains startup failure rather than treating an absent executable as success", async () => {
     await expect(runProgram(`opfs-absent-${crypto.randomUUID()}`, [], { stdio: "ignore" }))

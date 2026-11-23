@@ -1,3 +1,4 @@
+import { create } from "../../tests/browser/environment.ts";
 import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
 
@@ -7,17 +8,23 @@ const baseURL = "http://127.0.0.1:4173";
 const readyURL = `${baseURL}/tests/browser/fixtures/index.html`;
 
 export default defineConfig({
+  // Cleanup and artifact recreation stay inside the writable task-owned namespace.
+  outputDir: fileURLToPath(new URL("../../.tmp/reports/browser-bench/artifacts", import.meta.url)),
   testDir: ".",
   testMatch: "*.spec.ts",
   workers: 1,
+  failOnFlakyTests: true,
+  globalSetup: fileURLToPath(new URL("./input.ts", import.meta.url)),
   reporter: [["line"], ["json", {
     outputFile: fileURLToPath(new URL("../../.tmp/reports/browser-bench/results.json", import.meta.url)),
   }]],
-  use: { baseURL },
+  use: { baseURL, launchOptions: { env: create() } },
   webServer: {
-    command: "deno run -A npm:vite@8.2.1 ../.. --host 127.0.0.1 --port 4173 --strictPort",
+    command:
+      "deno run -A npm:vite@8.2.1 --configLoader native --config tests/browser/vite.config.ts --host 127.0.0.1 --port 4173 --strictPort",
+    cwd: fileURLToPath(new URL("../..", import.meta.url)),
     url: readyURL,
-    reuseExistingServer: true,
+    reuseExistingServer: false,
   },
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },

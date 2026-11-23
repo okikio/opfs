@@ -1,10 +1,11 @@
-import { mkdir, open } from "node:fs/promises";
+import { mkdir, mkdtemp, open, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { env, execPath } from "node:process";
 
 import { openProviders } from "../tests/provider/fixture.ts";
 import { finish } from "./result.ts";
 import { runProgram } from "./process.ts";
+import { openInputGuard } from "./input.ts";
 
 /** Environment names consumed by the provider benchmark programs. */
 interface ProviderEnvType extends NodeJS.ProcessEnv {
@@ -49,23 +50,38 @@ function getProviderEnv(s3Endpoint: string, azureEndpoint: string): ProviderEnvT
   } as ProviderEnvType;
 }
 
-/** Provider services live outside timed benchmark programs and close after both programs finish. */
-await using providers = await openProviders();
-/** Child-process environment carrying the Testcontainers-selected endpoints. */
-const providerEnv = getProviderEnv(providers.s3Endpoint, providers.azureEndpoint);
-/** Optional report ownership keeps each runtime's native JSON in a separate immutable file. */
-const reportRoot = env.OPFS_BENCH_REPORT_DIR;
-if (reportRoot !== undefined) await mkdir(reportRoot, { recursive: true });
+/** Standalone and parent-collected provider runs admit the same maintained inputs. */
+const reportRoot = env.OPFS_PROVIDER_VERIFY === "1" ? undefined : env.OPFS_BENCH_REPORT_DIR;
+const parent = join(".tmp", "reports", env.OPFS_PROVIDER_VERIFY === "1" ? "provider-verify" : "provider-bench");
+await mkdir(reportRoot ?? parent, { recursive: true });
+const evidence = reportRoot ?? await mkdtemp(join(parent, `${new Date().toISOString().replaceAll(":", "-")}-`));
+const completeInputs = await openInputGuard(async (receipt) => {
+  await writeFile(join(evidence, "provider-inputs.json"), JSON.stringify(receipt, null, 2) + "\n");
+});
+let failed = false;
+let primary: unknown;
+try {
+  /** Provider services live outside timed benchmark programs and close after both programs finish. */
+  await using providers = await openProviders();
+  /** Child-process environment carrying the Testcontainers-selected endpoints. */
+  const providerEnv = getProviderEnv(providers.s3Endpoint, providers.azureEndpoint);
 
-await run(
-  execPath,
-  ["--expose-gc", "bench/provider.bench.ts"],
-  providerEnv,
-  reportRoot === undefined ? undefined : join(reportRoot, "provider-node.json"),
-);
-await run(
-  "bun",
-  ["run", "bench/bun-provider.bench.ts"],
-  providerEnv,
-  reportRoot === undefined ? undefined : join(reportRoot, "provider-bun.json"),
-);
+  await run(
+    execPath,
+    ["--expose-gc", "bench/provider.bench.ts"],
+    providerEnv,
+    reportRoot === undefined ? undefined : join(reportRoot, "provider-node.json"),
+  );
+  await run(
+    "bun",
+    ["run", "bench/bun-provider.bench.ts"],
+    providerEnv,
+    reportRoot === undefined ? undefined : join(reportRoot, "provider-bun.json"),
+  );
+} catch (error) {
+  failed = true;
+  primary = error;
+  throw error;
+} finally {
+  await finish([completeInputs], failed ? [primary] : []);
+}

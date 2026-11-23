@@ -1,5 +1,7 @@
 import type { ErrorCodeType } from "./_schema_types.ts";
 import { ErrorCodeSchema } from "./schema.ts";
+import { getPrimary } from "./close.ts";
+import { getCancellation } from "./abort.ts";
 
 /**
  * Error returned by the high-level filesystem and first-party adapters.
@@ -7,6 +9,10 @@ import { ErrorCodeSchema } from "./schema.ts";
  * `code` is stable package vocabulary. `operation` identifies the public or
  * adapter operation. `path` identifies the affected virtual path when one
  * exists. The original runtime failure remains available through `cause`.
+ * When an operation and its owned retirement both fail, normalization keeps
+ * the actual primary category and exposes every event in the aggregate cause.
+ * Equal-valued events remain separate. A supplied undefined cause is retained
+ * as an own property; an omitted cause stays absent.
  */
 export class FileSystemError extends Error {
   /** Stable category for programmatic branching. */
@@ -16,16 +22,15 @@ export class FileSystemError extends Error {
   /** Canonical virtual path associated with the failure. */
   readonly path?: string;
   /** Original runtime or adapter failure. */
-  override readonly cause?: unknown;
+  declare readonly cause?: unknown;
 
   /** Creates one normalized filesystem failure. */
   constructor(code: ErrorCodeType, operation: string, path: string | undefined, message: string, cause?: unknown) {
-    super(message);
+    super(message, arguments.length >= 5 ? { cause } : undefined);
     this.name = "FileSystemError";
     this.code = code;
     this.operation = operation;
     if (path !== undefined) this.path = path;
-    if (cause !== undefined) this.cause = cause;
   }
 }
 
@@ -58,7 +63,7 @@ function fromForeignFileSystemError(error: unknown): FileSystemError | undefined
     operation,
     path,
     getErrorMessage(error),
-    cause === undefined ? error : cause,
+    Object.hasOwn(error, "cause") ? cause : error,
   );
 }
 
@@ -83,9 +88,28 @@ export function getErrorMessage(error: unknown): string {
  *
  * Adapters can call this function for native errors. Database adapters should
  * wrap provider-specific failures with the most precise category they can prove.
+ * Only the internal release owner can identify an aggregate's primary event.
+ * An arbitrary aggregate's cause or first member does not assign its category.
  */
 export function toFileSystemError(error: unknown, operation: string, path?: string): FileSystemError {
   if (error instanceof FileSystemError) return error;
+  // Only an attempt-owned abort winner grants this category. A concrete
+  // operation rejection beside a caller event keeps its own primary category,
+  // even when both observations have the same value.
+  const cancellation = getCancellation(error);
+  if (cancellation?.primary.kind === "abort") {
+    const location = path === undefined ? "" : ` for '${path}'`;
+    return new FileSystemError("aborted", operation, path, `${operation} was aborted${location}.`, error);
+  }
+  // Only our release owner can identify a primary event in an aggregate. A
+  // foreign AggregateError's cause or first member grants no such authority.
+  // Keep the primary category for callers, while the complete aggregate remains
+  // the cause so an independently failed release cannot disappear.
+  const primary = getPrimary(error);
+  if (primary !== undefined) {
+    const mapped = toFileSystemError(primary.reason, operation, path);
+    return new FileSystemError(mapped.code, mapped.operation, mapped.path, mapped.message, error);
+  }
   const foreign = fromForeignFileSystemError(error);
   if (foreign !== undefined) return foreign;
 

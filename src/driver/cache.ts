@@ -33,11 +33,13 @@ function request(prefix: string, path: PathType): Request {
  */
 function getPath(prefix: string, value: Request): PathType | null {
   const url = new URL(value.url);
+  if (url.origin !== "https://opfs.invalid" || url.search !== "" || value.method !== "GET") return null;
   const parts = url.pathname.slice(1).split("/");
   if (parts.length !== 2) return null;
   try {
     if (decodeURIComponent(parts[0] ?? "") !== prefix) return null;
-    return PathSchema.parse(decodeURIComponent(parts[1] ?? ""));
+    const path = PathSchema.parse(decodeURIComponent(parts[1] ?? ""));
+    return request(prefix, path).url === value.url ? path : null;
   } catch {
     return null;
   }
@@ -91,6 +93,10 @@ class CacheBackend implements RecordBackendType {
       const response = await this.#cache.match(cacheRequest);
       if (response === undefined) continue;
       const record = RecordSchema.parse(await response.json());
+      // Canonical record fields cannot authorize a different physical key.
+      // Reject corruption before publishing a child that subsequent reads
+      // cannot retrieve from its reported path.
+      if (record.path !== path) throw new TypeError("Stored Cache record does not match its physical key.");
       if (record.parent === parent) yield record;
     }
   }

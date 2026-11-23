@@ -1,4 +1,3 @@
-import { deepStrictEqual } from "node:assert/strict";
 import { env, stdout } from "node:process";
 import { run } from "mitata";
 
@@ -7,9 +6,27 @@ export function payload(size: number): Uint8Array {
   return Uint8Array.from({ length: size }, (_, index) => (index * 31 + 17) % 251);
 }
 
-/** A benchmark proceeds only after its independent byte oracle succeeds. */
+/**
+ * Checks every visible byte before sampling, regardless of the view's prototype.
+ *
+ * Failure retains lengths or the first differing offset and two scalar bytes.
+ * Large native buffers must not be copied or formatted into an assertion diff:
+ * diagnostic allocation could hide the original failure behind an OOM kill.
+ * This check remains outside timed callbacks and does not validate storage durability.
+ */
 export function expectBytes(actual: Uint8Array, expected: Uint8Array, lane: string): void {
-  deepStrictEqual(actual, expected, `${lane}: byte oracle`);
+  if (actual.byteLength !== expected.byteLength) {
+    throw new Error(`${lane}: byte oracle length differs.`, {
+      cause: { actualBytes: actual.byteLength, expectedBytes: expected.byteLength },
+    });
+  }
+  for (let offset = 0; offset < expected.byteLength; offset++) {
+    if (actual[offset] !== expected[offset]) {
+      throw new Error(`${lane}: byte oracle differs at byte ${offset}.`, {
+        cause: { offset, actual: actual[offset], expected: expected[offset] },
+      });
+    }
+  }
 }
 
 /** Native Mitata JSON retains distributions for repeatable reports instead of terminal averages. */
