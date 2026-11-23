@@ -242,10 +242,13 @@ try {
     import { verifyArweaveTransaction } from '@okikio/opfs/content/arweave';
     import { createArweaveClient } from '@okikio/opfs/arweave';
     import { openLha } from '@okikio/opfs/archive/lha';
+    import { openArj } from '@okikio/opfs/archive/arj';
     import { openHdf5 } from '@okikio/opfs/dataset/hdf5';
     import { createCmisClient } from '@okikio/opfs/cmis';
     import { createCouchdbClient } from '@okikio/opfs/couchdb';
     import { openCryptomator } from '@okikio/opfs/crypto/cryptomator';
+    import { createEtcdClient } from '@okikio/opfs/etcd';
+    import { createUploadClient, UploadSessionSchema } from '@okikio/opfs/upload';
     import { compressStream, decompressStream } from '@okikio/opfs/archive/compress';
     import { parseCid, verifyBlock } from '@okikio/opfs/content/cid';
     import { createS3Client } from '@okikio/opfs/s3';
@@ -677,6 +680,55 @@ try {
     if (couchdbDocument.id !== couchdbFixture.documentId || couchdbDocument.attachments[0].length !== couchdbOriginal.length) throw new Error('Packed CouchDB native metadata changed');
     assertBytes(await couchdb.read(couchdbFixture.documentId, couchdbFixture.attachmentName, {revision:couchdbDocument.revision}), couchdbOriginal);
     if ((await couchdb.stat(couchdbFixture.documentId, couchdbFixture.attachmentName)).etag !== couchdbFixture.content.headers.etag) throw new Error('Packed CouchDB attachment ETag changed');
+    const etcdFixture = ${
+      JSON.stringify(JSON.parse(await readFile(new URL("../fixtures/etcd/independent.json", import.meta.url), "utf8")))
+    };
+    const etcdOriginal = Uint8Array.from(atob(etcdFixture.oracle.base64), (byte)=>byte.charCodeAt(0));
+    const etcdKey = new TextEncoder().encode(etcdFixture.key);
+    const etcd = createEtcdClient({endpoint:'https://etcd.example/',fetch:async(input,init)=>{
+      if(String(input)!=='https://etcd.example/v3/kv/range' || init.method!=='POST' || init.redirect!=='manual' || init.credentials!=='omit') throw new Error('Packed etcd authority changed');
+      const request=JSON.parse(init.body);
+      if(request.key!==btoa(String.fromCharCode(...etcdKey)) || request.serializable!==false) throw new Error('Packed etcd exact key changed');
+      return new Response(Uint8Array.from(atob(etcdFixture.range.base64),(byte)=>byte.charCodeAt(0)),{status:etcdFixture.range.status,headers:etcdFixture.range.headers});
+    }});
+    const etcdResult = await etcd.get(etcdKey);
+    if(!etcdResult.entry || typeof etcdResult.header.cluster_id!=='string' || typeof etcdResult.entry.modRevision!=='string') throw new Error('Packed etcd revision evidence changed');
+    assertBytes(etcdResult.entry.key,etcdKey);
+    assertBytes(etcdResult.entry.value,etcdOriginal);
+    const uploadFixture = ${
+      JSON.stringify(
+        await (async () => {
+          const fixture = JSON.parse(
+            await readFile(new URL("../fixtures/upload/independent.json", import.meta.url), "utf8"),
+          );
+          return { original: fixture.original, traces: [0, 3, 4, 5].map((index) => fixture.traces[index]) };
+        })(),
+      )
+    };
+    const uploadOriginal=Uint8Array.from({length:uploadFixture.original.length},(_,index)=>(index*31+17)%251);
+    const uploadDigest=Array.from(new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256',uploadOriginal)),(byte)=>byte.toString(16).padStart(2,'0')).join('');
+    if(uploadDigest!==uploadFixture.original.sha256) throw new Error('Packed upload independent original differs');
+    let uploadAt=0;
+    const uploadClient=createUploadClient({profile:'draft-15',target:'https://upload.example/create?key=main.bin',fetch:async(input,init)=>{
+      const trace=uploadFixture.traces[uploadAt++], url=new URL(String(input));
+      if(!trace || url.origin!=='https://upload.example' || url.pathname+url.search!==trace.path || init.method!==trace.method || init.redirect!=='manual' || init.credentials!=='omit') throw new Error('Packed upload trace or authority changed');
+      const headers=new Headers(init.headers);
+      if(headers.get('Upload-Draft-Interop-Version')!=='10') throw new Error('Packed upload draft version changed');
+      if(trace.method==='PATCH' && trace.requestBytes>0){
+        if(headers.get('Upload-Offset')!=='32768' || headers.get('Upload-Complete')!=='?0') throw new Error('Packed upload append evidence changed');
+        assertBytes(init.body,uploadOriginal.subarray(32768));
+      } else if(init.body!==undefined) assertBytes(init.body,new Uint8Array());
+      return new Response(trace.body?Uint8Array.from(atob(trace.body),(byte)=>byte.charCodeAt(0)):null,{status:trace.status,headers:trace.headers});
+    }});
+    const uploadCreated=await uploadClient.create({method:'POST',size:uploadOriginal.length});
+    if(uploadCreated.kind!=='created') throw new Error('Packed upload creation omitted resource');
+    const uploadResource=uploadClient.open(UploadSessionSchema.parse(JSON.parse(JSON.stringify(uploadCreated.session))),{acknowledgedOffset:0});
+    const uploadStatus=await uploadResource.status();
+    if(uploadStatus.offset!==32768) throw new Error('Packed upload reconciliation changed');
+    const uploadAppend=await uploadResource.append(uploadStatus.offset,uploadOriginal.subarray(uploadStatus.offset));
+    if(uploadAppend.kind!=='ack' || uploadAppend.offset!==uploadOriginal.length) throw new Error('Packed upload acknowledgement changed');
+    const uploadReceipt=await uploadResource.finish();
+    if(uploadReceipt.terminal!==true || uploadReceipt.status!==200 || uploadAt!==uploadFixture.traces.length) throw new Error('Packed upload terminal receipt changed');
     const cryptomatorFixture = ${
       JSON.stringify(
         await (async () => {
@@ -731,6 +783,33 @@ try {
     assertBytes(lhaRead.bytes, lhaOriginal);
     if (lhaEntry.level !== 2 || lhaRead.integrity !== 'crc16-verified' || lhaEntry.headerIntegrity !== 'crc16-verified') throw new Error('Packed LHA scopes changed');
     assertBytes(await lha.member(lhaEntry.id).read(3, 17), lhaOriginal.slice(3, 20));
+    const arjFixture = ${
+      JSON.stringify(
+        await (async () => {
+          const fixture = JSON.parse(
+            await readFile(new URL("../fixtures/arj/independent.json", import.meta.url), "utf8"),
+          ).fixtures.find((row) => row.id === "stored");
+          return { wire: fixture.archive.base64, original: fixture.payloads["many.bin"].base64 };
+        })(),
+      )
+    };
+    const arjBytes=Uint8Array.from(atob(arjFixture.wire),(byte)=>byte.charCodeAt(0));
+    let arjPhysical=0;
+    const arj=await openArj({size:arjBytes.length,stability:'immutable',read:async(at,length)=>{arjPhysical+=length;return arjBytes.slice(at,at+length);}});
+    const arjEntry=arj.entries.find((entry)=>entry.name==='many.bin');
+    if(!arjEntry || arjEntry.headerIntegrity!=='crc32-verified') throw new Error('Packed ARJ native member is absent');
+    const arjOriginal=Uint8Array.from(atob(arjFixture.original),(byte)=>byte.charCodeAt(0));
+    const arjFull=await arj.read(arjEntry.id);
+    assertBytes(arjFull.bytes,arjOriginal);
+    const arjBefore=arjPhysical;
+    const arjPrefix=await arj.read(arjEntry.id,{length:37});
+    assertBytes(arjPrefix.bytes,arjOriginal.slice(0,37));
+    if(arjFull.integrity!=='crc32-verified' || arjPrefix.integrity!=='crc32-verified' || arjPhysical-arjBefore!==arjOriginal.length) throw new Error('Packed ARJ verification scope changed');
+    const arjPendingAt=arjPhysical;
+    const arjPartial=await arj.read(arjEntry.id,{offset:3,length:17,verify:false});
+    assertBytes(arjPartial.bytes,arjOriginal.slice(3,20));
+    if(arjPartial.integrity!=='pending' || arjPhysical-arjPendingAt!==17) throw new Error('Packed ARJ unchecked range cost changed');
+    assertBytes(await arj.member(arjEntry.id).read(3,17),arjOriginal.slice(3,20));
     const hdf5Fixture = ${
       JSON.stringify(
         await (async () => {
@@ -1438,10 +1517,13 @@ try {
     import { verifyArweaveTransaction } from '@okikio/opfs/content/arweave';
     import { createArweaveClient } from '@okikio/opfs/arweave';
     import { openLha } from '@okikio/opfs/archive/lha';
+    import { openArj } from '@okikio/opfs/archive/arj';
     import { openHdf5 } from '@okikio/opfs/dataset/hdf5';
     import { createCmisClient } from '@okikio/opfs/cmis';
     import { createCouchdbClient } from '@okikio/opfs/couchdb';
     import { openCryptomator } from '@okikio/opfs/crypto/cryptomator';
+    import { createEtcdClient } from '@okikio/opfs/etcd';
+    import { createUploadClient, UploadSessionSchema } from '@okikio/opfs/upload';
     import { createByteSource } from '@okikio/opfs/source';
     import { createCompressedTar, readCompressedTar } from '@okikio/opfs/archive/compress';
     import { parseCid, verifyBlock } from '@okikio/opfs/content/cid';
@@ -1577,6 +1659,10 @@ try {
     const arweaveRemote: import('@okikio/opfs/arweave').ArweaveRemoteTransactionType = await arweaveClient.open('type-only');
     const lhaTyped: import('@okikio/opfs/archive/lha').LhaArchiveType = await openLha(createByteSource(new Uint8Array()));
     const lhaTypedRead: import('@okikio/opfs/archive/lha').LhaReadType = await lhaTyped.read(0, {verify:false, length:1});
+    const arjTyped: import('@okikio/opfs/archive/arj').ArjArchiveType = await openArj(createByteSource(new Uint8Array()));
+    const arjTypedRead: import('@okikio/opfs/archive/arj').ArjReadType = await arjTyped.read(0,{verify:false,length:1});
+    const arjTypedSource: import('@okikio/opfs/source').ByteSourceType = arjTyped.member(0);
+    void [arjTypedRead,arjTypedSource];
     const hdf5Typed: import('@okikio/opfs/dataset/hdf5').Hdf5FileType = await openHdf5(createByteSource(new Uint8Array()), {profile:'classic-contiguous'});
     const hdf5Dataset: import('@okikio/opfs/dataset/hdf5').Hdf5DatasetType = await hdf5Typed.dataset('literal-name');
     const hdf5Values: import('@okikio/opfs/dataset/hdf5').Hdf5ValuesType = (await hdf5Dataset.read({offset:0,count:1})).values;
@@ -1590,7 +1676,16 @@ try {
     const cryptomatorRead: import('@okikio/opfs/crypto/cryptomator').CryptomatorReadType = await cryptomatorSource.readVerified(0,1);
     await cryptomatorSource[Symbol.asyncDispose]();
     await cryptomatorTyped[Symbol.asyncDispose]();
-    void [lhaTypedRead, hdf5Values, cmisPage, couchdbReceipt, cryptomatorRead];
+    const etcdTyped: import('@okikio/opfs/etcd').EtcdClient = createEtcdClient({endpoint:'https://etcd.example/'});
+    const etcdGet: import('@okikio/opfs/etcd').EtcdGetType = await etcdTyped.get(new Uint8Array([1]));
+    const etcdReceipt: import('@okikio/opfs/etcd').EtcdReceiptType = await etcdTyped.put(new Uint8Array([1]),new Uint8Array(),{modRevision:'1',lease:'preserve'});
+    const uploadTyped: import('@okikio/opfs/upload').UploadClient = createUploadClient({profile:'draft-15',target:'https://upload.example/report'});
+    const uploadSession: import('@okikio/opfs/upload').UploadSessionType = UploadSessionSchema.parse({});
+    const uploadResource: import('@okikio/opfs/upload').UploadResourceType = uploadTyped.open(uploadSession,{acknowledgedOffset:0});
+    const uploadStatus: import('@okikio/opfs/upload').UploadStatusType = await uploadResource.status();
+    const uploadAppend: import('@okikio/opfs/upload').UploadAppendType = await uploadResource.append(0,new Uint8Array([1]));
+    const uploadReceipt: import('@okikio/opfs/upload').UploadReceiptType = await uploadResource.finish();
+    void [lhaTypedRead, hdf5Values, cmisPage, couchdbReceipt, cryptomatorRead, etcdGet, etcdReceipt, uploadStatus, uploadAppend, uploadReceipt];
     const zipLzmaPolicy: import('@okikio/opfs/archive/zip').ZipLzmaOptionsType = { maxDictionaryBytes: 1048576, maxSteps: 1000000 };
     const zipCodecArchive = await openZip(createByteSource(new Uint8Array()));
     const zipCodecRead = await zipCodecArchive.read(0, { lzma: zipLzmaPolicy });

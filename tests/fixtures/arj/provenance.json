@@ -1,0 +1,152 @@
+{
+  "profile": "ARJ at offset zero, one volume, fixed main prefixes of 30 or 34 bytes and member prefixes of 30 or 46 bytes, zero extension chains, STORED ordinary member reads; known compressed methods 1–4 support metadata only.",
+  "grammar": {
+    "authority": "Historical upstream open-source ARJ serialization and reader; no normative published specification established.",
+    "upstream": "https://arj.sourceforge.net/",
+    "sourceUrl": "https://deb.debian.org/debian/pool/main/a/arj/arj_3.10.22.orig.tar.gz",
+    "sourceVersion": "3.10.22",
+    "sourceArchiveSha256": "589e4c9bccc8669e7b6d8d6fcd64e01f6a2c21fe10aad56a83304ecc3b96a7db",
+    "files": {
+      "arj_arcv.c": "dec99c4bc3c91f290fa76ccd7d899649075fe8fb39fdd6fe8a5fec34952b8b5e",
+      "arj_arcv.h": "2181616e3fd66773b176590c82b03fec2679c175cca2dffbb429241be1813324",
+      "defines.h": "e99bd5091864b4196d66cd34f0ae709a877f9ee02c3d80793dce9c510cf725ee",
+      "arj_user.c": "9a77bff6cb97b9355a47a24ac4d553ed3fb755902360d414769ac649398069e1",
+      "environ.c": "2015ca97e7fcfe201e0227712baaa1241dabd2c6b8a544a748a759b9c7253146",
+      "arj.1": "10b934d0076a67d2235be6439a4b1258327ce53cac55732a317654839d5595e0"
+    },
+    "corroboration": {
+      "url": "https://raw.githubusercontent.com/MacPaw/XADMaster/7cb9ee0abbb163f261e4cb74501e15067032319c/XADARJParser.m",
+      "commit": "7cb9ee0abbb163f261e4cb74501e15067032319c",
+      "sha256": "49ef4c77aa10211fbca53ae76054c4f7e9d46160c9dbf3b5ad772840a58ada3d",
+      "role": "Independent reader reference only; no copied source implementation."
+    }
+  },
+  "native": {
+    "baseImage": "sha256:0e810524c96ab04e3b86dc1ffb23985b1392ced29fdd4bdce133edf84e187a09",
+    "toolsImage": "sha256:5db6f97eaa40bd0a27d00d1c239f7278d64410d2b617424c8a9583da1f55034e",
+    "imageScope": "Local test-tools snapshots, not public pullable complete producer pins. Signed APT installation changed the base filesystem.",
+    "packages": [
+      "7zip=22.01+really26.02+dfsg-0+deb12u1",
+      "arj=3.10.22-26",
+      "python3=3.11.2-1+b1"
+    ],
+    "acquiredDebs": [
+      "529f21f94b9c7d587c81ce9e385303ec190ab8154774e4fc5e7f091029b5ebb2  /var/cache/apt/archives/arj_3.10.22-26_arm64.deb"
+    ],
+    "binaries": [
+      "6c126cb36b391669a02f427a639882062f1194f07f3ab7602740e5454916fdf6  /usr/bin/arj",
+      "1925e92bd8138d9c685a0ae22853d23553f5dddabe7516a935231993a0da427c  /usr/bin/7zz",
+      "2ceb9199570aaf34a254b9ea88b1d77f38530833e2a12688d002a59c905b51b2  /usr/bin/python3"
+    ],
+    "limits": {
+      "memoryBytes": 1073741824,
+      "swapBytes": 1073741824,
+      "cpus": 1,
+      "pids": 128,
+      "network": "none for producer; acquisition only network-enabled",
+      "hostMounts": false,
+      "subprocessTimeoutSeconds": 60,
+      "subprocessFileAndDiagnosticBytes": 1048576
+    },
+    "command": [
+      "/usr/bin/python3",
+      "/produce.py",
+      "--arj",
+      "/usr/bin/arj",
+      "--seven",
+      "/usr/bin/7zz",
+      "--output",
+      "/tmp/independent.json"
+    ],
+    "producerScriptSha256": "6af34a93b5904c3e68303cd4a4ca9dcdbb2bb0a76f86eeb73f143f414c749961",
+    "exitCode": 0,
+    "oomKilled": false,
+    "candidateImported": false,
+    "proof": "Native ARJ test and extraction plus independent 7zip extraction compare exact authored file sets and every original byte. Explicit emptydir appears as a type3 zero-payload native header and both extracted directories; actual main and tiny.txt comments match authored CRLF bytes.",
+    "wireObservations": [
+      "All genuine main headers have a fixed 34-byte prefix and all member headers a 46-byte prefix.",
+      "All genuine structural extension lengths are zero.",
+      "Requested method 1 compresses only many.bin; small members use method 0.",
+      "The genuine file-type-3 emptydir has stored and original size zero.",
+      "An interim successful add with -jzFILE left member comments empty. The final explicit c -jzFILE step populates the tiny.txt comment and preserves all original payloads."
+    ],
+    "negativeReceipts": [
+      {
+        "log": ".tmp/implementation/arj-producer-expanded-20261105.log",
+        "error": "arj a with literal emptydir expands to emptydir/* and fails because directory is empty; no fixture copied.",
+        "repair": "Literal argv emptydi? selects only the authored directory record, no shell."
+      }
+    ],
+    "limitsOfEvidence": [
+      "Genuine fixtures cover decoder revision 11, 34-byte main prefixes and 46-byte member prefixes. Authored controls cover the 30-byte prefix layout; no original historical producer was run for that layout.",
+      "Only ASCII encoding is native-proven.",
+      "No compressed payload decoding, encryption, SFX, extensions, multivolume, recovery, special-file or general ARJ conformance claim.",
+      "No libarchive ARJ claim."
+    ]
+  },
+  "fixture": {
+    "compactBytes": 464690,
+    "compactSha256": "a5e2a92885ebe584df51902a8c970209061c34575f48e5e6d1083bfeb8573caa",
+    "formattedBytes": 468351,
+    "formattedSha256": "9129f3ceef3ad06e6ebbd59763b4c100add79757b62f79bbdcbddca2786765a8",
+    "semanticEqualityVerified": true,
+    "variants": [
+      "stored",
+      "compressed",
+      "comments-directories"
+    ]
+  },
+  "licenses": {
+    "licenses/arj-copyright.txt": "d000cb85c497b75dcb2adbe70cab932e902e424994e80000531304c63861f474",
+    "licenses/7zip-copyright.txt": "76b37e76cecaf95213e2dde8d8d149761755b35b12fc4137ed597c5592933806"
+  },
+  "localReceipts": [
+    ".tmp/implementation/arj-acquire-20261105.log",
+    ".tmp/implementation/arj-producer-20261105.log",
+    ".tmp/implementation/arj-producer-expanded-20261105.log",
+    ".tmp/implementation/arj-producer-directory-20261105.log",
+    ".tmp/implementation/arj-producer-comments-20261105.log",
+    ".tmp/research/arj/acquisition-receipts/",
+    ".tmp/implementation/arj-native-containers-20261105.json",
+    ".tmp/research/arj/independent-first.json",
+    ".tmp/research/arj/independent-directory.json"
+  ],
+  "benchmark": {
+    "image": "sha256:da97fc8abd00b63fd2ef34011ce49d048a2124eb48389283da02a63ce6a64bf9",
+    "exitCode": 0,
+    "oomKilled": false,
+    "memoryBytes": 1073741824,
+    "memorySwapBytes": 1073741824,
+    "nanoCpus": 1000000000,
+    "pids": 128,
+    "network": "none",
+    "mounts": [],
+    "runtime": [
+      "v26.13.0",
+      "{\"node\":\"v26.13.0\",\"platform\":\"linux\",\"arch\":\"arm64\",\"mitata\":\"1.0.34\"}"
+    ],
+    "raw": {
+      "bytes": 24505174,
+      "sha256": "9802a61daf13729d1eac173596307c3b41c677ff3e058d0b6b8c2e0e3e21c308"
+    },
+    "gzip": {
+      "bytes": 80297,
+      "sha256": "6492be3d1c414aa9da7a7656d59b3eb927f20b7478bbab9ea363b967b28658ae",
+      "losslessRoundtripVerified": true
+    },
+    "scope": "Six fixed-native-original lanes with full byte preflight; cold index, Blob selected range, full/prefix CRC and pending range have different work/integrity scopes. No universal performance claim.",
+    "inputTar": {
+      "bytes": 532480,
+      "sha256": "3e1577af9b443cdc7c0910fc105e8e42a4201c5058d7090b0e626eb578710d3f"
+    },
+    "lanes": [
+      "arj cold index archive=66229B headers=396B requests=25",
+      "arj native Blob selected source=37B output=37B requests=1 no-index-no-CRC",
+      "arj warm full source=65537B output=65537B requests=2 CRC32",
+      "arj warm verified selection source=65537B output=37B requests=2 CRC32-whole-member",
+      "arj warm pending selection source=37B output=37B requests=1 CRC-pending",
+      "arj cold index+verified selection source=65933B output=37B"
+    ],
+    "receipt": ".tmp/implementation/arj-benchmark-receipt.json"
+  }
+}
