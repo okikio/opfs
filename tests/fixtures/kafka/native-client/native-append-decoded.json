@@ -1,0 +1,28 @@
+{
+  "operation": 1,
+  "status": 0,
+  "topic": "opfs-metadata-8a55f140-c213-4236-ad0c-1fef0cbc9697",
+  "partition": 0,
+  "attempted": 2,
+  "unknown": false,
+  "acks": [
+    {
+      "partition": 0,
+      "offset": "0",
+      "timestamp": "1700000000000"
+    },
+    {
+      "partition": 0,
+      "offset": "1",
+      "timestamp": "1700000000001"
+    },
+    {
+      "partition": 0,
+      "offset": "2",
+      "timestamp": "1700000000002"
+    }
+  ],
+  "records": [],
+  "faultsTruncated": false,
+  "faults": []
+}

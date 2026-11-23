@@ -22,21 +22,23 @@ production module imports them.
 
 ## Current implementation sequence
 
-The language and documentation correction precedes the next protocol release. Maintained task runners and fixture
-recipes now use TypeScript, including scripts previously embedded inside provider fixtures. Native qualification of the
-replacement recipes is still in progress. Old executed producers stay as inert snapshots where their byte identities
+The language migration gates completed before the next Kafka implementation slice. Maintained task runners and fixture
+recipes use TypeScript, including scripts previously embedded inside provider fixtures. Each replacement's native proof
+remains scoped to its retained receipt. Old executed producers stay as inert snapshots where their byte identities
 explain existing evidence. Porting a harness does not retroactively prove its new execution or change the authority of a
 frozen native fixture. The [storage model](../../docs/model.md), [preview flow](../../docs/archive.md), and
 [recovery flow](../../docs/transfer.md) explain the contracts each later implementation must preserve.
 
 Then continue the [group index](GROUPS.md), recording each implemented profile and its exclusions rather than marking
-whole groups complete. Kafka currently has local independent native evidence in the working investigation, but no public
-client. The [reviewed Kafka sequence](KAFKA.md) fixes the proposed public contract, limits and remaining Metadata4
-semantic qualification gap; production implementation waits for migration gates. Netlify Blobs is still
+whole groups complete. The optional [Kafka client](../../docs/kafka.md) now implements one explicit partition over an
+injected authenticated channel, with bounded uncompressed non-idempotent CreateTime records. Fresh Java/candidate
+append/read comparisons passed in both directions on one plaintext broker, and Metadata4 success semantics have
+independent Admin evidence. The [Kafka sequence](KAFKA.md) preserves remaining TLS/SASL, multibroker, allocation and
+release-gate boundaries. Netlify Blobs is still
 dependency-admission work; native range identity and filesystem projection are unproved. The
 [Netlify Blobs sequence](NETLIFY.md) starts with independent SDK fixture admission. The [Arrow IPC sequence](ARROW.md)
-defines bounded column previews and the native qualification they still need. None of those three proposals is shipped
-by the Glacier change.
+defines bounded column previews, a qualified ten-profile same-library native corpus and the production reader that
+remains to implement. These are separate capabilities; none completes its wider catalog group.
 
 Each next profile needs source review, independent full-byte fixtures, bounded failure and recovery tests, runtime and
 type gates, packed public-import checks, applicable benchmarks, a readable capability guide and release note, then the
