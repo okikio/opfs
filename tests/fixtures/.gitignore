@@ -3,6 +3,8 @@
 /ar/independent.json
 /archive/preview.zip
 /arfs/tool-lock.json
+/arweave/independent.json
+/arweave/pss32.json
 /bzip/independent.json
 /cab/independent.json
 /cab/mszip.json
@@ -28,3 +30,4 @@
 /xz/independent.json
 /zarr/independent.json
 /zip-bzip/independent.json
+/zip-lzma/independent.json

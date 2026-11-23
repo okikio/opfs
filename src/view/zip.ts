@@ -6,7 +6,7 @@ import { createArchiveAdapter } from "./tree.ts";
 export interface ZipViewOptionsType extends
   Pick<
     ZipReadOptionsType,
-    "maxSourceBytes" | "maxRequests" | "maxDecodedBytes" | "maxOutputBytes" | "inflate" | "ledger"
+    "maxSourceBytes" | "maxRequests" | "maxDecodedBytes" | "maxOutputBytes" | "inflate" | "bzip" | "lzma" | "ledger"
   > {
   /** Full-member CRC checking is the default even for a selected range; disable explicitly for unchecked prefixes. */
   readonly verify?: boolean;
@@ -18,6 +18,13 @@ export interface ZipViewOptionsType extends
  * Selected reads retain full-member CRC verification unless explicitly disabled.
  */
 export function createZipAdapter(archive: ZipArchiveType, options: ZipViewOptionsType = {}): AdapterType {
+  // Construction captures policy values, while the archive and ledger stay borrowed.
+  // Replacing nested option fields later must not raise this view's configured caps.
+  options = {
+    ...options,
+    ...(options.bzip ? { bzip: { ...options.bzip } } : {}),
+    ...(options.lzma ? { lzma: { ...options.lzma } } : {}),
+  };
   for (const entry of archive.entries) {
     if (entry.directory !== (entry.kind === "directory")) {
       throw new TypeError("ZIP directory flag and entry kind disagree.");
