@@ -1,0 +1,34 @@
+{
+  "standard": {
+    "url": "https://fits.gsfc.nasa.gov/standard40/fits_standard40aa-le.pdf",
+    "version": "FITS 4.0, 2016-07-22; language edited 2018-08-13",
+    "sha256": "5624dca15659caf54c56127b4df9af05fd930c8f6d997fcb4bea2b1a5c1bc573",
+    "bytes": 1140821,
+    "receipt": "Official URL retrieved successfully with curl; cached .tmp/research/fits/fits_standard40aa-le.pdf."
+  },
+  "producer": {
+    "container": "opfs-fits-producer-headers-20261105",
+    "memory": "1 GiB",
+    "cpus": 1,
+    "pids": 128,
+    "base": "opfs-fits-tools-preheaders:20261105",
+    "baseImageSha256": "79f16fc19c761b6a822d8bc72282fa314a278481f7f8ae3ba0d31f509a26a70c",
+    "note": "Local tools image derived from signed Debian packages; libc6-dev installed after this base, not a public immutable complete producer image.",
+    "packages": "gcc\t4:12.2.0-3\nlibcfitsio-dev:arm64\t4.2.0-3\npython3-astropy\t5.2.1-2\n",
+    "astropy": "5.2.1",
+    "numpy": "1.24.2",
+    "command": "/usr/bin/python3 /produce.py --source /native.c --output /tmp/independent.json"
+  },
+  "sources": {
+    "create.py": "2dc59eb8975ed53845ba73a1d805d31902094fbe02377f4946eb5efbb58cef8b",
+    "native.c": "e5bc1f826e0aabad1d4deaed0b018457ecb564c299128e610581af9589076837"
+  },
+  "fixtureSha256": "e1fd0fc980e6704c32d0d61590fcf5e955d9156ceb83dd953138822f24d7ec98",
+  "oracles": "Astropy and CFITSIO exact full raw numeric native-endian bytes for every HDU; non-int64 physical values compared outside source BLANK/NaN positions. Both verify complete data/HDU checksum scopes.",
+  "negativeDiagnostics": [
+    ".tmp/implementation/fits-producer-20261105.log: missing C system headers before explicit libc6-dev installation"
+  ],
+  "successLog": ".tmp/implementation/fits-producer-physical-20261105.log",
+  "producerOutputSha256": "103f7828a98f3cbf62239e8741a1e2bb15f654ea74b91a495db1c8abb30dae09",
+  "fixtureFormatting": "Deno JSON formatting only; parsed fixture and original embedded bytes unchanged."
+}

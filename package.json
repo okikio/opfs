@@ -165,7 +165,9 @@
     "./archive/udf": "./src/archive/udf.ts",
     "./supabase": "./src/supabase.ts",
     "./archive/rar": "./src/archive/rar.ts",
-    "./nextcloud": "./src/nextcloud.ts"
+    "./nextcloud": "./src/nextcloud.ts",
+    "./restic": "./src/restic.ts",
+    "./dataset/fits": "./src/dataset/fits.ts"
   },
   "dependencies": {
     "@okikio/undent": "^0.3.3",
@@ -201,6 +203,7 @@
     "testcontainers": "^12.0.4",
     "typescript": "^7.0.2",
     "vite": "^8.2.1",
+    "@google-cloud/storage": "7.19.0",
     "sampo": "0.24.1"
   }
 }

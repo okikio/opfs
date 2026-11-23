@@ -16,15 +16,64 @@ const token = Deno.env.get("GCS_TOKEN");
 if (!bucket || !token) throw new Error("Set GCS_BUCKET and GCS_TOKEN explicitly.");
 
 const client = createGcsClient({ bucket, token });
-await using filesystem = createFileSystem(createGcsAdapter(client, { prefix: "opfs-example/" }));
-await filesystem.writeFile("/notes.txt", "Archive inspection starts here.");
-console.log(await filesystem.readText("/notes.txt"));
+const filesystem = createFileSystem(createGcsAdapter(client, { prefix: "opfs-example/" }));
+try {
+  await filesystem.writeFile("/notes.txt", "Archive inspection starts here.");
+  console.log(await filesystem.readText("/notes.txt"));
+} finally {
+  await filesystem[Symbol.asyncDispose]();
+}
 ```
 
 Supply `token: async () => refreshedToken` through your authentication integration when refresh is needed. The callback
 runs immediately before each request attempt. The application owns ADC, federation, service-account signing and token
 caching. An omitted token supports public access or a controlled emulator; it does not discover a local Google account.
 Browser use also needs bucket CORS policy for the actual operations and response headers.
+
+## Archive and other native object classes
+
+Select a class on the native client when publishing an object. This complete function accepts caller-owned credentials,
+uploads one new object, and returns this upload's confirmed receipt:
+
+```ts
+import { createGcsClient } from "@okikio/opfs/gcs";
+import type { GcsReceiptType } from "@okikio/opfs/gcs";
+
+export async function saveArchive(
+  bucket: string,
+  token: string,
+  key: string,
+  bytes: Uint8Array,
+): Promise<GcsReceiptType> {
+  const client = createGcsClient({ bucket, token });
+  return await client.put(key, bytes, {
+    storageClass: "ARCHIVE",
+    ifNoneMatch: "*",
+    mediaType: "application/octet-stream",
+  });
+}
+```
+
+`GcsStorageClassSchema` admits `STANDARD`, `NEARLINE`, `COLDLINE` and `ARCHIVE` as explicit upload choices. Omission
+leaves class selection to the bucket's native configuration. This profile does not select bucket-only classes. The
+native `storageClass` field is separate from user-defined `metadata.storageClass`. `head()`, `list()`, upload receipts
+and copy receipts preserve reported classes, including unknown or legacy strings; response class names have an
+implementation safety limit of 128 code units. Reading a class does not make it an admitted upload choice.
+
+`createUpload()` also accepts `storageClass` and captures it in the frozen session descriptor before credential awaits.
+Retain that field with the secret session URI when saving recovery state. Each final `writeUpload()` or `queryUpload()`
+acknowledgement must confirm the requested class as well as the existing key and size checks. A missing or different
+class raises `GcsPublicationError`: publication may have occurred, so do not blindly repeat the upload. The error does
+not establish that the object is absent or unchanged. Prefer the explicit session API when the application must retain
+reconciliation authority after a lost or invalid acknowledgement. A later `head()` observes current state and cannot
+prove attribution to this attempt.
+
+Google's [Archive storage class](https://docs.cloud.google.com/storage/docs/storage-classes) remains online with
+low-latency object reads; it does not require an offline restore or thaw step. Its 365-day minimum storage duration is a
+billing rule, with retrieval and possible early-deletion charges. It does not prevent deletion, overwriting or movement,
+and is not a retention lock. This client does not calculate fees or manage lifecycle, Autoclass, retention policies or
+legal holds. It does not yet offer same-object class transitions or a rewrite class override. The filesystem adapter
+does not select a class on individual writes; use the native client for this upload intent.
 
 ## Revisions and byte ranges
 
@@ -136,3 +185,25 @@ References: [GCS JSON objects](https://docs.cloud.google.com/storage/docs/json_a
 [preconditions](https://docs.cloud.google.com/storage/docs/request-preconditions),
 [rewrite](https://docs.cloud.google.com/storage/docs/json_api/v1/objects/rewrite), and
 [fake-gcs-server](https://github.com/fsouza/fake-gcs-server/tree/v1.56.1).
+
+### Archive protocol evidence
+
+`tests/gcs-archive-provider.test.ts` uses the existing digest-pinned fake-gcs-server 1.56.1 fixture and the official
+`@google-cloud/storage@7.19.0` SDK as a test-only independent producer and reader. It compares complete bytes in both
+directions, checks a generation-selected range, and verifies Archive metadata after a two-extent native upload. SDK
+checksum validation is disabled in this emulator lane; full-byte comparisons are the oracle. The test refuses the SDK's
+ambient `STORAGE_EMULATOR_HOST` override and supplies a custom endpoint with authentication explicitly disabled. It
+acquires no Google account. These results establish emulator interoperability, not live GCS billing, IAM, retention,
+durability or class-transition behavior. The pinned emulator's rewrite path drops a requested class and does not justify
+transition support.
+
+Protocol evidence inspected on 2026-11-05:
+
+| Source                                                                                                                                                              | Immutable revision                         | File SHA-256                                                       |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------ |
+| [Google discovery Object model](https://github.com/googleapis/discovery-artifact-manager/blob/a05b1692d322b4a6147390f61124fe28e937cb0c/discoveries/storage.v1.json) | `a05b1692d322b4a6147390f61124fe28e937cb0c` | `29a43bad9086086cef7da19b7fad6f26afda3d1cb1e3c72c5ba263c0726609c7` |
+| [fake-gcs-server resumable upload](https://github.com/fsouza/fake-gcs-server/blob/896ece51e49eed0946089f3089f6343855c0d106/fakestorage/upload.go)                   | `896ece51e49eed0946089f3089f6343855c0d106` | `8713b9787c5cf48b22700f332efc847658e3200d6d74e3fd081b7761783e424c` |
+| [Official SDK File implementation](https://github.com/googleapis/nodejs-storage/blob/95a2af4cc8222b23ff178454ad99b8fba972b257/src/file.ts)                          | `95a2af4cc8222b23ff178454ad99b8fba972b257` | `b1e4156f79d92a00d33b1e408cff2b76effc549a440ecfeb0f79fba3030facbf` |
+
+The [insert contract](https://docs.cloud.google.com/storage/docs/json_api/v1/objects/insert) places `storageClass` in
+native Object metadata. The SDK is not imported by production code and adds no runtime dependency to this client.
