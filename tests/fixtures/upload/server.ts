@@ -15,7 +15,7 @@ interface NativeOptionsType {
 }
 
 // These exact modules are reconstructed from verified inert Git blobs by the owning provider fixture.
-const uploadURL = new URL("./source/src/transfer/upload.ts", import.meta.url).href;
+const uploadURL = new URL("./source/src/upload.ts", import.meta.url).href;
 const storeURL = new URL("./source/src/fs.ts", import.meta.url).href;
 const native: {
   createUploadHandler(store: unknown, options: NativeOptionsType): (request: Request) => Promise<Response>;
