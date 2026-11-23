@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 import { close } from "../src/close.ts";
-import { LakefsClient, LakefsError } from "../src/lakefs.ts";
+import { LakefsClient, LakefsError } from "../src/backend/lakefs/client.ts";
 import { startLakefs } from "./provider/lakefs.ts";
 
 describe("native lakeFS server and official lakectl interoperability", () => {

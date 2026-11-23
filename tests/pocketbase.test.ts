@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { PocketbaseClient, PocketbaseError, PocketbasePublicationError } from "../src/pocketbase.ts";
-import type { PocketbaseOptionsType } from "../src/pocketbase.ts";
+import { PocketbaseClient, PocketbaseError, PocketbasePublicationError } from "../src/backend/pocketbase/client.ts";
+import type { PocketbaseOptionsType } from "../src/backend/pocketbase/client.ts";
 const endpoint = "https://pb.invalid/", id = "record123", name = "note_server.txt";
 const bytes = new TextEncoder().encode("hello\n");
 const record = (files: string | string[] = [name], overrides: Record<string, unknown> = {}) => ({

@@ -1,6 +1,6 @@
 import { it } from "node:test";
 import { expect } from "@std/expect";
-import { NatsClient, NatsError } from "../src/nats.ts";
+import { NatsClient, NatsError } from "../src/backend/nats/client.ts";
 import { close } from "../src/close.ts";
 import { openNats } from "./provider/nats.ts";
 import { expectBytes } from "./reliability.ts";

@@ -1,8 +1,8 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { createS3Client } from "../src/s3.ts";
-import { createAzureClient } from "../src/azure.ts";
-import { createGcsClient } from "../src/gcs.ts";
+import { createS3Client } from "../src/backend/s3/client.ts";
+import { createAzureClient } from "../src/backend/azure/client.ts";
+import { createGcsClient } from "../src/backend/gcs/client.ts";
 
 /** Provider fixtures keep authorization local and never contact a real account. */
 function client(provider: "s3" | "azure", fetch: typeof globalThis.fetch, endpoint?: string, namespace = "fixture") {

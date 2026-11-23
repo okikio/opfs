@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { CouchdbError, createCouchdbClient } from "../src/couchdb.ts";
+import { CouchdbError, createCouchdbClient } from "../src/backend/couchdb/client.ts";
 import { close } from "./close.ts";
 import { openCouchdb } from "./provider/couchdb.ts";
 

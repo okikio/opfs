@@ -4,8 +4,8 @@ import { RetryError } from "@std/async/retry";
 
 import { RequestMetrics, sendRequest } from "../src/request.ts";
 import { isStream } from "../src/body.ts";
-import { createS3Client } from "../src/s3.ts";
-import { createAzureClient } from "../src/azure.ts";
+import { createS3Client } from "../src/backend/s3/client.ts";
+import { createAzureClient } from "../src/backend/azure/client.ts";
 import { getCancellation } from "../src/abort.ts";
 import { readResponse, readText } from "../src/response.ts";
 import { withReleases } from "./close.ts";

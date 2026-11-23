@@ -1,6 +1,6 @@
 import { bench, do_not_optimize } from "mitata";
 import { decodeBase64 } from "@std/encoding/base64";
-import { createPubsubClient } from "../src/pubsub.ts";
+import { createPubsubClient } from "../src/backend/pubsub/client.ts";
 import type { FetchType } from "../src/request.ts";
 import { expectBytes, report } from "./result.ts";
 import fixture from "../tests/fixtures/pubsub/independent.json" with { type: "json" };

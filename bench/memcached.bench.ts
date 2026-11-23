@@ -1,7 +1,7 @@
 import { bench, do_not_optimize } from "mitata";
 import { decodeBase64 } from "@std/encoding/base64";
-import { openMemcachedClient } from "../src/memcached.ts";
-import type { MemcachedChannelType } from "../src/memcached.ts";
+import { openMemcachedClient } from "../src/backend/memcached/client.ts";
+import type { MemcachedChannelType } from "../src/backend/memcached/client.ts";
 import { expectBytes, finish, report } from "./result.ts";
 import fixture from "../tests/fixtures/memcached/independent.json" with { type: "json" };
 

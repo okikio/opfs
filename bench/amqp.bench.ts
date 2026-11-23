@@ -1,5 +1,5 @@
 import { bench, do_not_optimize } from "mitata";
-import { AmqpClient } from "../src/amqp.ts";
+import { AmqpClient } from "../src/backend/amqp/client.ts";
 import { createAmqpReplay, prepareAmqpReplay } from "../tests/fixtures/amqp/replay.ts";
 import { expectBytes, finish, report } from "./result.ts";
 

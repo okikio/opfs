@@ -1,7 +1,7 @@
 import { bench, do_not_optimize } from "mitata";
 import { decodeBase64 } from "@std/encoding/base64";
-import { openRedisClient } from "../src/redis.ts";
-import type { RedisChannelType } from "../src/redis.ts";
+import { openRedisClient } from "../src/backend/redis/client.ts";
+import type { RedisChannelType } from "../src/backend/redis/client.ts";
 import { expectBytes, finish, report } from "./result.ts";
 import fixture from "../tests/fixtures/redis/independent.json" with { type: "json" };
 

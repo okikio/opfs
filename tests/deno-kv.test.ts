@@ -3,8 +3,8 @@ import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 
 import { createFileSystem } from "../mod.ts";
-import { createDenoKvAdapter } from "../src/adapter/deno-kv.ts";
-import { createDenoKvDriver } from "../src/driver/deno-kv.ts";
+import { createDenoKvAdapter } from "../src/backend/deno-kv/adapter.ts";
+import { createDenoKvDriver } from "../src/backend/deno-kv/driver.ts";
 import { withReleases } from "./close.ts";
 import { expectBytes, fixtureBytes, verifyBytes, verifyPendingAbort } from "./reliability.ts";
 

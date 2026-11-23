@@ -1,5 +1,5 @@
 /// <reference lib="webworker" />
-import type { OpfsDirectoryHandleType, OpfsFileHandleType } from "../../../src/driver/opfs.ts";
+import type { OpfsDirectoryHandleType, OpfsFileHandleType } from "../../../src/backend/opfs/driver.ts";
 
 /** Fails compilation when `Actual` cannot be used where the worker OPFS driver expects `Expected`. */
 type AssertAssignable<Expected, Actual extends Expected> = Actual;

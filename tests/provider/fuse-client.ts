@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { diagnostic } from "../../tools/test/command.ts";
 import { createFileSystem } from "../../mod.ts";
 import { createFileAdapter } from "../../src/adapter/file.ts";
-import { createNodeDriver } from "../../src/driver/node.ts";
+import { createNodeDriver } from "../../src/backend/node/driver.ts";
 
 type ResultType = { client: string; name: string; status: string; code?: unknown; reason?: unknown; failure?: unknown };
 const results: ResultType[] = [];

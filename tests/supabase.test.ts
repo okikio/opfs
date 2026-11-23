@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { SupabaseClient, SupabaseError, SupabasePublicationError } from "../src/supabase.ts";
-import type { SupabaseOptionsType } from "../src/supabase.ts";
+import { SupabaseClient, SupabaseError, SupabasePublicationError } from "../src/backend/supabase/client.ts";
+import type { SupabaseOptionsType } from "../src/backend/supabase/client.ts";
 const endpoint = "https://storage.invalid/storage/v1/", bucket = "notes", key = "folder/note.txt";
 const bytes = new TextEncoder().encode("hello\n");
 const info = {

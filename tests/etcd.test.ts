@@ -1,8 +1,8 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 import { encodeBase64 } from "@std/encoding/base64";
-import { createEtcdClient, EtcdCursorSchema, EtcdError, EtcdPublicationError } from "../src/etcd.ts";
-import type { EtcdClientOptionsType, EtcdPutType } from "../src/etcd.ts";
+import { createEtcdClient, EtcdCursorSchema, EtcdError, EtcdPublicationError } from "../src/backend/etcd/client.ts";
+import type { EtcdClientOptionsType, EtcdPutType } from "../src/backend/etcd/client.ts";
 const bytes = (value: string): Uint8Array<ArrayBuffer> => new TextEncoder().encode(value);
 const encoded = (value: string) => encodeBase64(bytes(value));
 const header = (revision = "10", cluster_id = "18446744073709551615") => ({

@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { createCmisClient } from "../src/cmis.ts";
+import { createCmisClient } from "../src/backend/cmis/client.ts";
 import { close } from "./close.ts";
 import { openCmis } from "./provider/cmis.ts";
 

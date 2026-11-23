@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { CouchdbError, CouchdbPublicationError, createCouchdbClient } from "../src/couchdb.ts";
-import type { CouchdbClientOptionsType, CouchdbPutType } from "../src/couchdb.ts";
+import { CouchdbError, CouchdbPublicationError, createCouchdbClient } from "../src/backend/couchdb/client.ts";
+import type { CouchdbClientOptionsType, CouchdbPutType } from "../src/backend/couchdb/client.ts";
 const BASE = { endpoint: "https://couch.test/prefix/", database: "fixture" };
 const ETAG = '"1B2M2Y8AsgTpgAmY7PhCfg=="';
 function client(options: Partial<CouchdbClientOptionsType> = {}) {

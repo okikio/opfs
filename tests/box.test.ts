@@ -1,8 +1,8 @@
 import { describe, it } from "node:test";
 import { webcrypto } from "node:crypto";
 import { expect } from "@std/expect";
-import { BoxClient, BoxError, BoxPendingError, BoxPublicationError } from "../src/box.ts";
-import type { BoxPartType, BoxUploadType } from "../src/box.ts";
+import { BoxClient, BoxError, BoxPendingError, BoxPublicationError } from "../src/backend/box/client.ts";
+import type { BoxPartType, BoxUploadType } from "../src/backend/box/client.ts";
 import type { FetchType } from "../src/request.ts";
 
 const abc = "a9993e364706816aba3e25717850c26c9cd0d89d";

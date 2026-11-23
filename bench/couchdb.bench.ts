@@ -1,6 +1,6 @@
 import { bench, do_not_optimize } from "mitata";
 import { decodeBase64 } from "@std/encoding/base64";
-import { createCouchdbClient } from "../src/couchdb.ts";
+import { createCouchdbClient } from "../src/backend/couchdb/client.ts";
 import type { FetchType } from "../src/request.ts";
 import { expectBytes, report } from "./result.ts";
 import fixture from "../tests/fixtures/couchdb/independent.json" with { type: "json" };

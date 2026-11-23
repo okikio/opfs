@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { LakefsClient, LakefsError } from "../src/lakefs.ts";
+import { LakefsClient, LakefsError } from "../src/backend/lakefs/client.ts";
 
 const endpoint = "https://lakefs.example.test/prefix/";
 const native = { path: "a/b?c", path_type: "object", size_bytes: 3, checksum: "native-etag", mtime: 2 };

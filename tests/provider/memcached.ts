@@ -5,7 +5,7 @@ import { createConnection } from "node:net";
 import type { Socket } from "node:net";
 import { execFileSync } from "node:child_process";
 import { close } from "../../src/close.ts";
-import type { MemcachedChannelType } from "../../src/memcached.ts";
+import type { MemcachedChannelType } from "../../src/backend/memcached/client.ts";
 import type { StartedTestContainer } from "testcontainers";
 
 export const MEMCACHED_IMAGE =

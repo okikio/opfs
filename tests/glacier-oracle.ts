@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { expect } from "@std/expect";
-import type { GlacierOptionsType, GlacierPartType } from "../src/glacier.ts";
+import type { GlacierOptionsType, GlacierPartType } from "../src/backend/glacier/client.ts";
 
 interface OriginalType {
   readonly id: string;
@@ -130,7 +130,7 @@ describe("Glacier frozen independent oracle", () => {
     it(`matches botocore whole and leaf trees for ${vector.id}`, async () => {
       const bytes = original(vector.id);
       expect(sha(bytes)).toBe(vector.linearSha256);
-      const { glacierTreeHash } = await import("../src/glacier.ts");
+      const { glacierTreeHash } = await import("../src/backend/glacier/client.ts");
       expect(await glacierTreeHash(bytes, globalThis.crypto.subtle)).toBe(vector.treeHash);
       for (let leaf = 0; leaf < vector.leafHashes.length; leaf++) {
         expect(await glacierTreeHash(bytes.subarray(leaf * mib, (leaf + 1) * mib), globalThis.crypto.subtle))
@@ -140,7 +140,9 @@ describe("Glacier frozen independent oracle", () => {
     if (vector.partSize !== undefined) {
       it(`submits every original part and whole completion root for ${vector.id}`, async () => {
         const bytes = original(vector.id);
-        const { createGlacierClient, glacierMultipartHash, glacierTreeHash } = await import("../src/glacier.ts");
+        const { createGlacierClient, glacierMultipartHash, glacierTreeHash } = await import(
+          "../src/backend/glacier/client.ts"
+        );
         const parts: GlacierPartType[] = [];
         let sent = 0;
         const client = createGlacierClient(options(async (_input, init) => {
@@ -197,7 +199,7 @@ describe("Glacier frozen independent oracle", () => {
       const bytes = original(expected.request.body.originalFile.replace(/\.bin$/, ""));
       expect(bytes.length).toBe(expected.request.body.bytes);
       expect(sha(bytes)).toBe(expected.request.body.sha256);
-      const { createGlacierClient } = await import("../src/glacier.ts");
+      const { createGlacierClient } = await import("../src/backend/glacier/client.ts");
       let calls = 0;
       const client = createGlacierClient({
         ...options(async (input, init) => {

@@ -1,9 +1,9 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { createR2Client, R2Error, R2PublicationError } from "../src/r2.ts";
-import type { R2BindingType, R2ObjectType } from "../src/r2.ts";
-import { createR2Driver } from "../src/driver/r2.ts";
-import { createR2Adapter } from "../src/adapter/r2.ts";
+import { createR2Client, R2Error, R2PublicationError } from "../src/backend/r2/client.ts";
+import type { R2BindingType, R2ObjectType } from "../src/backend/r2/client.ts";
+import { createR2Driver } from "../src/backend/r2/driver.ts";
+import { createR2Adapter } from "../src/backend/r2/adapter.ts";
 
 // Authored binding-contract fixture. This does not establish Workers or remote R2 conformance.
 function object(key = "a", size = 3): R2ObjectType {

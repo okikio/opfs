@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 import { decodeBase64Url } from "@std/encoding/base64url";
 import { runInNewContext } from "node:vm";
-import { createArweaveClient } from "../src/arweave.ts";
+import { createArweaveClient } from "../src/backend/arweave/client.ts";
 import { createArchiveLedger, verifyArweaveTransaction } from "../src/content/arweave.ts";
 import type { ArweaveVerifyOptionsType } from "../src/content/arweave.ts";
 import { createByteSource } from "../src/source.ts";

@@ -8,8 +8,8 @@ import {
   NetlifyCompletionError,
   NetlifyError,
   NetlifyPublicationError,
-} from "../src/netlify.ts";
-import type { NetlifyOptionsType } from "../src/netlify.ts";
+} from "../src/backend/netlify/client.ts";
+import type { NetlifyOptionsType } from "../src/backend/netlify/client.ts";
 import type { FetchType } from "../src/request.ts";
 
 interface CallType {

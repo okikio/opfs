@@ -5,7 +5,7 @@ import { execFileSync } from "node:child_process";
 import { createConnection } from "node:net";
 import type { Socket } from "node:net";
 import { close } from "../../src/close.ts";
-import type { RedisChannelType } from "../../src/redis.ts";
+import type { RedisChannelType } from "../../src/backend/redis/client.ts";
 import type { StartedTestContainer } from "testcontainers";
 
 const PASSWORD = "fixture-only-redis";

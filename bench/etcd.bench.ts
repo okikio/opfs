@@ -1,6 +1,6 @@
 import { bench, do_not_optimize } from "mitata";
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
-import { createEtcdClient } from "../src/etcd.ts";
+import { createEtcdClient } from "../src/backend/etcd/client.ts";
 import type { FetchType } from "../src/request.ts";
 import { expectBytes, report } from "./result.ts";
 import fixture from "../tests/fixtures/etcd/independent.json" with { type: "json" };

@@ -5,7 +5,7 @@ import { platform, tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { createFileSystem } from "../mod.ts";
-import { createBunAdapter } from "../src/adapter/bun.ts";
+import { createBunAdapter } from "../src/backend/bun/adapter.ts";
 import { verifyFileAdmission, verifyHost, verifyWindowsNames } from "./host.ts";
 import { verifySync } from "./reliability.ts";
 import { withReleases } from "./close.ts";

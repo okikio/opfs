@@ -187,9 +187,9 @@ properties require explicit source and protocol support.
 
 ## Find the owner when changing behavior
 
-The implementation follows the same boundaries: protocol modules such as `src/s3.ts`, backend implementations under
-`src/driver/`, translation under `src/adapter/`, the facade in `src/filesystem.ts`, and outgoing contracts under
-`src/bridge/`. `src/integration/` describes available directions; it does not execute them.
+The implementation follows the same boundaries: protocol modules such as `src/backend/s3/client.ts`, backend
+implementations under `src/driver/`, translation under `src/adapter/`, the facade in `src/filesystem.ts`, and outgoing
+contracts under `src/bridge/`. `src/integration/` describes available directions; it does not execute them.
 
 [Architecture and invariants](design.md) records the rules maintainers must preserve.
 [Drivers and adapters](adapters.md) lists concrete implementations, and [ecosystems](ecosystems.md) describes their

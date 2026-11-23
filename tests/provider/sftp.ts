@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { Readable } from "node:stream";
 import { randomUUID } from "node:crypto";
 import type { StartedTestContainer } from "testcontainers";
-import type { SftpOptionsType } from "../../src/sftp.ts";
+import type { SftpOptionsType } from "../../src/backend/sftp/client.ts";
 import { close } from "../close.ts";
 
 /** Maintainer's OpenSSH image index inspected with buildx on 2026-11-05. */

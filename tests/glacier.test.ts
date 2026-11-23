@@ -7,8 +7,8 @@ import {
   glacierMultipartHash,
   GlacierPublicationError,
   glacierTreeHash,
-} from "../src/glacier.ts";
-import type { GlacierJobType, GlacierOptionsType } from "../src/glacier.ts";
+} from "../src/backend/glacier/client.ts";
+import type { GlacierJobType, GlacierOptionsType } from "../src/backend/glacier/client.ts";
 import { observeBytes, retire } from "../src/stream.ts";
 
 const credentials = { accessKeyId: "AKIDEXAMPLE", secretAccessKey: "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY" };

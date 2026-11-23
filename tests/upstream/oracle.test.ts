@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 import { createFileSystem } from "../../mod.ts";
-import { createMemoryAdapter } from "../../src/adapter/memory.ts";
+import { createMemoryAdapter } from "../../src/backend/memory/adapter.ts";
 import { withReleases } from "../close.ts";
 import { directoryCases, runDirectoryCase, syncCases, WptAssertionError } from "./wpt.ts";
 import { unavailable } from "./capability.ts";

@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { openHttpSource } from "../src/http.ts";
+import { openHttpSource } from "../src/backend/http/client.ts";
 import type { FetchType } from "../src/request.ts";
 
 /** Independent representation bytes and HTTP range arithmetic, separate from the source implementation. */

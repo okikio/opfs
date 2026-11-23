@@ -1,6 +1,6 @@
 import { bench, do_not_optimize } from "mitata";
 import { decodeBase64 } from "@std/encoding/base64";
-import { createCmisClient } from "../src/cmis.ts";
+import { createCmisClient } from "../src/backend/cmis/client.ts";
 import type { FetchType } from "../src/request.ts";
 import { expectBytes, report } from "./result.ts";
 import fixture from "../tests/fixtures/cmis/independent.json" with { type: "json" };

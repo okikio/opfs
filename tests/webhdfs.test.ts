@@ -1,9 +1,9 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { createWebhdfsClient, WebhdfsPublicationError } from "../src/webhdfs.ts";
+import { createWebhdfsClient, WebhdfsPublicationError } from "../src/backend/webhdfs/client.ts";
 import { collectBytes } from "../src/stream.ts";
-import { createWebhdfsDriverFromClient } from "../src/driver/webhdfs.ts";
-import { createWebhdfsAdapter } from "../src/adapter/webhdfs.ts";
+import { createWebhdfsDriverFromClient } from "../src/backend/webhdfs/driver.ts";
+import { createWebhdfsAdapter } from "../src/backend/webhdfs/adapter.ts";
 import { createFileSystem } from "../mod.ts";
 
 const payload = new TextEncoder().encode("hello");

@@ -1,7 +1,12 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { ONEDRIVE_CHUNK_BYTES, OnedriveClient, OnedriveError, OnedrivePublicationError } from "../src/onedrive.ts";
-import type { OnedriveUploadType } from "../src/onedrive.ts";
+import {
+  ONEDRIVE_CHUNK_BYTES,
+  OnedriveClient,
+  OnedriveError,
+  OnedrivePublicationError,
+} from "../src/backend/onedrive/client.ts";
+import type { OnedriveUploadType } from "../src/backend/onedrive/client.ts";
 import type { FetchType } from "../src/request.ts";
 
 const expiration = "2030-01-01T00:00:00Z";

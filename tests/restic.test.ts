@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { ResticClient, ResticError, ResticObjectSchema, ResticPublicationError } from "../src/restic.ts";
-import type { ResticClientOptionsType, ResticObjectType } from "../src/restic.ts";
+import { ResticClient, ResticError, ResticObjectSchema, ResticPublicationError } from "../src/backend/restic/client.ts";
+import type { ResticClientOptionsType, ResticObjectType } from "../src/backend/restic/client.ts";
 
 const id = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
 const object: ResticObjectType = { kind: "data", id };

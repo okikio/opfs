@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { AmqpClient } from "../src/amqp.ts";
+import { AmqpClient } from "../src/backend/amqp/client.ts";
 import { createAmqpReplay, prepareAmqpReplay } from "./fixtures/amqp/replay.ts";
 
 describe("unchanged native RabbitMQ frames", () => {

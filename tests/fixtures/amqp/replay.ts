@@ -1,5 +1,5 @@
 import { decodeBase64 } from "@std/encoding/base64";
-import type { AmqpChannelType } from "../../../src/amqp.ts";
+import type { AmqpChannelType } from "../../../src/backend/amqp/client.ts";
 import fixture from "./independent.json" with { type: "json" };
 
 /** Untouched native frames with a literal producer's independently observed order. */

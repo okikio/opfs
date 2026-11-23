@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 
 import { createFileSystem } from "../mod.ts";
-import { createMemoryAdapter } from "../src/adapter/memory.ts";
+import { createMemoryAdapter } from "../src/backend/memory/adapter.ts";
 import { withFileSystem, within } from "./reliability.ts";
 
 describe("filesystem fixture ownership", () => {

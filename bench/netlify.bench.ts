@@ -1,7 +1,7 @@
 /** Authored in-memory transport costs, not SDK/server interoperability or live provider timings. */
 import { bench, do_not_optimize } from "mitata";
-import { createNetlifyClient, NETLIFY_PROFILE } from "../src/netlify.ts";
-import type { FetchType } from "../src/netlify.ts";
+import { createNetlifyClient, NETLIFY_PROFILE } from "../src/backend/netlify/client.ts";
+import type { FetchType } from "../src/backend/netlify/client.ts";
 import { expectBytes, report } from "./result.ts";
 
 // Fixed 128 KiB original; setup and full-byte checks stay outside timing.

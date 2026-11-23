@@ -1,7 +1,7 @@
-import { createOpfsAdapter } from "./adapter/opfs.ts";
+import { createOpfsAdapter } from "./backend/opfs/adapter.ts";
 import type { FileSystemOptionsType } from "./adapter/definition.ts";
 import { FileSystemError, toFileSystemError } from "./error.ts";
-import type { OpfsDirectoryHandleType } from "./driver/opfs.ts";
+import type { OpfsDirectoryHandleType } from "./backend/opfs/driver.ts";
 import { createFileSystem, type FileSystemType } from "./filesystem.ts";
 
 /** Storage Access API result shape used without depending on experimental DOM declarations. */

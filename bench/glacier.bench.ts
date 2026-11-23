@@ -1,7 +1,7 @@
 import { bench, do_not_optimize } from "mitata";
 import { createHash } from "node:crypto";
-import { createGlacierClient, GLACIER_MIB, glacierTreeHash } from "../src/glacier.ts";
-import type { GlacierJobType, GlacierOptionsType } from "../src/glacier.ts";
+import { createGlacierClient, GLACIER_MIB, glacierTreeHash } from "../src/backend/glacier/client.ts";
+import type { GlacierJobType, GlacierOptionsType } from "../src/backend/glacier/client.ts";
 import { expectBytes, payload, report } from "./result.ts";
 
 // Question: what do snapshot ownership, Glacier tree reduction, request signing,

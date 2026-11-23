@@ -95,10 +95,11 @@ container. Docker transport retirement must settle; the enclosing isolated lane 
 retirement.
 
 The SDK-only `observe()` method needs the admitted closure. `observeCandidate()` additionally requires a standalone
-bundle of `src/netlify.ts`, supplied as `{ candidate: { file, sha256 } }`. The fixture checks the complete nonempty
-regular file, at most 4 MiB, before copying it to `/fixture/candidate.ts`. The bundle must retain the public client and
-error exports and contain its approved dependencies; it must not resolve through the SDK's container modules. Building
-the bundle and admitting its hash are separate steps owned by the qualification lane, not by the fixture.
+bundle of `src/backend/netlify/client.ts`, supplied as `{ candidate: { file, sha256 } }`. The fixture checks the
+complete nonempty regular file, at most 4 MiB, before copying it to `/fixture/candidate.ts`. The bundle must retain the
+public client and error exports and contain its approved dependencies; it must not resolve through the SDK's container
+modules. Building the bundle and admitting its hash are separate steps owned by the qualification lane, not by the
+fixture.
 
 The reciprocal test requires `OPFS_NETLIFY_ARTIFACTS`, `OPFS_NETLIFY_CLOSURE_SHA256`,
 `OPFS_NETLIFY_EXECUTION_REVIEWED=11.1.7-test-only`, `OPFS_NETLIFY_CANDIDATE` and `OPFS_NETLIFY_CANDIDATE_SHA256`.

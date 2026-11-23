@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { FirebaseClient, FirebaseError, FirebasePublicationError } from "../src/firebase.ts";
-import type { FirebaseOptionsType, FirebaseSessionType } from "../src/firebase.ts";
+import { FirebaseClient, FirebaseError, FirebasePublicationError } from "../src/backend/firebase/client.ts";
+import type { FirebaseOptionsType, FirebaseSessionType } from "../src/backend/firebase/client.ts";
 const bucket = "demo-opfs.appspot.com";
 const item = (name = "folder/file", size = 3) => ({
   bucket,

@@ -1,5 +1,5 @@
 // Reproduce the literal native capture using the separately admitted test-only fixture.
-// Literal producer framing does not import src/amqp.ts at runtime. The native
+// Literal producer framing does not import src/backend/amqp/client.ts at runtime. The native
 // rabbitmq-c SDK checks full bytes independently; close only owns cleanup.
 import { Buffer } from "node:buffer";
 import { writeFileSync } from "node:fs";
@@ -7,7 +7,7 @@ import { env } from "node:process";
 import { createHash } from "node:crypto";
 import { withAmqpFixture } from "../../provider/amqp.ts";
 import { close } from "../../../src/close.ts";
-import type { AmqpChannelType } from "../../../src/amqp.ts";
+import type { AmqpChannelType } from "../../../src/backend/amqp/client.ts";
 
 const hash = (bytes: Uint8Array): string => createHash("sha256").update(bytes).digest("hex");
 const utf = (value: string): Buffer => Buffer.from(value, "utf8");
@@ -229,7 +229,7 @@ await withAmqpFixture(async (fixture) => {
   same((await fixture.count()).messages === "0");
   const receipt = {
     scope:
-      "Native unmodified RabbitMQ binary frames; literal independent producer, signed Debian rabbitmq-c complete bytes before/after. Changed native SDK profile; historical Pika proof remains frozen. Credentials are disposable fixture literals. src/amqp.ts has no runtime import.",
+      "Native unmodified RabbitMQ binary frames; literal independent producer, signed Debian rabbitmq-c complete bytes before/after. Changed native SDK profile; historical Pika proof remains frozen. Credentials are disposable fixture literals. src/backend/amqp/client.ts has no runtime import.",
     oracle: { base64: original.toString("base64"), bytes: original.length, sha256: hash(original) },
     take,
     publish,

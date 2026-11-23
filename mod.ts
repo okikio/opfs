@@ -44,7 +44,7 @@
  */
 
 export { createFileSystem } from "./src/filesystem.ts";
-export { openFileSystem } from "./src/adapter/opfs.ts";
+export { openFileSystem } from "./src/backend/opfs/adapter.ts";
 export { FileSystemError, getErrorMessage, getErrorName, toFileSystemError } from "./src/error.ts";
 export { getOpfsContext } from "./src/context.ts";
 export { probeOpfs } from "./src/probe.ts";
@@ -74,7 +74,7 @@ export type {
 } from "./src/filesystem.ts";
 export type { HostProfileType } from "./src/driver/host.ts";
 export type { AdapterType, FileSystemOptionsType } from "./src/adapter/definition.ts";
-export type { OpenFileSystemOptionsType } from "./src/adapter/opfs.ts";
+export type { OpenFileSystemOptionsType } from "./src/backend/opfs/adapter.ts";
 export type {
   CreateWritableOptionsType,
   DirectoryHandleType,
@@ -96,7 +96,7 @@ export type {
   OpfsDriverType,
   OpfsFileHandleType,
   OpfsWritableFileStreamType,
-} from "./src/driver/opfs.ts";
+} from "./src/backend/opfs/driver.ts";
 export type {
   FileDriverCopyOptionsType,
   FileDriverDirectoryEntryType,

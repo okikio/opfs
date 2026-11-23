@@ -1,5 +1,5 @@
-import { createS3Client } from "../../../src/s3.ts";
-import { createAzureClient } from "../../../src/azure.ts";
+import { createS3Client } from "../../../src/backend/s3/client.ts";
+import { createAzureClient } from "../../../src/backend/azure/client.ts";
 import type { FetchType } from "../../../src/request.ts";
 import { isStream } from "../../../src/body.ts";
 import type { ProviderBodyOptionsType, ProviderBodyResultType } from "./api.ts";

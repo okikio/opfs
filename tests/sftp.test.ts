@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { openSftpClient, SftpProtocolError, SftpPublicationError } from "../src/sftp.ts";
-import type { SftpOptionsType } from "../src/sftp.ts";
+import { openSftpClient, SftpProtocolError, SftpPublicationError } from "../src/backend/sftp/client.ts";
+import type { SftpOptionsType } from "../src/backend/sftp/client.ts";
 
 const encode = (text: string) => new TextEncoder().encode(text);
 /** Independent test encoder writes the published big-endian wire format directly. */

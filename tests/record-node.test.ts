@@ -2,14 +2,14 @@ import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 import { DatabaseSync } from "node:sqlite";
 import type { SQLInputValue } from "node:sqlite";
-import type { Db0PrimitiveType } from "../src/driver/db0.ts";
-import { createSqliteDriver } from "../src/driver/sqlite.ts";
+import type { Db0PrimitiveType } from "../src/backend/db0/driver.ts";
+import { createSqliteDriver } from "../src/backend/sqlite/driver.ts";
 import { createRecordAdapter } from "../src/adapter/record.ts";
 import { createFileSystem } from "../mod.ts";
 import { withReleases } from "./close.ts";
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { drizzle } from "drizzle-orm/sqlite-proxy";
-import { createDrizzleDriver } from "../src/driver/drizzle.ts";
+import { createDrizzleDriver } from "../src/backend/drizzle/driver.ts";
 import type { RecordDriverType } from "../src/driver/record.ts";
 
 /**

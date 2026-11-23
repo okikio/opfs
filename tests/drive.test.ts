@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { DRIVE_CHUNK_BYTES, DriveClient, DriveError, DrivePublicationError } from "../src/drive.ts";
+import { DRIVE_CHUNK_BYTES, DriveClient, DriveError, DrivePublicationError } from "../src/backend/drive/client.ts";
 import type { FetchType } from "../src/request.ts";
 
 const resource = (overrides: Record<string, unknown> = {}) => ({

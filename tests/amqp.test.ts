@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { AmqpClient, AmqpCompletionError, AmqpError, AmqpOutcomeError } from "../src/amqp.ts";
-import type { AmqpChannelType, AmqpOptionsType } from "../src/amqp.ts";
+import { AmqpClient, AmqpCompletionError, AmqpError, AmqpOutcomeError } from "../src/backend/amqp/client.ts";
+import type { AmqpChannelType, AmqpOptionsType } from "../src/backend/amqp/client.ts";
 
 /** Authored peer encoder, separate from candidate frame/property code. Native qualification is a separate fixture. */
 const utf = (value: string): Uint8Array<ArrayBuffer> => new TextEncoder().encode(value);

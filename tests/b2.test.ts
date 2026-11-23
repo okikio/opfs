@@ -1,10 +1,10 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { authorizeB2, B2PublicationError, createB2Client } from "../src/b2.ts";
-import type { B2FileType } from "../src/b2.ts";
+import { authorizeB2, B2PublicationError, createB2Client } from "../src/backend/b2/client.ts";
+import type { B2FileType } from "../src/backend/b2/client.ts";
 import type { FetchType } from "../src/request.ts";
-import { createB2DriverFromClient } from "../src/driver/b2.ts";
-import { createB2Adapter } from "../src/adapter/b2.ts";
+import { createB2DriverFromClient } from "../src/backend/b2/driver.ts";
+import { createB2Adapter } from "../src/backend/b2/adapter.ts";
 import { openObjectSource } from "../src/source.ts";
 
 const auth = {

@@ -52,8 +52,8 @@ A client owns a wire protocol when the protocol is useful independently of the f
 Current examples:
 
 ```text
-src/s3.ts       S3 REST + SigV4 + multipart + request policy
-src/azure.ts    Azure Blob REST + authentication + block upload + request policy
+src/backend/s3/client.ts       S3 REST + SigV4 + multipart + request policy
+src/backend/azure/client.ts    Azure Blob REST + authentication + block upload + request policy
 ```
 
 A client can expose protocol operations that do not belong in a filesystem. For example, an S3 client can retain ETags,

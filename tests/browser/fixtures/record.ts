@@ -1,7 +1,7 @@
 import { createFileSystem } from "../../../mod.ts";
 import { createRecordAdapter } from "../../../src/adapter/record.ts";
-import { createCacheDriver } from "../../../src/driver/cache.ts";
-import { createLocalStorageDriver } from "../../../src/driver/localstorage.ts";
+import { createCacheDriver } from "../../../src/backend/cache/driver.ts";
+import { createLocalStorageDriver } from "../../../src/backend/localstorage/driver.ts";
 import type { RecordDriverType } from "../../../src/driver/record.ts";
 import { FileSystemError } from "../../../src/error.ts";
 import type { FileRecordType } from "../../../src/schema/mod.ts";

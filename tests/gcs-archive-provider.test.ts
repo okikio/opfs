@@ -4,7 +4,7 @@ import { expect } from "@std/expect";
 import { Storage } from "@google-cloud/storage";
 
 import { close } from "../src/close.ts";
-import { createGcsClient, GCS_CHUNK_BYTES } from "../src/gcs.ts";
+import { createGcsClient, GCS_CHUNK_BYTES } from "../src/backend/gcs/client.ts";
 import { GCS_BUCKET, openGcs } from "./provider/gcs.ts";
 
 /** Emulator class receipts and independent SDK bytes; no live billing or retention proof. */

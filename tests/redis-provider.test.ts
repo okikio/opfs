@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 import { close } from "../src/close.ts";
-import { openRedisClient, RedisError } from "../src/redis.ts";
+import { openRedisClient, RedisError } from "../src/backend/redis/client.ts";
 import { expectBytes } from "./reliability.ts";
 import { openRedis } from "./provider/redis.ts";
 

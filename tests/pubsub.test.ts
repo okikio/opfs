@@ -6,7 +6,7 @@ import {
   PubsubError,
   PubsubMessageSchema,
   PubsubOutcomeError,
-} from "../src/pubsub.ts";
+} from "../src/backend/pubsub/client.ts";
 import type { FetchType } from "../src/request.ts";
 import { encodeBase64 } from "@std/encoding/base64";
 const endpoint = "https://pubsub.example/", project = "opfs-pubsub";

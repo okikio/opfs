@@ -1,8 +1,8 @@
-import { committed, IndexedDbBackend, openIndexedDbDriver, result } from "../../../src/driver/indexeddb.ts";
+import { committed, IndexedDbBackend, openIndexedDbDriver, result } from "../../../src/backend/indexeddb/driver.ts";
 import { FileSystemError } from "../../../src/error.ts";
 import type { FileRecordType } from "../../../src/schema/mod.ts";
 import type { FileDriverWriteOptionsType } from "../../../src/driver/file.ts";
-import type { IndexedDbOpenOptionsType } from "../../../src/driver/indexeddb.ts";
+import type { IndexedDbOpenOptionsType } from "../../../src/backend/indexeddb/driver.ts";
 import { withReleases } from "../../close.ts";
 
 /** Each lane changes actual acquired native capabilities; no fake transaction is substituted. */

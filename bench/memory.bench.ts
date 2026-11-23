@@ -3,8 +3,8 @@ import { bench, do_not_optimize } from "mitata";
 import { expectBytes, finish, payload as createPayload, report } from "./result.ts";
 
 import { createFileSystem } from "../mod.ts";
-import { createMemoryAdapter } from "../src/adapter/memory.ts";
-import { createMemoryDriver } from "../src/driver/memory.ts";
+import { createMemoryAdapter } from "../src/backend/memory/adapter.ts";
+import { createMemoryDriver } from "../src/backend/memory/driver.ts";
 import type { RecordType } from "../src/schema/mod.ts";
 
 /** Fixed 64 KiB payload shared by all in-memory benchmark paths. */

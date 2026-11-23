@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { createEtcdClient, EtcdError } from "../src/etcd.ts";
+import { createEtcdClient, EtcdError } from "../src/backend/etcd/client.ts";
 import { close } from "./close.ts";
 import { openEtcd } from "./provider/etcd.ts";
 

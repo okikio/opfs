@@ -1,11 +1,15 @@
-import { createDb0Adapter, type Db0AdapterOptionsType, type Db0DatabaseType } from "../adapter/db0.ts";
-import { createDrizzleAdapter, type DrizzleAdapterOptionsType, type DrizzleTableType } from "../adapter/drizzle.ts";
-import { createRxDbAdapter, type RxDbCollectionType } from "../adapter/rxdb.ts";
+import { createDb0Adapter, type Db0AdapterOptionsType, type Db0DatabaseType } from "../backend/db0/adapter.ts";
+import {
+  createDrizzleAdapter,
+  type DrizzleAdapterOptionsType,
+  type DrizzleTableType,
+} from "../backend/drizzle/adapter.ts";
+import { createRxDbAdapter, type RxDbCollectionType } from "../backend/rxdb/adapter.ts";
 import {
   createUnstorageAdapter,
   type UnstorageAdapterOptionsType,
   type UnstorageStorageType,
-} from "../adapter/unstorage.ts";
+} from "../backend/unstorage/adapter.ts";
 import {
   createUnstorageBridge,
   type UnstorageBridgeOptionsType,

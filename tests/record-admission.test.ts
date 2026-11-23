@@ -3,9 +3,14 @@ import { expect } from "@std/expect";
 
 import { createFileSystem } from "../mod.ts";
 import { createRecordAdapter } from "../src/adapter/record.ts";
-import { createCacheDriver } from "../src/driver/cache.ts";
-import { Db0Backend, type Db0DatabaseType, type Db0PrimitiveType, type Db0StatementType } from "../src/driver/db0.ts";
-import { createLocalStorageDriver, type LocalStorageType } from "../src/driver/localstorage.ts";
+import { createCacheDriver } from "../src/backend/cache/driver.ts";
+import {
+  Db0Backend,
+  type Db0DatabaseType,
+  type Db0PrimitiveType,
+  type Db0StatementType,
+} from "../src/backend/db0/driver.ts";
+import { createLocalStorageDriver, type LocalStorageType } from "../src/backend/localstorage/driver.ts";
 import type { RecordDriverType } from "../src/driver/record.ts";
 import type { FileRecordType } from "../src/schema/mod.ts";
 

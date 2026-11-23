@@ -6,7 +6,7 @@ import { lstatSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { createConnection } from "node:net";
 import type { Socket } from "node:net";
-import type { KafkaChannelType } from "../../src/kafka/session.ts";
+import type { KafkaChannelType } from "../../src/backend/kafka/session.ts";
 import { close } from "../../src/close.ts";
 import type { StartedTestContainer, WaitStrategy } from "testcontainers";
 

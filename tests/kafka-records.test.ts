@@ -5,9 +5,9 @@ import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
 import { lstatSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { crc32c, decodeRecords, encodeBatch, snapshotRecords } from "../src/kafka/records.ts";
-import type { KafkaFetchedRecordType, KafkaRecordType } from "../src/kafka/records.ts";
-import { frame, MAX_FRAME, MAX_LONG, MIN_LONG, Reader, unframe, Writer } from "../src/kafka/wire.ts";
+import { crc32c, decodeRecords, encodeBatch, snapshotRecords } from "../src/backend/kafka/records.ts";
+import type { KafkaFetchedRecordType, KafkaRecordType } from "../src/backend/kafka/records.ts";
+import { frame, MAX_FRAME, MAX_LONG, MIN_LONG, Reader, unframe, Writer } from "../src/backend/kafka/wire.ts";
 import { crc32c as controlCrc } from "./fixtures/kafka/records.ts";
 import { decode as javaTerminal } from "./fixtures/kafka/manifest.ts";
 
