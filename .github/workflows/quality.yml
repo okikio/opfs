@@ -541,6 +541,9 @@ jobs:
         if: steps.passed.outputs.hit != 'true'
       - run: mise run ci:lane -- netlify
         if: steps.passed.outputs.hit != 'true'
+        env:
+          # Fixture acquisition reads public GitHub API records; the read-only token avoids the shared IP limit.
+          GITHUB_TOKEN: ${{ github.token }}
       - name: Save dependency downloads after successful checks
         if: steps.passed.outputs.hit != 'true'
         uses: $/.github/actions/dependency-cache
