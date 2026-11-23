@@ -16,11 +16,12 @@ the narrow corrected expectation. Its SHA-256 is `5f0af31519558311b4448ae20b1699
 Never rewrite the failed terminal as successful or attribute that Java execution to the new TypeScript tools.
 
 `source-map.json` records original source paths, exact snapshot identities and every retained native output hash.
-Previous Python sources are inert `history/*.py.snapshot`, never imported or executed. Original Java oracle sources
-remain unchanged under `oracle/`. Primary request/response schemas, upstream notices and attribution investigation
-remain inert snapshots. The distribution's incorrect protobuf/JLine notice is retained alongside the separate upstream
-protobuf/OTel supplement. That supplement supports the reviewed isolated test use; it does not establish a reproduced
-build or repair upstream public redistribution rights. No SDK JAR is copied into this repository or its public package.
+Previous Python sources are inert `history/*.py.snapshot`, never imported or executed. Historical `KafkaOracle.java` and
+`CrcOracle.java` remain unchanged under `oracle/`; the new source-only Admin oracle has separate ownership described
+below. Primary request/response schemas, upstream notices and attribution investigation remain inert snapshots. The
+distribution's incorrect protobuf/JLine notice is retained alongside the separate upstream protobuf/OTel supplement.
+That supplement supports the reviewed isolated test use; it does not establish a reproduced build or repair upstream
+public redistribution rights. No SDK JAR is copied into this repository or its public package.
 
 ## What each current tool owns
 
@@ -57,16 +58,55 @@ node tests/fixtures/kafka/verify.ts tests/fixtures/kafka/native-second opfs-nati
 
 It compares every original key/value/header byte, exact offsets/timestamps, all original batch CRC32C scopes, native
 acknowledgments, earliest/latest offsets and JDK CRC32C agreement. It never imports production OPFS code or runs Java.
-The TypeScript port has not yet been executed by this source change; a passing replay is a new verifier result over old
-native evidence, not a fresh broker/provider qualification.
+The TypeScript verifier replay passed in isolated receipt `ed586560-2fc0-4994-8fdb-99c4782f03e1`, with
+`semanticFullBytes: true`, `crc32c: true` and `metadataSemanticClaim: false`. This is a new TS verifier execution over
+retained native evidence, not a fresh broker/provider qualification or execution of every current capture tool.
 
-**Metadata4 semantics remain unqualified.** The retained run checks that metadata frames have the right correlation, not
-that their brokers/leaders/replicas/ISR/cluster fields were semantically decoded. The verifier explicitly reports
-`metadataSemanticClaim: false`. Closing that gap precedes trusting production leader preflight. Whole-wire page overflow
-and unknown append/cleanup controls also remain future candidate tests, not proof supplied by Java poll limits.
+**The original retained run does not qualify Metadata4 semantics.** It checks that metadata frames have the right
+correlation, not that their brokers/leaders/replicas/ISR/cluster fields were semantically decoded. Its verifier
+explicitly reports `metadataSemanticClaim: false`. Closing that gap precedes trusting production leader preflight.
+Whole-wire page overflow and unknown append/cleanup controls also remain future candidate tests, not proof supplied by
+Java poll limits.
 
 A fresh native repeat must retain the reviewed one-broker 1 GiB RAM/swap, one CPU and 128 PID envelope, broker heap 256
 MiB, and at most one serial 128 MiB auxiliary JVM. Preserve the 32 MiB data tmpfs, bounded secondary tmpfs/logs, exact
 admitted broker image and five-JAR client classpath from `history/kafka-native-recipe.md.snapshot`. The Testcontainers
 owner must preserve readiness, terminal diagnostics, partial outcomes and exact cleanup. The old recipe's Python launch
 commands are historical source identity only; a maintained native launcher must be typed and qualified before a new run.
+
+## Repeat the independent Metadata4 comparison
+
+`metadata.ts` is a candidate-independent pure Metadata4 response decoder. The new authored
+`oracle/AdminMetadataOracle.java` uses the admitted public Java Admin API to observe the configured topic and partition.
+They do not change historical Java sources, snapshots, source maps or receipts. The
+[Metadata qualification sequence](../../../planning/storage/KAFKA.md#independent-metadata4-qualification-to-run-next)
+defines fresh native capture, comparison, adversarial controls, the binary Admin output and its limits.
+
+The fresh 6 November 2026 run in `native-metadata/` compared the complete decoded cluster ID, broker tuples, selected
+topic/internal flag, partition leader, replica assignment order and ISR membership with the public Admin observation.
+`terminal.json` records success, full captured-byte hashes, the exact five-JAR closure and no operation or cleanup
+failures. `resources.json` retains the actual container admission and kernel tmpfs observations. `source.json`
+identifies the source used for this run and its separately compiled Java receipt. The native broker was Apache Kafka
+4.4.0 on the pinned image; the auxiliary Admin program was compiled for Java 17 and executed by that image's JDK 25.
+
+To repeat it, first acquire the admitted five JARs and compile `oracle/AdminMetadataOracle.java` in the documented
+bounded offline compiler. Supply those resulting directories explicitly; this command neither resolves dependencies nor
+compiles Java. It starts one owned broker, creates one fresh topic and removes its owned resources before returning:
+
+```sh
+node tests/fixtures/kafka/qualify.ts --classes /ABS/OFFLINE_CLASSES \
+  --jars /ABS/ADMITTED_FIVE_JARS --evidence /ABS/FRESH_EVIDENCE_DIRECTORY
+```
+
+The evidence directory must not exist. Failed runs retain their raw/partial exchange, bounded native stdout and terminal
+failure receipt. Do not replace a failed receipt with a later success. The first run exposed Docker's empty tmpfs
+`Mounts` summary; the maintained owner checks the live kernel mount table for all five exact size/security policies.
+Strict types, syntax controls, lint and formatting passed in isolated receipt `c3ca4fff-3a18-4991-a273-d415f845e9b6`;
+the malformed-frame controls also run through `deno task quality`.
+
+This is a stable **one-broker observation**, not qualification of a production Kafka parser, leader recovery, TLS/SASL,
+replication or native error semantics. The older `metadataSemanticClaim: false` receipt stays unchanged.
+
+Admin success cannot supply Metadata4 wire error codes or throttle evidence. Its public controller observation with
+`bootstrap.servers` is not an independent multibroker controller identity. Read actual topic internal flags from the
+SDK, compare replica assignment order and ISR membership deliberately, and retain every new proof separately.

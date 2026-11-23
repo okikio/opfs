@@ -1,0 +1,27 @@
+{
+  "cluster": "qewy2al0Lc4BkX05GyWM0Q",
+  "controllerObservation": 1,
+  "brokers": [
+    {
+      "id": 1,
+      "host": "127.0.0.1",
+      "port": 9092,
+      "rack": null
+    }
+  ],
+  "topic": "opfs-metadata-725b622a-b0ab-40c7-883d-fe869037d6b1",
+  "internal": false,
+  "requested": 0,
+  "partitions": [
+    {
+      "index": 0,
+      "leader": 1,
+      "replicas": [
+        1
+      ],
+      "isr": [
+        1
+      ]
+    }
+  ]
+}

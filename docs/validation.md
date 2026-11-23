@@ -880,10 +880,12 @@ providers plus native Swift and WebDAV fixtures sequentially; fixtures use pinne
 Testcontainers cleanup. These tests need Docker and establish only the exercised server profiles. B2 currently has
 authored protocol fixtures, not hosted-service proof.
 
-On Linux with Node, 7-Zip, libarchive bsdtar and system TAR available, run `mise run test:interop`. It checks new writer
-output with independent consumers and fails on either producer or consumer errors. It lives in the Linux provider job
-instead of silently skipping absent tools in the Windows runtime matrix. Portable tests remain in Deno, Node and Bun
-gates.
+On Linux with Node, 7-Zip, libarchive bsdtar and system TAR available, run `mise run test:interop`. The ZIP consumer
+defaults to `7zz`; use `OPFS_SEVEN=/usr/bin/7z mise run test:interop` when that is the installed executable, as in the
+Ubuntu archive interoperability CI step. This passes a literal executable argument to the verifier; a missing executable
+fails the test without fallback or a skip. It checks new writer output with independent consumers and fails on either
+producer or consumer errors. It lives in the Linux provider job instead of silently skipping absent tools in the Windows
+runtime matrix. Portable tests remain in Deno, Node and Bun gates.
 
 `bench:archive` includes ZIP writer workloads; `bench:tar` compares indexed and sequential reads plus streaming writes
 with byte-only baselines. Both validate byte/count oracles before sampling. CI retains their raw reports in the archive
