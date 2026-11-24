@@ -1,7 +1,23 @@
 /** Box native IDs, versioned downloads and part-based upload sessions. @module */
+import { digest, endpoint, fields, file, id, item, origins, PartSchema, retry, sha1, target, text } from "./parse.ts";
+import { BoxError, BoxPendingError, BoxPublicationError } from "./error.ts";
+import type {
+  BoxCommitType,
+  BoxDownloadType,
+  BoxFileType,
+  BoxItemType,
+  BoxOptionsType,
+  BoxPageType,
+  BoxPartsPageType,
+  BoxPartType,
+  BoxReadOptionsType,
+  BoxTargetType,
+  BoxUploadStatusType,
+  BoxUploadType,
+  BoxVersionType,
+} from "./types.ts";
 import { toInteger } from "../../check.ts";
 import { exactLength } from "../../body.ts";
-import { encodeBase64 } from "@std/encoding/base64";
 import { z } from "zod";
 import { isBytes, toRequestBytes, toView } from "../../bytes.ts";
 import { close } from "../../close.ts";
@@ -9,250 +25,10 @@ import { assertRangeResponse, resolveRange } from "../../range.ts";
 import { RequestMetrics, sendRequest } from "../../request.ts";
 import type { FetchType, RequestPolicyType } from "../../request.ts";
 import { readResponse } from "../../response.ts";
-import { collectBytes } from "../../stream.ts";
+import { collectBytes } from "../../stream/mod.ts";
 
-const fields = "id,type,name,size,sha1,etag,file_version,parent";
 /** Local finite-buffer ceiling, not an account's provider upload allowance. */
 export const BOX_BUFFER_BYTES = 64 * 1024 * 1024;
-const ItemSchema = z.object({
-  id: z.string().regex(/^\d{1,128}$/),
-  type: z.enum(["file", "folder", "web_link"]),
-  name: z.string().max(8192),
-  size: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).optional(),
-  sha1: z.string().regex(/^[a-fA-F0-9]{40}$/).optional(),
-  etag: z.string().max(1024).optional(),
-  file_version: z.object({ id: z.string().regex(/^\d{1,128}$/) }).optional(),
-  parent: z.object({ id: z.string().regex(/^\d{1,128}$/) }).nullable().optional(),
-});
-const PartSchema = z.object({
-  part_id: z.string().regex(/^[A-Za-z0-9_-]{1,256}$/),
-  offset: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
-  size: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
-  sha1: z.string().regex(/^[a-fA-F0-9]{40}$/),
-});
-/** Native items retain IDs and kinds instead of being projected into portable paths. */
-export interface BoxItemType {
-  readonly id: string;
-  readonly kind: "file" | "folder" | "web_link";
-  readonly name: string;
-  readonly size?: number;
-  /** Legacy provider checksum; not collision-resistant content authentication. */
-  readonly sha1?: string;
-  /** Native opaque metadata condition. Do not strengthen it into an HTTP representation validator. */
-  readonly etag?: string;
-  readonly versionId?: string;
-  readonly parentId?: string;
-}
-/** Stored-file metadata is different from a folder or web link. */
-export interface BoxFileType extends BoxItemType {
-  readonly kind: "file";
-  readonly size: number;
-  readonly versionId: string;
-}
-/** A specific retained version belongs to the requested file route. Retention remains provider-owned. */
-export interface BoxVersionType {
-  readonly id: string;
-  readonly size: number;
-  readonly sha1?: string;
-}
-/** OAuth, account selection and refresh belong to the caller, never a capability redirect. */
-export interface BoxOptionsType {
-  readonly token: (url: URL, signal?: AbortSignal) => string | Promise<string>;
-  readonly fetch?: FetchType;
-  readonly endpoint?: string | URL;
-  readonly uploadEndpoint?: string | URL;
-  readonly asUser?: string;
-  /** Exact origins to which server-supplied session endpoints may grant OAuth. Default: configured upload origin only. */
-  readonly uploadOrigins?: readonly string[];
-  /** Exact origins for signed file capabilities. Default empty; no implicit Box suffix trust. */
-  readonly downloadOrigins?: readonly string[];
-  readonly allowHttp?: boolean;
-  readonly request?: RequestPolicyType;
-  readonly maxBytes?: number;
-  readonly maxPages?: number;
-  readonly maxEntries?: number;
-  readonly maxParts?: number;
-}
-/** Creation names are literal provider names. Replacement uses a stable native ID. */
-export type BoxTargetType =
-  | Readonly<{ kind: "create"; folderId: string; name: string }>
-  | Readonly<{ kind: "replace"; fileId: string; ifMatch?: string }>;
-/** Native marker pages do not establish a directory snapshot. */
-export interface BoxPageType {
-  readonly entries: readonly BoxItemType[];
-  readonly nextMarker?: string;
-}
-/** Download is pinned to a selected native version and transfers stream ownership. */
-export interface BoxDownloadType {
-  readonly fileId: string;
-  readonly version: BoxVersionType;
-  readonly bytes: ReadableStream<Uint8Array>;
-}
-/** Byte ranges retain ordinary EOF clamping; no range digest proof is implied. */
-export interface BoxReadOptionsType {
-  readonly versionId?: string;
-  readonly at?: number;
-  readonly length?: number;
-  readonly signal?: AbortSignal;
-}
-/** Caller-retained session context contains its fixed source size and exact admitted endpoints. */
-export interface BoxUploadType {
-  readonly id: string;
-  readonly size: number;
-  readonly partSize: number;
-  readonly totalParts: number;
-  readonly expires: string;
-  readonly target: BoxTargetType;
-  readonly endpoint: string;
-}
-/** A part receipt acknowledges one extent, not a contiguous prefix or published file. */
-export interface BoxPartType {
-  readonly id: string;
-  readonly offset: number;
-  readonly size: number;
-  readonly sha1: string;
-}
-/** Processing counts do not identify which extents are present. */
-export interface BoxUploadStatusType {
-  readonly upload: BoxUploadType;
-  readonly processedParts: number;
-}
-/** Offset pagination can contain sparse positions; offset/total are provider item positions. */
-export interface BoxPartsPageType {
-  readonly parts: readonly BoxPartType[];
-  readonly offset: number;
-  readonly limit: number;
-  readonly total: number;
-}
-/** HTTP 202 is an explicit pending commit, never a fabricated file receipt. */
-export type BoxCommitType =
-  | Readonly<{ complete: false; retryAfterSeconds: number }>
-  | Readonly<{ complete: true; file: BoxFileType }>;
-/** Fixed messages exclude signed URLs, tokens and raw provider bodies. */
-export class BoxError extends Error {
-  readonly status: number;
-  /**
-   * Creates the error.
-   * @param status HTTP status the service returned.
-   */
-  constructor(status: number) {
-    super(`Box request failed with HTTP ${status}.`);
-    this.name = "BoxError";
-    this.status = status;
-  }
-}
-/** A dispatched mutation without a validated receipt must not be blindly repeated. */
-export class BoxPublicationError extends Error {
-  /**
-   * Creates the error.
-   * @param cause Failure that caused this error.
-   */
-  constructor(cause: unknown) {
-    super("Box mutation has no validated acknowledgement; reconcile before retrying.", { cause });
-    this.name = "BoxPublicationError";
-  }
-}
-/** A version may exist while its download capability is not ready yet. */
-export class BoxPendingError extends Error {
-  readonly retryAfterSeconds: number;
-  /** Creates the error. */
-  constructor(seconds: number) {
-    super("Box file content is not ready.");
-    this.name = "BoxPendingError";
-    this.retryAfterSeconds = seconds;
-  }
-}
-/** IDs remain strings even if they exceed JavaScript's integer precision. */
-function id(value: string): string {
-  if (typeof value !== "string" || !/^\d{1,128}$/.test(value)) throw new TypeError("Invalid Box ID.");
-  return value;
-}
-/** Control characters and malformed Unicode cannot enter HTTP headers or provider names. */
-function text(value: string, label: string, max: number): string {
-  if (typeof value !== "string" || !value || value.length > max) throw new TypeError(`Invalid Box ${label}.`);
-  for (let at = 0; at < value.length; at++) {
-    const code = value.charCodeAt(at);
-    if (code <= 31 || code === 127) throw new TypeError(`Invalid Box ${label}.`);
-    if (code >= 0xd800 && code <= 0xdbff) {
-      const next = value.charCodeAt(++at);
-      if (!(next >= 0xdc00 && next <= 0xdfff)) throw new TypeError(`Invalid Box ${label}.`);
-    } else if (code >= 0xdc00 && code <= 0xdfff) throw new TypeError(`Invalid Box ${label}.`);
-  }
-  return value;
-}
-/** A checksum is native compatibility evidence, not an authenticity primitive. */
-function sha1(value: string): string {
-  if (typeof value !== "string" || !/^[a-fA-F0-9]{40}$/.test(value)) throw new TypeError("Invalid Box SHA-1 checksum.");
-  return value.toLowerCase();
-}
-/** Digest wire encoding is base64 of the binary hash, never base64 of its hex spelling. */
-function digest(value: string): string {
-  const hex = sha1(value);
-  return `sha=${encodeBase64(Uint8Array.from({ length: 20 }, (_, at) => parseInt(hex.slice(at * 2, at * 2 + 2), 16)))}`;
-}
-/** Metadata wire optionals are mapped to absent public properties. */
-function item(value: unknown): BoxItemType {
-  const data = ItemSchema.parse(value);
-  return {
-    id: data.id,
-    kind: data.type,
-    name: data.name,
-    ...(data.size === undefined ? {} : { size: data.size }),
-    ...(data.sha1 === undefined ? {} : { sha1: sha1(data.sha1) }),
-    ...(data.etag === undefined ? {} : { etag: data.etag }),
-    ...(data.file_version === undefined ? {} : { versionId: data.file_version.id }),
-    ...(data.parent == null ? {} : { parentId: data.parent.id }),
-  };
-}
-/** Only stored files with an explicit current version support selected-version reads. */
-function file(value: unknown, selected?: string): BoxFileType {
-  const data = item(value);
-  if (
-    data.kind !== "file" || data.size === undefined || data.versionId === undefined ||
-    selected !== undefined && selected !== data.id
-  ) throw new TypeError("Box receipt requires the selected stored file and version.");
-  return { ...data, kind: "file", size: data.size, versionId: data.versionId };
-}
-/** Snapshot nested targets before any token/hash await; names never become route segments. */
-function target(value: BoxTargetType): BoxTargetType {
-  if (value.kind === "create") {
-    const name = text(value.name, "file name", 255);
-    if (name === "." || name === ".." || /[\\/]/u.test(name)) throw new TypeError("Invalid Box file name.");
-    return { kind: "create", folderId: id(value.folderId), name };
-  }
-  if (value.kind !== "replace") throw new TypeError("Invalid Box upload target.");
-  const ifMatch = value.ifMatch;
-  return {
-    kind: "replace",
-    fileId: id(value.fileId),
-    ...(ifMatch === undefined ? {} : { ifMatch: text(ifMatch, "native ETag", 1024) }),
-  };
-}
-/** Explicit authorities admit credentials; URLs returned by a server do not enlarge this set. */
-function endpoint(value: string | URL, allowHttp: boolean): URL {
-  const url = new URL(value);
-  if (
-    (url.protocol !== "https:" && !(allowHttp && url.protocol === "http:")) || url.username || url.password ||
-    url.search || url.hash || !url.pathname.endsWith("/")
-  ) throw new TypeError("Invalid Box endpoint.");
-  return url;
-}
-/** No wildcard, credentials, query, path suffix or fragment can masquerade as an origin. */
-function origins(values: readonly string[], allowHttp: boolean): ReadonlySet<string> {
-  return new Set(values.map((value) => {
-    const url = endpoint(`${value.replace(/\/$/u, "")}/`, allowHttp);
-    if (url.pathname !== "/") throw new TypeError("Box origin must not contain a path.");
-    return url.origin;
-  }));
-}
-/** Retry-After is explicit finite native advice. The library never sleeps or retries automatically. */
-function retry(response: Response): number {
-  const value = response.headers.get("retry-after");
-  if (value === null || !/^\d{1,8}$/.test(value)) {
-    throw new TypeError("Box pending receipt requires bounded Retry-After seconds.");
-  }
-  return toInteger(Number(value), "Box Retry-After", 86400);
-}
 
 /** Native stateless client. Import and construction perform no network or account discovery. */
 export class BoxClient {
@@ -885,3 +661,21 @@ export class BoxClient {
     });
   }
 }
+
+export type {
+  BoxCommitType,
+  BoxDownloadType,
+  BoxFileType,
+  BoxItemType,
+  BoxOptionsType,
+  BoxPageType,
+  BoxPartsPageType,
+  BoxPartType,
+  BoxReadOptionsType,
+  BoxTargetType,
+  BoxUploadStatusType,
+  BoxUploadType,
+  BoxVersionType,
+} from "./types.ts";
+
+export { BoxError, BoxPendingError, BoxPublicationError } from "./error.ts";

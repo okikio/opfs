@@ -9,7 +9,7 @@ import { close } from "../close.ts";
 import { readResponse } from "../response.ts";
 import { RequestMetrics, sendRequest } from "../request.ts";
 import type { FetchType, RequestPolicyType } from "../request.ts";
-import { collectBytes } from "../stream.ts";
+import { collectBytes } from "../stream/mod.ts";
 import { assertExtent } from "../source.ts";
 import type { ByteSourceType } from "../source.ts";
 

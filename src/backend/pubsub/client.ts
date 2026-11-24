@@ -7,7 +7,7 @@ import { isBytes, toView } from "../../bytes.ts";
 import { sendRequest } from "../../request.ts";
 import type { FetchType } from "../../request.ts";
 import { readResponse } from "../../response.ts";
-import { openBytes } from "../../stream.ts";
+import { openBytes } from "../../stream/mod.ts";
 import { close } from "../../close.ts";
 
 /** Local materialization ceiling per message, independent of the service's larger quota. */

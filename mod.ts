@@ -88,7 +88,7 @@ export type {
 } from "./src/handle.ts";
 export type { SyncFileType } from "./src/sync.ts";
 export type { WritableFileType } from "./src/writable.ts";
-export type { WriteDataType } from "./src/stream.ts";
+export type { WriteDataType } from "./src/stream/mod.ts";
 export type { BrowserGlobalType } from "./src/context.ts";
 export type {
   OpfsDirectoryChildHandleType,

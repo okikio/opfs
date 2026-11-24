@@ -5,7 +5,7 @@ import { isBytes, toRequestBytes, toView } from "../../bytes.ts";
 import { sendRequest } from "../../request.ts";
 import type { FetchType, RequestPolicyType } from "../../request.ts";
 import { readResponse } from "../../response.ts";
-import { collectBytes } from "../../stream.ts";
+import { collectBytes } from "../../stream/mod.ts";
 
 /** Finite materialized content policy; repository quotas are separate. */
 export const CMIS_BUFFER_BYTES = 64 * 1024 * 1024;

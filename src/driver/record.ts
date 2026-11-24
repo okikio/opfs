@@ -1,7 +1,7 @@
 import { FileSystemError, toFileSystemError } from "../error.ts";
 import { close } from "../close.ts";
 import { project } from "../iteration.ts";
-import { retire } from "../stream.ts";
+import { retire } from "../stream/mod.ts";
 import { z } from "zod";
 
 import type { PathType } from "../path.ts";

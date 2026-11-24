@@ -9,7 +9,7 @@ import {
   glacierTreeHash,
 } from "../src/backend/glacier/client.ts";
 import type { GlacierJobType, GlacierOptionsType } from "../src/backend/glacier/client.ts";
-import { observeBytes, retire } from "../src/stream.ts";
+import { observeBytes, retire } from "../src/stream/mod.ts";
 
 const credentials = { accessKeyId: "AKIDEXAMPLE", secretAccessKey: "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY" };
 function options(fetch: GlacierOptionsType["fetch"], extra: Partial<GlacierOptionsType> = {}): GlacierOptionsType {

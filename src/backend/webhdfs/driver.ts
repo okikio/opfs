@@ -5,7 +5,7 @@ import { defineFileDriver } from "../../driver/file.ts";
 import type { FileBackendType, FileDriverType } from "../../driver/file.ts";
 import type { DriverPlanInputType, DriverPlanType } from "../../driver/definition.ts";
 import { resolveRange } from "../../range.ts";
-import { collectBytes } from "../../stream.ts";
+import { collectBytes } from "../../stream/mod.ts";
 import { FileSystemError } from "../../error.ts";
 import { getPrimary } from "../../close.ts";
 import type { PathType } from "../../path.ts";

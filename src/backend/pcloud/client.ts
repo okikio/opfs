@@ -9,7 +9,7 @@ import { assertRangeResponse, resolveRange } from "../../range.ts";
 import { RequestMetrics, sendRequest } from "../../request.ts";
 import type { FetchType, RequestPolicyType } from "../../request.ts";
 import { readResponse } from "../../response.ts";
-import { collectBytes } from "../../stream.ts";
+import { collectBytes } from "../../stream/mod.ts";
 
 /** Local materialization ceiling, not a pCloud file-size limit. */
 export const PCLOUD_BUFFER_BYTES = 64 * 1024 * 1024;

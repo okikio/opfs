@@ -9,7 +9,7 @@ import { readResponse } from "../../response.ts";
 import { RequestMetrics, sendRequest } from "../../request.ts";
 import type { FetchType, RequestPolicyType } from "../../request.ts";
 import { assertRangeResponse, resolveRange } from "../../range.ts";
-import { openBytes } from "../../stream.ts";
+import { openBytes } from "../../stream/mod.ts";
 
 /** Implementation ceiling for each copied upload or materialized read; streams have no whole-file allocation. */
 export const FIREBASE_BUFFER_BYTES = 64 * 1024 * 1024;

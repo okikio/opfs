@@ -10,7 +10,7 @@ import { AZURE_LIMITS } from "./limits.ts";
 import type { AzureBlockSourceType, AzureCopyBlockType } from "./types.ts";
 import { encodeBase64 } from "@std/encoding/base64";
 import { open } from "../../chunk.ts";
-import { toByteStream } from "../../stream.ts";
+import { toByteStream } from "../../stream/mod.ts";
 import { createXmlElement, createXmlText, stringifyXml } from "../../xml.ts";
 
 /** Default streamed block size, small enough for broad emulator/provider support. */

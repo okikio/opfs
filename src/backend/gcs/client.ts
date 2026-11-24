@@ -1,3 +1,29 @@
+import {
+  condition,
+  GCS_CHUNK_BYTES,
+  GCS_MAX_BYTES,
+  GcsMetadataSchema,
+  GcsStorageClassSchema,
+  generation,
+  metadata,
+  metageneration,
+} from "./metadata.ts";
+import { GcsError, GcsPublicationError } from "./error.ts";
+import type {
+  GcsClientOptionsType,
+  GcsClientType,
+  GcsCopyOptionsType,
+  GcsDeleteOptionsType,
+  GcsGetOptionsType,
+  GcsHeadOptionsType,
+  GcsListType,
+  GcsPutOptionsType,
+  GcsReceiptType,
+  GcsStatType,
+  GcsUploadStatusType,
+  GcsUploadType,
+  GcsUploadWriteOptionsType,
+} from "./types.ts";
 import { toInteger } from "../../check.ts";
 import { z } from "zod";
 
@@ -5,317 +31,12 @@ import { isBytes, toRequestBytes } from "../../bytes.ts";
 import { isStream } from "../../body.ts";
 import { open } from "../../chunk.ts";
 import { close } from "../../close.ts";
-import type {
-  ObjectBackendType,
-  ObjectCopyOptionsType,
-  ObjectGetOptionsType,
-  ObjectListOptionsType,
-  ObjectListType,
-  ObjectPutOptionsType,
-  ObjectReceiptType,
-  ObjectStatType,
-  RevisionType,
-} from "../../driver/object.ts";
+import type { ObjectListOptionsType } from "../../driver/object.ts";
 import { resolveRange } from "../../range.ts";
 import { RequestMetrics, sendRequest } from "../../request.ts";
 import type { FetchType, RequestMetricsType, RequestPolicyType } from "../../request.ts";
 import { readResponse } from "../../response.ts";
 import type { UploadDestinationType, UploadStatusType } from "../../transfer/mod.ts";
-
-/** Google Cloud Storage upload alignment, independent of caller buffering policy. */
-export const GCS_CHUNK_BYTES = 256 * 1024;
-/** Maximum object size supported by the JSON API, in bytes. */
-export const GCS_MAX_BYTES = 5 * 1024 ** 4;
-
-/** Object classes accepted by this upload profile; bucket-only classes are excluded. */
-export const GcsStorageClassSchema: z.ZodEnum<{
-  STANDARD: "STANDARD";
-  NEARLINE: "NEARLINE";
-  COLDLINE: "COLDLINE";
-  ARCHIVE: "ARCHIVE";
-}> = z.enum(["STANDARD", "NEARLINE", "COLDLINE", "ARCHIVE"]);
-
-/** An explicitly requested native object storage class. */
-export type GcsStorageClassType = z.infer<typeof GcsStorageClassSchema>;
-
-/** Provider-reported native facts remain separate from caller-defined object metadata. */
-export interface GcsStatType extends ObjectStatType {
-  /** Provider-reported class, including unknown or legacy values. */
-  readonly storageClass?: string;
-  /** Provider metadata version for this key and generation; never a byte revision. */
-  readonly metageneration?: string;
-  /** Unverified whole stored-object CRC32C, as canonical big-endian four-byte Base64. */
-  readonly crc32c?: string;
-}
-
-/** Attributable upload or copy receipt, retaining reported native metadata without checksum verification. */
-export interface GcsReceiptType extends ObjectReceiptType, GcsStatType {}
-
-/** One native object-list page, retaining each object's reported native metadata. */
-export interface GcsListType extends ObjectListType {
-  readonly objects: readonly (GcsStatType & { readonly key: string })[];
-}
-
-/** Metadata observation options; a metadata guard also requires a positive generation revision. */
-export interface GcsHeadOptionsType {
-  /** Selects the object generation; decimal text is retained without numeric coercion. */
-  readonly revision?: RevisionType;
-  /** Requires this metadata version together with the selected generation. */
-  readonly ifMetagenerationMatch?: string;
-  readonly signal?: AbortSignal;
-}
-
-/** Byte reads can require a metadata version without replacing their generation authority. */
-export interface GcsGetOptionsType extends ObjectGetOptionsType {
-  /** Requires a positive generation revision; an empty local read evaluates no server condition. */
-  readonly ifMetagenerationMatch?: string;
-}
-
-/** Deletion conditions apply to the same generation and metadata observation. */
-export interface GcsDeleteOptionsType extends GcsHeadOptionsType {}
-
-/** Rewrite source and destination metadata conditions each require their corresponding generation. */
-export interface GcsCopyOptionsType extends ObjectCopyOptionsType {
-  /** Destination metadata match, paired with revision; cannot be used with create-only intent. */
-  readonly ifMetagenerationMatch?: string;
-  /** Source metadata match, paired with sourceRevision. */
-  readonly ifSourceMetagenerationMatch?: string;
-}
-
-/** Provider upload intent. Omitting the class retains the bucket's native default. */
-export interface GcsPutOptionsType extends ObjectPutOptionsType {
-  /** Destination metadata match sent at session initiation, paired with a positive generation revision. */
-  readonly ifMetagenerationMatch?: string;
-  /** Requested class must be confirmed by the final publication acknowledgement. */
-  readonly storageClass?: GcsStorageClassType;
-}
-
-/** Explicit configuration; the application owns token acquisition and refresh. */
-export interface GcsClientOptionsType {
-  /** Bucket name; each client addresses one bucket. */
-  readonly bucket: string;
-  /** Bearer token or refresh callback; omitted for public objects or an injected emulator. */
-  readonly token?: string | (() => string | Promise<string>);
-  /** Service origin. Defaults to https://storage.googleapis.com. */
-  readonly endpoint?: string | URL;
-  /** Transport acquired only when constructing this client, never on import. */
-  readonly fetch?: FetchType;
-  /** Read/status retry policy. Mutating requests are never blindly replayed. */
-  readonly request?: RequestPolicyType;
-  /** Stream upload buffer. Defaults to 8 MiB; must be a positive 256 KiB multiple. */
-  readonly chunkSize?: number;
-  /** Maximum rewrite requests for one copy. Defaults to 1024. */
-  readonly maxRewriteRequests?: number;
-}
-
-/** Secret resumable-upload authority; protect it like a credential. */
-export interface GcsUploadType {
-  /** Provider session URI; do not log or expose it to other callers. */
-  readonly url: string;
-  /** Destination object key, retained for acknowledgement attribution. */
-  readonly key: string;
-  /** Expected complete encoded length, when known. */
-  readonly size?: number;
-  /** Expected final native class; preserve this intent when persisting the session. */
-  readonly storageClass?: GcsStorageClassType;
-}
-
-/** Server-confirmed continuation or attributable final publication. */
-export type GcsUploadStatusType =
-  | Readonly<{ complete: false; offset: number }>
-  | Readonly<{ complete: true; offset: number; receipt: GcsReceiptType }>;
-
-/** One bounded upload extent. Nonfinal extents must follow GCS alignment rules. */
-export interface GcsUploadWriteOptionsType {
-  /** Server-confirmed offset, not merely the bytes previously sent. */
-  readonly offset: number;
-  /** Complete encoded object size when known. */
-  readonly total?: number;
-  /** Declares this extent to be the final one; requires a complete total. */
-  readonly final?: boolean;
-  readonly signal?: AbortSignal;
-}
-
-/** GCS-native operations remain usable without a filesystem adapter. */
-export interface GcsClientType extends ObjectBackendType {
-  /** Returns counts of requests, retries, failures and responses so far. */
-  getMetrics(): RequestMetricsType;
-  /**
-   * Reads an object's metadata, or returns `null` when the object does not exist.
-   * @param key Object name in the bucket.
-   * @param options Generation preconditions and cancellation.
-   */
-  head(key: string, options?: GcsHeadOptionsType): Promise<GcsStatType | null>;
-  /**
-   * Downloads an object as a stream.
-   * @param key Object name in the bucket.
-   * @param options Range, generation preconditions and cancellation.
-   */
-  get(key: string, options?: GcsGetOptionsType): Promise<ReadableStream<Uint8Array>>;
-  /**
-   * Deletes an object.
-   * @param key Object name in the bucket.
-   * @param options Generation preconditions and cancellation.
-   */
-  delete(key: string, options?: GcsDeleteOptionsType): Promise<void>;
-  /**
-   * Lists one page of objects.
-   * @param options Prefix, delimiter, page size and cursor.
-   */
-  list(options: ObjectListOptionsType): Promise<GcsListType>;
-  /**
-   * Uploads an object through one resumable upload session. A stream is sent in chunks.
-   * @param key Object name in the bucket.
-   * @param body The object's bytes.
-   * @param options Content type, metadata, preconditions and cancellation.
-   */
-  put(key: string, body: Uint8Array | ReadableStream<Uint8Array>, options?: GcsPutOptionsType): Promise<GcsReceiptType>;
-  /**
-   * Starts a resumable upload and returns its session.
-   * @param key Object name in the bucket.
-   * @param options Content type, metadata, preconditions and cancellation.
-   */
-  createUpload(key: string, options?: GcsPutOptionsType): Promise<GcsUploadType>;
-  /**
-   * Asks how many bytes a resumable upload has stored.
-   * @param upload The upload session.
-   * @param signal Cancels the request.
-   */
-  queryUpload(upload: GcsUploadType, signal?: AbortSignal): Promise<GcsUploadStatusType>;
-  /** Sends the next chunk of a resumable upload. */
-  writeUpload(
-    upload: GcsUploadType,
-    body: Uint8Array,
-    options: GcsUploadWriteOptionsType,
-  ): Promise<GcsUploadStatusType>;
-  /**
-   * Cancels a resumable upload. The object is not created.
-   * @param upload The upload session.
-   * @param signal Cancels the request.
-   */
-  cancelUpload(upload: GcsUploadType, signal?: AbortSignal): Promise<void>;
-  /**
-   * Copies an object inside the service.
-   * @param source Name of the object to copy.
-   * @param destination Name of the new object.
-   * @param options Preconditions and cancellation.
-   */
-  copy(source: string, destination: string, options?: GcsCopyOptionsType): Promise<GcsReceiptType>;
-}
-
-/** Provider HTTP failure without credential-bearing URLs in its message. */
-export class GcsError extends Error {
-  readonly status: number;
-  readonly response: Response;
-  /** Creates the error. */
-  constructor(response: Response) {
-    super(`Google Cloud Storage request failed with HTTP ${response.status}.`);
-    this.name = "GcsError";
-    this.status = response.status;
-    this.response = response;
-  }
-}
-
-/** A dispatched publication has no validated acknowledgement; query its session. */
-export class GcsPublicationError extends Error {
-  readonly key: string;
-  /**
-   * Creates the error.
-   * @param key Key the operation used.
-   * @param cause Failure that caused this error.
-   */
-  constructor(key: string, cause: unknown) {
-    super("Google Cloud Storage publication could not be attributed from its acknowledgement.", { cause });
-    this.name = "GcsPublicationError";
-    this.key = key;
-  }
-}
-
-/** Validate known fields while preserving GCS's independently extensible JSON grammar. */
-const GcsMetadataSchema = z.object({
-  name: z.string(),
-  size: z.string().regex(/^\d+$/),
-  generation: z.string().refine(decimal, "Expected a positive decimal string without leading zeroes."),
-  metageneration: z.string().refine(decimal, "Expected a positive decimal string without leading zeroes.").optional(),
-  // Four bytes leave only two data bits in the sixth Base64 character; reject noncanonical pad bits.
-  crc32c: z.string().length(8).regex(/^[A-Za-z0-9+/]{5}[AQgw]==$/).optional(),
-  etag: z.string().optional(),
-  contentType: z.string().optional(),
-  updated: z.string().optional(),
-  metadata: z.record(z.string(), z.string()).optional(),
-  storageClass: z.string().min(1).max(128).optional(),
-}).passthrough();
-
-/** Positive opaque decimal tokens reject every nondigit, including a final line break. */
-function decimal(value: unknown): value is string {
-  return typeof value === "string" && value.length > 0 && value[0] !== "0" && !/\D/.test(value);
-}
-
-/**
- * Generation conditions retain raw ASCII decimal strings, including the existing zero condition.
- * Unlike returned object identities, input conditions preserve leading zeroes; no
- * Number conversion or end-anchor exception may admit other characters or values.
- */
-function generation(revision: RevisionType | undefined): string | undefined {
-  if (revision === undefined) return undefined;
-  if (
-    revision.kind !== "generation" || typeof revision.value !== "string" ||
-    revision.value.length === 0 || /\D/.test(revision.value)
-  ) {
-    throw new TypeError("GCS conditions require a decimal generation revision, not an ETag.");
-  }
-  return revision.value;
-}
-
-/**
- * Metadata tokens identify only one object's generation, so never send an unpaired guard.
- *
- * Validate before credentials, transport or source borrowing. Decimal text remains
- * opaque; zero belongs only to generation create-only conditions, not metadata guards.
- */
-function metageneration(value: string | undefined, version: string | undefined): string | undefined {
-  if (value === undefined) return undefined;
-  if (!decimal(value)) {
-    throw new TypeError("GCS metadata conditions require a positive decimal string.");
-  }
-  if (!decimal(version)) {
-    throw new TypeError("GCS metadata conditions require a positive generation revision.");
-  }
-  return value;
-}
-
-/** GCS JSON writes use generation preconditions; an ETag is a different contract. */
-function condition(options: Pick<ObjectPutOptionsType, "revision" | "ifMatch" | "ifNoneMatch">): string | undefined {
-  if (options.ifMatch !== undefined || (options.ifNoneMatch !== undefined && options.ifNoneMatch !== "*")) {
-    throw new TypeError("GCS writes require a generation revision or ifNoneMatch: '*'.");
-  }
-  const value = generation(options.revision);
-  if (value !== undefined && options.ifNoneMatch !== undefined) throw new TypeError("Conflicting GCS preconditions.");
-  return options.ifNoneMatch === "*" ? "0" : value;
-}
-
-/** Attribute only the completely validated operation response, not a later current HEAD. */
-function metadata(value: unknown, key?: string): GcsReceiptType & { readonly key: string } {
-  const data = GcsMetadataSchema.parse(value);
-  if (key !== undefined && data.name !== key) throw new TypeError("GCS acknowledgement names a different object.");
-  const size = Number(data.size);
-  toInteger(size, "Object size", GCS_MAX_BYTES);
-  const modified = data.updated === undefined ? undefined : Date.parse(data.updated);
-  if (modified !== undefined && !Number.isFinite(modified)) throw new TypeError("Invalid GCS update timestamp.");
-  return {
-    key: data.name,
-    size,
-    version: data.generation,
-    revision: { kind: "generation", value: data.generation },
-    ...(data.storageClass === undefined ? {} : { storageClass: data.storageClass }),
-    ...(data.metageneration === undefined ? {} : { metageneration: data.metageneration }),
-    ...(data.crc32c === undefined ? {} : { crc32c: data.crc32c }),
-    ...(data.etag === undefined ? {} : { etag: data.etag }),
-    ...(data.contentType === undefined ? {} : { mediaType: data.contentType }),
-    ...(modified === undefined ? {} : { lastModified: modified }),
-    ...(data.metadata === undefined ? {} : { metadata: data.metadata }),
-  };
-}
 
 /** Owns a configured service origin and request metrics; no background work starts. */
 class GcsClient implements GcsClientType {
@@ -912,3 +633,24 @@ export function createGcsUploadDestination(client: GcsClientType, upload: GcsUpl
     },
   };
 }
+
+export type {
+  GcsClientOptionsType,
+  GcsClientType,
+  GcsCopyOptionsType,
+  GcsDeleteOptionsType,
+  GcsGetOptionsType,
+  GcsHeadOptionsType,
+  GcsListType,
+  GcsPutOptionsType,
+  GcsReceiptType,
+  GcsStatType,
+  GcsStorageClassType,
+  GcsUploadStatusType,
+  GcsUploadType,
+  GcsUploadWriteOptionsType,
+} from "./types.ts";
+
+export { GcsError, GcsPublicationError } from "./error.ts";
+
+export { GCS_CHUNK_BYTES, GCS_MAX_BYTES, GcsStorageClassSchema } from "./metadata.ts";

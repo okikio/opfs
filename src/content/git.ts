@@ -6,7 +6,7 @@ import { decompressStream } from "../archive/compress.ts";
 import type { ArchiveLedgerType } from "../archive/budget.ts";
 import { assertExtent, createSourceBudget, limitSource } from "../source.ts";
 import type { ByteSourceType, SourceBudgetType, SourceReadOptionsType } from "../source.ts";
-import { openBytes } from "../stream.ts";
+import { openBytes } from "../stream/mod.ts";
 
 /** Repository object format is explicit; reference widths must never be guessed from payloads. */
 export type GitAlgorithmType = "sha1" | "sha256";

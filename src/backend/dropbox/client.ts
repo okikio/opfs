@@ -8,7 +8,7 @@ import { assertRangeResponse, resolveRange } from "../../range.ts";
 import { RequestMetrics, sendRequest } from "../../request.ts";
 import type { FetchType, RequestPolicyType } from "../../request.ts";
 import { readResponse } from "../../response.ts";
-import { collectBytes } from "../../stream.ts";
+import { collectBytes } from "../../stream/mod.ts";
 
 /** Provider limit per content-upload call, distinct from the smaller local policy. */
 export const DROPBOX_REQUEST_BYTES = 150 * 1024 * 1024;

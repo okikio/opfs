@@ -31,7 +31,7 @@ import type { OptimizationType } from "../schema/types.ts";
 import { getSupport } from "../capability.ts";
 import type { Metrics } from "../metrics.ts";
 import { getDriverInput } from "../plan.ts";
-import { collectBytes, retire, withAbortSignal } from "../stream.ts";
+import { collectBytes, retire, withAbortSignal } from "../stream/mod.ts";
 
 /** What copy and move need from the facade that calls them. */
 export interface CopyContextType {

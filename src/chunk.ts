@@ -12,8 +12,8 @@ import { concat } from "@std/bytes/concat";
 
 import { isBytes, toView } from "./bytes.ts";
 import { aggregate, close } from "./close.ts";
-import { openBytes } from "./stream.ts";
-import type { ByteReaderType } from "./stream.ts";
+import { openBytes } from "./stream/mod.ts";
+import type { ByteReaderType } from "./stream/mod.ts";
 
 /** One owned producer read, including a rejection whose reason is undefined. */
 type ReadType =

@@ -13,7 +13,7 @@ import type { FileSystemType } from "./filesystem/types.ts";
 import { basename, isAncestorPath, joinPath, normalizePath, validateName } from "./path.ts";
 import type { EntryKindType } from "./schema/types.ts";
 import type { SyncFileType } from "./sync.ts";
-import { toBytes, type WriteDataType } from "./stream.ts";
+import { toBytes, type WriteDataType } from "./stream/mod.ts";
 
 /** Options matching the File System API create flag. */
 export interface HandleCreateOptionsType {

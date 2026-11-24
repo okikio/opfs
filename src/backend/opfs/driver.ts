@@ -12,7 +12,7 @@ import type {
 import { defineFileDriver } from "../../driver/file.ts";
 import { FileSystemError, throwIfAborted, toFileSystemError } from "../../error.ts";
 import { basename, dirname, type PathType, ROOT_PATH, splitPath } from "../../path.ts";
-import { openBytes, toByteStream, withAbortSignal } from "../../stream.ts";
+import { openBytes, toByteStream, withAbortSignal } from "../../stream/mod.ts";
 import { close } from "../../close.ts";
 import { isBytes, toRequestBytes } from "../../bytes.ts";
 import { QueuedWritableFile, validateWritableOptions, type WritableOptionsType } from "../../driver/writable.ts";

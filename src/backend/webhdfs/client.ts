@@ -4,7 +4,7 @@ import { RequestMetrics, sendRequest } from "../../request.ts";
 import type { FetchType, RequestMetricsType, RequestPolicyType } from "../../request.ts";
 import { readResponse } from "../../response.ts";
 import { close } from "../../close.ts";
-import { openBytes } from "../../stream.ts";
+import { openBytes } from "../../stream/mod.ts";
 import { isBytes, toView } from "../../bytes.ts";
 import { resolveRange } from "../../range.ts";
 import type { FileDriverReadOptionsType, FileDriverSignalOptionsType } from "../../driver/file.ts";

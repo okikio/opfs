@@ -2,7 +2,7 @@
 import { toInteger } from "../../check.ts";
 import { z } from "zod";
 import { isBytes, toView } from "../../bytes.ts";
-import { openBytes } from "../../stream.ts";
+import { openBytes } from "../../stream/mod.ts";
 import { close } from "../../close.ts";
 import { resolveRange } from "../../range.ts";
 import { snapshotPut } from "../../publication.ts";

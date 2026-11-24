@@ -48,7 +48,7 @@ import { basename, dirname } from "../../path.ts";
 import { open } from "../../chunk.ts";
 import { aggregate, close } from "../../close.ts";
 import { isBytes } from "../../bytes.ts";
-import { retire as retireBytes } from "../../stream.ts";
+import { retire as retireBytes } from "../../stream/mod.ts";
 import {
   PartitionModeSchema,
   type PartitionModeType,
