@@ -1,466 +1,36 @@
 /** Bounded numeric ORC previews over a borrowed stable byte source. @module */
-import { ArchiveBudget, assertInteger, createArchiveLedger, toSafeInteger } from "../archive/budget.ts";
-import type { ByteSourceType } from "../source.ts";
-import { ArchiveError, invalid, unsupported } from "../archive/error.ts";
-import { createView } from "../archive/field.ts";
-import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/budget.ts";
-export { ArchiveError } from "../archive/error.ts";
-export { createArchiveLedger } from "../archive/budget.ts";
-export type { ArchiveErrorCodeType } from "../archive/error.ts";
-export type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/budget.ts";
-
-/** Opening limits remain aggregate authority for all later reads; no source ownership transfers. */
-export interface OrcOpenOptionsType extends ArchiveLimitsType {
-  readonly signal?: AbortSignal;
-  /** Default: 8 MiB of owned serialized file footer bytes. */
-  readonly maxFooterBytes?: number;
-  /** Default: 1 MiB of owned serialized footer per selected stripe. */
-  readonly maxStripeFooterBytes?: number;
-  /** Default: 16 MiB total PRESENT/DATA bytes acquired by one selected read. */
-  readonly maxSelectedStreamBytes?: number;
-  /** Default: 4,096 file stripe descriptors. This is independent of request limits. */
-  readonly maxStripes?: number;
-  /** Default: 1,024 flat leaf columns. Nested schemas refuse opening. */
-  readonly maxColumns?: number;
-  /** Default: 8 MiB of conservative retained metadata allowances per operation, not an exact heap cap. */
-  readonly maxRetainedMetadataBytes?: number;
-  /** Default: 32 nested interpreted Protobuf messages. Unknown binary fields are skipped as opaque bytes. */
-  readonly maxDepth?: number;
-  /** Default: 65,536 stream descriptors scanned across selected stripes per read. */
-  readonly maxStreams?: number;
-  /** Default: 65,536 bytes per metadata string, including uninterpreted known text. */
-  readonly maxStringBytes?: number;
-  /** Default: 1,048,576 returned rows per read; file and decoded stripe row counts can be larger. */
-  readonly maxRows?: number;
-  /** Default: 8,388,608 wire fields/varint bytes and expanded RLE/row steps per operation. */
-  readonly maxSteps?: number;
-  /** Default: false. An identity alone is not stable replay evidence. */
-  readonly allowUnverifiedSource?: boolean;
-}
-
-/** Row ranges are zero-based. The opening signal always remains authoritative. */
-export interface OrcReadOptionsType extends ArchiveLimitsType {
-  readonly offset?: number;
-  readonly length?: number;
-  readonly signal?: AbortSignal;
-}
-
-/** Schema eligibility only; a selected stripe can still refuse an unsupported encoding or stream role. */
-export interface OrcColumnType {
-  readonly id: number;
-  readonly name: string;
-  /** Original ORC Type.Kind number. */
-  readonly kind: number;
-  readonly supported: boolean;
-  readonly reason?: string;
-}
-
-/** Declared geometry checked against source bounds; unread column bodies are not validated. */
-export interface OrcStripeType {
-  readonly id: number;
-  /** Physical source offset, unlike rowOffset. */
-  readonly offset: number;
-  readonly rowOffset: number;
-  readonly rows: number;
-  readonly indexBytes: number;
-  readonly dataBytes: number;
-  readonly footerBytes: number;
-}
-
-/** LONG is exact bigint; BOOLEAN is 0/1. Null slots are zero and require the separate mask. */
-export type OrcValuesType =
-  | Uint8Array
-  | Int8Array
-  | Int16Array
-  | Int32Array
-  | BigInt64Array
-  | Float32Array
-  | Float64Array;
-
-/** The selected column's complete streams were decoded, without a checksum or authentication claim. */
-export interface OrcStripeReadType {
-  readonly id: number;
-  readonly rows: number;
-  readonly selectedRows: number;
-  readonly storedBytes: number;
-  readonly encoding: "DIRECT";
-}
-
-/** Owned selected output; IEEE semantics are preserved without NaN payload bit-identity guarantees. */
-export interface OrcReadType {
-  readonly values: OrcValuesType;
-  readonly validity: Uint8Array;
-  readonly stripes: readonly OrcStripeReadType[];
-  readonly integrity: "none";
-  readonly scope: "selected-column-stripes";
-  readonly work: ArchiveWorkType;
-}
-
-/** Borrowed range reader. No query engine, mount, worker or disposal operation is created. */
-export interface OrcDatasetType {
-  readonly rows: number;
-  readonly columns: readonly OrcColumnType[];
-  readonly stripes: readonly OrcStripeType[];
-  readonly formatVersion: "0.11" | "0.12";
-  /** Prose specification and official C++ writer use these two exact conventions. Geometry is checked independently. */
-  readonly contentLengthBasis: "body" | "header-and-body";
-  readonly integrity: "none";
-  /** Frozen work from opening only, not later lifetime counters. */
-  readonly work: ArchiveWorkType;
-  read(columnId: number, options?: OrcReadOptionsType): Promise<OrcReadType>;
-}
-
-interface PolicyType {
-  footer: number;
-  stripeFooter: number;
-  input: number;
-  stripes: number;
-  columns: number;
-  retained: number;
-  depth: number;
-  streams: number;
-  string: number;
-  rows: number;
-  steps: number;
-}
-
-function limit(label: string): never {
-  throw new ArchiveError("budget-exceeded", `ORC ${label} limit exceeded.`);
-}
-
-/** Count wire and expanded work independently of returned bytes. No global parser or allocation state exists. */
-class Meter {
-  readonly policy: PolicyType;
-  readonly signal: AbortSignal | undefined;
-  #steps = 0;
-  #retained = 0;
-  streams = 0;
-  constructor(policy: PolicyType, signal?: AbortSignal) {
-    this.policy = policy;
-    this.signal = signal;
-  }
-  step(count = 1): void {
-    this.signal?.throwIfAborted();
-    if (count > this.policy.steps - this.#steps) limit("Parser/row work");
-    this.#steps += count;
-  }
-  admitSteps(count: number): void {
-    this.signal?.throwIfAborted();
-    if (count > this.policy.steps - this.#steps) limit("Parser/row work");
-  }
-  retain(count: number): void {
-    this.signal?.throwIfAborted();
-    if (count > this.policy.retained - this.#retained) limit("Retained metadata");
-    this.#retained += count;
-  }
-}
-
-/** Exact bounded Protobuf wire cursor, not a generated object graph.
- * Scalars use last-one-wins. Interpreted nested messages here are repeated;
- * encryption message presence refuses immediately, so no singular message merge
- * is replaced with scalar semantics. Unknown messages are opaque length values.
- */
-class Wire {
-  readonly bytes: Uint8Array;
-  readonly meter: Meter;
-  readonly depth: number;
-  at = 0;
-  constructor(bytes: Uint8Array, meter: Meter, depth = 0) {
-    if (depth > meter.policy.depth) limit("Protobuf depth");
-    meter.retain(64); // Admit the next bounded field dispatch set before its caller constructs it.
-    this.bytes = bytes;
-    this.meter = meter;
-    this.depth = depth;
-  }
-  byte(): number {
-    if (this.at >= this.bytes.length) throw invalid("ORC wire value is truncated.");
-    return this.bytes[this.at++]!;
-  }
-  take(count: number): Uint8Array {
-    if (count > this.bytes.length - this.at) throw invalid("ORC wire extent is truncated.");
-    const result = this.bytes.subarray(this.at, this.at + count);
-    this.at += count;
-    return result;
-  }
-  uint(bits = 64): bigint {
-    let value = 0n;
-    for (let shift = 0; shift < bits; shift += 7) {
-      this.meter.step();
-      const byte = this.byte();
-      value |= BigInt(byte & 127) << BigInt(shift);
-      if (value >= (1n << BigInt(bits))) throw invalid("ORC varint exceeds its declared width.");
-      if (byte < 128) return value;
-    }
-    throw invalid("ORC varint has no terminator within its declared width.");
-  }
-  type(actual: number, expected: number): void {
-    if (actual !== expected) throw invalid("ORC Protobuf field wire type mismatch.");
-  }
-  number(type: number, bits = 64): number {
-    this.type(type, 0);
-    return toSafeInteger(this.uint(bits), `ORC ${"integer field"}`);
-  }
-  binary(type: number): Uint8Array {
-    this.type(type, 2);
-    return this.take(toSafeInteger(this.uint(), `ORC ${"binary length"}`));
-  }
-  message(type: number): Wire {
-    return new Wire(this.binary(type), this.meter, this.depth + 1);
-  }
-  text(type: number): string {
-    const bytes = this.binary(type);
-    if (bytes.length > this.meter.policy.string) limit("String byte");
-    this.meter.retain(bytes.length * 2);
-    try {
-      return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
-    } catch {
-      throw invalid("ORC metadata string is not UTF-8.");
-    }
-  }
-  fields(known: Readonly<Record<number, (type: number) => void>>): void {
-    while (this.at < this.bytes.length) {
-      this.meter.step();
-      const tag = this.uint(32), id = Number(tag >> 3n), type = Number(tag & 7n);
-      if (id === 0 || id > 0x1fffffff || type > 5) throw invalid("ORC Protobuf tag is invalid.");
-      const read = Object.hasOwn(known, id) ? known[id] : undefined;
-      if (read) read(type);
-      else this.skip(type);
-    }
-  }
-  skip(type: number): void {
-    if (type === 0) this.uint();
-    else if (type === 1) this.take(8);
-    else if (type === 2) this.binary(type);
-    else if (type === 5) this.take(4);
-    else throw unsupported("ORC deprecated Protobuf groups are outside this profile.");
-  }
-  integers(type: number, target: number[], maximum: number): void {
-    const append = (cursor: Wire): void => {
-      if (target.length >= maximum) limit("Repeated integer count");
-      cursor.meter.retain(8);
-      target.push(toSafeInteger(cursor.uint(32), `ORC ${"repeated integer"}`));
-    };
-    if (type === 0) append(this);
-    else {
-      const cursor = this.message(type);
-      while (cursor.at < cursor.bytes.length) append(cursor);
-    }
-  }
-}
-
-interface TypeType {
-  kind: number;
-  children: number[];
-  names: string[];
-}
-interface StripeType {
-  offset: number;
-  index: number;
-  data: number;
-  footer: number;
-  rows: number;
-}
-interface StreamType {
-  kind: number;
-  column: number;
-  length: number;
-  offset: number;
-}
-interface SelectedType {
-  stripe: OrcStripeType;
-  present?: StreamType;
-  data?: StreamType;
-  stored: number;
-}
-
-/** Retain only the flat schema fields this reader interprets; unknown binary annotations remain opaque. */
-function type(cursor: Wire): TypeType {
-  cursor.meter.retain(96);
-  let kind = 0;
-  const children: number[] = [], names: string[] = [];
-  cursor.fields({
-    1: (t) => {
-      kind = cursor.number(t, 32);
-    },
-    2: (t) => {
-      cursor.integers(t, children, cursor.meter.policy.columns);
-    },
-    3: (t) => {
-      if (names.length >= cursor.meter.policy.columns) limit("Field name count");
-      cursor.meter.retain(16);
-      names.push(cursor.text(t));
-    },
-  });
-  return { kind, children, names };
-}
-/** Capture declared physical geometry; encryption presence refuses before any later instance can hide it. */
-function stripe(cursor: Wire): StripeType {
-  cursor.meter.retain(96);
-  let offset = 0, index = 0, data = 0, footer = 0, rows = 0;
-  cursor.fields({
-    1: (t) => {
-      offset = cursor.number(t);
-    },
-    2: (t) => {
-      index = cursor.number(t);
-    },
-    3: (t) => {
-      data = cursor.number(t);
-    },
-    4: (t) => {
-      footer = cursor.number(t);
-    },
-    5: (t) => {
-      rows = cursor.number(t);
-    },
-    6: () => {
-      throw unsupported("ORC encryption stripe IDs are outside this profile.");
-    },
-    7: () => {
-      throw unsupported("ORC encrypted local keys are unsupported.");
-    },
-  });
-  return { offset, index, data, footer, rows };
-}
-/** Physical stream lengths receive an offset only after their complete stripe section is checked. */
-function stream(cursor: Wire): Omit<StreamType, "offset"> {
-  cursor.meter.retain(64);
-  let kind = 0, column = 0, length = 0;
-  cursor.fields({
-    1: (t) => {
-      kind = cursor.number(t, 32);
-    },
-    2: (t) => {
-      column = cursor.number(t, 32);
-    },
-    3: (t) => {
-      length = cursor.number(t);
-    },
-  });
-  if (kind === 9 || kind === 10 || kind >= 100) {
-    throw unsupported("ORC encrypted/statistics virtual streams are unsupported.");
-  }
-  if (kind > 8) throw unsupported("ORC stream kind is unsupported.");
-  return { kind, column, length };
-}
-/** The encoding kind is a scalar; duplicate instances inside this message use Protobuf last-wins. */
-function encoding(cursor: Wire): number {
-  cursor.meter.retain(16);
-  let kind = 0;
-  cursor.fields({
-    1: (t) => {
-      kind = cursor.number(t, 32);
-    },
-  });
-  return kind;
-}
-function width(kind: number): number {
-  return kind === 0 || kind === 1
-    ? 1
-    : kind === 2
-    ? 2
-    : kind === 3 || kind === 5
-    ? 4
-    : kind === 4 || kind === 6
-    ? 8
-    : 0;
-}
-function values(kind: number, count: number): OrcValuesType {
-  if (kind === 0) return new Uint8Array(count);
-  if (kind === 1) return new Int8Array(count);
-  if (kind === 2) return new Int16Array(count);
-  if (kind === 3) return new Int32Array(count);
-  if (kind === 4) return new BigInt64Array(count);
-  if (kind === 5) return new Float32Array(count);
-  if (kind === 6) return new Float64Array(count);
-  throw unsupported("ORC column is outside the physical numeric profile.");
-}
-
-/** Byte RLE expands at most 130 bytes per run; its terminal check rejects hidden extra runs. */
-class Bytes {
-  readonly cursor: Wire;
-  #remaining = 0;
-  #repeat: number | undefined;
-  constructor(bytes: Uint8Array, meter: Meter) {
-    this.cursor = new Wire(bytes, meter);
-  }
-  next(): number {
-    this.cursor.meter.step();
-    if (this.#remaining === 0) {
-      const control = this.cursor.byte();
-      this.#remaining = control < 128 ? control + 3 : 256 - control;
-      this.#repeat = control < 128 ? this.cursor.byte() : undefined;
-    }
-    this.#remaining--;
-    return this.#repeat ?? this.cursor.byte();
-  }
-  end(): void {
-    if (this.#remaining !== 0 || this.cursor.at !== this.cursor.bytes.length) {
-      throw invalid("ORC byte RLE has excess values or trailing runs.");
-    }
-  }
-}
-
-/** Boolean RLE packs most-significant bits first; only the last byte's unused bits are ignored. */
-class Bits {
-  readonly bytes: Bytes;
-  #byte = 0;
-  #bit = 8;
-  constructor(bytes: Uint8Array, meter: Meter) {
-    this.bytes = new Bytes(bytes, meter);
-  }
-  next(): boolean {
-    this.bytes.cursor.meter.step();
-    if (this.#bit === 8) {
-      this.#byte = this.bytes.next();
-      this.#bit = 0;
-    }
-    return ((this.#byte >>> (7 - this.#bit++)) & 1) === 1;
-  }
-  end(): void {
-    this.bytes.end();
-  }
-}
-
-/** Integer RLEv1 uses exact bigint delta arithmetic, then checks the declared signed leaf width. */
-class Integers {
-  readonly cursor: Wire;
-  #remaining = 0;
-  #value = 0n;
-  #delta: bigint | undefined;
-  constructor(bytes: Uint8Array, meter: Meter) {
-    this.cursor = new Wire(bytes, meter);
-  }
-  next(): bigint {
-    this.cursor.meter.step();
-    const signed = (): bigint => {
-      const value = this.cursor.uint();
-      return (value >> 1n) ^ -(value & 1n);
-    };
-    if (this.#remaining === 0) {
-      const control = this.cursor.byte();
-      if (control < 128) {
-        this.#remaining = control + 3;
-        const delta = this.cursor.byte();
-        this.#delta = BigInt(delta < 128 ? delta : delta - 256);
-        this.#value = signed();
-      } else {
-        this.#remaining = 256 - control;
-        this.#delta = undefined;
-      }
-    }
-    this.#remaining--;
-    if (this.#delta === undefined) return signed();
-    const value = this.#value;
-    this.#value += this.#delta;
-    return value;
-  }
-  end(): void {
-    if (this.#remaining !== 0 || this.cursor.at !== this.cursor.bytes.length) {
-      throw invalid("ORC integer RLE has excess values or trailing runs.");
-    }
-  }
-}
+import { Bits, Bytes, Integers, values, width } from "./values.ts";
+import {
+  encoding,
+  type SelectedType,
+  stream,
+  type StreamType,
+  stripe,
+  type StripeType,
+  type,
+  type TypeType,
+} from "./metadata.ts";
+import { limit, Meter, Wire } from "./wire.ts";
+import type {
+  OrcColumnType,
+  OrcDatasetType,
+  OrcOpenOptionsType,
+  OrcReadOptionsType,
+  OrcReadType,
+  OrcStripeReadType,
+  OrcStripeType,
+  OrcValuesType,
+  PolicyType,
+} from "./types.ts";
+import { ArchiveBudget, assertInteger, createArchiveLedger, toSafeInteger } from "../../archive/budget.ts";
+import type { ByteSourceType } from "../../source.ts";
+import { invalid, unsupported } from "../../archive/error.ts";
+import { createView } from "../../archive/field.ts";
+import type { ArchiveLedgerType } from "../../archive/budget.ts";
+export { ArchiveError } from "../../archive/error.ts";
+export { createArchiveLedger } from "../../archive/budget.ts";
+export type { ArchiveErrorCodeType } from "../../archive/error.ts";
+export type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../../archive/budget.ts";
 
 /** Inspect numeric columns, then decode complete selected column streams in each intersecting stripe.
  * Metadata and values have no checksum/authentication claim. Stable replay is a
@@ -877,3 +447,14 @@ export async function openOrc(input: ByteSourceType, supplied: OrcOpenOptionsTyp
     },
   });
 }
+
+export type {
+  OrcColumnType,
+  OrcDatasetType,
+  OrcOpenOptionsType,
+  OrcReadOptionsType,
+  OrcReadType,
+  OrcStripeReadType,
+  OrcStripeType,
+  OrcValuesType,
+} from "./types.ts";
