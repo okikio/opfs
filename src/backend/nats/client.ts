@@ -1,11 +1,10 @@
 /** Bounded native NATS request/reply for JetStream publication and sequence reads. @module */
 import { raceAbort } from "../../abort.ts";
-import { encodeText } from "../../bytes.ts";
+import { encodeText, isBytes, toView } from "../../bytes.ts";
 import { resolveLimit } from "../../check.ts";
 import { type JsonLimitsType, parseJson } from "../../json.ts";
 import { z } from "zod";
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
-import { isBytes, toView } from "../../bytes.ts";
 import { close } from "../../close.ts";
 
 /**

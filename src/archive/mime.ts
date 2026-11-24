@@ -1,7 +1,6 @@
 /** Bounded physical MIME indexing and explicit transfer-decoded previews. @module */
-import { assertAtMost } from "./budget.ts";
+import { ArchiveBudget, assertAtMost, assertInteger } from "./budget.ts";
 import type { ByteSourceType } from "../source.ts";
-import { ArchiveBudget, assertInteger } from "./budget.ts";
 import { invalid, unsupported } from "./error.ts";
 import type { ArchiveLimitsType, ArchiveWorkType } from "./budget.ts";
 export { ArchiveError } from "./error.ts";

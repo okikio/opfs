@@ -1,7 +1,6 @@
 /** Bounded classic Memcached ASCII commands over an explicitly owned byte channel. @module */
 import { raceAbort } from "../../abort.ts";
-import { resolveLimit } from "../../check.ts";
-import { toInteger } from "../../check.ts";
+import { resolveLimit, toInteger } from "../../check.ts";
 import { z } from "zod";
 import { isBytes, toView } from "../../bytes.ts";
 import { close } from "../../close.ts";

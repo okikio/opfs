@@ -1,9 +1,8 @@
 /** Bounded Redis/Valkey RESP2 commands over an explicitly acquired byte channel. @module */
 import { raceAbort } from "../../abort.ts";
-import { encodeText } from "../../bytes.ts";
+import { encodeText, isBytes, toView } from "../../bytes.ts";
 import { resolveLimit } from "../../check.ts";
 import { z } from "zod";
-import { isBytes, toView } from "../../bytes.ts";
 import { close } from "../../close.ts";
 
 /**

@@ -1,12 +1,11 @@
 /** Ordinary stored/XPRESS/LZX WIM resource and selected-image inspection; no Windows restoration. @module */
-import { assertAtMost } from "./budget.ts";
+import { ArchiveBudget, assertAtMost, assertInteger, createArchiveLedger } from "./budget.ts";
 import type { XmlElement } from "@std/xml/types";
 import type { ByteSourceType } from "../source.ts";
 import { assertExtent } from "../source.ts";
 import { parseXmlRoot } from "../xml.ts";
 import { decodeXpress } from "./xpress.ts";
 import { decodeLzx } from "./lzx.ts";
-import { ArchiveBudget, assertInteger, createArchiveLedger } from "./budget.ts";
 import { ArchiveError, invalid, unsupported } from "./error.ts";
 import type { ArchiveLimitsType, ArchiveWorkType } from "./budget.ts";
 export { ArchiveError } from "./error.ts";

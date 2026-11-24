@@ -11,9 +11,8 @@ import {
 import type { DriverPlanInputType, DriverPlanType } from "../../driver/definition.ts";
 import { QueuedWritableFile, validateWritableOptions, type WritableOptionsType } from "../../driver/writable.ts";
 import type { FileHandle as NodeFileHandle } from "node:fs/promises";
-import type { FileBackendType, FileDriverType } from "../../driver/file.ts";
-import { defineFileDriver } from "../../driver/file.ts";
 import type {
+  FileBackendType,
   FileDriverCopyOptionsType,
   FileDriverDirectoryEntryType,
   FileDriverMoveOptionsType,
@@ -21,11 +20,13 @@ import type {
   FileDriverSignalOptionsType,
   FileDriverStatType,
   FileDriverSyncFileType,
+  FileDriverType,
   FileDriverWritableFileType,
   FileDriverWriteOptionsType,
   FileEntryKindType,
   FileEntryType,
 } from "../../driver/file.ts";
+import { defineFileDriver } from "../../driver/file.ts";
 import { createLocalPath } from "../../driver/local.ts";
 import { FileSystemError, throwIfAborted, toFileSystemError } from "../../error.ts";
 import { dirname, joinPath, type PathType } from "../../path.ts";

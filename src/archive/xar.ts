@@ -1,12 +1,11 @@
 /** Bounded Apple-profile XAR1 inspection. The heap is borrowed, never extracted to host paths. @module */
-import { assertAtMost } from "./budget.ts";
+import { ArchiveBudget, assertAtMost, assertInteger, createArchiveLedger } from "./budget.ts";
 import type { XmlElement } from "@std/xml/types";
 import type { ByteSourceType } from "../source.ts";
 import { assertExtent } from "../source.ts";
 import { parseXmlRoot } from "../xml.ts";
 import { close } from "../close.ts";
 import { decompressStream } from "./compress.ts";
-import { ArchiveBudget, assertInteger, createArchiveLedger } from "./budget.ts";
 import { ArchiveError, invalid, unsupported } from "./error.ts";
 import type { ArchiveLimitsType, ArchiveWorkType } from "./budget.ts";
 export { ArchiveError } from "./error.ts";

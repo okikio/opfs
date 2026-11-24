@@ -1,7 +1,7 @@
 /** Copies admitted source and installed dependencies without exposing the checkout to Docker. */
 import { execFile } from "node:child_process";
 import process from "node:process";
-import { createReadStream, createWriteStream } from "node:fs";
+import { constants, createReadStream, createWriteStream } from "node:fs";
 import {
   chmod,
   copyFile,
@@ -20,7 +20,6 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { createRequire } from "node:module";
 import { finished, pipeline } from "node:stream/promises";
 import { tmpdir } from "node:os";
-import { constants } from "node:fs";
 import { catalog, locate } from "./verify.ts";
 import type { EntryType, ManifestType } from "./verify.ts";
 import type { BigIntStats, ReadStream, Stats } from "node:fs";

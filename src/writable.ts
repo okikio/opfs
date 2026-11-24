@@ -6,8 +6,7 @@
  *
  * @module
  */
-import type { WritableInspectionType } from "./driver/file.ts";
-import type { FileDriverWritableFileType } from "./driver/file.ts";
+import type { FileDriverWritableFileType, WritableInspectionType } from "./driver/file.ts";
 import { FileSystemError, throwIfAborted, toFileSystemError } from "./error.ts";
 import type { HeldLockType } from "./lock.ts";
 

@@ -1,9 +1,13 @@
 import { assertInteger } from "./check.ts";
 import type { DriverPlanInputType } from "./driver/definition.ts";
 import { validateWritableOptions } from "./driver/writable.ts";
-import type { WritableOptionsType } from "./driver/file.ts";
+import type {
+  FileDriverDirectoryEntryType,
+  FileDriverSignalOptionsType,
+  RevisionType,
+  WritableOptionsType,
+} from "./driver/file.ts";
 import type { AdapterType, FileSystemOptionsType } from "./adapter/definition.ts";
-import type { FileDriverDirectoryEntryType, FileDriverSignalOptionsType, RevisionType } from "./driver/file.ts";
 import { FileSystemError, throwIfAborted, toFileSystemError } from "./error.ts";
 import { close } from "./close.ts";
 import { MutationLocks } from "./lock.ts";

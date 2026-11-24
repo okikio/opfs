@@ -1,12 +1,10 @@
 /** Bounded classic HDF5 root links and selected contiguous numeric values. @module */
 import { resolveLimit } from "../check.ts";
-import { toSafeInteger } from "../archive/budget.ts";
-import { assertAtMost } from "../archive/budget.ts";
+import { assertAtMost, assertInteger, createArchiveLedger, toSafeInteger } from "../archive/budget.ts";
 import { isBytes, toView } from "../bytes.ts";
 import type { ByteSourceType } from "../source.ts";
 import { assertExtent } from "../source.ts";
 import { invalid, unsupported } from "../archive/error.ts";
-import { assertInteger, createArchiveLedger } from "../archive/budget.ts";
 import { createView } from "../archive/field.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/budget.ts";
 export { ArchiveError } from "../archive/error.ts";
