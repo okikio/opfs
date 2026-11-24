@@ -24,6 +24,16 @@ useful on its own:
 Only remote protocols have a client. Node, Deno, Bun, browser OPFS and IndexedDB already have callable APIs, so their
 path starts at the driver.
 
+![The layers of @okikio/opfs: your code, an optional bridge, FileSystemType, an adapter in one of three shapes (object, file, record), a driver, a client and the backend, with one S3 write traced through each layer](assets/layers.svg)
+
+Read the picture top to bottom. Your code and code written for browser OPFS call `FileSystemType` directly; a library
+written for another interface, such as unstorage, goes through a bridge first. `FileSystemType` calls one adapter. The
+adapter has one of three shapes, chosen by how the backend stores data: objects under keys, real files, or records. The
+orange path follows `fs.writeFile("/notes/a.txt", bytes)` on S3: the filesystem plans the write, the object adapter
+turns the path into a key and adds the revision check, the driver applies S3's part rules, and the client signs and
+sends the request. The dashed line is `fs.backend`, which hands you the typed client behind the driver when you need a
+call the file API cannot express.
+
 ## A driver knows one backend; an adapter knows one shape
 
 The driver and the adapter are the two layers that are easiest to confuse. The difference is what each one is written
