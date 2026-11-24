@@ -39,29 +39,46 @@ So 24 backends share three generic adapters. A backend's own `createXAdapter()` 
 is a shortcut: it builds that backend's driver and hands it to the adapter for its shape. Adding support for a new
 storage service usually means writing one driver and reusing an existing adapter.
 
-The diagram shows a few backends from each shape, read from the top. Arrows show which layer wraps which; a request
-travels the opposite way, from the application down to the service. The table after it lists every backend.
+Read the diagram from the top. Purple boxes are written once per backend; teal boxes are written once per shape, so
+there are only a few of them. Arrows show which layer wraps which; a request travels the opposite way, from the bottom
+up to the service.
 
 ```mermaid
 flowchart TD
-  S3C["S3 client"] --> S3D["S3 driver"]
-  AzC["Azure client"] --> AzD["Azure Blob driver"]
+  S3C["S3 client: signed HTTP"] --> S3D["S3 driver"]
+  B2C["B2 client: native API"] --> B2D["B2 driver"]
   NodeD["Node driver"]
   OpfsD["Browser OPFS driver"]
   IdbD["IndexedDB driver"]
   KvD["Deno KV driver"]
-  S3D --> ObjA["Object adapter: keys and marker objects become files"]
-  AzD --> ObjA
-  NodeD --> FileA["File adapter: files stay files"]
-  OpfsD --> FileA
-  IdbD --> RecA["Record adapter: one record per file or directory"]
-  KvD --> RecA
-  ObjA --> FS["FileSystemType: paths, handles, locks"]
-  FileA --> FS
-  RecA --> FS
-  FS --> App["Your application"]
-  FS --> Bridge["Bridge: key-value or unstorage view"]
+  Archive["Opened TAR, ZIP or cpio archive"]
+  S3D & B2D --> ObjA["Object adapter: keys and marker objects become files"]
+  NodeD & OpfsD --> FileA["File adapter: files stay files"]
+  IdbD & KvD --> RecA["Record adapter: one record per file or directory"]
+  Archive --> View["Archive view: a read-only adapter with no driver"]
+  ObjA & FileA & RecA & View --> FS["FileSystemType: paths, parents, locks, write modes"]
+  FS --> App["Your code: fs.writeFile(), fs.readText()"]
+  FS --> Handles["Code written for browser OPFS handles: fs.root"]
+  FS --> Bridge["A library that expects key-value or unstorage: a bridge"]
+  classDef backend fill:#EEEDFE,stroke:#534AB7,color:#26215C
+  classDef shape fill:#E1F5EE,stroke:#0F6E56,color:#04342C
+  class S3C,B2C,S3D,B2D,NodeD,OpfsD,IdbD,KvD backend
+  class ObjA,FileA,RecA,View shape
 ```
+
+Three things in the diagram are easy to miss:
+
+- Only remote services have a client. Node, Deno, Bun, browser OPFS and IndexedDB already have callable APIs, so their
+  path starts at the driver.
+- An adapter does not need a driver. An archive view reads an opened archive and answers the same adapter contract, so
+  `createFileSystem(createTarAdapter(archive))` gives a read-only filesystem over a TAR file. The filesystem cannot tell
+  the difference.
+- The filesystem has three kinds of consumer. Your own code calls its methods directly. Code already written for the
+  browser's `FileSystemDirectoryHandle` uses `fs.root` and gets the same handle interface on any backend. Code written
+  against another library's interface gets a bridge. The [bridge section](#bridges-give-your-files-to-another-library)
+  explains the difference.
+
+The table lists every backend by shape:
 
 | Shape   | Generic adapter               | Backends                                                                                           | What an append or partial update costs                                                                                         |
 | ------- | ----------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
@@ -73,6 +90,109 @@ The last column is why the shape matters. The same `writeFile(path, data, { mode
 disk and rewrites the whole value on S3 or IndexedDB. The adapter does that rewrite with the shared
 [`applyWrite()`](design.md#entry-points-main-types-and-advanced) rule, and the driver's `plan()` tells you about the
 limits before you start.
+
+## Why adapters exist
+
+Why not connect each driver straight to `FileSystemType`? Because the filesystem promises things that most backends do
+not have, and a driver must not pretend. A driver reports what its backend really does. Something has to build the
+missing parts out of what the backend does have, and that work depends on the backend's shape, not on its vendor:
+
+| `FileSystemType` needs        | Files: Node, browser OPFS | Records: IndexedDB, Deno KV, SQLite         | Objects: S3, Azure, GCS                            |
+| ----------------------------- | ------------------------- | ------------------------------------------- | -------------------------------------------------- |
+| Directories that exist        | Native                    | A directory record                          | A marker object, or any key under the prefix       |
+| List one directory level      | Native                    | `list(parent)` on the driver                | LIST with the `/` delimiter                        |
+| Append and positional update  | Native positional writes  | Read the record, `applyWrite()`, replace it | Read the object, `applyWrite()`, replace it        |
+| Replace without losing a race | Native                    | The driver's declared replacement guarantee | `If-None-Match: *` or `If-Match: <etag>`           |
+| A file is never also a folder | Native                    | Checked against the parent's records        | Checked against the file key and the directory key |
+
+Every object store needs the same directory emulation, and every record store needs the same parent bookkeeping. So the
+work is written once per shape: the object adapter is about 500 lines and serves 7 backends; the record adapter is about
+400 lines and serves 11. A fix to directory emulation in the object adapter fixes S3, Azure, GCS, R2, B2, Swift and
+Cloudflare KV at once. The file adapter is about 140 lines because a real filesystem already has these parts; it only
+translates capability names.
+
+Why not move that work into `FileSystemType`? Because the filesystem then has to know every shape, and the adapter
+contract would stop being a public extension point. Today the filesystem knows one contract, `AdapterType`, with six
+required operations. Archive views, the three generic adapters and any adapter you write yourself all meet it. Path
+normalization, locks, handles, recursive copy and parent creation stay in one place above it.
+
+Does each shape serve its backends well? Mostly, because a driver can declare **capabilities** that change the adapter's
+route without changing the adapter's code:
+
+- `conditionalWrite: false` makes the object adapter write without a precondition. Swift, Cloudflare KV and native B2
+  declare this. Concurrent writers then follow last-writer-wins; [design.md](design.md) states that weaker contract.
+- `copy: false` turns off provider-side copy. The filesystem then copies by reading and writing, except an exclusive
+  copy, which needs an atomic native route and is refused.
+- `rangeRead`, `streamRead` and `streamWrite` choose between ranged, streamed and whole-value routes.
+- A record driver's `writeModes` lets Deno KV take a native route for append instead of read, change and replace.
+
+The shape model strains when a backend can do something that has no file meaning at all. The next section is about that
+case.
+
+## When a backend does more than its shape
+
+Backblaze B2 is a good example. It offers an S3-compatible endpoint and a native API. Through the S3-compatible endpoint
+it behaves like S3 with documented gaps: no object-level ACLs, no object tagging, no website configuration and no
+browser `POST` uploads to pre-signed URLs ([Backblaze](https://www.backblaze.com/docs/cloud-storage-s3-compatible-api)).
+Its native API adds things that S3 does not express the same way: every upload is a version with its own file ID,
+removal can hide a name while keeping older versions, and one version can be deleted permanently.
+
+There are two obvious ways to support such extras, and both are costly:
+
+1. **Make the object adapter know every provider's extras.** Each extra then needs a file meaning, and most have none. A
+   lifecycle rule, an Object Lock setting or "delete only this version" is not a file operation. The adapter would
+   branch on vendor and stop being written once per shape.
+2. **Give up on extras.** Then a B2 user loses version IDs, which is exactly why they chose the native API.
+
+The package takes a third route with three channels:
+
+| Channel                        | What travels through it                                         | B2 example                                                             |
+| ------------------------------ | --------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Capabilities in the contract   | Facts that change the adapter's route                           | `conditionalWrite: false`, `copy: false`, `versions: true`             |
+| Open values in the contract    | Provider values that the adapter passes through without reading | The revision `{ kind: "version", value: fileId }` on every object stat |
+| The client, kept by the caller | Everything with no file meaning                                 | `client.getFileInfo(fileId)`, `client.deleteVersion(file)`             |
+
+The client is borrowed, never owned, by the driver and the adapter. You create it, so you keep it, and the filesystem
+never takes it away:
+
+```ts
+import { authorizeB2, createB2Client } from "@okikio/opfs/b2";
+import { createB2Adapter } from "@okikio/opfs/adapter/b2";
+import { createFileSystem } from "@okikio/opfs";
+
+const authorization = await authorizeB2({
+  applicationKeyId: "caller-provided-key-id",
+  applicationKey: "caller-provided-secret",
+  fetch: globalThis.fetch,
+});
+const client = createB2Client({
+  authorization,
+  bucketId: "caller-provided-bucket-id",
+  fetch: globalThis.fetch,
+  subtle: globalThis.crypto.subtle,
+});
+await using fs = createFileSystem(createB2Adapter(client), { coordination: "local" });
+
+// File work goes through the filesystem.
+await fs.writeFile("/reports/q3.csv", "quarter,total\nq3,42\n", { parents: true });
+
+// Version work goes through the same client. remove() would only hide the name; this deletes one version for good.
+const head = await client.head("reports/q3.csv");
+if (head?.revision?.kind === "version") {
+  await client.deleteVersion(await client.getFileInfo(head.revision.value));
+}
+```
+
+Two gaps remain, and both are worth deciding on:
+
+- **Revisions stop at the adapter.** `FileStatType` has no revision field, so a caller of `fs.stat()` cannot see an S3
+  ETag, a GCS generation or a B2 file ID, even though most object stores report one. Revisions have a clear file
+  meaning, "this exact content", so they are a good candidate to promote into the shared contract as an optional field.
+- **No typed path from a filesystem to its driver.** You must keep the client yourself. `fs.inspect()` reports the
+  driver's name, capabilities and limits, not its methods.
+
+The rule that follows: promote a provider feature into the shared contract when several backends have it and it has a
+file meaning. Keep everything else on the client.
 
 ## Follow one S3 write through every layer
 
@@ -252,16 +372,94 @@ The bridge borrows `files` by default. Disposing the bridge leaves the filesyste
 filesystem at the end of the scope, and `disposeAdapter: true` also disposes its adapter. Finish reads, streams and file
 resources before leaving that scope; filesystem close does not settle resources already returned to callers.
 
-## Adapters bring storage in; bridges take files out
+## Bridges: give your files to another library
 
-The defining composition path is **client → driver → adapter → FileSystemType → bridge**. The first four stages bring
-storage into the file API. The last stage lets another interface use that file API.
+A filesystem has three kinds of consumer, and only one of them needs a bridge:
 
-An adapter and a bridge therefore face different directions. An unstorage **adapter** takes an existing unstorage
-`Storage` and makes it usable by `FileSystemType`. An unstorage **bridge** takes an existing `FileSystemType` and
-returns an unstorage Driver-shaped interface. Neither direction implies the other. A database adapter cannot provide a
-reverse SQL bridge just by renaming file methods: queries, transactions and conflict rules require actual
-implementations.
+| Consumer                                            | What it calls                                                           | Needs                                |
+| --------------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------ |
+| Your own code                                       | `fs.writeFile()`, `fs.readText()`, `fs.walk()`                          | Nothing; this is `FileSystemType`    |
+| Code written for browser OPFS handles               | `getFileHandle()`, `createWritable()`, `createSyncAccessHandle()`       | Nothing; `fs.root` is that interface |
+| A library written against another storage interface | That library's methods, such as unstorage's `getItem()` and `setItem()` | A bridge                             |
+
+The handle interface is built into `FileSystemType` because this package is shaped like OPFS: code written against the
+handle returned by `navigator.storage.getDirectory()` can use `fs.root` with the same method names, whatever the
+backend. It is a structural match, not the browser's own objects, so a check such as
+`instanceof FileSystemDirectoryHandle` fails. A bridge is for the other case. It starts from a `FileSystemType` and
+implements a different library's contract on top of it, so that library stores its data in your filesystem without
+knowing it.
+
+```mermaid
+flowchart LR
+  FS["FileSystemType on any backend"] --> Direct["Your code: fs.writeFile()"]
+  FS --> Root["fs.root: OPFS handle interface"]
+  FS --> KV["createKeyValueBridge(fs)"]
+  FS --> US["createUnstorageBridge(fs)"]
+  KV --> KVUser["Code that wants get, set, keys"]
+  US --> Storage["unstorage createStorage({ driver })"]
+  Storage --> Lib["Any library built on unstorage"]
+  classDef bridge fill:#E1F5EE,stroke:#0F6E56,color:#04342C
+  class KV,US bridge
+```
+
+For example, any code that uses unstorage can keep its data in a filesystem backed by S3, IndexedDB or a local
+directory. Install `unstorage` yourself; this package does not depend on it. The example was run with unstorage 1.x and
+2.0.0-beta.0:
+
+```ts
+import { createStorage } from "unstorage";
+import { createFileSystem } from "@okikio/opfs";
+import { createMemoryAdapter } from "@okikio/opfs/adapter/memory";
+import { createUnstorageBridge } from "@okikio/opfs/bridge/unstorage";
+
+await using files = createFileSystem(createMemoryAdapter(), { coordination: "local" });
+const storage = createStorage({ driver: createUnstorageBridge(files) });
+
+await storage.setItem("cache:user:1", { name: "Ada" });
+console.log(await storage.getItem("cache:user:1")); // { name: "Ada" }
+console.log(await storage.getKeys("cache")); // [ "cache:user:1" ]
+await storage.dispose();
+```
+
+### How a bridge maps keys to files
+
+A key-value store and a filesystem disagree in one important way. A store can hold both `cache` and `cache:user`, but a
+filesystem cannot make `/cache` a file and a directory at the same time. So a bridge does not turn `cache:user` into
+`/cache/user`. It gives every key its own directory and stores the value in a `value` file inside it:
+
+```text
+key "cache"        ->  /.opfs-kv/key-cache/value
+key "cache:user"   ->  /.opfs-kv/key-cache/key-user/value
+```
+
+Each colon-separated segment is encoded into one safe file name, with a `key-` prefix that keeps bridge entries apart
+from other names. Everything lives under one reserved directory, `/.opfs-kv` by default, which holds a `.format` marker
+naming the layout. `clear()` removes only value files the bridge owns, so ordinary files elsewhere in the filesystem are
+never touched.
+
+The bridge borrows the filesystem: disposing the bridge leaves the filesystem open, unless you pass
+`disposeFileSystem: true`. Its `inspect()` and `plan()` return the filesystem's own capabilities and limits, so a caller
+sees the real backend rules, not a second set invented by the bridge.
+
+### The bridges that exist, and the ones that do not
+
+| Bridge                          | Interface it implements                  | Use it for                                                      |
+| ------------------------------- | ---------------------------------------- | --------------------------------------------------------------- |
+| `@okikio/opfs/bridge/kv`        | A small `get`/`set`/`keys`/`clear` store | Your own code, or a library with a minimal async key-value need |
+| `@okikio/opfs/bridge/unstorage` | An unstorage `Driver`                    | `createStorage({ driver })` and everything built on unstorage   |
+
+A bridge is only honest when the filesystem can satisfy the whole contract. Some popular interfaces need more than files
+can give, so they have no bridge:
+
+- **RxDB** stores data through `RxStorage`, which needs bulk writes with per-document conflicts, queries, change streams
+  and checkpoints. A wrapper that renames file methods would break those promises. A real `bridge/rxdb` would be a full
+  storage engine.
+- **SQL and Drizzle** need a query engine. The right route is a SQLite VFS that stores the database file in a
+  filesystem; that is future work.
+
+The reverse direction is different and often easier. RxDB, db0, Drizzle and unstorage can all be the _storage below_ a
+filesystem today, as record drivers. [Ecosystem integrations](ecosystems.md) lists both directions for each library, and
+`@okikio/opfs/integration/catalog` records which directions each one supports.
 
 ## See what the convenience constructor hides
 
