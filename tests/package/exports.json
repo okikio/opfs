@@ -318,6 +318,16 @@
     "reference DrizzleRowType",
     "reference DrizzleTableType"
   ],
+  "./adapter/extension": [
+    "function createExtensionAdapter",
+    "typeAlias ExtensionAdapterOptionsType",
+    "function getStorageArea",
+    "interface StorageAreaEventType",
+    "typeAlias StorageAreaNameType",
+    "interface StorageAreaType",
+    "function watchStorageArea",
+    "interface WatchStorageAreaOptionsType"
+  ],
   "./adapter/file": [
     "function createFileAdapter",
     "interface FileAdapterOptionsType"
@@ -1633,6 +1643,14 @@
     "interface DrizzleDriverOptionsType",
     "interface DrizzleRowType",
     "interface DrizzleTableType"
+  ],
+  "./driver/extension": [
+    "function createExtensionDriver",
+    "interface ExtensionDriverOptionsType",
+    "reference StorageAreaNameType",
+    "reference StorageAreaType",
+    "typeAlias StorageChangeListenerType",
+    "interface StorageChangeType"
   ],
   "./driver/file": [
     "function defineFileDriver",
