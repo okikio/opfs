@@ -774,6 +774,30 @@
     "interface UdfReadOptionsType",
     "interface UdfReadType"
   ],
+  "./archive/wacz": [
+    "interface CdxjInputType",
+    "interface CdxjRecordType",
+    "function createCdxj",
+    "function getSurt",
+    "function getTimestamp",
+    "function openWacz",
+    "function parseCdxj",
+    "interface WaczArchiveType",
+    "variable WaczDigestSchema",
+    "interface WaczOpenOptionsType",
+    "variable WaczPackageSchema",
+    "interface WaczPackageType",
+    "variable WaczPageSchema",
+    "interface WaczPageType",
+    "variable WaczResourceSchema",
+    "interface WaczResourceType",
+    "interface WaczVerificationType"
+  ],
+  "./archive/wacz/write": [
+    "function createWaczStream",
+    "interface WaczFileType",
+    "interface WaczWriteInputType"
+  ],
   "./archive/warc": [
     "reference ArchiveError",
     "reference ArchiveErrorCodeType",
@@ -783,13 +807,40 @@
     "reference createArchiveLedger",
     "function openWarc",
     "interface WarcArchiveType",
+    "typeAlias WarcCompressionType",
     "interface WarcEntryType",
-    "interface WarcFieldType",
+    "reference WarcFieldType",
     "interface WarcOpenOptionsType",
     "interface WarcReadOptionsType",
     "interface WarcReadType",
     "interface WarcVerificationType",
     "interface WarcVerifyOptionsType"
+  ],
+  "./archive/warc/_gzip": [
+    "function findMember",
+    "function inflate",
+    "interface InflateType",
+    "function isGzip",
+    "variable MIN_MEMBER",
+    "function scanMember"
+  ],
+  "./archive/warc/_header": [
+    "function base32",
+    "function cap",
+    "interface HeaderLimitsType",
+    "typeAlias HeaderReadType",
+    "interface HeaderType",
+    "function isSeparator",
+    "function parseHeader",
+    "variable token",
+    "interface WarcFieldType"
+  ],
+  "./archive/warc/write": [
+    "function createWarcStream",
+    "interface WarcStreamBlockType",
+    "interface WarcWriteOptionsType",
+    "interface WarcWriteRecordType",
+    "interface WarcWrittenType"
   ],
   "./archive/wim": [
     "reference ArchiveError",

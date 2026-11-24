@@ -1,9 +1,13 @@
-# Preview stored WARC blocks
+# Read and write WARC files
 
-`openWarc()` indexes uncompressed WARC 1.0 and 1.1 records. You can list capture metadata and read a selected byte range
-without retrieving every stored block. The record's numeric `id` is its position in this file. A WARC record ID or
-target URI can occur more than once and never replaces another entry in the index. WARC specifies globally unique record
-IDs; preserving a duplicate does not certify its semantic validity.
+`openWarc()` indexes WARC 1.0 and 1.1 records, plain or `.warc.gz`. `createWarcStream()` from `archive/warc/write`
+writes them. To package WARC files for replay, see [WACZ](wacz.md).
+
+`openWarc()` indexes uncompressed WARC 1.0 and 1.1 records, and `.warc.gz` files with one record per gzip member. You
+can list capture metadata and read a selected byte range without retrieving every stored block. The record's numeric
+`id` is its position in this file. A WARC record ID or target URI can occur more than once and never replaces another
+entry in the index. WARC specifies globally unique record IDs; preserving a duplicate does not certify its semantic
+validity.
 
 ```ts
 import { createBlobSource } from "@okikio/opfs/source";
@@ -44,13 +48,75 @@ metadata is available, but `read()` and `verifyBlock()` reject them with `unsupp
 segment assembler is installed. A `truncated` value records a producer's capture-truncation marker. Even a verified
 block can be only a captured prefix of the original resource.
 
-Gzip, including concatenated per-record gzip members, ARC, WACZ and other wrappers are unsupported. ARC has its own
-descriptor and framing rules; support remains pending and is not implied by WARC support. Decompressing an entire file
-outside this API requires the application's own finite input/output and decompression policies.
+ARC, WACZ (see [WACZ](wacz.md)) and a file gzipped as one member are not read here. ARC has its own descriptor and
+framing rules; support is not implied by WARC support.
 
-A malformed length, missing field, invalid header or separator fails with `invalid-archive`. Recognized gzip/ARC
-signatures, an unsupported version line or unsupported selected content fail with `unsupported-profile`. Policy failures
-use `budget-exceeded`, digest mismatches use `checksum-mismatch`, and caller range mistakes use `RangeError`. Source and
+## Read `.warc.gz` files
+
+When the file starts with the gzip magic bytes, `openWarc()` reads it as a series of gzip members with one record each,
+the layout WARC 1.1 annex D describes and most crawlers write. `archive.compression` is `"gzip"`.
+
+Each entry has `offset` and `length`. For a plain file they cover the record's header, block and separator. For
+`.warc.gz` they cover the record's gzip member. These are the coordinates that CDXJ indexes store, so you can go from an
+index line to a record without scanning:
+
+```ts
+const archive = await openWarc(source, { maxDecodedBytes: 512 * 1024 * 1024 });
+const entry = archive.entries.find((entry) => entry.offset === line.offset);
+```
+
+Gzip stores no member length, so the reader finds each boundary by decoding. It uses the host's native
+`DecompressionStream("gzip")`, which throws a `TypeError` for a truncated member and for bytes after a member's end, as
+the Compression Streams standard requires. The reader tries each later offset that starts with `1f 8b 08`, in order, and
+keeps the first extent the decoder accepts. Magic bytes inside compressed data cost one extra partial decode and are
+then skipped. The CRC-32 trailer rejects any other accidental match.
+
+| Cost of a `.warc.gz` operation | Plain file             | `.warc.gz`                            |
+| ------------------------------ | ---------------------- | ------------------------------------- |
+| `openWarc()`                   | headers only           | every member decoded once             |
+| `read(id, { offset, length })` | the requested bytes    | that record's member decoded          |
+| memory                         | header lookahead, read | one 64 KiB chunk plus requested range |
+
+Set `maxDecodedBytes` to at least the uncompressed size of the file for `openWarc()`. A read of a `.warc.gz` record
+returns `integrity: "gzip-member"`: the member's CRC-32 was checked while decoding. It detects accidental corruption,
+not tampering. One member that holds several records fails with `unsupported-profile`; decompress such a file first. A
+truncated or corrupt member fails with `invalid-archive`.
+
+## Write WARC files
+
+`createWarcStream(records, options)` returns a `ReadableStream` of WARC 1.1 records. Records are pulled only as the
+output is read.
+
+```ts
+import { createWarcStream } from "@okikio/opfs/archive/warc/write";
+
+const stream = createWarcStream([{
+  type: "response",
+  targetUri: "https://example.com/",
+  contentType: "application/http; msgtype=response",
+  block: new TextEncoder().encode("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<h1>Hi</h1>"),
+}], {
+  compression: "gzip",
+  onRecord: (record) => console.log(record.recordId, record.offset, record.length),
+});
+await fs.writeFile("/capture.warc.gz", stream);
+```
+
+| Field               | Default or rule                                                      |
+| ------------------- | -------------------------------------------------------------------- |
+| `WARC-Record-ID`    | `<urn:uuid:...>` from `crypto.randomUUID()`                          |
+| `WARC-Date`         | time of writing, UTC, to the second                                  |
+| `WARC-Block-Digest` | `sha256:` Base32 for `Uint8Array` blocks; none for streamed blocks   |
+| `Content-Length`    | the block size; a streamed block needs `size`, and a mismatch errors |
+| other fields        | `fields`, in order; fields the writer sets are refused               |
+
+Values that contain CR, LF or another control character are refused, so a URL cannot add header lines. The writer does
+not build HTTP messages: the block is the bytes you give it. With `compression: "gzip"` each record is one gzip member.
+The output is valid only after the stream ends without error, so write to a temporary name and rename after success.
+
+A malformed length, missing field, invalid header or separator fails with `invalid-archive`. Recognized ARC signatures,
+an unsupported version line or unsupported selected content fail with `unsupported-profile`. Policy failures use
+`budget-exceeded`, digest mismatches use `checksum-mismatch`, and caller range mistakes use `RangeError`. Source and
 crypto failures retain their original errors. An `AbortSignal` reaches every source read and is checked after hashing;
 WebCrypto hashing itself cannot be interrupted. No bytes from a cancelled read are returned.
 
