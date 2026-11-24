@@ -140,16 +140,25 @@ function getStream(file: File, options: FileDriverReadOptionsType): ReadableStre
 }
 
 /**
- * Returns bytes backed by an `ArrayBuffer`, as required by asynchronous OPFS writes.
+ * Returns bytes that a native OPFS writable stream writes exactly, starting at their first byte.
  *
  * Portable streams can carry views backed by `SharedArrayBuffer`, while the File
  * System API's `BufferSource` deliberately accepts only `ArrayBuffer`-backed
  * views. Intrinsic range admission ignores caller metadata and methods. Fixed
  * ordinary backing avoids a byte copy; shared or resizable backing is copied
  * once before the value reaches the native writable stream.
+ *
+ * A view that covers only part of its buffer is also copied. WebKit 27.2 (the
+ * build in Playwright 1.65.1) writes such a view from the start of its buffer:
+ * `write(new Uint8Array(buffer, 1, 2))` stores bytes 0 and 1, for `Uint8Array`
+ * and `DataView`, with or without `{ type: "write", position }`. Chromium and
+ * Firefox write the view's own range. The copy costs one pass over the written
+ * bytes, and only for partial views, such as `subarray()` results.
  */
 function toOpfsWriteBytes(value: ArrayBufferView): Uint8Array<ArrayBuffer> {
-  return toRequestBytes(value);
+  const bytes = toRequestBytes(value);
+  // `bytes` is a fresh view with no own properties, so these reads use the native getters.
+  return bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength ? bytes : new Uint8Array(bytes);
 }
 
 /**
