@@ -16,7 +16,7 @@ class Bits {
   read(count: number): number {
     this.charge(count);
     while (this.count < count) {
-      if (this.position + 2 > this.bytes.length) invalid("WIM LZX coding word is truncated.");
+      if (this.position + 2 > this.bytes.length) throw invalid("WIM LZX coding word is truncated.");
       this.value = this.value * 65536 + this.bytes[this.position]! + this.bytes[this.position + 1]! * 256;
       this.position += 2;
       this.count += 16;
@@ -28,15 +28,15 @@ class Bits {
   }
   raw(length: number): Uint8Array {
     this.charge(length);
-    if (this.count || length > this.bytes.length - this.position) invalid("WIM LZX raw bytes are unavailable.");
+    if (this.count || length > this.bytes.length - this.position) throw invalid("WIM LZX raw bytes are unavailable.");
     const bytes = this.bytes.subarray(this.position, this.position + length);
     this.position += length;
     return bytes;
   }
   align(): void {
     // A raw header always advances to the next word, even if already aligned.
-    if (!this.count && this.read(16) !== 0) invalid("WIM LZX raw alignment is not zero.");
-    if (this.value !== 0) invalid("WIM LZX raw alignment is not zero.");
+    if (!this.count && this.read(16) !== 0) throw invalid("WIM LZX raw alignment is not zero.");
+    if (this.value !== 0) throw invalid("WIM LZX raw alignment is not zero.");
     this.count = this.value = 0;
   }
 }
@@ -56,7 +56,7 @@ function tree(lengths: Uint8Array, maximum: number, charge: (count: number) => v
   const starts = new Uint16Array(maximum + 1), symbols = new Uint16Array(lengths.length);
   let width = 0;
   for (const length of lengths) {
-    if (length > maximum) invalid("WIM LZX Huffman length exceeds its alphabet limit.");
+    if (length > maximum) throw invalid("WIM LZX Huffman length exceeds its alphabet limit.");
     if (length) {
       counts[length] = counts[length]! + 1;
       width = Math.max(width, length);
@@ -65,13 +65,13 @@ function tree(lengths: Uint8Array, maximum: number, charge: (count: number) => v
   let remaining = 1, code = 0, total = 0;
   for (let length = 1; length <= maximum; length++) {
     remaining = remaining * 2 - counts[length]!;
-    if (remaining < 0) invalid("WIM LZX Huffman tree is oversubscribed.");
+    if (remaining < 0) throw invalid("WIM LZX Huffman tree is oversubscribed.");
     code = (code + counts[length - 1]!) * 2;
     first[length] = code;
     starts[length] = total;
     total += counts[length]!;
   }
-  if (width && remaining !== 0) invalid("WIM LZX nonempty Huffman tree is incomplete.");
+  if (width && remaining !== 0) throw invalid("WIM LZX nonempty Huffman tree is incomplete.");
   const slots = starts.slice();
   for (let symbol = 0; symbol < lengths.length; symbol++) {
     const length = lengths[symbol]!;
@@ -90,7 +90,7 @@ function symbol(bits: Bits, tree: TreeType): number {
     const index = code - tree.first[length]!;
     if (index >= 0 && index < tree.counts[length]!) return tree.symbols[tree.starts[length]! + index]!;
   }
-  return invalid("WIM LZX Huffman symbol is invalid or uses an empty tree.");
+  throw invalid("WIM LZX Huffman symbol is invalid or uses an empty tree.");
 }
 
 /** Pretree deltas refer to prior block lengths, never to lengths from another WIM chunk. */
@@ -117,10 +117,10 @@ function lengths(bits: Bits, target: Uint8Array, start: number, stop: number): v
     } else {
       run = 4 + bits.read(1);
       const delta = symbol(bits, pretree);
-      if (delta > 16) invalid("WIM LZX nested pretree delta must be in 0 through 16.");
+      if (delta > 16) throw invalid("WIM LZX nested pretree delta must be in 0 through 16.");
       length = (target[at]! - delta + 17) % 17;
     }
-    if (run > stop - at) invalid("WIM LZX pretree run crosses its declared alphabet.");
+    if (run > stop - at) throw invalid("WIM LZX pretree run crosses its declared alphabet.");
     bits.charge(run);
     target.fill(length, at, at + run);
     at += run;
@@ -146,7 +146,7 @@ export function decodeLzx(
     output.byteOffset < bytes.byteOffset + bytes.length
   ) throw new TypeError("WIM LZX input and output ranges must not overlap.");
   if (!output.length || output.length > 32768 || bytes.length < 2 || bytes.length >= output.length) {
-    invalid("WIM LZX chunk is outside the compressed 32 KiB profile.");
+    throw invalid("WIM LZX chunk is outside the compressed 32 KiB profile.");
   }
   let steps = 0, blocks = 0;
   const step = (count: number): void => {
@@ -162,20 +162,20 @@ export function decodeLzx(
     if (++blocks > 256) throw new ArchiveError("budget-exceeded", "WIM LZX kernel block ceiling exceeded.");
     block();
     const kind = bits.read(3), size = bits.read(1) ? 32768 : bits.read(16);
-    if (!size || size > output.length - at) invalid("WIM LZX block exceeds remaining output.");
+    if (!size || size > output.length - at) throw invalid("WIM LZX block exceeds remaining output.");
     if (kind === 3) {
       bits.align();
       const offsets = bits.raw(12), view = new DataView(offsets.buffer, offsets.byteOffset, 12);
       for (let i = 0; i < 3; i++) {
         recent[i] = view.getUint32(i * 4, true);
-        if (!recent[i]) invalid("WIM LZX raw block declares a zero repeated offset.");
+        if (!recent[i]) throw invalid("WIM LZX raw block declares a zero repeated offset.");
       }
       output.set(bits.raw(size), at);
       at += size;
-      if ((size & 1) && bits.raw(1)[0] !== 0) invalid("WIM LZX odd raw block pad is not zero.");
+      if ((size & 1) && bits.raw(1)[0] !== 0) throw invalid("WIM LZX odd raw block pad is not zero.");
       continue;
     }
-    if (kind !== 1 && kind !== 2) invalid("WIM LZX block type is unsupported.");
+    if (kind !== 1 && kind !== 2) throw invalid("WIM LZX block type is unsupported.");
     let aligned: TreeType | undefined;
     if (kind === 2) {
       const values = new Uint8Array(8);
@@ -213,14 +213,14 @@ export function decodeLzx(
       }
       recent[0] = distance;
       if (!distance || distance > at || length > end - at) {
-        invalid("WIM LZX match precedes this chunk or crosses its block.");
+        throw invalid("WIM LZX match precedes this chunk or crosses its block.");
       }
       step(length);
       for (let i = 0; i < length; i++, at++) output[at] = output[at - distance]!;
     }
   }
   if (bits.position !== bytes.length || bits.value !== 0 || bits.count > 15) {
-    invalid("WIM LZX selected writer profile requires exact zero-padded terminal extent.");
+    throw invalid("WIM LZX selected writer profile requires exact zero-padded terminal extent.");
   }
   // WIM always reverses E8 using chunk-local positions and the fixed 12000000 size.
   // The final ten bytes cannot start a translated instruction; operands are skipped.

@@ -26,8 +26,9 @@ function integer(value: number, label: string): void {
   if (!Number.isSafeInteger(value) || value < 0) throw new TypeError(`${label} must be a nonnegative safe integer.`);
 }
 
-function invalid(message: string): never {
-  throw new ArchiveError("invalid-archive", `FlatBuffers ${message}`);
+/** Creates the `invalid-archive` error with a "FlatBuffers" prefix; call as `throw invalid("...")`. */
+function invalid(message: string): ArchiveError {
+  return new ArchiveError("invalid-archive", `FlatBuffers ${message}`);
 }
 
 /**
@@ -72,7 +73,7 @@ export class FlatBuffers {
     integer(offset, "FlatBuffers offset");
     integer(length, "FlatBuffers length");
     if (offset > this.#bytes.byteLength || length > this.#bytes.byteLength - offset) {
-      invalid("extent is out of bounds.");
+      throw invalid("extent is out of bounds.");
     }
     if (this.#steps >= this.#maximum.maxSteps) this.#limit("steps");
     if (length > this.#maximum.maxBytes - this.#bytesRead) this.#limit("interpreted bytes");
@@ -125,10 +126,12 @@ export class FlatBuffers {
 
   /** A present uoffset is never null and must point beyond its own four bytes. */
   reference(offset: number): number {
-    if (offset % 4 !== 0) invalid("reference slot is not four-byte aligned.");
+    if (offset % 4 !== 0) throw invalid("reference slot is not four-byte aligned.");
     const displacement = this.u32(offset);
     this.#reference();
-    if (displacement < 4 || displacement > this.#bytes.byteLength - offset) invalid("forward reference is invalid.");
+    if (displacement < 4 || displacement > this.#bytes.byteLength - offset) {
+      throw invalid("forward reference is invalid.");
+    }
     const target = offset + displacement;
     this.#extent(target, 1);
     return target;
@@ -143,18 +146,18 @@ export class FlatBuffers {
 
   /** Signed displacement permits deduplicated vtables after their table. */
   #table(table: number): { vtable: number; slots: number; objectBytes: number } {
-    if (table % 4 !== 0) invalid("table is not four-byte aligned.");
+    if (table % 4 !== 0) throw invalid("table is not four-byte aligned.");
     const displacement = this.i32(table);
     this.#reference();
-    if (displacement === 0) invalid("vtable displacement is zero.");
+    if (displacement === 0) throw invalid("vtable displacement is zero.");
     const vtable = table - displacement;
-    if (!Number.isSafeInteger(vtable) || vtable < 0) invalid("vtable reference is invalid.");
-    if (vtable % 2 !== 0) invalid("vtable is not two-byte aligned.");
+    if (!Number.isSafeInteger(vtable) || vtable < 0) throw invalid("vtable reference is invalid.");
+    if (vtable % 2 !== 0) throw invalid("vtable is not two-byte aligned.");
     const bytes = this.u16(vtable), objectBytes = this.u16(vtable + 2);
-    if (bytes < 4 || bytes % 2 !== 0 || objectBytes < 4) invalid("vtable or object size is invalid.");
+    if (bytes < 4 || bytes % 2 !== 0 || objectBytes < 4) throw invalid("vtable or object size is invalid.");
     this.#extent(vtable, bytes);
     this.#extent(table, objectBytes);
-    if (vtable < table + objectBytes && table < vtable + bytes) invalid("vtable overlaps its table.");
+    if (vtable < table + objectBytes && table < vtable + bytes) throw invalid("vtable overlaps its table.");
     return { vtable, slots: (bytes - 4) / 2, objectBytes };
   }
 
@@ -168,7 +171,7 @@ export class FlatBuffers {
     const relative = this.u16(descriptor.vtable + 4 + slot * 2);
     if (relative === 0) return null;
     if (relative < 4 || relative > descriptor.objectBytes || width > descriptor.objectBytes - relative) {
-      invalid("present field exceeds its table object.");
+      throw invalid("present field exceeds its table object.");
     }
     this.#extent(table + relative, width);
     return table + relative;
@@ -178,26 +181,28 @@ export class FlatBuffers {
   vector(offset: number, stride: number): FlatBufferVectorType {
     integer(stride, "FlatBuffers vector stride");
     if (stride === 0) throw new TypeError("FlatBuffers vector stride must be positive.");
-    if (offset % 4 !== 0) invalid("vector count is not four-byte aligned.");
+    if (offset % 4 !== 0) throw invalid("vector count is not four-byte aligned.");
     const length = this.u32(offset);
-    if (length > Math.floor((this.#bytes.byteLength - offset - 4) / stride)) invalid("vector extent is out of bounds.");
+    if (length > Math.floor((this.#bytes.byteLength - offset - 4) / stride)) {
+      throw invalid("vector extent is out of bounds.");
+    }
     this.#extent(offset + 4, length * stride);
     return { offset: offset + 4, length, stride };
   }
 
   /** Strict UTF-8 preserves a literal BOM; the mandatory trailing NUL is not text. */
   string(offset: number): string {
-    if (offset % 4 !== 0) invalid("string count is not four-byte aligned.");
+    if (offset % 4 !== 0) throw invalid("string count is not four-byte aligned.");
     const length = this.u32(offset);
     if (length > this.#maximum.maxStringBytes) this.#limit("string bytes");
     this.#extent(offset + 4, length + 1);
-    if (this.#bytes[offset + 4 + length] !== 0) invalid("string terminator is absent.");
+    if (this.#bytes[offset + 4 + length] !== 0) throw invalid("string terminator is absent.");
     try {
       return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(
         this.#bytes.subarray(offset + 4, offset + 4 + length),
       );
     } catch {
-      invalid("string contains invalid UTF-8.");
+      throw invalid("string contains invalid UTF-8.");
     }
   }
 }

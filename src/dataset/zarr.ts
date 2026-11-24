@@ -3,11 +3,11 @@ import type { ByteSourceType } from "../source.ts";
 import {
   ArchiveBudget,
   ArchiveError,
+  assertInteger,
   createArchiveLedger,
-  integer,
+  createView,
   invalid,
   unsupported,
-  view,
 } from "../archive/record.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
 export { ArchiveError, createArchiveLedger } from "../archive/record.ts";
@@ -28,11 +28,11 @@ export interface ZarrObjectLedgerType {
 }
 /** Creates a finite explicit lookup owner. No cache, registration or I/O. */
 export function createZarrObjectLedger(maxObjects = 4096): ZarrObjectLedgerType {
-  integer(maxObjects, "Zarr object limit");
+  assertInteger(maxObjects, "Zarr object limit");
   let used = 0;
   return {
     reserve(count) {
-      integer(count, "Zarr object count");
+      assertInteger(count, "Zarr object count");
       if (count > maxObjects - used) throw new ArchiveError("budget-exceeded", "Zarr object lookup limit exceeded.");
       used += count;
     },
@@ -114,14 +114,14 @@ export interface ZarrArrayType {
 /** Products and stored coordinates remain BigInt until checked for exact JS indexing. */
 function exact(value: bigint): number {
   if (value < 0n || value > BigInt(Number.MAX_SAFE_INTEGER)) {
-    unsupported("Zarr extent exceeds safe JavaScript indexing.");
+    throw unsupported("Zarr extent exceeds safe JavaScript indexing.");
   }
   return Number(value);
 }
 /** A caller can raise a finite policy; NaN, infinities, fractions and negatives refuse. */
 function limit(value: number | undefined, fallback: number, label: string): number {
   const result = value ?? fallback;
-  integer(result, label);
+  assertInteger(result, label);
   return result;
 }
 
@@ -130,7 +130,9 @@ function limit(value: number | undefined, fallback: number, label: string): numb
  * bound parser work. Shape/chunk numbers must be unsigned integer lexemes. */
 function metadata(text: string): { value: unknown; fillToken: string | undefined } {
   let at = 0, tokens = 0, fillToken: string | undefined;
-  const fail = (): never => invalid("Malformed, duplicate or over-budget Zarr metadata JSON.");
+  const fail = (): never => {
+    throw invalid("Malformed, duplicate or over-budget Zarr metadata JSON.");
+  };
   const space = (): void => {
     while (/[ \t\r\n]/.test(text[at] ?? "x")) at++;
   };
@@ -224,7 +226,7 @@ function metadata(text: string): { value: unknown; fillToken: string | undefined
  * optional per-object identity remains evidence only, never authentication. */
 function capture(input: ByteSourceType, stability: "immutable" | "caller"): ByteSourceType {
   const size = input.size, identity = input.identity, declared = input.stability, read = input.read;
-  integer(size, "Zarr object size");
+  assertInteger(size, "Zarr object size");
   if (identity !== undefined && (typeof identity !== "string" || identity.length > 8192)) {
     throw new TypeError("Invalid Zarr object identity.");
   }
@@ -320,7 +322,7 @@ export async function openZarr(store: ZarrStoreType, options: ZarrOpenOptionsTyp
     };
   };
   const opening = operation(options), metaSource = await opening.lookup(prefix + ".zarray");
-  if (!metaSource) invalid("Zarr .zarray metadata is missing; groups/v3 metadata are not interpreted.");
+  if (!metaSource) throw invalid("Zarr .zarray metadata is missing; groups/v3 metadata are not interpreted.");
   if (metaSource.size > maxMetadata) throw new ArchiveError("budget-exceeded", "Zarr metadata byte limit exceeded.");
   opening.admit(metaSource.size, Math.ceil(metaSource.size / 65536));
   opening.reserve("decodedBytes", metaSource.size);
@@ -333,45 +335,45 @@ export async function openZarr(store: ZarrStoreType, options: ZarrOpenOptionsTyp
   try {
     text = new TextDecoder("utf-8", { fatal: true }).decode(metaBytes);
   } catch {
-    invalid("Zarr metadata is not UTF-8.");
+    throw invalid("Zarr metadata is not UTF-8.");
   }
   const parsed = metadata(text), data = parsed.value;
-  if (!data || typeof data !== "object" || Array.isArray(data)) invalid("Zarr metadata must be a JSON object.");
+  if (!data || typeof data !== "object" || Array.isArray(data)) throw invalid("Zarr metadata must be a JSON object.");
   const wire = data as Record<string, unknown>;
   for (const key of ["zarr_format", "shape", "chunks", "dtype", "compressor", "filters", "fill_value", "order"]) {
-    if (!Object.hasOwn(wire, key)) invalid(`Missing Zarr metadata field ${key}.`);
+    if (!Object.hasOwn(wire, key)) throw invalid(`Missing Zarr metadata field ${key}.`);
   }
-  if (wire.zarr_format !== 2) unsupported("Only Zarr v2 array metadata is supported.");
+  if (wire.zarr_format !== 2) throw unsupported("Only Zarr v2 array metadata is supported.");
   if (
     wire.compressor !== null || (wire.filters !== null && (!Array.isArray(wire.filters) || wire.filters.length !== 0))
-  ) unsupported("Only uncompressed, unfiltered Zarr arrays are supported.");
+  ) throw unsupported("Only uncompressed, unfiltered Zarr arrays are supported.");
   const dimensions = (input: unknown, chunks: boolean): number[] => {
     if (!Array.isArray(input) || input.length > maxRank) {
       throw new ArchiveError("budget-exceeded", "Zarr shape/chunk rank limit exceeded.");
     }
     return input.map((value: unknown) => {
-      if (typeof value !== "number") invalid("Zarr dimensions must be integers.");
-      integer(value, "Zarr dimension");
-      if (chunks && value === 0) invalid("Zarr chunk dimensions must be positive.");
+      if (typeof value !== "number") throw invalid("Zarr dimensions must be integers.");
+      assertInteger(value, "Zarr dimension");
+      if (chunks && value === 0) throw invalid("Zarr chunk dimensions must be positive.");
       return value;
     });
   };
   const shape = dimensions(wire.shape, false), chunks = dimensions(wire.chunks, true);
-  if (shape.length !== chunks.length) invalid("Zarr chunk and array ranks differ.");
+  if (shape.length !== chunks.length) throw invalid("Zarr chunk and array ranks differ.");
   const elements = exact(shape.reduce((product, value) => product * BigInt(value), 1n));
-  if (typeof wire.dtype !== "string") unsupported("Structured Zarr dtypes are unsupported.");
+  if (typeof wire.dtype !== "string") throw unsupported("Structured Zarr dtypes are unsupported.");
   const dtype = wire.dtype, match = /^([<>|])([biuf])([1248])$/.exec(dtype);
-  if (!match) unsupported("Unsupported Zarr numeric dtype.");
+  if (!match) throw unsupported("Unsupported Zarr numeric dtype.");
   const endian = match[1]!, kind = match[2]!, width = Number(match[3]);
   if (
     (kind === "b" && width !== 1) || (kind === "f" && width !== 4 && width !== 8) || (endian === "|" && width !== 1)
-  ) unsupported("Unsupported Zarr numeric dtype width/byte order.");
+  ) throw unsupported("Unsupported Zarr numeric dtype width/byte order.");
   const chunkBytes = exact(chunks.reduce((product, value) => product * BigInt(value), 1n) * BigInt(width));
   if (chunkBytes > maxChunkBytes) throw new ArchiveError("budget-exceeded", "Zarr declared raw chunk limit exceeded.");
   const order = wire.order;
-  if (order !== "C" && order !== "F") invalid("Zarr order must be C or F.");
+  if (order !== "C" && order !== "F") throw invalid("Zarr order must be C or F.");
   const separator = wire.dimension_separator ?? ".";
-  if (separator !== "." && separator !== "/") invalid("Invalid Zarr dimension separator.");
+  if (separator !== "." && separator !== "/") throw invalid("Invalid Zarr dimension separator.");
   let fillValue: number | bigint | null = null;
   const fill = wire.fill_value;
   if (fill !== null) {
@@ -380,20 +382,22 @@ export async function openZarr(store: ZarrStoreType, options: ZarrOpenOptionsTyp
       else if (fill === "NaN") fillValue = NaN;
       else if (fill === "Infinity") fillValue = Infinity;
       else if (fill === "-Infinity") fillValue = -Infinity;
-      else invalid("Invalid Zarr floating fill value.");
+      else throw invalid("Invalid Zarr floating fill value.");
     } else if (kind === "b") {
-      if (fill !== true && fill !== false && fill !== 0 && fill !== 1) invalid("Invalid Zarr boolean fill value.");
+      if (fill !== true && fill !== false && fill !== 0 && fill !== 1) {
+        throw invalid("Invalid Zarr boolean fill value.");
+      }
       fillValue = fill === true || fill === 1 ? 1 : 0;
     } else {
       if (
         typeof fill !== "number" || !parsed.fillToken || !/^-?(?:0|[1-9]\d*)$/.test(parsed.fillToken) ||
         !Number.isSafeInteger(fill)
-      ) unsupported("Zarr integer fill requires an exact safe JSON integer lexeme.");
+      ) throw unsupported("Zarr integer fill requires an exact safe JSON integer lexeme.");
       const value = BigInt(parsed.fillToken),
         bits = BigInt(width * 8),
         minimum = kind === "i" ? -(1n << (bits - 1n)) : 0n,
         maximum = kind === "i" ? (1n << (bits - 1n)) - 1n : (1n << bits) - 1n;
-      if (value < minimum || value > maximum) invalid("Zarr fill exceeds its integer dtype.");
+      if (value < minimum || value > maximum) throw invalid("Zarr fill exceeds its integer dtype.");
       fillValue = width === 8 ? value : Number(value);
     }
   }
@@ -419,8 +423,8 @@ export async function openZarr(store: ZarrStoreType, options: ZarrOpenOptionsTyp
     async read(opts = {}) {
       opts = { ...opts };
       const offset = opts.offset ?? 0, count = opts.count ?? elements - offset;
-      integer(offset, "Zarr element offset");
-      integer(count, "Zarr element count");
+      assertInteger(offset, "Zarr element offset");
+      assertInteger(count, "Zarr element count");
       if (offset > elements || count > elements - offset) throw new RangeError("Zarr selection exceeds array.");
       if (count > maxElements || BigInt(count) * BigInt(shape.length) > BigInt(maxPlanSteps)) {
         throw new ArchiveError("budget-exceeded", "Zarr selection element/planning limit exceeded.");
@@ -470,10 +474,10 @@ export async function openZarr(store: ZarrStoreType, options: ZarrOpenOptionsTyp
       for (const key of keys.keys()) {
         const source = await current.lookup(key);
         if (source && source.size !== chunkBytes) {
-          invalid("Zarr uncompressed chunk size differs from its full declared shape.");
+          throw invalid("Zarr uncompressed chunk size differs from its full declared shape.");
         }
         if (!source && fillValue === null) {
-          unsupported("Missing Zarr chunk has null/undefined fill; no numeric values are fabricated.");
+          throw unsupported("Missing Zarr chunk has null/undefined fill; no numeric values are fabricated.");
         }
         keys.set(key, source);
       }
@@ -511,7 +515,7 @@ export async function openZarr(store: ZarrStoreType, options: ZarrOpenOptionsTyp
             budget = current.budget(source);
             budgets.set(segment.key, budget);
           }
-          data = view(await budget.read(segment.offset, segment.count * width));
+          data = createView(await budget.read(segment.offset, segment.count * width));
         }
         for (let item = 0; item < segment.count; item++) {
           const output = segment.output + item, at = item * width;

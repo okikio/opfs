@@ -1,6 +1,14 @@
 /** Bounded physical RAR5 indexing and STORED member preview without extraction. @module */
 import type { ByteSourceType } from "../source.ts";
-import { ArchiveBudget, ArchiveError, createArchiveLedger, integer, invalid, unsupported, view } from "./record.ts";
+import {
+  ArchiveBudget,
+  ArchiveError,
+  assertInteger,
+  createArchiveLedger,
+  createView,
+  invalid,
+  unsupported,
+} from "./record.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
 import { crc32 } from "../hash.ts";
 export { ArchiveError, createArchiveLedger } from "./record.ts";
@@ -65,7 +73,7 @@ export interface RarArchiveType {
 }
 
 function exact(value: bigint): number {
-  if (value > BigInt(Number.MAX_SAFE_INTEGER)) unsupported("RAR integer exceeds exact JavaScript indexing.");
+  if (value > BigInt(Number.MAX_SAFE_INTEGER)) throw unsupported("RAR integer exceeds exact JavaScript indexing.");
   return Number(value);
 }
 /** RAR permits overallocated vints. The tenth byte may carry only bit 63. */
@@ -79,23 +87,23 @@ class Cursor {
     let result = 0n;
     for (let byte = 0; byte < 10; byte++) {
       const next = this.take(1)[0]!;
-      if (byte === 9 && (next & 0xfe)) invalid("RAR vint exceeds 64 bits.");
+      if (byte === 9 && (next & 0xfe)) throw invalid("RAR vint exceeds 64 bits.");
       result |= BigInt(next & 127) << BigInt(byte * 7);
       if (!(next & 128)) return exact(result);
     }
-    invalid("RAR vint has no terminator.");
+    throw invalid("RAR vint has no terminator.");
   }
   take(count: number): Uint8Array {
-    if (count > this.bytes.length - this.at) invalid("RAR header field is truncated.");
+    if (count > this.bytes.length - this.at) throw invalid("RAR header field is truncated.");
     const bytes = this.bytes.subarray(this.at, this.at + count);
     this.at += count;
     return bytes;
   }
   uint32(): number {
-    return view(this.take(4)).getUint32(0, true);
+    return createView(this.take(4)).getUint32(0, true);
   }
   end(): void {
-    if (this.at !== this.bytes.length) invalid("RAR header has uninterpreted fields.");
+    if (this.at !== this.bytes.length) throw invalid("RAR header has uninterpreted fields.");
   }
 }
 /** Parse every record envelope, even after finding an encryption/redirection marker.
@@ -107,7 +115,7 @@ function extras(bytes: Uint8Array, budget: ArchiveBudget): readonly number[] {
   while (cursor.at < bytes.length) {
     const record = new Cursor(cursor.take(cursor.vint()));
     const type = record.vint();
-    if (seen.has(type)) unsupported("Duplicate RAR extra record types are outside this profile.");
+    if (seen.has(type)) throw unsupported("Duplicate RAR extra record types are outside this profile.");
     budget.decoded(16);
     seen.add(type);
     types.push(type);
@@ -122,14 +130,16 @@ function signalOf(left: AbortSignal | undefined, right: AbortSignal | undefined)
 export async function openRar(input: ByteSourceType, supplied: RarOpenOptionsType = {}): Promise<RarArchiveType> {
   const options = { ...supplied };
   const { size, identity, stability } = input;
-  integer(size, "RAR source size");
+  assertInteger(size, "RAR source size");
   if (stability !== undefined && !["immutable", "provider", "caller"].includes(stability)) {
     throw new TypeError("Unknown RAR source stability.");
   }
   if (identity !== undefined && (typeof identity !== "string" || identity.length > 8192)) {
     throw new TypeError("RAR identity must be a bounded string.");
   }
-  if (stability === undefined && !options.allowUnverifiedSource) unsupported("RAR requires stable source evidence.");
+  if (stability === undefined && !options.allowUnverifiedSource) {
+    throw unsupported("RAR requires stable source evidence.");
+  }
   const source: ByteSourceType = {
     size,
     read: input.read.bind(input),
@@ -141,7 +151,7 @@ export async function openRar(input: ByteSourceType, supplied: RarOpenOptionsTyp
     bytes: options.maxHeaderBytes ?? 8 * 1024 * 1024,
     names: options.maxNamesBytes ?? 1024 * 1024,
   };
-  for (const [label, value] of Object.entries(maximum)) integer(value, `RAR maximum ${label}`);
+  for (const [label, value] of Object.entries(maximum)) assertInteger(value, `RAR maximum ${label}`);
   const local = createArchiveLedger(options);
   const opening = options.ledger;
   const lifetime: ArchiveLedgerType = {
@@ -154,7 +164,7 @@ export async function openRar(input: ByteSourceType, supplied: RarOpenOptionsTyp
   const budget = new ArchiveBudget(source, { ...options, ledger: lifetime }, options.signal);
   const signature = await budget.read(0, 8);
   if (![82, 97, 114, 33, 26, 7, 1, 0].every((value, at) => signature[at] === value)) {
-    unsupported("Only RAR5 signatures at offset zero are supported.");
+    throw unsupported("Only RAR5 signatures at offset zero are supported.");
   }
   budget.decoded(8);
   const entries: RarEntryType[] = [];
@@ -169,10 +179,10 @@ export async function openRar(input: ByteSourceType, supplied: RarOpenOptionsTyp
   while (offset < size) {
     if (++headers > maximum.headers) throw new ArchiveError("budget-exceeded", "RAR header count exceeds policy.");
     const prefix = await budget.read(offset, 5);
-    const expectedCrc = view(prefix).getUint32(0, true);
+    const expectedCrc = createView(prefix).getUint32(0, true);
     const encoded = [prefix[4]!];
     while (encoded[encoded.length - 1]! & 128) {
-      if (encoded.length === 3) invalid("RAR header size exceeds its three-byte field.");
+      if (encoded.length === 3) throw invalid("RAR header size exceeds its three-byte field.");
       encoded.push((await budget.read(offset + 4 + encoded.length, 1))[0]!);
     }
     const bodySize = new Cursor(Uint8Array.from(encoded)).vint();
@@ -191,26 +201,28 @@ export async function openRar(input: ByteSourceType, supplied: RarOpenOptionsTyp
     const cursor = new Cursor(body);
     const type = cursor.vint();
     const flags = cursor.vint();
-    if (flags > 0x7f) unsupported("RAR common header flags exceed the supported profile.");
+    if (flags > 0x7f) throw unsupported("RAR common header flags exceed the supported profile.");
     const extraSize = flags & 1 ? cursor.vint() : 0;
     const packedSize = flags & 2 ? cursor.vint() : 0;
-    if (extraSize > body.length - cursor.at) invalid("RAR extra area overlaps its common fields.");
+    if (extraSize > body.length - cursor.at) throw invalid("RAR extra area overlaps its common fields.");
     const fields = new Cursor(body.subarray(cursor.at, body.length - extraSize));
     const types = extras(body.subarray(body.length - extraSize), budget);
     const dataOffset = exact(BigInt(bodyOffset) + BigInt(bodySize));
     const next = BigInt(dataOffset) + BigInt(packedSize);
-    if (next > BigInt(size)) invalid("RAR data extent exceeds the source.");
-    if (type === 4) unsupported("Encrypted RAR headers are unsupported.");
-    if (!main && type !== 1) invalid("RAR main header must precede other blocks.");
+    if (next > BigInt(size)) throw invalid("RAR data extent exceeds the source.");
+    if (type === 4) throw unsupported("Encrypted RAR headers are unsupported.");
+    if (!main && type !== 1) throw invalid("RAR main header must precede other blocks.");
     if (type === 1) {
-      if (main || flags & 0x7a) unsupported("RAR main header layout is outside this profile.");
+      if (main || flags & 0x7a) throw unsupported("RAR main header layout is outside this profile.");
       const archiveFlags = fields.vint();
-      if (archiveFlags > 0x1f || archiveFlags & 7) unsupported("RAR volume or solid archive profile is unsupported.");
+      if (archiveFlags > 0x1f || archiveFlags & 7) {
+        throw unsupported("RAR volume or solid archive profile is unsupported.");
+      }
       fields.end();
       main = true;
     } else if (type === 2 || type === 3) {
       const fileFlags = fields.vint();
-      if (fileFlags > 15) unsupported("RAR file flags exceed the supported profile.");
+      if (fileFlags > 15) throw unsupported("RAR file flags exceed the supported profile.");
       const unpackedSize = fields.vint();
       const attributes = fields.vint();
       if (fileFlags & 2) fields.uint32();
@@ -223,7 +235,7 @@ export async function openRar(input: ByteSourceType, supplied: RarOpenOptionsTyp
         throw new ArchiveError("budget-exceeded", "RAR retained names exceed policy.");
       }
       const name = new TextDecoder("utf-8", { fatal: true }).decode(nameBytes);
-      if (!name.length || name.includes("\0")) invalid("RAR name is empty or contains NUL.");
+      if (!name.length || name.includes("\0")) throw invalid("RAR name is empty or contains NUL.");
       if (type === 3) services++;
       else {
         names += nameBytes.length;
@@ -280,15 +292,17 @@ export async function openRar(input: ByteSourceType, supplied: RarOpenOptionsTyp
         lookup.set(offset, entry);
       }
     } else if (type === 5) {
-      if (fields.vint() !== 0 || flags & 0x7b) unsupported("RAR end-volume flags or extra fields are unsupported.");
+      if (fields.vint() !== 0 || flags & 0x7b) {
+        throw unsupported("RAR end-volume flags or extra fields are unsupported.");
+      }
       fields.end();
-      if (next !== BigInt(size)) unsupported("This RAR profile requires EOF immediately after the end header.");
+      if (next !== BigInt(size)) throw unsupported("This RAR profile requires EOF immediately after the end header.");
       ended = true;
-    } else unsupported(`RAR header type ${type} is unsupported.`);
+    } else throw unsupported(`RAR header type ${type} is unsupported.`);
     offset = exact(next);
     if (ended) break;
   }
-  if (!main || !ended) invalid("RAR main or end header is missing.");
+  if (!main || !ended) throw invalid("RAR main or end header is missing.");
   const archive: RarArchiveType = {
     entries: Object.freeze(entries),
     services,
@@ -297,14 +311,14 @@ export async function openRar(input: ByteSourceType, supplied: RarOpenOptionsTyp
     source: Object.freeze({ ...(identity === undefined ? {} : { identity }), stability: stability ?? "unverified" }),
     async read(id, supplied = {}) {
       const opts = { ...supplied };
-      integer(id, "RAR entry ID");
+      assertInteger(id, "RAR entry ID");
       const entry = lookup.get(id);
       if (!entry) throw new RangeError("Unknown RAR entry ID.");
-      if (!entry.readable) unsupported(`RAR member cannot be read: ${entry.restrictions.join(", ")}.`);
+      if (!entry.readable) throw unsupported(`RAR member cannot be read: ${entry.restrictions.join(", ")}.`);
       const start = opts.offset ?? 0;
       const length = opts.length ?? entry.size - start;
-      integer(start, "RAR selected offset");
-      integer(length, "RAR selected length");
+      assertInteger(start, "RAR selected offset");
+      assertInteger(length, "RAR selected length");
       if (start > entry.size || length > entry.size - start) throw new RangeError("RAR selection exceeds member.");
       const signal = signalOf(options.signal, opts.signal);
       const extra = opts.ledger;

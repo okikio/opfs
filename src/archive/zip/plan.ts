@@ -1,28 +1,28 @@
 /** Plan one ZIP member read: its byte ranges, decoder and limits, before any source or decoder is acquired. @module */
-import { integer, invalid, limitsOf } from "../record.ts";
+import { assertInteger, invalid, resolveLimits } from "../record.ts";
 import type { DirectoryRecordType, ZipPlanType, ZipReadOptionsType } from "./types.ts";
 
 /** Planning never acquires a source, decoder or runtime capability. */
 export function planRead(record: DirectoryRecordType, options: ZipReadOptionsType): ZipPlanType {
   const entry = record.entry;
-  limitsOf(options);
+  resolveLimits(options);
   const offset = options.offset ?? 0;
   const length = options.length ?? entry.size - offset;
-  integer(offset, "Decoded offset");
-  integer(length, "Decoded length");
+  assertInteger(offset, "Decoded offset");
+  assertInteger(length, "Decoded length");
   if (offset > entry.size || length > entry.size - offset) throw new RangeError("Requested range exceeds ZIP member.");
   const complete = Boolean(options.verify) || (offset === 0 && length === entry.size);
   if (entry.encryption === "winzip-aes" && entry.aes && options.password !== undefined && options.aes) {
     const maximum = options.aes.maxCiphertextBytes ?? 8 * 1024 * 1024;
     const maxBlocks = options.aes.maxBlocks ?? 8192;
-    integer(maximum, "AES ciphertext limit");
-    integer(maxBlocks, "AES block limit");
+    assertInteger(maximum, "AES ciphertext limit");
+    assertInteger(maxBlocks, "AES block limit");
     if (maximum > 8 * 1024 * 1024 || maxBlocks > 8192) {
       throw new RangeError("WinZip AES implementation ceilings are 8 MiB ciphertext and 8192 native AES blocks.");
     }
     const ciphertext = entry.compressedSize - entry.aes.strength / 16 - 12;
     if (ciphertext < 0 || (entry.aes.method === 0 && ciphertext !== entry.size)) {
-      invalid("WinZip AES ciphertext framing disagrees with member sizes.");
+      throw invalid("WinZip AES ciphertext framing disagrees with member sizes.");
     }
     const deflate = entry.aes.method === 8;
     const crc = entry.aes.version === 1 && complete;

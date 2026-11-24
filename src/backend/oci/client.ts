@@ -2,11 +2,11 @@
 import { z } from "zod";
 import { encodeHex } from "@std/encoding/hex";
 import { toRequestBytes } from "../../bytes.ts";
-import { assertRangeResponse, range } from "../../range.ts";
+import { assertRangeResponse, resolveRange } from "../../range.ts";
 import { RequestMetrics, sendRequest } from "../../request.ts";
 import type { FetchType, RequestPolicyType } from "../../request.ts";
 import { readResponse } from "../../response.ts";
-import { sourceRange } from "../../source.ts";
+import { assertExtent } from "../../source.ts";
 import type { ByteSourceType } from "../../source.ts";
 import { collectBytes } from "../../stream.ts";
 
@@ -356,7 +356,7 @@ export class OciClient {
       readonly signal?: AbortSignal;
     },
   ): Promise<ReadableStream<Uint8Array>> {
-    const selected = range(options);
+    const selected = resolveRange(options);
     const identifier = digest(value);
     if (options.integrity !== "server") throw new TypeError("Streamed OCI ranges require explicit server trust.");
     if (selected.empty) {
@@ -421,7 +421,7 @@ export class OciClient {
       stability: "immutable",
       async read(offset, length, options = {}) {
         options.signal?.throwIfAborted();
-        sourceRange(size, offset, length);
+        assertExtent(size, offset, length);
         return bytes.slice(offset, offset + length);
       },
     };

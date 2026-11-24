@@ -1,9 +1,16 @@
 /** Private BGZF acquisition. Each member is fully decoded and checked before its bytes become visible. @module */
 import type { ByteSourceType } from "../../source.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../../archive/record.ts";
-import { sourceRange } from "../../source.ts";
+import { assertExtent } from "../../source.ts";
 import { isBytes, toView } from "../../bytes.ts";
-import { ArchiveError, createArchiveLedger, integer, invalid, unsupported, view } from "../../archive/record.ts";
+import {
+  ArchiveError,
+  assertInteger,
+  createArchiveLedger,
+  createView,
+  invalid,
+  unsupported,
+} from "../../archive/record.ts";
 import { readDeflate } from "../../archive/deflate.ts";
 import { crc32 } from "../../hash.ts";
 
@@ -64,8 +71,10 @@ export class Budget {
   #deflateBlocks = 0;
   #records = 0;
   constructor(source: ByteSourceType, options: BamLimitsType) {
-    sourceRange(source.size, 0, 0);
-    if (source.size > 0xffffffffffff) unsupported("BAM source exceeds the 48-bit compressed virtual-offset profile.");
+    assertExtent(source.size, 0, 0);
+    if (source.size > 0xffffffffffff) {
+      throw unsupported("BAM source exceeds the 48-bit compressed virtual-offset profile.");
+    }
     this.source = source;
     this.#ledger = createArchiveLedger({ ...options, maxOutputBytes: options.maxOutputBytes ?? 8 * 1024 * 1024 });
     this.#external = options.ledger;
@@ -81,7 +90,7 @@ export class Budget {
       maxCigar: options.maxCigar ?? 65535,
       maxAuxiliary: options.maxAuxiliary ?? 256,
     };
-    for (const [name, count] of Object.entries(this.limits)) integer(count, name);
+    for (const [name, count] of Object.entries(this.limits)) assertInteger(count, name);
     if (
       this.limits.maxHeaderBytes > 8 * 1024 * 1024 || this.limits.maxRecordBytes > 8 * 1024 * 1024 ||
       this.limits.maxNameBytes > 65536
@@ -122,25 +131,31 @@ export class Budget {
   async read(offset: number, length: number, signal?: AbortSignal): Promise<Uint8Array> {
     signal?.throwIfAborted();
     if (offset > this.source.size || length > this.source.size - offset) {
-      invalid("BAM compressed member is truncated at physical EOF.");
+      throw invalid("BAM compressed member is truncated at physical EOF.");
     }
-    sourceRange(this.source.size, offset, length);
+    assertExtent(this.source.size, offset, length);
     this.reserve("sourceBytes", length);
     this.reserve("requests", 1);
     const result = await this.source.read(offset, length, signal ? { signal } : {});
     signal?.throwIfAborted();
-    if (!isBytes(result) || result.byteLength !== length) invalid("BAM source returned a different byte extent.");
+    if (!isBytes(result) || result.byteLength !== length) throw invalid("BAM source returned a different byte extent.");
     return new Uint8Array(toView(result));
   }
 }
 
-/** Canonical physical final marker is an explicit first-reader profile, not a general BAM validity rule. */
-export async function marker(budget: Budget, signal?: AbortSignal): Promise<void> {
-  if (budget.source.size < 28) invalid("BAM source is too short for the required final BGZF marker.");
+/**
+ * Checks that the source ends with the canonical 28-byte BGZF end-of-file block, and throws if not.
+ *
+ * Call it once while opening, before any record is read: `await assertEndMarker(budget, options.signal);`.
+ * A source shorter than the block throws `invalid-archive`; any other ending throws `unsupported-profile`.
+ * Requiring the marker is this reader's profile, not a general BAM validity rule.
+ */
+export async function assertEndMarker(budget: Budget, signal?: AbortSignal): Promise<void> {
+  if (budget.source.size < 28) throw invalid("BAM source is too short for the required final BGZF marker.");
   const tail = await budget.read(budget.source.size - 28, 28, signal);
   const expected = [31, 139, 8, 4, 0, 0, 0, 0, 0, 255, 6, 0, 66, 67, 2, 0, 27, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0];
   if (!tail.every((byte, i) => byte === expected[i])) {
-    unsupported("BAM first profile requires a canonical physical final BGZF marker.");
+    throw unsupported("BAM first profile requires a canonical physical final BGZF marker.");
   }
 }
 
@@ -173,11 +188,11 @@ export class Cursor {
   }
   /** One bounded grammar extent may span many members. All members are verified before copying their bytes. */
   async take(length: number): Promise<Uint8Array> {
-    integer(length, "BAM decoded extent");
+    assertInteger(length, "BAM decoded extent");
     const bytes = new Uint8Array(length);
     let at = 0;
     while (at < length) {
-      if (await this.location() === null) invalid("BAM decoded extent is truncated at physical EOF.");
+      if (await this.location() === null) throw invalid("BAM decoded extent is truncated at physical EOF.");
       const count = Math.min(length - at, this.#bytes.length - this.#at);
       bytes.set(this.#bytes.subarray(this.#at, this.#at + count), at);
       at += count;
@@ -190,31 +205,33 @@ export class Cursor {
     const budget = this.#budget;
     budget.block();
     const start = this.#next, header = await budget.read(start, 12, this.#signal);
-    if (header[0] !== 31 || header[1] !== 139 || header[2] !== 8) invalid("BAM BGZF gzip magic/method is invalid.");
-    if (header[3] !== 4) unsupported("BAM BGZF profile requires only the gzip FEXTRA flag.");
-    const extraSize = view(header).getUint16(10, true);
-    if (extraSize < 6 || extraSize > 65510) invalid("BAM BGZF extra-field extent is invalid.");
+    if (header[0] !== 31 || header[1] !== 139 || header[2] !== 8) {
+      throw invalid("BAM BGZF gzip magic/method is invalid.");
+    }
+    if (header[3] !== 4) throw unsupported("BAM BGZF profile requires only the gzip FEXTRA flag.");
+    const extraSize = createView(header).getUint16(10, true);
+    if (extraSize < 6 || extraSize > 65510) throw invalid("BAM BGZF extra-field extent is invalid.");
     const extra = await budget.read(start + 12, extraSize, this.#signal);
-    const data = view(extra);
+    const data = createView(extra);
     let at = 0, size = 0, fields = 0;
     while (at < extraSize) {
-      if (++fields > 64) unsupported("BAM BGZF extra-field count exceeds 64.");
-      if (extraSize - at < 4) invalid("BAM BGZF extra-field header is truncated.");
+      if (++fields > 64) throw unsupported("BAM BGZF extra-field count exceeds 64.");
+      if (extraSize - at < 4) throw invalid("BAM BGZF extra-field header is truncated.");
       const width = data.getUint16(at + 2, true);
-      if (width > extraSize - at - 4) invalid("BAM BGZF extra-field value is truncated.");
+      if (width > extraSize - at - 4) throw invalid("BAM BGZF extra-field value is truncated.");
       if (extra[at] === 66 && extra[at + 1] === 67) {
-        if (size || width !== 2) invalid("BAM BGZF BC field is duplicated or malformed.");
+        if (size || width !== 2) throw invalid("BAM BGZF BC field is duplicated or malformed.");
         size = data.getUint16(at + 4, true) + 1;
       }
       at += width + 4;
     }
     const headerSize = 12 + extraSize;
     if (!size || size < headerSize + 10 || size > 65536 || size > budget.source.size - start) {
-      invalid("BAM BGZF BSIZE is outside its member extent.");
+      throw invalid("BAM BGZF BSIZE is outside its member extent.");
     }
     const rest = await budget.read(start + headerSize, size - headerSize, this.#signal);
-    const trailer = view(rest), decodedSize = trailer.getUint32(rest.length - 4, true);
-    if (decodedSize > 65536) invalid("BAM BGZF decoded ISIZE exceeds 65536.");
+    const trailer = createView(rest), decodedSize = trailer.getUint32(rest.length - 4, true);
+    if (decodedSize > 65536) throw invalid("BAM BGZF decoded ISIZE exceeds 65536.");
     budget.reserve("decodedBytes", decodedSize);
     const decoded = readDeflate(
       rest.subarray(0, rest.length - 8),

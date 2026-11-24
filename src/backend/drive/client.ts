@@ -1,7 +1,7 @@
 /** ID-based Google Drive stored-file operations. No filesystem namespace is implied. @module */
 import { z } from "zod";
 import { isBytes, toRequestBytes, toView } from "../../bytes.ts";
-import { assertRangeResponse, range } from "../../range.ts";
+import { assertRangeResponse, resolveRange } from "../../range.ts";
 import { RequestMetrics, sendRequest } from "../../request.ts";
 import type { FetchType, RequestPolicyType } from "../../request.ts";
 import { readResponse } from "../../response.ts";
@@ -250,7 +250,7 @@ export class DriveClient {
     fileId: string,
     options: { readonly at?: number; readonly length?: number; readonly signal?: AbortSignal } = {},
   ): Promise<ReadableStream<Uint8Array>> {
-    const selected = range(options);
+    const selected = resolveRange(options);
     const selectedId = id(fileId);
     if (selected.empty) {
       return new ReadableStream({

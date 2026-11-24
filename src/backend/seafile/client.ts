@@ -2,7 +2,7 @@
 import { z } from "zod";
 import { isBytes, toRequestBytes, toView } from "../../bytes.ts";
 import { close } from "../../close.ts";
-import { assertRangeResponse, range } from "../../range.ts";
+import { assertRangeResponse, resolveRange } from "../../range.ts";
 import { RequestMetrics, sendRequest } from "../../request.ts";
 import type { FetchType, RequestMetricsType, RequestPolicyType } from "../../request.ts";
 import { readResponse } from "../../response.ts";
@@ -511,7 +511,7 @@ export class SeafileClient {
   async download(file: string, options: SeafileReadType = {}): Promise<SeafileDownloadType> {
     file = path(file);
     const { signal, at, length } = options;
-    const selected = range({
+    const selected = resolveRange({
       ...(at === undefined ? {} : { at }),
       ...(length === undefined ? {} : { length }),
       ...(signal === undefined ? {} : { signal }),

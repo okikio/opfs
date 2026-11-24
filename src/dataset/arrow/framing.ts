@@ -37,8 +37,9 @@ export interface ArrowFrameType {
   readonly bodyLength: number;
   readonly end: number;
 }
-function invalid(message: string): never {
-  throw new ArchiveError("invalid-archive", `Arrow IPC ${message}`);
+/** Creates the `invalid-archive` error with an "Arrow IPC" prefix; call as `throw invalid("...")`. */
+function invalid(message: string): ArchiveError {
+  return new ArchiveError("invalid-archive", `Arrow IPC ${message}`);
 }
 function integer(value: number, label: string): void {
   if (!Number.isSafeInteger(value) || value < 0) throw new TypeError(`${label} must be a nonnegative safe integer.`);
@@ -58,7 +59,7 @@ function magic(bytes: Uint8Array, at: number): void {
   if (
     bytes[at] !== 65 || bytes[at + 1] !== 82 || bytes[at + 2] !== 82 ||
     bytes[at + 3] !== 79 || bytes[at + 4] !== 87 || bytes[at + 5] !== 49
-  ) invalid("file magic is absent.");
+  ) throw invalid("file magic is absent.");
 }
 
 /**
@@ -68,21 +69,21 @@ function magic(bytes: Uint8Array, at: number): void {
  */
 export function inspectPrefix(bytes: Uint8Array, options: ArrowFramingLimitsType = {}): ArrowPrefixType {
   const maximum = limits(options);
-  if (bytes.byteLength !== 8) invalid("continuation prefix must contain exactly eight bytes.");
+  if (bytes.byteLength !== 8) throw invalid("continuation prefix must contain exactly eight bytes.");
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   if (view.getUint32(0, true) !== 0xffffffff) {
     throw new ArchiveError("unsupported-profile", "Arrow IPC legacy or missing continuation framing is not admitted.");
   }
   const length = view.getInt32(4, true);
   if (length === 0) return { kind: "eos" };
-  if (length < 0 || length % 8 !== 0) invalid("metadata length is negative or not eight-byte aligned.");
+  if (length < 0 || length % 8 !== 0) throw invalid("metadata length is negative or not eight-byte aligned.");
   admit(BigInt(length), maximum.metadata, "metadata bytes");
   return { kind: "message", metadataLength: length };
 }
 
 /** Inspect the initial six-byte magic plus two alignment bytes, without decoding any message. */
 export function inspectFileMagic(bytes: Uint8Array): void {
-  if (bytes.byteLength !== 8) invalid("file header must contain exactly eight bytes.");
+  if (bytes.byteLength !== 8) throw invalid("file header must contain exactly eight bytes.");
   magic(bytes, 0);
 }
 
@@ -98,12 +99,12 @@ export function inspectFileTail(
 ): ArrowTailType {
   integer(sourceSize, "Arrow source size");
   const maximum = limits(options);
-  if (bytes.byteLength !== 10 || sourceSize < 18) invalid("file trailer is truncated.");
+  if (bytes.byteLength !== 10 || sourceSize < 18) throw invalid("file trailer is truncated.");
   magic(bytes, 4);
   const length = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getInt32(0, true);
-  if (length <= 0 || length > sourceSize - 18) invalid("footer length is invalid or overlaps the file header.");
+  if (length <= 0 || length > sourceSize - 18) throw invalid("footer length is invalid or overlaps the file header.");
   const footerOffset = sourceSize - 10 - length;
-  if (footerOffset % 8 !== 0) invalid("footer start is not eight-byte aligned.");
+  if (footerOffset % 8 !== 0) throw invalid("footer start is not eight-byte aligned.");
   admit(BigInt(length), maximum.metadata, "footer bytes");
   return { footerOffset, footerLength: length };
 }
@@ -128,7 +129,7 @@ export function inspectBlocks(
     bounds.footerOffset % 8 !== 0 || bounds.schemaEnd < 8 || bounds.schemaEnd % 8 !== 0 ||
     bounds.schemaEnd > bounds.footerOffset
   ) {
-    invalid("file bounds do not contain an aligned schema and footer.");
+    throw invalid("file bounds do not contain an aligned schema and footer.");
   }
   const footer = BigInt(bounds.footerOffset);
   let previousEnd = BigInt(bounds.schemaEnd);
@@ -139,10 +140,10 @@ export function inspectBlocks(
       block.metadataLength > 0x7fffffff || block.metadataLength % 8 !== 0 ||
       block.offset < previousEnd || block.offset % 8n !== 0n || block.bodyLength < 0n || block.bodyLength % 8n !== 0n
     ) {
-      invalid("block is overlapping, unordered, negative or unaligned.");
+      throw invalid("block is overlapping, unordered, negative or unaligned.");
     }
     const metadata = BigInt(block.metadataLength), end = block.offset + metadata + block.bodyLength;
-    if (end > footer) invalid("block extends into the footer or beyond the source.");
+    if (end > footer) throw invalid("block extends into the footer or beyond the source.");
     admit(metadata - 8n, maximum.metadata, "metadata bytes");
     admit(block.bodyLength, maximum.body, "body bytes");
     previousEnd = end;

@@ -1,6 +1,14 @@
 /** Bounded selected-tree ISO 9660 and Joliet image inspection, without host mounting. @module */
 import type { ByteSourceType } from "../source.ts";
-import { ArchiveBudget, ArchiveError, createArchiveLedger, integer, invalid, unsupported, view } from "./record.ts";
+import {
+  ArchiveBudget,
+  ArchiveError,
+  assertInteger,
+  createArchiveLedger,
+  createView,
+  invalid,
+  unsupported,
+} from "./record.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
 export { ArchiveError, createArchiveLedger } from "./record.ts";
 export type { ArchiveErrorCodeType, ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
@@ -80,31 +88,31 @@ export interface IsoArchiveType {
 
 /** ISO records duplicate multibyte numbers in both byte orders; neither copy is silently preferred. */
 function both(bytes: Uint8Array, offset: number, width: 2 | 4): number {
-  const data = view(bytes);
+  const data = createView(bytes);
   const little = width === 2 ? data.getUint16(offset, true) : data.getUint32(offset, true);
   const big = width === 2 ? data.getUint16(offset + width) : data.getUint32(offset + width);
-  if (little !== big) invalid("ISO both-endian numeric copies disagree.");
+  if (little !== big) throw invalid("ISO both-endian numeric copies disagree.");
   return little;
 }
 
 /** Validate multiplication and addition before converting a declared block extent to a JavaScript index. */
 function extent(block: number, length: number, maximum: number): number {
   const start = BigInt(block) * 2048n;
-  if (start + BigInt(length) > BigInt(maximum)) invalid("ISO extent exceeds the declared volume or source.");
+  if (start + BigInt(length) > BigInt(maximum)) throw invalid("ISO extent exceeds the declared volume or source.");
   return Number(start);
 }
 
 /** Only the two ISO structural identifiers receive special meaning; all other names stay literal. */
 function nameOf(bytes: Uint8Array, joliet: boolean): string {
-  if (!bytes.length) invalid("ISO directory identifier is empty.");
-  if (joliet && bytes.length % 2) invalid("Joliet identifier has an odd byte length.");
+  if (!bytes.length) throw invalid("ISO directory identifier is empty.");
+  if (joliet && bytes.length % 2) throw invalid("Joliet identifier has an odd byte length.");
   let name = "";
   for (let at = 0; at < bytes.length; at += joliet ? 2 : 1) {
     const code = joliet ? bytes[at]! * 256 + bytes[at + 1]! : bytes[at]!;
     if (code === 0 || code === 47 || (code >= 0xd800 && code <= 0xdfff)) {
-      invalid("ISO identifier contains NUL, a separator, or a non-UCS-2 surrogate.");
+      throw invalid("ISO identifier contains NUL, a separator, or a non-UCS-2 surrogate.");
     }
-    if (!joliet && code > 127) unsupported("Primary ISO identifiers require ASCII in this profile.");
+    if (!joliet && code > 127) throw unsupported("Primary ISO identifiers require ASCII in this profile.");
     name += String.fromCharCode(code);
   }
   return name;
@@ -116,19 +124,19 @@ function recordOf(
   maximum: number,
 ): { offset: number; size: number; directory: boolean; flags: number; identifier: Uint8Array } {
   const length = bytes[0]!;
-  if (length < 34 || length !== bytes.length || length % 2) invalid("ISO directory record length is invalid.");
+  if (length < 34 || length !== bytes.length || length % 2) throw invalid("ISO directory record length is invalid.");
   const names = bytes[32]!;
   const minimum = 33 + names + (names % 2 === 0 ? 1 : 0);
-  if (!names || minimum > length) invalid("ISO identifier exceeds its directory record.");
-  if (names % 2 === 0 && bytes[33 + names] !== 0) invalid("ISO identifier padding is nonzero.");
+  if (!names || minimum > length) throw invalid("ISO identifier exceeds its directory record.");
+  if (names % 2 === 0 && bytes[33 + names] !== 0) throw invalid("ISO identifier padding is nonzero.");
   const flags = bytes[25]!;
-  if (flags & 0x60) invalid("ISO reserved file flags are set.");
+  if (flags & 0x60) throw invalid("ISO reserved file flags are set.");
   if (bytes[1] || bytes[26] || bytes[27] || (flags & 0x9c)) {
-    unsupported(
+    throw unsupported(
       "ISO extended attributes, interleaving, associated/record/protected and multi-extent files are unsupported.",
     );
   }
-  if (both(bytes, 28, 2) !== 1) unsupported("ISO member refers to another volume.");
+  if (both(bytes, 28, 2) !== 1) throw unsupported("ISO member refers to another volume.");
   const size = both(bytes, 10, 4);
   const offset = extent(both(bytes, 2, 4), size, maximum);
   return { offset, size, directory: Boolean(flags & 2), flags, identifier: bytes.subarray(33, 33 + names) };
@@ -139,7 +147,7 @@ export async function openIso(source: ByteSourceType, options: IsoOpenOptionsTyp
   options = { ...options };
   const namespace = options.namespace ?? "primary";
   if (namespace === "rock-ridge") {
-    unsupported("Rock Ridge/SUSP semantics are not implemented; select primary or Joliet explicitly.");
+    throw unsupported("Rock Ridge/SUSP semantics are not implemented; select primary or Joliet explicitly.");
   }
   if (namespace !== "primary" && namespace !== "joliet") throw new TypeError("Unknown ISO namespace.");
   const parentPolicy = options.jolietParent ?? "validate";
@@ -157,7 +165,7 @@ export async function openIso(source: ByteSourceType, options: IsoOpenOptionsTyp
     throw new TypeError("ISO identity must be a string of at most 8192 UTF16 code units.");
   }
   if (!stability && !options.allowUnverifiedSource) {
-    unsupported("ISO requires source stability or explicit unverified acceptance.");
+    throw unsupported("ISO requires source stability or explicit unverified acceptance.");
   }
   const snapshot: ByteSourceType = {
     size,
@@ -182,7 +190,7 @@ export async function openIso(source: ByteSourceType, options: IsoOpenOptionsTyp
     directories: options.maxDirectoryBytes ?? 8 * 1024 * 1024,
     names: options.maxNamesBytes ?? 1024 * 1024,
   };
-  for (const [label, value] of Object.entries(policy)) integer(value, label);
+  for (const [label, value] of Object.entries(policy)) assertInteger(value, label);
   let primary: Uint8Array | undefined;
   let selected: Uint8Array | undefined;
   let terminated = false;
@@ -191,52 +199,54 @@ export async function openIso(source: ByteSourceType, options: IsoOpenOptionsTyp
     const bytes = await budget.read((16 + index) * 2048, 2048);
     budget.decoded(2048);
     descriptorEnd = (17 + index) * 2048;
-    if (String.fromCharCode(...bytes.subarray(1, 6)) !== "CD001") invalid("ISO descriptor signature is invalid.");
-    if (bytes[6] !== 1) unsupported("ISO descriptor version is unsupported.");
+    if (String.fromCharCode(...bytes.subarray(1, 6)) !== "CD001") throw invalid("ISO descriptor signature is invalid.");
+    if (bytes[6] !== 1) throw unsupported("ISO descriptor version is unsupported.");
     const type = bytes[0]!;
     if (type === 255) {
       terminated = true;
       break;
     }
     if (type === 1) {
-      if (primary) invalid("ISO has multiple primary volume descriptors.");
+      if (primary) throw invalid("ISO has multiple primary volume descriptors.");
       primary = bytes.slice();
     } else if (type === 2 && bytes[88] === 37 && bytes[89] === 47 && [64, 67, 69].includes(bytes[90]!)) {
       if (namespace === "joliet") {
-        if (selected) unsupported("Multiple Joliet trees require explicit descriptor selection, which is unsupported.");
+        if (selected) {
+          throw unsupported("Multiple Joliet trees require explicit descriptor selection, which is unsupported.");
+        }
         selected = bytes.slice();
       }
-    } else if (type !== 0 && type !== 2 && type !== 3) invalid("ISO descriptor type is reserved.");
+    } else if (type !== 0 && type !== 2 && type !== 3) throw invalid("ISO descriptor type is reserved.");
   }
   if (!terminated) throw new ArchiveError("budget-exceeded", "ISO descriptor terminator not found within limit.");
-  if (!primary) invalid("ISO primary volume descriptor is missing.");
+  if (!primary) throw invalid("ISO primary volume descriptor is missing.");
   if (namespace === "primary") selected = primary;
-  if (!selected) unsupported("Requested Joliet namespace is absent.");
+  if (!selected) throw unsupported("Requested Joliet namespace is absent.");
   const volume = selected;
   if (volume[7] !== 0 || volume[881] !== 1) {
-    unsupported("ISO descriptor flags or file structure version are unsupported.");
+    throw unsupported("ISO descriptor flags or file structure version are unsupported.");
   }
-  if (both(volume, 120, 2) !== 1 || both(volume, 124, 2) !== 1) unsupported("ISO volume sets are unsupported.");
-  if (both(volume, 128, 2) !== 2048) unsupported("ISO logical blocks must be 2048 bytes in this profile.");
+  if (both(volume, 120, 2) !== 1 || both(volume, 124, 2) !== 1) throw unsupported("ISO volume sets are unsupported.");
+  if (both(volume, 128, 2) !== 2048) throw unsupported("ISO logical blocks must be 2048 bytes in this profile.");
   const blocks = both(volume, 80, 4);
   const volumeBytes = Number(BigInt(blocks) * 2048n);
   if (volumeBytes > size || volumeBytes < descriptorEnd) {
-    invalid("ISO volume size exceeds source or excludes descriptors.");
+    throw invalid("ISO volume size exceeds source or excludes descriptors.");
   }
   if (
     both(primary, 80, 4) !== blocks || both(primary, 128, 2) !== 2048 || both(primary, 120, 2) !== 1 ||
     both(primary, 124, 2) !== 1
-  ) invalid("ISO primary and selected volume geometry disagree.");
+  ) throw invalid("ISO primary and selected volume geometry disagree.");
   const tableSize = both(volume, 132, 4);
-  if (!tableSize) invalid("ISO path table size is zero.");
-  const data = view(volume);
+  if (!tableSize) throw invalid("ISO path table size is zero.");
+  const data = createView(volume);
   for (const [at, little] of [[140, true], [144, true], [148, false], [152, false]] as const) {
     const block = data.getUint32(at, little);
     if (at === 140 || at === 148 || block) extent(block, tableSize, volumeBytes);
   }
   const root = recordOf(volume.subarray(156, 190), volumeBytes);
   if (!root.directory || root.identifier.length !== 1 || root.identifier[0] !== 0) {
-    invalid("ISO root descriptor is not a self directory record.");
+    throw invalid("ISO root descriptor is not a self directory record.");
   }
   type Directory = {
     id: number;
@@ -253,8 +263,10 @@ export async function openIso(source: ByteSourceType, options: IsoOpenOptionsTyp
     if (directory.depth > policy.depth || directory.size > policy.directories - directoryBytes) {
       throw new ArchiveError("budget-exceeded", "ISO directory traversal limit exceeded.");
     }
-    if (!directory.size || directory.size % 2048) invalid("ISO directory length must be a positive sector multiple.");
-    if (visited.has(directory.offset)) invalid("ISO directory alias or cycle is unsupported.");
+    if (!directory.size || directory.size % 2048) {
+      throw invalid("ISO directory length must be a positive sector multiple.");
+    }
+    if (visited.has(directory.offset)) throw invalid("ISO directory alias or cycle is unsupported.");
     visited.add(directory.offset);
     directoryBytes += directory.size;
     queue.push(directory);
@@ -272,10 +284,10 @@ export async function openIso(source: ByteSourceType, options: IsoOpenOptionsTyp
       for (let at = 0; at < 2048;) {
         const length = bytes[at]!;
         if (!length) {
-          if (bytes.subarray(at).some((byte) => byte !== 0)) invalid("ISO directory sector padding is nonzero.");
+          if (bytes.subarray(at).some((byte) => byte !== 0)) throw invalid("ISO directory sector padding is nonzero.");
           break;
         }
-        if (length > 2048 - at) invalid("ISO directory record crosses a sector.");
+        if (length > 2048 - at) throw invalid("ISO directory record crosses a sector.");
         const record = recordOf(bytes.subarray(at, at + length), volumeBytes);
         const special = record.identifier.length === 1 && record.identifier[0]! < 2;
         if (ordinal < 2) {
@@ -283,11 +295,11 @@ export async function openIso(source: ByteSourceType, options: IsoOpenOptionsTyp
           if (
             !special || record.identifier[0] !== ordinal || !record.directory ||
             record.size !== (self ? directory.size : directory.parentSize)
-          ) invalid("ISO self/parent directory record disagrees with traversal.");
+          ) throw invalid("ISO self/parent directory record disagrees with traversal.");
           const expected = self ? directory.offset : directory.parentOffset;
           if (record.offset !== expected) {
             if (self || parentPolicy === "validate") {
-              invalid("ISO self/parent directory extent disagrees with traversal.");
+              throw invalid("ISO self/parent directory extent disagrees with traversal.");
             }
             // A compatibility record remains observable; its extent is never followed as a graph edge.
             budget.output(24);
@@ -300,7 +312,7 @@ export async function openIso(source: ByteSourceType, options: IsoOpenOptionsTyp
             );
           }
         } else {
-          if (special) invalid("ISO self/parent record occurs outside its structural position.");
+          if (special) throw invalid("ISO self/parent record occurs outside its structural position.");
           if (entries.length >= policy.entries) throw new ArchiveError("budget-exceeded", "ISO entry limit exceeded.");
           const name = nameOf(record.identifier, namespace === "joliet");
           const nameBytes = new TextEncoder().encode(name).length;
@@ -334,13 +346,13 @@ export async function openIso(source: ByteSourceType, options: IsoOpenOptionsTyp
         at += length;
       }
     }
-    if (ordinal < 2) invalid("ISO directory lacks self and parent records.");
+    if (ordinal < 2) throw invalid("ISO directory lacks self and parent records.");
   }
   const fileOf = (id: number): IsoEntryType => {
-    integer(id, "ISO member id");
+    assertInteger(id, "ISO member id");
     const entry = entries[id];
     if (!entry) throw new RangeError("Unknown ISO member id.");
-    if (entry.kind !== "file") unsupported("ISO directory bytes are not ordinary member payloads.");
+    if (entry.kind !== "file") throw unsupported("ISO directory bytes are not ordinary member payloads.");
     return entry;
   };
   const read = async (id: number, supplied: IsoReadOptionsType = {}): Promise<IsoReadType> => {
@@ -359,8 +371,8 @@ export async function openIso(source: ByteSourceType, options: IsoOpenOptionsTyp
     const entry = fileOf(id);
     const offset = opts.offset ?? 0;
     const length = opts.length ?? entry.size - offset;
-    integer(offset, "ISO member offset");
-    integer(length, "ISO member length");
+    assertInteger(offset, "ISO member offset");
+    assertInteger(length, "ISO member length");
     if (offset > entry.size || length > entry.size - offset) throw new RangeError("ISO selected range exceeds member.");
     // Reserve the whole selected source/request workload before allocating output. The read loop charges
     // these dimensions locally but must not reserve the same aggregate admission a second time.

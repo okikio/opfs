@@ -6,7 +6,7 @@ import type { FileBackendType, FileDriverType } from "../../driver/file.ts";
 import type { DriverPlanInputType, DriverPlanType } from "../../driver/definition.ts";
 import { basename } from "../../path.ts";
 import type { PathType } from "../../path.ts";
-import { range } from "../../range.ts";
+import { resolveRange } from "../../range.ts";
 import { FileSystemError } from "../../error.ts";
 import { getPrimary } from "../../close.ts";
 
@@ -110,7 +110,7 @@ export function createWebdavDriverFromClient(
       }),
     readFile: (path, request = {}) =>
       translated("read", path, async () => {
-        const selected = range(request);
+        const selected = resolveRange(request);
         if (selected.empty) return new Uint8Array();
         const source = await client.openSource(path, {
           maxReadBytes: maximum,

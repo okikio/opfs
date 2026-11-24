@@ -15,7 +15,7 @@ import type {
   ObjectRevisionType,
   ObjectStatType,
 } from "../../driver/object.ts";
-import { range } from "../../range.ts";
+import { resolveRange } from "../../range.ts";
 import { RequestMetrics, sendRequest } from "../../request.ts";
 import type { FetchType, RequestMetricsType, RequestPolicyType } from "../../request.ts";
 import { readResponse } from "../../response.ts";
@@ -419,7 +419,7 @@ class GcsClient implements GcsClientType {
 
   async get(key: string, options: GcsGetOptionsType = {}): Promise<ReadableStream<Uint8Array>> {
     options = { ...options };
-    const admitted = range(options);
+    const admitted = resolveRange(options);
     const version = generation(options.revision);
     const match = metageneration(options.ifMetagenerationMatch, version);
     if (admitted.empty) {

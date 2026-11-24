@@ -1,6 +1,14 @@
 /** Sequential BinHex 4.0 fork previews with explicit replay and CRC evidence. @module */
 import type { ByteSourceType } from "../source.ts";
-import { ArchiveBudget, ArchiveError, createArchiveLedger, integer, invalid, unsupported, view } from "./record.ts";
+import {
+  ArchiveBudget,
+  ArchiveError,
+  assertInteger,
+  createArchiveLedger,
+  createView,
+  invalid,
+  unsupported,
+} from "./record.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
 export { ArchiveError, createArchiveLedger } from "./record.ts";
 export type { ArchiveErrorCodeType, ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
@@ -131,7 +139,7 @@ class Decoder {
     let line = "", found = false, previousCR = false;
     for (let count = 0; count < maximum; count++) {
       const byte = await this.raw();
-      if (byte === -1) invalid("BinHex opening colon is missing.");
+      if (byte === -1) throw invalid("BinHex opening colon is missing.");
       if (byte === 10 && previousCR) {
         previousCR = false;
         continue;
@@ -144,7 +152,7 @@ class Decoder {
             found = true;
             this.profile = "macutils";
           }
-        } else if (line.length !== 0) invalid("BinHex text follows its identifying comment.");
+        } else if (line.length !== 0) throw invalid("BinHex text follows its identifying comment.");
         line = "";
       } else {
         if (found && byte === 58 && line.length === 0) return;
@@ -159,19 +167,19 @@ class Decoder {
     while (this.#bitCount < 8) {
       if (this.#ended) return -1;
       const byte = await this.raw();
-      if (byte === -1) invalid("BinHex terminal colon is missing.");
+      if (byte === -1) throw invalid("BinHex terminal colon is missing.");
       if (byte === 10 || byte === 13) {
         this.#column = 0;
         continue;
       }
-      if (++this.#column > 64) invalid("BinHex encoded line exceeds 64 characters.");
+      if (++this.#column > 64) throw invalid("BinHex encoded line exceeds 64 characters.");
       if (byte === 58) {
         this.#ended = true;
-        if (this.#bitCount === 6 || this.#bits !== 0) invalid("BinHex terminal padding bits are invalid.");
+        if (this.#bitCount === 6 || this.#bits !== 0) throw invalid("BinHex terminal padding bits are invalid.");
         return -1;
       }
       const value = alphabet.indexOf(String.fromCharCode(byte));
-      if (value < 0) invalid("BinHex body contains a non-alphabet character.");
+      if (value < 0) throw invalid("BinHex body contains a non-alphabet character.");
       this.#bits = (this.#bits << 6) | value;
       this.#bitCount += 6;
     }
@@ -189,20 +197,20 @@ class Decoder {
       return this.#last;
     }
     const byte = await this.packed();
-    if (byte < 0) invalid("BinHex decoded component is truncated.");
+    if (byte < 0) throw invalid("BinHex decoded component is truncated.");
     if (byte !== 0x90) {
       this.budget.decoded(1);
       this.#signal?.throwIfAborted();
       return this.#last = byte;
     }
     const count = await this.packed();
-    if (count < 0) invalid("BinHex RLE escape is truncated.");
+    if (count < 0) throw invalid("BinHex RLE escape is truncated.");
     if (count === 0) {
       this.budget.decoded(1);
       this.#signal?.throwIfAborted();
       return this.#last = 0x90;
     }
-    if (this.#last < 0 || count < 2) invalid("BinHex RLE run has no preceding byte or no output.");
+    if (this.#last < 0 || count < 2) throw invalid("BinHex RLE run has no preceding byte or no output.");
     this.budget.decoded(count - 1);
     this.#signal?.throwIfAborted();
     this.#repeat = count - 2;
@@ -215,15 +223,15 @@ class Decoder {
   async header(maximum: number, compatibility: boolean, maxFork: number): Promise<Uint8Array> {
     await this.begin(maximum, compatibility);
     const length = await this.next();
-    if (length < 1 || length > 63) invalid("BinHex name length must be 1–63 bytes.");
+    if (length < 1 || length > 63) throw invalid("BinHex name length must be 1–63 bytes.");
     const bytes = new Uint8Array(length + 20);
     bytes[0] = length;
     for (let at = 1; at < bytes.length; at++) bytes[at] = await this.next();
     let state = 0;
     for (const byte of bytes) state = crc(byte, state);
     await this.checksum(state, "header");
-    if (bytes[length + 1] !== 0) unsupported("Only BinHex 4.0 version zero is supported.");
-    const fields = view(bytes);
+    if (bytes[length + 1] !== 0) throw unsupported("Only BinHex 4.0 version zero is supported.");
+    const fields = createView(bytes);
     if (fields.getUint32(length + 12) > maxFork || fields.getUint32(length + 16) > maxFork) {
       throw new ArchiveError("budget-exceeded", "BinHex declared fork size exceeds policy.");
     }
@@ -231,21 +239,21 @@ class Decoder {
   }
   /** The Perl profile pads packed bytes, never an RLE-expanded logical component. */
   async terminal(policy: "canonical" | "convert-binhex"): Promise<number> {
-    if (this.#repeat) invalid("BinHex has pending RLE output after its resource CRC.");
+    if (this.#repeat) throw invalid("BinHex has pending RLE output after its resource CRC.");
     const padding = policy === "canonical" ? 0 : (3 - this.#packedBytes % 3) % 3;
     for (let at = 0; at < padding; at++) {
-      if (await this.packed() !== 0) invalid("BinHex producer padding is missing or nonzero.");
+      if (await this.packed() !== 0) throw invalid("BinHex producer padding is missing or nonzero.");
       this.budget.decoded(1);
       this.#signal?.throwIfAborted();
     }
-    if (await this.packed() !== -1) invalid("BinHex has excess packed bytes.");
+    if (await this.packed() !== -1) throw invalid("BinHex has excess packed bytes.");
     if (policy === "convert-binhex" && this.#bitCount !== 0) {
-      invalid("BinHex producer padding must complete a packed quantum.");
+      throw invalid("BinHex producer padding must complete a packed quantum.");
     }
     for (;;) {
       const byte = await this.raw();
       if (byte < 0) return padding;
-      if (byte !== 10 && byte !== 13) invalid("BinHex has trailing content.");
+      if (byte !== 10 && byte !== 13) throw invalid("BinHex has trailing content.");
     }
   }
 }
@@ -257,14 +265,14 @@ export async function openBinHex(
 ): Promise<BinHexArchiveType> {
   const options = { ...supplied };
   const { size, identity, stability } = input;
-  integer(size, "BinHex source size");
+  assertInteger(size, "BinHex source size");
   if (stability !== undefined && !["immutable", "provider", "caller"].includes(stability)) {
     throw new TypeError("Unknown BinHex stability.");
   }
   if (identity !== undefined && (typeof identity !== "string" || identity.length > 8192)) {
     throw new TypeError("BinHex identity must be bounded text.");
   }
-  if (!stability && !options.allowUnverifiedSource) unsupported("BinHex requires stable source evidence.");
+  if (!stability && !options.allowUnverifiedSource) throw unsupported("BinHex requires stable source evidence.");
   const sourceRead = input.read.bind(input);
   const source: ByteSourceType = Object.freeze({
     size,
@@ -277,10 +285,10 @@ export async function openBinHex(
   });
   const preamble = options.maxPreambleBytes ?? 4096, maxFork = options.maxForkBytes ?? 64 * 1024 * 1024;
   const window = options.inputChunkBytes ?? 4096;
-  integer(window, "BinHex input chunk bytes");
+  assertInteger(window, "BinHex input chunk bytes");
   if (window < 1 || window > 65536) throw new RangeError("BinHex input chunk must be 1–65,536 bytes.");
-  integer(preamble, "BinHex preamble bytes");
-  integer(maxFork, "BinHex maximum fork bytes");
+  assertInteger(preamble, "BinHex preamble bytes");
+  assertInteger(maxFork, "BinHex maximum fork bytes");
   if (options.preamble !== undefined && !["rfc1741", "rfc1741-or-macutils"].includes(options.preamble)) {
     throw new TypeError("Unknown BinHex preamble policy.");
   }
@@ -328,14 +336,14 @@ export async function openBinHex(
   let name: string;
   if (options.decodeName) name = options.decodeName(rawName.slice());
   else {
-    if (rawName.some((byte) => byte > 127)) unsupported("BinHex non-ASCII names require an explicit decoder.");
+    if (rawName.some((byte) => byte > 127)) throw unsupported("BinHex non-ASCII names require an explicit decoder.");
     name = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(rawName);
   }
   if (
     typeof name !== "string" || name.includes("\0") || name.length > 4096 ||
     new TextEncoder().encode(name).length > 4096
   ) throw new TypeError("BinHex decoded name must be bounded NUL-free text.");
-  const fields = view(header),
+  const fields = createView(header),
     dataSize = fields.getUint32(nameLength + 12),
     resourceSize = fields.getUint32(nameLength + 16);
   const forkSize = (fork: BinHexForkType): number => {
@@ -346,8 +354,8 @@ export async function openBinHex(
   const prepare = (fork: BinHexForkType, supplied: BinHexReadOptionsType, member?: ArchiveLedgerType) => {
     const opts = { ...supplied }, lengthOfFork = forkSize(fork);
     const offset = opts.offset ?? 0, length = opts.length ?? lengthOfFork - offset;
-    integer(offset, "BinHex offset");
-    integer(length, "BinHex length");
+    assertInteger(offset, "BinHex offset");
+    assertInteger(length, "BinHex length");
     if (offset > lengthOfFork || length > lengthOfFork - offset) throw new RangeError("BinHex selection exceeds fork.");
     const signal = combined(options.signal, opts.signal);
     const budget = new ArchiveBudget(source, { ...opts, ledger: ledger(capture(opts.ledger), member, signal) }, signal);
@@ -376,7 +384,7 @@ export async function openBinHex(
       const current = new Decoder(source, budget, window, signal);
       const replay = await current.header(preamble, compatibility, maxFork);
       if (replay.length !== header.length || replay.some((byte, at) => byte !== header[at])) {
-        invalid("BinHex header changed during replay.");
+        throw invalid("BinHex header changed during replay.");
       }
       if (length === 0 && opts.verify === false && lengthOfFork !== 0) return;
       for (const component of ["data", "resource"] as const) {
@@ -428,7 +436,7 @@ export async function openBinHex(
       at += chunk.length;
     }
     operation.signal?.throwIfAborted();
-    if (at !== bytes.length) invalid("BinHex selected output is incomplete.");
+    if (at !== bytes.length) throw invalid("BinHex selected output is incomplete.");
     return Object.freeze({ bytes, ...operation.inspect() });
   };
   const stream = (fork: BinHexForkType, supplied: BinHexReadOptionsType = {}): BinHexStreamType => {

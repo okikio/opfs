@@ -6,8 +6,8 @@ import { arch } from "node:process";
 import { close } from "../../src/close.ts";
 import { collectBytes } from "../../src/stream.ts";
 import { readResponse } from "../../src/response.ts";
-import { sourceRange } from "../../src/source.ts";
-import { openTar } from "../../src/archive/tar.ts";
+import { assertExtent } from "../../src/source.ts";
+import { openTar } from "../../src/archive/tar/mod.ts";
 import type { StartedTestContainer } from "testcontainers";
 
 /** Existing pinned Node image supplies only native libc/shell/timeout; no npm modules, SDK resolver or compilation runs. */
@@ -80,7 +80,7 @@ export async function acquireEtcd(architecture: ArchitectureType): Promise<EtcdA
     size: decoded.length,
     stability: "immutable",
     read: async (offset, length) => {
-      sourceRange(decoded.length, offset, length);
+      assertExtent(decoded.length, offset, length);
       return decoded.slice(offset, offset + length);
     },
   }, {

@@ -3,8 +3,8 @@ import { z } from "zod";
 import { isBytes, toView } from "../../bytes.ts";
 import { openBytes } from "../../stream.ts";
 import { close } from "../../close.ts";
-import { range } from "../../range.ts";
-import { putOptions } from "../../publication.ts";
+import { resolveRange } from "../../range.ts";
+import { snapshotPut } from "../../publication.ts";
 import type {
   ObjectBackendType,
   ObjectDriverType,
@@ -212,7 +212,7 @@ export function createCloudflareKvDriver(
       return stat(result.metadata);
     },
     async get(key, request = {}) {
-      const selected = range(request);
+      const selected = resolveRange(request);
       if (request.revision !== undefined) throw new TypeError("Workers KV cannot enforce revision-bound reads.");
       physical(key);
       if (selected.empty) return new Blob().stream();
@@ -274,7 +274,7 @@ export function createCloudflareKvDriver(
     },
     async put(key, body, options = {}) {
       const name = physical(key);
-      const request = putOptions(options);
+      const request = snapshotPut(options);
       if (request.revision !== undefined || request.ifMatch !== undefined || request.ifNoneMatch !== undefined) {
         throw new TypeError("Workers KV has no native conditional write.");
       }

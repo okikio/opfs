@@ -1,15 +1,15 @@
 import { isBytes, toRequestBytes, toView } from "../bytes.ts";
 import { close } from "../close.ts";
-import { ArchiveError, createArchiveLedger, integer, invalid, unsupported } from "./record.ts";
+import { ArchiveError, assertInteger, createArchiveLedger, invalid, unsupported } from "./record.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
-import { createTarStream, readTarStream } from "./stream.ts";
+import { createTarStream, readTarStream } from "./tar/stream.ts";
 import type {
   TarScanType,
   TarStreamOptionsType,
   TarVisitorType,
   TarWriteEntryType,
   TarWriteOptionsType,
-} from "./stream.ts";
+} from "./tar/stream.ts";
 import { crc32 } from "../hash.ts";
 
 /** Native Web codecs, selected explicitly. Unsupported host formats fail without a fallback dependency. */
@@ -71,23 +71,23 @@ function codecStream(
     ? new CompressionFrame(format)
     : undefined;
   for (const [name, value] of Object.entries({ maximum, inputBytes, codecMaximum, outputBytes })) {
-    integer(value, name);
+    assertInteger(value, name);
     if (value === 0) throw new RangeError(`${name} must be positive.`);
   }
   if (inputBytes > 65536) throw new RangeError("Native codec inputChunkBytes cannot exceed 64 KiB.");
   if (!["gzip", "deflate", "deflate-raw", "brotli", "zstd"].includes(format)) {
-    unsupported("Unknown compression profile.");
+    throw unsupported("Unknown compression profile.");
   }
   signal?.throwIfAborted();
   const Codec = mode === "compress" ? globalThis.CompressionStream : globalThis.DecompressionStream;
-  if (typeof Codec !== "function") unsupported(`Native ${mode}ion streams are unavailable.`);
+  if (typeof Codec !== "function") throw unsupported(`Native ${mode}ion streams are unavailable.`);
   let codec: ReadableWritablePair<Uint8Array, Uint8Array<ArrayBuffer>>;
   try {
     // Host declarations can lag native codec support. The constructor is the capability check;
     // no codec is acquired from another runtime when this format is unavailable.
     codec = new Codec(format as CompressionFormat);
   } catch {
-    unsupported(`The native ${mode}ion codec does not support ${format}.`);
+    throw unsupported(`The native ${mode}ion codec does not support ${format}.`);
   }
   let origin: ReadableStreamDefaultReader<Uint8Array> | undefined;
   let decoded: ReadableStreamDefaultReader<Uint8Array> | undefined;
@@ -319,8 +319,8 @@ class CompressionFrame {
     if (this.#format === "deflate" && this.#input >= 2) {
       const cmf = this.#prefix[0]!;
       const flags = this.#prefix[1]!;
-      if ((cmf & 15) !== 8 || (cmf >>> 4) > 7 || ((cmf << 8) + flags) % 31 !== 0) invalid("Invalid zlib header.");
-      if (flags & 32) unsupported("Preset-dictionary zlib streams are unsupported.");
+      if ((cmf & 15) !== 8 || (cmf >>> 4) > 7 || ((cmf << 8) + flags) % 31 !== 0) throw invalid("Invalid zlib header.");
+      if (flags & 32) throw unsupported("Preset-dictionary zlib streams are unsupported.");
     }
   }
 
@@ -344,7 +344,9 @@ class CompressionFrame {
 
   finish(): void {
     if (this.#format === "deflate-raw") return;
-    if (this.#input < (this.#format === "gzip" ? 20 : 8)) invalid("Compressed stream is shorter than its framing.");
+    if (this.#input < (this.#format === "gzip" ? 20 : 8)) {
+      throw invalid("Compressed stream is shorter than its framing.");
+    }
     const ordered = new Uint8Array(this.#tail.length);
     for (let index = 0; index < ordered.length; index++) {
       ordered[index] = this.#tail[(this.#input + index) % ordered.length]!;

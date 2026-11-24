@@ -2,7 +2,15 @@
 import type { ByteSourceType } from "../source.ts";
 import { createLzmaDecoder } from "./lzma.ts";
 import type { LzmaLimitsType } from "./lzma.ts";
-import { ArchiveBudget, ArchiveError, createArchiveLedger, integer, invalid, unsupported, view } from "./record.ts";
+import {
+  ArchiveBudget,
+  ArchiveError,
+  assertInteger,
+  createArchiveLedger,
+  createView,
+  invalid,
+  unsupported,
+} from "./record.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
 import { crc32, Crc64, Sha256 } from "../hash.ts";
 export { ArchiveError, createArchiveLedger } from "./record.ts";
@@ -88,7 +96,7 @@ export interface XzArchiveType {
 
 function exact(value: bigint): number {
   if (value < 0n || value > BigInt(Number.MAX_SAFE_INTEGER)) {
-    unsupported("XZ integer exceeds safe JavaScript indexing.");
+    throw unsupported("XZ integer exceeds safe JavaScript indexing.");
   }
   return Number(value);
 }
@@ -102,7 +110,7 @@ function verifyCrc(bytes: Uint8Array, expected: number, label: string): void {
   if (crc(bytes) !== expected) throw new ArchiveError("checksum-mismatch", `XZ ${label} CRC mismatch.`);
 }
 function zeros(bytes: Uint8Array, label: string): void {
-  if (bytes.some((byte) => byte !== 0)) invalid(`XZ ${label} must contain only zero bytes.`);
+  if (bytes.some((byte) => byte !== 0)) throw invalid(`XZ ${label} must contain only zero bytes.`);
 }
 
 /** Canonical base128, at most nine bytes/63 bits. No truncated or zero-extended encoding is accepted. */
@@ -113,7 +121,7 @@ class Cursor {
     this.bytes = bytes;
   }
   byte(): number {
-    if (this.at === this.bytes.length) invalid("XZ metadata is truncated.");
+    if (this.at === this.bytes.length) throw invalid("XZ metadata is truncated.");
     return this.bytes[this.at++]!;
   }
   vli(): number {
@@ -122,11 +130,11 @@ class Cursor {
       const byte = this.byte();
       value |= BigInt(byte & 127) << BigInt(at * 7);
       if (!(byte & 128)) {
-        if (at > 0 && byte === 0) invalid("XZ VLI is noncanonical.");
+        if (at > 0 && byte === 0) throw invalid("XZ VLI is noncanonical.");
         return exact(value);
       }
     }
-    invalid("XZ VLI exceeds nine bytes.");
+    throw invalid("XZ VLI exceeds nine bytes.");
   }
   padding(): void {
     zeros(this.bytes.subarray(this.at), "header padding");
@@ -158,7 +166,7 @@ function policy(options: XzLzmaOptionsType = {}): XzLzmaOptionsType {
 export async function openXz(input: ByteSourceType, supplied: XzOpenOptionsType = {}): Promise<XzArchiveType> {
   const options = { ...supplied, lzma: policy(supplied.lzma) };
   const { size, identity, stability } = input;
-  integer(size, "XZ source size");
+  assertInteger(size, "XZ source size");
   if (stability !== undefined && !["immutable", "provider", "caller"].includes(stability)) {
     throw new TypeError("Unknown XZ source stability.");
   }
@@ -166,7 +174,7 @@ export async function openXz(input: ByteSourceType, supplied: XzOpenOptionsType 
     throw new TypeError("XZ source identity exceeds its string bound.");
   }
   if (!stability && !options.allowUnverifiedSource) {
-    unsupported("XZ requires stable source evidence or explicit unverified acceptance.");
+    throw unsupported("XZ requires stable source evidence or explicit unverified acceptance.");
   }
   const snapshot: ByteSourceType = {
     size,
@@ -177,8 +185,10 @@ export async function openXz(input: ByteSourceType, supplied: XzOpenOptionsType 
   const maximumIndex = options.maxIndexBytes ?? 8 * 1024 * 1024;
   const maximumBlocks = options.maxBlocks ?? 100000;
   const maximumPadding = options.maxPaddingBytes ?? 1024 * 1024;
-  for (const [label, value] of Object.entries({ maximumIndex, maximumBlocks, maximumPadding })) integer(value, label);
-  if (size < 32 || size % 4 !== 0) invalid("XZ source must contain a complete four-byte-aligned stream.");
+  for (const [label, value] of Object.entries({ maximumIndex, maximumBlocks, maximumPadding })) {
+    assertInteger(value, label);
+  }
+  if (size < 32 || size % 4 !== 0) throw invalid("XZ source must contain a complete four-byte-aligned stream.");
   const local = createArchiveLedger(options);
   const openingLedger = options.ledger;
   const lifetime: ArchiveLedgerType = {
@@ -208,64 +218,68 @@ export async function openXz(input: ByteSourceType, supplied: XzOpenOptionsType 
       at -= 4;
     }
     if (at !== 0) break;
-    if (end < 32) invalid("XZ stream footer is missing.");
+    if (end < 32) throw invalid("XZ stream footer is missing.");
     const count = Math.min(65536, end - 12, Math.floor((maximumPadding - padding) / 4) * 4 + 4);
     probe = await readMetadata(end - count, count);
   }
-  if (end < 32) invalid("XZ stream footer is truncated.");
+  if (end < 32) throw invalid("XZ stream footer is truncated.");
   const footer = await readMetadata(end - 12, 12);
-  if (footer[10] !== 89 || footer[11] !== 90) invalid("XZ footer magic is missing.");
-  verifyCrc(footer.subarray(4, 10), view(footer).getUint32(0, true), "footer");
+  if (footer[10] !== 89 || footer[11] !== 90) throw invalid("XZ footer magic is missing.");
+  verifyCrc(footer.subarray(4, 10), createView(footer).getUint32(0, true), "footer");
   const header = await readMetadata(0, 12);
   if (![253, 55, 122, 88, 90, 0].every((byte, index) => header[index] === byte)) {
-    invalid("XZ header magic must begin at byte zero.");
+    throw invalid("XZ header magic must begin at byte zero.");
   }
-  verifyCrc(header.subarray(6, 8), view(header).getUint32(8, true), "stream header");
-  if (header[6] !== footer[8] || header[7] !== footer[9]) invalid("XZ header/footer flags differ.");
-  if (header[6] !== 0 || (header[7]! & 240) !== 0) unsupported("XZ reserved stream flags are unsupported.");
+  verifyCrc(header.subarray(6, 8), createView(header).getUint32(8, true), "stream header");
+  if (header[6] !== footer[8] || header[7] !== footer[9]) throw invalid("XZ header/footer flags differ.");
+  if (header[6] !== 0 || (header[7]! & 240) !== 0) throw unsupported("XZ reserved stream flags are unsupported.");
   // Check IDs from the .xz format: 0 none, 1 CRC32, 4 CRC64, 10 SHA-256. Other IDs reserve sizes we do not verify.
   if (header[7] !== 0 && header[7] !== 1 && header[7] !== 4 && header[7] !== 10) {
-    unsupported("XZ supports only none, CRC32, CRC64 or SHA-256 block checks.");
+    throw unsupported("XZ supports only none, CRC32, CRC64 or SHA-256 block checks.");
   }
   const checkBytes = header[7] === 1 ? 4 : header[7] === 4 ? 8 : header[7] === 10 ? 32 : 0;
-  const indexBytes = (view(footer).getUint32(4, true) + 1) * 4;
+  const indexBytes = (createView(footer).getUint32(4, true) + 1) * 4;
   if (indexBytes > maximumIndex) throw new ArchiveError("budget-exceeded", "XZ index exceeds metadata policy.");
-  if (indexBytes > end - 24) invalid("XZ backwards index size exceeds its stream.");
+  if (indexBytes > end - 24) throw invalid("XZ backwards index size exceeds its stream.");
   const indexAt = end - 12 - indexBytes;
   const index = await readMetadata(indexAt, indexBytes);
-  verifyCrc(index.subarray(0, -4), view(index).getUint32(index.length - 4, true), "index");
+  verifyCrc(index.subarray(0, -4), createView(index).getUint32(index.length - 4, true), "index");
   const fields = new Cursor(index.subarray(0, -4));
-  if (fields.byte() !== 0) invalid("XZ Index indicator is missing.");
+  if (fields.byte() !== 0) throw invalid("XZ Index indicator is missing.");
   const count = fields.vli();
   if (count > maximumBlocks || count > Math.floor((fields.bytes.length - fields.at) / 2)) {
     throw new ArchiveError("budget-exceeded", "XZ block records exceed metadata bounds.");
   }
   const records: { unpadded: number; decoded: number }[] = [];
   for (let id = 0; id < count; id++) records.push({ unpadded: fields.vli(), decoded: fields.vli() });
-  if (fields.bytes.length - fields.at > 3) invalid("XZ Index padding exceeds three bytes.");
+  if (fields.bytes.length - fields.at > 3) throw invalid("XZ Index padding exceeds three bytes.");
   fields.padding();
   let physical = 12;
   let decoded = 0;
   const blocks: XzBlockType[] = [];
   for (const record of records) {
     const padded = exact((BigInt(record.unpadded) + 3n) & ~3n);
-    if (record.unpadded < 5 || padded > indexAt - physical) invalid("XZ indexed block exceeds its payload region.");
+    if (record.unpadded < 5 || padded > indexAt - physical) {
+      throw invalid("XZ indexed block exceeds its payload region.");
+    }
     const first = await readMetadata(physical, 1);
-    if (first[0] === 0) invalid("XZ Index declares a missing block.");
+    if (first[0] === 0) throw invalid("XZ Index declares a missing block.");
     const headerBytes = (first[0]! + 1) * 4;
-    if (headerBytes + checkBytes >= record.unpadded) invalid("XZ block header/check leaves no compressed bytes.");
+    if (headerBytes + checkBytes >= record.unpadded) throw invalid("XZ block header/check leaves no compressed bytes.");
     const bytes = await readMetadata(physical, headerBytes);
-    verifyCrc(bytes.subarray(0, -4), view(bytes).getUint32(headerBytes - 4, true), "block header");
+    verifyCrc(bytes.subarray(0, -4), createView(bytes).getUint32(headerBytes - 4, true), "block header");
     const block = new Cursor(bytes.subarray(1, -4));
     const flags = block.byte();
-    if (flags & 60) unsupported("XZ block reserved flags are unsupported.");
-    if ((flags & 3) !== 0) unsupported("XZ requires exactly one LZMA2 filter.");
+    if (flags & 60) throw unsupported("XZ block reserved flags are unsupported.");
+    if ((flags & 3) !== 0) throw unsupported("XZ requires exactly one LZMA2 filter.");
     const compressedBytes = record.unpadded - headerBytes - checkBytes;
-    if ((flags & 64) && block.vli() !== compressedBytes) invalid("XZ compressed size differs from Index extent.");
-    if ((flags & 128) && block.vli() !== record.decoded) invalid("XZ decoded size differs between header and Index.");
-    if (block.vli() !== 33 || block.vli() !== 1) unsupported("XZ filter must be LZMA2 with one property byte.");
+    if ((flags & 64) && block.vli() !== compressedBytes) throw invalid("XZ compressed size differs from Index extent.");
+    if ((flags & 128) && block.vli() !== record.decoded) {
+      throw invalid("XZ decoded size differs between header and Index.");
+    }
+    if (block.vli() !== 33 || block.vli() !== 1) throw unsupported("XZ filter must be LZMA2 with one property byte.");
     const dictionary = block.byte();
-    if (dictionary > 40) invalid("XZ LZMA2 dictionary property exceeds 40.");
+    if (dictionary > 40) throw invalid("XZ LZMA2 dictionary property exceeds 40.");
     block.padding();
     const paddingBytes = padded - record.unpadded;
     const compressedOffset = add(physical, headerBytes);
@@ -291,7 +305,7 @@ export async function openXz(input: ByteSourceType, supplied: XzOpenOptionsType 
     decoded = add(decoded, record.decoded);
   }
   if (physical !== indexAt) {
-    unsupported("XZ indexed blocks must exactly fill one stream; concatenation is unsupported.");
+    throw unsupported("XZ indexed blocks must exactly fill one stream; concatenation is unsupported.");
   }
   const archive: XzArchiveType = {
     size: decoded,
@@ -322,8 +336,8 @@ export async function openXz(input: ByteSourceType, supplied: XzOpenOptionsType 
       const opts = { ...supplied, ledger, ...(signal === undefined ? {} : { signal }) };
       const offset = opts.offset ?? 0;
       const length = opts.length ?? decoded - offset;
-      integer(offset, "XZ decoded offset");
-      integer(length, "XZ decoded length");
+      assertInteger(offset, "XZ decoded offset");
+      assertInteger(length, "XZ decoded length");
       if (offset > decoded || length > decoded - offset) {
         throw new RangeError("XZ selected range exceeds declared output.");
       }
@@ -467,13 +481,13 @@ async function readBlock(
   reader.releaseLock();
   if (failed) throw primary;
   signal?.throwIfAborted();
-  if (complete && at !== block.decodedBytes) invalid("XZ decoded block differs from Index size.");
+  if (complete && at !== block.decodedBytes) throw invalid("XZ decoded block differs from Index size.");
   let expected: number | undefined;
   let expected64: string | undefined;
   let expected256: string | undefined;
   if (block.checkBytes) {
     const raw = await work.read(block.checkOffset, block.checkBytes);
-    const stored = view(raw);
+    const stored = createView(raw);
     work.decoded(block.checkBytes);
     if (block.checkBytes === 32) {
       // SHA-256 is stored big-endian, as the digest itself; CRC checks are little-endian integers.

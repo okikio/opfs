@@ -15,7 +15,13 @@ function integer(value: number, minimum: number, maximum: number): number {
   }
   return value;
 }
-/** Checks int64 arithmetic before a value reaches DataView or a returned cursor. */
+/**
+ * Returns `value` if it fits Kafka's signed 64-bit `long`, and throws `RangeError` otherwise.
+ *
+ * Call it on arithmetic results before they are written or returned, in the same vocabulary as
+ * `Writer.long()`: `const timestamp = long(input.timestamp);`. A bigint outside `MIN_LONG..MAX_LONG` would
+ * otherwise wrap when `DataView` writes it.
+ */
 export function long(value: bigint): bigint {
   if (typeof value !== "bigint" || value < MIN_LONG || value > MAX_LONG) {
     throw new RangeError("Kafka int64 is outside its admitted range.");

@@ -2,7 +2,15 @@
 import { createLzmaDecoder } from "./lzma.ts";
 import type { LzmaFormatType, LzmaLimitsType } from "./lzma.ts";
 import type { ByteSourceType } from "../source.ts";
-import { ArchiveBudget, ArchiveError, createArchiveLedger, integer, invalid, unsupported, view } from "./record.ts";
+import {
+  ArchiveBudget,
+  ArchiveError,
+  assertInteger,
+  createArchiveLedger,
+  createView,
+  invalid,
+  unsupported,
+} from "./record.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
 import { crc32 } from "../hash.ts";
 export { ArchiveError, createArchiveLedger } from "./record.ts";
@@ -128,7 +136,7 @@ export interface SevenArchiveType {
 /** Refuse precision loss before converting a serialized 64-bit offset/count to JavaScript indexing. */
 function exact(value: bigint): number {
   if (value > BigInt(Number.MAX_SAFE_INTEGER) || value < 0n) {
-    unsupported("7z integer exceeds exact JavaScript indexing.");
+    throw unsupported("7z integer exceeds exact JavaScript indexing.");
   }
   return Number(value);
 }
@@ -164,7 +172,7 @@ class Admission {
       properties: options.maxProperties ?? 100000,
       name: options.maxNameBytes ?? 65536,
     };
-    for (const [name, value] of Object.entries(this.max)) integer(value, name);
+    for (const [name, value] of Object.entries(this.max)) assertInteger(value, name);
   }
   count(value: number, maximum: number): void {
     if (value > maximum) throw new ArchiveError("budget-exceeded", "7z metadata admission limit exceeded.");
@@ -201,8 +209,8 @@ class Cursor {
     return this.take(1)[0]!;
   }
   take(size: number): Uint8Array {
-    integer(size, "7z property size");
-    if (size > this.remaining) invalid("7z metadata extent is truncated.");
+    assertInteger(size, "7z property size");
+    if (size > this.remaining) throw invalid("7z metadata extent is truncated.");
     const result = this.#bytes.subarray(this.#at, this.#at + size);
     this.#at += size;
     return result;
@@ -227,27 +235,27 @@ class Cursor {
     return exact(result);
   }
   u32(): number {
-    return view(this.take(4)).getUint32(0, true);
+    return createView(this.take(4)).getUint32(0, true);
   }
   u64(): bigint {
-    return view(this.take(8)).getBigUint64(0, true);
+    return createView(this.take(8)).getBigUint64(0, true);
   }
   expect(id: number): void {
-    if (this.number() !== id) unsupported("7z metadata form or property order is unsupported.");
+    if (this.number() !== id) throw unsupported("7z metadata form or property order is unsupported.");
   }
   end(): void {
-    if (this.remaining !== 0) invalid("7z property has unconsumed bytes.");
+    if (this.remaining !== 0) throw invalid("7z property has unconsumed bytes.");
   }
   bits(count: number): boolean[] {
     const raw = this.take(Math.ceil(count / 8));
     if (count % 8 && (raw[raw.length - 1]! & ((1 << (8 - count % 8)) - 1)) !== 0) {
-      invalid("7z bit-vector padding must be zero.");
+      throw invalid("7z bit-vector padding must be zero.");
     }
     return Array.from({ length: count }, (_, index) => (raw[index >> 3]! & (128 >> (index & 7))) !== 0);
   }
   defined(count: number): boolean[] {
     const all = this.byte();
-    if (all > 1) invalid("7z all-defined flag must be zero or one.");
+    if (all > 1) throw invalid("7z all-defined flag must be zero or one.");
     return all ? Array.from({ length: count }, () => true) : this.bits(count);
   }
   digests(count: number): (number | undefined)[] {
@@ -271,18 +279,18 @@ interface FolderType {
 function folder(cursor: Cursor, admission: Admission): FolderType {
   const count = cursor.number();
   admission.coders(count);
-  if (count === 0) invalid("7z folders require a coder.");
+  if (count === 0) throw invalid("7z folders require a coder.");
   const coders: SevenCoderType[] = [];
   for (let id = 0; id < count; id++) {
     const flags = cursor.byte();
     const idSize = flags & 15;
     if ((flags & 0xc0) !== 0 || idSize === 0 || idSize > 8) {
-      unsupported("7z coder identifier/alternative form is unsupported.");
+      throw unsupported("7z coder identifier/alternative form is unsupported.");
     }
     const methodBytes = cursor.take(idSize);
     if (flags & 0x10) {
       if (cursor.number() !== 1 || cursor.number() !== 1) {
-        unsupported("7z complex/multi-input coder graphs are unsupported.");
+        throw unsupported("7z complex/multi-input coder graphs are unsupported.");
       }
     }
     const properties = flags & 0x20 ? cursor.take(cursor.number()) : new Uint8Array();
@@ -301,7 +309,7 @@ function folder(cursor: Cursor, admission: Admission): FolderType {
     const input = cursor.number();
     const output = cursor.number();
     if (input >= count || output >= count || inputs.has(input) || outputs.has(output)) {
-      invalid("7z coder bindings are invalid or repeated.");
+      throw invalid("7z coder bindings are invalid or repeated.");
     }
     inputs.add(input);
     outputs.add(output);
@@ -316,13 +324,13 @@ function folder(cursor: Cursor, admission: Admission): FolderType {
   const visited = new Set<number>();
   let current: number | undefined = first;
   while (current !== undefined) {
-    if (visited.has(current)) invalid("7z coder graph contains a cycle.");
+    if (visited.has(current)) throw invalid("7z coder graph contains a cycle.");
     visited.add(current);
     const next = edges.get(current);
-    if (next === undefined && current !== last) invalid("7z coder graph has an invalid final output.");
+    if (next === undefined && current !== last) throw invalid("7z coder graph has an invalid final output.");
     current = next;
   }
-  if (visited.size !== count) invalid("7z coder graph is disconnected.");
+  if (visited.size !== count) throw invalid("7z coder graph is disconnected.");
   return { coders, output: last, size: 0, crc: undefined, streams: [] };
 }
 
@@ -343,14 +351,14 @@ function streams(
     crcs = cursor.digests(count);
     tag = cursor.number();
   }
-  if (tag !== 0) unsupported("7z packed stream metadata is unsupported.");
+  if (tag !== 0) throw unsupported("7z packed stream metadata is unsupported.");
   cursor.expect(7);
   cursor.expect(11);
   const foldersCount = cursor.number();
   admission.count(foldersCount, admission.max.folders);
-  if (cursor.byte() !== 0) unsupported("7z external folder metadata is unsupported.");
+  if (cursor.byte() !== 0) throw unsupported("7z external folder metadata is unsupported.");
   const folders = Array.from({ length: foldersCount }, () => folder(cursor, admission));
-  if (foldersCount !== count) unsupported("7z profile requires one packed stream per linear folder.");
+  if (foldersCount !== count) throw unsupported("7z profile requires one packed stream per linear folder.");
   cursor.expect(12);
   for (const item of folders) {
     const unpacked = item.coders.map(() => cursor.number());
@@ -364,7 +372,7 @@ function streams(
     });
     tag = cursor.number();
   }
-  if (tag !== 0) unsupported("7z folder unpack metadata is unsupported.");
+  if (tag !== 0) throw unsupported("7z folder unpack metadata is unsupported.");
   tag = cursor.number();
   let counts = folders.map(() => 1);
   if (tag === 8) {
@@ -377,15 +385,15 @@ function streams(
     for (const value of counts) total = add(total, value);
     admission.streams(total);
     const needsSizes = counts.some((value) => value > 1);
-    if (needsSizes && tag !== 9) invalid("7z multi-substream sizes are missing.");
+    if (needsSizes && tag !== 9) throw invalid("7z multi-substream sizes are missing.");
     for (let index = 0; index < folders.length; index++) {
       const item = folders[index]!;
       const count = counts[index]!;
-      if (count === 0) unsupported("7z zero-substream folders are unsupported.");
+      if (count === 0) throw unsupported("7z zero-substream folders are unsupported.");
       let used = 0;
       for (let stream = 0; stream < count; stream++) {
         const size = stream === count - 1 ? item.size - used : cursor.number();
-        if (size < 0 || size > item.size - used) invalid("7z substreams exceed the folder extent.");
+        if (size < 0 || size > item.size - used) throw invalid("7z substreams exceed the folder extent.");
         used = add(used, size);
         item.streams.push({
           size,
@@ -409,10 +417,10 @@ function streams(
       }
       tag = cursor.number();
     }
-    if (tag !== 0) unsupported("7z substream metadata is unsupported.");
+    if (tag !== 0) throw unsupported("7z substream metadata is unsupported.");
     cursor.expect(0);
   } else {
-    if (tag !== 0) unsupported("7z stream metadata is unsupported.");
+    if (tag !== 0) throw unsupported("7z stream metadata is unsupported.");
     admission.streams(folders.length);
     for (const item of folders) {
       item.streams.push({ size: item.size, crc: item.crc, origin: item.crc === undefined ? "substream" : "folder" });
@@ -442,12 +450,12 @@ function files(
     admission.property();
     if (id === 25) {
       const padding = cursor.take(cursor.number());
-      if (padding.some((byte) => byte !== 0)) invalid("7z Dummy padding contains nonzero bytes.");
+      if (padding.some((byte) => byte !== 0)) throw invalid("7z Dummy padding contains nonzero bytes.");
       continue;
     }
-    if (properties.has(id)) invalid("7z file property is duplicated.");
+    if (properties.has(id)) throw invalid("7z file property is duplicated.");
     if (![14, 15, 16, 17, 18, 19, 20, 21, 22, 25].includes(id)) {
-      unsupported("7z file property semantics are unsupported.");
+      throw unsupported("7z file property semantics are unsupported.");
     }
     properties.set(id, cursor.take(cursor.number()));
   }
@@ -465,18 +473,18 @@ function files(
   const anti = bits(16, emptyCount);
   const names: string[] = [];
   const encoded = properties.get(17);
-  if (count > 0 && !encoded) unsupported("7z names must be present inline for this profile.");
+  if (count > 0 && !encoded) throw unsupported("7z names must be present inline for this profile.");
   if (encoded) {
     const field = new Cursor(encoded);
-    if (field.byte() !== 0) unsupported("7z external filename streams are unsupported.");
+    if (field.byte() !== 0) throw unsupported("7z external filename streams are unsupported.");
     for (let id = 0; id < count; id++) {
       const raw = field.name(admission.max.name);
-      if (raw.length === 0) unsupported("7z empty names are unsupported.");
+      if (raw.length === 0) throw unsupported("7z empty names are unsupported.");
       admission.copies(raw.length);
       try {
         names.push(new TextDecoder("utf-16le", { fatal: true, ignoreBOM: true }).decode(raw));
       } catch {
-        return unsupported("7z filename contains invalid UTF-16.");
+        throw unsupported("7z filename contains invalid UTF-16.");
       }
     }
     field.end();
@@ -488,7 +496,7 @@ function files(
     if (!value) continue;
     const field = new Cursor(value);
     const defined = field.defined(count);
-    if (field.byte() !== 0) unsupported("7z external attribute/time streams are unsupported.");
+    if (field.byte() !== 0) throw unsupported("7z external attribute/time streams are unsupported.");
     if (id === 21) attributes = defined.map((present) => present ? field.u32() : undefined);
     else {
       const values = defined.map((present) => present ? field.u64() : undefined);
@@ -503,18 +511,20 @@ function files(
 function codec(coder: SevenCoderType): Exclude<LzmaFormatType, { format: "alone" }> | undefined {
   const count = coder.method === "030101" ? 5 : coder.method === "21" ? 1 : 0;
   if (count === 0) return undefined;
-  if (coder.properties.length !== count * 2) invalid("7z LZMA coder property length is invalid.");
+  if (coder.properties.length !== count * 2) throw invalid("7z LZMA coder property length is invalid.");
   const bytes = new Uint8Array(count);
   for (let at = 0; at < count; at++) bytes[at] = Number.parseInt(coder.properties.slice(at * 2, at * 2 + 2), 16);
   if (coder.method === "030101") {
-    if (bytes.length !== 5 || bytes[0]! >= 225) invalid("7z LZMA1 properties must contain five valid bytes.");
+    if (bytes.length !== 5 || bytes[0]! >= 225) throw invalid("7z LZMA1 properties must contain five valid bytes.");
     const lc = bytes[0]! % 9;
     const lp = Math.floor(bytes[0]! / 9) % 5;
     if (lc + lp > 4) return undefined;
     return { format: "raw-lzma1", properties: bytes, marker: "optional" };
   }
   if (coder.method === "21") {
-    if (bytes.length !== 1 || bytes[0]! > 40) invalid("7z LZMA2 properties must contain one valid dictionary byte.");
+    if (bytes.length !== 1 || bytes[0]! > 40) {
+      throw invalid("7z LZMA2 properties must contain one valid dictionary byte.");
+    }
     return { format: "raw-lzma2", dictionary: bytes[0]! };
   }
   return undefined;
@@ -557,7 +567,7 @@ async function decode(
   decodedCredit = 0,
 ): Promise<{ bytes: Uint8Array; complete: boolean; packed: number; plain: number }> {
   const framing = codec(coder);
-  if (!framing) unsupported("7z coder is outside the supported LZMA profile.");
+  if (!framing) throw unsupported("7z coder is outside the supported LZMA profile.");
   if (selectedOutput) budget.output(length);
   signal?.throwIfAborted();
   const output = new Uint8Array(length);
@@ -569,7 +579,7 @@ async function decode(
     size: pack.size,
     stability: snapshot.stability ?? "caller",
     async read(at, count) {
-      if (at !== packedRead) invalid("7z decoder requested a nonsequential packed range.");
+      if (at !== packedRead) throw invalid("7z decoder requested a nonsequential packed range.");
       const bytes = await budget.read(add(pack.offset, at), count);
       packedState = crc32(bytes, packedState);
       packedRead += count;
@@ -641,7 +651,7 @@ async function decode(
   }
   reader.releaseLock();
   if (failed) throw primary;
-  if (complete && (at !== size || packedRead !== pack.size)) invalid("7z decoded extent is incomplete.");
+  if (complete && (at !== size || packedRead !== pack.size)) throw invalid("7z decoded extent is incomplete.");
   return { bytes: output, complete, packed: (packedState ^ 0xffffffff) >>> 0, plain: (plainState ^ 0xffffffff) >>> 0 };
 }
 
@@ -659,7 +669,7 @@ export async function openSeven(
     throw new TypeError("7z source identity must be a bounded string.");
   }
   if (!stability && !options.allowUnverifiedSource) {
-    unsupported("7z requires source stability or explicit unverified-source acceptance.");
+    throw unsupported("7z requires source stability or explicit unverified-source acceptance.");
   }
   const admission = new Admission(options);
   admission.copies(32);
@@ -681,18 +691,18 @@ export async function openSeven(
   const budget = new ArchiveBudget(snapshot, { ...options, ledger: lifetime }, options.signal);
   const signature = await budget.read(0, 32);
   budget.decoded(32);
-  const start = view(signature);
+  const start = createView(signature);
   if (![55, 122, 188, 175, 39, 28].every((byte, index) => signature[index] === byte)) {
-    invalid("7z signature must begin at source offset zero.");
+    throw invalid("7z signature must begin at source offset zero.");
   }
-  if (signature[6] !== 0 || signature[7] !== 4) unsupported("Only 7z archive version 0.4 is supported.");
+  if (signature[6] !== 0 || signature[7] !== 4) throw unsupported("Only 7z archive version 0.4 is supported.");
   if (checksum(signature.subarray(12, 32)) !== start.getUint32(8, true)) {
     throw new ArchiveError("checksum-mismatch", "7z start-header CRC mismatch.");
   }
   const headerAt = add(32, exact(start.getBigUint64(12, true)));
   const headerSize = exact(start.getBigUint64(20, true));
   if (headerAt > snapshot.size || headerSize !== snapshot.size - headerAt) {
-    invalid("7z next header must fit and end at the full source extent.");
+    throw invalid("7z next header must fit and end at the full source extent.");
   }
   admission.copies(headerSize);
   let bytes = await budget.read(headerAt, headerSize);
@@ -708,16 +718,16 @@ export async function openSeven(
     const data = streams(encoded, admission);
     encoded.end();
     if (data.folders.length !== 1 || data.sizes.length !== 1) {
-      unsupported("7z encoded header requires one folder/pack.");
+      throw unsupported("7z encoded header requires one folder/pack.");
     }
     const item = data.folders[0]!;
     if (item.coders.length !== 1 || item.streams.length !== 1 || !codec(item.coders[0]!)) {
-      unsupported("7z encoded header requires one supported LZMA coder/substream.");
+      throw unsupported("7z encoded header requires one supported LZMA coder/substream.");
     }
     const offset = add(32, data.position);
     const size = data.sizes[0]!;
     if (offset > headerAt || size !== headerAt - offset) {
-      invalid("7z encoded header pack must end at its outer header.");
+      throw invalid("7z encoded header pack must end at its outer header.");
     }
     const checks: { scope: SevenCheckType["scope"]; crc: number }[] = [];
     if (data.crcs[0] !== undefined) checks.push({ scope: "pack", crc: data.crcs[0]! });
@@ -725,7 +735,7 @@ export async function openSeven(
     if (item.streams[0]!.crc !== undefined && item.streams[0]!.origin !== "folder") {
       checks.push({ scope: "substream", crc: item.streams[0]!.crc! });
     }
-    if (!checks.some((check) => check.scope !== "pack")) unsupported("7z encoded header requires a decoded CRC.");
+    if (!checks.some((check) => check.scope !== "pack")) throw unsupported("7z encoded header requires a decoded CRC.");
     admission.copies(add(size, item.size));
     // Reserve the retained decoded header before allocation, including aggregate admission.
     // The relay consumes this credit, then charges any additional LZMA2 framing work once.
@@ -750,7 +760,7 @@ export async function openSeven(
       }
     }
     bytes = result.bytes;
-    if (bytes[0] !== 1) unsupported("7z decoded header must be one unencoded Header.");
+    if (bytes[0] !== 1) throw unsupported("7z decoded header must be one unencoded Header.");
     decodedHeader = Object.freeze({
       method: item.coders[0]!.method,
       integrity: "crc32-verified",
@@ -764,8 +774,8 @@ export async function openSeven(
   if (headerSize > 0) {
     const cursor = new Cursor(bytes);
     const marker = cursor.number();
-    if (marker === 23) unsupported("7z recursively encoded headers are unsupported.");
-    if (marker !== 1) unsupported("7z next-header profile is unsupported.");
+    if (marker === 23) throw unsupported("7z recursively encoded headers are unsupported.");
+    if (marker !== 1) throw unsupported("7z next-header profile is unsupported.");
     let tag = cursor.number();
     if (tag === 2) {
       while (true) {
@@ -776,22 +786,22 @@ export async function openSeven(
       }
       tag = cursor.number();
     }
-    if (tag === 3) unsupported("7z additional/external metadata streams are unsupported.");
+    if (tag === 3) throw unsupported("7z additional/external metadata streams are unsupported.");
     let streamData: ReturnType<typeof streams> = { position: 0, sizes: [], crcs: [], folders: [] };
     if (tag === 4) {
       streamData = streams(cursor, admission);
       tag = cursor.number();
     }
-    if (tag !== 5) unsupported("7z files metadata is required for this profile.");
+    if (tag !== 5) throw unsupported("7z files metadata is required for this profile.");
     const info = files(cursor, admission);
     cursor.expect(0);
     cursor.end();
     let physical = add(32, streamData.position);
-    if (physical > payloadEnd) invalid("7z pack base exceeds the payload region.");
+    if (physical > payloadEnd) throw invalid("7z pack base exceeds the payload region.");
     for (let id = 0; id < streamData.sizes.length; id++) {
       const size = streamData.sizes[id]!;
       if (physical > payloadEnd || size > payloadEnd - physical) {
-        invalid("7z packed stream exceeds the pre-header payload region.");
+        throw invalid("7z packed stream exceeds the pre-header payload region.");
       }
       const crc = streamData.crcs[id];
       packs.push(Object.freeze({ id, offset: physical, size, ...(crc === undefined ? {} : { crc }) }));
@@ -801,7 +811,7 @@ export async function openSeven(
       const item = streamData.folders[id]!;
       const pack = packs[id]!;
       const copy = item.coders.length === 1 && item.coders[0]!.method === "00" && item.coders[0]!.properties === "";
-      if (copy && item.size !== pack.size) invalid("7z COPY folder has different packed and unpacked sizes.");
+      if (copy && item.size !== pack.size) throw invalid("7z COPY folder has different packed and unpacked sizes.");
       const compressed = item.coders.length === 1 && codec(item.coders[0]!) !== undefined;
       const known = item.coders.every((coder) => ["00", "21", "030101", "040108", "040202"].includes(coder.method));
       const encrypted = item.coders.some((coder) => coder.method === "06f10701") ? true : known ? false : "unknown";
@@ -836,7 +846,7 @@ export async function openSeven(
       const emptyFile = isEmpty ? info.emptyFile[emptyIndex]! : false;
       const anti = isEmpty ? info.anti[emptyIndex++]! : false;
       const substream = isEmpty ? undefined : substreams[streamIndex++];
-      if (!isEmpty && !substream) invalid("7z file count exceeds available substreams.");
+      if (!isEmpty && !substream) throw invalid("7z file count exceeds available substreams.");
       let kind: SevenEntryType["kind"] = anti ? "anti" : isEmpty && !emptyFile ? "directory" : "file";
       if (attributes !== undefined) {
         const mode = (attributes >>> 16) & 0xf000;
@@ -862,8 +872,8 @@ export async function openSeven(
         }),
       );
     }
-    if (streamIndex !== substreams.length) invalid("7z substreams remain without file records.");
-  } else if (headerAt !== 32) unsupported("7z empty header with preceding packed data is unsupported.");
+    if (streamIndex !== substreams.length) throw invalid("7z substreams remain without file records.");
+  } else if (headerAt !== 32) throw unsupported("7z empty header with preceding packed data is unsupported.");
   return Object.freeze({
     entries: Object.freeze(entries),
     folders: Object.freeze(publicFolders),
@@ -891,16 +901,16 @@ export async function openSeven(
         inspect: () => lifetime.inspect(),
       };
       readOptions = { ...readOptions, ledger, ...(active === undefined ? {} : { signal: active }) };
-      integer(id, "Entry ID");
+      assertInteger(id, "Entry ID");
       const entry = entries[id];
       if (!entry) throw new RangeError("7z entry ID does not exist.");
       if (!entry.readable || entry.kind !== "file") {
-        unsupported("7z payload requires a regular supported single-substream file or an empty file.");
+        throw unsupported("7z payload requires a regular supported single-substream file or an empty file.");
       }
       const offset = readOptions.offset ?? 0;
       const length = readOptions.length ?? entry.size - offset;
-      integer(offset, "Member offset");
-      integer(length, "Member length");
+      assertInteger(offset, "Member offset");
+      assertInteger(length, "Member length");
       if (offset > entry.size || length > entry.size - offset) {
         throw new RangeError("7z requested range exceeds the file.");
       }

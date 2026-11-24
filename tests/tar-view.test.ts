@@ -3,8 +3,8 @@ import { expect } from "@std/expect";
 import { decodeBase64 } from "@std/encoding/base64";
 import { createFileSystem } from "../mod.ts";
 import { createBlobSource } from "../src/source.ts";
-import { openTar } from "../src/archive/tar.ts";
-import type { TarArchiveType, TarEntryType } from "../src/archive/tar.ts";
+import { openTar } from "../src/archive/tar/mod.ts";
+import type { TarArchiveType, TarEntryType } from "../src/archive/tar/mod.ts";
 import { createTarAdapter } from "../src/view/tar.ts";
 import fixtures from "./fixtures/tar/independent.json" with { type: "json" };
 

@@ -1,9 +1,9 @@
 /** Public ArFS 0.15 metadata and selected file bytes over an explicit supplied inventory. @module */
 import { z } from "zod";
 import { isBytes, toView } from "../bytes.ts";
-import { sourceRange } from "../source.ts";
+import { assertExtent } from "../source.ts";
 import type { ByteSourceType } from "../source.ts";
-import { ArchiveError, createArchiveLedger, integer } from "../archive/record.ts";
+import { ArchiveError, assertInteger, createArchiveLedger, invalid, unsupported } from "../archive/record.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
 export { ArchiveError, createArchiveLedger } from "../archive/record.ts";
 
@@ -144,12 +144,6 @@ const fileSchema: z.ZodObject<
   lastModifiedDate: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
   pinnedDataOwner: z.string().optional(),
 });
-function invalid(message: string): never {
-  throw new ArchiveError("invalid-archive", message);
-}
-function unsupported(message: string): never {
-  throw new ArchiveError("unsupported-profile", message);
-}
 function cap(value: number, maximum: number, name: string): void {
   if (value > maximum) throw new ArchiveError("budget-exceeded", `${name} exceeded.`);
 }
@@ -157,21 +151,21 @@ function cap(value: number, maximum: number, name: string): void {
 function utf8(value: string, maximum: number, name: string): number {
   if (typeof value !== "string") throw new TypeError(`${name} must be a string.`);
   cap(value.length, maximum, name);
-  if (!value.isWellFormed()) invalid(`${name} has unpaired UTF16 surrogates.`);
+  if (!value.isWellFormed()) throw invalid(`${name} has unpaired UTF16 surrogates.`);
   const length = new TextEncoder().encode(value).byteLength;
   cap(length, maximum, name);
   return length;
 }
 function uuid(value: string): string {
   if (typeof value !== "string" || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(value)) {
-    invalid("ArFS requires a UUID, not a path or encrypted sentinel.");
+    throw invalid("ArFS requires a UUID, not a path or encrypted sentinel.");
   }
   return value.toLowerCase();
 }
 /** A canonical 32-byte base64url identifier remains an assertion without transaction verification. */
 function txid(value: string): string {
   if (typeof value !== "string" || !/^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/.test(value)) {
-    invalid("ArFS transaction/owner ID requires canonical 32-byte base64url.");
+    throw invalid("ArFS transaction/owner ID requires canonical 32-byte base64url.");
   }
   return value;
 }
@@ -182,11 +176,11 @@ interface StableSourceType extends ByteSourceType {
 }
 function capture(source: ByteSourceType): StableSourceType {
   const { size, identity, stability, read } = source;
-  integer(size, "ArFS source size");
+  assertInteger(size, "ArFS source size");
   if (
     typeof identity !== "string" || !identity.length ||
     (stability !== "immutable" && stability !== "provider" && stability !== "caller")
-  ) unsupported("ArFS requires explicit stable source identity and evidence.");
+  ) throw unsupported("ArFS requires explicit stable source identity and evidence.");
   utf8(identity, 65536, "ArFS source identity");
   if (typeof read !== "function") throw new TypeError("ArFS source must provide read.");
   return Object.freeze({ size, identity, stability, read: read.bind(source) });
@@ -209,7 +203,7 @@ async function collect(
   metadata: boolean,
 ): Promise<ArfsReadType> {
   signal?.throwIfAborted();
-  sourceRange(source.size, offset, length);
+  assertExtent(source.size, offset, length);
   cap(length, metadata ? 4 * 1024 * 1024 : 16 * 1024 * 1024, "ArFS collected extent");
   const work = {
     sourceBytes: length,
@@ -226,9 +220,9 @@ async function collect(
     const count = Math.min(65536, length - at);
     const value = await source.read(offset + at, count, signal ? { signal } : {});
     signal?.throwIfAborted();
-    if (!isBytes(value)) invalid("ArFS source returned a non-byte extent.");
+    if (!isBytes(value)) throw invalid("ArFS source returned a non-byte extent.");
     const view = toView(value);
-    if (view.byteLength !== count) invalid("ArFS source returned a different extent.");
+    if (view.byteLength !== count) throw invalid("ArFS source returned a different extent.");
     bytes.set(view, at);
     at += count;
   }
@@ -242,7 +236,7 @@ function jsonOf(text: string, depth: number, tokens: number, stringBytes: number
     while (/[ \t\r\n]/.test(text[at] ?? "x")) at++;
   };
   function string(): string {
-    if (text[at++] !== '"') invalid("Expected JSON string.");
+    if (text[at++] !== '"') throw invalid("Expected JSON string.");
     const start = at - 1;
     while (at < text.length) {
       const c = text[at++];
@@ -256,14 +250,14 @@ function jsonOf(text: string, depth: number, tokens: number, stringBytes: number
         try {
           value = JSON.parse(text.slice(start, at));
         } catch {
-          invalid("Malformed JSON string.");
+          throw invalid("Malformed JSON string.");
         }
-        if (typeof value !== "string") invalid("Malformed JSON string.");
+        if (typeof value !== "string") throw invalid("Malformed JSON string.");
         utf8(value, stringBytes, "ArFS JSON string");
         return value;
       }
     }
-    invalid("Unterminated JSON string.");
+    throw invalid("Unterminated JSON string.");
   }
   function value(level: number, authorityKey?: string): void {
     cap(level, depth, "ArFS JSON depth");
@@ -281,16 +275,16 @@ function jsonOf(text: string, depth: number, tokens: number, stringBytes: number
         cap(++count, tokens, "ArFS JSON keys");
         whitespace();
         const key = string();
-        if (keys.has(key)) invalid("Duplicate decoded JSON object key.");
-        if (key === "__proto__") invalid("Reserved JSON dictionary key.");
+        if (keys.has(key)) throw invalid("Duplicate decoded JSON object key.");
+        if (key === "__proto__") throw invalid("Reserved JSON dictionary key.");
         keys.add(key);
         whitespace();
-        if (text[at++] !== ":") invalid("Expected JSON colon.");
+        if (text[at++] !== ":") throw invalid("Expected JSON colon.");
         value(level + 1, level === 0 ? key : undefined);
         whitespace();
         const end = text[at++];
         if (end === "}") return;
-        if (end !== ",") invalid("Expected JSON object delimiter.");
+        if (end !== ",") throw invalid("Expected JSON object delimiter.");
       }
     }
     if (text[at] === "[") {
@@ -305,7 +299,7 @@ function jsonOf(text: string, depth: number, tokens: number, stringBytes: number
         whitespace();
         const end = text[at++];
         if (end === "]") return;
-        if (end !== ",") invalid("Expected JSON array delimiter.");
+        if (end !== ",") throw invalid("Expected JSON array delimiter.");
       }
     }
     if (text[at] === '"') {
@@ -314,7 +308,7 @@ function jsonOf(text: string, depth: number, tokens: number, stringBytes: number
     }
     const start = at;
     while (at < text.length && !/[ \t\r\n,}\]]/.test(text[at]!)) at++;
-    if (start === at) invalid("Missing JSON value.");
+    if (start === at) throw invalid("Missing JSON value.");
     // Number() would round fractions/underflow to valid-looking integer authority.
     // Only these direct root fields use the narrower decimal-integer writer profile.
     if (fileAuthority && (authorityKey === "size" || authorityKey === "lastModifiedDate")) {
@@ -323,17 +317,17 @@ function jsonOf(text: string, depth: number, tokens: number, stringBytes: number
         !/^(?:0|[1-9][0-9]*)$/.test(token) || token.length > maximum.length ||
         (token.length === maximum.length && token > maximum)
       ) {
-        invalid(`ArFS ${authorityKey} requires an exact safe decimal integer token.`);
+        throw invalid(`ArFS ${authorityKey} requires an exact safe decimal integer token.`);
       }
     }
   }
   value(0);
   whitespace();
-  if (at !== text.length) invalid("Trailing JSON bytes.");
+  if (at !== text.length) throw invalid("Trailing JSON bytes.");
   try {
     return JSON.parse(text);
   } catch {
-    invalid("Malformed ArFS JSON.");
+    throw invalid("Malformed ArFS JSON.");
   }
 }
 
@@ -365,7 +359,7 @@ export async function openArfs(input: ArfsInputType, options: ArfsOptionsType = 
     tokens: 1000000,
   };
   for (const [key, n] of Object.entries(policy)) {
-    integer(n, key);
+    assertInteger(n, key);
     cap(n, hard[key as keyof typeof hard], `ArFS ${key} policy ceiling`);
   }
   options.signal?.throwIfAborted();
@@ -411,7 +405,7 @@ export async function openArfs(input: ArfsInputType, options: ArfsOptionsType = 
     const { transactionId, owner, tags, source } = descriptor;
     txid(transactionId);
     txid(owner);
-    if (txids.has(transactionId)) invalid("Duplicate selected metadata transaction ID.");
+    if (txids.has(transactionId)) throw invalid("Duplicate selected metadata transaction ID.");
     txids.add(transactionId);
     if (!Array.isArray(tags)) throw new TypeError("ArFS decoded tags must be an array.");
     const tagCount = tags.length;
@@ -423,7 +417,7 @@ export async function openArfs(input: ArfsInputType, options: ArfsOptionsType = 
       const { name, value } = tags[tagIndex]!;
       tagBytes += utf8(name, policy.tag, "ArFS tag name") + utf8(value, policy.tag, "ArFS tag value");
       cap(tagBytes, policy.tagTotal, "ArFS aggregate tags");
-      if (singular.has(name) && values.has(name)) invalid(`Duplicate ArFS authority tag ${name}.`);
+      if (singular.has(name) && values.has(name)) throw invalid(`Duplicate ArFS authority tag ${name}.`);
       values.set(name, value);
       copied.push(Object.freeze({ name, value }));
     }
@@ -454,30 +448,30 @@ export async function openArfs(input: ArfsInputType, options: ArfsOptionsType = 
   for (const [index, record] of records.entries()) {
     const tag = (name: string): string => {
       const value = record.authority.get(name);
-      if (value === undefined) invalid(`Missing ArFS ${name} tag.`);
+      if (value === undefined) throw invalid(`Missing ArFS ${name} tag.`);
       return value;
     };
-    if (tag("ArFS") !== "0.15") unsupported("Only explicitly selected ArFS 0.15 metadata is supported.");
+    if (tag("ArFS") !== "0.15") throw unsupported("Only explicitly selected ArFS 0.15 metadata is supported.");
     if (
       tag("Content-Type") !== "application/json" || record.authority.has("Cipher") || record.authority.has("Cipher-IV")
-    ) unsupported("Only unencrypted public ArFS JSON is supported.");
+    ) throw unsupported("Only unencrypted public ArFS JSON is supported.");
     const kind = tag("Entity-Type");
     if (!["drive", "folder", "file"].includes(kind)) {
-      unsupported("ArFS snapshots, state and other entity types are not this profile.");
+      throw unsupported("ArFS snapshots, state and other entity types are not this profile.");
     }
     if ((index === 0) !== (kind === "drive")) {
-      invalid("ArFS inventory must select one drive followed by folder/file revisions.");
+      throw invalid("ArFS inventory must select one drive followed by folder/file revisions.");
     }
     if (kind === "drive" && tag("Drive-Privacy") !== "public") {
-      unsupported("Private drives require a separate authenticated decryption profile.");
+      throw unsupported("Private drives require a separate authenticated decryption profile.");
     }
     const driveId = uuid(tag("Drive-Id"));
     const id = kind === "drive" ? driveId : uuid(tag(kind === "file" ? "File-Id" : "Folder-Id"));
-    if (logical.has(id)) invalid("Duplicate selected logical UUID (case-insensitive).");
+    if (logical.has(id)) throw invalid("Duplicate selected logical UUID (case-insensitive).");
     logical.add(id);
     const rawTime = tag("Unix-Time");
     if (!/^(?:0|[1-9][0-9]*)$/.test(rawTime) || !Number.isSafeInteger(Number(rawTime))) {
-      invalid("ArFS Unix-Time must be nonnegative safe integer seconds.");
+      throw invalid("ArFS Unix-Time must be nonnegative safe integer seconds.");
     }
     // Pre-reserved opening work is charged only once; collection still validates all native byte extents.
     const collected = await collect(record.source, 0, record.source.size, [], options.signal, true);
@@ -486,12 +480,12 @@ export async function openArfs(input: ArfsInputType, options: ArfsOptionsType = 
     try {
       text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(collected.bytes);
     } catch {
-      invalid("ArFS metadata requires strict UTF8.");
+      throw invalid("ArFS metadata requires strict UTF8.");
     }
-    if (text.charCodeAt(0) === 0xfeff) invalid("ArFS JSON BOM is outside this profile.");
+    if (text.charCodeAt(0) === 0xfeff) throw invalid("ArFS JSON BOM is outside this profile.");
     const parsed = jsonOf(text, policy.depth, policy.tokens, policy.metadata, kind === "file");
     const base = entitySchema.safeParse(parsed);
-    if (!base.success) invalid("Malformed ArFS name or isHidden field.");
+    if (!base.success) throw invalid("Malformed ArFS name or isHidden field.");
     utf8(base.data.name, policy.name, "ArFS literal name");
     const parentRaw = record.authority.get("Parent-Folder-Id");
     const parentId = parentRaw === undefined ? undefined : uuid(parentRaw);
@@ -513,29 +507,31 @@ export async function openArfs(input: ArfsInputType, options: ArfsOptionsType = 
       ...(parentId === undefined ? {} : { parentId }),
     };
     if (kind === "drive") {
-      if (parentId !== undefined) invalid("Drive metadata cannot select a parent folder.");
+      if (parentId !== undefined) throw invalid("Drive metadata cannot select a parent folder.");
       const drive = driveSchema.safeParse(parsed);
-      if (!drive.success) invalid("ArFS drive requires rootFolderId.");
+      if (!drive.success) throw invalid("ArFS drive requires rootFolderId.");
       output.push(Object.freeze({ ...common, kind: "drive", rootFolderId: uuid(drive.data.rootFolderId) }));
     } else if (kind === "folder") output.push(Object.freeze({ ...common, kind: "folder" }));
     else {
-      if (parentId === undefined) invalid("ArFS file requires Parent-Folder-Id.");
+      if (parentId === undefined) throw invalid("ArFS file requires Parent-Folder-Id.");
       const file = fileSchema.safeParse(parsed);
-      if (!file.success) invalid("Malformed public ArFS file authority fields.");
+      if (!file.success) throw invalid("Malformed public ArFS file authority fields.");
       txid(file.data.dataTxId);
       utf8(file.data.dataContentType, policy.tag, "ArFS data content type");
       if (file.data.pinnedDataOwner !== undefined) txid(file.data.pinnedDataOwner);
       const pin = record.authority.get("Pinned-Data-Tx");
-      if (pin !== undefined && txid(pin) !== file.data.dataTxId) invalid("Pinned-Data-Tx differs from file dataTxId.");
+      if (pin !== undefined && txid(pin) !== file.data.dataTxId) {
+        throw invalid("Pinned-Data-Tx differs from file dataTxId.");
+      }
       const { pinnedDataOwner, ...fields } = file.data;
       // File data admission does not acquire bytes and cannot infer provenance from an ID.
       const binding = (data: ArfsDataInputType): StableSourceType => {
         options.signal?.throwIfAborted();
         if (txid(data.transactionId) !== fields.dataTxId) {
-          invalid("Explicit data transaction ID differs from selected metadata.");
+          throw invalid("Explicit data transaction ID differs from selected metadata.");
         }
         const source = capture(data.source);
-        if (source.size !== fields.size) invalid("Explicit data size differs from selected metadata.");
+        if (source.size !== fields.size) throw invalid("Explicit data size differs from selected metadata.");
         return source;
       };
       const read = async (
@@ -585,21 +581,23 @@ export async function openArfs(input: ArfsInputType, options: ArfsOptionsType = 
     }
   }
   const drive = output[0];
-  if (drive?.kind !== "drive") invalid("Missing selected drive.");
+  if (drive?.kind !== "drive") throw invalid("Missing selected drive.");
   const entities = output.slice(1) as (ArfsFolderType | ArfsFileType)[];
   const byId = new Map(entities.map((e) => [e.id, e]));
   const issues: ArfsIssueType[] = [];
   const root = byId.get(drive.rootFolderId);
   if (!root) issues.push(Object.freeze({ code: "missing-root-folder", id: drive.rootFolderId }));
-  else if (root.kind !== "folder" || root.parentId !== undefined) invalid("Selected root must be a parentless folder.");
+  else if (root.kind !== "folder" || root.parentId !== undefined) {
+    throw invalid("Selected root must be a parentless folder.");
+  }
   // Linear coloring bounds parent traversal even when the supplied inventory contains a long chain.
   const done = new Set<string>();
   for (const entity of entities) {
     if (entity.driveId !== drive.id || entity.owner !== drive.owner) {
-      invalid("Selected entity belongs to a different drive or metadata owner.");
+      throw invalid("Selected entity belongs to a different drive or metadata owner.");
     }
     if (entity.kind === "folder" && entity.id !== drive.rootFolderId && entity.parentId === undefined) {
-      invalid("Nonroot folder requires a parent.");
+      throw invalid("Nonroot folder requires a parent.");
     }
     if (entity.parentId && !byId.has(entity.parentId)) {
       issues.push(Object.freeze({ code: "missing-parent", id: entity.id }));
@@ -607,12 +605,12 @@ export async function openArfs(input: ArfsInputType, options: ArfsOptionsType = 
     const path = new Set<string>();
     let current: ArfsFolderType | ArfsFileType | undefined = entity;
     while (current && !done.has(current.id)) {
-      if (path.has(current.id)) invalid("Cycle in supplied ArFS folder references.");
+      if (path.has(current.id)) throw invalid("Cycle in supplied ArFS folder references.");
       path.add(current.id);
       const parent: ArfsFolderType | ArfsFileType | undefined = current.parentId === undefined
         ? undefined
         : byId.get(current.parentId);
-      if (parent && parent.kind !== "folder") invalid("ArFS parent identity selects a file.");
+      if (parent && parent.kind !== "folder") throw invalid("ArFS parent identity selects a file.");
       current = parent;
     }
     for (const id of path) done.add(id);
@@ -629,13 +627,13 @@ export async function openArfs(input: ArfsInputType, options: ArfsOptionsType = 
     file(id: string): ArfsFileType {
       options.signal?.throwIfAborted();
       const entity = byId.get(uuid(id));
-      if (entity?.kind !== "file") invalid("File UUID has no selected file revision.");
+      if (entity?.kind !== "file") throw invalid("File UUID has no selected file revision.");
       return entity;
     },
     list(folderId: string) {
       options.signal?.throwIfAborted();
       const id = uuid(folderId);
-      if (byId.get(id)?.kind !== "folder") invalid("Folder UUID has no selected folder revision.");
+      if (byId.get(id)?.kind !== "folder") throw invalid("Folder UUID has no selected folder revision.");
       return Object.freeze({
         scope: "supplied-selected-revisions" as const,
         entries: Object.freeze(frozen.filter((e) => e.parentId === id)),

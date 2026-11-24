@@ -3,11 +3,11 @@ import type { ByteSourceType } from "../source.ts";
 import {
   ArchiveBudget,
   ArchiveError,
+  assertInteger,
   createArchiveLedger,
-  integer,
+  createView,
   invalid,
   unsupported,
-  view,
 } from "../archive/record.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
 export { ArchiveError, createArchiveLedger } from "../archive/record.ts";
@@ -133,7 +133,7 @@ function limit(label: string): never {
 }
 function exact(value: bigint, label: string): number {
   if (value < 0n || value > BigInt(Number.MAX_SAFE_INTEGER)) {
-    invalid(`ORC ${label} exceeds exact nonnegative integers.`);
+    throw invalid(`ORC ${label} exceeds exact nonnegative integers.`);
   }
   return Number(value);
 }
@@ -183,11 +183,11 @@ class Wire {
     this.depth = depth;
   }
   byte(): number {
-    if (this.at >= this.bytes.length) invalid("ORC wire value is truncated.");
+    if (this.at >= this.bytes.length) throw invalid("ORC wire value is truncated.");
     return this.bytes[this.at++]!;
   }
   take(count: number): Uint8Array {
-    if (count > this.bytes.length - this.at) invalid("ORC wire extent is truncated.");
+    if (count > this.bytes.length - this.at) throw invalid("ORC wire extent is truncated.");
     const result = this.bytes.subarray(this.at, this.at + count);
     this.at += count;
     return result;
@@ -198,13 +198,13 @@ class Wire {
       this.meter.step();
       const byte = this.byte();
       value |= BigInt(byte & 127) << BigInt(shift);
-      if (value >= (1n << BigInt(bits))) invalid("ORC varint exceeds its declared width.");
+      if (value >= (1n << BigInt(bits))) throw invalid("ORC varint exceeds its declared width.");
       if (byte < 128) return value;
     }
-    invalid("ORC varint has no terminator within its declared width.");
+    throw invalid("ORC varint has no terminator within its declared width.");
   }
   type(actual: number, expected: number): void {
-    if (actual !== expected) invalid("ORC Protobuf field wire type mismatch.");
+    if (actual !== expected) throw invalid("ORC Protobuf field wire type mismatch.");
   }
   number(type: number, bits = 64): number {
     this.type(type, 0);
@@ -224,14 +224,14 @@ class Wire {
     try {
       return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
     } catch {
-      invalid("ORC metadata string is not UTF-8.");
+      throw invalid("ORC metadata string is not UTF-8.");
     }
   }
   fields(known: Readonly<Record<number, (type: number) => void>>): void {
     while (this.at < this.bytes.length) {
       this.meter.step();
       const tag = this.uint(32), id = Number(tag >> 3n), type = Number(tag & 7n);
-      if (id === 0 || id > 0x1fffffff || type > 5) invalid("ORC Protobuf tag is invalid.");
+      if (id === 0 || id > 0x1fffffff || type > 5) throw invalid("ORC Protobuf tag is invalid.");
       const read = Object.hasOwn(known, id) ? known[id] : undefined;
       if (read) read(type);
       else this.skip(type);
@@ -242,7 +242,7 @@ class Wire {
     else if (type === 1) this.take(8);
     else if (type === 2) this.binary(type);
     else if (type === 5) this.take(4);
-    else unsupported("ORC deprecated Protobuf groups are outside this profile.");
+    else throw unsupported("ORC deprecated Protobuf groups are outside this profile.");
   }
   integers(type: number, target: number[], maximum: number): void {
     const append = (cursor: Wire): void => {
@@ -323,8 +323,12 @@ function stripe(cursor: Wire): StripeType {
     5: (t) => {
       rows = cursor.number(t);
     },
-    6: () => unsupported("ORC encryption stripe IDs are outside this profile."),
-    7: () => unsupported("ORC encrypted local keys are unsupported."),
+    6: () => {
+      throw unsupported("ORC encryption stripe IDs are outside this profile.");
+    },
+    7: () => {
+      throw unsupported("ORC encrypted local keys are unsupported.");
+    },
   });
   return { offset, index, data, footer, rows };
 }
@@ -344,9 +348,9 @@ function stream(cursor: Wire): Omit<StreamType, "offset"> {
     },
   });
   if (kind === 9 || kind === 10 || kind >= 100) {
-    unsupported("ORC encrypted/statistics virtual streams are unsupported.");
+    throw unsupported("ORC encrypted/statistics virtual streams are unsupported.");
   }
-  if (kind > 8) unsupported("ORC stream kind is unsupported.");
+  if (kind > 8) throw unsupported("ORC stream kind is unsupported.");
   return { kind, column, length };
 }
 /** The encoding kind is a scalar; duplicate instances inside this message use Protobuf last-wins. */
@@ -379,7 +383,7 @@ function values(kind: number, count: number): OrcValuesType {
   if (kind === 4) return new BigInt64Array(count);
   if (kind === 5) return new Float32Array(count);
   if (kind === 6) return new Float64Array(count);
-  unsupported("ORC column is outside the physical numeric profile.");
+  throw unsupported("ORC column is outside the physical numeric profile.");
 }
 
 /** Byte RLE expands at most 130 bytes per run; its terminal check rejects hidden extra runs. */
@@ -402,7 +406,7 @@ class Bytes {
   }
   end(): void {
     if (this.#remaining !== 0 || this.cursor.at !== this.cursor.bytes.length) {
-      invalid("ORC byte RLE has excess values or trailing runs.");
+      throw invalid("ORC byte RLE has excess values or trailing runs.");
     }
   }
 }
@@ -463,7 +467,7 @@ class Integers {
   }
   end(): void {
     if (this.#remaining !== 0 || this.cursor.at !== this.cursor.bytes.length) {
-      invalid("ORC integer RLE has excess values or trailing runs.");
+      throw invalid("ORC integer RLE has excess values or trailing runs.");
     }
   }
 }
@@ -478,14 +482,16 @@ export async function openOrc(input: ByteSourceType, supplied: OrcOpenOptionsTyp
     throw new TypeError("ORC unverified-source policy must be boolean.");
   }
   const { size, identity, stability } = input;
-  integer(size, "ORC source size");
+  assertInteger(size, "ORC source size");
   if (identity !== undefined && (typeof identity !== "string" || identity.length > 8192)) {
     throw new TypeError("ORC identity must be a bounded string.");
   }
   if (stability !== undefined && !["immutable", "provider", "caller"].includes(stability)) {
     throw new TypeError("Unknown ORC source stability.");
   }
-  if (stability === undefined && !options.allowUnverifiedSource) unsupported("ORC requires stable replay evidence.");
+  if (stability === undefined && !options.allowUnverifiedSource) {
+    throw unsupported("ORC requires stable replay evidence.");
+  }
   const source: ByteSourceType = Object.freeze({
     size,
     ...(identity === undefined ? {} : { identity }),
@@ -505,7 +511,7 @@ export async function openOrc(input: ByteSourceType, supplied: OrcOpenOptionsTyp
     rows: options.maxRows ?? 1048576,
     steps: options.maxSteps ?? 8388608,
   };
-  for (const [name, count] of Object.entries(policy)) integer(count, `ORC maximum ${name}`);
+  for (const [name, count] of Object.entries(policy)) assertInteger(count, `ORC maximum ${name}`);
   const captured = new WeakMap<ArchiveLedgerType, ArchiveLedgerType>();
   const capture = (owner: ArchiveLedgerType | undefined): ArchiveLedgerType | undefined => {
     if (!owner) return undefined;
@@ -540,11 +546,11 @@ export async function openOrc(input: ByteSourceType, supplied: OrcOpenOptionsTyp
     options.signal?.throwIfAborted();
     return (await budget.read(offset, count)).slice();
   };
-  if (size < 4) invalid("ORC file is too short.");
+  if (size < 4) throw invalid("ORC file is too short.");
   const header = await metadata(0, 3);
-  if (header[0] !== 79 || header[1] !== 82 || header[2] !== 67) invalid("ORC header magic is absent.");
+  if (header[0] !== 79 || header[1] !== 82 || header[2] !== 67) throw invalid("ORC header magic is absent.");
   const postLength = (await metadata(size - 1, 1))[0]!;
-  if (postLength === 0 || postLength > size - 4) invalid("ORC postscript extent is invalid.");
+  if (postLength === 0 || postLength > size - 4) throw invalid("ORC postscript extent is invalid.");
   const postOffset = size - 1 - postLength, post = new Wire(await metadata(postOffset, postLength), meter);
   let footerLength = 0, metadataLength = 0, compression = 0;
   meter.retain(32);
@@ -563,20 +569,20 @@ export async function openOrc(input: ByteSourceType, supplied: OrcOpenOptionsTyp
       metadataLength = post.number(t);
     },
     7: (t) => {
-      if (post.number(t) !== 0) unsupported("ORC encrypted stripe statistics are unsupported.");
+      if (post.number(t) !== 0) throw unsupported("ORC encrypted stripe statistics are unsupported.");
     },
     8000: (t) => {
-      if (post.text(t) !== "ORC") invalid("ORC postscript magic disagrees with its header.");
+      if (post.text(t) !== "ORC") throw invalid("ORC postscript magic disagrees with its header.");
     },
   });
-  if (compression !== 0) unsupported("ORC generic compression is outside this profile.");
+  if (compression !== 0) throw unsupported("ORC generic compression is outside this profile.");
   if (version.length !== 2 || version[0] !== 0 || (version[1] !== 11 && version[1] !== 12)) {
-    unsupported("ORC file version is unsupported.");
+    throw unsupported("ORC file version is unsupported.");
   }
   const formatVersion = version[1] === 11 ? "0.11" : "0.12";
   if (footerLength > policy.footer) limit("File footer byte");
   const tailLength = exact(BigInt(footerLength) + BigInt(metadataLength), "tail length");
-  if (footerLength === 0 || tailLength > postOffset - 3) invalid("ORC footer/metadata extents are invalid.");
+  if (footerLength === 0 || tailLength > postOffset - 3) throw invalid("ORC footer/metadata extents are invalid.");
   const footerOffset = postOffset - footerLength, metadataStart = postOffset - tailLength;
   const footer = new Wire(await metadata(footerOffset, footerLength), meter);
   let headerLength = 0, contentLength = 0, rows = 0;
@@ -600,9 +606,11 @@ export async function openOrc(input: ByteSourceType, supplied: OrcOpenOptionsTyp
     6: (t) => {
       rows = footer.number(t);
     },
-    10: () => unsupported("ORC encrypted/masked footers are unsupported."),
+    10: () => {
+      throw unsupported("ORC encrypted/masked footers are unsupported.");
+    },
   });
-  if (headerLength !== 3) unsupported("ORC profile requires a three-byte header.");
+  if (headerLength !== 3) throw unsupported("ORC profile requires a three-byte header.");
   // The prose includes the header; the official C++ writer excludes it. Both
   // exact conventions are observable; neither relaxes the independent extents.
   const contentLengthBasis = contentLength === metadataStart
@@ -610,21 +618,21 @@ export async function openOrc(input: ByteSourceType, supplied: OrcOpenOptionsTyp
     : BigInt(contentLength) + BigInt(headerLength) === BigInt(metadataStart)
     ? "body"
     : undefined;
-  if (!contentLengthBasis) invalid("ORC declared content length disagrees with its tail.");
+  if (!contentLengthBasis) throw invalid("ORC declared content length disagrees with its tail.");
   const root = types[0];
   if (
     !root || root.kind !== 12 || root.names.length !== root.children.length || root.children.length !== types.length - 1
-  ) unsupported("ORC requires a flat STRUCT root.");
+  ) throw unsupported("ORC requires a flat STRUCT root.");
   meter.retain(types.length * 16 + 64);
   const seen = new Set<number>(), columns: OrcColumnType[] = [];
   for (let index = 0; index < root.children.length; index++) {
     const id = root.children[index]!, child = types[id];
-    if (id === 0 || !child || seen.has(id)) invalid("ORC schema child ID is invalid or repeated.");
+    if (id === 0 || !child || seen.has(id)) throw invalid("ORC schema child ID is invalid or repeated.");
     seen.add(id);
     if (
       child.children.length || child.names.length || child.kind === 12 || child.kind === 10 || child.kind === 11 ||
       child.kind === 13
-    ) unsupported("ORC nested schemas are unsupported.");
+    ) throw unsupported("ORC nested schemas are unsupported.");
     meter.retain(96);
     const supported = width(child.kind) !== 0;
     columns.push(
@@ -647,7 +655,7 @@ export async function openOrc(input: ByteSourceType, supplied: OrcOpenOptionsTyp
       "stripe end",
     );
     if (stripe.offset !== end || next > metadataStart || stripe.footer === 0) {
-      invalid("ORC stripes overlap, contain unsupported padding, or exceed the body.");
+      throw invalid("ORC stripes overlap, contain unsupported padding, or exceed the body.");
     }
     meter.retain(96);
     stripes.push(
@@ -664,7 +672,9 @@ export async function openOrc(input: ByteSourceType, supplied: OrcOpenOptionsTyp
     rowOffset = exact(BigInt(rowOffset) + BigInt(stripe.rows), "row count");
     end = next;
   }
-  if (end !== metadataStart || rowOffset !== rows) invalid("ORC stripes disagree with body extent or file row count.");
+  if (end !== metadataStart || rowOffset !== rows) {
+    throw invalid("ORC stripes disagree with body extent or file row count.");
+  }
   options.signal?.throwIfAborted();
   return Object.freeze({
     rows,
@@ -676,17 +686,17 @@ export async function openOrc(input: ByteSourceType, supplied: OrcOpenOptionsTyp
     work: Object.freeze(budget.inspect()),
     async read(columnId: number, supplied: OrcReadOptionsType = {}): Promise<OrcReadType> {
       const opts = { ...supplied };
-      integer(columnId, "ORC column ID");
+      assertInteger(columnId, "ORC column ID");
       const column = columns.find((column) => column.id === columnId);
       if (!column) throw new RangeError("ORC column ID is absent.");
-      if (!column.supported) unsupported(column.reason!);
+      if (!column.supported) throw unsupported(column.reason!);
       const signal = options.signal && opts.signal
         ? AbortSignal.any([options.signal, opts.signal])
         : options.signal ?? opts.signal;
       signal?.throwIfAborted();
       const offset = opts.offset ?? 0, length = opts.length ?? rows - offset;
-      integer(offset, "ORC row offset");
-      integer(length, "ORC row length");
+      assertInteger(offset, "ORC row offset");
+      assertInteger(length, "ORC row length");
       if (offset > rows || length > rows - offset) throw new RangeError("ORC row selection exceeds the file.");
       if (length > policy.rows) limit("Returned row");
       const owners = together([lifetime, opening, capture(opts.ledger)], signal);
@@ -724,17 +734,19 @@ export async function openOrc(input: ByteSourceType, supplied: OrcOpenOptionsTyp
             streams.push(stream(cursor.message(t)));
           },
           2: (t) => {
-            if (encodings.length >= types.length) invalid("ORC stripe has excess column encodings.");
+            if (encodings.length >= types.length) throw invalid("ORC stripe has excess column encodings.");
             encodings.push(encoding(cursor.message(t)));
           },
           3: (t) => {
             cursor.text(t);
           },
-          4: () => unsupported("ORC encrypted stripe variants are unsupported."),
+          4: () => {
+            throw unsupported("ORC encrypted stripe variants are unsupported.");
+          },
         });
-        if (encodings.length !== types.length) invalid("ORC stripe encoding count disagrees with schema.");
+        if (encodings.length !== types.length) throw invalid("ORC stripe encoding count disagrees with schema.");
         if (encodings[column.id] !== 0) {
-          unsupported("ORC selected column requires DIRECT encoding; RLEv2/dictionaries are unsupported.");
+          throw unsupported("ORC selected column requires DIRECT encoding; RLEv2/dictionaries are unsupported.");
         }
         let at = stripe.offset, indexBytes = 0;
         const dataStart = stripe.offset + stripe.indexBytes, footerStart = dataStart + stripe.dataBytes;
@@ -744,28 +756,30 @@ export async function openOrc(input: ByteSourceType, supplied: OrcOpenOptionsTyp
         for (const stream of streams) {
           const identity = `${stream.column}:${stream.kind}`;
           if (stream.column >= types.length || identities.has(identity)) {
-            invalid("ORC stream column/kind is invalid or repeated.");
+            throw invalid("ORC stream column/kind is invalid or repeated.");
           }
           identities.add(identity);
           const next = exact(BigInt(at) + BigInt(stream.length), "stream end");
           const indexStream = stream.kind >= 6;
           if (indexStream) {
-            if (at > dataStart || next > dataStart) invalid("ORC index stream exceeds its declared section.");
+            if (at > dataStart || next > dataStart) throw invalid("ORC index stream exceeds its declared section.");
             indexBytes = exact(BigInt(indexBytes) + BigInt(stream.length), "index stream bytes");
-          } else if (at < dataStart || next > footerStart) invalid("ORC data stream exceeds its declared section.");
+          } else if (at < dataStart || next > footerStart) {
+            throw invalid("ORC data stream exceeds its declared section.");
+          }
           if (stream.column === 0 && stream.kind < 6) {
-            unsupported("ORC root value/presence streams are outside the flat profile.");
+            throw unsupported("ORC root value/presence streams are outside the flat profile.");
           }
           if (stream.column === column.id && !indexStream) {
             const extent = { ...stream, offset: at };
             if (stream.kind === 0) present = extent;
             else if (stream.kind === 1) data = extent;
-            else unsupported("ORC selected numeric column has an unsupported stream role.");
+            else throw unsupported("ORC selected numeric column has an unsupported stream role.");
           }
           at = next;
         }
         if (indexBytes !== stripe.indexBytes || at !== footerStart) {
-          invalid("ORC stream lengths disagree with stripe sections.");
+          throw invalid("ORC stream lengths disagree with stripe sections.");
         }
         const stored = exact(BigInt(present?.length ?? 0) + BigInt(data?.length ?? 0), "selected stream bytes");
         inputBytes = exact(BigInt(inputBytes) + BigInt(stored), "aggregate selected stream bytes");
@@ -802,7 +816,7 @@ export async function openOrc(input: ByteSourceType, supplied: OrcOpenOptionsTyp
         const boolean = column.kind === 0 ? new Bits(dataBytes, readMeter) : undefined;
         const byte = column.kind === 1 ? new Bytes(dataBytes, readMeter) : undefined;
         const integers = column.kind >= 2 && column.kind <= 4 ? new Integers(dataBytes, readMeter) : undefined;
-        const dataView = view(dataBytes);
+        const dataView = createView(dataBytes);
         let position = 0, presentCount = 0;
         for (let row = 0; row < plan.stripe.rows; row++) {
           readMeter.step();
@@ -818,11 +832,11 @@ export async function openOrc(input: ByteSourceType, supplied: OrcOpenOptionsTyp
           } else if (integers) {
             const raw = integers.next(), bits = width(column.kind) * 8;
             if (raw < -(1n << BigInt(bits - 1)) || raw >= (1n << BigInt(bits - 1))) {
-              invalid("ORC integer exceeds its declared signed width.");
+              throw invalid("ORC integer exceeds its declared signed width.");
             }
             value = column.kind === 4 ? raw : Number(raw);
           } else {
-            if (position > dataBytes.length - width(column.kind)) invalid("ORC IEEE value stream is truncated.");
+            if (position > dataBytes.length - width(column.kind)) throw invalid("ORC IEEE value stream is truncated.");
             value = column.kind === 5 ? dataView.getFloat32(position, true) : dataView.getFloat64(position, true);
             position += width(column.kind);
           }
@@ -837,9 +851,9 @@ export async function openOrc(input: ByteSourceType, supplied: OrcOpenOptionsTyp
         byte?.end();
         integers?.end();
         if ((column.kind === 5 || column.kind === 6) && position !== dataBytes.length) {
-          invalid("ORC IEEE stream has trailing bytes.");
+          throw invalid("ORC IEEE stream has trailing bytes.");
         }
-        if (!plan.data && presentCount !== 0) invalid("ORC non-null column values have no DATA stream.");
+        if (!plan.data && presentCount !== 0) throw invalid("ORC non-null column values have no DATA stream.");
         readMeter.retain(64);
         evidence.push(
           Object.freeze({

@@ -1,8 +1,9 @@
-import { isBytes, toView } from "../bytes.ts";
-import { ArchiveError, createArchiveLedger, integer, invalid } from "./record.ts";
-import type { ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
-import { TarHeaders, tarPadding } from "./tar.ts";
-import type { TarEntryType, TarOpenOptionsType } from "./tar.ts";
+import { isBytes, toView } from "../../bytes.ts";
+import { ArchiveError, assertInteger, createArchiveLedger, invalid } from "../record.ts";
+import type { ArchiveLimitsType, ArchiveWorkType } from "../record.ts";
+import { padding } from "./block.ts";
+import { TarHeaders } from "./mod.ts";
+import type { TarEntryType, TarOpenOptionsType } from "./mod.ts";
 
 export interface TarStreamOptionsType extends Omit<TarOpenOptionsType, "allowUnverifiedSource"> {
   /** Reject a larger producer chunk after receiving it. The producer controls its allocation. Default 64 KiB. */
@@ -38,7 +39,7 @@ export async function readTarStream(
 ): Promise<TarScanType> {
   const headers = new TarHeaders(options);
   const bodyChunkBytes = options.bodyChunkBytes ?? 64 * 1024;
-  integer(bodyChunkBytes, "Body chunk size");
+  assertInteger(bodyChunkBytes, "Body chunk size");
   if (bodyChunkBytes === 0) throw new RangeError("Body chunk size must be positive.");
   const cursor = new TarCursor(source, options);
   let entries = 0;
@@ -94,7 +95,7 @@ export async function readTarStream(
         cursor.reserve("decodedBytes", bytes.length);
         remaining -= bytes.length;
       }
-      await cursor.read(tarPadding(entry.size));
+      await cursor.read(padding(entry.size));
     }
   } catch (error) {
     failed = true;
@@ -121,7 +122,7 @@ class TarCursor {
     this.#ledger = createArchiveLedger(options);
     this.#shared = options.ledger;
     this.#maximum = options.maxChunkBytes ?? 64 * 1024;
-    integer(this.#maximum, "Producer chunk limit");
+    assertInteger(this.#maximum, "Producer chunk limit");
     if (this.#maximum === 0) throw new RangeError("Producer chunk limit must be positive.");
     options.signal?.throwIfAborted();
     this.#signal = options.signal;
@@ -147,8 +148,8 @@ class TarCursor {
       this.reserve("requests", 1);
       const result = await this.#reader.read();
       this.#signal?.throwIfAborted();
-      if (result.done) invalid("TAR stream ended before its member or end marker.");
-      if (!isBytes(result.value)) invalid("TAR stream returned a non-byte chunk.");
+      if (result.done) throw invalid("TAR stream ended before its member or end marker.");
+      if (!isBytes(result.value)) throw invalid("TAR stream returned a non-byte chunk.");
       const bytes = toView(result.value);
       this.reserve("sourceBytes", bytes.length);
       if (bytes.length > this.#maximum) throw new ArchiveError("budget-exceeded", "TAR producer chunk limit exceeded.");
@@ -219,9 +220,9 @@ export function createTarStream(
   const maximum = options.maxEntries ?? 100_000;
   const metadataMaximum = options.maxMetadataBytes ?? 1024 * 1024;
   const chunkMaximum = options.maxChunkBytes ?? 64 * 1024;
-  integer(maximum, "Entry limit");
-  integer(metadataMaximum, "Metadata byte limit");
-  integer(chunkMaximum, "Producer chunk limit");
+  assertInteger(maximum, "Entry limit");
+  assertInteger(metadataMaximum, "Metadata byte limit");
+  assertInteger(chunkMaximum, "Producer chunk limit");
   if (chunkMaximum === 0) throw new RangeError("Producer chunk limit must be positive.");
   options.signal?.throwIfAborted();
   let active: ReadableStreamDefaultReader<Uint8Array> | undefined;
@@ -241,7 +242,7 @@ export function createTarStream(
         options.signal?.throwIfAborted();
         if (cancelled) return;
         if (count++ >= maximum) throw new ArchiveError("budget-exceeded", "TAR writer entry limit exceeded.");
-        integer(entry.size, "Member size");
+        assertInteger(entry.size, "Member size");
         const kind = entry.kind ?? "file";
         const type = { file: "0", directory: "5", "symbolic-link": "2", "hard-link": "1" }[kind];
         if (!type) throw new TypeError("Unsupported TAR writer member kind.");
@@ -272,7 +273,7 @@ export function createTarStream(
         if (size > 0) {
           yield header("PaxHeader", size, "x", "");
           for (const record of records) yield record;
-          if (tarPadding(size)) yield new Uint8Array(tarPadding(size));
+          if (padding(size)) yield new Uint8Array(padding(size));
         }
         yield header(
           extendedName ? "PaxMember" : entry.name,
@@ -292,13 +293,13 @@ export function createTarStream(
               options.signal?.throwIfAborted();
               if (cancelled) return;
               if (result.done) break;
-              if (!isBytes(result.value)) invalid("TAR writer body returned non-byte data.");
+              if (!isBytes(result.value)) throw invalid("TAR writer body returned non-byte data.");
               const bytes = toView(result.value);
               reserve("sourceBytes", bytes.length);
               if (bytes.length > chunkMaximum) {
                 throw new ArchiveError("budget-exceeded", "TAR writer body chunk limit exceeded.");
               }
-              if (bytes.length > remaining) invalid("TAR writer body exceeds its declared size.");
+              if (bytes.length > remaining) throw invalid("TAR writer body exceeds its declared size.");
               reserve("decodedBytes", bytes.length);
               remaining -= bytes.length;
               if (bytes.length) yield bytes;
@@ -312,8 +313,8 @@ export function createTarStream(
             await closeBody(reader, bodyFailed);
           }
         }
-        if (remaining !== 0) invalid("TAR writer body is shorter than its declared size.");
-        if (tarPadding(entry.size)) yield new Uint8Array(tarPadding(entry.size));
+        if (remaining !== 0) throw invalid("TAR writer body is shorter than its declared size.");
+        if (padding(entry.size)) yield new Uint8Array(padding(entry.size));
       }
       yield new Uint8Array(1024);
     } finally {

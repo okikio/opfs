@@ -1,7 +1,7 @@
 /** ZIP method-14 framing over the bounded authored raw-LZMA1 decoder. @module */
 import { createLzmaDecoder } from "../lzma.ts";
 import type { LzmaLimitsType, LzmaResultType } from "../lzma.ts";
-import { invalid, unsupported, view } from "../record.ts";
+import { createView, invalid, unsupported } from "../record.ts";
 import type { ArchiveBudget, ArchiveLimitsType } from "../record.ts";
 import type { ByteSourceType } from "../../source.ts";
 import { close } from "../../close.ts";
@@ -38,10 +38,10 @@ export async function readZipLzma(
   wanted: number,
   consume: (bytes: Uint8Array) => void,
 ): Promise<LzmaResultType> {
-  if (size < 9) invalid("ZIP LZMA property prefix is truncated.");
+  if (size < 9) throw invalid("ZIP LZMA property prefix is truncated.");
   const prefix = await budget.read(offset, 9);
-  if (view(prefix).getUint16(2, true) !== 5) {
-    unsupported("ZIP LZMA requires exactly five property bytes.");
+  if (createView(prefix).getUint16(2, true) !== 5) {
+    throw unsupported("ZIP LZMA requires exactly five property bytes.");
   }
   // Capture borrowed property bytes before another read can reuse their storage.
   const properties = prefix.slice(4, 9);

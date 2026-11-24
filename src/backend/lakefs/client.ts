@@ -2,7 +2,7 @@
 import { z } from "zod";
 import { isBytes, toRequestBytes, toView } from "../../bytes.ts";
 import { close } from "../../close.ts";
-import { assertRangeResponse, range } from "../../range.ts";
+import { assertRangeResponse, resolveRange } from "../../range.ts";
 import { RequestMetrics, sendRequest } from "../../request.ts";
 import type { FetchType, RequestPolicyType } from "../../request.ts";
 import { readResponse } from "../../response.ts";
@@ -511,7 +511,7 @@ export class LakefsClient {
   }
   async download(ref: string, path: string, options: LakefsReadType = {}): Promise<LakefsDownloadType> {
     const { signal, at, length } = options;
-    const selected = range({ ...(at === undefined ? {} : { at }), ...(length === undefined ? {} : { length }) });
+    const selected = resolveRange({ ...(at === undefined ? {} : { at }), ...(length === undefined ? {} : { length }) });
     const url = this.#url(`refs/${segment(ref)}/objects`, { path: text(path), presign: "false" });
     signal?.throwIfAborted();
     if (selected.empty) {

@@ -1,9 +1,9 @@
 /** Explicit native Fetch reads compose signature checks with complete bounded data-root verification. @module */
 import { isBytes, toView } from "../../bytes.ts";
 import { close } from "../../close.ts";
-import { createArchiveLedger, integer } from "../../archive/record.ts";
+import { assertInteger, createArchiveLedger } from "../../archive/record.ts";
 import type { ArchiveLedgerType, ArchiveWorkType } from "../../archive/record.ts";
-import { ArweaveError, arweaveId, verifyArweaveTransaction } from "../../content/arweave.ts";
+import { ArweaveError, parseArweaveId, verifyArweaveTransaction } from "../../content/arweave.ts";
 import type {
   ArweaveDataOptionsType,
   ArweaveDataType,
@@ -37,7 +37,7 @@ function cap(value: number, maximum: number, label: string): void {
 }
 function limit(value: number | undefined, fallback: number, hard: number, label: string): number {
   const n = value ?? fallback;
-  integer(n, label);
+  assertInteger(n, label);
   cap(n, hard, label);
   return n;
 }
@@ -229,9 +229,9 @@ export function createArweaveClient(input: ArweaveClientOptionsType): ArweaveCli
   return Object.freeze({
     async open(value: string, call: ArweaveOpenOptionsType = {}): Promise<ArweaveRemoteTransactionType> {
       call = { ...call };
-      const id = arweaveId(value), owner = owners(call, lifetime);
+      const id = parseArweaveId(value), owner = owners(call, lifetime);
       owner.signal?.throwIfAborted();
-      if (call.expectedOwner !== undefined) arweaveId(call.expectedOwner);
+      if (call.expectedOwner !== undefined) parseArweaveId(call.expectedOwner);
       const max = limit(call.maxHeaderBytes, headerMax, headerMax, "Arweave open header");
       // Reserve the finite control-body ceiling before Fetch, not after an opaque host allocation.
       reserve(owner, "sourceBytes", max);

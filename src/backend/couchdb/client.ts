@@ -1,7 +1,7 @@
 /** Native CouchDB attachments. Document revisions are not attachment digests or filesystem paths. @module */
 import { isBytes, toRequestBytes, toView } from "../../bytes.ts";
 import { close } from "../../close.ts";
-import { assertRangeResponse, range } from "../../range.ts";
+import { assertRangeResponse, resolveRange } from "../../range.ts";
 import { sendRequest } from "../../request.ts";
 import type { FetchType, RequestPolicyType } from "../../request.ts";
 import { readResponse } from "../../response.ts";
@@ -510,7 +510,7 @@ export class CouchdbClient {
     const rawRevision = options.revision, signal = options.signal;
     signal?.throwIfAborted();
     const at = options.at, count = options.length;
-    const selected = range({
+    const selected = resolveRange({
       ...(at === undefined ? {} : { at }),
       ...(count === undefined ? {} : { length: count }),
       ...(signal === undefined ? {} : { signal }),

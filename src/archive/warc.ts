@@ -1,5 +1,5 @@
 import type { ByteSourceType } from "../source.ts";
-import { ArchiveBudget, ArchiveError, integer, invalid, unsupported } from "./record.ts";
+import { ArchiveBudget, ArchiveError, assertInteger, invalid, unsupported } from "./record.ts";
 import type { ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
 export { ArchiveError, createArchiveLedger } from "./record.ts";
 export type { ArchiveErrorCodeType, ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
@@ -121,7 +121,7 @@ export async function openWarc(input: ByteSourceType, options: WarcOpenOptionsTy
     read: input.read.bind(input),
   };
   if (!source.stability && !options.allowUnverifiedSource) {
-    unsupported("WARC indexing requires declared source stability or explicit unverified-source acceptance.");
+    throw unsupported("WARC indexing requires declared source stability or explicit unverified-source acceptance.");
   }
   const budget = new ArchiveBudget(source, options, options.signal);
   const limits = {
@@ -131,12 +131,12 @@ export async function openWarc(input: ByteSourceType, options: WarcOpenOptionsTy
     maxFields: options.maxFields ?? 128,
     maxMetadataBytes: options.maxMetadataBytes ?? 4 * 1024 * 1024,
   };
-  for (const [name, value] of Object.entries(limits)) integer(value, name);
-  if (source.size === 0) invalid("WARC requires at least one record.");
+  for (const [name, value] of Object.entries(limits)) assertInteger(value, name);
+  if (source.size === 0) throw invalid("WARC requires at least one record.");
   const magic = await budget.read(0, Math.min(10, source.size));
-  if (magic[0] === 31 && magic[1] === 139) unsupported("Gzip WARC requires a separate bounded member index.");
+  if (magic[0] === 31 && magic[1] === 139) throw unsupported("Gzip WARC requires a separate bounded member index.");
   if (new TextDecoder().decode(magic).startsWith("filedesc:")) {
-    unsupported("ARC requires a separate descriptor/framing reader.");
+    throw unsupported("ARC requires a separate descriptor/framing reader.");
   }
   const entries: WarcEntryType[] = [];
   const offsets: number[] = [];
@@ -154,7 +154,7 @@ export async function openWarc(input: ByteSourceType, options: WarcOpenOptionsTy
     );
     const versionLine = await lines.next();
     if (versionLine !== "WARC/1.0" && versionLine !== "WARC/1.1") {
-      unsupported("Expected uncompressed WARC1.0/1.1; ARC, gzip and other wrappers are unsupported.");
+      throw unsupported("Expected uncompressed WARC1.0/1.1; ARC, gzip and other wrappers are unsupported.");
     }
     const fields: { name: string; value: string }[] = [];
     const seen = new Set<string>();
@@ -163,16 +163,16 @@ export async function openWarc(input: ByteSourceType, options: WarcOpenOptionsTy
       if (!line) break;
       if (/^[ \t]/.test(line)) {
         const previous = fields[fields.length - 1];
-        if (!previous) invalid("WARC continuation has no preceding field.");
+        if (!previous) throw invalid("WARC continuation has no preceding field.");
         previous.value += ` ${line.replace(/^[ \t]+|[ \t]+$/g, "")}`;
         continue;
       }
       cap(fields.length + 1, limits.maxFields, "WARC field count");
       const colon = line.indexOf(":");
       const name = line.slice(0, colon);
-      if (colon < 1 || !token.test(name)) invalid("Invalid WARC field name.");
+      if (colon < 1 || !token.test(name)) throw invalid("Invalid WARC field name.");
       const key = name.toLowerCase();
-      if (singletons.has(key) && seen.has(key)) invalid("Duplicate singleton WARC field.");
+      if (singletons.has(key) && seen.has(key)) throw invalid("Duplicate singleton WARC field.");
       seen.add(key);
       fields.push({ name, value: line.slice(colon + 1).replace(/^[ \t]+|[ \t]+$/g, "") });
     }
@@ -187,17 +187,17 @@ export async function openWarc(input: ByteSourceType, options: WarcOpenOptionsTy
     const date = value("warc-date");
     const length = value("content-length");
     if (!recordId || !/^<[A-Za-z][A-Za-z0-9+.-]*:[^<>\s]+>$/.test(recordId)) {
-      invalid("Invalid or missing WARC record ID.");
+      throw invalid("Invalid or missing WARC record ID.");
     }
-    if (!type || !token.test(type) || !date) invalid("Missing WARC type or date.");
-    if (length === undefined || !/^\d+$/.test(length)) invalid("Invalid or missing WARC Content-Length.");
+    if (!type || !token.test(type) || !date) throw invalid("Missing WARC type or date.");
+    if (length === undefined || !/^\d+$/.test(length)) throw invalid("Invalid or missing WARC Content-Length.");
     const size = Number(length);
     if (!Number.isSafeInteger(size) || size > source.size - lines.offset - 4) {
-      invalid("WARC block exceeds source extent.");
+      throw invalid("WARC block exceeds source extent.");
     }
     const separator = await budget.read(lines.offset + size, 4);
     if (separator[0] !== 13 || separator[1] !== 10 || separator[2] !== 13 || separator[3] !== 10) {
-      invalid("WARC block requires its exact CRLFCRLF separator.");
+      throw invalid("WARC block requires its exact CRLFCRLF separator.");
     }
     const segmented = fields.some((field) => field.name.toLowerCase().startsWith("warc-segment-"));
     entries.push(Object.freeze({
@@ -215,10 +215,10 @@ export async function openWarc(input: ByteSourceType, options: WarcOpenOptionsTy
     offset = lines.offset + size + 4;
   }
   function entryAt(id: number): WarcEntryType {
-    integer(id, "Record ordinal");
+    assertInteger(id, "Record ordinal");
     const entry = entries[id];
     if (!entry) throw new RangeError("WARC record ordinal does not exist.");
-    if (!entry.readable) unsupported("WARC revisit, segmented and unknown logical content is metadata-only.");
+    if (!entry.readable) throw unsupported("WARC revisit, segmented and unknown logical content is metadata-only.");
     return entry;
   }
   return Object.freeze({
@@ -232,8 +232,8 @@ export async function openWarc(input: ByteSourceType, options: WarcOpenOptionsTy
       const entry = entryAt(id);
       const start = readOptions.offset ?? 0;
       const length = readOptions.length ?? entry.size - start;
-      integer(start, "Block offset");
-      integer(length, "Block length");
+      assertInteger(start, "Block offset");
+      assertInteger(length, "Block length");
       if (start > entry.size || length > entry.size - start) {
         throw new RangeError("Requested range exceeds WARC block.");
       }
@@ -246,7 +246,7 @@ export async function openWarc(input: ByteSourceType, options: WarcOpenOptionsTy
     async verifyBlock(id: number, verifyOptions: WarcVerifyOptionsType): Promise<WarcVerificationType> {
       const entry = entryAt(id);
       const maximum = verifyOptions.maxVerifyBytes ?? 1024 * 1024;
-      integer(maximum, "Verification byte limit");
+      assertInteger(maximum, "Verification byte limit");
       if (maximum > 16 * 1024 * 1024) throw new RangeError("Verification ceiling cannot exceed 16 MiB.");
       cap(entry.size, maximum, "WARC whole-block verification");
       const labelled = entry.fields.find((field) => field.name.toLowerCase() === "warc-block-digest")?.value;
@@ -255,7 +255,7 @@ export async function openWarc(input: ByteSourceType, options: WarcOpenOptionsTy
         !match || match[2]!.length !== (match[1] === "sha1" ? 32 : 52) ||
         (match[1] === "sha256" && !/[AQ]$/.test(match[2]!))
       ) {
-        unsupported("Block verification requires canonical unpadded uppercase Base32 SHA1 or SHA256.");
+        throw unsupported("Block verification requires canonical unpadded uppercase Base32 SHA1 or SHA256.");
       }
       const algorithm = match[1] === "sha1" ? "SHA-1" : "SHA-256";
       const work = new ArchiveBudget(source, verifyOptions, verifyOptions.signal);
@@ -293,7 +293,7 @@ class WarcLines {
 
   async #byte(): Promise<number> {
     cap(this.offset - this.#start + 1, this.#headerMaximum, "WARC header bytes");
-    if (this.offset >= this.#size) invalid("Truncated WARC header.");
+    if (this.offset >= this.#size) throw invalid("Truncated WARC header.");
     if (this.#index === this.#chunk.length) {
       this.#chunk = await this.#budget.read(
         this.offset,
@@ -311,14 +311,14 @@ class WarcLines {
     while (true) {
       const byte = await this.#byte();
       if (byte === 13) {
-        if (await this.#byte() !== 10) invalid("WARC header requires CRLF lines.");
+        if (await this.#byte() !== 10) throw invalid("WARC header requires CRLF lines.");
         try {
           return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(new Uint8Array(bytes));
         } catch {
-          invalid("WARC header contains invalid UTF8.");
+          throw invalid("WARC header contains invalid UTF8.");
         }
       }
-      if ((byte < 32 && byte !== 9) || byte === 127) invalid("WARC header contains a control byte.");
+      if ((byte < 32 && byte !== 9) || byte === 127) throw invalid("WARC header contains a control byte.");
       cap(bytes.length + 1, this.#lineMaximum, "WARC line bytes");
       bytes.push(byte);
     }

@@ -2,8 +2,8 @@
 import { RequestMetrics, sendRequest } from "../../request.ts";
 import type { FetchType, RequestMetricsType, RequestPolicyType } from "../../request.ts";
 import { readResponse } from "../../response.ts";
-import { assertRangeResponse, range } from "../../range.ts";
-import { objectETag } from "../../publication.ts";
+import { assertRangeResponse, resolveRange } from "../../range.ts";
+import { resolveETag } from "../../publication.ts";
 import { isBytes, toRequestBytes } from "../../bytes.ts";
 import { dirname, normalizePath } from "../../path.ts";
 import { parseXmlRoot } from "../../xml.ts";
@@ -391,8 +391,8 @@ class WebdavClient implements WebdavClientType {
   }
   async get(path: string, options: ObjectGetOptionsType = {}): Promise<ReadableStream<Uint8Array>> {
     const url = this.#url(path);
-    const selected = range(options);
-    const etag = objectETag(options.revision);
+    const selected = resolveRange(options);
+    const etag = resolveETag(options.revision);
     if (selected.empty) return new Blob().stream();
     const headers = new Headers();
     if (selected.header !== undefined) headers.set("range", selected.header);

@@ -197,7 +197,7 @@ function optionalBoolean(headers: Headers, name: string): boolean | undefined {
   return item.kind === "boolean" ? item.value : undefined;
 }
 /** A malformed Upload-Limit rejects this selected message rather than guessing one surviving bound. */
-function limitsOf(headers: Headers): UploadLimitsType | undefined {
+function parseLimits(headers: Headers): UploadLimitsType | undefined {
   const raw = headers.get("Upload-Limit");
   if (raw === null) return undefined;
   const fields = readDictionary(raw);
@@ -458,7 +458,7 @@ export class UploadClient {
       if (answer.status < 200 || answer.status >= 300) {
         throw new UploadError("http", "Upload OPTIONS failed.", { status: answer.status });
       }
-      const limits = limitsOf(answer.headers);
+      const limits = parseLimits(answer.headers);
       if (limits === undefined) {
         throw new UploadError("protocol", "Endpoint did not advertise resumable-upload limits.");
       }
@@ -503,7 +503,7 @@ export class UploadClient {
         throw new UploadError("protocol", "Empty creation returned a nonzero offset.");
       }
       this.#length(answer.headers, options.size);
-      const limits = limitsOf(answer.headers);
+      const limits = parseLimits(answer.headers);
       if (limits) this.#size(options.size, limits);
       const session = UploadSessionSchema.parse({
         version: 1,
@@ -581,7 +581,7 @@ export class UploadClient {
     };
     const update = (answer: ReplyType): void => {
       this.#length(answer.headers, session.size);
-      const next = limitsOf(answer.headers);
+      const next = parseLimits(answer.headers);
       if (next !== undefined) limits = next;
     };
     return Object.freeze({
@@ -610,7 +610,7 @@ export class UploadClient {
             remoteTerminal ||= answer.terminal === true;
             synced = true;
             const length = this.#length(answer.headers, session.size);
-            const advertised = limitsOf(answer.headers);
+            const advertised = parseLimits(answer.headers);
             return Object.freeze({
               offset: remote,
               ...(length === undefined ? {} : { length }),

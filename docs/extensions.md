@@ -13,7 +13,7 @@ or ambient runtime. Its identity is a caller assertion: use a stable digest or i
 resuming across processes.
 
 ```ts
-import { type ByteSourceType, sourceRange } from "@okikio/opfs/source";
+import { assertExtent, type ByteSourceType } from "@okikio/opfs/source";
 
 export function createBufferSource(input: Uint8Array, identity: string): ByteSourceType {
   const snapshot = new Uint8Array(input);
@@ -23,7 +23,7 @@ export function createBufferSource(input: Uint8Array, identity: string): ByteSou
     stability: "immutable",
     async read(offset, length, { signal } = {}) {
       signal?.throwIfAborted();
-      sourceRange(snapshot.length, offset, length);
+      assertExtent(snapshot.length, offset, length);
       return snapshot.slice(offset, offset + length);
     },
   };

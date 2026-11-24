@@ -2,9 +2,9 @@
 import { z } from "zod";
 import { decodeBase64Url } from "@std/encoding/base64url";
 import { isBuffer, isBytes, toView } from "../bytes.ts";
-import { sourceRange } from "../source.ts";
+import { assertExtent } from "../source.ts";
 import type { ByteSourceType } from "../source.ts";
-import { createArchiveLedger, integer } from "../archive/record.ts";
+import { assertInteger, createArchiveLedger } from "../archive/record.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
 export { createArchiveLedger } from "../archive/record.ts";
 export type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
@@ -95,7 +95,7 @@ function fail(code: JweError["code"], message: string): never {
   throw new JweError(code, message);
 }
 function cap(n: number, max: number, label: string): void {
-  integer(n, label);
+  assertInteger(n, label);
   if (n > max) fail("limit", `${label} exceeds the admitted limit.`);
 }
 function policy(value: number | undefined, fallback: number, hard: number, label: string): number {
@@ -133,7 +133,7 @@ function charge(
   n: number,
   alive: () => void,
 ): void {
-  integer(n, "JWE work");
+  assertInteger(n, "JWE work");
   alive();
   auth.signal?.throwIfAborted();
   for (const owner of auth.owners) {
@@ -329,7 +329,7 @@ async function openSnapshot(
     read: policy(options.maxReadBytes, 1 << 20, 32 << 20, "JWE returned interval"),
   };
   const { size, identity, stability } = input, read = input.read.bind(input);
-  integer(size, "JWE source size");
+  assertInteger(size, "JWE source size");
   cap(size, limits.envelope, "JWE envelope bytes");
   if (identity !== undefined && (typeof identity !== "string" || identity.length > 8192)) {
     throw new TypeError("JWE identity must be a bounded string.");
@@ -503,7 +503,7 @@ async function openSnapshot(
       const call = authority(readOptions(suppliedRead), opening), selectedWork = fresh();
       alive();
       call.signal?.throwIfAborted();
-      sourceRange(plainSize, offset, length);
+      assertExtent(plainSize, offset, length);
       cap(length, limits.read, "JWE returned interval");
       charge(call, selectedWork, "decodedBytes", length, alive);
       charge(call, selectedWork, "outputBytes", length, alive);

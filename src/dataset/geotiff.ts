@@ -1,7 +1,14 @@
 /** Bounded classic GeoTIFF metadata and uncompressed raw raster windows. @module */
 import { isBytes, toView } from "../bytes.ts";
 import type { ByteSourceType } from "../source.ts";
-import { ArchiveError, createArchiveLedger, integer, invalid, unsupported, view } from "../archive/record.ts";
+import {
+  ArchiveError,
+  assertInteger,
+  createArchiveLedger,
+  createView,
+  invalid,
+  unsupported,
+} from "../archive/record.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
 export { ArchiveError, createArchiveLedger } from "../archive/record.ts";
 export type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
@@ -164,7 +171,7 @@ function cap(n: number, max: number, label: string): void {
 }
 function limit(n: number | undefined, d: number, h: number, label: string): number {
   const v = n ?? d;
-  integer(v, label);
+  assertInteger(v, label);
   cap(v, h, label);
   return v;
 }
@@ -172,8 +179,8 @@ function limit(n: number | undefined, d: number, h: number, label: string): numb
 function product(...values: number[]): number {
   let n = 1;
   for (const v of values) {
-    integer(v, "GeoTIFF extent");
-    if (v && n > Number.MAX_SAFE_INTEGER / v) invalid("GeoTIFF extent exceeds safe integer range.");
+    assertInteger(v, "GeoTIFF extent");
+    if (v && n > Number.MAX_SAFE_INTEGER / v) throw invalid("GeoTIFF extent exceeds safe integer range.");
     n *= v;
   }
   return n;
@@ -196,7 +203,7 @@ function authority(options: GeotiffCallOptionsType, parent?: AuthorityType): Aut
   return { owners, signal: combined(parent?.signal, options.signal) };
 }
 function charge(auth: AuthorityType, work: WorkType, key: keyof ArchiveWorkType, n: number): void {
-  integer(n, "GeoTIFF work");
+  assertInteger(n, "GeoTIFF work");
   auth.signal?.throwIfAborted();
   for (const owner of auth.owners) {
     owner.reserve(key, n);
@@ -227,7 +234,7 @@ function sampleOf(bits: number, format: number): GeotiffSampleType {
   if (format === 1 && [8, 16, 32].includes(bits)) return bits === 8 ? "u8" : bits === 16 ? "u16" : "u32";
   if (format === 2 && [16, 32].includes(bits)) return bits === 16 ? "i16" : "i32";
   if (format === 3 && [32, 64].includes(bits)) return bits === 32 ? "f32" : "f64";
-  unsupported("Unsupported GeoTIFF sample width or format.");
+  throw unsupported("Unsupported GeoTIFF sample width or format.");
 }
 function numberAt(v: DataView, offset: number, sample: GeotiffSampleType, little: boolean): number {
   switch (sample) {
@@ -252,7 +259,7 @@ export async function openGeotiff(input: ByteSourceType, inputOptions: GeotiffOp
   const options = { ...inputOptions };
   if (options.profile !== "classic-geotiff-raw") throw new TypeError("Select classic-geotiff-raw explicitly.");
   const { size, identity, stability } = input, read = input.read.bind(input);
-  integer(size, "GeoTIFF source size");
+  assertInteger(size, "GeoTIFF source size");
   if (identity !== undefined && (typeof identity !== "string" || !identity.length || identity.length > 8192)) {
     throw new TypeError("GeoTIFF identity must contain 1–8192 UTF-16 code units.");
   }
@@ -260,7 +267,7 @@ export async function openGeotiff(input: ByteSourceType, inputOptions: GeotiffOp
     throw new TypeError("Unknown GeoTIFF source stability.");
   }
   if (stability === undefined && options.allowUnverifiedSource !== true) {
-    unsupported("GeoTIFF requires source stability evidence or explicit allowUnverifiedSource.");
+    throw unsupported("GeoTIFF requires source stability evidence or explicit allowUnverifiedSource.");
   }
   const policy = {
     images: limit(options.maxImages, 64, 1024, "GeoTIFF images"),
@@ -280,12 +287,12 @@ export async function openGeotiff(input: ByteSourceType, inputOptions: GeotiffOp
     seen = new Set<number>(),
     protectedExtents: { offset: number; end: number }[] = [{ offset: 0, end: 8 }];
   function extent(offset: number, length: number): void {
-    integer(offset, "GeoTIFF offset");
-    integer(length, "GeoTIFF length");
-    if (offset > size || length > size - offset) invalid("GeoTIFF extent exceeds source.");
+    assertInteger(offset, "GeoTIFF offset");
+    assertInteger(length, "GeoTIFF length");
+    if (offset > size || length > size - offset) throw invalid("GeoTIFF extent exceeds source.");
   }
   function meta(n: number): void {
-    integer(n, "GeoTIFF metadata");
+    assertInteger(n, "GeoTIFF metadata");
     cap(n, policy.metadata - opened.metadataBytes, "GeoTIFF retained metadata");
     opened.metadataBytes += n;
   }
@@ -304,9 +311,9 @@ export async function openGeotiff(input: ByteSourceType, inputOptions: GeotiffOp
       const n = Math.min(65536, length - at),
         value = await read(offset + at, n, auth.signal ? { signal: auth.signal } : {});
       auth.signal?.throwIfAborted();
-      if (!isBytes(value)) invalid("GeoTIFF source returned non-bytes.");
+      if (!isBytes(value)) throw invalid("GeoTIFF source returned non-bytes.");
       const bytes = toView(value);
-      if (bytes.byteLength !== n) invalid("GeoTIFF source returned an incomplete extent.");
+      if (bytes.byteLength !== n) throw invalid("GeoTIFF source returned an incomplete extent.");
       out.set(bytes, at);
     }
     return out;
@@ -318,27 +325,29 @@ export async function openGeotiff(input: ByteSourceType, inputOptions: GeotiffOp
   }
   const header = await fetch(0, 8);
   const little = header[0] === 73 && header[1] === 73;
-  if (!little && !(header[0] === 77 && header[1] === 77)) invalid("Invalid TIFF byte-order marker.");
-  const hd = view(header), magic = hd.getUint16(2, little);
-  if (magic !== 42) unsupported("Only classic TIFF identifier 42 is supported; BigTIFF is separate.");
+  if (!little && !(header[0] === 77 && header[1] === 77)) throw invalid("Invalid TIFF byte-order marker.");
+  const hd = createView(header), magic = hd.getUint16(2, little);
+  if (magic !== 42) throw unsupported("Only classic TIFF identifier 42 is supported; BigTIFF is separate.");
   const widths = [0, 1, 1, 2, 4, 8, 1, 1, 2, 4, 8, 4, 8];
   let next = hd.getUint32(4, little);
   while (next !== 0) {
     opening.signal?.throwIfAborted();
     cap(images.length + 1, policy.images, "GeoTIFF images");
-    if (next < 8 || next % 2 || seen.has(next)) invalid("Invalid or cyclic TIFF IFD pointer.");
+    if (next < 8 || next % 2 || seen.has(next)) throw invalid("Invalid or cyclic TIFF IFD pointer.");
     seen.add(next);
     meta(256);
-    const count = view(await fetch(next, 2)).getUint16(0, little);
-    if (!count) invalid("Empty TIFF IFD.");
+    const count = createView(await fetch(next, 2)).getUint16(0, little);
+    if (!count) throw invalid("Empty TIFF IFD.");
     cap(count, policy.entries, "GeoTIFF IFD entries");
     meta(product(count, 64));
     const ifdEnd = next + 2 + product(count, 12) + 4;
-    if (ifdExtents.some((range) => next < range.end && ifdEnd > range.offset)) invalid("TIFF IFD tables overlap.");
+    if (ifdExtents.some((range) => next < range.end && ifdEnd > range.offset)) {
+      throw invalid("TIFF IFD tables overlap.");
+    }
     ifdExtents.push({ offset: next, end: ifdEnd });
     protectedExtents.push({ offset: next, end: ifdEnd });
     const table = await fetch(next + 2, product(count, 12) + 4),
-      tv = view(table),
+      tv = createView(table),
       fields = new Map<number, FieldType>();
     let previous = -1;
     for (let i = 0; i < count; i++) {
@@ -346,13 +355,13 @@ export async function openGeotiff(input: ByteSourceType, inputOptions: GeotiffOp
         tag = tv.getUint16(at, little),
         type = tv.getUint16(at + 2, little),
         n = tv.getUint32(at + 4, little);
-      if (tag <= previous) invalid("TIFF tags must be increasing and unique.");
+      if (tag <= previous) throw invalid("TIFF tags must be increasing and unique.");
       previous = tag;
       const width = widths[type];
-      if (!width) unsupported("Unknown TIFF field type.");
+      if (!width) throw unsupported("Unknown TIFF field type.");
       const length = product(n, width), offset = length <= 4 ? next + 2 + at + 8 : tv.getUint32(at + 8, little);
       extent(offset, length);
-      if (length > 4 && (offset < 8 || offset % 2)) invalid("Unaligned TIFF field extent.");
+      if (length > 4 && (offset < 8 || offset % 2)) throw invalid("Unaligned TIFF field extent.");
       if (length > 4) protectedExtents.push({ offset, end: offset + length });
       fields.set(tag, { tag, type, count: n, offset, length });
       opened.entries++;
@@ -372,8 +381,8 @@ export async function openGeotiff(input: ByteSourceType, inputOptions: GeotiffOp
     const numbers = async (tag: number, types: readonly number[]): Promise<number[] | undefined> => {
       const f = fields.get(tag);
       if (!f) return undefined;
-      if (!types.includes(f.type)) invalid(`Unexpected TIFF type for tag ${tag}.`);
-      const b = (await bytes(tag))!, v = view(b), out: number[] = [];
+      if (!types.includes(f.type)) throw invalid(`Unexpected TIFF type for tag ${tag}.`);
+      const b = (await bytes(tag))!, v = createView(b), out: number[] = [];
       meta(product(f.count, 8));
       for (let i = 0; i < f.count; i++) {
         const at = i * widths[f.type]!;
@@ -393,43 +402,43 @@ export async function openGeotiff(input: ByteSourceType, inputOptions: GeotiffOp
       const n = await numbers(tag, [1, 3, 4]);
       if (!n) {
         if (fallback !== undefined) return fallback;
-        invalid(`Missing required TIFF tag ${tag}.`);
+        throw invalid(`Missing required TIFF tag ${tag}.`);
       }
-      if (n.length !== 1) invalid(`TIFF tag ${tag} requires one value.`);
+      if (n.length !== 1) throw invalid(`TIFF tag ${tag} requires one value.`);
       return n[0]!;
     };
     const width = await scalar(256), height = await scalar(257);
-    if (!width || !height) invalid("TIFF image dimensions must be positive.");
+    if (!width || !height) throw invalid("TIFF image dimensions must be positive.");
     const samples = await scalar(277, 1);
-    if (samples !== 1 && samples !== 3) unsupported("Only one or three raw sample bands are supported.");
+    if (samples !== 1 && samples !== 3) throw unsupported("Only one or three raw sample bands are supported.");
     const photo = await scalar(262);
     if (![0, 1, 2].includes(photo) || (samples === 3) !== (photo === 2)) {
-      unsupported("Only raw grayscale or three-band RGB is supported.");
+      throw unsupported("Only raw grayscale or three-band RGB is supported.");
     }
     for (const [tag, defaultValue] of [[259, 1], [266, 1], [274, 1], [284, 1], [317, 1]] as const) {
       if (await scalar(tag, defaultValue) !== 1) {
-        unsupported(`TIFF tag ${tag} requires the selected uncompressed, untransformed profile.`);
+        throw unsupported(`TIFF tag ${tag} requires the selected uncompressed, untransformed profile.`);
       }
     }
     if (fields.has(330) || fields.has(338) || fields.has(32997) || fields.has(32998)) {
-      unsupported("SubIFDs, extra samples and depth layouts are outside this profile.");
+      throw unsupported("SubIFDs, extra samples and depth layouts are outside this profile.");
     }
     const flags = await scalar(254, 0);
-    if (flags & ~1) unsupported("Mask and page subfiles are outside this profile.");
+    if (flags & ~1) throw unsupported("Mask and page subfiles are outside this profile.");
     const bits = await numbers(258, [3]) ?? [1], formats = await numbers(339, [3]) ?? Array<number>(samples).fill(1);
     if (
       bits.length !== samples || formats.length !== samples || bits.some((n) => n !== bits[0]) ||
       formats.some((n) => n !== formats[0])
-    ) unsupported("Uniform explicit byte-aligned samples are required.");
+    ) throw unsupported("Uniform explicit byte-aligned samples are required.");
     const sample = sampleOf(bits[0]!, formats[0]!),
       sampleBytes = bits[0]! / 8,
       bpp = product(samples, sampleBytes),
       tiled = [322, 323, 324, 325].some((tag) => fields.has(tag));
-    if (tiled && [273, 278, 279].some((tag) => fields.has(tag))) invalid("TIFF mixes strip and tile authority.");
+    if (tiled && [273, 278, 279].some((tag) => fields.has(tag))) throw invalid("TIFF mixes strip and tile authority.");
     const blockWidth = tiled ? await scalar(322) : width,
       blockHeight = tiled ? await scalar(323) : await scalar(278, 4294967295);
-    if (!blockWidth || !blockHeight) invalid("TIFF block dimensions must be positive.");
-    if (tiled && (blockWidth % 16 || blockHeight % 16)) invalid("TIFF tile dimensions must be multiples of 16.");
+    if (!blockWidth || !blockHeight) throw invalid("TIFF block dimensions must be positive.");
+    if (tiled && (blockWidth % 16 || blockHeight % 16)) throw invalid("TIFF tile dimensions must be multiples of 16.");
     const across = tiled ? Math.ceil(width / blockWidth) : 1,
       down = Math.ceil(height / blockHeight),
       chunks = product(across, down);
@@ -438,12 +447,12 @@ export async function openGeotiff(input: ByteSourceType, inputOptions: GeotiffOp
     const offsets = await numbers(tiled ? 324 : 273, tiled ? [4] : [3, 4]),
       lengths = await numbers(tiled ? 325 : 279, [3, 4]);
     if (!offsets || !lengths || offsets.length !== chunks || lengths.length !== chunks) {
-      invalid("TIFF block table cardinality mismatch.");
+      throw invalid("TIFF block table cardinality mismatch.");
     }
     for (let i = 0; i < chunks; i++) {
       const expected = product(blockWidth, tiled ? blockHeight : Math.min(blockHeight, height - i * blockHeight), bpp);
       if (!offsets[i] || lengths[i] !== expected) {
-        unsupported("Sparse or non-exact uncompressed TIFF blocks are outside this profile.");
+        throw unsupported("Sparse or non-exact uncompressed TIFF blocks are outside this profile.");
       }
       extent(offsets[i]!, expected);
     }
@@ -453,14 +462,14 @@ export async function openGeotiff(input: ByteSourceType, inputOptions: GeotiffOp
     for (let i = 1; i < order.length; i++) {
       const previous = order[i - 1]!, current = order[i]!;
       if (offsets[current]! < offsets[previous]! + lengths[previous]!) {
-        unsupported("Overlapping TIFF blocks are outside this profile.");
+        throw unsupported("Overlapping TIFF blocks are outside this profile.");
       }
     }
 
     const directory = await numbers(34735, [3]);
     let geo: GeotiffGeoType;
     if (!directory) {
-      if (!(flags & 1)) unsupported("Full-resolution image lacks GeoKeyDirectory metadata.");
+      if (!(flags & 1)) throw unsupported("Full-resolution image lacks GeoKeyDirectory metadata.");
       geo = Object.freeze({
         scope: "absent-reduced-image",
         keys: Object.freeze([]),
@@ -471,12 +480,12 @@ export async function openGeotiff(input: ByteSourceType, inputOptions: GeotiffOp
       });
     } else {
       if (directory.length < 4 || directory[0] !== 1 || directory[1] !== 1 || ![0, 1].includes(directory[2]!)) {
-        unsupported("Only GeoTIFF directory version 1/revision 1/minor 0 or 1 is supported.");
+        throw unsupported("Only GeoTIFF directory version 1/revision 1/minor 0 or 1 is supported.");
       }
       const keyCount = directory[3]!;
       cap(keyCount, policy.keys, "GeoTIFF keys");
       const tail = 4 + product(keyCount, 4);
-      if (tail > directory.length) invalid("Truncated GeoKeyDirectory.");
+      if (tail > directory.length) throw invalid("Truncated GeoKeyDirectory.");
       meta(product(keyCount, 64));
       const doubles = await numbers(34736, [12]) ?? [],
         ascii = await bytes(34737) ?? new Uint8Array(),
@@ -485,7 +494,7 @@ export async function openGeotiff(input: ByteSourceType, inputOptions: GeotiffOp
         asciiField &&
         (asciiField.type !== 2 || !ascii.length || ascii[ascii.length - 1] !== 0 ||
           ascii.subarray(0, -1).some((n) => n === 0 || n > 127))
-      ) invalid("Invalid GeoASCII parameter storage.");
+      ) throw invalid("Invalid GeoASCII parameter storage.");
       const keys: GeotiffKeyType[] = [];
       let last = -1;
       for (let i = 0; i < keyCount; i++) {
@@ -494,23 +503,23 @@ export async function openGeotiff(input: ByteSourceType, inputOptions: GeotiffOp
           location = directory[at + 1]!,
           count = directory[at + 2]!,
           offset = directory[at + 3]!;
-        if (id <= last || !count) invalid("GeoKeys must be unique, increasing and nonempty.");
+        if (id <= last || !count) throw invalid("GeoKeys must be unique, increasing and nonempty.");
         last = id;
         let values: readonly number[] | string;
         if (location === 0) {
-          if (count !== 1) invalid("Inline GeoKey requires one value.");
+          if (count !== 1) throw invalid("Inline GeoKey requires one value.");
           meta(8);
           values = Object.freeze([offset]);
         } else if (location === 34735 || location === 34736) {
           const from = location === 34735 ? directory : doubles;
           if (offset > from.length || count > from.length - offset || (location === 34735 && offset < tail)) {
-            invalid("GeoKey numeric parameters exceed their admitted storage.");
+            throw invalid("GeoKey numeric parameters exceed their admitted storage.");
           }
           meta(product(count, 8));
           values = Object.freeze(from.slice(offset, offset + count));
         } else if (location === 34737) {
           if (offset > ascii.length - 1 || count > ascii.length - 1 - offset || ascii[offset + count - 1] !== 124) {
-            invalid("GeoKey ASCII parameters lack an exact pipe-terminated extent.");
+            throw invalid("GeoKey ASCII parameters lack an exact pipe-terminated extent.");
           }
           meta(product(count, 2));
           let text = "";
@@ -518,7 +527,7 @@ export async function openGeotiff(input: ByteSourceType, inputOptions: GeotiffOp
             text += String.fromCharCode(...ascii.subarray(at, Math.min(offset + count, at + 4096)));
           }
           values = text;
-        } else unsupported("Unsupported GeoKey parameter tag.");
+        } else throw unsupported("Unsupported GeoKey parameter tag.");
         keys.push(Object.freeze({ id, location, count, offset, values }));
       }
       const pixelScale = await numbers(33550, [12]) ?? [],
@@ -529,12 +538,12 @@ export async function openGeotiff(input: ByteSourceType, inputOptions: GeotiffOp
         (fields.has(33922) && (!tiepoints.length || tiepoints.length % 6)) ||
         (fields.has(34264) && transformation.length !== 16) ||
         [...pixelScale, ...tiepoints, ...transformation].some((n) => !Number.isFinite(n))
-      ) invalid("Malformed GeoTIFF coordinate declarations.");
+      ) throw invalid("Malformed GeoTIFF coordinate declarations.");
       if (transformation.length && (pixelScale.length || tiepoints.length)) {
-        invalid("Conflicting GeoTIFF coordinate authorities.");
+        throw invalid("Conflicting GeoTIFF coordinate authorities.");
       }
       if (!(flags & 1) && (!transformation.length && (!pixelScale.length || !tiepoints.length))) {
-        unsupported("Selected full-resolution georeferencing needs scale/tiepoint or model matrix.");
+        throw unsupported("Selected full-resolution georeferencing needs scale/tiepoint or model matrix.");
       }
       meta(product(ascii.length, 8));
       geo = Object.freeze({
@@ -601,7 +610,7 @@ export async function openGeotiff(input: ByteSourceType, inputOptions: GeotiffOp
     opened.chunks += chunks;
     next = tv.getUint32(count * 12, little);
   }
-  if (!images.length) invalid("TIFF has no image directory.");
+  if (!images.length) throw invalid("TIFF has no image directory.");
   // A conservative profile prevents raster bytes from doubling as admitted structural authority.
   protectedExtents.sort((a, b) => a.offset - b.offset);
   const merged: { offset: number; end: number }[] = [];
@@ -620,13 +629,13 @@ export async function openGeotiff(input: ByteSourceType, inputOptions: GeotiffOp
         else hi = mid;
       }
       if (lo < merged.length && merged[lo]!.offset < end) {
-        unsupported("TIFF raster storage overlaps structural metadata in this conservative profile.");
+        throw unsupported("TIFF raster storage overlaps structural metadata in this conservative profile.");
       }
     }
   }
 
   function image(id: number): ImageType {
-    integer(id, "GeoTIFF image ID");
+    assertInteger(id, "GeoTIFF image ID");
     const result = images[id];
     if (!result) throw new RangeError("Unknown GeoTIFF image.");
     return result;
@@ -637,7 +646,7 @@ export async function openGeotiff(input: ByteSourceType, inputOptions: GeotiffOp
     input: GeotiffWindowType,
   ): { window: GeotiffWindowType; spans: SpanType[]; plan: GeotiffPlanType } {
     const window = { ...input };
-    for (const [key, n] of Object.entries(window)) integer(n, `GeoTIFF window ${key}`);
+    for (const [key, n] of Object.entries(window)) assertInteger(n, `GeoTIFF window ${key}`);
     const { x, y, width, height } = window, d = img.public;
     if (
       ![x, y, width, height].every((n) => Number.isSafeInteger(n) && n >= 0) || x > d.width || y > d.height ||
@@ -701,7 +710,7 @@ export async function openGeotiff(input: ByteSourceType, inputOptions: GeotiffOp
       reserve(auth, work, cost.sourceBytes, cost.requests, cost.outputBytes);
       const result = valuesOf(img.public.sample, cost.outputBytes / img.bytes);
       for (const span of selected.spans) {
-        const bytes = await collect(span.offset, span.length, auth), v = view(bytes);
+        const bytes = await collect(span.offset, span.length, auth), v = createView(bytes);
         for (let i = 0; i < span.length / img.bytes; i++) {
           result[span.output + i] = numberAt(v, i * img.bytes, img.public.sample, little);
         }
@@ -722,7 +731,7 @@ export async function openGeotiff(input: ByteSourceType, inputOptions: GeotiffOp
       const auth = authority({ ...call }, opening);
       auth.signal?.throwIfAborted();
       const img = image(id);
-      integer(block, "GeoTIFF block ID");
+      assertInteger(block, "GeoTIFF block ID");
       if (block >= img.public.blocks) {
         throw new RangeError("Unknown GeoTIFF block.");
       }
@@ -740,8 +749,8 @@ export async function openGeotiff(input: ByteSourceType, inputOptions: GeotiffOp
         async read(at: number, n: number, next: GeotiffCallOptionsType = {}): Promise<Uint8Array> {
           const child = authority({ ...next }, auth), work = fresh();
           child.signal?.throwIfAborted();
-          integer(at, "GeoTIFF block offset");
-          integer(n, "GeoTIFF block length");
+          assertInteger(at, "GeoTIFF block offset");
+          assertInteger(n, "GeoTIFF block length");
           if (at > length || n > length - at) {
             throw new RangeError("GeoTIFF block range exceeds stored extent.");
           }

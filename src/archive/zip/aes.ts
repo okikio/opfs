@@ -8,7 +8,7 @@
  */
 import { close } from "../../close.ts";
 import { isBytes, toView } from "../../bytes.ts";
-import { ArchiveBudget, ArchiveError, integer, invalid, unsupported, view } from "../record.ts";
+import { ArchiveBudget, ArchiveError, assertInteger, createView, invalid, unsupported } from "../record.ts";
 import { crc32 } from "../../hash.ts";
 import { openZipAes } from "./cipher.ts";
 import type { ZipAesStateType } from "./cipher.ts";
@@ -27,7 +27,7 @@ export async function readAesMember(
   const capability = options.aes!;
   const native = { subtle: capability.subtle };
   const passwordLimit = options.maxPasswordBytes ?? 1024;
-  integer(passwordLimit, "maxPasswordBytes");
+  assertInteger(passwordLimit, "maxPasswordBytes");
   if (!isBytes(options.password)) throw new TypeError("ZIP password must be explicit byte data.");
   const caller = toView(options.password);
   if (caller.length > passwordLimit) {
@@ -44,30 +44,30 @@ export async function readAesMember(
   let owned: Uint8Array<ArrayBuffer> | undefined;
   try {
     // The local fixed fields remain evidence after subsequent borrowed reads.
-    const header = view(new Uint8Array(await budget.read(record.offset, 30)));
+    const header = createView(new Uint8Array(await budget.read(record.offset, 30)));
     if (
       header.getUint32(0, true) !== 0x04034b50 || header.getUint16(4, true) < (metadata.method === 0 ? 10 : 20) ||
       header.getUint16(6, true) !== record.flags || header.getUint16(8, true) !== 99
     ) {
-      invalid("WinZip AES local header disagrees with directory.");
+      throw invalid("WinZip AES local header disagrees with directory.");
     }
     const nameSize = header.getUint16(26, true);
     const extraSize = header.getUint16(28, true);
     const dataOffset = record.offset + 30 + nameSize + extraSize;
     if (dataOffset > boundary || entry.compressedSize > boundary - dataOffset) {
-      invalid("WinZip AES member data overlaps directory.");
+      throw invalid("WinZip AES member data overlaps directory.");
     }
     const name = await budget.read(record.offset + 30, nameSize);
     if (name.length !== record.name.length || name.some((byte, index) => byte !== record.name[index])) {
-      invalid("WinZip AES local name disagrees with directory.");
+      throw invalid("WinZip AES local name disagrees with directory.");
     }
-    const extra = view(await budget.read(record.offset + 30 + nameSize, extraSize));
+    const extra = createView(await budget.read(record.offset + 30 + nameSize, extraSize));
     const local = readAesExtra(extra);
     if (
       !local || local.version !== metadata.version || local.strength !== metadata.strength ||
       local.method !== metadata.method
     ) {
-      invalid("WinZip AES local profile disagrees with directory.");
+      throw invalid("WinZip AES local profile disagrees with directory.");
     }
     if (!(record.flags & 8)) {
       const sizes = zip64(
@@ -81,7 +81,7 @@ export async function readAesMember(
         header.getUint32(14, true) !== entry.crc32 || (sizes.size ?? header.getUint32(22, true)) !== entry.size ||
         (sizes.compressedSize ?? header.getUint32(18, true)) !== entry.compressedSize
       ) {
-        invalid("WinZip AES local sizes or CRC disagree with directory.");
+        throw invalid("WinZip AES local sizes or CRC disagree with directory.");
       }
     }
     const saltSize = metadata.strength / 16;
@@ -89,7 +89,7 @@ export async function readAesMember(
       entry.compressedSize < saltSize + 12 ||
       (metadata.method === 0 && entry.compressedSize - saltSize - 12 !== entry.size)
     ) {
-      invalid("WinZip AES STORED ciphertext size disagrees with plaintext size.");
+      throw invalid("WinZip AES STORED ciphertext size disagrees with plaintext size.");
     }
     // Native sign/verify each copies and processes the complete ciphertext. Reserve both passes before acquisition/copy.
     budget.decoded((entry.compressedSize - saltSize - 12) * 2);
@@ -188,7 +188,7 @@ async function readAesDeflate(
       try {
         transform = new DecompressionStream("deflate-raw");
       } catch {
-        unsupported("Raw-DEFLATE is unavailable; inject an explicit codec factory.");
+        throw unsupported("Raw-DEFLATE is unavailable; inject an explicit codec factory.");
       }
     }
     let position = 0;
@@ -241,10 +241,10 @@ async function readAesDeflate(
           eof = true;
           break;
         }
-        if (!isBytes(next.value)) invalid("ZIP AES decoder returned a non-byte chunk.");
+        if (!isBytes(next.value)) throw invalid("ZIP AES decoder returned a non-byte chunk.");
         const bytes = toView(next.value);
         budget.decoded(bytes.length);
-        if (bytes.length > entry.size - decoded) invalid("ZIP AES decoded bytes exceed declared member size.");
+        if (bytes.length > entry.size - decoded) throw invalid("ZIP AES decoded bytes exceed declared member size.");
         if (crc) state = crc32(bytes, state);
         const start = Math.max(offset, decoded);
         const end = Math.min(offset + length, decoded + bytes.length);
@@ -252,7 +252,7 @@ async function readAesDeflate(
         decoded += bytes.length;
       }
       if ((full && decoded !== entry.size) || decoded < offset + length) {
-        invalid("ZIP AES decoded member ended before declared size.");
+        throw invalid("ZIP AES decoded member ended before declared size.");
       }
     } catch (reason) {
       failures.push(reason);

@@ -1,5 +1,5 @@
 /** Private BAM record grammar. Byte extents are admitted before variable-field allocation. @module */
-import { ArchiveError, invalid, unsupported, view } from "../../archive/record.ts";
+import { ArchiveError, createView, invalid, unsupported } from "../../archive/record.ts";
 
 /** One reference in BAM's ordinal dictionary; coordinates in records are zero-based. */
 export interface BamReferenceType {
@@ -54,23 +54,34 @@ export interface BamRecordType {
 }
 
 /** ASCII fields forbid NUL except for their explicit final terminator. */
-export function ascii(bytes: Uint8Array, label: string): string {
+function parseAscii(bytes: Uint8Array, label: string): string {
   for (const byte of bytes) {
-    if (byte < 32 || byte > 126) invalid(`BAM ${label} contains a non-printable ASCII byte.`);
+    if (byte < 32 || byte > 126) throw invalid(`BAM ${label} contains a non-printable ASCII byte.`);
   }
   return new TextDecoder().decode(bytes);
 }
-/** Enforce the reference-name grammar without interpreting names as paths. */
-export function referenceName(bytes: Uint8Array): string {
-  const name = ascii(bytes, "reference name");
+/**
+ * Returns a reference sequence name from the BAM header, after checking the SAM reference-name grammar.
+ *
+ * Called once per reference while the header is read: `const name = parseReferenceName(bytes);`. Names are
+ * data; they are never interpreted as paths.
+ */
+export function parseReferenceName(bytes: Uint8Array): string {
+  const name = parseAscii(bytes, "reference name");
   if (!/^[0-9A-Za-z!#$%&+./:;?@^_|~-][0-9A-Za-z!#$%&*+./:;=?@^_|~-]*$/.test(name)) {
-    invalid("BAM reference name has invalid syntax.");
+    throw invalid("BAM reference name has invalid syntax.");
   }
   return name;
 }
 
-/** Decode one complete admitted record body. Node counts and text storage have already been reserved by the caller. */
-export function record(
+/**
+ * Decodes one complete alignment record body into a `BamRecordType`.
+ *
+ * Called once per record as a page fills: `page.push(parseRecord(bytes, references, ordinal, ...))`. The
+ * caller has already reserved the record's node count and text storage against its budget; this function
+ * enforces the CIGAR and auxiliary-field limits it is given.
+ */
+export function parseRecord(
   bytes: Uint8Array,
   references: readonly BamReferenceType[],
   ordinal: number,
@@ -78,8 +89,8 @@ export function record(
   maxCigar: number,
   maxAuxiliary: number,
 ): BamRecordType {
-  if (bytes.length < 32) invalid("BAM record is shorter than its fixed core.");
-  const data = view(bytes), referenceId = data.getInt32(0, true), position = data.getInt32(4, true);
+  if (bytes.length < 32) throw invalid("BAM record is shorter than its fixed core.");
+  const data = createView(bytes), referenceId = data.getInt32(0, true), position = data.getInt32(4, true);
   const nameLength = bytes[8]!, mappingQuality = bytes[9]!, bin = data.getUint16(10, true);
   const cigarCount = data.getUint16(12, true),
     flags = data.getUint16(14, true),
@@ -88,33 +99,35 @@ export function record(
   const templateLength = data.getInt32(28, true);
   const location = (id: number, at: number): void => {
     if (id < -1 || id >= references.length || at < -1 || (id === -1 && at !== -1)) {
-      invalid("BAM reference/coordinate is outside its dictionary.");
+      throw invalid("BAM reference/coordinate is outside its dictionary.");
     }
-    if (id >= 0 && at >= references[id]!.length) invalid("BAM coordinate exceeds the reference length.");
+    if (id >= 0 && at >= references[id]!.length) throw invalid("BAM coordinate exceeds the reference length.");
   };
   location(referenceId, position);
   location(mateReferenceId, matePosition);
-  if (!(flags & 4) && (referenceId < 0 || position < 0)) invalid("BAM mapped record lacks a reference coordinate.");
-  if (sequenceLength < 0 || nameLength === 0) invalid("BAM sequence/name length is invalid.");
+  if (!(flags & 4) && (referenceId < 0 || position < 0)) {
+    throw invalid("BAM mapped record lacks a reference coordinate.");
+  }
+  if (sequenceLength < 0 || nameLength === 0) throw invalid("BAM sequence/name length is invalid.");
   if (cigarCount > maxCigar) throw new ArchiveError("budget-exceeded", "BAM CIGAR operation policy exhausted.");
   const sequenceBytes = Math.ceil(sequenceLength / 2);
   const fixedEnd = 32 + nameLength + cigarCount * 4 + sequenceBytes + sequenceLength;
-  if (fixedEnd > bytes.length) invalid("BAM variable fields exceed their record extent.");
-  if (bytes[32 + nameLength - 1] !== 0) invalid("BAM query name lacks its NUL terminator.");
-  const name = ascii(bytes.subarray(32, 31 + nameLength), "query name");
-  if (!name || name.includes("@") || name.includes(" ")) invalid("BAM query name has invalid syntax.");
+  if (fixedEnd > bytes.length) throw invalid("BAM variable fields exceed their record extent.");
+  if (bytes[32 + nameLength - 1] !== 0) throw invalid("BAM query name lacks its NUL terminator.");
+  const name = parseAscii(bytes.subarray(32, 31 + nameLength), "query name");
+  if (!name || name.includes("@") || name.includes(" ")) throw invalid("BAM query name has invalid syntax.");
   let at = 32 + nameLength, queryLength = 0;
   const cigar: { operation: string; length: number }[] = [];
   for (let i = 0; i < cigarCount; i++, at += 4) {
     const word = data.getUint32(at, true), code = word & 15, length = word >>> 4;
-    if (code > 8) unsupported("BAM CIGAR operation is outside MIDNSHP=X.");
-    if (length === 0) invalid("BAM CIGAR operation length is zero.");
+    if (code > 8) throw unsupported("BAM CIGAR operation is outside MIDNSHP=X.");
+    if (length === 0) throw invalid("BAM CIGAR operation length is zero.");
     const operation = "MIDNSHP=X"[code]!;
     if ("MIS=X".includes(operation)) queryLength += length;
     cigar.push({ operation, length });
   }
   if (sequenceLength > 0 && cigarCount > 0 && queryLength !== sequenceLength) {
-    invalid("BAM CIGAR query length differs from sequence length.");
+    throw invalid("BAM CIGAR query length differs from sequence length.");
   }
   // Contiguous ASCII avoids one string/rope allocation per base in long crossing records.
   const bases = "=ACMGRSVTWYHKDBN", decodedBases = new Uint8Array(sequenceLength);
@@ -128,7 +141,7 @@ export function record(
     const missing = bytes[at] === 255;
     for (let i = 0; i < sequenceLength; i++) {
       if (missing ? bytes[at + i] !== 255 : bytes[at + i]! > 93) {
-        invalid("BAM quality values are mixed missing or outside Phred 0..93.");
+        throw invalid("BAM quality values are mixed missing or outside Phred 0..93.");
       }
     }
     if (!missing) qualities = bytes.slice(at, at + sequenceLength);
@@ -139,21 +152,21 @@ export function record(
     if (auxiliary.length === maxAuxiliary) {
       throw new ArchiveError("budget-exceeded", "BAM auxiliary entry policy exhausted.");
     }
-    if (bytes.length - at < 3) invalid("BAM auxiliary field is truncated.");
-    const tag = ascii(bytes.subarray(at, at + 2), "auxiliary tag"), type = String.fromCharCode(bytes[at + 2]!);
-    if (!/^[A-Za-z][A-Za-z0-9]$/.test(tag)) invalid("BAM auxiliary tag has invalid syntax.");
-    if (tag === "CG") unsupported("BAM long-CIGAR CG convention is not supported.");
+    if (bytes.length - at < 3) throw invalid("BAM auxiliary field is truncated.");
+    const tag = parseAscii(bytes.subarray(at, at + 2), "auxiliary tag"), type = String.fromCharCode(bytes[at + 2]!);
+    if (!/^[A-Za-z][A-Za-z0-9]$/.test(tag)) throw invalid("BAM auxiliary tag has invalid syntax.");
+    if (tag === "CG") throw unsupported("BAM long-CIGAR CG convention is not supported.");
     at += 3;
     let value: string | number;
     if (type === "Z") {
       const end = bytes.indexOf(0, at);
-      if (end < 0) invalid("BAM auxiliary text lacks a terminator.");
-      value = ascii(bytes.subarray(at, end), "auxiliary text");
+      if (end < 0) throw invalid("BAM auxiliary text lacks a terminator.");
+      value = parseAscii(bytes.subarray(at, end), "auxiliary text");
       at = end + 1;
     } else if (type === "A") {
-      if (at === bytes.length) invalid("BAM auxiliary character is truncated.");
-      value = ascii(bytes.subarray(at, at + 1), "auxiliary character");
-      if (value === " ") invalid("BAM auxiliary character cannot be a space.");
+      if (at === bytes.length) throw invalid("BAM auxiliary character is truncated.");
+      value = parseAscii(bytes.subarray(at, at + 1), "auxiliary character");
+      if (value === " ") throw invalid("BAM auxiliary character cannot be a space.");
       at++;
     } else {
       const width = type === "c" || type === "C"
@@ -163,8 +176,8 @@ export function record(
         : type === "i" || type === "I" || type === "f"
         ? 4
         : 0;
-      if (!width) unsupported("BAM auxiliary encoding is outside the scalar profile.");
-      if (width > bytes.length - at) invalid("BAM auxiliary number is truncated.");
+      if (!width) throw unsupported("BAM auxiliary encoding is outside the scalar profile.");
+      if (width > bytes.length - at) throw invalid("BAM auxiliary number is truncated.");
       value = type === "c"
         ? data.getInt8(at)
         : type === "C"
@@ -178,7 +191,9 @@ export function record(
         : type === "I"
         ? data.getUint32(at, true)
         : data.getFloat32(at, true);
-      if (!Number.isFinite(value)) unsupported("BAM non-finite auxiliary floats are not in the admitted profile.");
+      if (!Number.isFinite(value)) {
+        throw unsupported("BAM non-finite auxiliary floats are not in the admitted profile.");
+      }
       at += width;
     }
     auxiliary.push({ tag, type: type as BamAuxiliaryType["type"], value });

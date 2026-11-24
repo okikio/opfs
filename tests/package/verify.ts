@@ -296,7 +296,7 @@ try {
     import { openUnixfs } from '@okikio/opfs/content/unixfs';
     import { openRar } from '@okikio/opfs/archive/rar';
     import { openXz } from '@okikio/opfs/archive/xz';
-    import { LfsClient, decodeLfsPointer, encodeLfsPointer, lfsPointerObject } from '@okikio/opfs/content/lfs';
+    import { LfsClient, decodeLfsPointer, encodeLfsPointer, toLfsObject } from '@okikio/opfs/content/lfs';
     import { openGitObject, encodeGitTree } from '@okikio/opfs/content/git';
     import { createD1Adapter } from '@okikio/opfs/adapter/d1';
     import { createZipStream } from '@okikio/opfs/archive/write';
@@ -616,7 +616,7 @@ try {
     }), (byte) => byte.charCodeAt(0));
     const lfsPointer = decodeLfsPointer(lfsPointerBytes);
     assertBytes(encodeLfsPointer(lfsPointer), lfsPointerBytes);
-    const lfsObject = lfsPointerObject(lfsPointer);
+    const lfsObject = toLfsObject(lfsPointer);
     const lfs = new LfsClient({ endpoint: 'https://repo.example/lfs/', downloadOrigins: ['https://objects.example'], subtle: globalThis.crypto.subtle, credentials: () => ({ Authorization: 'Bearer repository-only' }), fetch: async (input, init) => {
       const url = new URL(String(input));
       if (url.origin === 'https://repo.example') {
@@ -2383,7 +2383,7 @@ try {
     import { openUnixfs } from '@okikio/opfs/content/unixfs';
     import { openRar } from '@okikio/opfs/archive/rar';
     import { openXz } from '@okikio/opfs/archive/xz';
-    import { LfsClient, decodeLfsPointer, encodeLfsPointer, lfsPointerObject } from '@okikio/opfs/content/lfs';
+    import { LfsClient, decodeLfsPointer, encodeLfsPointer, toLfsObject } from '@okikio/opfs/content/lfs';
     import { openGitObject, encodeGitTree } from '@okikio/opfs/content/git';
     import { createD1Adapter } from '@okikio/opfs/adapter/d1';
     import { createZipStream } from '@okikio/opfs/archive/write';

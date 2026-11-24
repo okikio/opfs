@@ -49,8 +49,23 @@ function integer(value: number, name: string): void {
   if (!Number.isSafeInteger(value) || value < 0) throw new RangeError(`${name} must be a nonnegative safe integer.`);
 }
 
-/** Admits a complete extent without clamping or pretending a short read succeeded. */
-export function sourceRange(size: number, offset: number, length: number): void {
+/**
+ * Throws `RangeError` unless `offset` and `length` describe a complete extent inside a source of `size` bytes.
+ *
+ * Call it as the first statement of a `read(offset, length)` implementation, before any request:
+ *
+ * ```ts
+ * async read(offset, length) {
+ *   assertExtent(size, offset, length);
+ *   // ...
+ * }
+ * ```
+ *
+ * All three values must be nonnegative safe integers. An extent that ends past `size` is refused rather than
+ * clamped, so a caller never receives a short read that looks complete. "Extent" here is the source's own
+ * byte span; HTTP `Range` selection lives in `range.ts`.
+ */
+export function assertExtent(size: number, offset: number, length: number): void {
   integer(size, "size");
   integer(offset, "offset");
   integer(length, "length");
@@ -89,7 +104,7 @@ export function budgetSource(source: ByteSourceType, budget: SourceBudgetType): 
     ...(stability === undefined ? {} : { stability }),
     async read(offset, length, options = {}) {
       options.signal?.throwIfAborted();
-      sourceRange(size, offset, length);
+      assertExtent(size, offset, length);
       if (length === 0) return new Uint8Array();
       budget.reserve(length);
       const bytes = await source.read(offset, length, options);
@@ -114,7 +129,7 @@ export function createBlobSource(blob: Blob, options: { readonly identity?: stri
     stability: "immutable",
     async read(offset, length, { signal } = {}) {
       signal?.throwIfAborted();
-      sourceRange(size, offset, length);
+      assertExtent(size, offset, length);
       const bytes = new Uint8Array(await blob.slice(offset, offset + length).arrayBuffer());
       signal?.throwIfAborted();
       return bytes;
@@ -240,7 +255,7 @@ export async function openObjectSource(
     stability: revision === undefined ? "caller" : "provider",
     async read(offset, length, { signal: readSignal } = {}) {
       readSignal?.throwIfAborted();
-      sourceRange(size, offset, length);
+      assertExtent(size, offset, length);
       if (length > maxReadBytes) throw new RangeError("Object source maxReadBytes exceeded.");
       if (length === 0) return new Uint8Array();
       const stream = await backend.get(key, {

@@ -1,4 +1,4 @@
-import { assertRangeResponse, range } from "../../range.ts";
+import { assertRangeResponse, resolveRange } from "../../range.ts";
 import type { DriverPlanInputType, DriverPlanType } from "../../driver/definition.ts";
 import { map } from "../../pool.ts";
 import { encodeHex } from "@std/encoding/hex";
@@ -9,12 +9,7 @@ import { open } from "../../chunk.ts";
 import { isBuffer, isBytes, toRequestBuffer, toRequestBytes, toView } from "../../bytes.ts";
 import { assertRequestStream, isStream } from "../../body.ts";
 import { close } from "../../close.ts";
-import {
-  etagCopyOptions as copyOptions,
-  etagPutOptions as putOptions,
-  objectETag,
-  putProperties,
-} from "../../publication.ts";
+import { applyProperties, resolveETag, resolveETagCopy, resolveETagPut } from "../../publication.ts";
 import type { ResponseTextType } from "../../response.ts";
 import { readResponse } from "../../response.ts";
 import {
@@ -1128,8 +1123,8 @@ class S3Client implements S3ClientType {
 
   /** Opens an S3 object or byte range as a Web `ReadableStream`. */
   async get(key: string, options: ObjectGetOptionsType = {}): Promise<ReadableStream<Uint8Array>> {
-    const ifMatch = objectETag(options.revision);
-    const selected = range(options);
+    const ifMatch = resolveETag(options.revision);
+    const selected = resolveRange(options);
     if (selected.empty) return new Blob().stream();
     const headers = new Headers();
     if (ifMatch !== undefined) headers.set("if-match", ifMatch);
@@ -1365,9 +1360,9 @@ class S3Client implements S3ClientType {
     body: Uint8Array | ReadableStream<Uint8Array>,
     options: ObjectPutOptionsType = {},
   ): Promise<ObjectReceiptType> {
-    options = putOptions(options);
+    options = resolveETagPut(options);
     const properties = getStat(this.#getPropertyHeaders(options));
-    options = putProperties(options, properties);
+    options = applyProperties(options, properties);
     this.#address(key);
     // Intrinsic byte admission includes genuine foreign-realm views. A detached
     // or out-of-bounds view must not fall through as an apparent empty stream.
@@ -1482,7 +1477,7 @@ class S3Client implements S3ClientType {
 
   /** Removes one exact object. A missing object is treated as already removed. */
   async delete(key: string, options?: ObjectDeleteOptionsType): Promise<void> {
-    const ifMatch = objectETag(options?.revision);
+    const ifMatch = resolveETag(options?.revision);
     const response = await this.request({
       method: "DELETE",
       key,
@@ -1534,7 +1529,7 @@ class S3Client implements S3ClientType {
    * copy cannot silently replace a destination that changed during the copy.
    */
   async copy(source: string, destination: string, options: ObjectCopyOptionsType = {}): Promise<ObjectReceiptType> {
-    options = copyOptions(options);
+    options = resolveETagCopy(options);
     if (!this.capabilities.copy) throw new TypeError("S3 server-side copy is disabled for this client.");
     this.#address(destination);
     const sourceHeaders = new Headers();

@@ -5,9 +5,9 @@ import {
   encodeLfsPointer,
   LfsClient,
   LfsError,
-  lfsPointerObject,
   LfsPublicationError,
   LfsVerificationError,
+  toLfsObject,
 } from "../src/content/lfs.ts";
 import type { LfsOptionsType } from "../src/content/lfs.ts";
 const bytes = new TextEncoder().encode("hello\n");
@@ -36,10 +36,10 @@ describe("native Git LFS pointers and basic transfer", () => {
     const pointer = new TextEncoder().encode(`version https://git-lfs.github.com/spec/v1\noid sha256:${oid}\nsize 6\n`);
     const decoded = decodeLfsPointer(pointer);
     expect(encodeLfsPointer(decoded)).toEqual(pointer);
-    expect(lfsPointerObject(decoded)).toEqual(selected);
+    expect(toLfsObject(decoded)).toEqual(selected);
     expect(decodeLfsPointer(new Uint8Array())).toEqual({ kind: "empty" });
     expect(encodeLfsPointer({ kind: "empty" })).toEqual(new Uint8Array());
-    expect(() => lfsPointerObject({ kind: "empty" })).toThrow();
+    expect(() => toLfsObject({ kind: "empty" })).toThrow();
   });
   it("refuses pointer aliases, duplicate keys, unsafe sizes, CRLF and missing LF", () => {
     const text = `version https://git-lfs.github.com/spec/v1\noid sha256:${oid}\nsize 6\n`;
@@ -63,7 +63,7 @@ describe("native Git LFS pointers and basic transfer", () => {
     });
     const decoded = decodeLfsPointer(encoded);
     expect(encodeLfsPointer(decoded)).toEqual(encoded);
-    expect(() => lfsPointerObject(decoded)).toThrow("explicit interpretation");
+    expect(() => toLfsObject(decoded)).toThrow("explicit interpretation");
   });
   it("keeps Batch credentials off action requests and preserves native action authorization", async () => {
     let count = 0;

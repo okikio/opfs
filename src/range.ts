@@ -16,12 +16,23 @@ export interface RangeType {
 }
 
 /**
- * Admit complete safe-integer offsets before credentials or Fetch. A requested
- * length of zero returns an empty local stream, including beyond EOF. Nonzero
- * ranges retain the provider's ordinary status and EOF behavior. End arithmetic
- * is checked before addition; no rounding or clamping repairs an invalid input.
+ * Selects the byte range one object read requests, before credentials or Fetch.
+ *
+ * Call it at the start of a provider's ranged read, then check the provider's answer against the same value:
+ *
+ * ```ts
+ * const selected = resolveRange(options);
+ * if (selected.empty) return new Blob().stream();
+ * if (selected.header !== undefined) headers.set("range", selected.header);
+ * const response = await fetch(url, { headers, signal: selected.signal });
+ * await assertRangeResponse(response, selected);
+ * ```
+ *
+ * Offsets must be complete safe integers. A requested length of zero returns an empty local stream, including
+ * beyond EOF. Nonzero ranges retain the provider's ordinary status and EOF behavior. End arithmetic is checked
+ * before addition; no rounding or clamping repairs an invalid input.
  */
-export function range(options: ObjectGetOptionsType): RangeType {
+export function resolveRange(options: ObjectGetOptionsType): RangeType {
   const signal = options.signal;
   if (signal?.aborted) throw signal.reason;
   const { at, length } = options;

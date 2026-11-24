@@ -1,7 +1,7 @@
 /** Explicit LF-native mboxo/mboxrd indexing and MIME preview sources. @module */
 import type { ByteSourceType } from "../source.ts";
-import { sourceRange } from "../source.ts";
-import { ArchiveBudget, ArchiveError, createArchiveLedger, integer, invalid, unsupported } from "./record.ts";
+import { assertExtent } from "../source.ts";
+import { ArchiveBudget, ArchiveError, assertInteger, createArchiveLedger, invalid, unsupported } from "./record.ts";
 import type { ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
 export { ArchiveError, createArchiveLedger } from "./record.ts";
 export type { ArchiveErrorCodeType, ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
@@ -95,11 +95,11 @@ async function scan(
 /** Index two explicit LF-only profiles; Content-Length never controls these delimiters. */
 export async function openMbox(input: ByteSourceType, options: MboxOpenOptionsType): Promise<MboxArchiveType> {
   if (options.dialect !== "mboxo" && options.dialect !== "mboxrd") {
-    unsupported("Choose mboxo or mboxrd explicitly; other mailbox dialects are unsupported.");
+    throw unsupported("Choose mboxo or mboxrd explicitly; other mailbox dialects are unsupported.");
   }
   const dialect = options.dialect;
   const { size, identity, stability } = input;
-  integer(size, "Source size");
+  assertInteger(size, "Source size");
   const read = input.read.bind(input);
   const source: ByteSourceType = {
     size,
@@ -108,7 +108,7 @@ export async function openMbox(input: ByteSourceType, options: MboxOpenOptionsTy
     ...(stability === undefined ? {} : { stability }),
   };
   if (!stability && !options.allowUnverifiedSource) {
-    unsupported("MBOX inspection needs a stable source or explicit unverified-source acceptance.");
+    throw unsupported("MBOX inspection needs a stable source or explicit unverified-source acceptance.");
   }
   if (stability && !["immutable", "provider", "caller"].includes(stability)) {
     throw new TypeError("Unknown source stability evidence.");
@@ -118,7 +118,7 @@ export async function openMbox(input: ByteSourceType, options: MboxOpenOptionsTy
   const envelopeMaximum = options.maxEnvelopeBytes ?? 4096;
   const metadataMaximum = options.maxMetadataBytes ?? 4 * 1024 * 1024;
   for (const [label, maximum] of Object.entries({ chunk, messages, envelopeMaximum, metadataMaximum })) {
-    integer(maximum, label);
+    assertInteger(maximum, label);
   }
   if (chunk < 1 || chunk > 65536) throw new RangeError("maxChunkBytes must be 1..65536.");
   const work = new ArchiveBudget(source, options, options.signal);
@@ -135,7 +135,7 @@ export async function openMbox(input: ByteSourceType, options: MboxOpenOptionsTy
     current: undefined,
   };
   await scan(work, 0, size, chunk, (byte, at) => {
-    if (byte === 13) unsupported("This mailbox profile accepts LF only, not CR or CRLF.");
+    if (byte === 13) throw unsupported("This mailbox profile accepts LF only, not CR or CRLF.");
     if (byte !== 10) {
       lineLength++;
       if (prefix.length < 5) {
@@ -145,21 +145,21 @@ export async function openMbox(input: ByteSourceType, options: MboxOpenOptionsTy
       } else if (candidate) envelope += String.fromCharCode(byte);
       if (candidate) {
         cap(lineLength, envelopeMaximum, "MBOX envelope");
-        if (byte < 32 || byte > 126) invalid("MBOX envelope must be printable ASCII.");
+        if (byte < 32 || byte > 126) throw invalid("MBOX envelope must be printable ASCII.");
       }
       return;
     }
     if (candidate) {
-      if (envelope.length <= 5) invalid("MBOX envelope has no sender or date metadata.");
+      if (envelope.length <= 5) throw invalid("MBOX envelope has no sender or date metadata.");
       if (state.current) {
-        if (!previousEmpty) invalid("MBOX message requires a terminal empty line in this profile.");
+        if (!previousEmpty) throw invalid("MBOX message requires a terminal empty line in this profile.");
         pending.push(Object.freeze({ ...state.current, size: lineStart - state.current.offset }));
-      } else if (lineStart !== 0) invalid("MBOX must start with an envelope separator.");
+      } else if (lineStart !== 0) throw invalid("MBOX must start with an envelope separator.");
       cap(pending.length + 1, messages, "MBOX messages");
       cap(envelope.length + 64, metadataMaximum - metadata, "MBOX metadata");
       metadata += envelope.length + 64;
       state.current = { id: pending.length, envelope, envelopeOffset: lineStart, offset: at + 1 };
-    } else if (!state.current) invalid("MBOX must start with an envelope separator.");
+    } else if (!state.current) throw invalid("MBOX must start with an envelope separator.");
     previousEmpty = lineLength === 0;
     lineStart = at + 1;
     lineLength = 0;
@@ -168,12 +168,12 @@ export async function openMbox(input: ByteSourceType, options: MboxOpenOptionsTy
     candidate = false;
   });
   if (size && (!state.current || lineStart !== size || !previousEmpty)) {
-    invalid("MBOX requires a final terminal empty line.");
+    throw invalid("MBOX requires a final terminal empty line.");
   }
   if (state.current) pending.push(Object.freeze({ ...state.current, size: size - state.current.offset }));
   const entries = Object.freeze(pending);
   function at(id: number): MboxEntryType {
-    integer(id, "MBOX ordinal");
+    assertInteger(id, "MBOX ordinal");
     const entry = entries[id];
     if (!entry) throw new RangeError("MBOX ordinal does not exist.");
     return entry;
@@ -186,7 +186,7 @@ export async function openMbox(input: ByteSourceType, options: MboxOpenOptionsTy
       const entry = at(id);
       const offset = policy.offset ?? 0;
       const length = policy.length ?? entry.size - offset;
-      sourceRange(entry.size, offset, length);
+      assertExtent(entry.size, offset, length);
       const budget = new ArchiveBudget(source, policy, policy.signal);
       budget.output(length);
       const result = new Uint8Array(length);
@@ -206,8 +206,8 @@ export async function openMbox(input: ByteSourceType, options: MboxOpenOptionsTy
       }
       const maximum = policy.maxPieces ?? 100000;
       const metadata = policy.maxMetadataBytes ?? 4 * 1024 * 1024;
-      integer(maximum, "maxPieces");
-      integer(metadata, "maxMetadataBytes");
+      assertInteger(maximum, "maxPieces");
+      assertInteger(metadata, "maxMetadataBytes");
       policy.signal?.throwIfAborted();
       const total = createArchiveLedger(policy);
       const ledger = {
@@ -226,7 +226,7 @@ export async function openMbox(input: ByteSourceType, options: MboxOpenOptionsTy
         if (!length) return;
         cap(pieces.length + 1, maximum, "MBOX range map pieces");
         cap(pieces.length + 1, Math.floor(metadata / 32), "MBOX range map metadata");
-        integer(logicalSize + length, "Converted message size");
+        assertInteger(logicalSize + length, "Converted message size");
         pieces.push({ start: logicalSize, offset, size: length, cr });
         logicalSize += length;
       }
@@ -276,7 +276,7 @@ export async function openMbox(input: ByteSourceType, options: MboxOpenOptionsTy
         async read(offset, length, request = {}) {
           policy.signal?.throwIfAborted();
           request.signal?.throwIfAborted();
-          sourceRange(logicalSize, offset, length);
+          assertExtent(logicalSize, offset, length);
           const signal = request.signal && policy.signal
             ? AbortSignal.any([request.signal, policy.signal])
             : request.signal ?? policy.signal;

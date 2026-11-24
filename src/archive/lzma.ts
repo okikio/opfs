@@ -1,7 +1,7 @@
 /** Bounded pure LZMA1/LZMA2 decoding over borrowed exact-range sources. @module */
 import type { ByteSourceType } from "../source.ts";
 import { isBytes, toView } from "../bytes.ts";
-import { ArchiveBudget, ArchiveError, integer, invalid, unsupported, view } from "./record.ts";
+import { ArchiveBudget, ArchiveError, assertInteger, createView, invalid, unsupported } from "./record.ts";
 import type { ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
 export { ArchiveError, createArchiveLedger } from "./record.ts";
 export type { ArchiveErrorCodeType, ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
@@ -82,7 +82,7 @@ class Cursor {
     }
   }
   byte(): number {
-    if (this.start === this.end) invalid("LZMA packed input ended within a symbol.");
+    if (this.start === this.end) throw invalid("LZMA packed input ended within a symbol.");
     return this.bytes[this.start++]!;
   }
 }
@@ -156,12 +156,12 @@ class Kernel {
     this.steps += count;
   }
   properties(value: number): void {
-    if (value >= 225) invalid("LZMA properties are invalid.");
+    if (value >= 225) throw invalid("LZMA properties are invalid.");
     const lc = value % 9;
     const rest = Math.floor(value / 9);
     const lp = rest % 5;
     const pb = Math.floor(rest / 5);
-    if (lc + lp > 4) unsupported("LZMA profile requires lc+lp<=4.");
+    if (lc + lp > 4) throw unsupported("LZMA profile requires lc+lp<=4.");
     const length = 1846 + 768 * 2 ** (lc + lp);
     if (
       this.dictionary.length + 65536 + 64 + 16384 + length * 2 +
@@ -188,7 +188,7 @@ class Kernel {
     this.history = 0;
   }
   byte(): number {
-    if (this.chunkPacked === 0) invalid("LZMA range decoder exceeds its packed chunk.");
+    if (this.chunkPacked === 0) throw invalid("LZMA range decoder exceeds its packed chunk.");
     const value = this.cursor.byte();
     if (this.chunkPacked > 0) this.chunkPacked--;
     return value;
@@ -196,16 +196,16 @@ class Kernel {
   initializeRange(): void {
     this.range = 0xffffffff;
     this.code = 0;
-    if (this.byte() !== 0) invalid("LZMA range stream requires an initial zero byte.");
+    if (this.byte() !== 0) throw invalid("LZMA range stream requires an initial zero byte.");
     for (let i = 0; i < 4; i++) this.code = (this.code * 256 + this.byte()) >>> 0;
-    if (this.code >= this.range) invalid("LZMA initial range code is invalid.");
+    if (this.code >= this.range) throw invalid("LZMA initial range code is invalid.");
   }
   normalize(): void {
     if (this.range < 0x1000000) {
       this.range = (this.range * 256) >>> 0;
       this.code = (this.code * 256 + this.byte()) >>> 0;
     }
-    if (this.code >= this.range) invalid("LZMA range code is outside its interval.");
+    if (this.code >= this.range) throw invalid("LZMA range code is outside its interval.");
   }
   decision(): void {
     if (this.decisions >= this.maxDecisions) this.limit("range decisions");
@@ -216,7 +216,7 @@ class Kernel {
     this.decision();
     const probability = this.probs[at];
     if (probability === undefined || probability < 31 || probability > 2017) {
-      invalid("LZMA probability index/invariant is invalid.");
+      throw invalid("LZMA probability index/invariant is invalid.");
     }
     const bound = (this.range >>> 11) * probability;
     let bit: number;
@@ -262,7 +262,7 @@ class Kernel {
   }
   previous(distance: number): number {
     if (distance < 1 || distance > this.dictionary.length || distance > this.history) {
-      invalid("LZMA match exceeds available dictionary history.");
+      throw invalid("LZMA match exceeds available dictionary history.");
     }
     return this.dictionary[(this.position + this.dictionary.length - distance) % this.dictionary.length]!;
   }
@@ -310,13 +310,13 @@ class Kernel {
       }
       this.state = this.state < 7 ? 7 : 10;
       if (distance === 0xffffffff) {
-        if (this.code !== 0) invalid("LZMA EOS has unfinished range state.");
+        if (this.code !== 0) throw invalid("LZMA EOS has unfinished range state.");
         return true;
       }
       this.reps[0] = distance;
       this.pending = length + 2;
     } else {
-      if (!this.history) invalid("LZMA repetition has no dictionary history.");
+      if (!this.history) throw invalid("LZMA repetition has no dictionary history.");
       if (!this.bit(204 + this.state)) {
         if (!this.bit(240 + statePosition)) {
           this.state = this.state < 7 ? 9 : 11;
@@ -340,8 +340,10 @@ class Kernel {
     return false;
   }
   put(bytes: Uint8Array, at: number, count: number): void {
-    if (this.size !== undefined && count > this.size - this.total) invalid("LZMA output exceeds declared size.");
-    if (this.options.format === "raw-lzma2" && count > this.chunkOutput) invalid("LZMA2 output exceeds chunk size.");
+    if (this.size !== undefined && count > this.size - this.total) throw invalid("LZMA output exceeds declared size.");
+    if (this.options.format === "raw-lzma2" && count > this.chunkOutput) {
+      throw invalid("LZMA2 output exceeds chunk size.");
+    }
     this.step(count);
     this.budget.decoded(count);
     this.budget.output(count);
@@ -369,18 +371,18 @@ class Kernel {
     }
     if (this.chunks >= this.maxChunks) this.limit("chunk count");
     this.chunks++;
-    if (control > 2 && control < 128) invalid("LZMA2 control byte is reserved.");
+    if (control > 2 && control < 128) throw invalid("LZMA2 control byte is reserved.");
     if (control === 1 || control >= 224) {
       this.resetDictionary();
       this.needDictionary = false;
       this.needProperties = true;
     }
-    if (this.needDictionary) invalid("LZMA2 initial dictionary reset is missing.");
+    if (this.needDictionary) throw invalid("LZMA2 initial dictionary reset is missing.");
     this.chunkOutput = (control >= 128 ? (control & 31) * 65536 : 0) + this.cursor.byte() * 256 + this.cursor.byte() +
       1;
     this.budget.decoded(2);
     if (this.size !== undefined && this.chunkOutput > this.size - this.total) {
-      invalid("LZMA2 chunk exceeds remaining declared size.");
+      throw invalid("LZMA2 chunk exceeds remaining declared size.");
     }
     this.raw = control < 128;
     if (this.raw) {
@@ -395,9 +397,9 @@ class Kernel {
       this.budget.decoded(1);
       this.needProperties = false;
     } else {
-      if (this.needProperties) invalid("LZMA2 properties reset is missing.");
+      if (this.needProperties) throw invalid("LZMA2 properties reset is missing.");
       if (control >= 160) this.reset();
-      else if (this.needState) invalid("LZMA2 state reset is missing.");
+      else if (this.needState) throw invalid("LZMA2 state reset is missing.");
     }
     this.needState = false;
     await this.cursor.ensure(this.chunkPacked);
@@ -413,9 +415,9 @@ class Kernel {
       this.signal.throwIfAborted();
       if (this.options.format === "raw-lzma2") {
         if (!this.chunkOutput) {
-          if (this.pending) invalid("LZMA2 match crosses a chunk output boundary.");
+          if (this.pending) throw invalid("LZMA2 match crosses a chunk output boundary.");
           if (this.chunkPacked >= 0 && (this.chunkPacked !== 0 || this.code !== 0)) {
-            invalid("LZMA2 chunk did not finish its exact packed extent/range state.");
+            throw invalid("LZMA2 chunk did not finish its exact packed extent/range state.");
           }
           await this.chunk();
           if (this.termination !== "pending") break;
@@ -431,15 +433,15 @@ class Kernel {
       if (!this.pending) {
         if (this.options.format !== "raw-lzma2") await this.cursor.ensure(64);
         if (this.symbol()) {
-          if (this.options.format === "raw-lzma2") invalid("LZMA2 compressed chunks forbid inner EOS markers.");
+          if (this.options.format === "raw-lzma2") throw invalid("LZMA2 compressed chunks forbid inner EOS markers.");
           this.termination = "end-marker";
           break;
         }
         if (this.size !== undefined && this.pending > this.size - this.total) {
-          invalid("LZMA match/literal exceeds declared size.");
+          throw invalid("LZMA match/literal exceeds declared size.");
         }
         if (this.options.format === "raw-lzma2" && this.pending > this.chunkOutput) {
-          invalid("LZMA2 match exceeds declared chunk output.");
+          throw invalid("LZMA2 match exceeds declared chunk output.");
         }
       }
       const count = Math.min(this.pending, bytes.length - used);
@@ -448,8 +450,10 @@ class Kernel {
       if (this.steps - startSteps >= 65536) break;
     }
     if (this.termination !== "pending") {
-      if (this.size !== undefined && this.total !== this.size) invalid("LZMA terminated before declared output size.");
-      if (this.cursor.remaining) invalid("LZMA packed extent contains trailing bytes.");
+      if (this.size !== undefined && this.total !== this.size) {
+        throw invalid("LZMA terminated before declared output size.");
+      }
+      if (this.cursor.remaining) throw invalid("LZMA packed extent contains trailing bytes.");
     }
     return bytes.subarray(0, used);
   }
@@ -467,12 +471,12 @@ export function createLzmaDecoder(input: ByteSourceType, supplied: LzmaOptionsTy
       throw new TypeError("Unknown LZMA end-marker policy.");
     }
   } else if (options.format === "raw-lzma2") {
-    integer(options.dictionary, "LZMA2 dictionary property");
-    if (options.dictionary > 40) invalid("LZMA2 dictionary property exceeds40.");
+    assertInteger(options.dictionary, "LZMA2 dictionary property");
+    if (options.dictionary > 40) throw invalid("LZMA2 dictionary property exceeds40.");
   } else if (options.format !== "alone") throw new TypeError("Unknown LZMA framing profile.");
-  if (options.format !== "alone" && options.size !== undefined) integer(options.size, "LZMA expected size");
+  if (options.format !== "alone" && options.size !== undefined) assertInteger(options.size, "LZMA expected size");
   const { size, identity, stability } = input;
-  integer(size, "LZMA source size");
+  assertInteger(size, "LZMA source size");
   if (stability !== undefined && !["immutable", "provider", "caller"].includes(stability)) {
     throw new TypeError("Unknown LZMA source stability.");
   }
@@ -480,7 +484,7 @@ export function createLzmaDecoder(input: ByteSourceType, supplied: LzmaOptionsTy
     throw new TypeError("LZMA source identity exceeds its string bound.");
   }
   if (!stability && !options.allowUnverifiedSource) {
-    unsupported("LZMA requires stable source evidence or explicit unverified acceptance.");
+    throw unsupported("LZMA requires stable source evidence or explicit unverified acceptance.");
   }
   const source: ByteSourceType = {
     size,
@@ -497,7 +501,7 @@ export function createLzmaDecoder(input: ByteSourceType, supplied: LzmaOptionsTy
     [options.inputChunkBytes ?? 65536, 65536],
   ];
   for (const [value, ceiling] of maximums) {
-    integer(value!, "LZMA policy limit");
+    assertInteger(value!, "LZMA policy limit");
     if (value! > ceiling!) throw new RangeError("LZMA policy exceeds implementation ceiling.");
   }
   if (options.inputChunkBytes === 0) throw new RangeError("LZMA source request quantum must be positive.");
@@ -569,16 +573,16 @@ export function createLzmaDecoder(input: ByteSourceType, supplied: LzmaOptionsTy
       for (let i = 0; i < 13; i++) bytes[i] = cursor.byte();
       budget.decoded(13);
       properties = bytes[0]!;
-      dictionary = Math.max(4096, view(bytes).getUint32(1, true));
-      const declared = view(bytes).getBigUint64(5, true);
+      dictionary = Math.max(4096, createView(bytes).getUint32(1, true));
+      const declared = createView(bytes).getBigUint64(5, true);
       if (declared !== 0xffffffffffffffffn) {
-        if (declared > BigInt(Number.MAX_SAFE_INTEGER)) unsupported("LZMA output size exceeds safe indexing.");
+        if (declared > BigInt(Number.MAX_SAFE_INTEGER)) throw unsupported("LZMA output size exceeds safe indexing.");
         expected = Number(declared);
         marker = "optional";
       }
     } else if (options.format === "raw-lzma1") {
       properties = options.properties[0]!;
-      dictionary = Math.max(4096, view(options.properties).getUint32(1, true));
+      dictionary = Math.max(4096, createView(options.properties).getUint32(1, true));
       expected = options.size;
       marker = options.marker ?? (expected === undefined ? "required" : "optional");
     } else {

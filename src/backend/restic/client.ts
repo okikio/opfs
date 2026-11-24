@@ -2,7 +2,7 @@
 import { z } from "zod";
 import { isBytes, toRequestBytes, toView } from "../../bytes.ts";
 import { close } from "../../close.ts";
-import { assertRangeResponse, range } from "../../range.ts";
+import { assertRangeResponse, resolveRange } from "../../range.ts";
 import { RequestMetrics, sendRequest } from "../../request.ts";
 import type { FetchType, RequestPolicyType } from "../../request.ts";
 import { readResponse } from "../../response.ts";
@@ -373,7 +373,7 @@ export class ResticClient {
     value: ResticObjectType,
     options: { readonly at?: number; readonly length?: number; readonly signal?: AbortSignal } = {},
   ): Promise<ResticDownloadType> {
-    const object = locator(value), selected = range(options);
+    const object = locator(value), selected = resolveRange(options);
     if (selected.empty) {
       return {
         bytes: new ReadableStream({

@@ -1,6 +1,14 @@
 /** Bounded UDF 1.02 physical-partition inspection without mounting an image. @module */
 import type { ByteSourceType } from "../source.ts";
-import { ArchiveBudget, ArchiveError, createArchiveLedger, integer, invalid, unsupported, view } from "./record.ts";
+import {
+  ArchiveBudget,
+  ArchiveError,
+  assertInteger,
+  createArchiveLedger,
+  createView,
+  invalid,
+  unsupported,
+} from "./record.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
 export { ArchiveError, createArchiveLedger } from "./record.ts";
 export type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
@@ -115,16 +123,16 @@ function crc16(bytes: Uint8Array): number {
   return state;
 }
 function exact(value: bigint): number {
-  if (value < 0n || value > BigInt(Number.MAX_SAFE_INTEGER)) unsupported("UDF integer exceeds safe indexing.");
+  if (value < 0n || value > BigInt(Number.MAX_SAFE_INTEGER)) throw unsupported("UDF integer exceeds safe indexing.");
   return Number(value);
 }
 function bytesOf(block: number, length: number, maximum: number): number {
   const offset = BigInt(block) * 2048n;
-  if (offset + BigInt(length) > BigInt(maximum)) invalid("UDF extent exceeds its enclosing volume or partition.");
+  if (offset + BigInt(length) > BigInt(maximum)) throw invalid("UDF extent exceeds its enclosing volume or partition.");
   return exact(offset);
 }
 function zeros(bytes: Uint8Array, label: string): void {
-  if (bytes.some((byte) => byte !== 0)) invalid(`UDF ${label} must contain zero bytes.`);
+  if (bytes.some((byte) => byte !== 0)) throw invalid(`UDF ${label} must contain zero bytes.`);
 }
 function text(bytes: Uint8Array): string {
   return String.fromCharCode(...bytes);
@@ -133,38 +141,40 @@ function text(bytes: Uint8Array): string {
  * An ECMA descriptor may omit its CRC; this strict inspection profile instead requires
  * CRC coverage through every interpreted byte before accepting metadata authority. */
 function tag(bytes: Uint8Array, location: number, minimum: number, expected?: number): number {
-  if (bytes.length < 16 || minimum < 16 || minimum > bytes.length) invalid("UDF descriptor is truncated.");
-  const data = view(bytes);
+  if (bytes.length < 16 || minimum < 16 || minimum > bytes.length) throw invalid("UDF descriptor is truncated.");
+  const data = createView(bytes);
   let sum = 0;
   for (let at = 0; at < 16; at++) if (at !== 4) sum += bytes[at]!;
   if ((sum & 255) !== bytes[4]) throw new ArchiveError("checksum-mismatch", "UDF descriptor tag checksum mismatch.");
-  if (data.getUint16(2, true) !== 2) unsupported("UDF descriptor version must be 2 in this 1.02 profile.");
+  if (data.getUint16(2, true) !== 2) throw unsupported("UDF descriptor version must be 2 in this 1.02 profile.");
   if (bytes[5] !== 0 || data.getUint32(12, true) !== location) {
-    invalid("UDF reserved tag byte or tag location differs.");
+    throw invalid("UDF reserved tag byte or tag location differs.");
   }
   const length = data.getUint16(10, true);
   if (length > bytes.length - 16 || length < minimum - 16) {
-    invalid("UDF descriptor CRC does not cover interpreted fields.");
+    throw invalid("UDF descriptor CRC does not cover interpreted fields.");
   }
   if (crc16(bytes.subarray(16, 16 + length)) !== data.getUint16(8, true)) {
     throw new ArchiveError("checksum-mismatch", "UDF descriptor body CRC16 mismatch.");
   }
   const id = data.getUint16(0, true);
   if (expected !== undefined && id !== expected) {
-    unsupported(`UDF descriptor ${id} is unsupported here; expected ${expected}.`);
+    throw unsupported(`UDF descriptor ${id} is unsupported here; expected ${expected}.`);
   }
   return id;
 }
 /** Only OSTA CS0 is decoded. Names stay literal components and never become host paths. */
 function nameOf(bytes: Uint8Array): string {
   const mode = bytes[0];
-  if (mode !== 8 && mode !== 16) unsupported("UDF name must use OSTA compressed Unicode 8 or 16.");
-  if (bytes.length < 2 || (mode === 16 && bytes.length % 2 !== 1)) invalid("UDF compressed Unicode name is truncated.");
+  if (mode !== 8 && mode !== 16) throw unsupported("UDF name must use OSTA compressed Unicode 8 or 16.");
+  if (bytes.length < 2 || (mode === 16 && bytes.length % 2 !== 1)) {
+    throw invalid("UDF compressed Unicode name is truncated.");
+  }
   let result = "";
   for (let at = 1; at < bytes.length; at += mode === 8 ? 1 : 2) {
     const code = mode === 8 ? bytes[at]! : bytes[at]! * 256 + bytes[at + 1]!;
     if (code === 0 || code === 47 || code >= 0xd800 && code <= 0xdfff) {
-      invalid("UDF name contains NUL, separator or surrogate.");
+      throw invalid("UDF name contains NUL, separator or surrogate.");
     }
     result += String.fromCharCode(code);
   }
@@ -172,16 +182,18 @@ function nameOf(bytes: Uint8Array): string {
 }
 function charspec(bytes: Uint8Array): void {
   if (bytes.length !== 64 || bytes[0] !== 0 || text(bytes.subarray(1, 24)) !== "OSTA Compressed Unicode") {
-    unsupported("UDF character set must be OSTA CS0.");
+    throw unsupported("UDF character set must be OSTA CS0.");
   }
   zeros(bytes.subarray(24), "character-set padding");
 }
 function domain(bytes: Uint8Array): void {
   if (bytes.length !== 32 || bytes[0] !== 0 || text(bytes.subarray(1, 20)) !== "*OSTA UDF Compliant") {
-    unsupported("UDF domain is not OSTA UDF Compliant.");
+    throw unsupported("UDF domain is not OSTA UDF Compliant.");
   }
   zeros(bytes.subarray(20, 24), "domain identifier padding");
-  if (view(bytes).getUint16(24, true) !== 0x0102) unsupported("Only the UDF 1.02 domain revision is supported.");
+  if (createView(bytes).getUint16(24, true) !== 0x0102) {
+    throw unsupported("Only the UDF 1.02 domain revision is supported.");
+  }
 }
 function signals(left: AbortSignal | undefined, right: AbortSignal | undefined): AbortSignal | undefined {
   return left && right ? AbortSignal.any([left, right]) : left ?? right;
@@ -191,8 +203,10 @@ function signals(left: AbortSignal | undefined, right: AbortSignal | undefined):
 export async function openUdf(input: ByteSourceType, supplied: UdfOpenOptionsType = {}): Promise<UdfArchiveType> {
   const options = { ...supplied };
   const { size, identity, stability } = input;
-  integer(size, "UDF source size");
-  if (size % 2048 || size < 257 * 2048) invalid("UDF image must contain sector 256 and complete 2048-byte sectors.");
+  assertInteger(size, "UDF source size");
+  if (size % 2048 || size < 257 * 2048) {
+    throw invalid("UDF image must contain sector 256 and complete 2048-byte sectors.");
+  }
   if (stability !== undefined && !["immutable", "provider", "caller"].includes(stability)) {
     throw new TypeError("Unknown UDF source stability.");
   }
@@ -200,7 +214,7 @@ export async function openUdf(input: ByteSourceType, supplied: UdfOpenOptionsTyp
     throw new TypeError("UDF identity must be a bounded string.");
   }
   if (!stability && !options.allowUnverifiedSource) {
-    unsupported("UDF needs stable source evidence or explicit unverified acceptance.");
+    throw unsupported("UDF needs stable source evidence or explicit unverified acceptance.");
   }
   const snapshot: ByteSourceType = {
     size,
@@ -216,7 +230,7 @@ export async function openUdf(input: ByteSourceType, supplied: UdfOpenOptionsTyp
     names: options.maxNamesBytes ?? 1024 * 1024,
     extents: options.maxExtents ?? 100000,
   };
-  for (const [label, count] of Object.entries(maximum)) integer(count, `UDF maximum ${label}`);
+  for (const [label, count] of Object.entries(maximum)) assertInteger(count, `UDF maximum ${label}`);
   const local = createArchiveLedger(options);
   const opening = options.ledger;
   const lifetime: ArchiveLedgerType = {
@@ -245,7 +259,7 @@ export async function openUdf(input: ByteSourceType, supplied: UdfOpenOptionsTyp
     const id = text(bytes.subarray(1, 6));
     // ISO bridge descriptors can precede the extended recognition area.
     if (!beginning && id === "CD001") continue;
-    if (bytes[0] !== 0 || bytes[6] !== 1) invalid("UDF recognition descriptor framing differs.");
+    if (bytes[0] !== 0 || bytes[6] !== 1) throw invalid("UDF recognition descriptor framing differs.");
     if (!beginning && id === "BEA01") {
       beginning = true;
       continue;
@@ -258,16 +272,16 @@ export async function openUdf(input: ByteSourceType, supplied: UdfOpenOptionsTyp
       terminated = true;
       break;
     }
-    unsupported("UDF recognition sequence must contain BEA01, NSR02 and TEA01.");
+    throw unsupported("UDF recognition sequence must contain BEA01, NSR02 and TEA01.");
   }
-  if (!terminated) invalid("UDF recognition terminator is missing.");
+  if (!terminated) throw invalid("UDF recognition terminator is missing.");
   const anchor = await system(256);
   tag(anchor, 256, 512, 2);
-  const anchorData = view(anchor);
+  const anchorData = createView(anchor);
   const sequenceLength = anchorData.getUint32(16, true);
   const sequenceBlock = anchorData.getUint32(20, true);
   if (sequenceLength < 16 * 2048 || sequenceLength % 2048) {
-    invalid("UDF main descriptor extent must contain complete sectors.");
+    throw invalid("UDF main descriptor extent must contain complete sectors.");
   }
   bytesOf(sequenceBlock, sequenceLength, size);
   let partition: Uint8Array | undefined;
@@ -285,50 +299,50 @@ export async function openUdf(input: ByteSourceType, supplied: UdfOpenOptionsTyp
     }
     if (id === 1) {
       tag(bytes, block, 512, 1);
-      if (primary) unsupported("UDF duplicate prevailing primary descriptors are unsupported.");
-      if (view(bytes).getUint16(56, true) !== 1 || view(bytes).getUint16(58, true) !== 1) {
-        unsupported("UDF multi-volume sets are unsupported.");
+      if (primary) throw unsupported("UDF duplicate prevailing primary descriptors are unsupported.");
+      if (createView(bytes).getUint16(56, true) !== 1 || createView(bytes).getUint16(58, true) !== 1) {
+        throw unsupported("UDF multi-volume sets are unsupported.");
       }
       primary = true;
     } else if (id === 5) {
       tag(bytes, block, 512, 5);
-      if (partition) unsupported("UDF requires exactly one physical partition descriptor.");
+      if (partition) throw unsupported("UDF requires exactly one physical partition descriptor.");
       partition = bytes;
     } else if (id === 6) {
       tag(bytes, block, 440);
-      if (logical) unsupported("UDF duplicate prevailing logical descriptors are unsupported.");
+      if (logical) throw unsupported("UDF duplicate prevailing logical descriptors are unsupported.");
       logical = bytes;
-    } else if (id !== 4 && id !== 7) unsupported("UDF continuation or unknown volume descriptor is unsupported.");
+    } else if (id !== 4 && id !== 7) throw unsupported("UDF continuation or unknown volume descriptor is unsupported.");
   }
-  if (!terminated || !primary || !partition || !logical) invalid("UDF main descriptor sequence is incomplete.");
-  const pd = view(partition);
+  if (!terminated || !primary || !partition || !logical) throw invalid("UDF main descriptor sequence is incomplete.");
+  const pd = createView(partition);
   if (pd.getUint16(20, true) !== 1 || pd.getUint32(184, true) !== 1 || text(partition.subarray(25, 31)) !== "+NSR02") {
-    unsupported("UDF requires an allocated read-only NSR02 partition.");
+    throw unsupported("UDF requires an allocated read-only NSR02 partition.");
   }
   zeros(partition.subarray(31, 48), "partition contents identifier padding");
   const partitionNumber = pd.getUint16(22, true);
   const partitionLength = exact(BigInt(pd.getUint32(192, true)) * 2048n);
   const partitionOffset = bytesOf(pd.getUint32(188, true), partitionLength, size);
-  const ld = view(logical);
+  const ld = createView(logical);
   if (ld.getUint32(212, true) !== 2048 || ld.getUint32(264, true) !== 6 || ld.getUint32(268, true) !== 1) {
-    unsupported("UDF needs one type-1 partition map and 2048-byte logical blocks.");
+    throw unsupported("UDF needs one type-1 partition map and 2048-byte logical blocks.");
   }
   tag(logical, ld.getUint32(12, true), 446);
   if (
     logical[440] !== 1 || logical[441] !== 6 || ld.getUint16(442, true) !== 1 ||
     ld.getUint16(444, true) !== partitionNumber
-  ) unsupported("UDF physical partition map differs from its descriptor.");
+  ) throw unsupported("UDF physical partition map differs from its descriptor.");
   charspec(logical.subarray(20, 84));
   domain(logical.subarray(216, 248));
   const partitionRange = (block: number, length: number): number =>
     partitionOffset + bytesOf(block, length, partitionLength);
   /** Long allocation addresses refer to partition-map indices, not partition numbers. */
   const longAddress = (bytes: Uint8Array, at: number): { block: number; length: number } => {
-    if (at + 16 > bytes.length) invalid("UDF long allocation address is truncated.");
-    const data = view(bytes);
+    if (at + 16 > bytes.length) throw invalid("UDF long allocation address is truncated.");
+    const data = createView(bytes);
     const length = data.getUint32(at, true);
     if (length >>> 30 || data.getUint16(at + 8, true) !== 0) {
-      unsupported("UDF long address requires recorded extent in its sole partition map.");
+      throw unsupported("UDF long address requires recorded extent in its sole partition map.");
     }
     const block = data.getUint32(at + 4, true);
     partitionRange(block, length);
@@ -336,7 +350,7 @@ export async function openUdf(input: ByteSourceType, supplied: UdfOpenOptionsTyp
   };
   const integrityLength = ld.getUint32(432, true);
   const integrityBlock = ld.getUint32(436, true);
-  if (!integrityLength || integrityLength % 2048) invalid("UDF integrity sequence is missing or unaligned.");
+  if (!integrityLength || integrityLength % 2048) throw invalid("UDF integrity sequence is missing or unaligned.");
   bytesOf(integrityBlock, integrityLength, size);
   let closed = false;
   terminated = false;
@@ -349,25 +363,25 @@ export async function openUdf(input: ByteSourceType, supplied: UdfOpenOptionsTyp
       terminated = true;
       break;
     }
-    if (id !== 9 || closed) unsupported("UDF requires one closed integrity descriptor.");
-    const data = view(bytes);
+    if (id !== 9 || closed) throw unsupported("UDF requires one closed integrity descriptor.");
+    const data = createView(bytes);
     tag(bytes, block, 80, 9);
     const count = data.getUint32(72, true);
     const implementation = data.getUint32(76, true);
     if (count !== 1 || implementation < 46 || implementation > 2048 - 88) {
-      unsupported("UDF integrity tables exceed the single partition profile.");
+      throw unsupported("UDF integrity tables exceed the single partition profile.");
     }
     tag(bytes, block, 88 + implementation, 9);
     if (data.getUint32(28, true) !== 1 || data.getUint32(32, true) !== 0) {
-      unsupported("UDF open or chained integrity state is unsupported.");
+      throw unsupported("UDF open or chained integrity state is unsupported.");
     }
-    if (data.getUint16(128, true) > 0x0102) unsupported("UDF minimum reader revision exceeds 1.02.");
+    if (data.getUint16(128, true) > 0x0102) throw unsupported("UDF minimum reader revision exceeds 1.02.");
     closed = true;
   }
-  if (!closed || !terminated) invalid("UDF closed integrity sequence terminator is missing.");
+  if (!closed || !terminated) throw invalid("UDF closed integrity sequence terminator is missing.");
   const fileSet = longAddress(logical, 248);
   if (fileSet.length < 512 || fileSet.length % 2048 && fileSet.length !== 512) {
-    unsupported("UDF file-set sequence requires a complete descriptor or sectors.");
+    throw unsupported("UDF file-set sequence requires a complete descriptor or sectors.");
   }
   let fsd: Uint8Array | undefined;
   for (let at = 0; at < Math.ceil(fileSet.length / 2048); at++) {
@@ -379,57 +393,57 @@ export async function openUdf(input: ByteSourceType, supplied: UdfOpenOptionsTyp
     work.decoded(length);
     const id = tag(bytes, fileSet.block + at, 512);
     if (id === 8) break;
-    if (id !== 256 || fsd) unsupported("UDF requires exactly one file-set descriptor.");
+    if (id !== 256 || fsd) throw unsupported("UDF requires exactly one file-set descriptor.");
     fsd = bytes;
   }
-  if (!fsd) invalid("UDF file-set descriptor is missing.");
+  if (!fsd) throw invalid("UDF file-set descriptor is missing.");
   charspec(fsd.subarray(48, 112));
   charspec(fsd.subarray(240, 304));
   domain(fsd.subarray(416, 448));
   if (
-    view(fsd).getUint32(40, true) !== 0 || view(fsd).getUint32(44, true) !== 0 || view(fsd).getUint32(448, true) !== 0
-  ) unsupported("UDF multiple file sets or file-set continuation is unsupported.");
+    createView(fsd).getUint32(40, true) !== 0 || createView(fsd).getUint32(44, true) !== 0 ||
+    createView(fsd).getUint32(448, true) !== 0
+  ) throw unsupported("UDF multiple file sets or file-set continuation is unsupported.");
   const rootAddress = longAddress(fsd, 400);
   const files = new Map<number, FileType>();
   let extentCount = 0;
   const getFile = async (address: { block: number; length: number }): Promise<FileType> => {
-    if (address.length < 176 || address.length > 2048) unsupported("UDF requires one direct-entry ICB sector.");
+    if (address.length < 176 || address.length > 2048) throw unsupported("UDF requires one direct-entry ICB sector.");
     const cached = files.get(address.block);
     if (cached) {
-      if (cached.descriptorBytes > address.length) invalid("UDF alias ICB extent truncates its cached descriptor.");
+      if (cached.descriptorBytes > address.length) {
+        throw invalid("UDF alias ICB extent truncates its cached descriptor.");
+      }
       return cached;
     }
     const bytes = await work.read(partitionRange(address.block, 2048), 2048);
     work.decoded(2048);
     tag(bytes, address.block, 176, 261);
-    const data = view(bytes);
+    const data = createView(bytes);
     if (
       data.getUint16(20, true) !== 4 || data.getUint16(24, true) !== 1 || bytes[26] !== 0 ||
       data.getUint32(16, true) !== 0
-    ) unsupported("UDF requires ICB strategy4 with one direct entry.");
-    const kind = bytes[27] === 4
-      ? "directory"
-      : bytes[27] === 5
-      ? "file"
-      : unsupported("UDF non-regular files and symbolic links are unsupported.");
+    ) throw unsupported("UDF requires ICB strategy4 with one direct entry.");
+    const kind = bytes[27] === 4 ? "directory" : bytes[27] === 5 ? "file" : undefined;
+    if (kind === undefined) throw unsupported("UDF non-regular files and symbolic links are unsupported.");
     const flags = data.getUint16(34, true);
     if (flags & 0xf808 || (flags & 7) > 1) {
-      unsupported("UDF transformed, multiversion, embedded or unsupported allocation profile.");
+      throw unsupported("UDF transformed, multiversion, embedded or unsupported allocation profile.");
     }
     if (bytes[50] || bytes[51] || data.getUint32(52, true) || data.getUint32(112, true)) {
-      unsupported("UDF record formats or external extended-attribute ICBs are unsupported.");
+      throw unsupported("UDF record formats or external extended-attribute ICBs are unsupported.");
     }
     const size = exact(data.getBigUint64(56, true));
     const ea = data.getUint32(168, true);
     const ads = data.getUint32(172, true);
-    if (ea > 2048 - 176 || ads > 2048 - 176 - ea) invalid("UDF FE variable fields exceed its sector.");
+    if (ea > 2048 - 176 || ads > 2048 - 176 - ea) throw invalid("UDF FE variable fields exceed its sector.");
     if (176 + ea + ads > address.length || data.getUint16(10, true) + 16 > address.length) {
-      invalid("UDF FE exceeds its declared ICB extent.");
+      throw invalid("UDF FE exceeds its declared ICB extent.");
     }
     tag(bytes, address.block, 176 + ea + ads, 261);
     const allocation = (flags & 7) === 0 ? "short" : "long";
     const width = allocation === "short" ? 8 : 16;
-    if (ads % width) invalid("UDF allocation array has a partial descriptor.");
+    if (ads % width) throw invalid("UDF allocation array has a partial descriptor.");
     if (ads / width > maximum.extents - extentCount) {
       throw new ArchiveError("budget-exceeded", "UDF extents exceed policy.");
     }
@@ -439,16 +453,18 @@ export async function openUdf(input: ByteSourceType, supplied: UdfOpenOptionsTyp
     let recorded = 0;
     for (let at = 176 + ea; at < 176 + ea + ads; at += width) {
       const length = data.getUint32(at, true);
-      if (length >>> 30) unsupported("UDF sparse, unrecorded and continuation extents are unsupported.");
+      if (length >>> 30) throw unsupported("UDF sparse, unrecorded and continuation extents are unsupported.");
       const block = data.getUint32(at + 4, true);
       if (allocation === "long") longAddress(bytes, at);
       if (!length) continue;
       const offset = partitionRange(block, length);
-      if (recorded >= size || length > size - recorded) invalid("UDF recorded extents exceed information length.");
+      if (recorded >= size || length > size - recorded) {
+        throw invalid("UDF recorded extents exceed information length.");
+      }
       extents.push(Object.freeze({ offset, length }));
       recorded += length;
     }
-    if (recorded !== size) invalid("UDF recorded extents differ from information length.");
+    if (recorded !== size) throw invalid("UDF recorded extents differ from information length.");
     const file: FileType = {
       size,
       kind,
@@ -461,13 +477,13 @@ export async function openUdf(input: ByteSourceType, supplied: UdfOpenOptionsTyp
   };
   const entries: UdfEntryType[] = [];
   const root = await getFile(rootAddress);
-  if (root.kind !== "directory") invalid("UDF root ICB is not a directory.");
+  if (root.kind !== "directory") throw invalid("UDF root ICB is not a directory.");
   let directoryBytes = 0;
   const queue: { id: number; parentBlock: number; block: number; depth: number; file: typeof root }[] = [];
   const visited = new Set<number>();
   const enqueue = (id: number, parentBlock: number, block: number, depth: number, file: typeof root): void => {
     if (depth > maximum.depth) throw new ArchiveError("budget-exceeded", "UDF directory depth exceeds policy.");
-    if (visited.has(block)) unsupported("UDF directory cycles and multiple parents are unsupported.");
+    if (visited.has(block)) throw unsupported("UDF directory cycles and multiple parents are unsupported.");
     if (file.size > maximum.directories - directoryBytes) {
       throw new ArchiveError("budget-exceeded", "UDF directory extents exceed policy.");
     }
@@ -529,14 +545,14 @@ export async function openUdf(input: ByteSourceType, supplied: UdfOpenOptionsTyp
       if (++records > maximum.entries) {
         throw new ArchiveError("budget-exceeded", "UDF directory identifiers exceed policy.");
       }
-      if (bytes.length - at < 38) invalid("UDF directory identifier is truncated.");
-      const data = view(bytes.subarray(at));
+      if (bytes.length - at < 38) throw invalid("UDF directory identifier is truncated.");
+      const data = createView(bytes.subarray(at));
       const nameBytes = bytes[at + 19]!;
       const implementation = data.getUint16(36, true);
       const unpadded = 38 + implementation + nameBytes;
       const length = Math.ceil(unpadded / 4) * 4;
       if (implementation % 4 || implementation !== 0 && implementation < 32 || length > bytes.length - at) {
-        invalid("UDF directory identifier fields exceed its extent.");
+        throw invalid("UDF directory identifier fields exceed its extent.");
       }
       let logical = 0;
       let physical = -1;
@@ -551,13 +567,13 @@ export async function openUdf(input: ByteSourceType, supplied: UdfOpenOptionsTyp
       tag(record, Math.floor((physical - partitionOffset) / 2048), length, 257);
       zeros(record.subarray(unpadded), "FID padding");
       if (data.getUint16(16, true) !== 1 || (record[18]! & 0xe0)) {
-        unsupported("UDF file version or FID characteristics are unsupported.");
+        throw unsupported("UDF file version or FID characteristics are unsupported.");
       }
       const flags = record[18]!;
       const address = longAddress(record, 20);
       if (flags & 8) {
         if (nameBytes || !(flags & 2) || flags & 4 || address.block !== directory.parentBlock) {
-          invalid("UDF parent FID differs from its known parent.");
+          throw invalid("UDF parent FID differs from its known parent.");
         }
         parents++;
       } else if (!(flags & 4)) {
@@ -569,7 +585,7 @@ export async function openUdf(input: ByteSourceType, supplied: UdfOpenOptionsTyp
         names += size;
         work.output(size + 64);
         const file = await getFile(address);
-        if ((file.kind === "directory") !== Boolean(flags & 2)) invalid("UDF FID kind differs from its ICB.");
+        if ((file.kind === "directory") !== Boolean(flags & 2)) throw invalid("UDF FID kind differs from its ICB.");
         const id = entries.length;
         entries.push(
           Object.freeze({
@@ -589,13 +605,13 @@ export async function openUdf(input: ByteSourceType, supplied: UdfOpenOptionsTyp
       }
       at += length;
     }
-    if (parents !== 1) invalid("UDF directory must contain exactly one parent FID.");
+    if (parents !== 1) throw invalid("UDF directory must contain exactly one parent FID.");
   }
   const selected = (id: number): UdfEntryType => {
-    integer(id, "UDF entry ID");
+    assertInteger(id, "UDF entry ID");
     const entry = entries[id];
     if (!entry) throw new RangeError("Unknown UDF entry ID.");
-    if (entry.kind !== "file") unsupported("UDF payload reads require a regular file.");
+    if (entry.kind !== "file") throw unsupported("UDF payload reads require a regular file.");
     return entry;
   };
   const archive: UdfArchiveType = {
@@ -610,8 +626,8 @@ export async function openUdf(input: ByteSourceType, supplied: UdfOpenOptionsTyp
       const entry = selected(id);
       const offset = opts.offset ?? 0;
       const length = opts.length ?? entry.size - offset;
-      integer(offset, "UDF member offset");
-      integer(length, "UDF member length");
+      assertInteger(offset, "UDF member offset");
+      assertInteger(length, "UDF member length");
       if (offset > entry.size || length > entry.size - offset) {
         throw new RangeError("UDF selected interval exceeds the file.");
       }

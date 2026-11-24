@@ -4,7 +4,7 @@ import type { WebhdfsClientOptionsType, WebhdfsClientType } from "./client.ts";
 import { defineFileDriver } from "../../driver/file.ts";
 import type { FileBackendType, FileDriverType } from "../../driver/file.ts";
 import type { DriverPlanInputType, DriverPlanType } from "../../driver/definition.ts";
-import { range } from "../../range.ts";
+import { resolveRange } from "../../range.ts";
 import { collectBytes } from "../../stream.ts";
 import { FileSystemError } from "../../error.ts";
 import { getPrimary } from "../../close.ts";
@@ -116,7 +116,7 @@ export function createWebhdfsDriverFromClient(
       }),
     readFile: (path, request = {}) =>
       translated("read", path, async () => {
-        const selected = range(request);
+        const selected = resolveRange(request);
         if (selected.empty) return new Uint8Array();
         const requested = selected.end === undefined ? undefined : selected.end - selected.start + 1;
         if (requested !== undefined && requested > maximum) {

@@ -3,11 +3,11 @@ import type { ByteSourceType } from "../source.ts";
 import {
   ArchiveBudget,
   ArchiveError,
+  assertInteger,
   createArchiveLedger,
-  integer,
+  createView,
   invalid,
   unsupported,
-  view,
 } from "../archive/record.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
 export { ArchiveError, createArchiveLedger } from "../archive/record.ts";
@@ -110,7 +110,7 @@ export interface LasDatasetType {
 
 /** Arithmetic stays exact before converting to source offsets or allocation lengths. */
 function exact(value: bigint): number {
-  if (value < 0n || value > BigInt(Number.MAX_SAFE_INTEGER)) unsupported("LAS extent exceeds safe indexing.");
+  if (value < 0n || value > BigInt(Number.MAX_SAFE_INTEGER)) throw unsupported("LAS extent exceeds safe indexing.");
   return Number(value);
 }
 /** LAS fixed strings are ASCII with zero padding, not a Unicode/host path contract. */
@@ -121,7 +121,7 @@ function ascii(bytes: Uint8Array): string {
       ended = true;
       continue;
     }
-    if (ended || byte > 127) invalid("Malformed LAS fixed ASCII string.");
+    if (ended || byte > 127) throw invalid("Malformed LAS fixed ASCII string.");
     result += String.fromCharCode(byte);
   }
   return result;
@@ -133,7 +133,7 @@ function ascii(bytes: Uint8Array): string {
 export async function openLas(input: ByteSourceType, options: LasOpenOptionsType = {}): Promise<LasDatasetType> {
   options = { ...options };
   const size = input.size, stability = input.stability, identity = input.identity, read = input.read.bind(input);
-  integer(size, "LAS source size");
+  assertInteger(size, "LAS source size");
   if (stability !== "immutable" && stability !== "provider" && stability !== "caller") {
     throw new TypeError("LAS requires snapshot source stability.");
   }
@@ -144,9 +144,9 @@ export async function openLas(input: ByteSourceType, options: LasOpenOptionsType
   const maxPoints = options.maxPoints ?? 1048576,
     maxVlrs = options.maxVlrs ?? 4096,
     maxMetadata = options.maxMetadataBytes ?? 8 * 1024 * 1024;
-  integer(maxPoints, "LAS point limit");
-  integer(maxVlrs, "LAS VLR limit");
-  integer(maxMetadata, "LAS metadata limit");
+  assertInteger(maxPoints, "LAS point limit");
+  assertInteger(maxVlrs, "LAS VLR limit");
+  assertInteger(maxMetadata, "LAS metadata limit");
   const lifetime = createArchiveLedger(options), external = options.ledger;
   /** Reserve physical cost before selected allocation. Credits let exact range
    * admission remain local without charging lifetime/external owners twice. */
@@ -186,16 +186,16 @@ export async function openLas(input: ByteSourceType, options: LasOpenOptionsType
     return { budget: new ArchiveBudget(source, { ...opts, ledger }, signal), signal, reserve, inspect: own.inspect };
   };
   const opening = operation(options), budget = opening.budget;
-  if (size < 227) invalid("Truncated LAS1.2 header.");
+  if (size < 227) throw invalid("Truncated LAS1.2 header.");
   if (maxMetadata < 227) throw new ArchiveError("budget-exceeded", "LAS metadata limit exceeded.");
   opening.reserve("decodedBytes", 227);
-  const header = await budget.read(0, 227), data = view(header);
-  if (ascii(header.subarray(0, 4)) !== "LASF") invalid("Invalid LAS signature.");
-  if (data.getUint8(24) !== 1 || data.getUint8(25) !== 2) unsupported("Only LAS1.2 is supported.");
+  const header = await budget.read(0, 227), data = createView(header);
+  if (ascii(header.subarray(0, 4)) !== "LASF") throw invalid("Invalid LAS signature.");
+  if (data.getUint8(24) !== 1 || data.getUint8(25) !== 2) throw unsupported("Only LAS1.2 is supported.");
   const global = data.getUint16(6, true);
-  if (global & 0xfffe) unsupported("Unknown LAS1.2 global encoding bits.");
+  if (global & 0xfffe) throw unsupported("Unknown LAS1.2 global encoding bits.");
   const format = data.getUint8(104);
-  if (format > 3) unsupported("Compressed/unknown LAS point formats are unsupported.");
+  if (format > 3) throw unsupported("Compressed/unknown LAS point formats are unsupported.");
   const base = [20, 28, 26, 34][format]!,
     headerBytes = data.getUint16(94, true),
     pointOffset = data.getUint32(96, true),
@@ -203,21 +203,21 @@ export async function openLas(input: ByteSourceType, options: LasOpenOptionsType
     recordBytes = data.getUint16(105, true),
     points = data.getUint32(107, true);
   if (headerBytes < 227 || pointOffset < headerBytes || pointOffset > size || recordBytes < base) {
-    invalid("Invalid LAS header/record extent.");
+    throw invalid("Invalid LAS header/record extent.");
   }
   if (pointOffset > maxMetadata || vlrCount > maxVlrs) {
     throw new ArchiveError("budget-exceeded", "LAS metadata extent/count limit exceeded.");
   }
   const pointBytes = exact(BigInt(points) * BigInt(recordBytes));
-  if (pointBytes > size - pointOffset) invalid("LAS point records exceed source.");
+  if (pointBytes > size - pointOffset) throw invalid("LAS point records exceed source.");
   const scale = Object.freeze([131, 139, 147].map((at) => data.getFloat64(at, true))),
     offset = Object.freeze([155, 163, 171].map((at) => data.getFloat64(at, true)));
-  if ([...scale, ...offset].some((value) => !Number.isFinite(value))) invalid("LAS scale/offset must be finite.");
+  if ([...scale, ...offset].some((value) => !Number.isFinite(value))) throw invalid("LAS scale/offset must be finite.");
   const bounds = Object.freeze(
     [179, 195, 211].map((at) => Object.freeze({ max: data.getFloat64(at, true), min: data.getFloat64(at + 8, true) })),
   );
   if (bounds.some((value) => !Number.isFinite(value.min) || !Number.isFinite(value.max) || value.min > value.max)) {
-    invalid("LAS declared bounds must be finite and ordered.");
+    throw invalid("LAS declared bounds must be finite and ordered.");
   }
   ascii(header.subarray(26, 58));
   ascii(header.subarray(58, 90));
@@ -227,11 +227,11 @@ export async function openLas(input: ByteSourceType, options: LasOpenOptionsType
   const vlrs: LasVlrType[] = [];
   let position = headerBytes;
   for (let id = 0; id < vlrCount; id++) {
-    if (pointOffset - position < 54) invalid("LAS VLR header overlaps point data.");
+    if (pointOffset - position < 54) throw invalid("LAS VLR header overlaps point data.");
     opening.reserve("decodedBytes", 54);
-    const raw = await budget.read(position, 54), wire = view(raw);
+    const raw = await budget.read(position, 54), wire = createView(raw);
     const length = wire.getUint16(20, true);
-    if (length > pointOffset - position - 54) invalid("LAS VLR body overlaps point data.");
+    if (length > pointOffset - position - 54) throw invalid("LAS VLR body overlaps point data.");
     vlrs.push(
       Object.freeze({
         id,
@@ -271,8 +271,8 @@ export async function openLas(input: ByteSourceType, options: LasOpenOptionsType
     async read(opts = {}): Promise<LasReadType> {
       opts = { ...opts };
       const start = opts.offset ?? 0, count = opts.count ?? points - start, mode = opts.scale ?? "raw";
-      integer(start, "LAS point offset");
-      integer(count, "LAS point count");
+      assertInteger(start, "LAS point offset");
+      assertInteger(count, "LAS point count");
       if (start > points || count > points - start) throw new RangeError("LAS selection exceeds point count.");
       if (count > maxPoints) throw new ArchiveError("budget-exceeded", "LAS selected point limit exceeded.");
       if (mode !== "raw" && mode !== "physical") throw new TypeError("Unknown LAS coordinate mode.");
@@ -317,7 +317,7 @@ export async function openLas(input: ByteSourceType, options: LasOpenOptionsType
             exact(BigInt(pointOffset) + BigInt(start + row) * BigInt(recordBytes)),
             take * recordBytes,
           ),
-          wire = view(raw);
+          wire = createView(raw);
         for (let local = 0; local < take; local++) {
           const at = local * recordBytes, index = row + local;
           X[index] = wire.getInt32(at, true);
@@ -378,12 +378,12 @@ export async function openLas(input: ByteSourceType, options: LasOpenOptionsType
     },
     async readVlr(id, opts = {}) {
       opts = { ...opts };
-      integer(id, "LAS VLR id");
+      assertInteger(id, "LAS VLR id");
       const vlr = vlrs[id];
       if (!vlr) throw new RangeError("Unknown LAS VLR id.");
       const start = opts.offset ?? 0, length = opts.length ?? vlr.size - start;
-      integer(start, "LAS VLR offset");
-      integer(length, "LAS VLR length");
+      assertInteger(start, "LAS VLR offset");
+      assertInteger(length, "LAS VLR length");
       if (start > vlr.size || length > vlr.size - start) throw new RangeError("LAS VLR selection exceeds payload.");
       const current = operation(opts, length, length ? 1 : 0);
       current.reserve("decodedBytes", length);

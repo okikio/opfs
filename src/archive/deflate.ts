@@ -9,7 +9,7 @@ class Bits {
     this.bytes = bytes;
   }
   read(count: number): number {
-    if (count > this.bytes.length * 8 - this.position) invalid("DEFLATE bits are truncated.");
+    if (count > this.bytes.length * 8 - this.position) throw invalid("DEFLATE bits are truncated.");
     let value = 0;
     for (let bit = 0; bit < count; bit++, this.position++) {
       value |= ((this.bytes[this.position >>> 3]! >>> (this.position & 7)) & 1) << bit;
@@ -31,22 +31,22 @@ function tree(lengths: readonly number[], alphabet: "codes" | "literal" | "dista
   const counts = new Uint16Array(16);
   let width = 0;
   for (const length of lengths) {
-    if (length < 0 || length > 15) invalid("DEFLATE Huffman length is invalid.");
+    if (length < 0 || length > 15) throw invalid("DEFLATE Huffman length is invalid.");
     if (length) {
       counts[length] = counts[length]! + 1;
       width = Math.max(width, length);
     }
   }
   if (width === 0) {
-    if (alphabet !== "distance") invalid("DEFLATE Huffman tree is empty.");
+    if (alphabet !== "distance") throw invalid("DEFLATE Huffman tree is empty.");
     return { codes: new Map(), width: 0 };
   }
   let left = 1;
   for (let length = 1; length <= 15; length++) {
     left = left * 2 - counts[length]!;
-    if (left < 0) invalid("DEFLATE Huffman tree is oversubscribed.");
+    if (left < 0) throw invalid("DEFLATE Huffman tree is oversubscribed.");
   }
-  if (left !== 0 && (alphabet === "codes" || width !== 1)) invalid("DEFLATE Huffman tree is incomplete.");
+  if (left !== 0 && (alphabet === "codes" || width !== 1)) throw invalid("DEFLATE Huffman tree is incomplete.");
   const next = new Uint16Array(16);
   let code = 0;
   for (let length = 1; length <= 15; length++) {
@@ -72,7 +72,7 @@ function symbol(bits: Bits, tree: TreeType): number {
     const value = tree.codes.get(2 ** length + code);
     if (value !== undefined) return value;
   }
-  return invalid("DEFLATE Huffman code is absent from its tree.");
+  throw invalid("DEFLATE Huffman code is absent from its tree.");
 }
 
 /** Repeat codes span both alphabets, but cannot invent a previous length or exceed their combined extent. */
@@ -80,7 +80,7 @@ function dynamic(bits: Bits): readonly [TreeType, TreeType] {
   const literalCount = bits.read(5) + 257;
   const distanceCount = bits.read(5) + 1;
   const codeCount = bits.read(4) + 4;
-  if (literalCount > 286) invalid("DEFLATE dynamic literal alphabet exceeds RFC 1951.");
+  if (literalCount > 286) throw invalid("DEFLATE dynamic literal alphabet exceeds RFC 1951.");
   const order = [16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15];
   const codes = Array<number>(19).fill(0);
   for (let i = 0; i < codeCount; i++) codes[order[i]!] = bits.read(3);
@@ -93,13 +93,13 @@ function dynamic(bits: Bits): readonly [TreeType, TreeType] {
       lengths.push(value);
       continue;
     }
-    if (value === 16 && lengths.length === 0) invalid("DEFLATE repeat has no preceding code length.");
+    if (value === 16 && lengths.length === 0) throw invalid("DEFLATE repeat has no preceding code length.");
     const repeat = bits.read(value === 16 ? 2 : value === 17 ? 3 : 7) + (value === 18 ? 11 : 3);
-    if (repeat > count - lengths.length) invalid("DEFLATE code-length repeat exceeds its alphabets.");
+    if (repeat > count - lengths.length) throw invalid("DEFLATE code-length repeat exceeds its alphabets.");
     const repeated = value === 16 ? lengths[lengths.length - 1]! : 0;
     for (let i = 0; i < repeat; i++) lengths.push(repeated);
   }
-  if (lengths[256] === 0) invalid("DEFLATE literal tree has no end-of-block code.");
+  if (lengths[256] === 0) throw invalid("DEFLATE literal tree has no end-of-block code.");
   return [tree(lengths.slice(0, literalCount), "literal"), tree(lengths.slice(literalCount), "distance")];
 }
 
@@ -122,9 +122,11 @@ export function readDeflate(
   admitBlock?: () => void,
 ): Uint8Array {
   signal?.throwIfAborted();
-  if (packed.length < 1 || packed.length > 65536) invalid("Raw DEFLATE packed extent exceeds its bounded profile.");
+  if (packed.length < 1 || packed.length > 65536) {
+    throw invalid("Raw DEFLATE packed extent exceeds its bounded profile.");
+  }
   if (!Number.isSafeInteger(size) || size < 0 || size > 65536 || history.length > 32768) {
-    invalid("Raw DEFLATE output/history exceeds its bounded profile.");
+    throw invalid("Raw DEFLATE output/history exceeds its bounded profile.");
   }
   const bits = new Bits(packed);
   const output = new Uint8Array(size);
@@ -203,12 +205,12 @@ export function readDeflate(
     admitBlock?.();
     final = bits.read(1);
     const kind = bits.read(2);
-    if (kind === 3) invalid("Reserved DEFLATE block type.");
+    if (kind === 3) throw invalid("Reserved DEFLATE block type.");
     if (kind === 0) {
       bits.align();
       const count = bits.read(16);
-      if ((count ^ bits.read(16)) !== 65535) invalid("DEFLATE stored-block length complement failed.");
-      if (count > size - at) invalid("DEFLATE block exceeds declared decoded size.");
+      if ((count ^ bits.read(16)) !== 65535) throw invalid("DEFLATE stored-block length complement failed.");
+      if (count > size - at) throw invalid("DEFLATE block exceeds declared decoded size.");
       for (let i = 0; i < count; i++) output[at++] = bits.read(8);
       continue;
     }
@@ -223,17 +225,17 @@ export function readDeflate(
       const value = symbol(bits, literalTree);
       if (value === 256) break;
       if (value < 256) {
-        if (at === size) invalid("DEFLATE literal exceeds declared decoded size.");
+        if (at === size) throw invalid("DEFLATE literal exceeds declared decoded size.");
         output[at++] = value;
       } else {
-        if (value > 285) invalid("DEFLATE reserved length symbol.");
+        if (value > 285) throw invalid("DEFLATE reserved length symbol.");
         const index = value - 257;
         const count = lengths[index]! + bits.read(lengthBits[index]!);
         const distanceCode = symbol(bits, distanceTree);
-        if (distanceCode > 29) invalid("DEFLATE reserved distance symbol.");
+        if (distanceCode > 29) throw invalid("DEFLATE reserved distance symbol.");
         const distance = distances[distanceCode]! + bits.read(distanceCode < 4 ? 0 : (distanceCode >>> 1) - 1);
-        if (distance > history.length + at) invalid("DEFLATE match precedes available history.");
-        if (count > size - at) invalid("DEFLATE match exceeds declared decoded size.");
+        if (distance > history.length + at) throw invalid("DEFLATE match precedes available history.");
+        if (count > size - at) throw invalid("DEFLATE match exceeds declared decoded size.");
         for (let i = 0; i < count; i++, at++) {
           const from = at - distance;
           output[at] = from < 0 ? history[history.length + from]! : output[from]!;
@@ -242,7 +244,7 @@ export function readDeflate(
     }
   } while (!final);
   if (at !== size || Math.ceil(bits.position / 8) !== bits.bytes.length) {
-    invalid("DEFLATE decoded size or final packed extent does not match the declared stream.");
+    throw invalid("DEFLATE decoded size or final packed extent does not match the declared stream.");
   }
   signal?.throwIfAborted();
   return output;

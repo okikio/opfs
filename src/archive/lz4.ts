@@ -1,7 +1,7 @@
 /** Bounded single-frame LZ4 decoding; checksum evidence becomes complete only at successful EOF. @module */
 import { isBytes, toView } from "../bytes.ts";
 import { close } from "../close.ts";
-import { ArchiveError, createArchiveLedger, integer, invalid, unsupported } from "./record.ts";
+import { ArchiveError, assertInteger, createArchiveLedger, invalid, unsupported } from "./record.ts";
 import type { ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
 export { ArchiveError, createArchiveLedger } from "./record.ts";
 export type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
@@ -57,7 +57,7 @@ export function createLz4Decoder(source: ReadableStream<Uint8Array>, options: Lz
   const blockCount = options.maxBlocks ?? 100000;
   const outputChunk = options.outputChunkBytes ?? 65536;
   for (const [name, value] of Object.entries({ inputMaximum, blockMaximum, blockCount, outputChunk })) {
-    integer(value, name);
+    assertInteger(value, name);
   }
   if (!inputMaximum || !blockMaximum || !outputChunk || blockMaximum > 4 * 1024 * 1024 || outputChunk > 65536) {
     throw new RangeError(
@@ -153,7 +153,7 @@ export function createLz4Decoder(source: ReadableStream<Uint8Array>, options: Lz
         inputOffset = 0;
         return false;
       }
-      if (!isBytes(next.value)) invalid("LZ4 source returned a non-byte chunk.");
+      if (!isBytes(next.value)) throw invalid("LZ4 source returned a non-byte chunk.");
       const bytes = toView(next.value);
       if (bytes.length > inputMaximum) {
         throw new ArchiveError("budget-exceeded", "LZ4 source chunk exceeds maxInputChunkBytes.");
@@ -175,7 +175,7 @@ export function createLz4Decoder(source: ReadableStream<Uint8Array>, options: Lz
     const bytes = new Uint8Array(length);
     let position = 0;
     while (position < length) {
-      if (!await more()) invalid("LZ4 frame is truncated.");
+      if (!await more()) throw invalid("LZ4 frame is truncated.");
       const count = Math.min(length - position, input.length - inputOffset);
       bytes.set(input.subarray(inputOffset, inputOffset + count), position);
       inputOffset += count;
@@ -187,14 +187,14 @@ export function createLz4Decoder(source: ReadableStream<Uint8Array>, options: Lz
   const open = async (): Promise<void> => {
     const magic = await word();
     if (magic !== 0x184d2204) {
-      unsupported("Only one modern LZ4 frame is supported; skippable and legacy frames are refused.");
+      throw unsupported("Only one modern LZ4 frame is supported; skippable and legacy frames are refused.");
     }
     const flags = await read(2);
     const flg = flags[0]!;
     const bd = flags[1]!;
-    if ((flg >>> 6) !== 1 || flg & 2 || bd & 0x8f) invalid("LZ4 frame version or reserved bits are invalid.");
+    if ((flg >>> 6) !== 1 || flg & 2 || bd & 0x8f) throw invalid("LZ4 frame version or reserved bits are invalid.");
     const code = bd >>> 4;
-    if (code < 4 || code > 7) invalid("LZ4 block-size code is invalid.");
+    if (code < 4 || code > 7) throw invalid("LZ4 block-size code is invalid.");
     const blockBytes = [65536, 262144, 1048576, 4194304][code - 4]!;
     if (blockBytes > blockMaximum) throw new ArchiveError("budget-exceeded", "LZ4 frame block maximum exceeds policy.");
     const optional = await read((flg & 8 ? 8 : 0) + (flg & 1 ? 4 : 0));
@@ -204,11 +204,11 @@ export function createLz4Decoder(source: ReadableStream<Uint8Array>, options: Lz
     if ((await read(1))[0] !== ((hash32(descriptor) >>> 8) & 255)) {
       throw new ArchiveError("checksum-mismatch", "LZ4 frame header checksum failed.");
     }
-    if (flg & 1) unsupported("LZ4 dictionary IDs require an unsupported external dictionary profile.");
+    if (flg & 1) throw unsupported("LZ4 dictionary IDs require an unsupported external dictionary profile.");
     let contentSize: number | undefined;
     if (flg & 8) {
       const size = new DataView(optional.buffer).getBigUint64(0, true);
-      if (size > BigInt(Number.MAX_SAFE_INTEGER)) invalid("LZ4 content size exceeds safe integer range.");
+      if (size > BigInt(Number.MAX_SAFE_INTEGER)) throw invalid("LZ4 content size exceeds safe integer range.");
       contentSize = Number(size);
       const maximum = options.maxDecodedBytes ?? 64 * 1024 * 1024;
       if (contentSize > maximum) {
@@ -230,15 +230,15 @@ export function createLz4Decoder(source: ReadableStream<Uint8Array>, options: Lz
         throw new ArchiveError("checksum-mismatch", "LZ4 complete content checksum failed.");
       }
       if (header!.contentSize !== undefined && decodedBytes !== header!.contentSize) {
-        invalid("LZ4 decoded content size disagrees with header.");
+        throw invalid("LZ4 decoded content size disagrees with header.");
       }
-      if (await more()) unsupported("LZ4 concatenated frames and trailing bytes are unsupported.");
+      if (await more()) throw unsupported("LZ4 concatenated frames and trailing bytes are unsupported.");
       return false;
     }
     if (blocks >= blockCount) throw new ArchiveError("budget-exceeded", "LZ4 block count exceeds maxBlocks.");
     const raw = Boolean(encoded & 0x80000000);
     const size = encoded & 0x7fffffff;
-    if (size > header!.blockBytes) invalid("LZ4 encoded block exceeds declared block maximum.");
+    if (size > header!.blockBytes) throw invalid("LZ4 encoded block exceeds declared block maximum.");
     const bytes = await read(size);
     if (header!.blockChecksum) {
       if (await word() !== hash32(bytes)) {
@@ -249,7 +249,7 @@ export function createLz4Decoder(source: ReadableStream<Uint8Array>, options: Lz
     const previous = header!.independent ? new Uint8Array() : history;
     const sizeDecoded = raw ? size : measureBlock(bytes, previous.length, header!.blockBytes);
     if (header!.contentSize !== undefined && sizeDecoded > header!.contentSize - decodedBytes) {
-      invalid("LZ4 block exceeds declared remaining content size.");
+      throw invalid("LZ4 block exceeds declared remaining content size.");
     }
     reserve("decodedBytes", sizeDecoded);
     // Validate and measure without expanding matches first, so output allocation follows decoded admission.
@@ -349,9 +349,9 @@ function sequences(
     if (base === 15) {
       let extra = 255;
       while (extra === 255) {
-        if (at === input.length) invalid("LZ4 extended length is truncated.");
+        if (at === input.length) throw invalid("LZ4 extended length is truncated.");
         extra = input[at++]!;
-        if (extra > maximum - value) invalid("LZ4 length exceeds block maximum.");
+        if (extra > maximum - value) throw invalid("LZ4 length exceeds block maximum.");
         value += extra;
       }
     }
@@ -360,18 +360,20 @@ function sequences(
   while (at < input.length) {
     const token = input[at++]!;
     const literals = length(token >>> 4);
-    if (literals > input.length - at || literals > maximum - position) invalid("LZ4 literal extent exceeds block.");
+    if (literals > input.length - at || literals > maximum - position) {
+      throw invalid("LZ4 literal extent exceeds block.");
+    }
     if (output) output.set(input.subarray(at, at + literals), position);
     at += literals;
     position += literals;
     lastLiterals = literals;
     if (at === input.length) break;
-    if (input.length - at < 2) invalid("LZ4 match offset is truncated.");
+    if (input.length - at < 2) throw invalid("LZ4 match offset is truncated.");
     const offset = input[at]! | input[at + 1]! << 8;
     at += 2;
-    if (!offset || offset > history + position) invalid("LZ4 match offset exceeds available history.");
+    if (!offset || offset > history + position) throw invalid("LZ4 match offset exceeds available history.");
     const match = length(token & 15) + 4;
-    if (match > maximum - position) invalid("LZ4 match exceeds block maximum.");
+    if (match > maximum - position) throw invalid("LZ4 match exceeds block maximum.");
     lastMatch = position;
     if (output) {
       for (let index = 0; index < match; index++) {
@@ -380,10 +382,10 @@ function sequences(
       }
     }
     position += match;
-    if (at === input.length) invalid("LZ4 block ends with a match rather than a literal sequence.");
+    if (at === input.length) throw invalid("LZ4 block ends with a match rather than a literal sequence.");
   }
   if (!input.length || (lastMatch >= 0 && (lastLiterals < 5 || position - lastMatch < 12))) {
-    invalid("LZ4 block violates terminal literal/match constraints.");
+    throw invalid("LZ4 block violates terminal literal/match constraints.");
   }
   return position;
 }

@@ -2,7 +2,7 @@
 import { z } from "zod";
 import { isBytes, toView } from "../../bytes.ts";
 import { close } from "../../close.ts";
-import { assertRangeResponse, range } from "../../range.ts";
+import { assertRangeResponse, resolveRange } from "../../range.ts";
 import { RequestMetrics, sendRequest } from "../../request.ts";
 import type { FetchType, RequestPolicyType } from "../../request.ts";
 import { readResponse } from "../../response.ts";
@@ -522,7 +522,7 @@ export class PcloudClient {
   }
   /** Download streams carry server-trusted exact extent evidence, not immutable object identity. */
   async download(fileId: string, options: PcloudReadOptionsType = {}): Promise<PcloudDownloadType> {
-    const selectedId = id(fileId), selected = range(options);
+    const selectedId = id(fileId), selected = resolveRange(options);
     const revisionId = options.revisionId === undefined ? undefined : id(options.revisionId), signal = selected.signal;
     const captured = {
       ...(revisionId === undefined ? {} : { revisionId }),
@@ -601,7 +601,7 @@ export class PcloudClient {
   }
   /** Bounded materialization; zero length is local and does not prove existence. */
   async read(fileId: string, options: PcloudReadOptionsType = {}): Promise<Uint8Array> {
-    const selected = range(options), selectedId = id(fileId);
+    const selected = resolveRange(options), selectedId = id(fileId);
     const revisionId = options.revisionId === undefined ? undefined : id(options.revisionId);
     if (selected.empty) return new Uint8Array();
     const captured = {

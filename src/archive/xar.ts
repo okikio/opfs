@@ -1,11 +1,11 @@
 /** Bounded Apple-profile XAR1 inspection. The heap is borrowed, never extracted to host paths. @module */
 import type { XmlElement } from "@std/xml/types";
 import type { ByteSourceType } from "../source.ts";
-import { sourceRange } from "../source.ts";
+import { assertExtent } from "../source.ts";
 import { parseXmlRoot } from "../xml.ts";
 import { close } from "../close.ts";
 import { decompressStream } from "./compress.ts";
-import { ArchiveBudget, ArchiveError, createArchiveLedger, integer, invalid, unsupported } from "./record.ts";
+import { ArchiveBudget, ArchiveError, assertInteger, createArchiveLedger, invalid, unsupported } from "./record.ts";
 import type { ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
 export { ArchiveError, createArchiveLedger } from "./record.ts";
 export type { ArchiveErrorCodeType, ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
@@ -103,27 +103,27 @@ function elements(node: XmlElement): XmlElement[] {
 /** Authority fields are direct children. Descendant lookups could read an EA's offset as file data. */
 function child(node: XmlElement, name: string): XmlElement | undefined {
   const matches = elements(node).filter((item) => item.name.raw === name);
-  if (matches.length > 1) invalid(`Duplicate XAR ${name} field.`);
+  if (matches.length > 1) throw invalid(`Duplicate XAR ${name} field.`);
   return matches[0];
 }
 function text(node: XmlElement): string {
-  if (elements(node).length) invalid("XAR scalar contains nested elements.");
+  if (elements(node).length) throw invalid("XAR scalar contains nested elements.");
   return node.children.map((part) => part.type === "text" || part.type === "cdata" ? part.text : "").join("");
 }
 function scalar(node: XmlElement, name: string): string {
   const value = child(node, name);
-  if (!value) invalid(`Missing XAR ${name} field.`);
+  if (!value) throw invalid(`Missing XAR ${name} field.`);
   return text(value);
 }
 function decimal(value: string): number {
-  if (!/^(0|[1-9][0-9]*)$/.test(value)) invalid("XAR integer must be canonical unsigned decimal.");
+  if (!/^(0|[1-9][0-9]*)$/.test(value)) throw invalid("XAR integer must be canonical unsigned decimal.");
   const number = Number(value);
-  if (!Number.isSafeInteger(number)) unsupported("XAR integer exceeds exact JavaScript range.");
+  if (!Number.isSafeInteger(number)) throw unsupported("XAR integer exceeds exact JavaScript range.");
   return number;
 }
 function wide(view: DataView, offset: number): number {
   const number = view.getBigUint64(offset);
-  if (number > BigInt(Number.MAX_SAFE_INTEGER)) unsupported("XAR extent exceeds exact JavaScript range.");
+  if (number > BigInt(Number.MAX_SAFE_INTEGER)) throw unsupported("XAR extent exceeds exact JavaScript range.");
   return Number(number);
 }
 function algorithm(name: string): { name: string; size: number } {
@@ -135,18 +135,18 @@ function algorithm(name: string): { name: string; size: number } {
     case "sha512":
       return { name: "SHA-512", size: 64 };
     default:
-      unsupported("XAR checksum algorithm is not supported.");
+      throw unsupported("XAR checksum algorithm is not supported.");
   }
 }
 function digestOf(node: XmlElement, name: string): XarChecksumType | undefined {
   const value = child(node, name);
   if (!value) return undefined;
   const nameOf = value.attributes.style;
-  if (!nameOf) invalid("XAR checksum requires a style.");
+  if (!nameOf) throw invalid("XAR checksum requires a style.");
   const hex = text(value);
-  if (!/^[0-9a-fA-F]+$/.test(hex) || hex.length % 2) invalid("XAR checksum must be hexadecimal.");
+  if (!/^[0-9a-fA-F]+$/.test(hex) || hex.length % 2) throw invalid("XAR checksum must be hexadecimal.");
   if (["sha1", "sha256", "sha512"].includes(nameOf) && hex.length !== algorithm(nameOf).size * 2) {
-    invalid("XAR checksum length disagrees with algorithm.");
+    throw invalid("XAR checksum length disagrees with algorithm.");
   }
   return Object.freeze({ algorithm: nameOf, hex: hex.toLowerCase() });
 }
@@ -264,7 +264,7 @@ async function inflate(bytes: Uint8Array, size: number, signal?: AbortSignal): P
       output.set(next.value, used);
       used += next.value.length;
     }
-    if (used !== size) invalid("XAR decoded length disagrees with TOC.");
+    if (used !== size) throw invalid("XAR decoded length disagrees with TOC.");
   } catch (error) {
     await close([async () => {
       if (!done && !readFailed) await reader.cancel(error);
@@ -282,12 +282,12 @@ async function inflate(bytes: Uint8Array, size: number, signal?: AbortSignal): P
 export async function openXar(input: ByteSourceType, options: XarOpenOptionsType = {}): Promise<XarArchiveType> {
   options = { ...options };
   const { size, identity, stability } = input;
-  integer(size, "XAR source size");
+  assertInteger(size, "XAR source size");
   if (stability !== undefined && !["immutable", "provider", "caller"].includes(stability)) {
     throw new TypeError("Unknown XAR source stability.");
   }
   if (!stability && !options.allowUnverifiedSource) {
-    unsupported("XAR requires stable source evidence or explicit unverified-source acceptance.");
+    throw unsupported("XAR requires stable source evidence or explicit unverified-source acceptance.");
   }
   if (identity !== undefined && (typeof identity !== "string" || identity.length > 8192)) {
     throw new TypeError("XAR identity exceeds 8192 UTF16 code units.");
@@ -308,7 +308,7 @@ export async function openXar(input: ByteSourceType, options: XarOpenOptionsType
     verify: options.maxVerifyBytes ?? 1048576,
     member: options.maxMemberBytes ?? 16777216,
   };
-  for (const [name, count] of Object.entries(policy)) integer(count, name);
+  for (const [name, count] of Object.entries(policy)) assertInteger(count, name);
   if (
     policy.toc > 8388608 || policy.xml > 8388608 || policy.tokens > 30000 || policy.verify > 16777216 ||
     policy.member > 67108864
@@ -325,33 +325,26 @@ export async function openXar(input: ByteSourceType, options: XarOpenOptionsType
   const opening = new XarBudget(source, options, options.signal, reserve);
   const header = await opening.read(0, 28);
   const view = new DataView(header.buffer, header.byteOffset, header.byteLength);
-  if (view.getUint32(0) !== 0x78617221) invalid("Missing XAR magic.");
+  if (view.getUint32(0) !== 0x78617221) throw invalid("Missing XAR magic.");
   if (view.getUint16(4) !== 28 || view.getUint16(6) !== 1) {
-    unsupported("Only 28-byte Apple-profile XAR1 headers are supported.");
+    throw unsupported("Only 28-byte Apple-profile XAR1 headers are supported.");
   }
   const compressed = wide(view, 8), decoded = wide(view, 16), code = view.getUint32(24);
-  const name = code === 0
-    ? "none"
-    : code === 1
-    ? "sha1"
-    : code === 3
-    ? "sha256"
-    : code === 4
-    ? "sha512"
-    : unsupported("Unsupported Apple XAR TOC checksum code.");
+  const name = code === 0 ? "none" : code === 1 ? "sha1" : code === 3 ? "sha256" : code === 4 ? "sha512" : undefined;
+  if (name === undefined) throw unsupported("Unsupported Apple XAR TOC checksum code.");
   cap(compressed, policy.toc, "XAR compressed TOC");
   cap(decoded, policy.xml, "XAR XML bytes");
   cap(decoded, policy.metadata, "XAR retained metadata");
-  sourceRange(size, 28, compressed);
+  assertExtent(size, 28, compressed);
   if (options.verifyToc !== false && name !== "none") {
-    if (!subtle) unsupported("XAR TOC verification requires caller-supplied SubtleCrypto.");
+    if (!subtle) throw unsupported("XAR TOC verification requires caller-supplied SubtleCrypto.");
     cap(compressed, policy.verify, "XAR verification bytes");
   }
   opening.decoded(decoded + (options.verifyToc !== false && name !== "none" ? compressed : 0));
   const packed = await collect(opening, 28, compressed);
   const xml = await inflate(packed, decoded, options.signal);
   const value = new TextDecoder("utf-8", { fatal: true }).decode(xml);
-  if (/<!DOCTYPE|<!ENTITY/i.test(value)) unsupported("XAR DTD/entity declarations are forbidden.");
+  if (/<!DOCTYPE|<!ENTITY/i.test(value)) throw unsupported("XAR DTD/entity declarations are forbidden.");
   let tokens = 0;
   for (let index = 0; index < value.length; index++) {
     if (value.charCodeAt(index) === 60) cap(++tokens, policy.tokens, "XAR XML tokens");
@@ -362,20 +355,20 @@ export async function openXar(input: ByteSourceType, options: XarOpenOptionsType
     const node = pending.pop()!;
     if (
       node.name.raw.includes(":") || Object.keys(node.attributes).some((key) => key.includes(":") || key === "xmlns")
-    ) unsupported("XAR XML namespaces are not supported.");
+    ) throw unsupported("XAR XML namespaces are not supported.");
     const seen = new Set<string>();
     for (const item of elements(node)) {
       const key = item.name.raw;
-      if (key !== "file" && key !== "ea" && seen.has(key)) invalid(`Duplicate XAR ${key} field.`);
+      if (key !== "file" && key !== "ea" && seen.has(key)) throw invalid(`Duplicate XAR ${key} field.`);
       seen.add(key);
       pending.push(item);
     }
   }
-  if (root.name.raw !== "xar") invalid("XAR root element is missing.");
+  if (root.name.raw !== "xar") throw invalid("XAR root element is missing.");
   const toc = child(root, "toc");
-  if (!toc) invalid("XAR TOC is missing.");
+  if (!toc) throw invalid("XAR TOC is missing.");
   if (["heap", "encoding", "encryption"].some((name) => child(toc, name))) {
-    unsupported("Whole-heap XAR transforms are not supported.");
+    throw unsupported("Whole-heap XAR transforms are not supported.");
   }
   const heap = 28 + compressed;
   const heapSize = size - heap;
@@ -383,12 +376,12 @@ export async function openXar(input: ByteSourceType, options: XarOpenOptionsType
   let tocStatus: XarChecksumStatusType = "not-provided";
   let checksumRange: { offset: number; length: number } | undefined;
   if (name === "none") {
-    if (checksum && checksum.attributes.style !== "none") invalid("XAR header/TOC checksum disagreement.");
+    if (checksum && checksum.attributes.style !== "none") throw invalid("XAR header/TOC checksum disagreement.");
   } else {
-    if (!checksum || checksum.attributes.style !== name) invalid("XAR header/TOC checksum disagreement.");
+    if (!checksum || checksum.attributes.style !== name) throw invalid("XAR header/TOC checksum disagreement.");
     const offset = decimal(scalar(checksum, "offset")), length = decimal(scalar(checksum, "size"));
-    if (length !== algorithm(name).size) invalid("XAR TOC digest length disagrees with algorithm.");
-    sourceRange(heapSize, offset, length);
+    if (length !== algorithm(name).size) throw invalid("XAR TOC digest length disagrees with algorithm.");
+    assertExtent(heapSize, offset, length);
     checksumRange = { offset, length };
     tocStatus = "pending";
     if (options.verifyToc !== false) {
@@ -407,18 +400,18 @@ export async function openXar(input: ByteSourceType, options: XarOpenOptionsType
       if (
         !(attribute && item.name.raw === "name") &&
         !["offset", "length", "size", "encoding", "archived-checksum", "extracted-checksum"].includes(item.name.raw)
-      ) unsupported("Unsupported XAR data transform or inline content.");
+      ) throw unsupported("Unsupported XAR data transform or inline content.");
     }
     const offset = decimal(scalar(node, "offset")),
       length = decimal(scalar(node, "length")),
       size = decimal(scalar(node, "size"));
-    sourceRange(heapSize, offset, length);
+    assertExtent(heapSize, offset, length);
     if (
       checksumRange && length && offset < checksumRange.offset + checksumRange.length &&
       checksumRange.offset < offset + length
-    ) invalid("XAR data overlaps the TOC digest.");
+    ) throw invalid("XAR data overlaps the TOC digest.");
     const encoding = child(node, "encoding")?.attributes.style ?? "application/octet-stream";
-    if (encoding === "application/octet-stream" && length !== size) invalid("XAR stored sizes disagree.");
+    if (encoding === "application/octet-stream" && length !== size) throw invalid("XAR stored sizes disagree.");
     const archived = digestOf(node, "archived-checksum"), extracted = digestOf(node, "extracted-checksum");
     return {
       extent: Object.freeze({ offset, length, size, encoding }),
@@ -442,7 +435,7 @@ export async function openXar(input: ByteSourceType, options: XarOpenOptionsType
     retained += 256;
     const fileId = node.attributes.id;
     if (!fileId || !/^(0|[1-9][0-9]*)$/.test(fileId) || ids.has(fileId)) {
-      invalid("XAR file IDs must be unique unsigned decimals.");
+      throw invalid("XAR file IDs must be unique unsigned decimals.");
     }
     ids.add(fileId);
     const nameOf = scalar(node, "name");
@@ -452,26 +445,26 @@ export async function openXar(input: ByteSourceType, options: XarOpenOptionsType
         return code < 32 || code === 127 || code === 47 || code === 92 || (code >= 0xd800 && code <= 0xdfff);
       })
     ) {
-      unsupported("XAR unsafe filename component.");
+      throw unsupported("XAR unsafe filename component.");
     }
     const nameNode = child(node, "name")!;
-    if (Object.keys(nameNode.attributes).length) unsupported("Encoded XAR names are outside this UTF8 profile.");
+    if (Object.keys(nameNode.attributes).length) throw unsupported("Encoded XAR names are outside this UTF8 profile.");
     const path = parent ? `${parent}/${nameOf}` : nameOf;
     cap(path.length, policy.path, "XAR path bytes");
     const pathBytes = new TextEncoder().encode(path).length;
     cap(pathBytes, policy.path, "XAR path bytes");
     cap(retained + pathBytes, policy.metadata, "XAR retained metadata");
     retained += pathBytes;
-    if (paths.has(path)) invalid("Duplicate XAR logical path.");
+    if (paths.has(path)) throw invalid("Duplicate XAR logical path.");
     paths.add(path);
     const type = scalar(node, "type"), dataNode = child(node, "data");
-    if (child(node, "encryption")) unsupported("Encrypted XAR members are not supported.");
+    if (child(node, "encryption")) throw unsupported("Encrypted XAR members are not supported.");
     if (child(node, "content") || child(node, "encoding")) {
-      unsupported("XAR inline content or file transforms are not supported.");
+      throw unsupported("XAR inline content or file transforms are not supported.");
     }
     const content = dataNode ? dataOf(dataNode) : undefined;
     if (!content && type === "file" && child(node, "size") && decimal(scalar(node, "size")) !== 0) {
-      invalid("XAR regular file declares bytes without a data extent.");
+      throw invalid("XAR regular file declares bytes without a data extent.");
     }
     const attributes: { name: string; extent: XarExtentType }[] = [];
     for (const ea of elements(node).filter((item) => item.name.raw === "ea")) {
@@ -499,16 +492,16 @@ export async function openXar(input: ByteSourceType, options: XarOpenOptionsType
     );
     data.push(content);
     const nested = elements(node).filter((item) => item.name.raw === "file");
-    if (nested.length && type !== "directory") invalid("Only XAR directories can contain child files.");
+    if (nested.length && type !== "directory") throw invalid("Only XAR directories can contain child files.");
     for (let index = nested.length - 1; index >= 0; index--) {
       stack.push({ node: nested[index]!, parent: path, depth: depth + 1 });
     }
   }
   function selected(id: number): { entry: XarEntryType; data?: DataType } {
-    integer(id, "XAR entry ID");
+    assertInteger(id, "XAR entry ID");
     const entry = entries[id];
     if (!entry) throw new RangeError("Unknown XAR entry ID.");
-    if (entry.type !== "file") unsupported("XAR reads support regular files only; links are never followed.");
+    if (entry.type !== "file") throw unsupported("XAR reads support regular files only; links are never followed.");
     const content = data[id];
     return { entry, ...(content ? { data: content } : {}) };
   }
@@ -534,7 +527,7 @@ export async function openXar(input: ByteSourceType, options: XarOpenOptionsType
       call = { ...call };
       const item = selected(id), extent = item.data?.extent;
       const size = extent?.size ?? 0, offset = call.offset ?? 0, length = call.length ?? size - offset;
-      sourceRange(size, offset, length);
+      assertExtent(size, offset, length);
       const work = operation(call), signal = call.signal ?? options.signal;
       signal?.throwIfAborted();
       const archived = item.data?.archived, extracted = item.data?.extracted;
@@ -546,11 +539,11 @@ export async function openXar(input: ByteSourceType, options: XarOpenOptionsType
       }
       const stored = extent.encoding === "application/octet-stream";
       if (!stored && extent.encoding !== "application/x-gzip") {
-        unsupported(`XAR member encoding ${extent.encoding} is unsupported.`);
+        throw unsupported(`XAR member encoding ${extent.encoding} is unsupported.`);
       }
       const verify = call.verify !== false && (!!archived || !!extracted);
       if (verify) {
-        if (!subtle) unsupported("XAR member verification requires caller-supplied SubtleCrypto.");
+        if (!subtle) throw unsupported("XAR member verification requires caller-supplied SubtleCrypto.");
         for (const digest of [archived, extracted]) if (digest) algorithm(digest.algorithm);
         if (archived) cap(extent.length, policy.verify, "XAR verification bytes");
         if (extracted) cap(size, policy.verify, "XAR verification bytes");
@@ -588,10 +581,10 @@ export async function openXar(input: ByteSourceType, options: XarOpenOptionsType
       call = { ...call };
       const item = selected(id), extent = item.data?.extent;
       if (extent && extent.encoding !== "application/octet-stream") {
-        unsupported("Only stored XAR members expose random-access sources.");
+        throw unsupported("Only stored XAR members expose random-access sources.");
       }
       const size = extent?.size ?? 0, offset = call.offset ?? 0, length = call.length ?? size - offset;
-      sourceRange(size, offset, length);
+      assertExtent(size, offset, length);
       const total = createArchiveLedger(call), captured = call;
       const capturedSignal = captured.signal ?? options.signal;
       return Object.freeze({
@@ -601,7 +594,7 @@ export async function openXar(input: ByteSourceType, options: XarOpenOptionsType
           : { identity: JSON.stringify([identity, "xar-apple-v1", id, extent?.offset ?? null, offset, length]) }),
         ...(stability === undefined ? {} : { stability }),
         async read(at: number, count: number, readOptions: { signal?: AbortSignal } = {}) {
-          sourceRange(length, at, count);
+          assertExtent(length, at, count);
           const signal = capturedSignal && readOptions.signal
             ? AbortSignal.any([capturedSignal, readOptions.signal])
             : readOptions.signal ?? capturedSignal;

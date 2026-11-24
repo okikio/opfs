@@ -1,6 +1,6 @@
 /** Pure bounded BZip2 decoding with verified-block output and separate whole-stream evidence. @module */
 import type { ByteSourceType } from "../source.ts";
-import { ArchiveBudget, ArchiveError, createArchiveLedger, integer, invalid, unsupported } from "./record.ts";
+import { ArchiveBudget, ArchiveError, assertInteger, createArchiveLedger, invalid, unsupported } from "./record.ts";
 import type { ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
 export { ArchiveError, createArchiveLedger } from "./record.ts";
 export type { ArchiveErrorCodeType, ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
@@ -77,10 +77,10 @@ class Cursor {
       this.end += length;
       this.fetched += length;
     }
-    if (this.available < count) invalid("BZip2 packed bits are truncated.");
+    if (this.available < count) throw invalid("BZip2 packed bits are truncated.");
   }
   read(count: number): number {
-    if (count > this.available) invalid("BZip2 packed bit extent is incomplete.");
+    if (count > this.available) throw invalid("BZip2 packed bit extent is incomplete.");
     this.#step(count);
     let value = 0;
     for (let i = 0; i < count; i++, this.bit++, this.consumed++) {
@@ -117,7 +117,7 @@ function tree(lengths: Uint8Array, step: (count: number) => void): TreeType {
   let left = 1;
   for (let length = 1; length <= 20; length++) {
     left = left * 2 - counts[length]!;
-    if (left < 0) invalid("BZip2 Huffman tree is oversubscribed.");
+    if (left < 0) throw invalid("BZip2 Huffman tree is oversubscribed.");
     code = (code + counts[length - 1]!) * 2;
     first[length] = code;
     starts[length] = used;
@@ -141,7 +141,7 @@ function symbol(cursor: Cursor, table: TreeType): number {
     const delta = code - table.first[length]!;
     if (delta >= 0 && delta < table.counts[length]!) return table.symbols[table.starts[length]! + delta]!;
   }
-  return invalid("BZip2 Huffman symbol is absent from its tree.");
+  throw invalid("BZip2 Huffman symbol is absent from its tree.");
 }
 
 /** Inverse BWT emits the initial RLE representation; four equal bytes require a following count byte. */
@@ -162,10 +162,10 @@ class Walker {
   }
   next(): number {
     if (this.#used === this.#count) {
-      if (this.#run === 4) invalid("BZip2 RLE count byte is missing.");
+      if (this.#run === 4) throw invalid("BZip2 RLE count byte is missing.");
       return -1;
     }
-    if (this.#position >= this.#count) invalid("BZip2 inverse BWT pointer exceeds its block.");
+    if (this.#position >= this.#count) throw invalid("BZip2 inverse BWT pointer exceeds its block.");
     this.#step(1);
     const packed = this.#table[this.#position]!;
     this.#position = packed >>> 8;
@@ -191,7 +191,7 @@ class Walker {
 export function createBzipDecoder(source: ByteSourceType, options: BzipOptionsType = {}): BzipDecoderType {
   options = { ...options };
   const { size, identity, stability } = source;
-  integer(size, "BZip2 source size");
+  assertInteger(size, "BZip2 source size");
   if (stability !== undefined && !["immutable", "provider", "caller"].includes(stability)) {
     throw new TypeError("Unknown BZip2 stability evidence.");
   }
@@ -199,7 +199,7 @@ export function createBzipDecoder(source: ByteSourceType, options: BzipOptionsTy
     throw new TypeError("BZip2 identity exceeds 8192 UTF16 code units.");
   }
   if (!stability && !options.allowUnverifiedSource) {
-    unsupported("BZip2 requires source stability or explicit unverified-source acceptance.");
+    throw unsupported("BZip2 requires source stability or explicit unverified-source acceptance.");
   }
   const snapshot: ByteSourceType = {
     size,
@@ -222,7 +222,7 @@ export function createBzipDecoder(source: ByteSourceType, options: BzipOptionsTy
       maximumBlocks,
       maximumSteps,
     })
-  ) integer(value, name);
+  ) assertInteger(value, name);
   if (
     !inputChunk || inputChunk > 65536 || !outputChunk || outputChunk > 65536 || maximumBlock > 900000 ||
     maximumMemory > 16 * 1024 * 1024 || maximumBlocks > 65536 || maximumSteps > 1024 * 1024 * 1024
@@ -343,9 +343,9 @@ export function createBzipDecoder(source: ByteSourceType, options: BzipOptionsTy
   };
 
   const open = async (): Promise<void> => {
-    if (await cursor.field(24) !== 0x425a68) invalid("BZip2 header must be BZh.");
+    if (await cursor.field(24) !== 0x425a68) throw invalid("BZip2 header must be BZh.");
     const level = await cursor.field(8);
-    if (level < 49 || level > 57) invalid("BZip2 block level must be 1..9.");
+    if (level < 49 || level > 57) throw invalid("BZip2 block level must be 1..9.");
     blockBytes = (level - 48) * 100000;
     if (blockBytes > maximumBlock) {
       throw new ArchiveError("budget-exceeded", "BZip2 advertised transformed block exceeds policy.");
@@ -360,18 +360,20 @@ export function createBzipDecoder(source: ByteSourceType, options: BzipOptionsTy
       const expected = await cursor.field(32);
       if (expected !== combined) throw new ArchiveError("checksum-mismatch", "BZip2 combined stream CRC mismatch.");
       const pad = (8 - cursor.consumed % 8) % 8;
-      if (pad && await cursor.field(pad) !== 0) unsupported("BZip2 selected profile requires zero final padding bits.");
-      if (cursor.consumed / 8 !== size) unsupported("BZip2 concatenation and trailing bytes are not supported.");
+      if (pad && await cursor.field(pad) !== 0) {
+        throw unsupported("BZip2 selected profile requires zero final padding bits.");
+      }
+      if (cursor.consumed / 8 !== size) throw unsupported("BZip2 concatenation and trailing bytes are not supported.");
       check();
       return false;
     }
-    if (first !== 0x314159 || last !== 0x265359) invalid("BZip2 block marker is invalid.");
+    if (first !== 0x314159 || last !== 0x265359) throw invalid("BZip2 block marker is invalid.");
     if (blocks === maximumBlocks) throw new ArchiveError("budget-exceeded", "BZip2 block count limit exceeded.");
     blocks++;
     const expectedCRC = await cursor.field(32);
-    if (await cursor.field(1)) unsupported("Randomized legacy BZip2 blocks are not supported.");
+    if (await cursor.field(1)) throw unsupported("Randomized legacy BZip2 blocks are not supported.");
     const origin = await cursor.field(24);
-    if (origin >= blockBytes!) invalid("BZip2 origin exceeds transformed block capacity.");
+    if (origin >= blockBytes!) throw invalid("BZip2 origin exceeds transformed block capacity.");
     if (!table.length) {
       memoryBytes = fixedMemory + blockBytes! * 4;
       if (memoryBytes > maximumMemory) {
@@ -388,15 +390,17 @@ export function createBzipDecoder(source: ByteSourceType, options: BzipOptionsTy
         for (let bit = 0; bit < 16; bit++) if ((flags >>> (15 - bit)) & 1) alphabet[alphabetSize++] = group * 16 + bit;
       }
     }
-    if (!alphabetSize) invalid("BZip2 used alphabet is empty.");
+    if (!alphabetSize) throw invalid("BZip2 used alphabet is empty.");
     const treeCount = await cursor.field(3);
     const selectorCount = await cursor.field(15);
-    if (treeCount < 2 || treeCount > 6 || !selectorCount) invalid("BZip2 Huffman selector counts are invalid.");
+    if (treeCount < 2 || treeCount > 6 || !selectorCount) throw invalid("BZip2 Huffman selector counts are invalid.");
     const selectors = new Uint8Array(selectorCount);
     const selectorMtf = Uint8Array.from({ length: treeCount }, (_, i) => i);
     for (let i = 0; i < selectorCount; i++) {
       let index = 0;
-      while (await cursor.field(1)) if (++index >= treeCount) invalid("BZip2 selector MTF index exceeds its alphabet.");
+      while (await cursor.field(1)) {
+        if (++index >= treeCount) throw invalid("BZip2 selector MTF index exceeds its alphabet.");
+      }
       const value = selectorMtf[index]!;
       step(index + 1);
       for (; index > 0; index--) selectorMtf[index] = selectorMtf[index - 1]!;
@@ -411,7 +415,7 @@ export function createBzipDecoder(source: ByteSourceType, options: BzipOptionsTy
       const lengths = new Uint8Array(symbolCount);
       for (let j = 0; j < symbolCount; j++) {
         while (true) {
-          if (current < 1 || current > 20) invalid("BZip2 Huffman code length exceeds 1..20.");
+          if (current < 1 || current > 20) throw invalid("BZip2 Huffman code length exceeds 1..20.");
           if (!await cursor.field(1)) break;
           current += await cursor.field(1) ? -1 : 1;
           if (steps >= nextYield) await pause();
@@ -430,7 +434,7 @@ export function createBzipDecoder(source: ByteSourceType, options: BzipOptionsTy
     // stay outside this synchronous buffered path, rather than allocating a promise per symbol.
     const next = (): number => {
       if (selected === 0) {
-        if (++selector >= selectors.length) invalid("BZip2 Huffman selectors ended before EOB.");
+        if (++selector >= selectors.length) throw invalid("BZip2 Huffman selectors ended before EOB.");
         selected = 50;
       }
       selected--;
@@ -444,7 +448,7 @@ export function createBzipDecoder(source: ByteSourceType, options: BzipOptionsTy
         let weight = 1;
         do {
           const add = (value + 1) * weight;
-          if (add > blockBytes! - position - run) invalid("BZip2 RUNA/RUNB expansion exceeds transformed block.");
+          if (add > blockBytes! - position - run) throw invalid("BZip2 RUNA/RUNB expansion exceeds transformed block.");
           run += add;
           weight *= 2;
           if (cursor.available < 20) await cursor.ensure(20);
@@ -463,7 +467,9 @@ export function createBzipDecoder(source: ByteSourceType, options: BzipOptionsTy
         continue;
       }
       const index = value - 1;
-      if (index >= alphabetSize || position === blockBytes) invalid("BZip2 MTF symbol exceeds transformed block.");
+      if (index >= alphabetSize || position === blockBytes) {
+        throw invalid("BZip2 MTF symbol exceeds transformed block.");
+      }
       step(index + 1);
       budget.decoded(1);
       const byte = mtf[index]!;
@@ -475,7 +481,7 @@ export function createBzipDecoder(source: ByteSourceType, options: BzipOptionsTy
       value = next();
       if (steps >= nextYield) await pause();
     }
-    if (!position || origin >= position) invalid("BZip2 origin exceeds actual transformed block.");
+    if (!position || origin >= position) throw invalid("BZip2 origin exceeds actual transformed block.");
     const starts = new Uint32Array(256);
     let total = 0;
     for (let i = 0; i < 256; i++) {
@@ -523,7 +529,7 @@ export function createBzipDecoder(source: ByteSourceType, options: BzipOptionsTy
     while (at < count) {
       if (!pending) {
         pending = walker!.next();
-        if (pending < 0) invalid("BZip2 verified replay ended early.");
+        if (pending < 0) throw invalid("BZip2 verified replay ended early.");
         if (!pending) continue;
       }
       const size = Math.min(pending, count - at);

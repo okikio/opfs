@@ -1,4 +1,5 @@
-import { committed, IndexedDbBackend, openIndexedDbDriver, result } from "../../../src/backend/indexeddb/driver.ts";
+import { IndexedDbBackend, openIndexedDbDriver } from "../../../src/backend/indexeddb/driver.ts";
+import { committed, waitForRequest } from "../../../src/backend/indexeddb/transaction.ts";
 import { FileSystemError } from "../../../src/error.ts";
 import type { FileRecordType } from "../../../src/schema/mod.ts";
 import type { FileDriverWriteOptionsType } from "../../../src/driver/file.ts";
@@ -364,7 +365,7 @@ export async function recovered(): Promise<unknown> {
     request.onsuccess = () => {
       callerSuccess++;
     };
-    await result(request);
+    await waitForRequest(request);
     await done;
     return { callerComplete, callerError, callerSuccess, persisted: await stored(database) };
   });
@@ -622,8 +623,8 @@ export async function canceled(kind: "undefined" | "null" | "error"): Promise<un
       },
     });
     releases.push(restore);
-    const failed = result(request).then(() => undefined, (reason) => ({ reason }));
-    const replacement = result(transaction.objectStore("entries").put(record("Yg==")));
+    const failed = waitForRequest(request).then(() => undefined, (reason) => ({ reason }));
+    const replacement = waitForRequest(transaction.objectStore("entries").put(record("Yg==")));
     const [failure] = await Promise.all([failed, replacement, done]);
     const restored = request.onerror === caller;
     restore();
@@ -722,7 +723,7 @@ export async function completed(
     let failure: { reason: unknown } | undefined;
     let value: unknown;
     try {
-      value = await result(request);
+      value = await waitForRequest(request);
     } catch (reason) {
       failure = { reason };
     }

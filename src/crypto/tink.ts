@@ -1,4 +1,4 @@
-import { sourceRange } from "../source.ts";
+import { assertExtent } from "../source.ts";
 import type { ByteSourceType, SourceReadOptionsType } from "../source.ts";
 import { isBytes, toView } from "../bytes.ts";
 
@@ -168,7 +168,7 @@ function nonce(prefix: Uint8Array, index: number, final: boolean): Uint8Array<Ar
 
 /** Multiple range reads need a source consistency contract; an identifier alone does not establish one. */
 function stability(source: ByteSourceType, options: TinkOpenOptionsType): "immutable" | "provider" | "caller" {
-  sourceRange(source.size, 0, 0);
+  assertExtent(source.size, 0, 0);
   if (source.stability !== undefined) return source.stability;
   if (options.assumeStable) return "caller";
   throw new TinkError(
@@ -304,7 +304,7 @@ export function createTink(options: TinkOptionsType): TinkProfileType {
       const info = inputData(associatedData, maxAssociatedDataBytes);
       const material = inputKey(key, derivedKeyBytes, maxKeyBytes);
       const ciphertextSize = source.size;
-      sourceRange(ciphertextSize, 0, 0);
+      assertExtent(ciphertextSize, 0, 0);
       if (ciphertextSize < headerBytes + 16) {
         throw new TinkError("format", "Encrypted source is shorter than its header and final tag.");
       }
@@ -366,7 +366,7 @@ export function createTink(options: TinkOptionsType): TinkProfileType {
         readOptions: SourceReadOptionsType = {},
       ): Promise<TinkReadType> {
         readOptions.signal?.throwIfAborted();
-        sourceRange(size, offset, length);
+        assertExtent(size, offset, length);
         if (length > maxReadBytes) throw new TinkError("limit", "Selected plaintext range exceeds maxReadBytes.");
         const first = offset < firstCapacity ? 0 : 1 + Math.floor((offset - firstCapacity) / capacity);
         if (length === 0) {

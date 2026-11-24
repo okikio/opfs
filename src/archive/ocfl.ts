@@ -1,8 +1,8 @@
 /** OCFL 1.1 inventory inspection and selected-content fixity over caller-supplied files. @module */
 import { z } from "zod";
 import type { ByteSourceType } from "../source.ts";
-import { sourceRange } from "../source.ts";
-import { ArchiveBudget, ArchiveError, createArchiveLedger, integer, invalid, unsupported } from "./record.ts";
+import { assertExtent } from "../source.ts";
+import { ArchiveBudget, ArchiveError, assertInteger, createArchiveLedger, invalid, unsupported } from "./record.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
 export { ArchiveError, createArchiveLedger } from "./record.ts";
 export type { ArchiveErrorCodeType, ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
@@ -142,13 +142,13 @@ function cap(value: number, maximum: number, label: string): void {
 function utf8(value: string, maximum: number, label: string): number {
   cap(value.length, maximum, label);
   // TextEncoder otherwise silently replaces unpaired surrogates, creating aliases.
-  if (!value.isWellFormed()) invalid(`${label} has an unpaired surrogate.`);
+  if (!value.isWellFormed()) throw invalid(`${label} has an unpaired surrogate.`);
   const bytes = new TextEncoder().encode(value).length;
   cap(bytes, maximum, label);
   return bytes;
 }
 function pathOf(value: string, maximum: number): void {
-  if (typeof value !== "string") invalid("OCFL paths must be strings.");
+  if (typeof value !== "string") throw invalid("OCFL paths must be strings.");
   utf8(value, maximum, "OCFL path bytes");
   const controls = Array.from(value).some((character) =>
     character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127
@@ -157,20 +157,20 @@ function pathOf(value: string, maximum: number): void {
     !value || controls || value.includes("\\") || /^[A-Za-z]:/.test(value) ||
     value.split("/").some((part) => !part || part === "." || part === "..")
   ) {
-    invalid("OCFL paths must be safe literal relative paths without empty or dot components.");
+    throw invalid("OCFL paths must be safe literal relative paths without empty or dot components.");
   }
 }
 /** Append a separator before sorting so punctuation cannot hide a file/descendant conflict. */
 function nonconflicting(paths: readonly string[]): void {
   const ordered = paths.map((path) => path + "/").sort();
   for (let index = 1; index < ordered.length; index++) {
-    if (ordered[index]!.startsWith(ordered[index - 1]!)) invalid("Duplicate or conflicting OCFL file paths.");
+    if (ordered[index]!.startsWith(ordered[index - 1]!)) throw invalid("Duplicate or conflicting OCFL file paths.");
   }
 }
 
 function hex(value: string, length?: number): string {
   if (!/^[0-9a-fA-F]+$/.test(value) || (length !== undefined && value.length !== length)) {
-    invalid("Malformed OCFL hexadecimal digest.");
+    throw invalid("Malformed OCFL hexadecimal digest.");
   }
   return value.toLowerCase();
 }
@@ -182,7 +182,7 @@ function jsonOf(text: string, depth: number, tokens: number, stringBytes: number
     while (/[ \t\r\n]/.test(text[at] ?? "x")) at++;
   };
   function string(): string {
-    if (text[at++] !== '"') invalid("Expected JSON string.");
+    if (text[at++] !== '"') throw invalid("Expected JSON string.");
     const start = at - 1;
     while (at < text.length) {
       const c = text[at++];
@@ -196,14 +196,14 @@ function jsonOf(text: string, depth: number, tokens: number, stringBytes: number
         try {
           value = JSON.parse(text.slice(start, at));
         } catch {
-          invalid("Malformed JSON string.");
+          throw invalid("Malformed JSON string.");
         }
-        if (typeof value !== "string") invalid("Malformed JSON string.");
+        if (typeof value !== "string") throw invalid("Malformed JSON string.");
         utf8(value, stringBytes, "JSON string bytes");
         return value;
       }
     }
-    invalid("Unterminated JSON string.");
+    throw invalid("Unterminated JSON string.");
   }
   function value(level: number, scope: "root" | "fixity" | "other" = "other"): void {
     cap(level, depth, "JSON depth");
@@ -221,17 +221,17 @@ function jsonOf(text: string, depth: number, tokens: number, stringBytes: number
         cap(++count, tokens, "JSON tokens");
         whitespace();
         const key = string();
-        if (keys.has(key)) invalid("Duplicate decoded JSON object key.");
+        if (keys.has(key)) throw invalid("Duplicate decoded JSON object key.");
         // Zod intentionally discards this dictionary key. Reject it where it is not an inert algorithm label.
-        if (key === "__proto__" && scope !== "fixity") invalid("Reserved JSON dictionary key in OCFL metadata.");
+        if (key === "__proto__" && scope !== "fixity") throw invalid("Reserved JSON dictionary key in OCFL metadata.");
         keys.add(key);
         whitespace();
-        if (text[at++] !== ":") invalid("Expected JSON colon.");
+        if (text[at++] !== ":") throw invalid("Expected JSON colon.");
         value(level + 1, scope === "root" && key === "fixity" ? "fixity" : "other");
         whitespace();
         const end = text[at++];
         if (end === "}") return;
-        if (end !== ",") invalid("Expected JSON object delimiter.");
+        if (end !== ",") throw invalid("Expected JSON object delimiter.");
       }
     }
     if (text[at] === "[") {
@@ -246,7 +246,7 @@ function jsonOf(text: string, depth: number, tokens: number, stringBytes: number
         whitespace();
         const end = text[at++];
         if (end === "]") return;
-        if (end !== ",") invalid("Expected JSON array delimiter.");
+        if (end !== ",") throw invalid("Expected JSON array delimiter.");
       }
     }
     if (text[at] === '"') {
@@ -255,23 +255,23 @@ function jsonOf(text: string, depth: number, tokens: number, stringBytes: number
     }
     const start = at;
     while (at < text.length && !/[ \t\r\n,}\]]/.test(text[at]!)) at++;
-    if (start === at) invalid("Missing JSON value.");
+    if (start === at) throw invalid("Missing JSON value.");
   }
   value(0, "root");
   whitespace();
-  if (at !== text.length) invalid("Trailing JSON bytes.");
+  if (at !== text.length) throw invalid("Trailing JSON bytes.");
   try {
     return JSON.parse(text);
   } catch {
-    invalid("Malformed inventory JSON.");
+    throw invalid("Malformed inventory JSON.");
   }
 }
 /** RFC3339 profile admits calendar-valid dates and zones, but refuses leap seconds without a leap-second table. */
 function timestamp(value: string): void {
   const m = /^(\d{4})-(\d{2})-(\d{2})[Tt](\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:[Zz]|([+-])(\d{2}):(\d{2}))$/.exec(value);
-  if (!m) invalid("OCFL created requires an RFC3339 timestamp with seconds and zone.");
+  if (!m) throw invalid("OCFL created requires an RFC3339 timestamp with seconds and zone.");
   const [year, month, day, hour, minute, second] = m.slice(1, 7).map(Number);
-  if (second === 60) unsupported("OCFL timestamp leap seconds are outside this reader profile.");
+  if (second === 60) throw unsupported("OCFL timestamp leap seconds are outside this reader profile.");
   const days = [
     31,
     year! % 4 === 0 && (year! % 100 !== 0 || year! % 400 === 0) ? 29 : 28,
@@ -289,7 +289,7 @@ function timestamp(value: string): void {
   if (
     month! < 1 || month! > 12 || day! < 1 || day! > days[month! - 1]! || hour! > 23 || minute! > 59 || second! > 59 ||
     (m[7] && (+m[8]! > 23 || +m[9]! > 59))
-  ) invalid("Invalid OCFL timestamp calendar or zone.");
+  ) throw invalid("Invalid OCFL timestamp calendar or zone.");
 }
 function ledgerOf(options: ArchiveLimitsType): ArchiveLedgerType {
   const local = createArchiveLedger(options);
@@ -311,7 +311,7 @@ async function bytesOf(
   chunk: number,
   decoded: boolean,
 ): Promise<{ bytes: Uint8Array; work: ArchiveWorkType }> {
-  sourceRange(source.size, offset, length);
+  assertExtent(source.size, offset, length);
   options.signal?.throwIfAborted();
   const outer = options.ledger;
   const work = new ArchiveBudget(source, {
@@ -360,7 +360,7 @@ export async function openOcfl(
     string: options.maxStringBytes ?? 65536,
     chunk: options.maxChunkBytes ?? 4096,
   };
-  for (const [key, value] of Object.entries(policy)) integer(value, key);
+  for (const [key, value] of Object.entries(policy)) assertInteger(value, key);
   if (policy.inventory > 16 * 1024 * 1024 || policy.depth > 64 || policy.chunk < 1 || policy.chunk > 65536) {
     throw new RangeError("OCFL inventory/depth/chunk implementation ceiling exceeded.");
   }
@@ -381,15 +381,15 @@ export async function openOcfl(
   }
   for (const item of input) {
     pathOf(item.path, policy.path);
-    if (sources.has(item.path)) invalid("Duplicate supplied OCFL file.");
+    if (sources.has(item.path)) throw invalid("Duplicate supplied OCFL file.");
     retain(128 + utf8(item.path, policy.path, "OCFL path bytes"));
     const { size, identity, stability } = item.source;
-    integer(size, "OCFL source size");
+    assertInteger(size, "OCFL source size");
     if (stability !== undefined && !["immutable", "provider", "caller"].includes(stability)) {
       throw new TypeError("Unknown OCFL source stability.");
     }
     if (!stability && !options.allowUnverifiedSource) {
-      unsupported("OCFL requires stable sources or explicit unverified-source acceptance.");
+      throw unsupported("OCFL requires stable sources or explicit unverified-source acceptance.");
     }
     sources.set(item.path, {
       size,
@@ -411,38 +411,38 @@ export async function openOcfl(
   const ledger = ledgerOf(options);
   async function metadata(path: string, maximum: number): Promise<Uint8Array> {
     const source = sources.get(path);
-    if (!source) invalid(`Missing OCFL metadata: ${path}.`);
+    if (!source) throw invalid(`Missing OCFL metadata: ${path}.`);
     cap(source.size, maximum, "OCFL metadata file bytes");
     retain(source.size * 4);
     return (await bytesOf(source, 0, source.size, { ...options, ledger }, policy.chunk, true)).bytes;
   }
   const raw = await metadata("inventory.json", policy.inventory);
-  if (raw[0] === 239 && raw[1] === 187 && raw[2] === 191) invalid("OCFL inventory UTF8 must not have a BOM.");
+  if (raw[0] === 239 && raw[1] === 187 && raw[2] === 191) throw invalid("OCFL inventory UTF8 must not have a BOM.");
   let text: string;
   try {
     text = new TextDecoder("utf-8", { fatal: true }).decode(raw);
   } catch {
-    invalid("OCFL inventory is not UTF8.");
+    throw invalid("OCFL inventory is not UTF8.");
   }
   const candidate: unknown = jsonOf(text, policy.depth, policy.tokens, policy.string);
   const parsed = inventorySchema.safeParse(candidate);
-  if (!parsed.success) invalid("OCFL inventory shape or version is outside the strict 1.1 profile.");
+  if (!parsed.success) throw invalid("OCFL inventory shape or version is outside the strict 1.1 profile.");
   const inventory = parsed.data;
   // Preserve an inert algorithm named __proto__ without giving it object-prototype authority.
   // Its skipped block must be validated separately before restoration to the admitted metadata.
   const rawFixity = (candidate as { fixity?: Record<string, unknown> }).fixity;
   if (rawFixity && Object.hasOwn(rawFixity, "__proto__")) {
     const block = z.record(z.string(), z.array(z.string())).safeParse(rawFixity["__proto__"]);
-    if (!block.success) invalid("Malformed OCFL fixity algorithm block.");
+    if (!block.success) throw invalid("Malformed OCFL fixity algorithm block.");
     Object.defineProperty(inventory.fixity!, "__proto__", { value: block.data, enumerable: true, configurable: true });
   }
   const digestLength = inventory.digestAlgorithm === "sha256" ? 64 : 128;
   const directory = inventory.contentDirectory ?? "content";
   pathOf(directory, policy.path);
-  if (directory.includes("/")) invalid("OCFL contentDirectory must be one component.");
+  if (directory.includes("/")) throw invalid("OCFL contentDirectory must be one component.");
   const versions = Object.keys(inventory.versions);
   cap(versions.length, policy.versions, "OCFL versions");
-  if (!versions.length) invalid("OCFL inventory needs at least one version.");
+  if (!versions.length) throw invalid("OCFL inventory needs at least one version.");
   // The specification's E011 rule forbids a padded sequence from exhausting its leading zero.
   // For example, v0001..v0100 is valid, while v001..v100 crosses the forbidden boundary.
   const padded = /^v0/.test(inventory.head);
@@ -451,31 +451,31 @@ export async function openOcfl(
     if (
       !/^v[0-9]+$/.test(name) ||
       (padded ? name.length !== width || !name.startsWith("v0") : !/^v[1-9][0-9]*$/.test(name))
-    ) invalid("Mixed or invalid OCFL version padding.");
+    ) throw invalid("Mixed or invalid OCFL version padding.");
     const index = BigInt(name.slice(1));
     if (index < 1n || index > BigInt(versions.length)) {
-      invalid("OCFL version sequence has gaps or exceeds admitted versions.");
+      throw invalid("OCFL version sequence has gaps or exceeds admitted versions.");
     }
     return { name, index: Number(index) };
   }).sort((a, b) => a.index - b.index);
   for (let i = 0; i < ordered.length; i++) {
-    if (ordered[i]!.index !== i + 1) invalid("OCFL versions must be continuous.");
+    if (ordered[i]!.index !== i + 1) throw invalid("OCFL versions must be continuous.");
   }
-  if (ordered.at(-1)!.name !== inventory.head) invalid("OCFL head must name the highest version.");
+  if (ordered.at(-1)!.name !== inventory.head) throw invalid("OCFL head must name the highest version.");
   const versionNames = new Set(versions);
   const manifest = new Map<string, readonly string[]>();
   const physical = new Set<string>();
   for (const [digest, paths] of Object.entries(inventory.manifest)) {
     const canonical = hex(digest, digestLength);
-    if (manifest.has(canonical)) invalid("Case-colliding OCFL manifest digests.");
-    if (!paths.length) invalid("Empty OCFL manifest copy array.");
+    if (manifest.has(canonical)) throw invalid("Case-colliding OCFL manifest digests.");
+    if (!paths.length) throw invalid("Empty OCFL manifest copy array.");
     for (const path of paths) {
       reference(path);
       const parts = path.split("/");
       if (!versionNames.has(parts[0]!) || parts[1] !== directory || parts.length < 3) {
-        invalid("OCFL content path is outside an admitted version content directory.");
+        throw invalid("OCFL content path is outside an admitted version content directory.");
       }
-      if (physical.has(path)) invalid("OCFL physical content paths must be globally unique.");
+      if (physical.has(path)) throw invalid("OCFL physical content paths must be globally unique.");
       physical.add(path);
     }
     manifest.set(canonical, Object.freeze(paths));
@@ -498,15 +498,15 @@ export async function openOcfl(
     const stateDigests = new Set<string>();
     for (const [digest, paths] of Object.entries(version.state)) {
       const canonical = hex(digest, digestLength);
-      if (stateDigests.has(canonical)) invalid("Case-colliding OCFL state digests.");
+      if (stateDigests.has(canonical)) throw invalid("Case-colliding OCFL state digests.");
       stateDigests.add(canonical);
       const copies = manifest.get(canonical);
-      if (!copies) invalid("OCFL state refers to an unknown manifest digest.");
-      if (!paths.length) invalid("Empty OCFL state path array.");
+      if (!copies) throw invalid("OCFL state refers to an unknown manifest digest.");
+      if (!paths.length) throw invalid("Empty OCFL state path array.");
       usedDigests.add(canonical);
       for (const path of paths) {
         reference(path);
-        if (entries.has(path)) invalid("Duplicate OCFL logical path in version.");
+        if (entries.has(path)) throw invalid("Duplicate OCFL logical path in version.");
         entries.set(
           path,
           Object.freeze({ version: name, path, digest: canonical, copies: copyRecords.get(canonical)! }),
@@ -517,7 +517,7 @@ export async function openOcfl(
     states.set(name, entries);
   }
   for (const digest of manifest.keys()) {
-    if (!usedDigests.has(digest)) invalid("OCFL manifest digest is not used in any version state.");
+    if (!usedDigests.has(digest)) throw invalid("OCFL manifest digest is not used in any version state.");
   }
   for (const [algorithm, block] of Object.entries(inventory.fixity ?? {})) {
     const seen = new Set<string>();
@@ -528,12 +528,12 @@ export async function openOcfl(
     ]]).get(algorithm);
     for (const [digest, paths] of Object.entries(block)) {
       const canonical = hex(digest, length);
-      if (seen.has(canonical)) invalid("Case-colliding OCFL fixity digests.");
+      if (seen.has(canonical)) throw invalid("Case-colliding OCFL fixity digests.");
       seen.add(canonical);
       for (const path of paths) {
         reference(path);
         if (!physical.has(path) || pathsSeen.has(path)) {
-          invalid("OCFL fixity must refer once to manifested content paths.");
+          throw invalid("OCFL fixity must refer once to manifested content paths.");
         }
         pathsSeen.add(path);
       }
@@ -575,7 +575,7 @@ export async function openOcfl(
     try {
       sideText = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
     } catch {
-      invalid("OCFL sidecar must be UTF8.");
+      throw invalid("OCFL sidecar must be UTF8.");
     }
     const match = /^([0-9a-fA-F]+)[ \t]+inventory\.json(?:\r?\n)?$/.exec(sideText);
     if (!match || match[1]!.length !== digestLength) issue("sidecar-mismatch", sidecar);
@@ -614,7 +614,7 @@ export async function openOcfl(
     }
     const source = sources.get(chosen);
     const file = provenance.get(chosen);
-    if (!source || !file) invalid("Selected OCFL content source is missing.");
+    if (!source || !file) throw invalid("Selected OCFL content source is missing.");
     return { entry, source, file };
   }
   function operation(call: OcflSelectOptionsType): OcflSelectOptionsType {
@@ -646,7 +646,7 @@ export async function openOcfl(
   }
   function verifyLimit(length: number, call: OcflVerifyOptionsType): void {
     const maximum = call.maxVerifyBytes ?? 1024 * 1024;
-    integer(maximum, "maxVerifyBytes");
+    assertInteger(maximum, "maxVerifyBytes");
     if (maximum > 16 * 1024 * 1024) throw new RangeError("OCFL whole-buffer verification hard ceiling is 16 MiB.");
     cap(length, maximum, "OCFL whole-buffer verifier bytes");
   }
@@ -707,7 +707,7 @@ export async function openOcfl(
     },
     async verifyInventory(call: OcflVerifyOptionsType): Promise<OcflVerificationType> {
       call = { ...call };
-      if (!expected) invalid("OCFL root inventory has no admitted matching sidecar.");
+      if (!expected) throw invalid("OCFL root inventory has no admitted matching sidecar.");
       verifyLimit(raw.length, call);
       const resolved = operation(call);
       resolved.signal?.throwIfAborted();

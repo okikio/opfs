@@ -91,9 +91,13 @@ export class AmqpCompletionError extends Error {
     this.receipt = receipt;
   }
 }
-/** All malformed peer errors are fixed text; wire values and credentials are never interpolated. */
-function invalid(): never {
-  throw new TypeError("AMQP peer data is outside the supported bounded protocol profile.");
+/**
+ * Creates the error for malformed AMQP peer data; call as `throw invalid()`.
+ *
+ * The message is fixed text: wire values and credentials are never interpolated.
+ */
+function invalid(): TypeError {
+  return new TypeError("AMQP peer data is outside the supported bounded protocol profile.");
 }
 function bound(value: number | undefined, fallback: number, maximum: number): number {
   const selected = value ?? fallback;
@@ -120,7 +124,7 @@ function utf8(bytes: Uint8Array): string {
   try {
     return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
   } catch {
-    return invalid();
+    throw invalid();
   }
 }
 function join(...parts: readonly Uint8Array[]): Uint8Array<ArrayBuffer> {
@@ -164,7 +168,7 @@ class Reader {
     return this.bytes.length - this.#at;
   }
   take(size: number): Uint8Array<ArrayBuffer> {
-    if (size < 0 || size > this.left) return invalid();
+    if (size < 0 || size > this.left) throw invalid();
     const result = this.bytes.subarray(this.#at, this.#at + size);
     this.#at += size;
     return result;
@@ -179,14 +183,14 @@ class Reader {
   }
   short(): string {
     const bytes = this.take(this.uint(1));
-    if (bytes.includes(0)) return invalid();
+    if (bytes.includes(0)) throw invalid();
     return utf8(bytes);
   }
   long(): Uint8Array<ArrayBuffer> {
     return this.take(this.uint(4));
   }
   end(): void {
-    if (this.left) invalid();
+    if (this.left) throw invalid();
   }
 }
 /**
@@ -207,13 +211,13 @@ function fields(reader: Reader, table: boolean, quota: { entries: number }, dept
       // Field names exclude C0 controls and DEL, including inside valid UTF-8.
       for (let index = 0; index < key.length; index++) {
         const code = key.charCodeAt(index);
-        if (code <= 31 || code === 127) return invalid();
+        if (code <= 31 || code === 127) throw invalid();
       }
-      if (!key.length || keys.has(key)) return invalid();
+      if (!key.length || keys.has(key)) throw invalid();
       keys.add(key);
     }
     const kind = nested.uint(1);
-    if (kind === 116) { if (nested.uint(1) > 1) return invalid(); }
+    if (kind === 116) { if (nested.uint(1) > 1) throw invalid(); }
     else if (kind === 98 || kind === 66) nested.take(1);
     else if (kind === 85 || kind === 117 || kind === 115) nested.take(2);
     else if (kind === 73 || kind === 105 || kind === 102) nested.take(4);
@@ -221,19 +225,19 @@ function fields(reader: Reader, table: boolean, quota: { entries: number }, dept
     else if (kind === 68) nested.take(5);
     else if (kind === 83 || kind === 120) nested.long();
     else if (kind === 65 || kind === 70) fields(nested, kind === 70, quota, depth + 1);
-    else if (kind !== 86) return invalid();
+    else if (kind !== 86) throw invalid();
   }
 }
 /** Basic has fourteen properties and one flag word; continuation/reserved bits are unsupported, never ignored. */
 function properties(reader: Reader): Uint8Array<ArrayBuffer> {
   const raw = reader.take(reader.left), values = new Reader(raw), flags = values.uint(2);
-  if (flags & 3) return invalid();
+  if (flags & 3) throw invalid();
   for (let index = 0; index < 14; index++) {
     if (!(flags & (1 << (15 - index)))) continue;
     if (index === 2) fields(values, true, { entries: 0 });
     else if (index === 3) {
       const mode = values.uint(1);
-      if (mode !== 1 && mode !== 2) return invalid();
+      if (mode !== 1 && mode !== 2) throw invalid();
     } else if (index === 4) values.uint(1);
     else if (index === 9) values.uint64();
     else values.short();
@@ -326,14 +330,14 @@ class Session {
         this.#signal.throwIfAborted();
         const done = next.done;
         this.#signal.throwIfAborted();
-        if (done) return invalid();
+        if (done) throw invalid();
         const supplied = next.value;
         this.#signal.throwIfAborted();
-        if (!isBytes(supplied)) return invalid();
+        if (!isBytes(supplied)) throw invalid();
         const bytes = toView(supplied);
         if (bytes.length > 65536) throw new RangeError("AMQP transport chunk exceeds 64 KiB policy.");
         if (!bytes.length) {
-          if (++empty > 16) return invalid();
+          if (++empty > 16) throw invalid();
           continue;
         }
         empty = 0;
@@ -355,18 +359,18 @@ class Session {
         type = header.uint(1),
         channel = header.uint(2),
         size = header.uint(4);
-      if (size > this.frameMax - 8 || channel > 1) return invalid();
+      if (size > this.frameMax - 8 || channel > 1) throw invalid();
       const body = await this.take(size);
-      if ((await this.take(1))[0] !== 206) return invalid();
+      if ((await this.take(1))[0] !== 206) throw invalid();
       if (type === 8) {
-        if (channel || size || ++this.#controls > 128) return invalid();
+        if (channel || size || ++this.#controls > 128) throw invalid();
         continue;
       }
-      if (type !== 1 && type !== 2 && type !== 3) return invalid();
+      if (type !== 1 && type !== 2 && type !== 3) throw invalid();
       if (type === 1) {
         const method = new Reader(body), classId = method.uint(2), methodId = method.uint(2);
         if ((classId === 10 && methodId === 50) || (classId === 20 && methodId === 40)) {
-          if (channel !== (classId === 10 ? 0 : 1)) return invalid();
+          if (channel !== (classId === 10 ? 0 : 1)) throw invalid();
           const code = method.uint(2);
           method.short();
           const selectedClass = method.uint(2), selectedMethod = method.uint(2);
@@ -380,18 +384,18 @@ class Session {
   async expect(channel: number, classId: number, methodId: number): Promise<Reader> {
     const next = await this.next(), value = new Reader(next.body);
     if (next.type !== 1 || next.channel !== channel || value.uint(2) !== classId || value.uint(2) !== methodId) {
-      return invalid();
+      throw invalid();
     }
     return value;
   }
   async initialize(auth: Uint8Array, vhost: Uint8Array, heartbeat: number): Promise<void> {
     await this.send(new Uint8Array([65, 77, 81, 80, 0, 0, 9, 1]));
     const start = await this.expect(0, 10, 10);
-    if (start.uint(1) !== 0 || start.uint(1) !== 9) return invalid();
+    if (start.uint(1) !== 0 || start.uint(1) !== 9) throw invalid();
     fields(start, true, { entries: 0 });
     const mechanisms = utf8(start.long()).split(" "), locales = utf8(start.long()).split(" ");
     start.end();
-    if (!mechanisms.includes("PLAIN") || !locales.includes("en_US")) return invalid();
+    if (!mechanisms.includes("PLAIN") || !locales.includes("en_US")) throw invalid();
     // RabbitMQ otherwise may silently close on bad PLAIN credentials. This
     // capability advertises the connection.close notification we implement.
     const capabilities = long(
@@ -406,32 +410,32 @@ class Session {
     tune.uint(2);
     const maximum = tune.uint(4), remoteHeartbeat = tune.uint(2);
     tune.end();
-    if (maximum && maximum < 4096) return invalid();
+    if (maximum && maximum < 4096) throw invalid();
     this.frameMax = maximum ? Math.min(65536, maximum) : 65536;
     const negotiated = remoteHeartbeat ? Math.min(heartbeat, remoteHeartbeat) : heartbeat;
     await this.send(method(0, 10, 31, number(1, 2), number(this.frameMax, 4), number(negotiated, 2)));
     this.#interval = negotiated * 500;
     await this.send(method(0, 10, 40, short(vhost), number(0, 1), number(0, 1)));
     const connection = await this.expect(0, 10, 41);
-    if (connection.short() !== "") return invalid();
+    if (connection.short() !== "") throw invalid();
     connection.end();
     await this.send(method(1, 20, 10, number(0, 1)));
     const opened = await this.expect(1, 20, 11);
-    if (opened.long().length) return invalid();
+    if (opened.long().length) throw invalid();
     opened.end();
   }
   async content(maximum: number): Promise<{ bytes: Uint8Array<ArrayBuffer>; properties: Uint8Array<ArrayBuffer> }> {
     const next = await this.next();
-    if (next.type !== 2 || next.channel !== 1) return invalid();
+    if (next.type !== 2 || next.channel !== 1) throw invalid();
     const header = new Reader(next.body);
-    if (header.uint(2) !== 60 || header.uint(2) !== 0) return invalid();
+    if (header.uint(2) !== 60 || header.uint(2) !== 0) throw invalid();
     const length = header.uint64();
     if (length > BigInt(maximum)) throw new RangeError("AMQP body exceeds materialization policy.");
     const inert = properties(header), bytes = new Uint8Array(Number(length));
     let at = 0;
     while (at < bytes.length) {
       const part = await this.next();
-      if (part.type !== 3 || part.channel !== 1 || part.body.length > bytes.length - at) return invalid();
+      if (part.type !== 3 || part.channel !== 1 || part.body.length > bytes.length - at) throw invalid();
       bytes.set(part.body, at);
       at += part.body.length;
     }
@@ -567,31 +571,31 @@ export class AmqpClient {
       let returned: AmqpReceiptType["returned"];
       while (true) {
         const next = await session.next(), value = new Reader(next.body);
-        if (next.type !== 1 || next.channel !== 1 || value.uint(2) !== 60) return invalid();
+        if (next.type !== 1 || next.channel !== 1 || value.uint(2) !== 60) throw invalid();
         const id = value.uint(2);
         if (id === 50) {
-          if (returned) return invalid();
+          if (returned) throw invalid();
           const code = value.uint(2);
           value.short();
           const returnedExchange = value.short(), returnedRouting = value.short();
           value.end();
-          if (returnedExchange !== exchange || returnedRouting !== routingKey) return invalid();
+          if (returnedExchange !== exchange || returnedRouting !== routingKey) throw invalid();
           const message = await session.content(this.#maximum);
           if (message.bytes.length !== body.length || message.bytes.some((byte, index) => byte !== body[index])) {
-            return invalid();
+            throw invalid();
           }
           returned = { code, exchange: returnedExchange, routingKey: returnedRouting, ...message };
           observeReturn(returned);
         } else if (id === 80 || id === 120) {
           const tag = value.uint64(), bits = value.uint(1);
           value.end();
-          if (bits > (id === 80 ? 1 : 3) || tag !== 1n && !(tag === 0n && (bits & 1))) return invalid();
+          if (bits > (id === 80 ? 1 : 3) || tag !== 1n && !(tag === 0n && (bits & 1))) throw invalid();
           return {
             confirmation: id === 80 ? "ack" : "nack",
             requeue: Boolean(bits & 2),
             ...(returned ? { returned } : {}),
           };
-        } else return invalid();
+        } else throw invalid();
       }
     });
   }
@@ -609,21 +613,21 @@ export class AmqpClient {
     return this.#request("take", signal, async (session, dispatch) => {
       await session.send(method(1, 60, 70, number(0, 2), short(selected), number(1, 1)), dispatch);
       const next = await session.next(), value = new Reader(next.body);
-      if (next.type !== 1 || next.channel !== 1 || value.uint(2) !== 60) return invalid();
+      if (next.type !== 1 || next.channel !== 1 || value.uint(2) !== 60) throw invalid();
       const id = value.uint(2);
       if (id === 72) {
         value.short();
         value.end();
         return null;
       }
-      if (id !== 71) return invalid();
+      if (id !== 71) throw invalid();
       const tag = value.uint64(),
         redelivered = value.uint(1),
         exchange = value.short(),
         routingKey = value.short(),
         remaining = value.uint(4);
       value.end();
-      if (tag === 0n || redelivered > 1) return invalid();
+      if (tag === 0n || redelivered > 1) throw invalid();
       const message = await session.content(this.#maximum);
       return {
         deliveryTag: tag.toString(),

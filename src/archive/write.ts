@@ -2,7 +2,7 @@ import { isBytes, toView } from "../bytes.ts";
 import { aggregate, close } from "../close.ts";
 import { openBytes } from "../stream.ts";
 import type { ByteReaderType } from "../stream.ts";
-import { integer } from "./record.ts";
+import { assertInteger } from "./record.ts";
 import { crc32 } from "../hash.ts";
 
 /** A source is consumed only after its name and limits are admitted. No link entries are accepted. */
@@ -144,7 +144,7 @@ function limits(options: ZipWriteOptionsType) {
     maxPathDepth: options.maxPathDepth ?? 64,
     maxSourceChunks: options.maxSourceChunks ?? 1_000_000,
   };
-  for (const [name, value] of Object.entries(result)) integer(value, name);
+  for (const [name, value] of Object.entries(result)) assertInteger(value, name);
   if (
     result.maxEntries > 65534 || result.maxNameBytes > 65535 || result.maxEntryBytes > ZIP32_MAX ||
     result.maxArchiveBytes > ZIP32_MAX || result.maxDirectoryBytes > ZIP32_MAX || result.maxChunkBytes < 1
@@ -257,7 +257,7 @@ export function createZipStream(
         const source = entry.source;
         const declared = entry.size;
         if (declared !== undefined) {
-          integer(declared, "ZIP entry size");
+          assertInteger(declared, "ZIP entry size");
           if (declared > policy.maxEntryBytes) throw new RangeError("ZIP entry exceeds the byte budget.");
         }
         if (isDirectory && (source !== undefined || (declared !== undefined && declared !== 0))) {

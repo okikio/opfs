@@ -3,9 +3,9 @@ import { z } from "zod";
 import { decodeBase64 } from "@std/encoding/base64";
 import { isBuffer, isBytes, toView } from "../../bytes.ts";
 import { aggregate } from "../../close.ts";
-import { sourceRange } from "../../source.ts";
+import { assertExtent } from "../../source.ts";
 import type { ByteSourceType, SourceReadOptionsType } from "../../source.ts";
-import { createArchiveLedger, integer } from "../../archive/record.ts";
+import { assertInteger, createArchiveLedger } from "../../archive/record.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../../archive/record.ts";
 export { createArchiveLedger } from "../../archive/record.ts";
 export type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../../archive/record.ts";
@@ -166,7 +166,7 @@ function fail(code: AgeError["code"], message: string): never {
   throw new AgeError(code, message);
 }
 function cap(value: number, limit: number, label: string): void {
-  integer(value, label);
+  assertInteger(value, label);
   if (value > limit) fail("limit", `${label} exceeds the admitted limit.`);
 }
 function policy(value: number | undefined, fallback: number, hard: number, label: string): number {
@@ -303,7 +303,7 @@ async function openOwned(
     memory: policy(options.maxMemoryBytes, 96 << 20, 256 << 20, "Age materialization units"),
   };
   const { size: physicalSize, identity, stability, read: sourceMethod } = input;
-  integer(physicalSize, "Age source size");
+  assertInteger(physicalSize, "Age source size");
   if (identity !== undefined && (typeof identity !== "string" || identity.length === 0 || identity.length > 8192)) {
     fail("stability", "Age source identity must be nonempty and bounded.");
   }
@@ -354,7 +354,7 @@ async function openOwned(
     if (stopped) fail("closed", "Age owner is closed.");
   }
   function charge(auth: AuthorityType, work: WorkType, kind: keyof ArchiveWorkType, count: number): void {
-    integer(count, "Age work reservation");
+    assertInteger(count, "Age work reservation");
     alive(auth);
     for (const owner of auth.owners) {
       owner.reserve(kind, count);
@@ -380,7 +380,7 @@ async function openOwned(
     work: WorkType,
     prepaid = false,
   ): Promise<Uint8Array<ArrayBuffer>> {
-    sourceRange(physicalSize, offset, length);
+    assertExtent(physicalSize, offset, length);
     if (!prepaid) {
       charge(auth, work, "sourceBytes", length);
       charge(auth, work, "requests", 1);
@@ -556,7 +556,7 @@ async function openOwned(
 
     const plan = function plan(offset: number, length: number, whole = false): AgePlanType {
       alive();
-      sourceRange(size, offset, length);
+      assertExtent(size, offset, length);
       if (!whole) cap(length, limits.read, "Age returned interval");
       const firstChunk = Math.floor(offset / 65536);
       const count = whole ? chunks : length === 0 ? 0 : Math.floor((offset + length - 1) / 65536) - firstChunk + 1;

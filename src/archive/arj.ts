@@ -1,6 +1,14 @@
 /** Bounded single-volume ARJ headers and STORED member previews. @module */
 import type { ByteSourceType } from "../source.ts";
-import { ArchiveBudget, ArchiveError, createArchiveLedger, integer, invalid, unsupported, view } from "./record.ts";
+import {
+  ArchiveBudget,
+  ArchiveError,
+  assertInteger,
+  createArchiveLedger,
+  createView,
+  invalid,
+  unsupported,
+} from "./record.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
 import { crc32 } from "../hash.ts";
 export { ArchiveError, createArchiveLedger } from "./record.ts";
@@ -89,14 +97,16 @@ function combined(left: AbortSignal | undefined, right: AbortSignal | undefined)
 export async function openArj(input: ByteSourceType, supplied: ArjOpenOptionsType = {}): Promise<ArjArchiveType> {
   const options = { ...supplied };
   const { size, identity, stability } = input;
-  integer(size, "ARJ source size");
+  assertInteger(size, "ARJ source size");
   if (stability !== undefined && !["immutable", "provider", "caller"].includes(stability)) {
     throw new TypeError("Unknown ARJ source stability.");
   }
   if (identity !== undefined && (typeof identity !== "string" || identity.length > 8192)) {
     throw new TypeError("ARJ source identity must be a bounded string.");
   }
-  if (stability === undefined && !options.allowUnverifiedSource) unsupported("ARJ requires stable source evidence.");
+  if (stability === undefined && !options.allowUnverifiedSource) {
+    throw unsupported("ARJ requires stable source evidence.");
+  }
   const sourceRead = input.read.bind(input);
   const source: ByteSourceType = Object.freeze({
     size,
@@ -114,7 +124,7 @@ export async function openArj(input: ByteSourceType, supplied: ArjOpenOptionsTyp
     one: options.maxEntryHeaderBytes ?? 65535,
     name: options.maxNameBytes ?? 4096,
   };
-  for (const [key, value] of Object.entries(maximum)) integer(value, `ARJ maximum ${key}`);
+  for (const [key, value] of Object.entries(maximum)) assertInteger(value, `ARJ maximum ${key}`);
   // Bind foreign methods once while retaining their original object identity for
   // deduplication. Later mutation cannot replace admitted accounting authority.
   const owners = new WeakMap<ArchiveLedgerType, ArchiveLedgerType>();
@@ -152,7 +162,7 @@ export async function openArj(input: ByteSourceType, supplied: ArjOpenOptionsTyp
     let value: string;
     if (options.decodeName) value = options.decodeName(bytes.slice(), role);
     else {
-      if (bytes.some((byte) => byte > 127)) unsupported("ARJ non-ASCII metadata requires an explicit decoder.");
+      if (bytes.some((byte) => byte > 127)) throw unsupported("ARJ non-ASCII metadata requires an explicit decoder.");
       value = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
     }
     if (typeof value !== "string" || value.includes("\0")) {
@@ -183,12 +193,12 @@ export async function openArj(input: ByteSourceType, supplied: ArjOpenOptionsTyp
     options.signal?.throwIfAborted();
     const start = at;
     const prefix = await header(at, 4);
-    if (view(prefix).getUint16(0, true) !== 0xea60) invalid("ARJ header signature mismatch.");
-    const length = view(prefix).getUint16(2, true);
+    if (createView(prefix).getUint16(0, true) !== 0xea60) throw invalid("ARJ header signature mismatch.");
+    const length = createView(prefix).getUint16(2, true);
     at += 4;
     if (length === 0) {
-      if (main) invalid("ARJ archive lacks a main header.");
-      if (at !== size) unsupported("ARJ trailing data is outside the single-volume profile.");
+      if (main) throw invalid("ARJ archive lacks a main header.");
+      if (at !== size) throw unsupported("ARJ trailing data is outside the single-volume profile.");
       ended = true;
       break;
     }
@@ -196,47 +206,49 @@ export async function openArj(input: ByteSourceType, supplied: ArjOpenOptionsTyp
       throw new ArchiveError("budget-exceeded", "ARJ member count exceeded.");
     }
     if (length > maximum.one) throw new ArchiveError("budget-exceeded", "ARJ basic header exceeds policy.");
-    if (length < 32) invalid("ARJ basic header cannot hold fixed fields and two terminators.");
+    if (length < 32) throw invalid("ARJ basic header cannot hold fixed fields and two terminators.");
     const body = await header(at, length);
-    const expected = view(await header(at + length, 4)).getUint32(0, true);
+    const expected = createView(await header(at + length, 4)).getUint32(0, true);
     if (((crc32(body) ^ 0xffffffff) >>> 0) !== expected) {
       throw new ArchiveError("checksum-mismatch", "ARJ basic header CRC32 mismatch.");
     }
-    const fields = view(body);
+    const fields = createView(body);
     const fixed = body[0]!;
     if (main ? fixed !== 30 && fixed !== 34 : fixed !== 30 && fixed !== 46) {
-      unsupported("Unknown ARJ fixed header layout.");
+      throw unsupported("Unknown ARJ fixed header layout.");
     }
-    if (fixed > length - 2) invalid("ARJ fixed header exceeds its basic body.");
+    if (fixed > length - 2) throw invalid("ARJ fixed header exceeds its basic body.");
     const flags = body[4]!, method = body[5]!, type = body[6]!;
-    if (body[2]! > 11) unsupported("ARJ minimum decoder revision is newer than the implemented profile.");
+    if (body[2]! > 11) throw unsupported("ARJ minimum decoder revision is newer than the implemented profile.");
     if (main) {
-      if (type !== 2) invalid("ARJ first record is not a main header.");
+      if (type !== 2) throw invalid("ARJ first record is not a main header.");
       if (
         method !== 0 || flags & ~0x10 || body[28] !== 0 || body[29] !== 0 || fields.getUint32(20, true) !== 0 ||
         fields.getUint16(26, true) !== 0
       ) {
-        unsupported("ARJ encrypted, secure, volume, recovery, chapter, or dual-name main headers are unsupported.");
+        throw unsupported(
+          "ARJ encrypted, secure, volume, recovery, chapter, or dual-name main headers are unsupported.",
+        );
       }
       if (fixed === 34 && (fields.getUint32(30, true) !== 0)) {
-        unsupported("ARJ recovery or stub main fields are unsupported.");
+        throw unsupported("ARJ recovery or stub main fields are unsupported.");
       }
     } else {
       if (flags & ~0x12 || body[28] !== 0 || body[29] !== 0) {
-        unsupported("ARJ encrypted, continued, chapter, backup, or dual-name members are unsupported.");
+        throw unsupported("ARJ encrypted, continued, chapter, backup, or dual-name members are unsupported.");
       }
       if (type !== 0 && type !== 1 && type !== 3) {
-        unsupported("ARJ labels, chapters and special entries are unsupported.");
+        throw unsupported("ARJ labels, chapters and special entries are unsupported.");
       }
-      if (method > 4) unsupported("Unknown ARJ compression method envelope.");
+      if (method > 4) throw unsupported("Unknown ARJ compression method envelope.");
       if (fixed === 46 && (fields.getUint32(30, true) !== 0 || fields.getUint32(42, true) !== 0)) {
-        unsupported("ARJ resumed members or unknown revision-9 fields are unsupported.");
+        throw unsupported("ARJ resumed members or unknown revision-9 fields are unsupported.");
       }
     }
     const nameEnd = body.indexOf(0, fixed);
     const commentEnd = nameEnd < 0 ? -1 : body.indexOf(0, nameEnd + 1);
     if (nameEnd < 0 || commentEnd !== length - 1) {
-      invalid("ARJ name/comment termination or basic header tail is invalid.");
+      throw invalid("ARJ name/comment termination or basic header tail is invalid.");
     }
     if (nameEnd - fixed > maximum.name || commentEnd - nameEnd - 1 > maximum.name) {
       throw new ArchiveError("budget-exceeded", "ARJ encoded field exceeds policy.");
@@ -249,17 +261,19 @@ export async function openArj(input: ByteSourceType, supplied: ArjOpenOptionsTyp
       archiveComment = comment;
     }
     at += length + 4;
-    const extension = view(await header(at, 2)).getUint16(0, true);
+    const extension = createView(await header(at, 2)).getUint16(0, true);
     at += 2;
-    if (extension !== 0) unsupported("ARJ nonzero structural extensions require a separately implemented grammar.");
+    if (extension !== 0) {
+      throw unsupported("ARJ nonzero structural extensions require a separately implemented grammar.");
+    }
     if (!main) {
       const storedSize = fields.getUint32(12, true), original = fields.getUint32(16, true);
-      if (storedSize > size - at) invalid("ARJ member extent exceeds the source.");
-      if (method === 0 && storedSize !== original) invalid("ARJ STORED sizes differ.");
+      if (storedSize > size - at) throw invalid("ARJ member extent exceeds the source.");
+      if (method === 0 && storedSize !== original) throw invalid("ARJ STORED sizes differ.");
       if (type === 3 && (storedSize !== 0 || original !== 0 || method !== 0)) {
-        invalid("ARJ directory contains payload or compression.");
+        throw invalid("ARJ directory contains payload or compression.");
       }
-      if (name.length === 0) invalid("ARJ member name is empty.");
+      if (name.length === 0) throw invalid("ARJ member name is empty.");
       entries.push(Object.freeze({
         id: entries.length,
         name,
@@ -293,21 +307,21 @@ export async function openArj(input: ByteSourceType, supplied: ArjOpenOptionsTyp
     main = false;
   }
   if (!ended || archiveName === undefined || archiveComment === undefined) {
-    invalid("ARJ archive lacks its main or zero-size end header.");
+    throw invalid("ARJ archive lacks its main or zero-size end header.");
   }
   const entryOf = (id: number): ArjEntryType => {
-    integer(id, "ARJ entry ID");
+    assertInteger(id, "ARJ entry ID");
     const entry = entries[id];
     if (!entry) throw new RangeError("Unknown ARJ member ID.");
-    if (!entry.readable) unsupported("Only ordinary STORED ARJ members can be read.");
+    if (!entry.readable) throw unsupported("Only ordinary STORED ARJ members can be read.");
     return entry;
   };
   const read = async (id: number, suppliedRead: ArjReadOptionsType = {}): Promise<ArjReadType> => {
     const opts = { ...suppliedRead };
     const extraOwner = capture(opts.ledger);
     const entry = entryOf(id), offset = opts.offset ?? 0, length = opts.length ?? entry.size - offset;
-    integer(offset, "ARJ selected offset");
-    integer(length, "ARJ selected length");
+    assertInteger(offset, "ARJ selected offset");
+    assertInteger(length, "ARJ selected length");
     if (offset > entry.size || length > entry.size - offset) throw new RangeError("ARJ selection exceeds member.");
     const signal = combined(options.signal, opts.signal);
     signal?.throwIfAborted();
