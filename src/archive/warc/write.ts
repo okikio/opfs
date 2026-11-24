@@ -6,6 +6,23 @@
 import { Sha256 } from "../../hash.ts";
 import { assertInteger } from "../budget.ts";
 import { base32, token, type WarcFieldType } from "./header.ts";
+import { readHttpHead } from "./http.ts";
+export {
+  createWarcSegments,
+  getSegmentName,
+  type WarcSegmentOptionsType,
+  type WarcSegmentRecordType,
+  type WarcSegmentType,
+} from "./segment.ts";
+
+export {
+  createRequestRecord,
+  createResponseRecord,
+  type HttpHeadType,
+  type HttpRequestInputType,
+  type HttpResponseInputType,
+  readHttpHead,
+} from "./http.ts";
 
 /** A block whose bytes arrive as a stream. The size must be known up front because `Content-Length` comes first. */
 export interface WarcStreamBlockType {
@@ -45,6 +62,16 @@ export interface WarcWrittenType {
   readonly length: number;
   /** The `WARC-Block-Digest` value written, when there is one. */
   readonly blockDigest: string | undefined;
+  /**
+   * The `WARC-Payload-Digest` value written, when there is one: the SHA-256 of
+   * the HTTP body of an `application/http` byte block. A CDXJ line's `digest`
+   * carries this value, so two captures of the same body share it.
+   */
+  readonly payloadDigest: string | undefined;
+  /** HTTP status of an `application/http` response block, when the writer could read it. */
+  readonly status: number | undefined;
+  /** Media type from the HTTP `Content-Type` of an `application/http` block, lowercased, without parameters. */
+  readonly mime: string | undefined;
 }
 
 /** Options for {@link createWarcStream}. */
@@ -53,8 +80,9 @@ export interface WarcWriteOptionsType {
   readonly compression?: "none" | "gzip";
   /**
    * Adds `WARC-Block-Digest: sha256:<base32>` to records whose block is a
-   * `Uint8Array`. Streamed blocks get no digest, because the header is written
-   * before the block is read. Default `true`.
+   * `Uint8Array`, and `WARC-Payload-Digest` over the HTTP body when the block is
+   * an `application/http` message. Streamed blocks get no digest, because the
+   * header is written before the block is read. Default `true`.
    */
   readonly digest?: boolean;
   /** Called after each record's bytes are emitted, with its output offset and length. */
@@ -72,6 +100,7 @@ const reserved = new Set([
   "content-type",
   "content-length",
   "warc-block-digest",
+  "warc-payload-digest",
 ]);
 
 /** Formats a date as WARC 1.1 expects: UTC, to the second. */
@@ -87,7 +116,14 @@ function assertValue(value: string, label: string): void {
 }
 
 /** Builds the header text for one record, ending with the empty line. */
-function getHeader(record: WarcWriteRecordType, recordId: string, date: string, size: number, digest?: string): string {
+function getHeader(
+  record: WarcWriteRecordType,
+  recordId: string,
+  date: string,
+  size: number,
+  digest?: string,
+  payload?: string,
+): string {
   if (!token.test(record.type)) throw new TypeError("WARC-Type must be a token.");
   if (!/^<[A-Za-z][A-Za-z0-9+.-]*:[^<>\s]+>$/.test(recordId)) {
     throw new TypeError("WARC-Record-ID must be <scheme:id>.");
@@ -103,6 +139,7 @@ function getHeader(record: WarcWriteRecordType, recordId: string, date: string, 
     lines.push(`Content-Type: ${record.contentType}`);
   }
   if (digest !== undefined) lines.push(`WARC-Block-Digest: ${digest}`);
+  if (payload !== undefined) lines.push(`WARC-Payload-Digest: ${payload}`);
   for (const field of record.fields ?? []) {
     if (!token.test(field.name)) throw new TypeError(`Invalid WARC field name: ${field.name}.`);
     if (reserved.has(field.name.toLowerCase())) {
@@ -227,12 +264,22 @@ export function createWarcStream(
       const recordId = record.recordId ?? `<urn:uuid:${crypto.randomUUID()}>`;
       const date = formatDate(record.date);
       let blockDigest: string | undefined;
+      let payloadDigest: string | undefined;
+      // Only an HTTP message block has a payload, a status and a media type to report.
+      const head = record.block instanceof Uint8Array && /^application\/http\b/i.test(record.contentType ?? "")
+        ? readHttpHead(record.block)
+        : undefined;
       if (options.digest !== false && record.block instanceof Uint8Array) {
         const hash = new Sha256();
         hash.update(record.block);
         blockDigest = `sha256:${base32(hash.digest())}`;
+        if (head !== undefined) {
+          const body = new Sha256();
+          body.update(record.block.subarray(head.bodyOffset));
+          payloadDigest = `sha256:${base32(body.digest())}`;
+        }
       }
-      const header = encoder.encode(getHeader(record, recordId, date, size, blockDigest));
+      const header = encoder.encode(getHeader(record, recordId, date, size, blockDigest, payloadDigest));
       const chunks = getRecordBytes(header, record.block, signal);
       let length = 0;
       for await (const chunk of compression === "gzip" ? gzip(chunks) : chunks) {
@@ -247,6 +294,9 @@ export function createWarcStream(
         offset,
         length,
         blockDigest,
+        payloadDigest,
+        status: head?.status,
+        mime: head?.mime,
       });
       offset += length;
     }

@@ -2,7 +2,12 @@ import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 import { createByteSource } from "../src/source.ts";
 import { createZipStream } from "../src/archive/zip/write.ts";
-import { createWarcStream, type WarcWriteRecordType } from "../src/archive/warc/write.ts";
+import {
+  createResponseRecord,
+  createWarcSegments,
+  createWarcStream,
+  type WarcWriteRecordType,
+} from "../src/archive/warc/write.ts";
 import { type CdxjInputType, createCdxj, getSurt, openWacz, parseCdxj } from "../src/archive/wacz/mod.ts";
 import { createWaczStream } from "../src/archive/wacz/write.ts";
 
@@ -110,7 +115,7 @@ describe("WACZ", () => {
       "pages/pages.jsonl",
     ]);
     const report = await wacz.verify();
-    expect(report).toEqual({ valid: true, errors: [], missing: [], checked: 4 });
+    expect(report).toEqual({ valid: true, errors: [], missing: [], checked: 4, records: 2 });
     expect(await wacz.readPages()).toEqual([{
       url: "https://example.com/",
       ts: "2026-11-24T10:00:00Z",
@@ -195,5 +200,137 @@ describe("WACZ", () => {
     expect(() => createWaczStream({ ...base, files: [{ name: "archive/x", source: encode("") }] })).toThrow(TypeError);
     expect(() => createWaczStream({ ...base, warcs: [{ name: "../a.warc", source: encode("") }] })).toThrow(TypeError);
     expect(() => createWaczStream({ ...base, warcs: [{ name: "a.zip", source: encode("") }] })).toThrow(TypeError);
+  });
+});
+
+describe("WACZ from a streamed crawl", () => {
+  const pages = ["a", "b", "c", "d", "e"].map((name, at) => ({
+    url: `https://example.com/${name}`,
+    body: encode(`<h1>${name}</h1>`.repeat(20 + at)),
+  }));
+  const captures = () =>
+    pages.map((page) =>
+      createResponseRecord({
+        url: page.url,
+        status: 200,
+        headers: [["Content-Type", "text/html; charset=utf-8"]],
+        body: page.body,
+        date: "2026-11-24T10:00:00Z",
+      })
+    );
+
+  /** Streams segments into a WACZ with an index built from `onRecord`. */
+  async function getWacz(maxSegmentBytes: number): Promise<{ bytes: Uint8Array; index: CdxjInputType[] }> {
+    const index: CdxjInputType[] = [];
+    const warcs = createWarcSegments(captures(), {
+      maxSegmentBytes,
+      onRecord: (record) =>
+        index.push({
+          url: record.targetUri!,
+          date: record.date,
+          filename: record.filename,
+          offset: record.offset,
+          length: record.length,
+          ...(record.status === undefined ? {} : { status: record.status }),
+          ...(record.mime === undefined ? {} : { mime: record.mime }),
+          ...(record.payloadDigest === undefined ? {} : { digest: record.payloadDigest }),
+        }),
+    });
+    const bytes = await collect(createWaczStream({
+      warcs,
+      index,
+      pages: pages.map((page) => ({ url: page.url, ts: "2026-11-24T10:00:00Z" })),
+    }));
+    return { bytes, index };
+  }
+
+  it("splits records across segments at record boundaries and verifies every replay relationship", async () => {
+    const { bytes, index } = await getWacz(600);
+    const wacz = await openWacz(createByteSource(bytes));
+    expect(wacz.warcs.length).toBeGreaterThan(1);
+    expect(wacz.warcs[0]).toBe("segment-000001.warc.gz");
+    expect(new Set(index.map((record) => record.filename)).size).toBe(wacz.warcs.length);
+    expect(index.every((record) => record.status === 200 && record.mime === "text/html")).toBe(true);
+    const report = await wacz.verify();
+    expect(report.errors).toEqual([]);
+    expect(report.valid).toBe(true);
+    expect(report.records).toBe(pages.length);
+    // Each segment opens with its own warcinfo record and is a complete WARC.
+    for (const name of wacz.warcs) expect((await wacz.openWarc(name)).entries[0]!.type).toBe("warcinfo");
+  });
+
+  it("stores WARCs and deflates the text files", async () => {
+    const { bytes } = await getWacz(1024 * 1024);
+    const wacz = await openWacz(createByteSource(bytes));
+    const methods = Object.fromEntries(wacz.zip.entries.map((entry) => [entry.name, entry.method]));
+    expect(methods).toEqual({
+      "archive/segment-000001.warc.gz": 0,
+      "indexes/index.cdxj": 8,
+      "pages/pages.jsonl": 8,
+      "datapackage.json": 8,
+      "datapackage-digest.json": 8,
+    });
+  });
+
+  it("writes a WARC-Payload-Digest over the HTTP body only", async () => {
+    const written: string[] = [];
+    await collect(createWarcStream(captures().slice(0, 1), { onRecord: (r) => written.push(r.payloadDigest!) }));
+    const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new Uint8Array(pages[0]!.body)));
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+    let bits = "";
+    for (const byte of digest) bits += byte.toString(2).padStart(8, "0");
+    let base32 = "";
+    for (let at = 0; at < bits.length; at += 5) base32 += alphabet[parseInt(bits.slice(at, at + 5).padEnd(5, "0"), 2)];
+    expect(written).toEqual([`sha256:${base32}`]);
+  });
+
+  it("reports an index that points at the wrong place", async () => {
+    // One WARC and its index from the same run: gzip member sizes vary with the random record IDs.
+    const index: CdxjInputType[] = [];
+    const segment = (await createWarcSegments(captures(), {
+      maxSegmentBytes: 1024 * 1024,
+      onRecord: (r) =>
+        index.push({
+          url: r.targetUri!,
+          date: r.date,
+          filename: r.filename,
+          offset: r.offset,
+          length: r.length,
+          status: r.status!,
+        }),
+    }).next()).value!;
+    const warc = await collect(segment.source);
+    const [first, second, third] = index;
+    const broken = [
+      { ...first!, offset: first!.offset + 1 },
+      { ...second!, url: "https://example.com/other" },
+      { ...third!, status: 404 },
+    ];
+    const bytes = await collect(createWaczStream({
+      warcs: [{ name: "segment-000001.warc.gz", source: warc }],
+      index: broken,
+      pages: [{ url: pages[3]!.url, ts: "2026-11-24T10:00:00Z" }],
+    }));
+    const report = await (await openWacz(createByteSource(bytes))).verify();
+    expect(report.valid).toBe(false);
+    expect(report.records).toBe(0);
+    const text = report.errors.join("\n");
+    expect(text).toContain("No WARC record starts at");
+    expect(text).toContain("WARC-Target-URI");
+    expect(text).toContain("CDXJ status 404");
+    expect(text).toContain(`Page ${pages[3]!.url} has no replayable CDXJ line.`);
+  });
+
+  it("refuses to compress a WARC and to start a segment before the last one was read", async () => {
+    expect(() =>
+      createWaczStream({
+        warcs: [{ name: "a.warc.gz", source: encode(""), compression: "deflate" }],
+        index: "",
+        pages: [],
+      })
+    ).toThrow("STORED");
+    const segments = createWarcSegments(captures(), { maxSegmentBytes: 1 });
+    await segments.next();
+    await expect(segments.next()).rejects.toThrow("before asking for the next WARC segment");
   });
 });
