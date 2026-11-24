@@ -1,8 +1,9 @@
-/** Internal WinZip AES native primitives. Format framing and resource admission remain in the ZIP reader. @module */
-import { ArchiveError } from "../record.ts";
+/** WinZip AES native primitives used by the ZIP reader. Format framing and resource admission remain in the ZIP reader. @module */
+import { ArchiveError } from "../error.ts";
 
 /** Native cryptography is explicitly supplied; no import-time global capability is acquired. */
 export interface ZipAesOptionsType {
+  /** The WebCrypto implementation used for PBKDF2, HMAC and AES. */
   readonly subtle: SubtleCrypto;
   /** Whole ciphertext buffer bound, default 8 MiB. Implementation ceiling 8 MiB. Native HMAC copies it twice. */
   readonly maxCiphertextBytes?: number;
@@ -12,7 +13,9 @@ export interface ZipAesOptionsType {
 
 /** Authenticated ciphertext with one owned native key; retirement stops further operations but cannot erase native memory. */
 export interface ZipAesStateType {
+  /** Decrypts one AES-CTR block of at most 16 bytes that starts at ciphertext byte `offset`, a multiple of 16. */
   decryptBlock(offset: number, bytes: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>>;
+  /** Drops the key reference. Later calls throw. Native key memory cannot be erased from JavaScript. */
   clear(): void;
 }
 

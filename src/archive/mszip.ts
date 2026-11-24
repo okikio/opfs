@@ -1,5 +1,5 @@
-/** Internal CK framing and 32 KiB history profile for CAB MSZIP units. @module */
-import { invalid } from "./record.ts";
+/** CK framing and 32 KiB history profile for CAB MSZIP units. @module */
+import { invalid } from "./error.ts";
 import { readDeflate } from "./deflate.ts";
 
 /** Decode one complete CK-prefixed unit, borrowing prior folder history and returning only new bytes.

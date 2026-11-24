@@ -4,7 +4,7 @@ import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { expect } from "@std/expect";
-import { ArchiveError } from "../src/archive/record.ts";
+import { ArchiveError } from "../src/archive/error.ts";
 import { inspectBlocks, inspectFileMagic, inspectFileTail, inspectPrefix } from "../src/dataset/arrow/framing.ts";
 import type { ArrowBlockType } from "../src/dataset/arrow/schema.ts";
 

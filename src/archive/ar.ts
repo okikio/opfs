@@ -1,9 +1,12 @@
 /** Bounded normal GNU/SVR4 and BSD ar indexing with exact member ranges. @module */
 import type { ByteSourceType } from "../source.ts";
-import { ArchiveBudget, ArchiveError, assertInteger, createArchiveLedger, invalid, unsupported } from "./record.ts";
-import type { ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
-export { ArchiveError, createArchiveLedger } from "./record.ts";
-export type { ArchiveErrorCodeType, ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
+import { ArchiveBudget, assertInteger, createArchiveLedger } from "./budget.ts";
+import { ArchiveError, invalid, unsupported } from "./error.ts";
+import type { ArchiveLimitsType, ArchiveWorkType } from "./budget.ts";
+export { ArchiveError } from "./error.ts";
+export { createArchiveLedger } from "./budget.ts";
+export type { ArchiveErrorCodeType } from "./error.ts";
+export type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./budget.ts";
 
 /** Physical archive-order identity. Metadata records are not interpreted as linker structures. */
 export interface ArEntryType {

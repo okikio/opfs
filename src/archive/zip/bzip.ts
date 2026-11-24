@@ -1,7 +1,7 @@
 /** ZIP method-12 relay: codec work and caller output have separate accounting owners. @module */
 import { createBzipDecoder } from "../bzip.ts";
 import type { BzipOptionsType, BzipResultType } from "../bzip.ts";
-import type { ArchiveBudget, ArchiveLimitsType } from "../record.ts";
+import type { ArchiveBudget, ArchiveLimitsType } from "../budget.ts";
 import type { ByteSourceType } from "../../source.ts";
 import { close } from "../../close.ts";
 

@@ -1,4 +1,4 @@
-/** Internal UnixFS routing hash. This noncryptographic algorithm never verifies content. @module */
+/** UnixFS routing hash. This noncryptographic algorithm never verifies content. @module */
 
 /** Seed-zero MurmurHash3 x64-128, first word serialized big-endian as Boxo's New64().Sum does.
  * The caller admits the native input and arithmetic work before this synchronous operation.

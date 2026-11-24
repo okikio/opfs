@@ -1,17 +1,13 @@
 /** Bounded 2D Shapefile geometry and explicitly supplied raw DBF rows. @module */
 import { isBytes, toView } from "../bytes.ts";
 import type { ByteSourceType } from "../source.ts";
-import {
-  ArchiveError,
-  assertInteger,
-  createArchiveLedger,
-  createView,
-  invalid,
-  unsupported,
-} from "../archive/record.ts";
-import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
-export { ArchiveError, createArchiveLedger } from "../archive/record.ts";
-export type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
+import { ArchiveError, invalid, unsupported } from "../archive/error.ts";
+import { assertInteger, createArchiveLedger } from "../archive/budget.ts";
+import { createView } from "../archive/field.ts";
+import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/budget.ts";
+export { ArchiveError } from "../archive/error.ts";
+export { createArchiveLedger } from "../archive/budget.ts";
+export type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/budget.ts";
 
 /** Each supplied component is borrowed; names do not trigger sibling discovery. */
 export interface ShapefileSourcesType {

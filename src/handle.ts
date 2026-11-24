@@ -1,3 +1,13 @@
+/**
+ * File System API-shaped handles over any `FileSystemType`.
+ *
+ * `fs.root` and `fs.getDirectoryHandle()` return these handles, so code written for `FileSystemDirectoryHandle` and
+ * `FileSystemFileHandle` also runs on S3, IndexedDB or any other backend. The main entry exports the handle types. This
+ * advanced entry adds the `FileHandle` and `DirectoryHandle` classes for code that must create a handle for a known
+ * path itself: `new DirectoryHandle(fs, "/reports")`.
+ *
+ * @module
+ */
 import { FileSystemError } from "./error.ts";
 import type { FileSystemType } from "./filesystem.ts";
 import { basename, isAncestorPath, joinPath, normalizePath, validateName } from "./path.ts";
@@ -122,7 +132,7 @@ function writeAt(existing: Uint8Array, position: number, data: Uint8Array): Uint
 }
 
 /** Mutable staged image used behind FileSystemWritableFileStream-like methods. */
-class WriteSession {
+export class WriteSession {
   /** Filesystem instance that owns path resolution and receives the staged image only after close commits. */
   readonly #fileSystem: FileSystemType;
   /** Canonical file path whose current bytes seeded this write session. */
@@ -274,7 +284,7 @@ export type WritableFileStreamType = WritableFileStream;
  * Filesystem identity stays private so callers cannot mutate adapter ownership,
  * but sibling facade objects can still prove same-entry and descendant relations.
  */
-abstract class BaseHandle implements HandleType {
+export abstract class BaseHandle implements HandleType {
   /** Concrete entry discriminator supplied by the file or directory subclass. */
   abstract readonly kind: EntryKindType;
   /** Canonical virtual path that identifies this facade entry. */

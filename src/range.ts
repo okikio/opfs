@@ -8,6 +8,7 @@ export interface RangeType {
   readonly empty: boolean;
   /** Captured inclusive start and optional end for response admission. */
   readonly start: number;
+  /** Captured inclusive end, or undefined for an open range to the end of the object. */
   readonly end: number | undefined;
   /** Inclusive HTTP byte range, or absence for a complete object. */
   readonly header: string | undefined;

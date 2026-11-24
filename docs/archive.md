@@ -204,6 +204,28 @@ zeros. The one-shot stream reader and writer still refuse sparse records. Other 
 PAX size override and unsupported special records remain refused. Compressed TAR needs an explicitly bounded
 decompression strategy. The [ZIP writer](zip.md) creates a narrower STORED ZIP32 profile than `openZip()` reads.
 
+## Where streaming APIs live
+
+A streaming reader or writer lives under its format: `@okikio/opfs/archive/tar/stream` and
+`@okikio/opfs/archive/zip/write`. Their types are format types: `readTarStream()` hands the visitor a `TarEntryType`,
+and `createZipStream()` takes `ZipWriteEntryType` values. There is no format-neutral streaming contract, so no generic
+`archive/stream` path exists.
+
+Today TAR is the only format with a one-shot streaming reader. That is a choice of work done so far for some formats and
+a property of the format for others:
+
+| Format                      | Forward streaming read | Why                                                                                                 |
+| --------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------- |
+| TAR                         | Yes                    | Each header gives the payload size, so a reader can visit members in order                          |
+| cpio, ar, WARC, mbox        | Not written yet        | Also sequential with sizes or delimiters in each record; a streaming reader is possible             |
+| ZIP                         | Not reliable           | The authoritative directory is at the end, and a local header can defer its sizes to a later record |
+| 7z                          | No                     | The header that lists members is at the end of the file                                             |
+| ISO, UDF                    | No                     | Directory records point at extents anywhere in the image, so reading needs random access            |
+| gzip, DEFLATE, Brotli, zstd | Yes, as codecs         | These are compression streams, not archives; see [compression](compression.md)                      |
+
+If a second sequential format gets a streaming reader, a shared visitor contract could then live at a format-neutral
+path. Until then, the format path is the honest name.
+
 Focused checks are in `tests/archive.test.ts` and `tests/view.test.ts`. Fixtures were produced with Python 3.9
 `zipfile`/`tarfile` plus explicit ZIP64 record assembly; expected content is independent of the parser. Tests cover
 selected ranges, duplicates, UTF-8, ZIP64, CRC/header corruption, limits, cancellation and read-only projection.

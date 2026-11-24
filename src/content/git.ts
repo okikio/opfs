@@ -2,7 +2,7 @@
 import { isBytes, toView } from "../bytes.ts";
 import { close } from "../close.ts";
 import { decompressStream } from "../archive/compress.ts";
-import type { ArchiveLedgerType } from "../archive/record.ts";
+import type { ArchiveLedgerType } from "../archive/budget.ts";
 import { assertExtent, budgetSource, createSourceBudget } from "../source.ts";
 import type { ByteSourceType, SourceBudgetType, SourceReadOptionsType } from "../source.ts";
 import { openBytes } from "../stream.ts";

@@ -1,9 +1,12 @@
 /** Bounded inspection of a single uncompressed SVR4 newc/CRC CPIO archive. @module */
 import type { ByteSourceType } from "../source.ts";
-import { ArchiveBudget, ArchiveError, assertInteger, invalid, unsupported } from "./record.ts";
-import type { ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
-export { ArchiveError, createArchiveLedger } from "./record.ts";
-export type { ArchiveErrorCodeType, ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
+import { ArchiveBudget, assertInteger } from "./budget.ts";
+import { ArchiveError, invalid, unsupported } from "./error.ts";
+import type { ArchiveLimitsType, ArchiveWorkType } from "./budget.ts";
+export { ArchiveError } from "./error.ts";
+export { createArchiveLedger } from "./budget.ts";
+export type { ArchiveErrorCodeType } from "./error.ts";
+export type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./budget.ts";
 
 /** Raw archive identity is retained even when several names share one payload. */
 export interface CpioEntryType {

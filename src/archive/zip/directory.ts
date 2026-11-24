@@ -6,7 +6,8 @@
  *
  * @module
  */
-import { createView, getUint64, invalid, unsupported } from "../record.ts";
+import { createView, getUint64 } from "../field.ts";
+import { invalid, unsupported } from "../error.ts";
 import type { DirectoryRecordType, ZipAesMetadataType } from "./types.ts";
 
 /** Directory offsets are authoritative only after local-header agreement is checked during reads. */
@@ -150,6 +151,7 @@ export function readAesExtra(data: DataView): ZipAesMetadataType | undefined {
   return { version, strength: strength === 1 ? 128 : strength === 2 ? 192 : 256, method: field.getUint16(5, true) };
 }
 
+/** Returns whether the extra-field block `data` contains a field with header ID `wanted`, such as `0x9901` for AES. */
 export function hasExtra(data: DataView, wanted: number): boolean {
   return findExtra(data, wanted) !== undefined;
 }

@@ -1,18 +1,14 @@
 /** Inspect bounded, uncompressed MCAP major-0 recordings over an explicit borrowed source. @module */
 import { isBytes, toView } from "../bytes.ts";
 import type { ByteSourceType } from "../source.ts";
-import {
-  ArchiveError,
-  assertInteger,
-  createArchiveLedger,
-  createView,
-  invalid,
-  unsupported,
-} from "../archive/record.ts";
-import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
+import { ArchiveError, invalid, unsupported } from "../archive/error.ts";
+import { assertInteger, createArchiveLedger } from "../archive/budget.ts";
+import { createView } from "../archive/field.ts";
+import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/budget.ts";
 import { crc32 } from "../hash.ts";
-export { ArchiveError, createArchiveLedger } from "../archive/record.ts";
-export type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
+export { ArchiveError } from "../archive/error.ts";
+export { createArchiveLedger } from "../archive/budget.ts";
+export type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/budget.ts";
 
 /** Ancestor byte quotas and cancellation remain authoritative on derived payload sources. */
 export interface McapCallOptionsType extends ArchiveLimitsType {

@@ -2,7 +2,7 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 import { FlatBuffers } from "../src/dataset/arrow/flatbuffers.ts";
-import { ArchiveError } from "../src/archive/record.ts";
+import { ArchiveError } from "../src/archive/error.ts";
 
 /** Fixed physical table grammar: root@0, vtable@8, object@16, scalar fields@20/24. */
 function table(): Uint8Array {

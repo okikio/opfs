@@ -2,10 +2,13 @@
 import { z } from "zod";
 import type { ByteSourceType } from "../source.ts";
 import { assertExtent } from "../source.ts";
-import { ArchiveBudget, ArchiveError, assertInteger, createArchiveLedger, invalid, unsupported } from "./record.ts";
-import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
-export { ArchiveError, createArchiveLedger } from "./record.ts";
-export type { ArchiveErrorCodeType, ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
+import { ArchiveBudget, assertInteger, createArchiveLedger } from "./budget.ts";
+import { ArchiveError, invalid, unsupported } from "./error.ts";
+import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./budget.ts";
+export { ArchiveError } from "./error.ts";
+export { createArchiveLedger } from "./budget.ts";
+export type { ArchiveErrorCodeType } from "./error.ts";
+export type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./budget.ts";
 
 // Schemas enforce only the serialized shape. Cross-record path and digest invariants follow below.
 const userSchema: z.ZodObject<{ name: z.ZodString; address: z.ZodOptional<z.ZodString> }> = z.strictObject({

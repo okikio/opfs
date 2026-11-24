@@ -4,7 +4,7 @@ import { isBytes, toView } from "../../bytes.ts";
 /** Local body ceiling, independent of advertised broker fetch/request policy. */
 export const MAX_FRAME = 4 * 1024 * 1024;
 /** Signed int64 bounds remain bigint for offsets, timestamps and protocol values. */
-export const MIN_LONG = -(1n << 63n);
+export const MIN_LONG: bigint = -(1n << 63n);
 /** Largest representable signed int64 protocol value. */
 export const MAX_LONG = (1n << 63n) - 1n;
 
@@ -48,6 +48,7 @@ export class Reader {
   readonly #bytes: Uint8Array;
   readonly #view: DataView;
   #at = 0;
+  /** Borrows `bytes`, which must stay unchanged while the reader is used. Throws above the frame ceiling. */
   constructor(bytes: Uint8Array) {
     if (!isBytes(bytes)) throw new TypeError("Kafka input must be bytes.");
     this.#bytes = toView(bytes);
@@ -99,6 +100,7 @@ export class Reader {
   }
   /** Classic int16 byte-length text; -1 is admitted only for explicitly nullable fields. */
   text(nullable?: false): string;
+  /** Classic int16 byte-length text; -1 reads as null because the field is nullable. */
   text(nullable: true): string | null;
   text(nullable = false): string | null {
     const count = this.short();
@@ -111,6 +113,7 @@ export class Reader {
    * preventing a tiny input from allocating an attacker-selected result array.
    */
   arrayLength(minimumBytes: number, nullable?: false, maximum?: number): number;
+  /** Classic array count for a nullable array; -1 reads as null. */
   arrayLength(minimumBytes: number, nullable: true, maximum?: number): number | null;
   arrayLength(minimumBytes: number, nullable = false, maximum = 1024): number | null {
     integer(minimumBytes, 1, MAX_FRAME);
@@ -159,6 +162,7 @@ export class Writer {
   readonly #maximum: number;
   readonly #chunks: Uint8Array[] = [];
   #length = 0;
+  /** `maximum` bounds the total encoded bytes this writer retains. Defaults to and cannot exceed `MAX_FRAME`. */
   constructor(maximum = MAX_FRAME) {
     this.#maximum = integer(maximum, 0, MAX_FRAME);
   }

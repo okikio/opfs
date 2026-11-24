@@ -1,7 +1,8 @@
 import { isBytes, toRequestBytes, toView } from "../bytes.ts";
 import { close } from "../close.ts";
-import { ArchiveError, assertInteger, createArchiveLedger, invalid, unsupported } from "./record.ts";
-import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
+import { ArchiveError, invalid, unsupported } from "./error.ts";
+import { assertInteger, createArchiveLedger } from "./budget.ts";
+import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./budget.ts";
 import { createTarStream, readTarStream } from "./tar/stream.ts";
 import type {
   TarScanType,

@@ -9,8 +9,10 @@
 import type { ByteSourceType } from "../../source.ts";
 import { close } from "../../close.ts";
 import { isBytes, toRequestBytes, toView } from "../../bytes.ts";
-import { ArchiveBudget, ArchiveError, createArchiveLedger, createView, invalid, unsupported } from "../record.ts";
-import type { ArchiveWorkType } from "../record.ts";
+import { ArchiveBudget, createArchiveLedger } from "../budget.ts";
+import { ArchiveError, invalid, unsupported } from "../error.ts";
+import { createView } from "../field.ts";
+import type { ArchiveWorkType } from "../budget.ts";
 import { crc32 } from "../../hash.ts";
 import { createZipCrypto } from "./zipcrypto.ts";
 import { readZipBzip } from "./bzip.ts";

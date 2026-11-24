@@ -5,7 +5,7 @@ import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { ArchiveError } from "../src/archive/record.ts";
+import { ArchiveError } from "../src/archive/error.ts";
 import { admitColumns, decodeColumn, decodeColumns } from "../src/dataset/arrow/columns.ts";
 import type { ArrowColumnType } from "../src/dataset/arrow/columns.ts";
 import { parseMessage } from "../src/dataset/arrow/schema.ts";

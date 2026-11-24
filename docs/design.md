@@ -856,18 +856,33 @@ main entry point that covers the usual case, so a reader can tell whether they n
 follow the same release rules as every other subpath: a breaking change is listed in the changeset with its migration.
 They track the internal design more closely, so expect them to change more often.
 
-Current advanced entry points:
+Current advanced entry points, by owner. Shortened names share the owner's prefix, so `_lzx` is
+`@okikio/opfs/archive/_lzx`. `tests/package/exports.json` records every symbol each one exports.
 
-| Entry point                                  | Mechanism                                                                    |
-| -------------------------------------------- | ---------------------------------------------------------------------------- |
-| `@okikio/opfs/archive/tar/_block`            | `padding(size)`: zero bytes after a payload to the next 512-byte TAR block   |
-| `@okikio/opfs/driver/_image`                 | `applyWrite(...)`: one `replace`, `append` or `update` on a whole file image |
-| `@okikio/opfs/driver/indexeddb/_store`       | `upgradeDatabase(...)`: the record driver's object-store layout              |
-| `@okikio/opfs/driver/indexeddb/_transaction` | `Transaction`, `waitForRequest`, `committed`: IndexedDB request and commit   |
+| Owner   | Entry points                                                                                    | Mechanism                                                                                                                          |
+| ------- | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Root    | `_abort`, `_body`, `_bytes`, `_close`, `_error`, `_iteration`, `_stream`                        | Cancellation, byte views, request bodies, failure aggregation and write-input conversion used by every layer                       |
+| Root    | `_chunk`, `_pool`                                                                               | Fixed-size upload parts and bounded concurrent mapping for transfer code                                                           |
+| Root    | `_publication`, `_range`, `_response`, `_sigv4`, `_xml`                                         | Shared object-provider request rules: ETag preconditions, byte ranges, control bodies, SigV4 and XML                               |
+| Root    | `_handle`, `_lock`, `_sync`, `_writable`, `_hash`                                               | Facade internals: handle classes, mutation locks, managed sync and writable files, checksums                                       |
+| Archive | `archive/_error`, `archive/_budget`, `archive/_field`                                           | The error, work budget and fixed-width field reads every archive reader uses                                                       |
+| Archive | `archive/_deflate`, `_lzx`, `_mszip`, `_xpress`                                                 | Bounded decoders shared by CAB, WIM and other containers                                                                           |
+| Archive | `archive/tar/_block`                                                                            | `padding(size)`: zero bytes after a payload to the next 512-byte TAR block                                                         |
+| Archive | `archive/zip/_aes`, `_bzip`, `_cipher`, `_directory`, `_lzma`, `_member`, `_plan`, `_zipcrypto` | The ZIP reader's stages: directory parsing, read planning, member decoding and decryption                                          |
+| Driver  | `driver/_image`                                                                                 | `applyWrite(...)`: one `replace`, `append` or `update` on a whole file image                                                       |
+| Driver  | `driver/_local`, `driver/_writable`                                                             | Host-root path mapping and the queued positional writable file for file drivers                                                    |
+| Driver  | `driver/indexeddb/_store`, `_transaction`, `_observe`                                           | IndexedDB store layout, request and commit ownership, and the event plumbing under them                                            |
+| Driver  | `driver/deno-kv/_generation`                                                                    | The Deno KV generation protocol that publishes large files atomically                                                              |
+| Client  | `kafka/_records`, `_session`, `_wire`                                                           | Kafka record batches, the exclusive channel session and classic wire fields                                                        |
+| Other   | `content/_murmur`, `dataset/arrow/_*`, `dataset/bam/_*`, `transfer/_fields`, `view/_tree`       | Format internals: UnixFS routing hash, Arrow IPC framing and schema, BAM BGZF and records, upload fields, the archive view builder |
 
-Some modules stay unpublished because they keep their guarantees only when used together with code that is itself
-published. The IndexedDB event plumbing in `backend/indexeddb/observe.ts` is one: `Transaction` is its supported
-interface. Publishing such a module is a deliberate decision, not a default.
+A few modules keep their guarantees only when used together. The IndexedDB event plumbing at `_observe` is one: its
+module documentation shows the one order in which `Listeners`, `requested()` and `Refusal` must be used, and names
+`Transaction` as the interface most callers want. Publishing such a module with that warning is better than hiding it:
+the reader can see the mechanism and decide.
+
+The `/types` rule applies to the ZIP reader too: `@okikio/opfs/archive/zip/types` exports its data shapes, including the
+directory record that only the reader stages use.
 
 ## Review rules
 

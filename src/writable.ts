@@ -1,3 +1,11 @@
+/**
+ * The writable file object returned by `openWritableFile()`.
+ *
+ * `ManagedWritableFile` holds one adapter writable file and the facade's mutation lock for the same lifetime. Closing or
+ * aborting it releases the lock. The main entry exports `WritableFileType`; this entry adds the class.
+ *
+ * @module
+ */
 import type { WritableInspectionType } from "./driver/file.ts";
 import type { FileDriverWritableFileType } from "./driver/file.ts";
 import { FileSystemError, throwIfAborted, toFileSystemError } from "./error.ts";

@@ -7,23 +7,46 @@
  * removed, so a cleanup fault can never hide the operation's own failure. `Refusal` carries an already
  * recorded failure across an `await` so it is not recorded twice.
  *
- * These pieces only keep their guarantees when used together, the way `transaction.ts` and the driver's
- * open path use them, so no subpath publishes this module.
+ * Most callers want `waitForRequest()` or `Transaction` from `@okikio/opfs/driver/indexeddb/_transaction`, which are
+ * built on these pieces. Use this entry only to write a new owner with the same guarantees. The pieces keep those
+ * guarantees only when used together, in this order:
+ *
+ * ```ts
+ * import { Listeners, Refusal, requested } from "@okikio/opfs/driver/indexeddb/_observe";
+ *
+ * const listeners = new Listeners();
+ * let value: unknown;
+ * try {
+ *   value = await requested(request, listeners);
+ * } catch (reason) {
+ *   // A Refusal from these listeners is already recorded; anything else is new.
+ *   if (!(reason instanceof Refusal && reason.owner === listeners)) listeners.note(reason);
+ * }
+ * listeners.retire(); // remove every listener and restore every on* handler
+ * await listeners.join(); // wait for work returned by saved caller handlers
+ * listeners.finish(); // throw the one failure, or an AggregateError of all of them
+ * ```
+ *
+ * Skipping `retire()`, `join()` or `finish()` leaves listeners installed or hides a recorded failure.
  *
  * @module
  */
 import { aggregate } from "../../close.ts";
 
 /** One observed failure occurrence; equal values do not establish a shared event. */
-interface FailureType {
+export interface FailureType {
+  /** The failure value as observed, unchanged. */
   readonly reason: unknown;
 }
 
 /** Private transfer of an already-recorded event across an awaited request. */
 export class Refusal {
+  /** The `Listeners` that already recorded this failure. */
   readonly owner: Listeners;
+  /** The recorded occurrence, compared by identity rather than by value. */
   readonly failure: FailureType;
 
+  /** Created by `requested()`; callers only test for it with `instanceof` and `owner`. */
   constructor(owner: Listeners, failure: FailureType) {
     this.owner = owner;
     this.failure = failure;
@@ -38,17 +61,23 @@ export class Refusal {
  * cannot repeat it. Every listener is attempted even if an earlier removal fails.
  */
 export class Listeners {
+  /** Every failure recorded so far, in the order it was observed. */
   readonly failures: FailureType[] = [];
   readonly #releases: Array<() => void> = [];
   readonly #work = new Set<Promise<void>>();
   #retired = false;
 
+  /** Records one failure occurrence and returns it, so a caller can pass it on without recording it twice. */
   note(reason: unknown): FailureType {
     const failure = { reason };
     this.failures.push(failure);
     return failure;
   }
 
+  /**
+   * Adds one event listener and reserves its removal first. Returns false, with the failure recorded, when
+   * `addEventListener` throws.
+   */
   listen(target: EventTarget, type: string, callback: EventListener): boolean {
     this.#releases.push(() => target.removeEventListener(type, callback));
     try {
@@ -163,6 +192,7 @@ export class Listeners {
     while (this.#work.size > 0) await Promise.all(this.#work);
   }
 
+  /** Removes every listener and restores every replaced `on*` handler. Runs once; later calls do nothing. */
   retire(): void {
     if (this.#retired) return;
     this.#retired = true;
@@ -175,6 +205,7 @@ export class Listeners {
     }
   }
 
+  /** Throws the single recorded failure, or an `AggregateError` of all of them. Returns when none was recorded. */
   finish(): void {
     const reasons = this.failures.map((failure) => failure.reason);
     if (reasons.length === 1) throw reasons[0];
@@ -184,10 +215,13 @@ export class Listeners {
   }
 }
 
-/** Physical observation admission, kept private to unpublished database rollback. */
+/** Physical observation admission, used by the driver's database-open rollback. */
 export interface ObservationType {
+  /** Set by `requested()`: true when both success and error channels were installed. */
   observed?: boolean;
+  /** Set by `requested()`: settles when the request's terminal event is actually observed. */
   terminal?: Promise<void>;
+  /** Called when a terminal event arrives after a failed installation already settled the request. */
   late?: () => void;
 }
 

@@ -1,17 +1,12 @@
 /** Bounded LAS 1.2 uncompressed point-column preview over a borrowed snapshot. @module */
 import type { ByteSourceType } from "../source.ts";
-import {
-  ArchiveBudget,
-  ArchiveError,
-  assertInteger,
-  createArchiveLedger,
-  createView,
-  invalid,
-  unsupported,
-} from "../archive/record.ts";
-import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
-export { ArchiveError, createArchiveLedger } from "../archive/record.ts";
-export type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
+import { ArchiveBudget, assertInteger, createArchiveLedger } from "../archive/budget.ts";
+import { ArchiveError, invalid, unsupported } from "../archive/error.ts";
+import { createView } from "../archive/field.ts";
+import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/budget.ts";
+export { ArchiveError } from "../archive/error.ts";
+export { createArchiveLedger } from "../archive/budget.ts";
+export type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/budget.ts";
 
 /** Finite policies retained across the opened snapshot's lifetime. */
 export interface LasOpenOptionsType extends ArchiveLimitsType {

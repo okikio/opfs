@@ -1,4 +1,4 @@
-/** Internal terminal cleanup preserves every independently owned failure. @module */
+/** Terminal cleanup that preserves every independently owned failure. @module */
 
 /** An operation-owned aggregate's actual first reason, including undefined. */
 const primary = new WeakMap<AggregateError, { readonly reason: unknown }>();

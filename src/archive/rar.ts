@@ -1,18 +1,13 @@
 /** Bounded physical RAR5 indexing and STORED member preview without extraction. @module */
 import type { ByteSourceType } from "../source.ts";
-import {
-  ArchiveBudget,
-  ArchiveError,
-  assertInteger,
-  createArchiveLedger,
-  createView,
-  invalid,
-  unsupported,
-} from "./record.ts";
-import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
+import { ArchiveBudget, assertInteger, createArchiveLedger } from "./budget.ts";
+import { ArchiveError, invalid, unsupported } from "./error.ts";
+import { createView } from "./field.ts";
+import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./budget.ts";
 import { crc32 } from "../hash.ts";
-export { ArchiveError, createArchiveLedger } from "./record.ts";
-export type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
+export { ArchiveError } from "./error.ts";
+export { createArchiveLedger } from "./budget.ts";
+export type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./budget.ts";
 
 /** Physical file header identity. Names remain inert archive strings, including separators. */
 export interface RarEntryType {

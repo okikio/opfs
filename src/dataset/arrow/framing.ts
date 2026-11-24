@@ -1,5 +1,5 @@
 /** Pure modern Arrow IPC framing and file-index arithmetic, with no source acquisition. @module */
-import { ArchiveError } from "../../archive/record.ts";
+import { ArchiveError } from "../../archive/error.ts";
 import type { ArrowBlockType } from "./schema.ts";
 
 /** Per-region admission; the outer source owner separately accounts for cumulative reads. */
@@ -13,12 +13,16 @@ export interface ArrowFramingLimitsType {
 export type ArrowPrefixType = { readonly kind: "eos" } | { readonly kind: "message"; readonly metadataLength: number };
 /** Safe source-relative extent of the footer, excluding the final ten-byte trailer. */
 export interface ArrowTailType {
+  /** Source offset of the footer FlatBuffer. */
   readonly footerOffset: number;
+  /** Footer length from the trailer's int32 field. */
   readonly footerLength: number;
 }
 /** Source geometry established by the outer owner before admitting the batch index. */
 export interface ArrowFileBoundsType {
+  /** Total source size in bytes. */
   readonly sourceSize: number;
+  /** Source offset of the footer; every block must end at or before it. */
   readonly footerOffset: number;
   /** First byte after the embedded schema message, including its prefix and metadata padding. */
   readonly schemaEnd: number;
@@ -30,11 +34,17 @@ export interface ArrowFileBoundsType {
  * the outer reader's responsibility.
  */
 export interface ArrowFrameType {
+  /** Source offset of the block's continuation prefix. */
   readonly offset: number;
+  /** Source offset of the metadata FlatBuffer, eight bytes after `offset`. */
   readonly metadataOffset: number;
+  /** Padded metadata length, without the prefix. */
   readonly metadataLength: number;
+  /** Source offset of the message body, right after the metadata. */
   readonly bodyOffset: number;
+  /** Padded body length. */
   readonly bodyLength: number;
+  /** First byte after the body: `bodyOffset + bodyLength`. */
   readonly end: number;
 }
 /** Creates the `invalid-archive` error with an "Arrow IPC" prefix; call as `throw invalid("...")`. */

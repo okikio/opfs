@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 import { decodeBase64 } from "@std/encoding/base64";
-import { ArchiveError } from "../src/archive/record.ts";
+import { ArchiveError } from "../src/archive/error.ts";
 import { compressStream, createCompressedTar, decompressStream, readCompressedTar } from "../src/archive/compress.ts";
 import fixtures from "./fixtures/compression/native.json" with { type: "json" };
 

@@ -4,7 +4,7 @@
  * Slots follow the pinned Arrow 21 Schema.fbs, Message.fbs and File.fbs schemas.
  * @module
  */
-import { ArchiveError } from "../../archive/record.ts";
+import { ArchiveError } from "../../archive/error.ts";
 import { FlatBuffers } from "./flatbuffers.ts";
 import type { FlatBufferLimitsType, FlatBufferVectorType } from "./flatbuffers.ts";
 

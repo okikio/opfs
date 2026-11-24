@@ -1,4 +1,4 @@
-/** Internal AWS cryptography; callers own canonical bytes, credentials, clocks, and transport. @module */
+/** AWS Signature Version 4 cryptography; callers own canonical bytes, credentials, clocks, and transport. @module */
 import { encodeHex } from "@std/encoding/hex";
 
 /** Hashes supplied bytes with the explicitly borrowed authority. No input ownership transfers. */

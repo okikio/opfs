@@ -18,18 +18,10 @@
  * @module
  */
 import type { ByteSourceType } from "../../source.ts";
-import {
-  ArchiveBudget,
-  ArchiveError,
-  assertInteger,
-  createArchiveLedger,
-  createView,
-  getUint64,
-  invalid,
-  resolveLimits,
-  unsupported,
-} from "../record.ts";
-import type { ArchiveWorkType } from "../record.ts";
+import { ArchiveBudget, assertInteger, createArchiveLedger, resolveLimits } from "../budget.ts";
+import { ArchiveError, invalid, unsupported } from "../error.ts";
+import { createView, getUint64 } from "../field.ts";
+import type { ArchiveWorkType } from "../budget.ts";
 import { parseDirectory } from "./directory.ts";
 import { readMember } from "./member.ts";
 import { planRead } from "./plan.ts";
@@ -54,8 +46,10 @@ export type {
 export type { ZipAesOptionsType } from "./cipher.ts";
 export type { ZipBzipOptionsType } from "./bzip.ts";
 export type { ZipLzmaOptionsType } from "./lzma.ts";
-export { ArchiveError, createArchiveLedger } from "../record.ts";
-export type { ArchiveErrorCodeType, ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../record.ts";
+export { ArchiveError } from "../error.ts";
+export { createArchiveLedger } from "../budget.ts";
+export type { ArchiveErrorCodeType } from "../error.ts";
+export type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../budget.ts";
 
 /** Open a single-disk ZIP/ZIP64 directory without extracting its members. */
 export async function openZip(source: ByteSourceType, options: ZipOpenOptionsType = {}): Promise<ZipArchiveType> {

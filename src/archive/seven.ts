@@ -2,19 +2,15 @@
 import { createLzmaDecoder } from "./lzma.ts";
 import type { LzmaFormatType, LzmaLimitsType } from "./lzma.ts";
 import type { ByteSourceType } from "../source.ts";
-import {
-  ArchiveBudget,
-  ArchiveError,
-  assertInteger,
-  createArchiveLedger,
-  createView,
-  invalid,
-  unsupported,
-} from "./record.ts";
-import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
+import { ArchiveBudget, assertInteger, createArchiveLedger } from "./budget.ts";
+import { ArchiveError, invalid, unsupported } from "./error.ts";
+import { createView } from "./field.ts";
+import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./budget.ts";
 import { crc32 } from "../hash.ts";
-export { ArchiveError, createArchiveLedger } from "./record.ts";
-export type { ArchiveErrorCodeType, ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
+export { ArchiveError } from "./error.ts";
+export { createArchiveLedger } from "./budget.ts";
+export type { ArchiveErrorCodeType } from "./error.ts";
+export type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./budget.ts";
 
 /** Method and properties are inert hex metadata; no codec is loaded or invoked. */
 export interface SevenCoderType {

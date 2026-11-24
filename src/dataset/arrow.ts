@@ -2,16 +2,19 @@
 import type { ByteSourceType } from "../source.ts";
 import { isBytes, toView } from "../bytes.ts";
 import { close } from "../close.ts";
-import { ArchiveBudget, ArchiveError, assertInteger, createArchiveLedger } from "../archive/record.ts";
-import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
+import { ArchiveBudget, assertInteger, createArchiveLedger } from "../archive/budget.ts";
+import { ArchiveError } from "../archive/error.ts";
+import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/budget.ts";
 import { inspectBlocks, inspectFileMagic, inspectFileTail, inspectPrefix } from "./arrow/framing.ts";
 import { parseFooter, parseMessage, requireEligibleSchema, validateBatch } from "./arrow/schema.ts";
 import type { ArrowFieldType, ArrowMetadataLimitsType, ArrowSchemaType } from "./arrow/schema.ts";
 import { admitColumns, decodeColumn } from "./arrow/columns.ts";
 import type { ArrowColumnLimitsType, ArrowColumnType } from "./arrow/columns.ts";
 
-export { ArchiveError, createArchiveLedger } from "../archive/record.ts";
-export type { ArchiveErrorCodeType, ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
+export { ArchiveError } from "../archive/error.ts";
+export { createArchiveLedger } from "../archive/budget.ts";
+export type { ArchiveErrorCodeType } from "../archive/error.ts";
+export type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/budget.ts";
 export type { ByteSourceType };
 export type { SourceReadOptionsType } from "../source.ts";
 export type { ArrowColumnLimitsType, ArrowColumnType, ArrowFieldType, ArrowMetadataLimitsType, ArrowSchemaType };

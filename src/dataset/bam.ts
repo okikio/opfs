@@ -2,11 +2,14 @@
 import type { ByteSourceType } from "../source.ts";
 import type { BamLimitsType, BamWorkType } from "./bam/bgzf.ts";
 import type { BamRecordType, BamReferenceType } from "./bam/record.ts";
-import { assertInteger, createView, invalid, unsupported } from "../archive/record.ts";
+import { assertInteger } from "../archive/budget.ts";
+import { createView } from "../archive/field.ts";
+import { invalid, unsupported } from "../archive/error.ts";
 import { assertEndMarker, Budget, Cursor } from "./bam/bgzf.ts";
 import { parseRecord, parseReferenceName } from "./bam/record.ts";
-export { ArchiveError } from "../archive/record.ts";
-export type { ArchiveErrorCodeType, ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
+export { ArchiveError } from "../archive/error.ts";
+export type { ArchiveErrorCodeType } from "../archive/error.ts";
+export type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/budget.ts";
 export type { ByteSourceType, SourceReadOptionsType } from "../source.ts";
 export type { BamLimitsType, BamWorkType } from "./bam/bgzf.ts";
 export type { BamAuxiliaryType, BamRecordType, BamReferenceType } from "./bam/record.ts";

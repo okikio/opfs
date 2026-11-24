@@ -5,7 +5,7 @@ file or staged upload, then publish only after successful EOF. An error or cance
 prefix that has no complete directory.
 
 ```ts
-import { createZipStream } from "@okikio/opfs/archive/write";
+import { createZipStream } from "@okikio/opfs/archive/zip/write";
 
 const encoder = new TextEncoder();
 const archive = createZipStream([
@@ -59,8 +59,8 @@ inputs produce equal output across chunk splits.
 An async entries iterator can open each source only as it is needed:
 
 ```ts
-import { createZipStream } from "@okikio/opfs/archive/write";
-import type { ZipWriteEntryType } from "@okikio/opfs/archive/write";
+import { createZipStream } from "@okikio/opfs/archive/zip/write";
+import type { ZipWriteEntryType } from "@okikio/opfs/archive/zip/write";
 
 async function* entries(): AsyncGenerator<ZipWriteEntryType> {
   yield { name: "report.txt", source: await openReportStream(), size: 4096 };

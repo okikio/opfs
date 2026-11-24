@@ -1,9 +1,12 @@
 import type { ByteSourceType } from "../../source.ts";
-import { ArchiveBudget, ArchiveError, assertInteger, createArchiveLedger, invalid, unsupported } from "../record.ts";
-import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../record.ts";
+import { ArchiveBudget, assertInteger, createArchiveLedger } from "../budget.ts";
+import { ArchiveError, invalid, unsupported } from "../error.ts";
+import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../budget.ts";
 import { padding } from "./block.ts";
-export { ArchiveError, createArchiveLedger } from "../record.ts";
-export type { ArchiveErrorCodeType, ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../record.ts";
+export { ArchiveError } from "../error.ts";
+export { createArchiveLedger } from "../budget.ts";
+export type { ArchiveErrorCodeType } from "../error.ts";
+export type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../budget.ts";
 
 /** One TAR entry. Names and links are metadata, never automatically host paths. */
 export interface TarEntryType {

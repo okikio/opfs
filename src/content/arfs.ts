@@ -3,9 +3,11 @@ import { z } from "zod";
 import { isBytes, toView } from "../bytes.ts";
 import { assertExtent } from "../source.ts";
 import type { ByteSourceType } from "../source.ts";
-import { ArchiveError, assertInteger, createArchiveLedger, invalid, unsupported } from "../archive/record.ts";
-import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
-export { ArchiveError, createArchiveLedger } from "../archive/record.ts";
+import { ArchiveError, invalid, unsupported } from "../archive/error.ts";
+import { assertInteger, createArchiveLedger } from "../archive/budget.ts";
+import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/budget.ts";
+export { ArchiveError } from "../archive/error.ts";
+export { createArchiveLedger } from "../archive/budget.ts";
 
 /** Tags are already decoded caller assertions, not verified transaction headers. */
 export interface ArfsTagType {

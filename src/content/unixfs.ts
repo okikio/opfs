@@ -4,9 +4,10 @@ import { parseCid } from "./cid.ts";
 import { murmur } from "./murmur.ts";
 import { assertExtent } from "../source.ts";
 import type { ByteSourceType } from "../source.ts";
-import { ArchiveError, assertInteger, createArchiveLedger } from "../archive/record.ts";
-import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
-export { createArchiveLedger } from "../archive/record.ts";
+import { ArchiveError } from "../archive/error.ts";
+import { assertInteger, createArchiveLedger } from "../archive/budget.ts";
+import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/budget.ts";
+export { createArchiveLedger } from "../archive/budget.ts";
 
 /** Borrowed block acquisition. Honor maxBytes before collecting a response when the backing API permits it.
  * The returned native byte view is copied and independently hashed; a reader's verification label is never trusted.

@@ -1,8 +1,8 @@
 /** Explicit native Fetch reads compose signature checks with complete bounded data-root verification. @module */
 import { isBytes, toView } from "../../bytes.ts";
 import { close } from "../../close.ts";
-import { assertInteger, createArchiveLedger } from "../../archive/record.ts";
-import type { ArchiveLedgerType, ArchiveWorkType } from "../../archive/record.ts";
+import { assertInteger, createArchiveLedger } from "../../archive/budget.ts";
+import type { ArchiveLedgerType, ArchiveWorkType } from "../../archive/budget.ts";
 import { ArweaveError, parseArweaveId, verifyArweaveTransaction } from "../../content/arweave.ts";
 import type {
   ArweaveDataOptionsType,

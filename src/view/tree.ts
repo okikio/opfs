@@ -1,17 +1,41 @@
-/** Private namespace projection shared by archive views, without format or integrity conversion. @module */
+/**
+ * Turn a list of archive entries into a read-only adapter.
+ *
+ * The TAR, ZIP and CPIO views use `createArchiveAdapter()`, so every archive view refuses the same unsafe names:
+ * links, duplicates, `..` traversal and a file that is also a directory. A reader for another format can use it to
+ * get the same checks. The format reader keeps ownership of verification and work budgets:
+ *
+ * ```ts
+ * import { createArchiveAdapter } from "@okikio/opfs/view/_tree";
+ * import { createFileSystem } from "@okikio/opfs";
+ *
+ * const entries = [{ id: 0, name: "notes/hello.txt", size: 5, kind: "file" }];
+ * const adapter = createArchiveAdapter("example", entries, async (entry, { offset, length }) => {
+ *   return new TextEncoder().encode("hello").slice(offset, offset + length);
+ * });
+ * const fs = createFileSystem(adapter);
+ * console.log(await fs.readText("/notes/hello.txt")); // "hello"
+ * ```
+ *
+ * @module
+ */
 import type { AdapterType } from "../adapter/definition.ts";
 import { defineReadAdapter } from "../adapter/read.ts";
 import { defineDriver } from "../driver/definition.ts";
 import { FileSystemError } from "../error.ts";
 import type { PathType } from "../path.ts";
 import type { FileDriverDirectoryEntryType, FileDriverReadOptionsType, FileDriverStatType } from "../driver/file.ts";
-import { ArchiveError } from "../archive/record.ts";
+import { ArchiveError } from "../archive/error.ts";
 
 /** Literal identity and regular-file size; links stay visible to admission and are refused. */
-interface EntryType {
+export interface EntryType {
+  /** Format-owned identity passed back to `read`. */
   readonly id: number;
+  /** Archive member name. A directory name can end in `/`. */
   readonly name: string;
+  /** Regular-file size in bytes. */
   readonly size: number;
+  /** `"file"` or `"directory"`. Any other kind, such as a link, makes the whole view fail. */
   readonly kind: string;
 }
 interface NodeType<T> {
@@ -20,15 +44,21 @@ interface NodeType<T> {
   readonly children: Map<string, string>;
 }
 /** Normalized member range. The format reader still owns verification and work budgets. */
-interface ReadType {
+export interface ReadType {
+  /** First byte of the member to return. */
   readonly offset: number;
+  /** Bytes to return. */
   readonly length: number;
+  /** Cancels this read. */
   readonly signal?: AbortSignal;
 }
 
 /**
- * Validate the whole directory before exposing an adapter or acquiring a payload.
- * A private generic keeps native archive identities and verification in each reader.
+ * Validates every entry name, then returns a read-only adapter whose reads call `read(entry, range)`.
+ *
+ * Validation happens before the adapter exists, so an unsafe archive never becomes a filesystem. `name` is the
+ * adapter's diagnostic name. `maxOutputBytes` caps one read's returned bytes; the default is 16 MiB. The generic
+ * entry type lets each format keep its own entry identity and fields.
  */
 export function createArchiveAdapter<T extends EntryType>(
   name: string,

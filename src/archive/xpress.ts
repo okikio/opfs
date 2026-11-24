@@ -1,6 +1,6 @@
-/** Internal MS-XCA XPRESS-Huffman kernel for ordinary 32 KiB WIM chunks. @module */
+/** MS-XCA XPRESS-Huffman kernel for ordinary 32 KiB WIM chunks. @module */
 import { isBytes, toView } from "../bytes.ts";
-import { invalid } from "./record.ts";
+import { invalid } from "./error.ts";
 
 /** The writer reserves two little-endian coding words ahead of interleaved length bytes. */
 class Bits {

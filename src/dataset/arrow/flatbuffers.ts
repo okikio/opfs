@@ -1,5 +1,5 @@
 /** Checked synchronous access to one borrowed FlatBuffer metadata region. @module */
-import { ArchiveError } from "../../archive/record.ts";
+import { ArchiveError } from "../../archive/error.ts";
 
 /** Safety policy, independent of Arrow's format limits and source-read accounting. */
 export interface FlatBufferLimitsType {
@@ -17,8 +17,11 @@ export interface FlatBufferLimitsType {
 
 /** A validated vector extent; its bytes remain borrowed from the metadata input. */
 export interface FlatBufferVectorType {
+  /** Input offset of the first element, after the vector's length field. */
   readonly offset: number;
+  /** Element count. */
   readonly length: number;
+  /** Bytes per element. */
   readonly stride: number;
 }
 
@@ -49,6 +52,7 @@ export class FlatBuffers {
   #steps = 0;
   #references = 0;
 
+  /** Borrows `bytes`, which must stay unchanged during reads. `limits` bound the input size and interpreted work. */
   constructor(bytes: Uint8Array, limits: FlatBufferLimitsType = {}) {
     const maximum = {
       maxInputBytes: limits.maxInputBytes ?? 8 * 1024 * 1024,
@@ -91,34 +95,42 @@ export class FlatBuffers {
     return { bytes: this.#bytesRead, steps: this.#steps, references: this.#references };
   }
 
+  /** Reads the little-endian unsigned 8-bit value at input `offset`, after a bounds check. */
   u8(offset: number): number {
     this.#extent(offset, 1);
     return this.#view.getUint8(offset);
   }
+  /** Reads the little-endian signed 8-bit value at input `offset`, after a bounds check. */
   i8(offset: number): number {
     this.#extent(offset, 1);
     return this.#view.getInt8(offset);
   }
+  /** Reads the little-endian unsigned 16-bit value at input `offset`, after a bounds check. */
   u16(offset: number): number {
     this.#extent(offset, 2);
     return this.#view.getUint16(offset, true);
   }
+  /** Reads the little-endian signed 16-bit value at input `offset`, after a bounds check. */
   i16(offset: number): number {
     this.#extent(offset, 2);
     return this.#view.getInt16(offset, true);
   }
+  /** Reads the little-endian unsigned 32-bit value at input `offset`, after a bounds check. */
   u32(offset: number): number {
     this.#extent(offset, 4);
     return this.#view.getUint32(offset, true);
   }
+  /** Reads the little-endian signed 32-bit value at input `offset`, after a bounds check. */
   i32(offset: number): number {
     this.#extent(offset, 4);
     return this.#view.getInt32(offset, true);
   }
+  /** Reads the little-endian unsigned 64-bit value at input `offset`, after a bounds check. */
   u64(offset: number): bigint {
     this.#extent(offset, 8);
     return this.#view.getBigUint64(offset, true);
   }
+  /** Reads the little-endian signed 64-bit value at input `offset`, after a bounds check. */
   i64(offset: number): bigint {
     this.#extent(offset, 8);
     return this.#view.getBigInt64(offset, true);

@@ -1,3 +1,11 @@
+/**
+ * Bounded concurrent mapping with ordered results and complete cleanup.
+ *
+ * `map(items, limit, operation)` runs at most `limit` operations at once and yields their results in input order.
+ * Transfer and listing code use it to overlap provider requests without unbounded memory.
+ *
+ * @module
+ */
 import { aggregate, close } from "./close.ts";
 
 /** An actual settled invocation, with null/undefined rejection kept distinct. */

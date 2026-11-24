@@ -1,5 +1,6 @@
 /** Plan one ZIP member read: its byte ranges, decoder and limits, before any source or decoder is acquired. @module */
-import { assertInteger, invalid, resolveLimits } from "../record.ts";
+import { assertInteger, resolveLimits } from "../budget.ts";
+import { invalid } from "../error.ts";
 import type { DirectoryRecordType, ZipPlanType, ZipReadOptionsType } from "./types.ts";
 
 /** Planning never acquires a source, decoder or runtime capability. */

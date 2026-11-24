@@ -1,17 +1,13 @@
 /** Bounded numeric ORC previews over a borrowed stable byte source. @module */
 import type { ByteSourceType } from "../source.ts";
-import {
-  ArchiveBudget,
-  ArchiveError,
-  assertInteger,
-  createArchiveLedger,
-  createView,
-  invalid,
-  unsupported,
-} from "../archive/record.ts";
-import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
-export { ArchiveError, createArchiveLedger } from "../archive/record.ts";
-export type { ArchiveErrorCodeType, ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
+import { ArchiveBudget, assertInteger, createArchiveLedger } from "../archive/budget.ts";
+import { ArchiveError, invalid, unsupported } from "../archive/error.ts";
+import { createView } from "../archive/field.ts";
+import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/budget.ts";
+export { ArchiveError } from "../archive/error.ts";
+export { createArchiveLedger } from "../archive/budget.ts";
+export type { ArchiveErrorCodeType } from "../archive/error.ts";
+export type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/budget.ts";
 
 /** Opening limits remain aggregate authority for all later reads; no source ownership transfers. */
 export interface OrcOpenOptionsType extends ArchiveLimitsType {

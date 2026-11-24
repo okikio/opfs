@@ -2,8 +2,8 @@
 import { isBytes, toView } from "../bytes.ts";
 import { assertExtent } from "../source.ts";
 import type { ByteSourceType, SourceReadOptionsType } from "../source.ts";
-import { assertInteger, createArchiveLedger, resolveLimits } from "../archive/record.ts";
-import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
+import { assertInteger, createArchiveLedger, resolveLimits } from "../archive/budget.ts";
+import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/budget.ts";
 
 /** Explicit key context and finite aggregate work policy. Native cryptography is a trusted capability. */
 export interface CryptomatorOptionsType extends ArchiveLimitsType, SourceReadOptionsType {

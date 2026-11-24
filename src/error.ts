@@ -1,3 +1,13 @@
+/**
+ * The package's filesystem error and the helpers that convert other failures into it.
+ *
+ * `FileSystemError` is also exported from the main entry. This advanced entry adds the conversion helpers that drivers
+ * and adapters use: `toFileSystemError()` maps a native or provider failure to a stable `code`, and `throwIfAborted()`
+ * checks a signal at a step boundary with the operation name and path attached. Use them in a custom driver so its
+ * failures look like the built-in ones.
+ *
+ * @module
+ */
 import type { ErrorCodeType } from "./schema/types.ts";
 import { ErrorCodeSchema } from "./schema/mod.ts";
 import { getPrimary } from "./close.ts";

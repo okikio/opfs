@@ -1,6 +1,6 @@
 /** Authored deterministic interoperability workload. No generated ZIP is used as its own oracle. */
 import { stdout } from "node:process";
-import { createZipStream } from "../../../src/archive/write.ts";
+import { createZipStream } from "../../../src/archive/zip/write.ts";
 
 const encoded = new TextEncoder();
 const source = new ReadableStream<Uint8Array>({

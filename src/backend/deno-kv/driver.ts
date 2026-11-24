@@ -180,12 +180,17 @@ export interface DenoKvCollectResultType {
   readonly deleted: number;
   /** Reachable or grace-period physical part keys retained. */
   readonly retained: number;
-  /** True when `maxDeletes` stopped the pass before the prefix scan ended. */
+  /** True when `maxDeletes`, `maxScans` or `maxPinScans` stopped the pass early; continue with `cursor`. */
   readonly truncated: boolean;
+  /** Generations kept because they are published, still being written, or retired less than `minAgeMs` ago. */
   readonly active: number;
+  /** Generations kept because a reader still holds an unexpired pin. */
   readonly pinned: number;
+  /** Generations skipped because a pin or state change raced the pass; a later pass retries them. */
   readonly conflicts: number;
+  /** State, part and pin records read, counted against `maxScans`. */
   readonly scanned: number;
+  /** Expired reader pins released by this pass. */
   readonly prunedPins: number;
   /** Continue this pass with collect({ cursor }); absent means the scan completed. */
   readonly cursor?: string;
