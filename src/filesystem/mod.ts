@@ -1,43 +1,70 @@
-import { assertInteger } from "./check.ts";
-import type { DriverPlanInputType } from "./driver/definition.ts";
-import { validateWritableOptions } from "./driver/writable.ts";
-import type {
-  FileDriverDirectoryEntryType,
-  FileDriverSignalOptionsType,
-  RevisionType,
-  WritableOptionsType,
-} from "./driver/file.ts";
-import type { AdapterType, FileSystemOptionsType } from "./adapter/definition.ts";
-import { FileSystemError, throwIfAborted, toFileSystemError } from "./error.ts";
-import { close } from "./close.ts";
-import { MutationLocks } from "./lock.ts";
+/**
+ * The filesystem facade: one OPFS-shaped API over one adapter.
+ *
+ * {@link createFileSystem} returns a {@link FileSystemType}. The facade owns
+ * path rules, locks, cancellation, limits and metrics, and sends storage work to
+ * the adapter. Option and entry types are in `./types.ts`, option parsing is in
+ * `./options.ts`, tree helpers are in `./tree.ts`, and copy and move are in
+ * `./copy.ts`.
+ *
+ * @module
+ */
+import { type CopyContextType, copyEntry, moveEntry } from "./copy.ts";
 import {
-  basename,
-  dirname,
-  isAncestorPath,
-  joinPath,
-  normalizePath,
-  ROOT_PATH,
-  splitPath,
-  validateName,
-} from "./path.ts";
+  type ChildFailureType,
+  childPath,
+  ensureParents,
+  makeDirectoryEntry,
+  removeEntry,
+  settleConcurrent,
+  trackConcurrent,
+  walkChildren,
+} from "./tree.ts";
 import {
-  CoordinationModeSchema,
-  EntryKindSchema,
-  MetricsModeSchema,
-  OptimizationSchema,
-  WriteModeSchema,
-} from "./schema/mod.ts";
+  DEFAULT_LOCK_PREFIX,
+  getAdapterSignalOptions,
+  getBufferLimit,
+  getConcurrency,
+  getOptimizations,
+  getWriteSize,
+  parseOption,
+} from "./options.ts";
 import type {
-  EntryKindType,
-  MetricsModeType,
-  OptimizationType,
-  SupportModeType,
-  WriteModeType,
-} from "./schema/types.ts";
-import { getSupport, type InspectionType } from "./capability.ts";
-import { Metrics, type MetricsType } from "./metrics.ts";
-import { createPlan, getDriverInput, type PlanInputType, type PlanType } from "./plan.ts";
+  CopyOptionsType,
+  DirectoryEntryType,
+  DirectoryOptionsType,
+  DirectoryStatType,
+  EmptyDirectoryOptionsType,
+  ExistsOptionsType,
+  FileOptionsType,
+  FileStatType,
+  FileSystemType,
+  MakeDirectoryOptionsType,
+  MoveOptionsType,
+  OpenSyncFileOptionsType,
+  OpenWritableFileOptionsType,
+  ReadOptionsType,
+  ReadTextOptionsType,
+  RemoveOptionsType,
+  SignalOptionsType,
+  StatType,
+  WalkEntryType,
+  WalkOptionsType,
+  WriteOptionsType,
+} from "./types.ts";
+import { assertInteger } from "../check.ts";
+import type { DriverPlanInputType } from "../driver/definition.ts";
+import { validateWritableOptions } from "../driver/writable.ts";
+import type { AdapterType, FileSystemOptionsType } from "../adapter/definition.ts";
+import { FileSystemError, throwIfAborted, toFileSystemError } from "../error.ts";
+import { close } from "../close.ts";
+import { MutationLocks } from "../lock.ts";
+import { basename, dirname, normalizePath, ROOT_PATH } from "../path.ts";
+import { CoordinationModeSchema, EntryKindSchema, MetricsModeSchema, WriteModeSchema } from "../schema/mod.ts";
+import type { MetricsModeType, OptimizationType, SupportModeType } from "../schema/types.ts";
+import { getSupport, type InspectionType } from "../capability.ts";
+import { Metrics, type MetricsType } from "../metrics.ts";
+import { createPlan, type PlanInputType, type PlanType } from "../plan.ts";
 import {
   collectBytes,
   isAsyncIterable,
@@ -48,469 +75,10 @@ import {
   toByteStream,
   withAbortSignal,
   type WriteDataType,
-} from "./stream.ts";
-import { ManagedSyncFile, type SyncFileType } from "./sync.ts";
-import { ManagedWritableFile, type WritableFileType } from "./writable.ts";
-import { DirectoryHandle, type DirectoryHandleType, FileHandle, type FileHandleType } from "./handle.ts";
-
-/** Default lock namespace used when the caller does not provide one. */
-const DEFAULT_LOCK_PREFIX = "@okikio/opfs";
-/** Default maximum materialization for a stream sent to a value-oriented adapter. */
-const DEFAULT_BUFFER_LIMIT = 64 * 1024 * 1024;
-/** Default concurrent file-copy count for recursive copy. */
-const DEFAULT_COPY_CONCURRENCY = 4;
-/** Native performance routes enabled unless the caller deliberately disables one. */
-const DEFAULT_OPTIMIZATIONS: OptimizationType = {
-  streamRead: true,
-  streamWrite: true,
-  rangeRead: true,
-  nativeCopy: true,
-  nativeMove: true,
-  writeAdmission: false,
-};
-
-/**
- * Options for operations that support cancellation.
- *
- * Cancellation is best-effort across every backend. Work that already committed
- * at the provider or host runtime may still be visible after an abort.
- */
-export interface SignalOptionsType {
-  /** Stops work that has not committed yet. */
-  readonly signal?: AbortSignal;
-}
-
-/** Options for opening or creating a directory through the facade. */
-export interface DirectoryOptionsType extends SignalOptionsType {
-  /** Creates the final directory when it does not exist. */
-  readonly create?: boolean;
-  /** Creates missing parent directories as well. */
-  readonly recursive?: boolean;
-}
-
-/** Options for opening or creating a file through the facade. */
-export interface FileOptionsType extends SignalOptionsType {
-  /** Creates the file when it does not exist. */
-  readonly create?: boolean;
-  /** Creates missing parent directories before the file. */
-  readonly parents?: boolean;
-}
-
-/** Options for reading a complete file or byte range. */
-export interface ReadOptionsType extends SignalOptionsType {
-  /** Zero-based byte offset. */
-  readonly at?: number;
-  /** Maximum bytes to return. */
-  readonly length?: number;
-}
-
-/** Options for decoding text after a byte read. */
-export interface ReadTextOptionsType extends ReadOptionsType {
-  /** Encoding passed to TextDecoder. Defaults to UTF-8. */
-  readonly encoding?: string;
-}
-
-/** Options for writing a file. */
-export interface WriteOptionsType extends SignalOptionsType {
-  /** Relationship between new and existing bytes. Defaults to `replace`. */
-  readonly mode?: WriteModeType;
-  /** Zero-based offset used by `update`. */
-  readonly at?: number;
-  /** Truncates at the final write cursor. */
-  readonly truncate?: boolean;
-  /** Creates missing parent directories. */
-  readonly parents?: boolean;
-  /** Media type retained by adapters that persist metadata. */
-  readonly mediaType?: string;
-  /**
-   * Replace only the version with this revision, read from {@link FileStatType.revision}. A missing file or a
-   * different revision throws `locked`, and nothing is written. The adapter holds the condition atomically, so this
-   * is a compare-and-swap. An adapter without `capabilities.revisions` throws `not-supported`.
-   */
-  readonly ifRevision?: RevisionType;
-}
-
-/** Options for advisory entry existence checks. */
-export interface ExistsOptionsType extends SignalOptionsType {
-  /** Requires a specific observed entry kind. */
-  readonly kind?: EntryKindType;
-}
-
-/** Options for creating directories. */
-export interface MakeDirectoryOptionsType extends SignalOptionsType {
-  /** Creates all missing parent directories. */
-  readonly recursive?: boolean;
-}
-
-/** Options for lazy recursive traversal. */
-export interface WalkOptionsType extends SignalOptionsType {
-  /** Maximum depth below the requested root. `0` yields only the root when included. */
-  readonly maxDepth?: number;
-  /** Includes the requested root. Defaults to false. */
-  readonly includeRoot?: boolean;
-  /** Includes file entries. Defaults to true. */
-  readonly includeFiles?: boolean;
-  /** Includes directory entries. Defaults to true. */
-  readonly includeDirectories?: boolean;
-}
-
-/** Options for recursive copy and move. */
-export interface CopyOptionsType extends SignalOptionsType {
-  /** Replaces an existing destination. Defaults to false. */
-  readonly overwrite?: boolean;
-  /** Requires failure-preserving single-file replacement. Defaults to true. */
-  readonly preserve?: boolean;
-  /** Requires atomic no-replace rather than a cooperating-owner precheck. */
-  readonly exclusive?: boolean;
-  /** Maximum file bodies copied concurrently. Defaults to four. */
-  readonly concurrency?: number;
-}
-
-/** Move has the same policy inputs as recursive copy. */
-export type MoveOptionsType = CopyOptionsType;
-
-/** Options for removing an entry. */
-export interface RemoveOptionsType extends SignalOptionsType {
-  /** Removes directory descendants before the directory. */
-  readonly recursive?: boolean;
-}
-
-/** Options for removing every child of one directory. */
-export interface EmptyDirectoryOptionsType extends SignalOptionsType {
-  /** Maximum direct-child removals started concurrently. Defaults to four. */
-  readonly concurrency?: number;
-}
-
-/** Options for opening long-lived asynchronous positional writes. */
-export interface OpenWritableFileOptionsType extends SignalOptionsType, WritableOptionsType {
-  /** Creates the file when it does not exist. */
-  readonly create?: boolean;
-  /** Creates missing parent directories when creating the file. */
-  readonly parents?: boolean;
-}
-
-/** Options for opening synchronous random access. */
-export interface OpenSyncFileOptionsType extends SignalOptionsType {
-  /** Creates the file when it does not exist. */
-  readonly create?: boolean;
-  /** Creates missing parent directories when creating the file. */
-  readonly parents?: boolean;
-}
-
-/** One direct child returned by {@link FileSystemType.readDir}. */
-export interface DirectoryEntryType {
-  /** Canonical virtual path. */
-  readonly path: string;
-  /** Final entry name. */
-  readonly name: string;
-  /** File or directory discriminator. */
-  readonly kind: EntryKindType;
-  /** OPFS-compatible facade object for code that prefers handle APIs. */
-  readonly handle: FileHandleType | DirectoryHandleType;
-}
-
-/** One recursive entry returned by {@link FileSystemType.walk}. */
-export interface WalkEntryType extends DirectoryEntryType {
-  /** Depth below the requested walk root. */
-  readonly depth: number;
-}
-
-/** Portable file metadata returned by {@link FileSystemType.stat}. */
-export interface FileStatType {
-  /** Discriminator for file metadata. */
-  readonly kind: "file";
-  /** Canonical virtual path. */
-  readonly path: string;
-  /** Final file name. */
-  readonly name: string;
-  /** File byte length. */
-  readonly size: number;
-  /** Last-modified Unix epoch milliseconds. */
-  readonly lastModified: number;
-  /** Media type, or an empty string when unknown. */
-  readonly mediaType: string;
-  /**
-   * This exact content version, when the backend names versions: an ETag, a generation or a version ID. Pass it
-   * back as `writeFile(path, data, { ifRevision })` to replace only this version; that works where
-   * `inspect().adapter.native.revisions` is true. A backend that reports versions but cannot condition a write, such
-   * as native Backblaze B2, still reports it here, so its client can act on that exact version.
-   */
-  readonly revision?: RevisionType;
-}
-
-/** Portable directory metadata returned by {@link FileSystemType.stat}. */
-export interface DirectoryStatType {
-  /** Discriminator for directory metadata. */
-  readonly kind: "directory";
-  /** Canonical virtual path. */
-  readonly path: string;
-  /** Final directory name. Root uses an empty name. */
-  readonly name: string;
-  /** Last-modified Unix epoch milliseconds when observable. */
-  readonly lastModified?: number;
-}
-
-/** Portable file or directory metadata. */
-export type StatType = FileStatType | DirectoryStatType;
-
-/**
- * Adapter-independent filesystem facade.
- *
- * High-level calls use canonical virtual paths. `root`, `getFileHandle()`, and
- * `getDirectoryHandle()` provide File System API-shaped objects on top of the
- * same adapter. This lets browser-oriented code run against OPFS, Deno, Bun,
- * Node, RxDB, unstorage, db0, Drizzle, or a custom adapter.
- *
- * The facade owns mutation locks. It does not own the adapter unless
- * `disposeAdapter` was enabled at creation time.
- */
-export interface FileSystemType<Backend = unknown> extends AsyncDisposable {
-  /** Persistence adapter that implements this facade's backend operations. */
-  readonly adapter: AdapterType<Backend>;
-  /**
-   * The client, database or store behind this filesystem, typed by the adapter that made it, or undefined when its
-   * driver exposes none.
-   *
-   * File work goes through the filesystem methods. Use this for provider operations with no file meaning, where the
-   * adapter has nothing to translate: `fs.backend.deleteVersion(file)` on Backblaze B2, for example. It is the same
-   * object the caller passed in, still owned by the caller.
-   */
-  readonly backend: Backend;
-  /** Stable OPFS-shaped handle for the virtual root directory. */
-  readonly root: DirectoryHandleType;
-  /** Hard limit used before a value-oriented adapter may materialize streamed input. */
-  readonly maxBufferedWriteBytes: number;
-  /** Resolved native-route policy. Every route defaults to enabled. */
-  readonly optimizations: OptimizationType;
-  /** Configured instrumentation detail. */
-  readonly metricsMode: MetricsModeType;
-
-  /** Returns native, emulated, partitioned, limits, policy, and current metrics without performing I/O. */
-  inspect(): InspectionType;
-  /** Preflights a known operation against effective capabilities and limits without performing I/O. */
-  plan(input: PlanInputType): PlanType;
-  /** Returns a detached metrics snapshot. */
-  getMetrics(): MetricsType;
-
-  /** Opens or optionally creates a directory. */
-  getDirectoryHandle(path: string, options?: DirectoryOptionsType): Promise<DirectoryHandleType>;
-  /** Opens or optionally creates a file. */
-  getFileHandle(path: string, options?: FileOptionsType): Promise<FileHandleType>;
-  /** Returns a Web File snapshot for one file. */
-  getFile(path: string, options?: SignalOptionsType): Promise<File>;
-  /** Returns portable entry metadata. */
-  stat(path: string, options?: SignalOptionsType): Promise<StatType>;
-  /** Performs an advisory existence check that can race later operations. */
-  exists(path: string, options?: ExistsOptionsType): Promise<boolean>;
-  /** Creates one directory, or its missing parents when recursive is true. */
-  mkdir(path: string, options?: MakeDirectoryOptionsType): Promise<void>;
-  /** Ensures a complete directory path exists. */
-  ensureDir(path: string, options?: SignalOptionsType): Promise<void>;
-  /** Ensures a file exists without truncating an existing file. */
-  ensureFile(path: string, options?: SignalOptionsType): Promise<void>;
-  /** Lazily iterates direct children. */
-  readDir(path?: string, options?: SignalOptionsType): AsyncIterableIterator<DirectoryEntryType>;
-  /** Lazily traverses a directory tree. */
-  walk(path?: string, options?: WalkOptionsType): AsyncIterableIterator<WalkEntryType>;
-  /** Materializes a complete file or requested byte range. */
-  readFile(path: string, options?: ReadOptionsType): Promise<Uint8Array>;
-  /** Reads and decodes text. */
-  readText(path: string, options?: ReadTextOptionsType): Promise<string>;
-  /** Opens an abortable byte stream. Non-streaming adapters return one buffered chunk. */
-  openReadStream(path: string, options?: ReadOptionsType): Promise<ReadableStream<Uint8Array>>;
-  /** Writes materialized, streamed, or async-iterable data. */
-  writeFile(path: string, data: WriteDataType, options?: WriteOptionsType): Promise<void>;
-  /** Copies a file or directory tree. */
-  copy(source: string, destination: string, options?: CopyOptionsType): Promise<void>;
-  /** Uses a native adapter move when available, otherwise copy-then-remove. */
-  move(source: string, destination: string, options?: MoveOptionsType): Promise<void>;
-  /** Removes one entry and optionally its descendants. Missing paths are success. */
-  remove(path: string, options?: RemoveOptionsType): Promise<void>;
-  /** Removes every direct or nested child while preserving the requested directory. */
-  emptyDir(path?: string, options?: EmptyDirectoryOptionsType): Promise<void>;
-  /** Opens long-lived asynchronous positional writes when the selected adapter supports them. */
-  openWritableFile(path: string, options?: OpenWritableFileOptionsType): Promise<WritableFileType>;
-  /** Opens synchronous random access when the selected adapter supports it. */
-  openSyncFile(path: string, options?: OpenSyncFileOptionsType): Promise<SyncFileType>;
-  /** Releases an adapter only when ownership was transferred at creation. */
-  close(): Promise<void>;
-}
-
-/** Resolves and validates bounded copy/removal concurrency. */
-function getConcurrency(value: number | undefined): number {
-  const concurrency = value ?? DEFAULT_COPY_CONCURRENCY;
-  if (!Number.isSafeInteger(concurrency) || concurrency < 1) {
-    throw new RangeError("concurrency must be a positive safe integer.");
-  }
-  return concurrency;
-}
-
-/** Resolves the maximum safe materialization for value-oriented storage adapters. */
-function getBufferLimit(value: number | undefined): number {
-  const limit = value ?? DEFAULT_BUFFER_LIMIT;
-  if (!Number.isSafeInteger(limit) || limit < 1) {
-    throw new RangeError("maxBufferedWriteBytes must be a positive safe integer.");
-  }
-  return limit;
-}
-
-/** Parses one facade option and reports invalid caller configuration as `TypeError`. */
-function parseOption<T>(schema: { parse(value: unknown): T }, value: unknown, name: string): T {
-  try {
-    return schema.parse(value);
-  } catch (cause) {
-    throw new TypeError(`Invalid filesystem ${name}.`, { cause });
-  }
-}
-
-/** Resolves a partial optimization policy to the strict public shape. */
-function getOptimizations(value: FileSystemOptionsType["optimizations"]): OptimizationType {
-  return parseOption(OptimizationSchema, { ...DEFAULT_OPTIMIZATIONS, ...value }, "optimizations");
-}
-
-/** Computes the logical file size produced by one materialized write. */
-function getWriteSize(
-  current: number,
-  input: number,
-  mode: WriteModeType,
-  at: number | undefined,
-  truncate: boolean,
-): number {
-  if (mode === "replace") return input;
-  const position = mode === "append" ? current : at ?? 0;
-  const end = position + input;
-  return truncate ? end : Math.max(current, end);
-}
-
-/** Projects a facade cancellation signal into the adapter operation contract. */
-function getAdapterSignalOptions(signal: AbortSignal | undefined): FileDriverSignalOptionsType {
-  return signal === undefined ? {} : { signal };
-}
-
-/**
- * Waits for every already-started mutation before propagating a failure.
- *
- * Recursive copy and clear must not release their tree lock while sibling writes
- * are still running, even when one sibling has already failed.
- */
-async function settleConcurrent(
-  active: Set<Promise<void>>,
-  failures: ChildFailure[],
-  prior?: { reason: unknown },
-): Promise<void> {
-  await Promise.allSettled([...active]);
-  // A race can deliver one of these private event records. It is the same
-  // recorded event, not a second failure with an equal error value.
-  const raced = prior !== undefined && failures.some((event) => event === prior.reason);
-  await close([], [
-    ...(prior === undefined || raced ? [] : [prior.reason]),
-    ...failures.map((event) => event.reason),
-  ]);
-}
-
-/** One admitted child owns one failure event, even when reasons have equal values. */
-type ChildFailure = { readonly reason: unknown };
-
-/** Tracks an admitted child and immediately observes rejection until the tree owner joins it. */
-function trackConcurrent(active: Set<Promise<void>>, failures: ChildFailure[], operation: Promise<void>): void {
-  const tracked = operation.catch((error) => {
-    const event: ChildFailure = { reason: error };
-    failures.push(event);
-    throw event;
-  }).finally(() => active.delete(tracked));
-  active.add(tracked);
-  void tracked.catch(() => undefined);
-}
-
-/**
- * Creates missing directory components from root to leaf.
- *
- * The walk checks each component before creation so a file in the middle of the
- * path produces a precise type mismatch instead of a backend-specific failure.
- */
-async function ensureParents(adapter: AdapterType, path: string, signal?: AbortSignal): Promise<void> {
-  let current = ROOT_PATH;
-  for (const part of splitPath(path)) {
-    current = joinPath(current, part);
-    throwIfAborted(signal, "mkdir", current);
-    const stat = await adapter.stat(current, getAdapterSignalOptions(signal));
-    if (stat?.kind === "file") {
-      throw new FileSystemError(
-        "type-mismatch",
-        "mkdir",
-        current,
-        `Cannot create directory '${current}' because a file exists at that path.`,
-      );
-    }
-    if (stat === null) await adapter.createDir(current, getAdapterSignalOptions(signal));
-  }
-}
-
-/** Rejects adapter path injection before any recursive read or mutation. */
-function childPath(parent: string, name: string): string {
-  try {
-    validateName(name);
-  } catch (cause) {
-    throw new FileSystemError("invalid-path", "read-dir", parent, "Adapter entry is not one valid child name.", cause);
-  }
-  const path = joinPath(parent, name);
-  if (dirname(path) !== parent || !isAncestorPath(parent, path)) {
-    throw new FileSystemError("invalid-path", "read-dir", parent, "Adapter entry must be a strict direct child.");
-  }
-  return path;
-}
-
-/** Projects one adapter child into path metadata plus an OPFS-shaped facade handle. */
-function makeDirectoryEntry(
-  fileSystem: FileSystemType,
-  parent: string,
-  entry: FileDriverDirectoryEntryType,
-): DirectoryEntryType {
-  const path = childPath(parent, entry.name);
-  EntryKindSchema.parse(entry.kind);
-  return {
-    path,
-    name: entry.name,
-    kind: entry.kind,
-    handle: entry.kind === "file" ? new FileHandle(fileSystem, path) : new DirectoryHandle(fileSystem, path),
-  };
-}
-
-/** Resolved traversal policy shared by every recursive directory visit. */
-interface WalkStateType {
-  /** Original operation options, including the caller cancellation signal. */
-  readonly options: WalkOptionsType;
-  /** Whether file entries are emitted. */
-  readonly includeFiles: boolean;
-  /** Whether directory entries are emitted. */
-  readonly includeDirectories: boolean;
-  /** Maximum depth below the requested walk root. */
-  readonly maxDepth: number;
-}
-
-/**
- * Traverses descendants without hiding recursion inside `FileSystemFacade.walk`.
- *
- * The helper delegates each directory read back through the public facade. This
- * keeps cancellation, error normalization, and adapter semantics identical to a
- * direct `readDir()` call while the traversal itself remains lazy.
- */
-async function* walkChildren(
-  fileSystem: FileSystemType,
-  directory: string,
-  depth: number,
-  state: WalkStateType,
-): AsyncIterableIterator<WalkEntryType> {
-  for await (const entry of fileSystem.readDir(directory, state.options)) {
-    const nextDepth = depth + 1;
-    const include = entry.kind === "file" ? state.includeFiles : state.includeDirectories;
-    if (include) yield { ...entry, depth: nextDepth };
-
-    if (entry.kind === "directory" && nextDepth < state.maxDepth) {
-      yield* walkChildren(fileSystem, entry.path, nextDepth, state);
-    }
-  }
-}
+} from "../stream.ts";
+import { ManagedSyncFile, type SyncFileType } from "../sync.ts";
+import { ManagedWritableFile, type WritableFileType } from "../writable.ts";
+import { DirectoryHandle, type DirectoryHandleType, FileHandle, type FileHandleType } from "../handle.ts";
 
 /**
  * Concrete facade that owns coordination and delegates persistence to one adapter.
@@ -536,6 +104,8 @@ class FileSystemFacade<Backend = unknown> implements FileSystemType<Backend> {
     return this.adapter.driver.backend as Backend;
   }
 
+  /** Adapter, policy and coordination that copy and move borrow from this facade. */
+  readonly #context: CopyContextType;
   /** Mutable metrics book hidden behind detached public snapshots. */
   readonly #metrics: Metrics;
   /** Coordinates file mutations and structural tree changes for this facade. */
@@ -560,6 +130,15 @@ class FileSystemFacade<Backend = unknown> implements FileSystemType<Backend> {
     );
     this.#disposeAdapter = options.disposeAdapter ?? false;
     this.root = new DirectoryHandle(this, ROOT_PATH);
+    this.#context = {
+      adapter,
+      optimizations: this.optimizations,
+      maxBufferedWriteBytes: this.maxBufferedWriteBytes,
+      metrics: this.#metrics,
+      locks: this.#locks,
+      admit: (input) => this.#admit(input),
+      stat: (path, options) => this.stat(path, options),
+    };
   }
 
   /** Returns effective support, configured limits, policy, and a current metrics snapshot. */
@@ -1208,289 +787,9 @@ class FileSystemFacade<Backend = unknown> implements FileSystemType<Backend> {
     this.#assertOpen();
     const lock = await this.#locks.acquireTree(options.signal);
     try {
-      await this.#copyUnlocked(source, destination, options);
+      await copyEntry(this.#context, source, destination, options);
     } finally {
       lock.release();
-    }
-  }
-
-  /** Copies under the caller's tree lock so an emulated move owns both phases. */
-  async #copyUnlocked(source: string, destination: string, options: CopyOptionsType): Promise<void> {
-    this.#assertOpen();
-    const from = normalizePath(source);
-    const to = normalizePath(destination);
-    if (from === to || isAncestorPath(from, to) || isAncestorPath(to, from)) {
-      throw new FileSystemError(
-        "invalid-operation",
-        "copy",
-        from,
-        `Copy source '${from}' and destination '${to}' must not overlap.`,
-      );
-    }
-    this.#admit(
-      getDriverInput(
-        {
-          operation: "copy",
-          path: from,
-          destination: to,
-          overwrite: options.overwrite,
-          preserve: options.preserve,
-          exclusive: options.exclusive,
-        },
-        this.adapter,
-        this.optimizations,
-      ),
-    );
-    const concurrency = getConcurrency(options.concurrency);
-    const started = this.#metrics.start();
-    const metricSupport = this.adapter.hostProfile !== undefined && options.preserve === false
-      ? "emulated"
-      : getSupport(this.adapter, this.optimizations).copy;
-    let metricBytes: number | undefined;
-    let failed = true;
-    try {
-      const sourceEntry = await this.adapter.entry?.(from, getAdapterSignalOptions(options.signal));
-      if (sourceEntry === "link" || sourceEntry === "foreign") {
-        throw new FileSystemError(
-          "not-supported",
-          "copy",
-          from,
-          "Portable copy requires an ordinary file or directory; links are physical entries.",
-        );
-      }
-      const sourceStat = await this.stat(from, options);
-      if (
-        options.exclusive && !options.overwrite &&
-        (sourceStat.kind !== "file" || !this.optimizations.nativeCopy || !this.adapter.capabilities.nativeCopy ||
-          (this.adapter.publication?.copyNoReplace ?? this.adapter.publication?.noReplace) !== "atomic")
-      ) {
-        throw new FileSystemError(
-          "not-supported",
-          "copy",
-          to,
-          "This physical copy route cannot guarantee atomic no-replace; omit exclusive for cooperating-owner behavior.",
-        );
-      }
-      if (sourceStat.kind === "file") metricBytes = sourceStat.size;
-      const destinationStat = await this.adapter.stat(to, getAdapterSignalOptions(options.signal));
-      if (destinationStat !== null) {
-        if (!options.overwrite) {
-          throw new FileSystemError("already-exists", "copy", to, `Destination '${to}' already exists.`);
-        }
-        if (destinationStat.kind !== "file" || sourceStat.kind !== "file") {
-          if (options.preserve !== false) {
-            throw new FileSystemError(
-              "not-supported",
-              "copy",
-              to,
-              "Replacing an existing tree or changing entry kind requires application generation publication, or explicit preserve:false for best-effort recursion.",
-            );
-          }
-          await this.#removeUnlocked(to, true, options.signal);
-        }
-        if (
-          options.preserve !== false && this.adapter.publication?.copy !== "preserve" &&
-          this.adapter.publication?.move !== "preserve"
-        ) {
-          throw new FileSystemError(
-            "not-supported",
-            "copy",
-            to,
-            "This adapter has no failure-preserving replacement; explicitly set preserve:false for best-effort overwrite.",
-          );
-        }
-      }
-      await ensureParents(this.adapter, dirname(to), options.signal);
-
-      if (sourceStat.kind === "file") {
-        if (
-          options.preserve !== false &&
-          (!this.optimizations.nativeCopy || this.adapter.publication?.copy !== "preserve") &&
-          this.adapter.move !== undefined && this.adapter.publication?.move === "preserve"
-        ) {
-          const stage = joinPath(dirname(to), `.opfs-${crypto.randomUUID()}.part`);
-          if (this.adapter.reserve === undefined) {
-            throw new FileSystemError(
-              "not-supported",
-              "copy",
-              to,
-              "Preserving copy fallback requires exclusive stage reservation.",
-            );
-          }
-          await this.adapter.reserve(stage, getAdapterSignalOptions(options.signal));
-          let consumed = false;
-          let failure: { readonly reason: unknown } | undefined;
-          try {
-            await this.#copyFileUnlocked(from, stage, options.signal, true);
-            await this.adapter.move(stage, to, {
-              overwrite: options.overwrite ?? false,
-              ...getAdapterSignalOptions(options.signal),
-            });
-            consumed = true;
-          } catch (reason) {
-            failure = { reason };
-          }
-          // A successful move consumes this exact stage name. Removing that
-          // name afterward could unlink a different entry created there later.
-          await close(
-            consumed ? [] : [async () => {
-              try {
-                await this.adapter.remove(stage);
-              } catch (reason) {
-                if (toFileSystemError(reason, "remove", stage).code !== "not-found") throw reason;
-              }
-            }],
-            failure === undefined ? [] : [failure.reason],
-          );
-        } else {
-          await this.#copyFileUnlocked(
-            from,
-            to,
-            options.signal,
-            options.overwrite ?? false,
-            options.exclusive,
-            options.preserve,
-          );
-        }
-        failed = false;
-        return;
-      }
-      await this.adapter.createDir(to, getAdapterSignalOptions(options.signal));
-      const active = new Set<Promise<void>>();
-      const failures: ChildFailure[] = [];
-      let prior: { reason: unknown } | undefined;
-
-      try {
-        for await (const entry of this.#walkAdapter(from, options.signal)) {
-          if (failures.length > 0) break;
-          const relative = entry.path.slice(from.length).replace(/^\//, "");
-          const target = joinPath(to, relative);
-          if (entry.kind === "directory") {
-            await this.adapter.createDir(target, getAdapterSignalOptions(options.signal));
-          } else {
-            while (active.size >= concurrency) await Promise.race(active);
-            if (failures.length > 0) break;
-            trackConcurrent(
-              active,
-              failures,
-              this.#copyFileUnlocked(entry.path, target, options.signal, false, undefined, options.preserve),
-            );
-          }
-        }
-      } catch (error) {
-        prior = { reason: error };
-      }
-      await settleConcurrent(active, failures, prior);
-      failed = false;
-    } catch (error) {
-      throw toFileSystemError(error, "copy", from);
-    } finally {
-      this.#metrics.record("copy", {
-        support: metricSupport,
-        ...(metricBytes === undefined ? {} : { bytes: metricBytes }),
-        started,
-        failed,
-      });
-    }
-  }
-
-  /** Copies one file after the caller has acquired the structural tree lock. */
-  async #copyFileUnlocked(
-    source: string,
-    destination: string,
-    signal?: AbortSignal,
-    overwrite = true,
-    exclusive?: boolean,
-    preserve = true,
-  ): Promise<void> {
-    if (
-      !(this.adapter.hostProfile !== undefined && !preserve) && this.optimizations.nativeCopy &&
-      this.adapter.capabilities.nativeCopy && this.adapter.copy !== undefined
-    ) {
-      await this.adapter.copy(source, destination, {
-        overwrite,
-        ...(exclusive === undefined ? {} : { exclusive }),
-        ...getAdapterSignalOptions(signal),
-      });
-      return;
-    }
-
-    const stat = await this.adapter.stat(source, getAdapterSignalOptions(signal));
-    if (stat?.kind !== "file") {
-      throw new FileSystemError("type-mismatch", "copy", source, `Copy source '${source}' is not a file.`);
-    }
-    const writeOptions = {
-      mode: "replace" as const,
-      ...(stat.mediaType.length === 0 ? {} : { mediaType: stat.mediaType }),
-      ...getAdapterSignalOptions(signal),
-    };
-    const streamRead = this.optimizations.streamRead && this.adapter.capabilities.streamRead &&
-      this.adapter.openReadStream !== undefined;
-    const streamWrite = this.optimizations.streamWrite &&
-      this.adapter.capabilities.streamWriteModes.includes("replace") &&
-      this.adapter.writeStream !== undefined;
-
-    if (streamRead) {
-      if (!streamWrite && stat.size > this.maxBufferedWriteBytes) {
-        throw new FileSystemError(
-          "too-large",
-          "copy",
-          source,
-          `Copy fallback must materialize ${stat.size} bytes, above maxBufferedWriteBytes ${this.maxBufferedWriteBytes}.`,
-        );
-      }
-      const stream = await this.adapter.openReadStream!(source, getAdapterSignalOptions(signal));
-      if (streamWrite) {
-        const input = withAbortSignal(stream, signal, source, "copy");
-        try {
-          await this.adapter.writeStream!(destination, input, writeOptions);
-        } catch (reason) {
-          await close([() => retire(input, reason)], [reason]);
-        }
-        return;
-      }
-
-      const bytes = await collectBytes(stream, this.maxBufferedWriteBytes, signal, "copy", source);
-      this.#metrics.buffer(bytes.byteLength);
-      try {
-        await this.adapter.writeFile(destination, bytes, writeOptions);
-      } finally {
-        this.#metrics.buffer(-bytes.byteLength);
-      }
-      return;
-    }
-
-    if (stat.size > this.maxBufferedWriteBytes) {
-      throw new FileSystemError(
-        "too-large",
-        "copy",
-        source,
-        `Copy fallback must materialize ${stat.size} bytes, above maxBufferedWriteBytes ${this.maxBufferedWriteBytes}.`,
-      );
-    }
-    const bytes = await this.adapter.readFile(source, getAdapterSignalOptions(signal));
-    if (bytes.byteLength > this.maxBufferedWriteBytes) {
-      throw new FileSystemError("too-large", "copy", source, "Observed copy bytes exceed maxBufferedWriteBytes.");
-    }
-    this.#metrics.buffer(bytes.byteLength);
-    try {
-      await this.adapter.writeFile(destination, bytes, writeOptions);
-    } finally {
-      this.#metrics.buffer(-bytes.byteLength);
-    }
-  }
-
-  /** Traverses raw adapter entries without creating public facade handles. */
-  async *#walkAdapter(
-    path: string,
-    signal?: AbortSignal,
-  ): AsyncIterableIterator<{ path: string; kind: EntryKindType }> {
-    for await (const entry of this.adapter.readDir(path, getAdapterSignalOptions(signal))) {
-      throwIfAborted(signal, "walk", path);
-      const child = childPath(path, entry.name);
-      EntryKindSchema.parse(entry.kind);
-      yield { path: child, kind: entry.kind };
-      if (entry.kind === "directory") yield* this.#walkAdapter(child, signal);
     }
   }
 
@@ -1502,91 +801,7 @@ class FileSystemFacade<Backend = unknown> implements FileSystemType<Backend> {
    */
   async move(source: string, destination: string, options: MoveOptionsType = {}): Promise<void> {
     this.#assertOpen();
-    const from = normalizePath(source);
-    const to = normalizePath(destination);
-    if (from === to) return;
-    if (isAncestorPath(from, to) || isAncestorPath(to, from)) {
-      throw new FileSystemError(
-        "invalid-operation",
-        "move",
-        from,
-        `Move source '${from}' and destination '${to}' must not overlap.`,
-      );
-    }
-
-    this.#admit(
-      getDriverInput(
-        {
-          operation: "move",
-          path: from,
-          destination: to,
-          overwrite: options.overwrite,
-          preserve: options.preserve,
-          exclusive: options.exclusive,
-        },
-        this.adapter,
-        this.optimizations,
-      ),
-    );
-    const started = this.#metrics.start();
-    const support = getSupport(this.adapter, this.optimizations).move;
-    try {
-      if (this.optimizations.nativeMove && this.adapter.capabilities.nativeMove && this.adapter.move !== undefined) {
-        const lock = await this.#locks.acquireTree(options.signal);
-        try {
-          if (
-            await this.adapter.stat(from, getAdapterSignalOptions(options.signal)) === null &&
-            await this.adapter.entry?.(from, getAdapterSignalOptions(options.signal)) == null
-          ) {
-            throw new FileSystemError("not-found", "move", from, `Source '${from}' does not exist.`);
-          }
-          if (
-            !options.overwrite &&
-            (await this.adapter.entry?.(to, getAdapterSignalOptions(options.signal)) ??
-                await this.adapter.stat(to, getAdapterSignalOptions(options.signal))) !== null
-          ) {
-            throw new FileSystemError("already-exists", "move", to, `Destination '${to}' already exists.`);
-          }
-          const destinationEntry = await this.adapter.stat(to, getAdapterSignalOptions(options.signal));
-          if (
-            options.overwrite && destinationEntry !== null && options.preserve !== false &&
-            this.adapter.publication?.move !== "preserve"
-          ) {
-            throw new FileSystemError(
-              "not-supported",
-              "move",
-              to,
-              "This native move route cannot preserve an existing destination before publication; explicitly choose preserve:false for best-effort replacement.",
-            );
-          }
-          if (options.overwrite && options.preserve === false) await this.#removeUnlocked(to, true, options.signal);
-          await ensureParents(this.adapter, dirname(to), options.signal);
-          await this.adapter.move(from, to, {
-            overwrite: options.overwrite ?? false,
-            ...(options.preserve === undefined ? {} : { preserve: options.preserve }),
-            ...(options.exclusive === undefined ? {} : { exclusive: options.exclusive }),
-            ...getAdapterSignalOptions(options.signal),
-          });
-        } finally {
-          lock.release();
-        }
-      } else {
-        this.#admit({ operation: "remove", path: from });
-        const lock = await this.#locks.acquireTree(options.signal);
-        try {
-          // Storage publication remains non-atomic, but queued facade mutations
-          // cannot enter between copying the source and removing that same tree.
-          await this.#copyUnlocked(from, to, options);
-          await this.#removeUnlocked(from, true, options.signal);
-        } finally {
-          lock.release();
-        }
-      }
-      this.#metrics.record("move", { support, started });
-    } catch (error) {
-      this.#metrics.record("move", { support, started, failed: true });
-      throw toFileSystemError(error, "move", from);
-    }
+    await moveEntry(this.#context, source, destination, options);
   }
 
   /** Removes a path idempotently and holds the tree lock for recursive structure changes. */
@@ -1606,42 +821,12 @@ class FileSystemFacade<Backend = unknown> implements FileSystemType<Backend> {
     let failed = true;
     const lock = await this.#locks.acquireTree(options.signal);
     try {
-      await this.#removeUnlocked(normalized, options.recursive ?? false, options.signal);
+      await removeEntry(this.adapter, normalized, options.recursive ?? false, options.signal);
       failed = false;
     } finally {
       this.#metrics.record("remove", { support: "native", started, failed });
       lock.release();
     }
-  }
-
-  /** Removes one entry after the caller has acquired the structural tree lock. */
-  async #removeUnlocked(path: string, recursive: boolean, signal?: AbortSignal): Promise<void> {
-    const identity = await this.adapter.entry?.(path, getAdapterSignalOptions(signal));
-    if (identity === "link" || identity === "foreign") {
-      await this.adapter.remove(path, getAdapterSignalOptions(signal));
-      return;
-    }
-    const stat = await this.adapter.stat(path, getAdapterSignalOptions(signal));
-    if (stat === null) return;
-    if (stat.kind === "directory") {
-      const children: string[] = [];
-      for await (
-        const entry of (this.adapter.entries?.(path, getAdapterSignalOptions(signal)) ??
-          this.adapter.readDir(path, getAdapterSignalOptions(signal)))
-      ) {
-        children.push(childPath(path, entry.name));
-      }
-      if (children.length > 0 && !recursive) {
-        throw new FileSystemError(
-          "invalid-operation",
-          "remove",
-          path,
-          `Directory '${path}' is not empty. Set recursive to true.`,
-        );
-      }
-      for (const child of children) await this.#removeUnlocked(child, true, signal);
-    }
-    await this.adapter.remove(path, getAdapterSignalOptions(signal));
   }
 
   /**
@@ -1670,7 +855,7 @@ class FileSystemFacade<Backend = unknown> implements FileSystemType<Backend> {
     const concurrency = getConcurrency(options.concurrency);
     const lock = await this.#locks.acquireTree(options.signal);
     const active = new Set<Promise<void>>();
-    const failures: ChildFailure[] = [];
+    const failures: ChildFailureType[] = [];
     let prior: { reason: unknown } | undefined;
     try {
       try {
@@ -1685,7 +870,7 @@ class FileSystemFacade<Backend = unknown> implements FileSystemType<Backend> {
           if (failures.length > 0) break;
           while (active.size >= concurrency) await Promise.race(active);
           if (failures.length > 0) break;
-          trackConcurrent(active, failures, this.#removeUnlocked(child, true, options.signal));
+          trackConcurrent(active, failures, removeEntry(this.adapter, child, true, options.signal));
         }
       } catch (error) {
         prior = { reason: error };

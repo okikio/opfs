@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import type { AdapterType } from "../adapter/definition.ts";
-import type { FileSystemType } from "../filesystem.ts";
+import type { FileSystemType } from "../filesystem/types.ts";
 import { AdapterNameSchema } from "../schema/mod.ts";
 
 /**

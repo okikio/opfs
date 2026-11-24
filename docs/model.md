@@ -613,8 +613,8 @@ properties require explicit source and protocol support.
 The implementation follows the same boundaries. Each backend keeps its layers together in `src/backend/<name>/`:
 `client.ts` when it has a wire protocol, `driver.ts`, and `adapter.ts` for its convenience constructor. The three
 generic adapters live in `src/adapter/` (`file.ts`, `record.ts`, `object.ts`), the shared driver contracts in
-`src/driver/`, the facade in `src/filesystem.ts`, and outgoing contracts under `src/bridge/`. `src/integration/`
-describes available directions; it does not execute them.
+`src/driver/`, the facade in `src/filesystem/`, and outgoing contracts under `src/bridge/`. `src/integration/` describes
+available directions; it does not execute them.
 
 [Architecture and invariants](design.md) records the rules maintainers must preserve.
 [Drivers and adapters](adapters.md) lists concrete implementations, and [ecosystems](ecosystems.md) describes their

@@ -1,5 +1,5 @@
 import type { InspectionType } from "../capability.ts";
-import type { FileSystemType } from "../filesystem.ts";
+import type { FileSystemType } from "../filesystem/types.ts";
 import type { MetricsType } from "../metrics.ts";
 import type { PlanInputType, PlanType } from "../plan.ts";
 import { createKeyValueBridge } from "./kv.ts";

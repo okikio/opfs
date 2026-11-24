@@ -8,7 +8,7 @@ import { createCacheDriver } from "../../src/backend/cache/driver.ts";
 import { openIndexedDbDriver } from "../../src/backend/indexeddb/driver.ts";
 import { createLocalStorageDriver } from "../../src/backend/localstorage/driver.ts";
 import { createOpfsDriver } from "../../src/backend/opfs/driver.ts";
-import { createFileSystem } from "../../src/filesystem.ts";
+import { createFileSystem } from "../../src/filesystem/mod.ts";
 import type { AdapterType } from "../../src/adapter/definition.ts";
 import type { RecordDriverType } from "../../src/driver/record.ts";
 import type { BenchmarkResultType, BrowserAdapterType } from "../../tests/browser/fixtures/api.ts";

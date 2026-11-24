@@ -1,6 +1,6 @@
 import { FileSystemError } from "../error.ts";
 import type { InspectionType } from "../capability.ts";
-import type { FileSystemType } from "../filesystem.ts";
+import type { FileSystemType } from "../filesystem/types.ts";
 import type { MetricsType } from "../metrics.ts";
 import { joinPath, normalizePath, ROOT_PATH } from "../path.ts";
 import type { PlanInputType, PlanType } from "../plan.ts";

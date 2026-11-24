@@ -43,7 +43,7 @@
  * @module
  */
 
-export { createFileSystem } from "./src/filesystem.ts";
+export { createFileSystem } from "./src/filesystem/mod.ts";
 export { openFileSystem } from "./src/backend/opfs/adapter.ts";
 export { FileSystemError, getErrorMessage, getErrorName, toFileSystemError } from "./src/error.ts";
 export { getOpfsContext } from "./src/context.ts";
@@ -71,7 +71,7 @@ export type {
   WalkEntryType,
   WalkOptionsType,
   WriteOptionsType,
-} from "./src/filesystem.ts";
+} from "./src/filesystem/types.ts";
 export type { HostProfileType } from "./src/driver/host.ts";
 export type { AdapterType, FileSystemOptionsType } from "./src/adapter/definition.ts";
 export type { OpenFileSystemOptionsType } from "./src/backend/opfs/adapter.ts";

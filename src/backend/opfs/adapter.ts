@@ -1,6 +1,7 @@
 import type { AdapterType, FileSystemOptionsType } from "../../adapter/definition.ts";
 import { createFileAdapter } from "../../adapter/file.ts";
-import { createFileSystem, type FileSystemType } from "../../filesystem.ts";
+import { createFileSystem } from "../../filesystem/mod.ts";
+import type { FileSystemType } from "../../filesystem/types.ts";
 import { FileSystemError, toFileSystemError } from "../../error.ts";
 import { createOpfsDriver, type OpfsDirectoryHandleType, type OpfsDriverType } from "./driver.ts";
 

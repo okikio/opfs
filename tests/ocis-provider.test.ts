@@ -3,7 +3,7 @@ import { expect } from "@std/expect";
 import { createWebdavClient } from "../src/backend/webdav/client.ts";
 import { createWebdavAdapter } from "../src/backend/webdav/adapter.ts";
 import { createWebdavDriver } from "../src/backend/webdav/driver.ts";
-import { createFileSystem } from "../src/filesystem.ts";
+import { createFileSystem } from "../src/filesystem/mod.ts";
 import { close } from "./close.ts";
 import { openOcis } from "./provider/ocis.ts";
 
