@@ -1,4 +1,5 @@
 /** Bounded standalone QCOW2 guest-byte views. No guest filesystem is mounted. @module */
+import { toSafeInteger } from "../archive/budget.ts";
 import type { ByteSourceType } from "../source.ts";
 import { ArchiveBudget, assertInteger, createArchiveLedger } from "../archive/budget.ts";
 import { ArchiveError, invalid, unsupported } from "../archive/error.ts";
@@ -74,12 +75,6 @@ export interface Qcow2ImageType {
 
 function combined(left: AbortSignal | undefined, right: AbortSignal | undefined): AbortSignal | undefined {
   return left && right ? AbortSignal.any([left, right]) : left ?? right;
-}
-
-/** Convert only after proving exact public arithmetic; wire offsets are always parsed with BigInt. */
-function exact(value: bigint, label: string): number {
-  if (value > BigInt(Number.MAX_SAFE_INTEGER)) throw unsupported(`QCOW2 ${label} exceeds exact JavaScript integers.`);
-  return Number(value);
 }
 
 interface ExtentType {
@@ -179,11 +174,12 @@ export async function openQcow2(input: ByteSourceType, supplied: Qcow2OpenOption
     throw unsupported("QCOW2 cluster size is outside the 512-byte to 2-MiB profile.");
   }
   const clusterSize = 2 ** clusterBits, cluster = BigInt(clusterSize);
-  const size = exact(prefix.getBigUint64(24), "guest size");
+  const size = toSafeInteger(prefix.getBigUint64(24), `QCOW2 ${"guest size"}`);
   if (size > maximum.guest) throw new ArchiveError("budget-exceeded", "QCOW2 guest size limit exceeded.");
   if (prefix.getUint32(32) !== 0) throw unsupported("QCOW2 encryption is unsupported.");
-  const l1Size = prefix.getUint32(36), l1Offset = exact(prefix.getBigUint64(40), "L1 offset");
-  const refcountOffset = exact(prefix.getBigUint64(48), "refcount offset"), refcountClusters = prefix.getUint32(56);
+  const l1Size = prefix.getUint32(36), l1Offset = toSafeInteger(prefix.getBigUint64(40), `QCOW2 ${"L1 offset"}`);
+  const refcountOffset = toSafeInteger(prefix.getBigUint64(48), `QCOW2 ${"refcount offset"}`),
+    refcountClusters = prefix.getUint32(56);
   if (prefix.getUint32(60) !== 0 || prefix.getBigUint64(64) !== 0n) {
     throw unsupported("QCOW2 internal snapshots are unsupported.");
   }
@@ -223,7 +219,7 @@ export async function openQcow2(input: ByteSourceType, supplied: Qcow2OpenOption
     }
     if (extensionTypes.has(type)) throw invalid("QCOW2 duplicate header extension.");
     extensionTypes.add(type);
-    const padded = exact((BigInt(length) + 7n) / 8n * 8n, "extension size");
+    const padded = toSafeInteger((BigInt(length) + 7n) / 8n * 8n, `QCOW2 ${"extension size"}`);
     if (padded > clusterSize - extension) throw invalid("QCOW2 extension exceeds the first cluster.");
     if (type !== 0x6803f857) throw unsupported("QCOW2 header extension is outside the known profile.");
     if (length % 48 !== 0) throw invalid("QCOW2 feature-name table has incomplete records.");
@@ -241,11 +237,16 @@ export async function openQcow2(input: ByteSourceType, supplied: Qcow2OpenOption
     if (offset > physicalSize || storedLength > physicalSize - offset) {
       throw invalid(`QCOW2 ${role} exceeds the physical source.`);
     }
-    return { start: offset, end: exact(BigInt(offset) + BigInt(length), "protected extent end"), role };
+    return {
+      start: offset,
+      end: toSafeInteger(BigInt(offset) + BigInt(length), `QCOW2 ${"protected extent end"}`),
+      role,
+    };
   };
-  const rounded = (length: bigint): number => exact((length + cluster - 1n) / cluster * cluster, "rounded extent");
+  const rounded = (length: bigint): number =>
+    toSafeInteger((length + cluster - 1n) / cluster * cluster, `QCOW2 ${"rounded extent"}`);
   const roles: ExtentType[] = [extent(0, clusterSize, "header")];
-  const l1Bytes = exact(BigInt(l1Size) * 8n, "L1 length");
+  const l1Bytes = toSafeInteger(BigInt(l1Size) * 8n, `QCOW2 ${"L1 length"}`);
   if ((BigInt(size) + cluster - 1n) / cluster > BigInt(l1Size) * (cluster / 8n)) {
     throw invalid("QCOW2 L1 table does not cover the guest size.");
   }
@@ -256,7 +257,7 @@ export async function openQcow2(input: ByteSourceType, supplied: Qcow2OpenOption
   if (l1Bytes) roles.push(extent(l1Offset, rounded(BigInt(l1Bytes)), "L1", l1Bytes));
   entries(l1Size);
   const l1 = createView(await header(l1Offset, l1Bytes));
-  const refcountBytes = exact(BigInt(refcountClusters) * cluster, "refcount table length");
+  const refcountBytes = toSafeInteger(BigInt(refcountClusters) * cluster, `QCOW2 ${"refcount table length"}`);
   if (!refcountBytes && refcountOffset !== 0) throw invalid("QCOW2 empty refcount table has an offset.");
   if (refcountBytes) roles.push(extent(refcountOffset, refcountBytes, "refcount table"));
   entries(refcountBytes / 8);
@@ -266,7 +267,7 @@ export async function openQcow2(input: ByteSourceType, supplied: Qcow2OpenOption
     const value = refcounts.getBigUint64(at);
     if ((value & 511n) !== 0n) throw invalid("QCOW2 refcount table has reserved bits.");
     if (value === 0n) continue;
-    const offset = exact(value, "refcount block offset");
+    const offset = toSafeInteger(value, `QCOW2 ${"refcount block offset"}`);
     if (refcountBlocks.has(offset)) throw invalid("QCOW2 aliased refcount-block roles are unsupported.");
     if (refcountBlocks.size >= maximum.refcounts) {
       throw new ArchiveError("budget-exceeded", "QCOW2 refcount-block limit exceeded.");
@@ -279,7 +280,7 @@ export async function openQcow2(input: ByteSourceType, supplied: Qcow2OpenOption
   for (let index = 0; index < l1Size; index++) {
     const value = l1.getBigUint64(index * 8);
     if ((value & ~(offsetMask | copiedMask)) !== 0n) throw invalid("QCOW2 L1 entry has reserved bits.");
-    const offset = exact(value & offsetMask, "L2 offset");
+    const offset = toSafeInteger(value & offsetMask, `QCOW2 ${"L2 offset"}`);
     if (offset === 0) {
       if (value !== 0n) throw invalid("QCOW2 absent L2 table has a copied hint.");
       continue;
@@ -294,7 +295,7 @@ export async function openQcow2(input: ByteSourceType, supplied: Qcow2OpenOption
       if ((descriptor & (1n << 62n)) !== 0n) throw unsupported("QCOW2 compressed clusters are unsupported.");
       if ((descriptor & ~(offsetMask | copiedMask | 1n)) !== 0n) throw invalid("QCOW2 L2 entry has reserved bits.");
       if (version === 2 && (descriptor & 1n) !== 0n) throw invalid("QCOW2 version 2 has an explicit-zero bit.");
-      const dataOffset = exact(descriptor & offsetMask, "data offset");
+      const dataOffset = toSafeInteger(descriptor & offsetMask, `QCOW2 ${"data offset"}`);
       if (!dataOffset && (descriptor & copiedMask) !== 0n) {
         throw invalid("QCOW2 host offset zero with copied hint requires external data.");
       }
@@ -321,7 +322,7 @@ export async function openQcow2(input: ByteSourceType, supplied: Qcow2OpenOption
   };
   for (const table of tables.values()) {
     for (let at = 0; at < clusterSize; at += 8) {
-      const offset = exact(table.getBigUint64(at) & offsetMask, "data offset");
+      const offset = toSafeInteger(table.getBigUint64(at) & offsetMask, `QCOW2 ${"data offset"}`);
       if (offset) dataExtent(offset);
     }
   }
@@ -336,9 +337,12 @@ export async function openQcow2(input: ByteSourceType, supplied: Qcow2OpenOption
     const perL2 = clusterSize / 8;
     for (let at = offset; at < offset + length;) {
       const guestCluster = Math.floor(at / clusterSize), inCluster = at % clusterSize;
-      const l2Offset = exact(l1.getBigUint64(Math.floor(guestCluster / perL2) * 8) & offsetMask, "L2 offset");
+      const l2Offset = toSafeInteger(
+        l1.getBigUint64(Math.floor(guestCluster / perL2) * 8) & offsetMask,
+        `QCOW2 ${"L2 offset"}`,
+      );
       const descriptor = l2Offset ? tables.get(l2Offset)!.getBigUint64((guestCluster % perL2) * 8) : 0n;
-      const host = exact(descriptor & offsetMask, "data offset");
+      const host = toSafeInteger(descriptor & offsetMask, `QCOW2 ${"data offset"}`);
       const amount = Math.min(clusterSize - inCluster, offset + length - at);
       segments.push(Object.freeze({
         offset: at,

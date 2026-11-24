@@ -1,4 +1,11 @@
-/** Pure admission for the providers' native readable-body union. @module */
+/**
+ * Response bodies from provider clients: native stream admission and exact-length reading.
+ *
+ * @module
+ */
+import { isBytes, toView } from "./bytes.ts";
+import { close } from "./close.ts";
+import { openBytes, withAbortSignal } from "./stream.ts";
 
 /** Native slot inspection across realms, without acquiring a reader or reading bytes. */
 const locked = Object.getOwnPropertyDescriptor(ReadableStream.prototype, "locked")?.get;
@@ -65,4 +72,99 @@ export function assertRequestStream(): void {
         "Use put() for bounded byte-part uploads or provide a Fetch implementation that consumes stream bytes.",
     );
   }
+}
+
+/** Options for {@link exactLength}. */
+export interface ExactLengthOptionsType {
+  /**
+   * Names the body in errors, such as `Box body` or `Git LFS body`:
+   * `"Box body is truncated."`.
+   */
+  readonly label: string;
+  /** Names the resource for abort errors, such as `Box content`. Defaults to `label`. */
+  readonly resource?: string;
+  /** Cancels the source and fails the stream when aborted. */
+  readonly signal?: AbortSignal | undefined;
+}
+
+/**
+ * Passes a response body through only if it has exactly `length` bytes.
+ *
+ * A storage API that says a file has 10 bytes and then sends 9, or 11, has
+ * failed; handing the caller a short file as if it were complete would hide
+ * that. The returned stream errors with a `TypeError` when the body ends
+ * early, runs past `length`, yields a non-byte chunk, or sends more than 16
+ * empty chunks in a row. Pass `undefined` when the API gave no length: then
+ * only the byte and progress checks apply.
+ *
+ * The returned stream owns the source's reader. Cancelling it, an error, or
+ * the abort signal cancels the source once and releases the reader. It pulls
+ * one chunk per read (`highWaterMark: 0`), so nothing is buffered ahead of the
+ * consumer.
+ *
+ * @example
+ * ```ts
+ * const body = exactLength(response.body!, Number(response.headers.get("content-length")), {
+ *   label: "Box body",
+ *   resource: "Box content",
+ *   signal,
+ * });
+ * ```
+ */
+export function exactLength(
+  source: ReadableStream<Uint8Array>,
+  length: number | undefined,
+  options: ExactLengthOptionsType,
+): ReadableStream<Uint8Array> {
+  const label = options.label;
+  const reader = openBytes(source);
+  let seen = 0, empty = 0, ended = false;
+  const stream = new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      try {
+        let next: ReadableStreamReadResult<Uint8Array>;
+        try {
+          next = await reader.read();
+        } catch (reason) {
+          // A rejected read already ended the source; cancelling it again would
+          // report the same failure twice.
+          ended = true;
+          throw reason;
+        }
+        // Cancellation can settle a pending read with done: that is not the end
+        // of the body and must not be reported as truncation.
+        if (ended) return;
+        if (next.done) {
+          ended = true;
+          if (length !== undefined && seen !== length) throw new TypeError(`${label} is truncated.`);
+          reader.releaseLock();
+          controller.close();
+          return;
+        }
+        if (!isBytes(next.value)) throw new TypeError(`${label} requires bytes.`);
+        const chunk = toView(next.value);
+        if (
+          chunk.length > Number.MAX_SAFE_INTEGER - seen || (length !== undefined && chunk.length > length - seen)
+        ) throw new TypeError(`${label} exceeds its declared extent.`);
+        if (chunk.length === 0) {
+          if (++empty > 16) throw new TypeError(`${label} makes no progress.`);
+        } else empty = 0;
+        seen += chunk.length;
+        controller.enqueue(chunk);
+      } catch (reason) {
+        try {
+          await close([...(ended ? [] : [() => reader.cancel(reason)]), () => reader.releaseLock()], [reason]);
+        } catch (failure) {
+          controller.error(failure);
+        }
+        ended = true;
+      }
+    },
+    async cancel(reason) {
+      if (ended) return;
+      ended = true;
+      await close([() => reader.cancel(reason), () => reader.releaseLock()]);
+    },
+  }, { highWaterMark: 0 });
+  return withAbortSignal(stream, options.signal, options.resource ?? label, "download");
 }

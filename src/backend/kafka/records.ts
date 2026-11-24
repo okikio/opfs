@@ -1,4 +1,5 @@
 /** Pure uncompressed magic-2 batches, admitted as complete pages before filtering. @module */
+import { resolveLimit } from "../../check.ts";
 import { isBytes, toView } from "../../bytes.ts";
 import { long, MAX_FRAME, MAX_LONG, Reader, Writer } from "./wire.ts";
 
@@ -83,20 +84,13 @@ export interface LimitsType {
 function require(value: boolean, message: string): asserts value {
   if (!value) throw new Error(message);
 }
-function limit(value: number | undefined, fallback: number, minimum: number): number {
-  const actual = value === undefined ? fallback : value;
-  if (!Number.isSafeInteger(actual) || actual < minimum || actual > fallback) {
-    throw new RangeError("Kafka record policy exceeds its admitted range.");
-  }
-  return actual;
-}
 /** Admits caller ceilings independently of whether an append contains records. */
 export function recordLimits(options: KafkaRecordLimitsType = {}): LimitsType {
   return {
-    maxBytes: limit(options.maxBytes, 1024 * 1024, 1),
-    maxRecords: limit(options.maxRecords, 1024, 1),
-    maxHeaders: limit(options.maxHeaders, 1024, 0),
-    maxRecordHeaders: limit(options.maxRecordHeaders, 64, 0),
+    maxBytes: resolveLimit(options.maxBytes, 1024 * 1024, 1024 * 1024, "Kafka record policy", 1),
+    maxRecords: resolveLimit(options.maxRecords, 1024, 1024, "Kafka record policy", 1),
+    maxHeaders: resolveLimit(options.maxHeaders, 1024, 1024, "Kafka record policy", 0),
+    maxRecordHeaders: resolveLimit(options.maxRecordHeaders, 64, 64, "Kafka record policy", 0),
   };
 }
 /** Bounded lossless UTF8 encoding; character admission happens before allocation. */

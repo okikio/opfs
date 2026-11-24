@@ -1,4 +1,5 @@
 /** Bounded UDF 1.02 physical-partition inspection without mounting an image. @module */
+import { toSafeInteger } from "./budget.ts";
 import type { ByteSourceType } from "../source.ts";
 import { ArchiveBudget, assertInteger, createArchiveLedger } from "./budget.ts";
 import { ArchiveError, invalid, unsupported } from "./error.ts";
@@ -117,19 +118,15 @@ function crc16(bytes: Uint8Array): number {
   }
   return state;
 }
-function exact(value: bigint): number {
-  if (value < 0n || value > BigInt(Number.MAX_SAFE_INTEGER)) throw unsupported("UDF integer exceeds safe indexing.");
-  return Number(value);
-}
 function bytesOf(block: number, length: number, maximum: number): number {
   const offset = BigInt(block) * 2048n;
   if (offset + BigInt(length) > BigInt(maximum)) throw invalid("UDF extent exceeds its enclosing volume or partition.");
-  return exact(offset);
+  return toSafeInteger(offset, "UDF integer");
 }
 function zeros(bytes: Uint8Array, label: string): void {
   if (bytes.some((byte) => byte !== 0)) throw invalid(`UDF ${label} must contain zero bytes.`);
 }
-function text(bytes: Uint8Array): string {
+function decodeLatin1(bytes: Uint8Array): string {
   return String.fromCharCode(...bytes);
 }
 /** Check location in the descriptor's own coordinate system (volume sector or partition block).
@@ -176,13 +173,13 @@ function nameOf(bytes: Uint8Array): string {
   return result;
 }
 function charspec(bytes: Uint8Array): void {
-  if (bytes.length !== 64 || bytes[0] !== 0 || text(bytes.subarray(1, 24)) !== "OSTA Compressed Unicode") {
+  if (bytes.length !== 64 || bytes[0] !== 0 || decodeLatin1(bytes.subarray(1, 24)) !== "OSTA Compressed Unicode") {
     throw unsupported("UDF character set must be OSTA CS0.");
   }
   zeros(bytes.subarray(24), "character-set padding");
 }
 function domain(bytes: Uint8Array): void {
-  if (bytes.length !== 32 || bytes[0] !== 0 || text(bytes.subarray(1, 20)) !== "*OSTA UDF Compliant") {
+  if (bytes.length !== 32 || bytes[0] !== 0 || decodeLatin1(bytes.subarray(1, 20)) !== "*OSTA UDF Compliant") {
     throw unsupported("UDF domain is not OSTA UDF Compliant.");
   }
   zeros(bytes.subarray(20, 24), "domain identifier padding");
@@ -251,7 +248,7 @@ export async function openUdf(input: ByteSourceType, supplied: UdfOpenOptionsTyp
   let terminated = false;
   for (let block = 16; block < 256; block++) {
     const bytes = await system(block);
-    const id = text(bytes.subarray(1, 6));
+    const id = decodeLatin1(bytes.subarray(1, 6));
     // ISO bridge descriptors can precede the extended recognition area.
     if (!beginning && id === "CD001") continue;
     if (bytes[0] !== 0 || bytes[6] !== 1) throw invalid("UDF recognition descriptor framing differs.");
@@ -311,12 +308,15 @@ export async function openUdf(input: ByteSourceType, supplied: UdfOpenOptionsTyp
   }
   if (!terminated || !primary || !partition || !logical) throw invalid("UDF main descriptor sequence is incomplete.");
   const pd = createView(partition);
-  if (pd.getUint16(20, true) !== 1 || pd.getUint32(184, true) !== 1 || text(partition.subarray(25, 31)) !== "+NSR02") {
+  if (
+    pd.getUint16(20, true) !== 1 || pd.getUint32(184, true) !== 1 ||
+    decodeLatin1(partition.subarray(25, 31)) !== "+NSR02"
+  ) {
     throw unsupported("UDF requires an allocated read-only NSR02 partition.");
   }
   zeros(partition.subarray(31, 48), "partition contents identifier padding");
   const partitionNumber = pd.getUint16(22, true);
-  const partitionLength = exact(BigInt(pd.getUint32(192, true)) * 2048n);
+  const partitionLength = toSafeInteger(BigInt(pd.getUint32(192, true)) * 2048n, "UDF integer");
   const partitionOffset = bytesOf(pd.getUint32(188, true), partitionLength, size);
   const ld = createView(logical);
   if (ld.getUint32(212, true) !== 2048 || ld.getUint32(264, true) !== 6 || ld.getUint32(268, true) !== 1) {
@@ -428,7 +428,7 @@ export async function openUdf(input: ByteSourceType, supplied: UdfOpenOptionsTyp
     if (bytes[50] || bytes[51] || data.getUint32(52, true) || data.getUint32(112, true)) {
       throw unsupported("UDF record formats or external extended-attribute ICBs are unsupported.");
     }
-    const size = exact(data.getBigUint64(56, true));
+    const size = toSafeInteger(data.getBigUint64(56, true), "UDF integer");
     const ea = data.getUint32(168, true);
     const ads = data.getUint32(172, true);
     if (ea > 2048 - 176 || ads > 2048 - 176 - ea) throw invalid("UDF FE variable fields exceed its sector.");

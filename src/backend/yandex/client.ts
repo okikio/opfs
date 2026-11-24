@@ -1,4 +1,7 @@
 /** Native Yandex Disk REST paths, explicit content authority and asynchronous receipts. @module */
+import { toInteger } from "../../check.ts";
+import { exactLength } from "../../body.ts";
+import { type JsonLimitsType, parseJson } from "../../json.ts";
 import { z } from "zod";
 import { isBytes, toView } from "../../bytes.ts";
 import { close } from "../../close.ts";
@@ -6,7 +9,7 @@ import { assertRangeResponse, resolveRange } from "../../range.ts";
 import { RequestMetrics, sendRequest } from "../../request.ts";
 import type { FetchType, RequestPolicyType } from "../../request.ts";
 import { readResponse } from "../../response.ts";
-import { collectBytes, openBytes, withAbortSignal } from "../../stream.ts";
+import { collectBytes } from "../../stream.ts";
 
 /** Local buffer ceiling, independent of subscription-dependent provider file limits. */
 export const YANDEX_BUFFER_BYTES = 64 * 1024 * 1024;
@@ -113,13 +116,6 @@ const LinkSchema = z.object({
   method: z.enum(["GET", "PUT"]),
   templated: z.literal(false),
 });
-/** Finite local bounds precede allocations, arithmetic and borrowed capability acquisition. */
-function integer(value: number, maximum: number, label: string): number {
-  if (!Number.isSafeInteger(value) || value < 0 || value > maximum) {
-    throw new RangeError(`Invalid Yandex Disk ${label}.`);
-  }
-  return value;
-}
 /** No decoding/normalization: a literal '%' in a name is encoded once by URLSearchParams. */
 function path(value: string, mutation = false): string {
   if (typeof value !== "string" || value.length > 32760 || !value.startsWith("disk:/") || !value.isWellFormed()) {
@@ -167,109 +163,9 @@ function origins(values: readonly string[], http: boolean): ReadonlySet<string> 
     return result.origin;
   }));
 }
-/**
- * Duplicate-aware preflight protects link/path authority before JSON.parse can
- * overwrite it. The selected response profile contains only safe integer numeric
- * fields; fractions/exponents are refused before rounding. Depth32, 1M tokens,
- * 196608-character lexical strings and 128-character scalar tokens cap work.
- */
-function json(text: string): unknown {
-  let at = 0, tokens = 0;
-  const fail = (): never => {
-    throw new TypeError("Malformed or over-budget Yandex Disk JSON.");
-  };
-  const count = (): void => {
-    if (++tokens > 1000000) fail();
-  };
-  const space = (): void => {
-    while (/[ \t\r\n]/.test(text[at] ?? "x")) at++;
-  };
-  function string(): string {
-    const start = at++;
-    while (at < text.length) {
-      if (at - start > 196608) fail();
-      const char = text[at++];
-      if (char === "\\") {
-        at++;
-        continue;
-      }
-      if (char === '"') {
-        try {
-          const parsed: unknown = JSON.parse(text.slice(start, at));
-          if (typeof parsed !== "string") return fail();
-          return parsed;
-        } catch {
-          return fail();
-        }
-      }
-    }
-    return fail();
-  }
-  function value(depth: number): void {
-    count();
-    if (depth > 32) fail();
-    space();
-    if (text[at] === '"') {
-      string();
-      return;
-    }
-    if (text[at] === "{") {
-      at++;
-      space();
-      const keys = new Set<string>();
-      if (text[at] === "}") {
-        at++;
-        return;
-      }
-      while (true) {
-        count();
-        space();
-        if (text[at] !== '"') fail();
-        const key = string();
-        if (["__proto__", "constructor", "prototype"].includes(key) || keys.has(key)) fail();
-        keys.add(key);
-        space();
-        if (text[at++] !== ":") fail();
-        value(depth + 1);
-        space();
-        const end = text[at++];
-        if (end === "}") return;
-        if (end !== ",") fail();
-      }
-    }
-    if (text[at] === "[") {
-      at++;
-      space();
-      if (text[at] === "]") {
-        at++;
-        return;
-      }
-      while (true) {
-        value(depth + 1);
-        space();
-        const end = text[at++];
-        if (end === "]") return;
-        if (end !== ",") fail();
-      }
-    }
-    const start = at;
-    while (at < text.length && !/[ \t\r\n,}\]]/.test(text[at]!)) {
-      if (at - start >= 128) fail();
-      at++;
-    }
-    const raw = text.slice(start, at);
-    if (["true", "false", "null"].includes(raw)) return;
-    if (!/^-?(0|[1-9][0-9]*)$/.test(raw) || !Number.isSafeInteger(Number(raw))) fail();
-  }
-  value(0);
-  space();
-  if (at !== text.length) fail();
-  try {
-    return JSON.parse(text);
-  } catch {
-    return fail();
-  }
-}
+/** Limits for this service's JSON responses; see `parseJson`. */
+const jsonLimits: JsonLimitsType = { label: "Yandex Disk", maxTokens: 1_000_000, maxString: 196_608, maxScalar: 128 };
+
 /** Native paths and selected kind must agree; metadata is server evidence, not a revision receipt. */
 function resource(value: unknown, expected?: string): YandexResourceType {
   const data = ResourceSchema.parse(value), selected = path(data.path);
@@ -277,7 +173,7 @@ function resource(value: unknown, expected?: string): YandexResourceType {
     expected !== undefined && selected !== expected ||
     selected !== "disk:/" && selected.slice(selected.lastIndexOf("/") + 1) !== data.name
   ) throw new TypeError("Yandex Disk resource path/name differs.");
-  const size = data.type === "file" ? integer(data.size!, Number.MAX_SAFE_INTEGER, "file size") : undefined;
+  const size = data.type === "file" ? toInteger(data.size!, "Yandex Disk file size") : undefined;
   return {
     path: selected,
     name: data.name,
@@ -287,56 +183,6 @@ function resource(value: unknown, expected?: string): YandexResourceType {
     ...(data.mime_type === undefined ? {} : { mediaType: data.mime_type }),
     ...(data.modified === undefined ? {} : { modified: data.modified }),
   };
-}
-/** Exact extent publication waits for true EOF, retaining primary failure when cancellation fails. */
-function extent(source: ReadableStream<Uint8Array>, length: number, signal?: AbortSignal): ReadableStream<Uint8Array> {
-  const reader = openBytes(source);
-  let left = length, ended = false, empty = 0;
-  return withAbortSignal(
-    new ReadableStream<Uint8Array>({
-      async pull(controller) {
-        try {
-          let next: ReadableStreamReadResult<Uint8Array>;
-          try {
-            next = await reader.read();
-          } catch (reason) {
-            ended = true;
-            throw reason;
-          }
-          if (ended) return;
-          if (next.done) {
-            ended = true;
-            if (left !== 0) throw new TypeError("Yandex Disk body is truncated.");
-            reader.releaseLock();
-            controller.close();
-            return;
-          }
-          if (!isBytes(next.value)) throw new TypeError("Yandex Disk body requires bytes.");
-          const chunk = toView(next.value);
-          if (chunk.length > left) throw new TypeError("Yandex Disk body exceeds the selected extent.");
-          if (!chunk.length) { if (++empty > 16) throw new TypeError("Yandex Disk body makes no progress."); }
-          else empty = 0;
-          left -= chunk.length;
-          controller.enqueue(chunk);
-        } catch (reason) {
-          try {
-            await close([...(ended ? [] : [() => reader.cancel(reason)]), () => reader.releaseLock()], [reason]);
-          } catch (failure) {
-            controller.error(failure);
-          }
-          ended = true;
-        }
-      },
-      async cancel(reason) {
-        if (ended) return;
-        ended = true;
-        await close([() => reader.cancel(reason), () => reader.releaseLock()]);
-      },
-    }, { highWaterMark: 0 }),
-    signal,
-    "Yandex Disk content",
-    "download",
-  );
 }
 const fields = "path,name,type,size,md5,mime_type,modified";
 /** Native REST client; none of its methods promises canonical filesystem or immutable source semantics. */
@@ -366,9 +212,9 @@ export class YandexClient {
         throw new TypeError("Yandex Disk download credential grant needs the same content-origin grant.");
       }
     }
-    this.#bytes = integer(options.maxBytes ?? 8 * 1024 * 1024, YANDEX_BUFFER_BYTES, "byte budget");
-    this.#pages = integer(options.maxPages ?? 1000, 100000, "page budget");
-    this.#entries = integer(options.maxEntries ?? 100000, 1000000, "entry budget");
+    this.#bytes = toInteger(options.maxBytes ?? 8 * 1024 * 1024, "Yandex Disk byte budget", YANDEX_BUFFER_BYTES);
+    this.#pages = toInteger(options.maxPages ?? 1000, "Yandex Disk page budget", 100000);
+    this.#entries = toInteger(options.maxEntries ?? 100000, "Yandex Disk entry budget", 1000000);
   }
   #url(route: string, params: Record<string, string> = {}): URL {
     const result = new URL(route, this.#api);
@@ -444,7 +290,7 @@ export class YandexClient {
     try {
       return await readResponse(response, async (text) => {
         if (response.status !== expected) throw new YandexError(response.status);
-        return parse(json(await text()));
+        return parse(parseJson(await text(), jsonLimits));
       });
     } catch (reason) {
       if (mutation) throw new YandexPublicationError(reason);
@@ -469,8 +315,8 @@ export class YandexClient {
     options: { readonly offset?: number; readonly limit?: number; readonly signal?: AbortSignal } = {},
   ): Promise<YandexPageType> {
     const selected = path(value),
-      offset = integer(options.offset ?? 0, Number.MAX_SAFE_INTEGER, "offset"),
-      limit = integer(options.limit ?? 100, 1000, "page limit"),
+      offset = toInteger(options.offset ?? 0, "Yandex Disk offset"),
+      limit = toInteger(options.limit ?? 100, "Yandex Disk page limit", 1000),
       signal = options.signal;
     if (limit === 0) throw new RangeError("Yandex Disk list pages need a positive limit.");
     const target = this.#url("resources", {
@@ -496,7 +342,7 @@ export class YandexClient {
             path: z.string(),
           }),
         }).parse(value)._embedded;
-        const total = integer(data.total, Number.MAX_SAFE_INTEGER, "total");
+        const total = toInteger(data.total, "Yandex Disk total");
         if (
           data.offset !== offset || data.limit !== limit || path(data.path) !== selected ||
           data.items.length > Math.max(0, total - offset)
@@ -528,7 +374,7 @@ export class YandexClient {
         entries.push(entry);
       }
       if (data.entries.length >= data.total - offset) return entries;
-      offset = integer(offset + data.entries.length, Number.MAX_SAFE_INTEGER, "next offset");
+      offset = toInteger(offset + data.entries.length, "Yandex Disk next offset");
     }
     throw new RangeError("Yandex Disk listing exceeds its page budget.");
   }
@@ -611,14 +457,14 @@ export class YandexClient {
           resource: stored,
           length,
           evidence: "server-trusted",
-          bytes: extent(
+          bytes: exactLength(
             response.body ?? new ReadableStream<Uint8Array>({
               start(controller) {
                 controller.close();
               },
             }),
             length,
-            signal,
+            { label: "Yandex Disk body", resource: "Yandex Disk content", signal: signal },
           ),
         };
       } catch (reason) {
@@ -759,7 +605,7 @@ export class YandexClient {
           return { state: "completed", path: selected, ...context, acknowledgment: "http-204" };
         }
         if (!deletion && response.status === 201) {
-          this.#resourceLink(json(await text()), selected);
+          this.#resourceLink(parseJson(await text(), jsonLimits), selected);
           return { state: "completed", path: selected, ...context, acknowledgment: "http-201" };
         }
         if (response.status === 202 && pending) {
@@ -767,7 +613,7 @@ export class YandexClient {
             state: "pending",
             path: selected,
             ...context,
-            operation: this.#operation(json(await text())),
+            operation: this.#operation(parseJson(await text(), jsonLimits)),
             acknowledgment: "http-202",
           };
         }

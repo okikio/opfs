@@ -1,4 +1,7 @@
 /** Bounded Git LFS pointers, Batch API and basic object transfer, without Git discovery. @module */
+import { toInteger } from "../check.ts";
+import { exactLength } from "../body.ts";
+import { type JsonLimitsType, parseJson } from "../json.ts";
 import { z } from "zod";
 import { encodeHex } from "@std/encoding/hex";
 import { isBytes, toView } from "../bytes.ts";
@@ -6,7 +9,7 @@ import { close } from "../close.ts";
 import { readResponse } from "../response.ts";
 import { RequestMetrics, sendRequest } from "../request.ts";
 import type { FetchType, RequestPolicyType } from "../request.ts";
-import { collectBytes, openBytes, withAbortSignal } from "../stream.ts";
+import { collectBytes } from "../stream.ts";
 import { assertExtent } from "../source.ts";
 import type { ByteSourceType } from "../source.ts";
 
@@ -104,16 +107,12 @@ export class LfsVerificationError extends Error {
     this.upload = Object.freeze({ ...upload });
   }
 }
-function integer(value: number, max: number, label: string): number {
-  if (!Number.isSafeInteger(value) || value < 0 || value > max) throw new RangeError(`Invalid Git LFS ${label}.`);
-  return value;
-}
 function object(value: LfsObjectType): LfsObjectType {
   const oid = value.oid, size = value.size;
   if (typeof oid !== "string" || !/^[a-f0-9]{64}$/.test(oid)) {
     throw new TypeError("Git LFS requires a complete SHA-256 object ID.");
   }
-  return { oid, size: integer(size, Number.MAX_SAFE_INTEGER, "object size") };
+  return { oid, size: toInteger(size, "Git LFS object size") };
 }
 /** Pure canonical pointer parser; historical aliases/noncanonical encodings are intentionally refused. */
 export function decodeLfsPointer(bytes: Uint8Array): LfsPointerType {
@@ -253,7 +252,10 @@ function headers(value: HeadersInit): Headers {
 /** Native Accept values can include quality weights without changing action authority. */
 function acceptsJson(value: string): boolean {
   return value.split(",").some((part) => {
-    const match = /^\s*application\/vnd\.git-lfs\+json(?:\s*;\s*q=(0(?:\.\d{1,3})?|1(?:\.0{1,3})?))?\s*$/i.exec(part);
+    const match =
+      /^\s*application\/vnd\.git-lfs\+parseJson(?:\s*;\s*q=(0(?:\.\d{1,3})?|1(?:\.0{1,3})?), jsonLimits)?\s*$/i.exec(
+        part,
+      );
     return match !== null && (match[1] === undefined || Number(match[1]) > 0);
   });
 }
@@ -278,134 +280,9 @@ const BatchSchema = z.object({
     }).optional(),
   })),
 });
-/** Bounded duplicate-aware JSON preflight protects action URL/header authority from last-key-wins parsing. */
-function json(text: string): unknown {
-  let at = 0, tokens = 0;
-  const fail = (): never => {
-    throw new TypeError("Malformed or over-budget Git LFS JSON.");
-  };
-  const space = (): void => {
-    while (/[ \t\r\n]/.test(text[at] ?? "x")) at++;
-  };
-  function string(): string {
-    const start = at++;
-    while (at < text.length) {
-      if (at - start > 196608) fail();
-      const char = text[at++];
-      if (char === "\\") {
-        at++;
-        continue;
-      }
-      if (char === '"') {
-        try {
-          return JSON.parse(text.slice(start, at)) as string;
-        } catch {
-          return fail();
-        }
-      }
-    }
-    return fail();
-  }
-  function value(depth: number): void {
-    if (++tokens > 100000 || depth > 32) fail();
-    space();
-    if (text[at] === '"') {
-      string();
-      return;
-    }
-    if (text[at] === "{" || text[at] === "[") {
-      const object = text[at++] === "{", end = object ? "}" : "]", keys = new Set<string>();
-      space();
-      if (text[at] === end) {
-        at++;
-        return;
-      }
-      while (true) {
-        if (object) {
-          space();
-          if (text[at] !== '"') fail();
-          const key = string();
-          if (keys.has(key) || ["__proto__", "constructor", "prototype"].includes(key)) fail();
-          keys.add(key);
-          space();
-          if (text[at++] !== ":") fail();
-        }
-        value(depth + 1);
-        space();
-        const char = text[at++];
-        if (char === end) return;
-        if (char !== ",") fail();
-      }
-    }
-    const start = at;
-    while (at < text.length && !/[ \t\r\n,}\]]/.test(text[at]!)) {
-      if (at - start > 128) fail();
-      at++;
-    }
-    const raw = text.slice(start, at);
-    if (
-      !["true", "false", "null"].includes(raw) &&
-      (!/^-?(0|[1-9][0-9]*)$/.test(raw) || !Number.isSafeInteger(Number(raw)))
-    ) fail();
-  }
-  value(0);
-  space();
-  if (at !== text.length) fail();
-  try {
-    return JSON.parse(text);
-  } catch {
-    return fail();
-  }
-}
-/** Actual EOF and exact size are required, but streaming bytes are exposed before any whole-object digest. */
-function extent(body: ReadableStream<Uint8Array>, size: number, signal?: AbortSignal): ReadableStream<Uint8Array> {
-  const reader = openBytes(body);
-  let left = size, terminal = false, empty = 0;
-  return withAbortSignal(
-    new ReadableStream<Uint8Array>({
-      async pull(controller) {
-        try {
-          let next: ReadableStreamReadResult<Uint8Array>;
-          try {
-            next = await reader.read();
-          } catch (reason) {
-            terminal = true;
-            throw reason;
-          }
-          if (next.done) {
-            terminal = true;
-            if (left) throw new TypeError("Git LFS body is truncated.");
-            reader.releaseLock();
-            controller.close();
-            return;
-          }
-          if (!isBytes(next.value)) throw new TypeError("Git LFS body requires bytes.");
-          const bytes = toView(next.value);
-          if (bytes.length > left) throw new TypeError("Git LFS body exceeds object size.");
-          if (!bytes.length) { if (++empty > 16) throw new TypeError("Git LFS body makes no progress."); }
-          else empty = 0;
-          left -= bytes.length;
-          controller.enqueue(bytes);
-        } catch (reason) {
-          try {
-            await close([...(terminal ? [] : [() => reader.cancel(reason)]), () => reader.releaseLock()], [reason]);
-          } catch (failure) {
-            controller.error(failure);
-          }
-          terminal = true;
-        }
-      },
-      async cancel(reason) {
-        if (terminal) return;
-        terminal = true;
-        await close([() => reader.cancel(reason), () => reader.releaseLock()]);
-      },
-    }, { highWaterMark: 0 }),
-    signal,
-    "Git LFS content",
-    "download",
-  );
-}
+/** Limits for this service's JSON responses; see `parseJson`. */
+const jsonLimits: JsonLimitsType = { label: "Git LFS", maxTokens: 100_000, maxString: 196_608, maxScalar: 128 };
+
 /** Native Basic transfer client. No Git repository, ref, lock or filesystem state is inferred. */
 export class LfsClient {
   readonly #base: URL;
@@ -445,8 +322,8 @@ export class LfsClient {
     this.#request = options.request === undefined ? undefined : { ...options.request };
     this.#digest = options.subtle?.digest.bind(options.subtle);
     this.#now = options.now ?? (() => Date.now());
-    this.#bytes = integer(options.maxBytes ?? 8 * 1024 * 1024, LFS_BUFFER_BYTES, "byte budget");
-    this.#batch = integer(options.maxBatch ?? 100, 1000, "batch budget");
+    this.#bytes = toInteger(options.maxBytes ?? 8 * 1024 * 1024, "Git LFS byte budget", LFS_BUFFER_BYTES);
+    this.#batch = toInteger(options.maxBatch ?? 100, "Git LFS batch budget", 1000);
   }
   #time(): number {
     const time = this.#now();
@@ -590,7 +467,7 @@ export class LfsClient {
       signal,
       false,
       async (_response, text) => {
-        const received = this.#time(), data = BatchSchema.parse(json(await text()));
+        const received = this.#time(), data = BatchSchema.parse(parseJson(await text(), jsonLimits));
         if (data.objects.length !== expected.size) throw new TypeError("Git LFS batch response count differs.");
         const seen = new Set<string>();
         return data.objects.map((raw): LfsResultType => {
@@ -681,7 +558,15 @@ export class LfsClient {
           length !== null && (!/^(0|[1-9][0-9]*)$/.test(length) || Number(length) !== selected.size) ||
           response.body === null
         ) throw new TypeError("Git LFS download extent differs.");
-        return { ...selected, bytes: extent(response.body!, selected.size, signal), evidence: "server-trusted" };
+        return {
+          ...selected,
+          bytes: exactLength(response.body!, selected.size, {
+            label: "Git LFS body",
+            resource: "Git LFS content",
+            signal: signal,
+          }),
+          evidence: "server-trusted",
+        };
       },
       true,
     );
@@ -699,7 +584,7 @@ export class LfsClient {
   /** Inherited immutable-source construction cannot accidentally bypass the actual digest proof via an override. */
   async #readVerified(value: LfsObjectType, signal?: AbortSignal): Promise<Uint8Array<ArrayBuffer>> {
     const selected = object(value);
-    integer(selected.size, this.#bytes, "verified byte budget");
+    toInteger(selected.size, "Git LFS verified byte budget", this.#bytes);
     if (this.#digest === undefined) throw new TypeError("Git LFS verification requires injected Web Crypto.");
     const response = await this.download(selected, { ...(signal === undefined ? {} : { signal }) });
     const bytes = new Uint8Array(
@@ -739,7 +624,7 @@ export class LfsClient {
     signal?.throwIfAborted();
     if (!isBytes(bytes)) throw new TypeError("Git LFS upload requires bytes.");
     const view = toView(bytes);
-    integer(view.length, this.#bytes, "upload byte budget");
+    toInteger(view.length, "Git LFS upload byte budget", this.#bytes);
     if (view.length !== selected.size) throw new TypeError("Git LFS upload size differs.");
     const copied = new Uint8Array(view);
     if (await this.#hash(copied) !== selected.oid) throw new TypeError("Git LFS upload digest differs.");
@@ -760,7 +645,9 @@ export class LfsClient {
       if (
         verify.headers.has("Accept") && !acceptsJson(verify.headers.get("Accept")!) ||
         verify.headers.has("Content-Type") &&
-          !/^application\/vnd\.git-lfs\+json(?:;\s*charset=utf-8)?$/i.test(verify.headers.get("Content-Type")!)
+          !/^application\/vnd\.git-lfs\+parseJson(?:;\s*charset=utf-8, jsonLimits)?$/i.test(
+            verify.headers.get("Content-Type")!,
+          )
       ) throw new TypeError("Git LFS verify headers conflict with its JSON protocol.");
       if (!verify.headers.has("Accept")) verify.headers.set("Accept", "application/vnd.git-lfs+json");
       if (!verify.headers.has("Content-Type")) verify.headers.set("Content-Type", "application/vnd.git-lfs+json");

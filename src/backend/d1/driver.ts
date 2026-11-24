@@ -1,4 +1,5 @@
 /** Borrowed Cloudflare D1 bindings with a versioned, bounded record layout. @module */
+import { toInteger } from "../../check.ts";
 import { z } from "zod";
 import { RecordMetadataSchema, RecordSchema, SqlIdentifierSchema } from "../../schema/mod.ts";
 import type { RecordType } from "../../schema/mod.ts";
@@ -72,11 +73,6 @@ const RowSchema = z.strictObject({
 });
 /** Listing and stat never select payload text, so their schema has no data property. */
 const RowMetadataSchema = RowSchema.omit({ data: true });
-/** Bounded integer policies are captured before prepare() or schema initialization. */
-function integer(value: number, maximum: number, label: string): number {
-  if (!Number.isSafeInteger(value) || value < 0 || value > maximum) throw new RangeError(`Invalid D1 ${label}.`);
-  return value;
-}
 /** Preserve literal provider identity and bound UTF-8 parameters without replacement encoding. */
 function text(value: string, maximum: number): number {
   if (value.length > maximum) throw new RangeError("D1 text exceeds its byte policy.");
@@ -141,10 +137,10 @@ export async function createD1Driver(
   const table = SqlIdentifierSchema.parse(options.table ?? "opfs_d1_v1");
   if (table.length > 64) throw new RangeError("D1 table identifier exceeds the 64-character profile.");
   const q = `"${table}"`;
-  const maximum = integer(options.maxFileBytes ?? D1_FILE_BYTES, D1_FILE_BYTES, "file policy");
-  const pageSize = integer(options.pageSize ?? 64, 128, "page size");
+  const maximum = toInteger(options.maxFileBytes ?? D1_FILE_BYTES, "D1 file policy", D1_FILE_BYTES);
+  const pageSize = toInteger(options.pageSize ?? 64, "D1 page size", 128);
   if (pageSize === 0) throw new RangeError("D1 page size must be positive.");
-  const maxListEntries = integer(options.maxListEntries ?? 10_000, 1_000_000, "listing entry policy");
+  const maxListEntries = toInteger(options.maxListEntries ?? 10_000, "D1 listing entry policy", 1_000_000);
   /** Every D1 API result must affirm success; successful Promise settlement alone is insufficient. */
   function checked(result: D1ResultType, operation: string): D1ResultType {
     if (result.success !== true) throw new D1Error(operation, result);

@@ -1,4 +1,5 @@
 /** Bounded physical numeric Parquet previews over a borrowed stable byte source. @module */
+import { toSafeInteger } from "../archive/budget.ts";
 import type { ByteSourceType } from "../source.ts";
 import { ArchiveBudget, assertInteger, createArchiveLedger } from "../archive/budget.ts";
 import { ArchiveError, invalid, unsupported } from "../archive/error.ts";
@@ -141,14 +142,6 @@ function limit(label: string): never {
   throw new ArchiveError("budget-exceeded", `Parquet ${label} limit exceeded.`);
 }
 
-/** Sizes and offsets are nonnegative exact integers. Signed values remain bigint until admitted. */
-function exact(value: bigint, label: string): number {
-  if (value < 0n || value > BigInt(Number.MAX_SAFE_INTEGER)) {
-    throw invalid(`Parquet ${label} is outside exact nonnegative integers.`);
-  }
-  return Number(value);
-}
-
 /** Struct callbacks retain only fields this profile needs; unknown fields still receive complete bounded validation. */
 class Compact {
   readonly bytes: Uint8Array;
@@ -189,7 +182,7 @@ class Compact {
   }
   number(type: number, bits = 32): number {
     this.type(type, bits === 64 ? 6 : bits === 16 ? 4 : 5);
-    return exact(this.signed(bits), "integer field");
+    return toSafeInteger(this.signed(bits), `Parquet ${"integer field"}`);
   }
   bool(type: number): boolean {
     if (type !== 1 && type !== 2) throw invalid("Parquet Compact boolean field type mismatch.");
@@ -495,7 +488,7 @@ function chunk(cursor: Compact): ChunkType {
         data: offset,
         ...(dictionary === undefined ? {} : { dictionary }),
         start,
-        end: exact(BigInt(start) + BigInt(required(stored, "stored chunk size")), "chunk end"),
+        end: toSafeInteger(BigInt(start) + BigInt(required(stored, "stored chunk size")), `Parquet ${"chunk end"}`),
       };
     },
     8: () => {
@@ -892,7 +885,7 @@ export async function openParquet(
     const group = groupList[i]!;
     if (group.chunks.length !== columns.length) throw invalid("Parquet row group column count disagrees with schema.");
     rowGroups.push(Object.freeze({ id: i, offset: totalRows, rows: group.rows }));
-    totalRows = exact(BigInt(totalRows) + BigInt(group.rows), "total rows");
+    totalRows = toSafeInteger(BigInt(totalRows) + BigInt(group.rows), `Parquet ${"total rows"}`);
     for (const chunk of group.chunks) {
       // Native empty columns can use the required zero page-offset sentinel.
       // It represents no physical extent and must never authorize page reads.
@@ -999,7 +992,10 @@ export async function openParquet(
             selected: base + count < offset + length && base + count + p.rows > offset,
           });
           count += p.rows;
-          uncompressed = exact(BigInt(uncompressed) + BigInt(p.decoded + p.header), "uncompressed chunk size");
+          uncompressed = toSafeInteger(
+            BigInt(uncompressed) + BigInt(p.decoded + p.header),
+            `Parquet ${"uncompressed chunk size"}`,
+          );
           at += p.header + p.stored;
         }
         if (count !== group.rows || at !== chunk.end || uncompressed !== chunk.uncompressed) {
@@ -1010,7 +1006,7 @@ export async function openParquet(
       for (const plan of plans) {
         if (plan.selected) {
           if (plan.page.stored > policy.page) limit("Page byte");
-          bodyBytes = exact(BigInt(bodyBytes) + BigInt(plan.page.stored), "selected page bytes");
+          bodyBytes = toSafeInteger(BigInt(bodyBytes) + BigInt(plan.page.stored), `Parquet ${"selected page bytes"}`);
           if (plan.page.stored !== 0) bodyRequests++;
         }
       }
@@ -1024,7 +1020,10 @@ export async function openParquet(
       credits.sourceBytes = bodyBytes;
       credits.requests = bodyRequests;
       operation.decoded(bodyBytes);
-      const outputBytes = exact(BigInt(length) * BigInt(width(column.physical) + 1), "output bytes");
+      const outputBytes = toSafeInteger(
+        BigInt(length) * BigInt(width(column.physical) + 1),
+        `Parquet ${"output bytes"}`,
+      );
       operation.decoded(outputBytes);
       operation.output(outputBytes);
       signal?.throwIfAborted();

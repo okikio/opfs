@@ -1,4 +1,6 @@
 /** Bounded read-only Zarr v2 uncompressed numeric arrays over a snapshot store. @module */
+import { resolveLimit } from "../check.ts";
+import { toSafeInteger } from "../archive/budget.ts";
 import type { ByteSourceType } from "../source.ts";
 import { ArchiveBudget, assertInteger, createArchiveLedger } from "../archive/budget.ts";
 import { ArchiveError, invalid, unsupported } from "../archive/error.ts";
@@ -105,19 +107,6 @@ export interface ZarrArrayType {
   readonly fillValue: number | bigint | null;
   readonly work: ZarrWorkType;
   read(options?: ZarrReadOptionsType): Promise<ZarrReadType>;
-}
-/** Products and stored coordinates remain BigInt until checked for exact JS indexing. */
-function exact(value: bigint): number {
-  if (value < 0n || value > BigInt(Number.MAX_SAFE_INTEGER)) {
-    throw unsupported("Zarr extent exceeds safe JavaScript indexing.");
-  }
-  return Number(value);
-}
-/** A caller can raise a finite policy; NaN, infinities, fractions and negatives refuse. */
-function limit(value: number | undefined, fallback: number, label: string): number {
-  const result = value ?? fallback;
-  assertInteger(result, label);
-  return result;
 }
 
 /** Duplicate-aware lexical preflight preserves integer authority before JSON.parse
@@ -251,13 +240,13 @@ export async function openZarr(store: ZarrStoreType, options: ZarrOpenOptionsTyp
     throw new TypeError("Zarr dot path segments are forbidden.");
   }
   const prefix = path ? path + "/" : "";
-  const maxMetadata = limit(options.maxMetadataBytes, 1024 * 1024, "maxMetadataBytes"),
-    maxRank = limit(options.maxRank, 32, "maxRank"),
-    maxChunkBytes = limit(options.maxChunkBytes, 64 * 1024 * 1024, "maxChunkBytes"),
-    maxElements = limit(options.maxElements, 1024 * 1024, "maxElements"),
-    maxChunks = limit(options.maxChunks, 4096, "maxChunks"),
-    maxSegments = limit(options.maxSegments, 4096, "maxSegments"),
-    maxPlanSteps = limit(options.maxPlanSteps, 16 * 1024 * 1024, "maxPlanSteps");
+  const maxMetadata = resolveLimit(options.maxMetadataBytes, 1024 * 1024, Number.MAX_SAFE_INTEGER, "maxMetadataBytes"),
+    maxRank = resolveLimit(options.maxRank, 32, Number.MAX_SAFE_INTEGER, "maxRank"),
+    maxChunkBytes = resolveLimit(options.maxChunkBytes, 64 * 1024 * 1024, Number.MAX_SAFE_INTEGER, "maxChunkBytes"),
+    maxElements = resolveLimit(options.maxElements, 1024 * 1024, Number.MAX_SAFE_INTEGER, "maxElements"),
+    maxChunks = resolveLimit(options.maxChunks, 4096, Number.MAX_SAFE_INTEGER, "maxChunks"),
+    maxSegments = resolveLimit(options.maxSegments, 4096, Number.MAX_SAFE_INTEGER, "maxSegments"),
+    maxPlanSteps = resolveLimit(options.maxPlanSteps, 16 * 1024 * 1024, Number.MAX_SAFE_INTEGER, "maxPlanSteps");
   const lifetime = createArchiveLedger(options),
     external = options.ledger,
     lifetimeObjects = createZarrLedger(options.maxObjects),
@@ -355,7 +344,7 @@ export async function openZarr(store: ZarrStoreType, options: ZarrOpenOptionsTyp
   };
   const shape = dimensions(wire.shape, false), chunks = dimensions(wire.chunks, true);
   if (shape.length !== chunks.length) throw invalid("Zarr chunk and array ranks differ.");
-  const elements = exact(shape.reduce((product, value) => product * BigInt(value), 1n));
+  const elements = toSafeInteger(shape.reduce((product, value) => product * BigInt(value), 1n), "Zarr extent");
   if (typeof wire.dtype !== "string") throw unsupported("Structured Zarr dtypes are unsupported.");
   const dtype = wire.dtype, match = /^([<>|])([biuf])([1248])$/.exec(dtype);
   if (!match) throw unsupported("Unsupported Zarr numeric dtype.");
@@ -363,7 +352,10 @@ export async function openZarr(store: ZarrStoreType, options: ZarrOpenOptionsTyp
   if (
     (kind === "b" && width !== 1) || (kind === "f" && width !== 4 && width !== 8) || (endian === "|" && width !== 1)
   ) throw unsupported("Unsupported Zarr numeric dtype width/byte order.");
-  const chunkBytes = exact(chunks.reduce((product, value) => product * BigInt(value), 1n) * BigInt(width));
+  const chunkBytes = toSafeInteger(
+    chunks.reduce((product, value) => product * BigInt(value), 1n) * BigInt(width),
+    "Zarr extent",
+  );
   if (chunkBytes > maxChunkBytes) throw new ArchiveError("budget-exceeded", "Zarr declared raw chunk limit exceeded.");
   const order = wire.order;
   if (order !== "C" && order !== "F") throw invalid("Zarr order must be C or F.");
@@ -446,7 +438,7 @@ export async function openZarr(store: ZarrStoreType, options: ZarrOpenOptionsTyp
           stored += (coordinate % chunk) * strides[axis]!;
         }
         const key = prefix + (keyParts.length ? keyParts.join(separator) : "0"),
-          position = exact(stored * BigInt(width));
+          position = toSafeInteger(stored * BigInt(width), "Zarr extent");
         if (!keys.has(key)) {
           if (keys.size >= maxChunks) throw new ArchiveError("budget-exceeded", "Zarr selected chunk limit exceeded.");
           keys.set(key, undefined);
@@ -484,8 +476,8 @@ export async function openZarr(store: ZarrStoreType, options: ZarrOpenOptionsTyp
         }
       }
       current.admit(bytes, requests);
-      current.reserve("decodedBytes", exact(BigInt(count) * BigInt(width)));
-      current.reserve("outputBytes", exact(BigInt(count) * BigInt(width + 1)));
+      current.reserve("decodedBytes", toSafeInteger(BigInt(count) * BigInt(width), "Zarr extent"));
+      current.reserve("outputBytes", toSafeInteger(BigInt(count) * BigInt(width + 1), "Zarr extent"));
       current.signal?.throwIfAborted();
       const values: ZarrValuesType = kind === "f"
         ? width === 4 ? new Float32Array(count) : new Float64Array(count)

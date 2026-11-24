@@ -1,7 +1,9 @@
 /** Bounded classic GeoTIFF metadata and uncompressed raw raster windows. @module */
+import { resolveLimit } from "../check.ts";
+import { assertAtMost } from "../archive/budget.ts";
 import { isBytes, toView } from "../bytes.ts";
 import type { ByteSourceType } from "../source.ts";
-import { ArchiveError, invalid, unsupported } from "../archive/error.ts";
+import { invalid, unsupported } from "../archive/error.ts";
 import { assertInteger, createArchiveLedger } from "../archive/budget.ts";
 import { createView } from "../archive/field.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/budget.ts";
@@ -162,15 +164,6 @@ function fresh(): WorkType {
     metadataBytes: 0,
   };
 }
-function cap(n: number, max: number, label: string): void {
-  if (n > max) throw new ArchiveError("budget-exceeded", `${label} exceeded.`);
-}
-function limit(n: number | undefined, d: number, h: number, label: string): number {
-  const v = n ?? d;
-  assertInteger(v, label);
-  cap(v, h, label);
-  return v;
-}
 /** Reject unsafe products before they become an offset, table size or typed-array allocation. */
 function product(...values: number[]): number {
   let n = 1;
@@ -195,7 +188,7 @@ function authority(options: GeotiffCallOptionsType, parent?: AuthorityType): Aut
     }
     owners.push({ identity: ledger, reserve: reserve.bind(ledger) });
   }
-  cap(owners.length, 16, "GeoTIFF inherited budget owners");
+  assertAtMost(owners.length, 16, "GeoTIFF inherited budget owners");
   return { owners, signal: combined(parent?.signal, options.signal) };
 }
 function charge(auth: AuthorityType, work: WorkType, key: keyof ArchiveWorkType, n: number): void {
@@ -266,15 +259,15 @@ export async function openGeotiff(input: ByteSourceType, inputOptions: GeotiffOp
     throw unsupported("GeoTIFF requires source stability evidence or explicit allowUnverifiedSource.");
   }
   const policy = {
-    images: limit(options.maxImages, 64, 1024, "GeoTIFF images"),
-    entries: limit(options.maxEntries, 1024, 8192, "GeoTIFF IFD entries"),
-    chunks: limit(options.maxChunks, 65536, 1048576, "GeoTIFF chunks"),
-    metadata: limit(options.maxMetadataBytes, 8 << 20, 64 << 20, "GeoTIFF metadata"),
-    tag: limit(options.maxTagBytes, 1 << 20, 16 << 20, "GeoTIFF tag bytes"),
-    keys: limit(options.maxKeys, 1024, 8192, "GeoTIFF keys"),
-    pixels: limit(options.maxPixels, 1048576, 16777216, "GeoTIFF pixels"),
-    output: limit(options.maxWindowBytes, 16 << 20, 64 << 20, "GeoTIFF window bytes"),
-    spans: limit(options.maxSpans, 65536, 1048576, "GeoTIFF spans"),
+    images: resolveLimit(options.maxImages, 64, 1024, "GeoTIFF images"),
+    entries: resolveLimit(options.maxEntries, 1024, 8192, "GeoTIFF IFD entries"),
+    chunks: resolveLimit(options.maxChunks, 65536, 1048576, "GeoTIFF chunks"),
+    metadata: resolveLimit(options.maxMetadataBytes, 8 << 20, 64 << 20, "GeoTIFF metadata"),
+    tag: resolveLimit(options.maxTagBytes, 1 << 20, 16 << 20, "GeoTIFF tag bytes"),
+    keys: resolveLimit(options.maxKeys, 1024, 8192, "GeoTIFF keys"),
+    pixels: resolveLimit(options.maxPixels, 1048576, 16777216, "GeoTIFF pixels"),
+    output: resolveLimit(options.maxWindowBytes, 16 << 20, 64 << 20, "GeoTIFF window bytes"),
+    spans: resolveLimit(options.maxSpans, 65536, 1048576, "GeoTIFF spans"),
   };
   const ifdExtents: { offset: number; end: number }[] = [];
   const opening = authority(options),
@@ -289,7 +282,7 @@ export async function openGeotiff(input: ByteSourceType, inputOptions: GeotiffOp
   }
   function meta(n: number): void {
     assertInteger(n, "GeoTIFF metadata");
-    cap(n, policy.metadata - opened.metadataBytes, "GeoTIFF retained metadata");
+    assertAtMost(n, policy.metadata - opened.metadataBytes, "GeoTIFF retained metadata");
     opened.metadataBytes += n;
   }
   function reserve(auth: AuthorityType, work: WorkType, sourceBytes: number, requests: number, output = 0): void {
@@ -328,13 +321,13 @@ export async function openGeotiff(input: ByteSourceType, inputOptions: GeotiffOp
   let next = hd.getUint32(4, little);
   while (next !== 0) {
     opening.signal?.throwIfAborted();
-    cap(images.length + 1, policy.images, "GeoTIFF images");
+    assertAtMost(images.length + 1, policy.images, "GeoTIFF images");
     if (next < 8 || next % 2 || seen.has(next)) throw invalid("Invalid or cyclic TIFF IFD pointer.");
     seen.add(next);
     meta(256);
     const count = createView(await fetch(next, 2)).getUint16(0, little);
     if (!count) throw invalid("Empty TIFF IFD.");
-    cap(count, policy.entries, "GeoTIFF IFD entries");
+    assertAtMost(count, policy.entries, "GeoTIFF IFD entries");
     meta(product(count, 64));
     const ifdEnd = next + 2 + product(count, 12) + 4;
     if (ifdExtents.some((range) => next < range.end && ifdEnd > range.offset)) {
@@ -368,7 +361,7 @@ export async function openGeotiff(input: ByteSourceType, inputOptions: GeotiffOp
       if (!f) return undefined;
       let b = cache.get(tag);
       if (b) return b;
-      cap(f.length, policy.tag, "GeoTIFF known-tag bytes");
+      assertAtMost(f.length, policy.tag, "GeoTIFF known-tag bytes");
       meta(f.length);
       b = await fetch(f.offset, f.length);
       cache.set(tag, b);
@@ -438,7 +431,7 @@ export async function openGeotiff(input: ByteSourceType, inputOptions: GeotiffOp
     const across = tiled ? Math.ceil(width / blockWidth) : 1,
       down = Math.ceil(height / blockHeight),
       chunks = product(across, down);
-    cap(chunks, policy.chunks - opened.chunks, "GeoTIFF total chunks");
+    assertAtMost(chunks, policy.chunks - opened.chunks, "GeoTIFF total chunks");
     meta(product(chunks, 24));
     const offsets = await numbers(tiled ? 324 : 273, tiled ? [4] : [3, 4]),
       lengths = await numbers(tiled ? 325 : 279, [3, 4]);
@@ -479,7 +472,7 @@ export async function openGeotiff(input: ByteSourceType, inputOptions: GeotiffOp
         throw unsupported("Only GeoTIFF directory version 1/revision 1/minor 0 or 1 is supported.");
       }
       const keyCount = directory[3]!;
-      cap(keyCount, policy.keys, "GeoTIFF keys");
+      assertAtMost(keyCount, policy.keys, "GeoTIFF keys");
       const tail = 4 + product(keyCount, 4);
       if (tail > directory.length) throw invalid("Truncated GeoKeyDirectory.");
       meta(product(keyCount, 64));
@@ -649,15 +642,15 @@ export async function openGeotiff(input: ByteSourceType, inputOptions: GeotiffOp
       width > d.width - x || height > d.height - y
     ) throw new RangeError("GeoTIFF window exceeds image.");
     const pixels = product(width, height), output = product(pixels, d.samplesPerPixel, img.bytes);
-    cap(pixels, policy.pixels, "GeoTIFF selected pixels");
-    cap(output, policy.output, "GeoTIFF window output");
+    assertAtMost(pixels, policy.pixels, "GeoTIFF selected pixels");
+    assertAtMost(output, policy.output, "GeoTIFF window output");
     const spans: SpanType[] = [];
     let sourceBytes = 0, requests = 0;
     const chunks = new Set<number>();
     if (width && height) {
       for (let row = y; row < y + height; row++) {
         for (let col = x; col < x + width;) {
-          cap(spans.length + 1, policy.spans, "GeoTIFF planned row spans");
+          assertAtMost(spans.length + 1, policy.spans, "GeoTIFF planned row spans");
           const bx = Math.floor(col / d.blockWidth),
             by = Math.floor(row / d.blockHeight),
             block = by * img.across + bx,
@@ -750,7 +743,7 @@ export async function openGeotiff(input: ByteSourceType, inputOptions: GeotiffOp
           if (at > length || n > length - at) {
             throw new RangeError("GeoTIFF block range exceeds stored extent.");
           }
-          cap(n, policy.output, "GeoTIFF raw source interval bytes");
+          assertAtMost(n, policy.output, "GeoTIFF raw source interval bytes");
           reserve(child, work, n, Math.ceil(n / 65536), n);
           return await collect(offset + at, n, child);
         },

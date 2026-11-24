@@ -8,7 +8,8 @@
  *
  * @module
  */
-import { ArchiveError, invalid, unsupported } from "../error.ts";
+import { assertAtMost } from "../budget.ts";
+import { invalid, unsupported } from "../error.ts";
 
 /** An ordered field with its original name and unfolded, whitespace-trimmed value. */
 export interface WarcFieldType {
@@ -74,11 +75,6 @@ const singletons = new Set([
 /** HTTP token characters, used for field names and record types. */
 export const token = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
 
-/** Throws `budget-exceeded` when `value` passes `maximum`. */
-export function cap(value: number, maximum: number, label: string): void {
-  if (value > maximum) throw new ArchiveError("budget-exceeded", `${label} limit exceeded.`);
-}
-
 /**
  * Bounded line reader over one header.
  *
@@ -114,7 +110,7 @@ class Lines {
   }
 
   async #byte(): Promise<number> {
-    cap(this.offset - this.#start + 1, this.#headerMaximum, "WARC header bytes");
+    assertAtMost(this.offset - this.#start + 1, this.#headerMaximum, "WARC header bytes");
     if (this.offset >= this.#size) throw invalid("Truncated WARC header.");
     if (this.#index === this.#chunk.length) {
       this.#chunk = await this.#read(
@@ -142,7 +138,7 @@ class Lines {
         }
       }
       if ((byte < 32 && byte !== 9) || byte === 127) throw invalid("WARC header contains a control byte.");
-      cap(bytes.length + 1, this.#lineMaximum, "WARC line bytes");
+      assertAtMost(bytes.length + 1, this.#lineMaximum, "WARC line bytes");
       bytes.push(byte);
     }
   }
@@ -182,7 +178,7 @@ export async function parseHeader(
       previous.value += ` ${line.replace(/^[ \t]+|[ \t]+$/g, "")}`;
       continue;
     }
-    cap(fields.length + 1, limits.maxFields, "WARC field count");
+    assertAtMost(fields.length + 1, limits.maxFields, "WARC field count");
     const colon = line.indexOf(":");
     const name = line.slice(0, colon);
     if (colon < 1 || !token.test(name)) throw invalid("Invalid WARC field name.");

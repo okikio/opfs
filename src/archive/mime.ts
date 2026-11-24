@@ -1,7 +1,8 @@
 /** Bounded physical MIME indexing and explicit transfer-decoded previews. @module */
+import { assertAtMost } from "./budget.ts";
 import type { ByteSourceType } from "../source.ts";
 import { ArchiveBudget, assertInteger } from "./budget.ts";
-import { ArchiveError, invalid, unsupported } from "./error.ts";
+import { invalid, unsupported } from "./error.ts";
 import type { ArchiveLimitsType, ArchiveWorkType } from "./budget.ts";
 export { ArchiveError } from "./error.ts";
 export { createArchiveLedger } from "./budget.ts";
@@ -147,8 +148,8 @@ export async function openMime(input: ByteSourceType, options: MimeOpenOptionsTy
   const pending: PendingType[] = [];
   let metadata = 0;
   async function part(parent: MultipartType | undefined, depth: number): Promise<PendingType> {
-    cap(pending.length + 1, policy.parts, "MIME part count");
-    cap(depth, policy.depth, "MIME nesting depth");
+    assertAtMost(pending.length + 1, policy.parts, "MIME part count");
+    assertAtMost(depth, policy.depth, "MIME nesting depth");
     const start = wire.offset;
     const fields: { name: string; value: string }[] = [];
     const seen = new Set<string>();
@@ -176,7 +177,7 @@ export async function openMime(input: ByteSourceType, options: MimeOpenOptionsTy
         previous.value += value;
         continue;
       }
-      cap(fields.length + 1, policy.fields, "MIME field count");
+      assertAtMost(fields.length + 1, policy.fields, "MIME field count");
       const colon = value.indexOf(":");
       const name = value.slice(0, colon);
       if (colon < 1 || !/^[\x21-\x39\x3b-\x7e]+$/.test(name)) throw invalid("Invalid MIME field name.");
@@ -266,7 +267,7 @@ export async function openMime(input: ByteSourceType, options: MimeOpenOptionsTy
         if (close) suffix = suffix.slice(2);
         if (!/^[ \t]*$/.test(suffix)) continue;
         const padding = line.length - marker.length - (close ? 2 : 0);
-        cap(padding, policy.padding, "MIME boundary padding");
+        assertAtMost(padding, policy.padding, "MIME boundary padding");
         matched = index;
         closing = close;
         break;
@@ -531,7 +532,7 @@ class MimeCursor {
     // real transport padding from an arbitrary long binary payload line.
     let discardedNonWhitespace = 0;
     while (true) {
-      cap(this.offset - start + 1, wireMaximum, "MIME header/metadata bytes");
+      assertAtMost(this.offset - start + 1, wireMaximum, "MIME header/metadata bytes");
       const byte = await this.next();
       if (byte === undefined) {
         return {
@@ -555,7 +556,7 @@ class MimeCursor {
         };
       }
       const length = this.offset - start;
-      if (strict && byte !== 13) cap(length, maximum, "MIME physical header line");
+      if (strict && byte !== 13) assertAtMost(length, maximum, "MIME physical header line");
       if (bytes.length < maximum) bytes.push(byte);
       else if (byte !== 32 && byte !== 9) discardedNonWhitespace++;
       previous = byte;
@@ -619,7 +620,7 @@ async function* decodePart(
     let whitespace: number[] = [];
     let line = 0;
     while ((byte = await cursor.next()) !== undefined) {
-      if (byte !== 13) cap(++line, 76, "Quoted-printable encoded line");
+      if (byte !== 13) assertAtMost(++line, 76, "Quoted-printable encoded line");
       if (byte === 32 || byte === 9) {
         whitespace.push(byte);
         continue;
@@ -638,7 +639,7 @@ async function* decodePart(
           const b = await cursor.next();
           if (a === 13 && b === 10) line = 0;
           else {
-            cap(line += 2, 76, "Quoted-printable encoded line");
+            assertAtMost(line += 2, 76, "Quoted-printable encoded line");
             const pair = String.fromCharCode(a ?? 0, b ?? 0);
             if (!/^[0-9A-F]{2}$/.test(pair)) throw invalid("Invalid strict quoted-printable escape.");
             push(parseInt(pair, 16));
@@ -656,8 +657,4 @@ async function* decodePart(
     // Literal trailing whitespace is transport padding and is not decoded data.
   }
   if (output.length) yield new Uint8Array(output);
-}
-
-function cap(value: number, maximum: number, label: string): void {
-  if (value > maximum) throw new ArchiveError("budget-exceeded", `${label} limit exceeded.`);
 }

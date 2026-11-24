@@ -8,7 +8,9 @@
  */
 import type { ByteSourceType } from "../source.ts";
 import { isBytes, toView } from "../bytes.ts";
-import { ArchiveError, invalid } from "./error.ts";
+import { ArchiveError, invalid, unsupported } from "./error.ts";
+import { assertInteger } from "../check.ts";
+export { assertInteger } from "../check.ts";
 
 /** Finite per-operation policy limits. Counts include parser reads and discarded decoded bytes. */
 export interface ArchiveLimitsType {
@@ -176,13 +178,47 @@ export class ArchiveBudget {
 }
 
 /**
- * Throws `RangeError` unless `value` is a nonnegative safe integer; `label` names it in the message.
+ * Throws `budget-exceeded` when a count or size passes its limit.
  *
- * Call it as a statement before arithmetic on a size, offset, count or limit:
- * `assertInteger(size, "ZIP central directory size");`. Offsets past `Number.MAX_SAFE_INTEGER` would round
- * silently, so a bound check after the arithmetic could pass on a wrong value. Unlike the private `integer()`
- * helpers in some backends, this returns nothing.
+ * Archive and dataset readers call this as they count entries, header bytes or
+ * decoded bytes: `assertAtMost(entries.length + 1, limits.maxEntries, "WARC record count")`
+ * throws `ArchiveError` with the message `WARC record count limit exceeded.`
  */
-export function assertInteger(value: number, label: string): void {
-  if (!Number.isSafeInteger(value) || value < 0) throw new RangeError(`${label} must be a nonnegative safe integer.`);
+export function assertAtMost(value: number, maximum: number, label: string): void {
+  if (value > maximum) throw new ArchiveError("budget-exceeded", `${label} limit exceeded.`);
+}
+
+/**
+ * Converts a 64-bit field read from a file to a JavaScript number, refusing
+ * values it cannot hold exactly.
+ *
+ * A negative value is `invalid-archive`: the field is unsigned in every format
+ * that uses this. A value above `Number.MAX_SAFE_INTEGER` is
+ * `unsupported-profile`: the file may be valid, but offsets past 2^53 - 1 would
+ * round. `label` names the field: `toSafeInteger(view.getBigUint64(8, true), "7z header offset")`.
+ */
+export function toSafeInteger(value: bigint, label: string): number {
+  if (value < 0n) throw invalid(`${label} is negative.`);
+  if (value > BigInt(Number.MAX_SAFE_INTEGER)) throw unsupported(`${label} exceeds exact JavaScript integers.`);
+  return Number(value);
+}
+
+/**
+ * Creates a ledger for one nested reader that also charges the caller's ledger.
+ *
+ * A reader that opens other readers, such as an OCFL object reading its
+ * inventory, keeps its own counts for `inspect()` while every charge still
+ * reaches `options.ledger`, so the caller's aggregate limit holds across all of
+ * them: `const ledger = createChildLedger(options)`.
+ */
+export function createChildLedger(options: ArchiveLimitsType): ArchiveLedgerType {
+  const local = createArchiveLedger(options);
+  const outer = options.ledger;
+  return {
+    reserve(kind, count) {
+      local.reserve(kind, count);
+      outer?.reserve(kind, count);
+    },
+    inspect: () => local.inspect(),
+  };
 }

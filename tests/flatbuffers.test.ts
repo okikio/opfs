@@ -122,7 +122,7 @@ describe("checked FlatBuffers metadata", () => {
       failure(() => new FlatBuffers(bytes).reference(20), "invalid-archive");
     }
     expect(() => reader.vector(32, 0)).toThrow(TypeError);
-    expect(() => reader.vector(32, Number.MAX_SAFE_INTEGER + 1)).toThrow(TypeError);
+    expect(() => reader.vector(32, Number.MAX_SAFE_INTEGER + 1)).toThrow(RangeError);
   });
 
   it("requires UTF-8 and a trailing NUL while preserving literal BOM and embedded NUL", () => {
@@ -169,8 +169,8 @@ describe("checked FlatBuffers metadata", () => {
     const text = new Uint8Array(8);
     text[0] = 3;
     failure(() => new FlatBuffers(text, { maxStringBytes: 2 }).string(0), "budget-exceeded");
-    expect(() => new FlatBuffers(table(), { maxSteps: Infinity })).toThrow(TypeError);
-    expect(() => new FlatBuffers(table(), { maxBytes: -1 })).toThrow(TypeError);
-    expect(() => new FlatBuffers(table()).u8(-1)).toThrow(TypeError);
+    expect(() => new FlatBuffers(table(), { maxSteps: Infinity })).toThrow(RangeError);
+    expect(() => new FlatBuffers(table(), { maxBytes: -1 })).toThrow(RangeError);
+    expect(() => new FlatBuffers(table()).u8(-1)).toThrow(RangeError);
   });
 });

@@ -1,4 +1,6 @@
 /** Native Google Cloud Pub/Sub unary REST messages and explicit delivery settlement. @module */
+import { toInteger } from "../../check.ts";
+import { type JsonLimitsType, parseJson } from "../../json.ts";
 import { z } from "zod";
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
 import { isBytes, toView } from "../../bytes.ts";
@@ -28,12 +30,6 @@ function valid(check: () => unknown): boolean {
   } catch {
     return false;
   }
-}
-function integer(value: number, maximum: number, minimum = 1): number {
-  if (!Number.isSafeInteger(value) || value < minimum || value > maximum) {
-    throw new RangeError("Invalid Pub/Sub integer.");
-  }
-  return value;
 }
 /** Native IDs remain opaque strings: no binary64 conversion or topic-global delivery-token interpretation. */
 function token(value: unknown, maximum: number): string {
@@ -165,109 +161,14 @@ function decode(value: string): Uint8Array<ArrayBuffer> {
   return bytes;
 }
 
-/** Bounded control JSON rejects duplicate/prototype keys and noncanonical numeric lexemes before Number conversion.
- * The finite profile admits only safe integers, depth32, 100000 tokens and 2 MiB lexical strings within 8 MiB text.
- * JSON.parse is restricted to bounded string tokens, so fractional rounding cannot create accepted byte authority.
- */
-function json(text: string): unknown {
-  if (text.length > 8 * 1024 * 1024) throw new RangeError("Pub/Sub JSON exceeds its lexical budget.");
-  let at = 0, tokens = 0;
-  const fail = (): never => {
-    throw new TypeError("Malformed or over-budget Pub/Sub JSON.");
-  };
-  const whitespace = (): void => {
-    while (/[ \t\r\n]/.test(text[at] ?? "x")) at++;
-  };
-  const count = (): void => {
-    if (++tokens > 100000) fail();
-  };
-  function string(): string {
-    const start = at++;
-    while (at < text.length) {
-      if (at - start > 2097152) fail();
-      const char = text[at++];
-      if (char === "\\") {
-        at++;
-        continue;
-      }
-      if (char === '"') {
-        let value: unknown;
-        // Native SyntaxError context may contain the signed URL inside this string.
-        try {
-          value = JSON.parse(text.slice(start, at));
-        } catch {
-          return fail();
-        }
-        if (typeof value !== "string") fail();
-        return value as string;
-      }
-    }
-    return fail();
-  }
-  function value(depth: number): unknown {
-    count();
-    if (depth > 32) fail();
-    whitespace();
-    if (text[at] === '"') return string();
-    if (text[at] === "{") {
-      at++;
-      whitespace();
-      const object: Record<string, unknown> = Object.create(null);
-      if (text[at] === "}") {
-        at++;
-        return object;
-      }
-      while (true) {
-        count();
-        whitespace();
-        if (text[at] !== '"') fail();
-        const key = string();
-        if (key === "__proto__" || key === "constructor" || key === "prototype" || Object.hasOwn(object, key)) fail();
-        whitespace();
-        if (text[at++] !== ":") fail();
-        object[key] = value(depth + 1);
-        whitespace();
-        const end = text[at++];
-        if (end === "}") return object;
-        if (end !== ",") fail();
-      }
-    }
-    if (text[at] === "[") {
-      at++;
-      whitespace();
-      const array: unknown[] = [];
-      if (text[at] === "]") {
-        at++;
-        return array;
-      }
-      while (true) {
-        array.push(value(depth + 1));
-        whitespace();
-        const end = text[at++];
-        if (end === "]") return array;
-        if (end !== ",") fail();
-      }
-    }
-    const start = at;
-    while (at < text.length && !/[ \t\r\n,}\]]/.test(text[at]!)) {
-      if (at - start > 17) fail();
-      at++;
-    }
-    const raw = text.slice(start, at);
-    if (raw.length > 17) fail();
-    if (raw === "true") return true;
-    if (raw === "false") return false;
-    if (raw === "null") return null;
-    if (!/^-?(0|[1-9][0-9]{0,15})$/.test(raw) || raw === "-0") return fail();
-    const number = Number(raw);
-    if (!Number.isSafeInteger(number)) return fail();
-    return number;
-  }
-  const result = value(0);
-  whitespace();
-  if (at !== text.length) fail();
-  return result;
-}
+/** Limits for this service's JSON responses; see `parseJson`. */
+const jsonLimits: JsonLimitsType = {
+  label: "Pub/Sub",
+  maxLength: 8 * 1024 * 1024,
+  maxTokens: 100_000,
+  maxString: 2_097_152,
+  maxScalar: 17,
+};
 
 /** One configured project/API origin. Fetch and credential capabilities are borrowed; no socket pool or background task is acquired. */
 export interface PubsubClientOptionsType {
@@ -409,8 +310,8 @@ export class PubsubClient {
     this.#project = project;
     this.#fetch = suppliedFetch.bind(options);
     this.#credentials = credentials?.bind(options);
-    this.#timeout = integer(options.timeoutMs ?? 60000, 300000);
-    this.#maximum = integer(options.maxMessages ?? 100, 1000);
+    this.#timeout = toInteger(options.timeoutMs ?? 60000, "Pub/Sub integer", 300000, 1);
+    this.#maximum = toInteger(options.maxMessages ?? 100, "Pub/Sub integer", 1000, 1);
   }
   /** Every exposed operation is nonreplayable. Classify a known refusal before unused-body cleanup so its independent failure cannot invent uncertainty. */
   async #request<T>(
@@ -469,7 +370,7 @@ export class PubsubClient {
         });
       }
       const result = await control(response, (raw) => {
-        const admitted = admit(operation === "pull" && raw.trim() === "" ? {} : json(raw));
+        const admitted = admit(operation === "pull" && raw.trim() === "" ? {} : parseJson(raw, jsonLimits));
         acknowledged = true;
         return admitted;
       });
@@ -490,7 +391,7 @@ export class PubsubClient {
     signal?.throwIfAborted();
     topic = resourceId(topic);
     if (!Array.isArray(messages)) throw new TypeError("Pub/Sub publish requires a finite message array.");
-    const count = integer(messages.length, this.#maximum),
+    const count = toInteger(messages.length, "Pub/Sub integer", this.#maximum, 1),
       wire: { data?: string; attributes?: Readonly<Record<string, string>> }[] = [];
     let total = 0, wireBytes = 15;
     for (let index = 0; index < count; index++) {
@@ -504,7 +405,7 @@ export class PubsubClient {
         throw new TypeError("Pub/Sub message data requires bytes.");
       }
       const view = suppliedBytes === undefined ? new Uint8Array(0) : toView(suppliedBytes);
-      integer(view.length, PUBSUB_MESSAGE_BYTES, 0);
+      toInteger(view.length, "Pub/Sub integer", PUBSUB_MESSAGE_BYTES);
       // Take byte ownership before another caller getter can mutate the borrowed view.
       const bytes = new Uint8Array(view), attrs = attributes(message.attributes);
       if (!bytes.length && !Object.keys(attrs).length) {
@@ -533,7 +434,7 @@ export class PubsubClient {
     const signal = options.signal, count = options.maxMessages;
     signal?.throwIfAborted();
     subscription = resourceId(subscription);
-    integer(count, this.#maximum);
+    toInteger(count, "Pub/Sub integer", this.#maximum, 1);
     return await this.#request("subscriptions", subscription, "pull", { maxMessages: count }, (value) => {
       const deliveries = parse(PullSchema, value).receivedMessages ?? [];
       if (deliveries.length > count) throw new RangeError("Pub/Sub returned more messages than requested.");
@@ -582,7 +483,7 @@ export class PubsubClient {
     const signal = options.signal;
     signal?.throwIfAborted();
     subscription = resourceId(subscription);
-    const ids = this.#ackIds(ackIds), deadline = integer(seconds, 600, 0);
+    const ids = this.#ackIds(ackIds), deadline = toInteger(seconds, "Pub/Sub integer", 600);
     await this.#request("subscriptions", subscription, "modifyAckDeadline", {
       ackIds: ids,
       ackDeadlineSeconds: deadline,
@@ -592,7 +493,7 @@ export class PubsubClient {
   }
   #ackIds(input: readonly string[]): readonly string[] {
     if (!Array.isArray(input)) throw new TypeError("Pub/Sub acknowledgement requires a finite token array.");
-    const count = integer(input.length, this.#maximum), ids: string[] = [];
+    const count = toInteger(input.length, "Pub/Sub integer", this.#maximum, 1), ids: string[] = [];
     for (let index = 0; index < count; index++) ids.push(token(input[index], 8192));
     if (new Set(ids).size !== count) throw new TypeError("Duplicate Pub/Sub acknowledgement tokens.");
     return ids;

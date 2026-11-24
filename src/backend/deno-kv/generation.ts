@@ -11,6 +11,7 @@
  *
  * @module
  */
+import { resolveLimit } from "../../check.ts";
 import { z } from "zod";
 import { aggregate } from "../../close.ts";
 import { FileSystemError, throwIfAborted } from "../../error.ts";
@@ -145,13 +146,6 @@ async function inspect<Value>(primary: unknown, action: () => Promise<Value>): P
   }
 }
 
-/** Validates policy before any resource is acquired. */
-function limit(value: number | undefined, fallback: number, name: string): number {
-  const result = value ?? fallback;
-  if (!Number.isSafeInteger(result) || result < 1) throw new RangeError(`${name} must be a positive safe integer.`);
-  return result;
-}
-
 /**
  * Owns every part mutation, pin, visibility fence and reclamation claim.
  *
@@ -189,16 +183,16 @@ export class KvGeneration {
     this.#db = db;
     this.#prefix = prefix;
     this.#now = options.clock ?? Date.now;
-    this.writerLeaseMs = limit(options.writerLeaseMs, 60_000, "writerLeaseMs");
-    this.readerLeaseMs = limit(options.readerLeaseMs, 60_000, "readerLeaseMs");
-    this.maxReaders = limit(options.maxReaders, 64, "maxReaders");
-    this.maxRetries = limit(options.maxRetries, 64, "maxRetries");
+    this.writerLeaseMs = resolveLimit(options.writerLeaseMs, 60_000, Number.MAX_SAFE_INTEGER, "writerLeaseMs", 1);
+    this.readerLeaseMs = resolveLimit(options.readerLeaseMs, 60_000, Number.MAX_SAFE_INTEGER, "readerLeaseMs", 1);
+    this.maxReaders = resolveLimit(options.maxReaders, 64, Number.MAX_SAFE_INTEGER, "maxReaders", 1);
+    this.maxRetries = resolveLimit(options.maxRetries, 64, Number.MAX_SAFE_INTEGER, "maxRetries", 1);
     this.#maxBytes = options.maxRetainedBytes === undefined
       ? null
-      : limit(options.maxRetainedBytes, 1, "maxRetainedBytes");
+      : resolveLimit(options.maxRetainedBytes, 1, Number.MAX_SAFE_INTEGER, "maxRetainedBytes", 1);
     this.#maxGenerations = options.maxGenerations === undefined
       ? null
-      : limit(options.maxGenerations, 1, "maxGenerations");
+      : resolveLimit(options.maxGenerations, 1, Number.MAX_SAFE_INTEGER, "maxGenerations", 1);
   }
 
   #key(path: string, generation: string): DenoKvKeyType {

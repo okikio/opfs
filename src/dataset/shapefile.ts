@@ -1,7 +1,9 @@
 /** Bounded 2D Shapefile geometry and explicitly supplied raw DBF rows. @module */
+import { resolveLimit } from "../check.ts";
+import { assertAtMost } from "../archive/budget.ts";
 import { isBytes, toView } from "../bytes.ts";
 import type { ByteSourceType } from "../source.ts";
-import { ArchiveError, invalid, unsupported } from "../archive/error.ts";
+import { invalid, unsupported } from "../archive/error.ts";
 import { assertInteger, createArchiveLedger } from "../archive/budget.ts";
 import { createView } from "../archive/field.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/budget.ts";
@@ -159,15 +161,6 @@ function fresh(): WorkType {
     indexChecks: 0,
   };
 }
-function cap(n: number, max: number, label: string): void {
-  if (n > max) throw new ArchiveError("budget-exceeded", `${label} exceeded.`);
-}
-function limit(n: number | undefined, fallback: number, hard: number, label: string): number {
-  const value = n ?? fallback;
-  assertInteger(value, label);
-  cap(value, hard, label);
-  return value;
-}
 function kind(type: number): ShapefileKindType {
   switch (type) {
     case 0:
@@ -198,7 +191,7 @@ function authority(options: ShapefileCallOptionsType, parent?: AuthorityType): A
     }
     owners.push({ identity: ledger, reserve: reserve.bind(ledger) });
   }
-  cap(owners.length, 16, "Shapefile inherited budget owners");
+  assertAtMost(owners.length, 16, "Shapefile inherited budget owners");
   return { owners, signal: combined(parent?.signal, options.signal) };
 }
 function charge(auth: AuthorityType, work: WorkType, key: keyof ArchiveWorkType, n: number): void {
@@ -261,19 +254,19 @@ export async function openShapefile(
     shx = supplied.shx ? capture(supplied.shx, options.allowUnverifiedSource === true) : undefined,
     dbf = supplied.dbf ? capture(supplied.dbf, options.allowUnverifiedSource === true) : undefined;
   const policy = {
-    features: limit(options.maxFeatures, 100000, 1000000, "Shapefile features"),
-    records: limit(options.maxRecords, 1000000, 4000000, "Shapefile record visits"),
-    metadata: limit(options.maxMetadataBytes, 8 << 20, 64 << 20, "Shapefile retained metadata"),
-    points: limit(options.maxPoints, 65536, 1048576, "Shapefile selected points"),
-    parts: limit(options.maxParts, 4096, 65536, "Shapefile selected parts"),
-    feature: limit(options.maxFeatureBytes, 16 << 20, 64 << 20, "Shapefile selected geometry bytes"),
-    fields: limit(options.maxFields, 128, 1024, "Shapefile DBF fields"),
-    row: limit(options.maxRowBytes, 16 << 10, 64 << 10, "Shapefile DBF row"),
+    features: resolveLimit(options.maxFeatures, 100000, 1000000, "Shapefile features"),
+    records: resolveLimit(options.maxRecords, 1000000, 4000000, "Shapefile record visits"),
+    metadata: resolveLimit(options.maxMetadataBytes, 8 << 20, 64 << 20, "Shapefile retained metadata"),
+    points: resolveLimit(options.maxPoints, 65536, 1048576, "Shapefile selected points"),
+    parts: resolveLimit(options.maxParts, 4096, 65536, "Shapefile selected parts"),
+    feature: resolveLimit(options.maxFeatureBytes, 16 << 20, 64 << 20, "Shapefile selected geometry bytes"),
+    fields: resolveLimit(options.maxFields, 128, 1024, "Shapefile DBF fields"),
+    row: resolveLimit(options.maxRowBytes, 16 << 10, 64 << 10, "Shapefile DBF row"),
   };
   const opening = authority(options), opened = fresh();
   function meta(n: number): void {
     assertInteger(n, "Shapefile metadata");
-    cap(n, policy.metadata - opened.metadataBytes, "Shapefile retained metadata");
+    assertAtMost(n, policy.metadata - opened.metadataBytes, "Shapefile retained metadata");
     opened.metadataBytes += n;
   }
   /** Reserve full work before callbacks or output allocation, including raw stored bytes materialized by parsing. */
@@ -379,8 +372,8 @@ export async function openShapefile(
   }
   let at = 100;
   while (at < shp.size) {
-    cap(++opened.records, policy.records, "Shapefile record visits");
-    cap(count + 1, policy.features, "Shapefile feature count");
+    assertAtMost(++opened.records, policy.records, "Shapefile record visits");
+    assertAtMost(count + 1, policy.features, "Shapefile feature count");
     if (shp.size - at < 12) throw invalid("Truncated Shapefile record header/body.");
     const r = createView(await metadata(shp, at, 8));
     if (r.getInt32(0, false) !== count + 1) {
@@ -469,8 +462,8 @@ export async function openShapefile(
     rowLength = d.getUint16(10, true);
     if (rowStart < 33 || (rowStart - 33) % 32 !== 0 || !rowLength) throw invalid("Invalid DBF3 header/row extent.");
     const n = (rowStart - 33) / 32;
-    cap(n, policy.fields, "Shapefile DBF fields");
-    cap(rowLength, policy.row, "Shapefile DBF row bytes");
+    assertAtMost(n, policy.fields, "Shapefile DBF fields");
+    assertAtMost(rowLength, policy.row, "Shapefile DBF row bytes");
     if (!n) throw unsupported("DBF3 profile requires at least one field.");
     if (rowStart > dbf.size || count * rowLength > dbf.size - rowStart) throw invalid("DBF3 rows exceed component.");
     const tail = dbf.size - rowStart - count * rowLength;
@@ -514,9 +507,9 @@ export async function openShapefile(
   /** Admit complete stored geometry and returned typed columns before any selected payload allocation. */
   async function selected(id: number, call: ShapefileCallOptionsType): Promise<ShapefileReadType> {
     const auth = authority({ ...call }, opening), work = fresh(), p = physical(id);
-    cap(p.length, policy.feature, "Shapefile selected geometry bytes");
-    cap(p.points, policy.points, "Shapefile selected points");
-    cap(p.parts, policy.parts, "Shapefile selected parts");
+    assertAtMost(p.length, policy.feature, "Shapefile selected geometry bytes");
+    assertAtMost(p.points, policy.points, "Shapefile selected points");
+    assertAtMost(p.parts, policy.parts, "Shapefile selected parts");
     plan(auth, work, shp, p.offset, p.length, p.points * 16 + p.parts * 4);
     const bytes = await collect(auth, shp, p.offset, p.length), d = createView(bytes);
     if (d.getInt32(0, true) !== p.type) throw invalid("Shapefile selected record type changed.");
@@ -579,8 +572,8 @@ export async function openShapefile(
       let at = call.cursor ?? 0;
       assertInteger(at, "Shapefile cursor");
       if (at > count) throw new RangeError("Shapefile cursor exceeds features.");
-      const take = limit(call.limit, 256, 4096, "Shapefile page results"),
-        scan = limit(call.maxScanned, 8192, 65536, "Shapefile page scans");
+      const take = resolveLimit(call.limit, 256, 4096, "Shapefile page results"),
+        scan = resolveLimit(call.maxScanned, 8192, 65536, "Shapefile page scans");
       if (!take || !scan) throw new RangeError("Shapefile page bounds must be positive.");
       if (call.kind !== undefined && !["null", "point", "polyline", "polygon", "multipoint"].includes(call.kind)) {
         throw new TypeError("Unknown Shapefile kind filter.");
@@ -642,7 +635,7 @@ export async function openShapefile(
           if (offset > p.length || length > p.length - offset) {
             throw new RangeError("Shapefile stored interval exceeds record.");
           }
-          cap(length, policy.feature, "Shapefile source interval bytes");
+          assertAtMost(length, policy.feature, "Shapefile source interval bytes");
           plan(child, work, shp, p.offset + offset, length, length);
           return await collect(child, shp, p.offset + offset, length);
         },

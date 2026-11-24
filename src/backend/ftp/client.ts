@@ -1,4 +1,6 @@
 /** FTP and explicit FTPS over caller-owned TCP/TLS capabilities. @module */
+import { raceAbort } from "../../abort.ts";
+import { resolveLimit } from "../../check.ts";
 import { isBytes, toView } from "../../bytes.ts";
 import { close } from "../../close.ts";
 
@@ -112,27 +114,6 @@ interface ReplyType {
   readonly lines: readonly string[];
 }
 
-/** Races borrowed asynchronous work without leaving its later rejection unobserved. */
-function wait<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
-  if (signal.aborted) {
-    promise.catch(() => {});
-    return Promise.reject(signal.reason);
-  }
-  return new Promise<T>((resolve, reject) => {
-    const abort = () => reject(signal.reason);
-    signal.addEventListener("abort", abort, { once: true });
-    promise.then(resolve, reject).finally(() => signal.removeEventListener("abort", abort));
-  });
-}
-
-function limit(value: number | undefined, fallback: number, maximum: number): number {
-  const result = value ?? fallback;
-  if (!Number.isSafeInteger(result) || result < 1 || result > maximum) {
-    throw new RangeError("Invalid FTP safety limit.");
-  }
-  return result;
-}
-
 /** Only encoding rules authorize command bytes; path spaces are not trimmed. */
 function argument(value: string, utf8: boolean): string {
   if (typeof value !== "string" || value.length === 0) throw new TypeError("FTP arguments must be nonempty strings.");
@@ -182,7 +163,7 @@ class Control {
         return line;
       }
       if (this.#buffer.length > this.#lineLimit + 1) throw new FtpError("FTP reply line exceeds budget.");
-      const result = await wait(this.#reader.read(), signal);
+      const result = await raceAbort(this.#reader.read(), signal);
       if (result.done) throw new FtpError("FTP control connection ended before its reply.");
       if (!isBytes(result.value)) throw new TypeError("FTP transport returned a non-byte chunk.");
       const bytes = toView(result.value);
@@ -285,15 +266,15 @@ export class FtpClient implements AsyncDisposable {
     if (options.mode === "explicit-tls" && !options.transport.secure) {
       throw new TypeError("FTPS requires a TLS capability.");
     }
-    this.#timeout = limit(options.timeoutMs, 30_000, 86_400_000);
-    this.#cleanup = limit(options.cleanupMs, 5000, 60_000);
-    this.#line = limit(options.maxLineBytes, 8192, 1_048_576);
-    this.#reply = limit(options.maxReplyBytes, 65_536, 8_388_608);
-    this.#chunk = limit(options.maxChunkBytes, 65_536, 8_388_608);
-    this.#upload = limit(options.maxUploadBytes, 8_388_608, 1_073_741_824);
-    this.#list = limit(options.maxListBytes, 8_388_608, 67_108_864);
-    this.#entries = limit(options.maxEntries, 100_000, 1_000_000);
-    const port = limit(options.port, 21, 65_535);
+    this.#timeout = resolveLimit(options.timeoutMs, 30_000, 86_400_000, "FTP safety limit", 1);
+    this.#cleanup = resolveLimit(options.cleanupMs, 5000, 60_000, "FTP safety limit", 1);
+    this.#line = resolveLimit(options.maxLineBytes, 8192, 1_048_576, "FTP safety limit", 1);
+    this.#reply = resolveLimit(options.maxReplyBytes, 65_536, 8_388_608, "FTP safety limit", 1);
+    this.#chunk = resolveLimit(options.maxChunkBytes, 65_536, 8_388_608, "FTP safety limit", 1);
+    this.#upload = resolveLimit(options.maxUploadBytes, 8_388_608, 1_073_741_824, "FTP safety limit", 1);
+    this.#list = resolveLimit(options.maxListBytes, 8_388_608, 67_108_864, "FTP safety limit", 1);
+    this.#entries = resolveLimit(options.maxEntries, 100_000, 1_000_000, "FTP safety limit", 1);
+    const port = resolveLimit(options.port, 21, 65_535, "FTP safety limit", 1);
     this.#options = {
       ...options,
       port,
@@ -330,7 +311,7 @@ export class FtpClient implements AsyncDisposable {
     signal.throwIfAborted();
     const writer = this.#socket!.writable.getWriter();
     try {
-      await wait(writer.write(new TextEncoder().encode(`${command}\r\n`)), signal);
+      await raceAbort(writer.write(new TextEncoder().encode(`${command}\r\n`)), signal);
     } finally {
       writer.releaseLock();
     }
@@ -345,7 +326,7 @@ export class FtpClient implements AsyncDisposable {
     if (this.#socket) throw new FtpError("FTP session was already opened.");
     const life = this.#start(undefined, true);
     try {
-      this.#socket = await wait(
+      this.#socket = await raceAbort(
         this.#options.transport.connect({ host: this.#options.host, port: this.#options.port!, signal: life.signal }),
         life.signal,
       );
@@ -356,7 +337,7 @@ export class FtpClient implements AsyncDisposable {
       if (this.#options.mode === "explicit-tls") {
         await this.#command("AUTH TLS", [234], life.signal);
         this.#control.upgrade();
-        const tls = await wait(
+        const tls = await raceAbort(
           this.#options.transport.secure!(this.#socket, {
             serverName: this.#options.host,
             role: "control",
@@ -402,7 +383,7 @@ export class FtpClient implements AsyncDisposable {
     this.#closing = Promise.resolve().then(async () => {
       this.#active?.abort.abort(new FtpError("FTP session was closed."));
       await close([
-        ...[...new Set(sockets)].map((socket) => () => wait(socket.close(), AbortSignal.timeout(this.#cleanup))),
+        ...[...new Set(sockets)].map((socket) => () => raceAbort(socket.close(), AbortSignal.timeout(this.#cleanup))),
         () => control?.release(),
       ]);
     });
@@ -442,7 +423,7 @@ export class FtpClient implements AsyncDisposable {
     if (!match) throw new FtpError("Malformed EPSV endpoint.");
     const port = Number(match[2]);
     if (!Number.isSafeInteger(port) || port < 1 || port > 65535) throw new FtpError("Invalid EPSV port.");
-    this.#data = await wait(
+    this.#data = await raceAbort(
       this.#options.transport.connect({ host: this.#socket!.peerAddress, port, signal: life.signal }),
       life.signal,
     );
@@ -463,7 +444,7 @@ export class FtpClient implements AsyncDisposable {
       life.abort.abort(reason);
     });
     if (this.#options.mode === "explicit-tls") {
-      const tls = await wait(
+      const tls = await raceAbort(
         this.#options.transport.secure!(this.#data, {
           serverName: this.#options.host,
           role: "data",
@@ -542,7 +523,7 @@ export class FtpClient implements AsyncDisposable {
       },
       pull: async (value) => {
         try {
-          const chunk = await wait(reader.read(), life.signal);
+          const chunk = await raceAbort(reader.read(), life.signal);
           if (ended) return;
           if (!chunk.done) {
             if (!isBytes(chunk.value)) throw new TypeError("FTP data must contain native bytes.");
@@ -555,7 +536,7 @@ export class FtpClient implements AsyncDisposable {
             return;
           }
           const receipt = await terminal;
-          await wait(socket.close(), AbortSignal.timeout(this.#cleanup));
+          await raceAbort(socket.close(), AbortSignal.timeout(this.#cleanup));
           this.#data = undefined;
           reader.releaseLock();
           ended = true;
@@ -641,16 +622,16 @@ export class FtpClient implements AsyncDisposable {
       const writer = socket.writable.getWriter();
       try {
         for (let at = 0; at < bytes.length; at += this.#chunk) {
-          await wait(writer.write(bytes.subarray(at, at + this.#chunk)), life.signal);
+          await raceAbort(writer.write(bytes.subarray(at, at + this.#chunk)), life.signal);
         }
-        await wait(writer.close(), life.signal);
+        await raceAbort(writer.close(), life.signal);
       } finally {
         writer.releaseLock();
       }
       const reader = socket.readable.getReader();
       try {
         for (;;) {
-          const chunk = await wait(reader.read(), life.signal);
+          const chunk = await raceAbort(reader.read(), life.signal);
           if (chunk.done) break;
           if (!isBytes(chunk.value) || toView(chunk.value).length !== 0) {
             throw new FtpError("Unexpected data during STOR.");
@@ -660,7 +641,7 @@ export class FtpClient implements AsyncDisposable {
         reader.releaseLock();
       }
       const reply = await terminal;
-      await wait(socket.close(), AbortSignal.timeout(this.#cleanup));
+      await raceAbort(socket.close(), AbortSignal.timeout(this.#cleanup));
       this.#data = undefined;
       return { bytes: bytes.length, code: reply.code as 226 | 250 };
     } catch (reason) {

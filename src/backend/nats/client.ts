@@ -1,4 +1,8 @@
 /** Bounded native NATS request/reply for JetStream publication and sequence reads. @module */
+import { raceAbort } from "../../abort.ts";
+import { encodeText } from "../../bytes.ts";
+import { resolveLimit } from "../../check.ts";
+import { type JsonLimitsType, parseJson } from "../../json.ts";
 import { z } from "zod";
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
 import { isBytes, toView } from "../../bytes.ts";
@@ -91,13 +95,6 @@ export class NatsCompletionError extends Error {
 function fail(): never {
   throw new TypeError("Malformed or unsupported NATS/JetStream response.");
 }
-function limit(value: number | undefined, fallback: number, maximum: number): number {
-  const result = value ?? fallback;
-  if (!Number.isSafeInteger(result) || result < 1 || result > maximum) {
-    throw new RangeError("Invalid NATS policy limit.");
-  }
-  return result;
-}
 /** Grammar is admitted before encoding so large or structural strings cannot cause unbounded temporary allocation. */
 function subject(value: string, stream = false): string {
   if (
@@ -119,9 +116,6 @@ function sequence(value: string): string {
     BigInt(value) > 18446744073709551615n
   ) throw new TypeError("Invalid JetStream uint64 sequence.");
   return value;
-}
-function text(value: string): Uint8Array<ArrayBuffer> {
-  return new TextEncoder().encode(value);
 }
 function decode(bytes: Uint8Array): string {
   try {
@@ -147,117 +141,16 @@ function base64(value: string | undefined, maximum: number): Uint8Array<ArrayBuf
   if (bytes.length > maximum || encodeBase64(bytes) !== value) return fail();
   return bytes;
 }
-/** The race observes late rejection. The injected adapter still owns retiring partial or late connections. */
-function wait<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
-  if (signal.aborted) {
-    promise.catch(() => {});
-    return Promise.reject(signal.reason);
-  }
-  return new Promise<T>((resolve, reject) => {
-    const abort = () => reject(signal.reason);
-    signal.addEventListener("abort", abort, { once: true });
-    promise.then(resolve, reject).finally(() => signal.removeEventListener("abort", abort));
-  });
-}
 
-/** Bounded JSON keeps integer lexemes as bigint, distinguishing them from strings without binary64 rounding. */
-function json(text: string): unknown {
-  if (text.length > 2 * 1024 * 1024) throw new RangeError("NATS JSON exceeds its lexical budget.");
-  let at = 0, tokens = 0;
-  const fail = (): never => {
-    throw new TypeError("Malformed or over-budget NATS JSON.");
-  };
-  const whitespace = (): void => {
-    while (/[ \t\r\n]/.test(text[at] ?? "x")) at++;
-  };
-  const count = (): void => {
-    if (++tokens > 10000) fail();
-  };
-  function string(): string {
-    const start = at++;
-    while (at < text.length) {
-      if (at - start > 2097152) fail();
-      const char = text[at++];
-      if (char === "\\") {
-        at++;
-        continue;
-      }
-      if (char === '"') {
-        let value: unknown;
-        // Native SyntaxError context may contain private message or credential fragments.
-        try {
-          value = JSON.parse(text.slice(start, at));
-        } catch {
-          return fail();
-        }
-        if (typeof value !== "string") fail();
-        return value as string;
-      }
-    }
-    return fail();
-  }
-  function value(depth: number): unknown {
-    count();
-    if (depth > 32) fail();
-    whitespace();
-    if (text[at] === '"') return string();
-    if (text[at] === "{") {
-      at++;
-      whitespace();
-      const object: Record<string, unknown> = Object.create(null);
-      if (text[at] === "}") {
-        at++;
-        return object;
-      }
-      while (true) {
-        count();
-        whitespace();
-        if (text[at] !== '"') fail();
-        const key = string();
-        if (key === "__proto__" || key === "constructor" || key === "prototype" || Object.hasOwn(object, key)) fail();
-        whitespace();
-        if (text[at++] !== ":") fail();
-        object[key] = value(depth + 1);
-        whitespace();
-        const end = text[at++];
-        if (end === "}") return object;
-        if (end !== ",") fail();
-      }
-    }
-    if (text[at] === "[") {
-      at++;
-      whitespace();
-      const array: unknown[] = [];
-      if (text[at] === "]") {
-        at++;
-        return array;
-      }
-      while (true) {
-        array.push(value(depth + 1));
-        whitespace();
-        const end = text[at++];
-        if (end === "]") return array;
-        if (end !== ",") fail();
-      }
-    }
-    const start = at;
-    while (at < text.length && !/[ \t\r\n,}\]]/.test(text[at]!)) {
-      if (at - start > 21) fail();
-      at++;
-    }
-    const raw = text.slice(start, at);
-    if (raw.length > 21) fail();
-    if (raw === "true") return true;
-    if (raw === "false") return false;
-    if (raw === "null") return null;
-    if (!/^-?(0|[1-9][0-9]{0,19})$/.test(raw) || raw === "-0") return fail();
-    return BigInt(raw);
-  }
-  const result = value(0);
-  whitespace();
-  if (at !== text.length) fail();
-  return result;
-}
+/** Limits for this service's JSON responses; see `parseJson`. */
+const jsonLimits: JsonLimitsType = {
+  label: "NATS",
+  maxLength: 2 * 1024 * 1024,
+  maxTokens: 10_000,
+  maxString: 2_097_152,
+  maxScalar: 21,
+  number: (raw) => /^-?(0|[1-9][0-9]{0,19})$/.test(raw) && raw !== "-0" ? BigInt(raw) : undefined,
+};
 
 // External envelopes intentionally admit unknown fields for forward compatibility;
 // selected authority fields remain schema-checked and contradictory errors refused.
@@ -311,7 +204,7 @@ class Session {
     while (at < size) {
       this.#signal.throwIfAborted();
       if (this.#at === this.#pending.length) {
-        const next = await wait(this.#reader.read(), this.#signal);
+        const next = await raceAbort(this.#reader.read(), this.#signal);
         this.#signal.throwIfAborted();
         const done = next.done;
         this.#signal.throwIfAborted();
@@ -352,17 +245,17 @@ class Session {
   async send(bytes: Uint8Array, dispatch?: () => void): Promise<void> {
     this.#signal.throwIfAborted();
     dispatch?.();
-    await wait(this.#writer.write(bytes), this.#signal);
+    await raceAbort(this.#writer.write(bytes), this.#signal);
     this.#signal.throwIfAborted();
   }
   /** Only bounded unsolicited controls are serviced; discovery URLs are inert data. */
   async control(line: string): Promise<boolean> {
     if (line === "PING") {
-      await this.send(text("PONG\r\n"));
+      await this.send(encodeText("PONG\r\n"));
       return true;
     }
     if (line.startsWith("INFO ")) {
-      InfoSchema.parse(json(line.slice(5)));
+      InfoSchema.parse(parseJson(line.slice(5), jsonLimits));
       return true;
     }
     if (line.startsWith("-ERR '") && line.endsWith("'")) throw new NatsError("protocol-refusal");
@@ -371,7 +264,7 @@ class Session {
   async initialize(connect: Uint8Array, security: NatsChannelType["security"]): Promise<number> {
     const first = await this.line();
     if (!first.startsWith("INFO ")) return fail();
-    const info = InfoSchema.parse(json(first.slice(5))), maximum = Number(info.max_payload);
+    const info = InfoSchema.parse(parseJson(first.slice(5), jsonLimits)), maximum = Number(info.max_payload);
     if (!Number.isSafeInteger(maximum) || maximum < 1) return fail();
     if (info.tls_required && security !== "tls") throw new NatsError("tls-required");
     await this.send(connect);
@@ -454,11 +347,11 @@ export class NatsClient {
       ...credentials,
     };
     this.#connect = (security) =>
-      text(`CONNECT ${JSON.stringify({ ...identity, tls_required: security === "tls" })}\r\nPING\r\n`);
+      encodeText(`CONNECT ${JSON.stringify({ ...identity, tls_required: security === "tls" })}\r\nPING\r\n`);
     this.#signal = options.signal;
-    this.#timeout = limit(options.timeoutMs, 30000, 86400000);
-    this.#cleanup = limit(options.cleanupMs, 5000, 60000);
-    this.#maximum = limit(options.maxBytes, 1048576, 1048576);
+    this.#timeout = resolveLimit(options.timeoutMs, 30000, 86400000, "NATS policy limit", 1);
+    this.#cleanup = resolveLimit(options.cleanupMs, 5000, 60000, "NATS policy limit", 1);
+    this.#maximum = resolveLimit(options.maxBytes, 1048576, 1048576, "NATS policy limit", 1);
   }
   /** Failure and cleanup keep separate evidence; an admitted receipt is never relabeled as an unknown publication. */
   async #request<T extends NatsReceiptType | NatsMessageType>(
@@ -483,7 +376,7 @@ export class NatsClient {
       receipt: T | undefined;
     const failures: unknown[] = [];
     try {
-      const channel = await wait(this.#acquire({ signal: combined }), combined), closeMethod = channel.close;
+      const channel = await raceAbort(this.#acquire({ signal: combined }), combined), closeMethod = channel.close;
       if (typeof closeMethod !== "function") throw new TypeError("NATS channel requires a close capability.");
       retire = closeMethod.bind(channel);
       combined.throwIfAborted();
@@ -498,7 +391,7 @@ export class NatsClient {
         maximum = await session.initialize(this.#connect(security), security);
       const payloadSize = body.length + (headers?.length ?? 0);
       if (payloadSize > maximum) throw new RangeError("NATS request exceeds advertised max_payload.");
-      const prefix = text(
+      const prefix = encodeText(
         headers
           ? `HPUB ${target} ${inbox} ${headers.length} ${payloadSize}\r\n`
           : `PUB ${target} ${inbox} ${payloadSize}\r\n`,
@@ -508,11 +401,12 @@ export class NatsClient {
       if (headers) packet.set(headers, prefix.length);
       packet.set(body, prefix.length + (headers?.length ?? 0));
       packet.set([13, 10], packet.length - 2);
-      await session.send(text(`SUB ${inbox} 1\r\nUNSUB 1 1\r\n`));
+      await session.send(encodeText(`SUB ${inbox} 1\r\nUNSUB 1 1\r\n`));
       await session.send(packet, () => {
         dispatched = true;
       });
-      const value = json(decode(await session.response(inbox))), refusal = RefusalSchema.safeParse(value);
+      const value = parseJson(decode(await session.response(inbox)), jsonLimits),
+        refusal = RefusalSchema.safeParse(value);
       if (refusal.success) {
         const object = value as Record<string, unknown>;
         // Native publish refusals may include stream and seq:0. A positive
@@ -538,7 +432,7 @@ export class NatsClient {
     try {
       await close([
         async () => {
-          if (retire) await wait(Promise.resolve().then(retire), AbortSignal.timeout(this.#cleanup));
+          if (retire) await raceAbort(Promise.resolve().then(retire), AbortSignal.timeout(this.#cleanup));
         },
         () => reader?.releaseLock(),
         () => writer?.releaseLock(),
@@ -558,7 +452,7 @@ export class NatsClient {
     return this.#request(
       inbox,
       `$JS.API.STREAM.MSG.GET.${selected}`,
-      text(`{"seq":${seq}}`),
+      encodeText(`{"seq":${seq}}`),
       undefined,
       signal,
       false,
@@ -582,7 +476,7 @@ export class NatsClient {
     const inbox = subject(options.inbox), suppliedId = options.messageId, signal = options.signal;
     const id = suppliedId === undefined ? undefined : secret(suppliedId);
     if (id !== undefined && !id.length) throw new TypeError("NATS message ID must not be empty.");
-    const headers = text(
+    const headers = encodeText(
       `NATS/1.0\r\nNats-Expected-Stream: ${selected}\r\n${id === undefined ? "" : `Nats-Msg-Id: ${id}\r\n`}\r\n`,
     );
     return this.#request(inbox, destination, body, headers, signal, true, (value) => {

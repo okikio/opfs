@@ -1,4 +1,6 @@
 /** Dropbox native metadata, revision reads and sequential upload sessions. @module */
+import { toInteger } from "../../check.ts";
+import { exactLength } from "../../body.ts";
 import { z } from "zod";
 import { isBytes, toRequestBytes, toView } from "../../bytes.ts";
 import { close } from "../../close.ts";
@@ -6,7 +8,7 @@ import { assertRangeResponse, resolveRange } from "../../range.ts";
 import { RequestMetrics, sendRequest } from "../../request.ts";
 import type { FetchType, RequestPolicyType } from "../../request.ts";
 import { readResponse } from "../../response.ts";
-import { collectBytes, openBytes, withAbortSignal } from "../../stream.ts";
+import { collectBytes } from "../../stream.ts";
 
 /** Provider limit per content-upload call, distinct from the smaller local policy. */
 export const DROPBOX_REQUEST_BYTES = 150 * 1024 * 1024;
@@ -113,11 +115,6 @@ export class DropboxPublicationError extends Error {
     super("Dropbox mutation has no validated acknowledgement; reconcile before retrying.", { cause });
     this.name = "DropboxPublicationError";
   }
-}
-/** Admission precedes buffers, credentials and transport. */
-function integer(value: number, label: string, max = Number.MAX_SAFE_INTEGER): number {
-  if (!Number.isSafeInteger(value) || value < 0 || value > max) throw new RangeError(`Invalid Dropbox ${label}.`);
-  return value;
 }
 /** Limit code units before regular expressions or serialization allocate another representation. */
 function text(value: string, label: string, max = 8192): string {
@@ -248,7 +245,7 @@ export async function contentHash(
   bytes: Uint8Array,
   options: { readonly subtle: Pick<SubtleCrypto, "digest">; readonly maxBytes?: number },
 ): Promise<string> {
-  const limit = integer(options.maxBytes ?? defaultBytes, "hash byte budget", DROPBOX_REQUEST_BYTES);
+  const limit = toInteger(options.maxBytes ?? defaultBytes, "Dropbox hash byte budget", DROPBOX_REQUEST_BYTES);
   if (!isBytes(bytes)) throw new TypeError("Dropbox hashing requires Uint8Array bytes.");
   const view = toView(bytes);
   if (view.byteLength > limit) throw new RangeError("Dropbox hash input exceeds its byte budget.");
@@ -263,63 +260,6 @@ export async function contentHash(
   const result = new Uint8Array(await subtle.digest("SHA-256", hashes));
   if (result.length !== 32) throw new TypeError("SHA-256 capability returned an invalid digest length.");
   return Array.from(result, (value) => value.toString(16).padStart(2, "0")).join("");
-}
-
-/**
- * Exact-length owner detects truncation and extra bytes at EOF, with no prefetch.
- * Upstream cancellation/release faults remain beside the original admission fault.
- */
-function extent(source: ReadableStream<Uint8Array>, length: number, signal?: AbortSignal): ReadableStream<Uint8Array> {
-  const reader = openBytes(source);
-  let remaining = length;
-  let ended = false;
-  let empty = 0;
-  const stream = new ReadableStream<Uint8Array>({
-    async pull(controller) {
-      try {
-        let next: ReadableStreamReadResult<Uint8Array>;
-        try {
-          next = await reader.read();
-        } catch (reason) {
-          // Read rejection is already terminal source evidence. Re-cancelling
-          // an errored native stream would observe its stored failure twice.
-          ended = true;
-          throw reason;
-        }
-        // Cancellation can settle a pending read with done:true. That is not
-        // producer EOF and must not invent a truncation fault beside abort.
-        if (ended) return;
-        if (next.done) {
-          ended = true;
-          if (remaining !== 0) throw new TypeError("Dropbox content body is truncated.");
-          reader.releaseLock();
-          controller.close();
-          return;
-        }
-        if (!isBytes(next.value)) throw new TypeError("Dropbox content body requires byte chunks.");
-        const chunk = toView(next.value);
-        if (chunk.byteLength > remaining) throw new TypeError("Dropbox content body exceeds its extent.");
-        if (chunk.byteLength === 0) {
-          if (++empty > 16) throw new TypeError("Dropbox content body makes no byte progress.");
-        } else empty = 0;
-        remaining -= chunk.byteLength;
-        controller.enqueue(chunk);
-      } catch (reason) {
-        try {
-          await close([...(ended ? [] : [() => reader.cancel(reason)]), () => reader.releaseLock()], [reason]);
-        } catch (failure) {
-          controller.error(failure);
-        }
-        ended = true;
-      }
-    },
-    async cancel(reason) {
-      if (ended) return;
-      ended = true;
-      await close([() => reader.cancel(reason), () => reader.releaseLock()]);
-    },
-  }, { highWaterMark: 0 });
-  return withAbortSignal(stream, signal, "Dropbox content", "download");
 }
 
 /** Native client owns no ambient account, credential, pool or filesystem. */
@@ -343,9 +283,9 @@ export class DropboxClient {
     this.#token = options.token;
     this.#fetch = options.fetch ?? globalThis.fetch;
     this.#policy = options.request === undefined ? undefined : { ...options.request };
-    this.#pages = integer(options.maxPages ?? 1000, "page budget", 100000);
-    this.#entries = integer(options.maxEntries ?? 100000, "entry budget", 1000000);
-    this.#bytes = integer(options.maxBytes ?? defaultBytes, "byte budget", DROPBOX_REQUEST_BYTES);
+    this.#pages = toInteger(options.maxPages ?? 1000, "Dropbox page budget", 100000);
+    this.#entries = toInteger(options.maxEntries ?? 100000, "Dropbox entry budget", 1000000);
+    this.#bytes = toInteger(options.maxBytes ?? defaultBytes, "Dropbox byte budget", DROPBOX_REQUEST_BYTES);
     this.#context = new Headers();
     if (options.namespaceId !== undefined) {
       if (!/^\d{1,128}$/.test(options.namespaceId)) throw new TypeError("Invalid Dropbox namespace ID.");
@@ -516,14 +456,14 @@ export class DropboxClient {
       if (response.body === null && length !== 0) throw new TypeError("Dropbox download is missing its body.");
       return {
         file: data,
-        bytes: extent(
+        bytes: exactLength(
           response.body ?? new ReadableStream({
             start(controller) {
               controller.close();
             },
           }),
           length,
-          extentRequest.signal,
+          { label: "Dropbox content body", resource: "Dropbox content", signal: extentRequest.signal },
         ),
       };
     } catch (reason) {
@@ -644,7 +584,7 @@ export class DropboxClient {
     signal?: AbortSignal,
   ): Promise<DropboxSessionType> {
     const sessionId = text(session.sessionId, "session ID", 4096);
-    const offset = integer(session.offset, "session offset", DROPBOX_FILE_BYTES);
+    const offset = toInteger(session.offset, "Dropbox session offset", DROPBOX_FILE_BYTES);
     const owned = this.#owned(bytes);
     if (owned.length > DROPBOX_FILE_BYTES - offset) throw new RangeError("Dropbox session exceeds its file limit.");
     await this.#upload(
@@ -666,8 +606,8 @@ export class DropboxClient {
     options: DropboxFinishOptionsType,
   ): Promise<DropboxFileType> {
     const sessionId = text(session.sessionId, "session ID", 4096);
-    const offset = integer(session.offset, "session offset", DROPBOX_FILE_BYTES);
-    const size = integer(options.size, "file size", DROPBOX_FILE_BYTES);
+    const offset = toInteger(session.offset, "Dropbox session offset", DROPBOX_FILE_BYTES);
+    const size = toInteger(options.size, "Dropbox file size", DROPBOX_FILE_BYTES);
     const selected = commit(target);
     const expected = options.contentHash;
     const signal = options.signal;

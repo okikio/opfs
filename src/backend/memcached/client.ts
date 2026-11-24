@@ -1,4 +1,7 @@
 /** Bounded classic Memcached ASCII commands over an explicitly owned byte channel. @module */
+import { raceAbort } from "../../abort.ts";
+import { resolveLimit } from "../../check.ts";
+import { toInteger } from "../../check.ts";
 import { z } from "zod";
 import { isBytes, toView } from "../../bytes.ts";
 import { close } from "../../close.ts";
@@ -102,13 +105,6 @@ export class MemcachedPublicationError extends Error {
     this.key = key;
   }
 }
-function limit(value: number | undefined, fallback: number, maximum: number): number {
-  const selected = value ?? fallback;
-  if (!Number.isSafeInteger(selected) || selected < 1 || selected > maximum) {
-    throw new RangeError("Invalid Memcached policy limit.");
-  }
-  return selected;
-}
 /** The selected key profile admits printable single-byte ASCII, without command delimiters or transformations. */
 function key(value: string): string {
   if (typeof value !== "string" || value.length < 1 || value.length > 250 || /[^\u0021-\u007e]/u.test(value)) {
@@ -126,12 +122,6 @@ function cas(value: string): string {
   }
   return value;
 }
-function integer(value: number, maximum: number): number {
-  if (!Number.isSafeInteger(value) || value < 0 || value > maximum) {
-    throw new RangeError("Memcached integer exceeds its policy.");
-  }
-  return value;
-}
 /** Wire lengths and flags are canonical bounded decimals before allocation or Number conversion. */
 function number(value: string, maximum: number): number {
   if (value.length > 10 || !/^(0|[1-9][0-9]*)$/u.test(value)) {
@@ -140,18 +130,6 @@ function number(value: string, maximum: number): number {
   const selected = Number(value);
   if (selected > maximum) throw new MemcachedProtocolError("Memcached reply integer exceeds policy.");
   return selected;
-}
-/** The abort race observes eventual rejection; borrowed adapters must still honor cancellation and retire late acquisitions. */
-function wait<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
-  if (signal.aborted) {
-    promise.catch(() => {});
-    return Promise.reject(signal.reason);
-  }
-  return new Promise<T>((resolve, reject) => {
-    const abort = () => reject(signal.reason);
-    signal.addEventListener("abort", abort, { once: true });
-    promise.then(resolve, reject).finally(() => signal.removeEventListener("abort", abort));
-  });
 }
 interface MutationType {
   readonly operation: "put" | "remove";
@@ -188,11 +166,11 @@ export class MemcachedClient implements AsyncDisposable {
     if (typeof acquire !== "function") throw new TypeError("Memcached requires an explicit byte-channel capability.");
     this.#acquire = acquire.bind(options);
     this.#signal = options.signal;
-    this.#timeout = limit(options.timeoutMs, 30_000, 86_400_000);
-    this.#cleanup = limit(options.cleanupMs, 5000, 60_000);
-    this.#maximum = limit(options.maxBytes, 1_048_576, 1_048_576);
-    this.#chunk = limit(options.maxChunkBytes, 65_536, 1_048_576);
-    this.#lineMaximum = limit(options.maxLineBytes, 1024, 8192);
+    this.#timeout = resolveLimit(options.timeoutMs, 30_000, 86_400_000, "Memcached policy limit", 1);
+    this.#cleanup = resolveLimit(options.cleanupMs, 5000, 60_000, "Memcached policy limit", 1);
+    this.#maximum = resolveLimit(options.maxBytes, 1_048_576, 1_048_576, "Memcached policy limit", 1);
+    this.#chunk = resolveLimit(options.maxChunkBytes, 65_536, 1_048_576, "Memcached policy limit", 1);
+    this.#lineMaximum = resolveLimit(options.maxLineBytes, 1024, 8192, "Memcached policy limit", 1);
   }
   get closed(): boolean {
     return this.#closed;
@@ -232,7 +210,7 @@ export class MemcachedClient implements AsyncDisposable {
     if (this.#opened) throw new MemcachedProtocolError("Memcached connection was already opened.");
     await this.#run(
       async (signal) => {
-        const channel = await wait(this.#acquire({ signal }), signal);
+        const channel = await raceAbort(this.#acquire({ signal }), signal);
         const retire = channel.close;
         if (typeof retire !== "function") throw new TypeError("Memcached channel has no close capability.");
         this.#retire = retire.bind(channel);
@@ -252,7 +230,7 @@ export class MemcachedClient implements AsyncDisposable {
     let at = 0, empty = 0;
     while (at < length) {
       if (this.#position === this.#pending.length) {
-        const next = await wait(this.#reader!.read(), signal);
+        const next = await raceAbort(this.#reader!.read(), signal);
         if (next.done) throw new MemcachedProtocolError("Memcached connection ended before its reply.");
         const bytes = next.value;
         if (!isBytes(bytes)) throw new MemcachedProtocolError("Memcached transport returned non-byte data.");
@@ -313,7 +291,7 @@ export class MemcachedClient implements AsyncDisposable {
   async #send(bytes: Uint8Array, signal: AbortSignal, mutation?: MutationType): Promise<void> {
     signal.throwIfAborted();
     if (mutation) mutation.dispatched = true;
-    await wait(this.#writer!.write(bytes), signal);
+    await raceAbort(this.#writer!.write(bytes), signal);
   }
   /** Fetch exactly one native item, including a uint64 CAS string; empty bytes differ from a missing item. */
   async get(input: string, options: MemcachedOperationType = {}): Promise<MemcachedEntryType | null> {
@@ -353,7 +331,10 @@ export class MemcachedClient implements AsyncDisposable {
   async put(input: string, bytes: Uint8Array, options: MemcachedPutType): Promise<MemcachedReceiptType> {
     const signal = options.signal;
     signal?.throwIfAborted();
-    const name = key(input), mode = options.mode, suppliedCas = options.cas, flags = integer(options.flags, 0xffffffff);
+    const name = key(input),
+      mode = options.mode,
+      suppliedCas = options.cas,
+      flags = toInteger(options.flags, "Memcached integer", 0xffffffff);
     if (!["set", "add", "cas"].includes(mode) || (mode === "cas") !== (suppliedCas !== undefined)) {
       throw new TypeError("Memcached write needs one native mode and matching CAS token.");
     }
@@ -362,7 +343,7 @@ export class MemcachedClient implements AsyncDisposable {
     if (!expiry.success) throw new TypeError("Invalid Memcached expiry policy.");
     if (!isBytes(bytes)) throw new TypeError("Memcached values require bytes.");
     const view = toView(bytes);
-    integer(view.length, this.#maximum);
+    toInteger(view.length, "Memcached integer", this.#maximum);
     const header = new TextEncoder().encode(
       `${mode} ${name} ${flags} ${expiry.data.seconds} ${view.length}${token === undefined ? "" : ` ${token}`}\r\n`,
     );
@@ -425,7 +406,7 @@ export class MemcachedClient implements AsyncDisposable {
     this.#closing = Promise.resolve().then(() =>
       close([
         async () => {
-          if (retire) await wait(retire(), AbortSignal.timeout(this.#cleanup));
+          if (retire) await raceAbort(retire(), AbortSignal.timeout(this.#cleanup));
         },
         () => reader?.releaseLock(),
         () => writer?.releaseLock(),

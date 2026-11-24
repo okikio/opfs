@@ -1,8 +1,9 @@
 /** Explicit LF-native mboxo/mboxrd indexing and MIME preview sources. @module */
+import { assertAtMost } from "./budget.ts";
 import type { ByteSourceType } from "../source.ts";
 import { assertExtent } from "../source.ts";
 import { ArchiveBudget, assertInteger, createArchiveLedger } from "./budget.ts";
-import { ArchiveError, invalid, unsupported } from "./error.ts";
+import { invalid, unsupported } from "./error.ts";
 import type { ArchiveLimitsType, ArchiveWorkType } from "./budget.ts";
 export { ArchiveError } from "./error.ts";
 export { createArchiveLedger } from "./budget.ts";
@@ -75,10 +76,6 @@ interface PieceType {
   readonly cr: boolean;
 }
 
-function cap(value: number, maximum: number, label: string): void {
-  if (value > maximum) throw new ArchiveError("budget-exceeded", `${label} limit exceeded.`);
-}
-
 /** Walks without buffering a whole line, including malformed very long body lines. */
 async function scan(
   work: ArchiveBudget,
@@ -147,7 +144,7 @@ export async function openMbox(input: ByteSourceType, options: MboxOpenOptionsTy
         if (candidate) envelope = prefix;
       } else if (candidate) envelope += String.fromCharCode(byte);
       if (candidate) {
-        cap(lineLength, envelopeMaximum, "MBOX envelope");
+        assertAtMost(lineLength, envelopeMaximum, "MBOX envelope");
         if (byte < 32 || byte > 126) throw invalid("MBOX envelope must be printable ASCII.");
       }
       return;
@@ -158,8 +155,8 @@ export async function openMbox(input: ByteSourceType, options: MboxOpenOptionsTy
         if (!previousEmpty) throw invalid("MBOX message requires a terminal empty line in this profile.");
         pending.push(Object.freeze({ ...state.current, size: lineStart - state.current.offset }));
       } else if (lineStart !== 0) throw invalid("MBOX must start with an envelope separator.");
-      cap(pending.length + 1, messages, "MBOX messages");
-      cap(envelope.length + 64, metadataMaximum - metadata, "MBOX metadata");
+      assertAtMost(pending.length + 1, messages, "MBOX messages");
+      assertAtMost(envelope.length + 64, metadataMaximum - metadata, "MBOX metadata");
       metadata += envelope.length + 64;
       state.current = { id: pending.length, envelope, envelopeOffset: lineStart, offset: at + 1 };
     } else if (!state.current) throw invalid("MBOX must start with an envelope separator.");
@@ -227,8 +224,8 @@ export async function openMbox(input: ByteSourceType, options: MboxOpenOptionsTy
       const end = entry.offset + entry.size - (policy.trailing === "remove-one" ? 1 : 0);
       function piece(offset: number, length: number, cr: boolean): void {
         if (!length) return;
-        cap(pieces.length + 1, maximum, "MBOX range map pieces");
-        cap(pieces.length + 1, Math.floor(metadata / 32), "MBOX range map metadata");
+        assertAtMost(pieces.length + 1, maximum, "MBOX range map pieces");
+        assertAtMost(pieces.length + 1, Math.floor(metadata / 32), "MBOX range map metadata");
         assertInteger(logicalSize + length, "Converted message size");
         pieces.push({ start: logicalSize, offset, size: length, cr });
         logicalSize += length;

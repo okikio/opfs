@@ -1,9 +1,11 @@
 /** Bounded BagIt 1.0 metadata and selected-file fixity over an explicit inventory. @module */
+import { createChildLedger } from "./budget.ts";
+import { assertAtMost } from "./budget.ts";
 import type { ByteSourceType } from "../source.ts";
 import { assertExtent } from "../source.ts";
-import { ArchiveBudget, assertInteger, createArchiveLedger } from "./budget.ts";
+import { ArchiveBudget, assertInteger, } from "./budget.ts";
 import { ArchiveError, invalid, unsupported } from "./error.ts";
-import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./budget.ts";
+import type { ArchiveLimitsType, ArchiveWorkType } from "./budget.ts";
 export { ArchiveError } from "./error.ts";
 export { createArchiveLedger } from "./budget.ts";
 export type { ArchiveErrorCodeType } from "./error.ts";
@@ -129,10 +131,6 @@ export interface BagitArchiveType {
   verify(manifestId: number, path: string, options: BagitVerifyOptionsType): Promise<BagitVerificationType>;
 }
 
-function cap(count: number, maximum: number, label: string): void {
-  if (count > maximum) throw new ArchiveError("budget-exceeded", `${label} limit exceeded.`);
-}
-
 /** Percent decoding is deliberately one pass and covers ONLY the three BagIt escapes. */
 function decodePath(value: string): string {
   return value.replace(/%([\s\S]{0,2})/g, (_match, digits: string) => {
@@ -147,29 +145,16 @@ function decodePath(value: string): string {
 function admitPath(value: string, maximum: number): void {
   if (typeof value !== "string") throw invalid("BagIt paths must be literal Unicode strings.");
   // UTF8 takes at least one byte per UTF16 code unit for well-formed strings.
-  cap(value.length, maximum, "BagIt path bytes");
+  assertAtMost(value.length, maximum, "BagIt path bytes");
   if (
     !value || !value.isWellFormed() || value.includes("\\") || value.includes("\0") || value.startsWith("/") ||
     /^[A-Za-z]:/.test(value) || value.startsWith("~")
   ) throw invalid("Unsafe BagIt relative path.");
-  cap(new TextEncoder().encode(value).length, maximum, "BagIt path bytes");
+  assertAtMost(new TextEncoder().encode(value).length, maximum, "BagIt path bytes");
   const parts = value.split("/");
   if (parts.some((part) => !part || part === "." || part === ".." || /^[ \t]|[ \t]$/.test(part))) {
     throw unsupported("Empty, dot and ambiguous whitespace path components are outside this profile.");
   }
-}
-
-/** An explicit combined owner makes multi-file reads share one physical work limit. */
-function ledgerOf(options: ArchiveLimitsType): ArchiveLedgerType {
-  const local = createArchiveLedger(options);
-  const outer = options.ledger;
-  return {
-    reserve(kind, count) {
-      local.reserve(kind, count);
-      outer?.reserve(kind, count);
-    },
-    inspect: () => local.inspect(),
-  };
 }
 
 /** Exact buffered reads admit the full allocation and physical request count before starting. */
@@ -197,8 +182,8 @@ async function bytesOf(
       }
       : {}),
   }, options.signal);
-  cap(length, work.limits.maxSourceBytes, "BagIt source bytes");
-  cap(Math.ceil(length / chunk), work.limits.maxRequests, "BagIt requests");
+  assertAtMost(length, work.limits.maxSourceBytes, "BagIt source bytes");
+  assertAtMost(Math.ceil(length / chunk), work.limits.maxRequests, "BagIt requests");
   // Reserve the entire verifier/preview acquisition before allocating, including aggregate limits.
   outer?.reserve("sourceBytes", length);
   outer?.reserve("requests", Math.ceil(length / chunk));
@@ -235,13 +220,13 @@ export async function openBagit(
   for (const [name, value] of Object.entries(policy)) assertInteger(value, name);
   if (policy.chunk < 1 || policy.chunk > 65536) throw new RangeError("maxChunkBytes must be 1..65536.");
   if (!Array.isArray(input)) throw new TypeError("BagIt requires an explicit inventory array.");
-  cap(input.length, policy.files, "BagIt inventory records");
+  assertAtMost(input.length, policy.files, "BagIt inventory records");
   const sources = new Map<string, ByteSourceType>();
   const paths = new Map<string, "file" | "directory">();
   const files: BagitFileType[] = [];
   let retained = 0;
   function retain(bytes: number): void {
-    cap(bytes, policy.metadata - retained, "BagIt metadata");
+    assertAtMost(bytes, policy.metadata - retained, "BagIt metadata");
     retained += bytes;
   }
   for (const entry of input) {
@@ -287,18 +272,18 @@ export async function openBagit(
     }
   }
   options.signal?.throwIfAborted();
-  const ledger = ledgerOf(options);
+  const ledger = createChildLedger(options);
   let totalTag = 0;
   let rows = 0;
   function row(): void {
-    cap(++rows, policy.rows, "BagIt rows");
+    assertAtMost(++rows, policy.rows, "BagIt rows");
     retain(128);
   }
   async function lines(path: string): Promise<string[]> {
     const source = sources.get(path);
     if (!source) throw invalid(`Required BagIt tag file is absent: ${path}`);
-    cap(source.size, policy.tag, "BagIt tag bytes");
-    cap(source.size, policy.total - totalTag, "BagIt total tag bytes");
+    assertAtMost(source.size, policy.tag, "BagIt tag bytes");
+    assertAtMost(source.size, policy.total - totalTag, "BagIt total tag bytes");
     totalTag += source.size;
     retain(source.size);
     const result = await bytesOf(source, 0, source.size, { ...options, ledger }, policy.chunk, true);
@@ -311,15 +296,15 @@ export async function openBagit(
     let lineStart = 0;
     for (let index = 0; index < bytes.length; index++) {
       if (bytes[index] === 13 || bytes[index] === 10) {
-        cap(index - lineStart, policy.line, "BagIt physical line bytes");
-        cap(++physicalLines, Math.max(2, policy.rows), "BagIt tag physical lines");
+        assertAtMost(index - lineStart, policy.line, "BagIt physical line bytes");
+        assertAtMost(++physicalLines, Math.max(2, policy.rows), "BagIt tag physical lines");
         if (bytes[index] === 13 && bytes[index + 1] === 10) index++;
         lineStart = index + 1;
       }
     }
     if (lineStart < bytes.length) {
-      cap(bytes.length - lineStart, policy.line, "BagIt physical line bytes");
-      cap(++physicalLines, Math.max(2, policy.rows), "BagIt tag physical lines");
+      assertAtMost(bytes.length - lineStart, policy.line, "BagIt physical line bytes");
+      assertAtMost(++physicalLines, Math.max(2, policy.rows), "BagIt tag physical lines");
     }
     let text: string;
     try {
@@ -343,7 +328,7 @@ export async function openBagit(
   const manifestNames = files.filter((file) =>
     !file.path.includes("/") && /^(?:tag)?manifest-[a-z0-9]+\.txt$/.test(file.path)
   );
-  cap(manifestNames.length, policy.manifests, "BagIt manifests");
+  assertAtMost(manifestNames.length, policy.manifests, "BagIt manifests");
   // Names beginning the reserved manifest prefixes may not hide malformed algorithms as opaque tags.
   for (const file of files) {
     if (
@@ -502,7 +487,7 @@ export async function openBagit(
     source(path, readOptions = {}) {
       const source = at(path);
       const budgetOptions = { ...readOptions };
-      const ledger = ledgerOf(budgetOptions);
+      const ledger = createChildLedger(budgetOptions);
       return Object.freeze({
         size: source.size,
         ...(source.identity === undefined ? {} : { identity: source.identity }),
@@ -536,7 +521,7 @@ export async function openBagit(
       const maximum = verifyOptions.maxVerifyBytes ?? 1024 * 1024;
       assertInteger(maximum, "maxVerifyBytes");
       if (maximum > 16 * 1024 * 1024) throw new RangeError("Whole-file verification ceiling cannot exceed 16 MiB.");
-      cap(source.size, maximum, "BagIt whole-file verification");
+      assertAtMost(source.size, maximum, "BagIt whole-file verification");
       const result = await bytesOf(source, 0, source.size, verifyOptions, policy.chunk, true);
       const algorithm = manifest.algorithm === "sha256" ? "SHA-256" : "SHA-512";
       const digest = new Uint8Array(await verifyOptions.subtle.digest(algorithm, result.bytes.buffer as ArrayBuffer));

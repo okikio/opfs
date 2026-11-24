@@ -1,4 +1,5 @@
 /** Bounded 7z indexing with COPY and single-stream LZMA reads. @module */
+import { toSafeInteger } from "./budget.ts";
 import { createLzmaDecoder } from "./lzma.ts";
 import type { LzmaFormatType, LzmaLimitsType } from "./lzma.ts";
 import type { ByteSourceType } from "../source.ts";
@@ -129,15 +130,8 @@ export interface SevenArchiveType {
   read(id: number, options?: SevenReadOptionsType): Promise<SevenReadType>;
 }
 
-/** Refuse precision loss before converting a serialized 64-bit offset/count to JavaScript indexing. */
-function exact(value: bigint): number {
-  if (value > BigInt(Number.MAX_SAFE_INTEGER) || value < 0n) {
-    throw unsupported("7z integer exceeds exact JavaScript indexing.");
-  }
-  return Number(value);
-}
 function add(left: number, right: number): number {
-  return exact(BigInt(left) + BigInt(right));
+  return toSafeInteger(BigInt(left) + BigInt(right), "7z integer");
 }
 function checksum(bytes: Uint8Array): number {
   return (crc32(bytes) ^ 0xffffffff) >>> 0;
@@ -224,11 +218,13 @@ class Cursor {
     let mask = 128;
     let result = 0n;
     for (let index = 0; index < 8; index++) {
-      if ((first & mask) === 0) return exact(result + (BigInt(first & (mask - 1)) << BigInt(index * 8)));
+      if ((first & mask) === 0) {
+        return toSafeInteger(result + (BigInt(first & (mask - 1)) << BigInt(index * 8)), "7z integer");
+      }
       result += BigInt(this.byte()) << BigInt(index * 8);
       mask >>= 1;
     }
-    return exact(result);
+    return toSafeInteger(result, "7z integer");
   }
   u32(): number {
     return createView(this.take(4)).getUint32(0, true);
@@ -695,8 +691,8 @@ export async function openSeven(
   if (checksum(signature.subarray(12, 32)) !== start.getUint32(8, true)) {
     throw new ArchiveError("checksum-mismatch", "7z start-header CRC mismatch.");
   }
-  const headerAt = add(32, exact(start.getBigUint64(12, true)));
-  const headerSize = exact(start.getBigUint64(20, true));
+  const headerAt = add(32, toSafeInteger(start.getBigUint64(12, true), "7z integer"));
+  const headerSize = toSafeInteger(start.getBigUint64(20, true), "7z integer");
   if (headerAt > snapshot.size || headerSize !== snapshot.size - headerAt) {
     throw invalid("7z next header must fit and end at the full source extent.");
   }

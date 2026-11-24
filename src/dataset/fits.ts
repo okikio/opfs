@@ -1,4 +1,5 @@
 /** Bounded FITS 4.0 primary/image HDU inspection and numeric previews. @module */
+import { toSafeInteger } from "../archive/budget.ts";
 import type { ByteSourceType } from "../source.ts";
 import { ArchiveBudget, assertInteger, createArchiveLedger, resolveLimits } from "../archive/budget.ts";
 import { ArchiveError, invalid, unsupported } from "../archive/error.ts";
@@ -75,12 +76,6 @@ export interface FitsDatasetType {
   verify(id: number, options?: ArchiveLimitsType & { readonly signal?: AbortSignal }): Promise<FitsVerificationType>;
 }
 
-function exact(value: bigint): number {
-  if (value < 0n || value > BigInt(Number.MAX_SAFE_INTEGER)) {
-    throw unsupported("FITS extent exceeds exact JavaScript indexing.");
-  }
-  return Number(value);
-}
 function policy(value: number | undefined, fallback: number, label: string): number {
   const result = value ?? fallback;
   assertInteger(result, label);
@@ -233,13 +228,13 @@ export async function openFits(input: ByteSourceType, options: FitsOpenOptionsTy
     const bitpixNumber = Number(integerValue(required("BITPIX", 1)));
     if (![8, 16, 32, 64, -32, -64].includes(bitpixNumber)) throw unsupported("Unsupported FITS BITPIX.");
     const bitpix = bitpixNumber as FitsBitpixType;
-    const axesCount = exact(integerValue(required("NAXIS", 2)));
+    const axesCount = toSafeInteger(integerValue(required("NAXIS", 2)), "FITS extent");
     if (axesCount > 999) throw invalid("FITS NAXIS exceeds 999.");
     if (axesCount > maxAxes) throw new ArchiveError("budget-exceeded", "FITS axis count limit exceeded.");
     const axes: number[] = [];
     let elementsBig = axesCount ? 1n : 0n;
     for (let i = 0; i < axesCount; i++) {
-      const axis = exact(integerValue(required(`NAXIS${i + 1}`, i + 3)));
+      const axis = toSafeInteger(integerValue(required(`NAXIS${i + 1}`, i + 3)), "FITS extent");
       axes.push(axis);
       elementsBig *= BigInt(axis);
     }
@@ -283,8 +278,9 @@ export async function openFits(input: ByteSourceType, options: FitsOpenOptionsTy
       if (!/^\d+$/.test(sum) || BigInt(sum) > 0xffffffffn) throw invalid("Invalid FITS DATASUM value.");
       datasum = Number(sum);
     }
-    const elements = exact(elementsBig), dataBytes = exact(elementsBig * BigInt(Math.abs(bitpix) / 8));
-    const paddedDataBytes = exact(((BigInt(dataBytes) + 2879n) / 2880n) * 2880n);
+    const elements = toSafeInteger(elementsBig, "FITS extent"),
+      dataBytes = toSafeInteger(elementsBig * BigInt(Math.abs(bitpix) / 8), "FITS extent");
+    const paddedDataBytes = toSafeInteger(((BigInt(dataBytes) + 2879n) / 2880n) * 2880n, "FITS extent");
     if (paddedDataBytes > size - position) throw invalid("FITS data extent exceeds source.");
     hdus.push(
       Object.freeze({

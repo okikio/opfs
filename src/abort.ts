@@ -45,3 +45,27 @@ export function retainCancellation(failure: AggregateError, observation: Cancell
 export function getCancellation(failure: unknown): CancellationType | undefined {
   return typeof failure === "object" && failure !== null ? cancellations.get(failure) : undefined;
 }
+
+/**
+ * Settles with `promise`, or rejects with `signal.reason` as soon as `signal`
+ * aborts, whichever happens first.
+ *
+ * Socket clients use it around one pending read or write:
+ * `await raceAbort(socket.read(), signal)`. It does not cancel the work behind
+ * `promise`; the caller still owns that and must close the socket on abort.
+ * A late rejection of `promise` after the abort is observed, so it is never
+ * reported as unhandled.
+ */
+export function raceAbort<T>(promise: PromiseLike<T>, signal: AbortSignal): Promise<T> {
+  const pending = Promise.resolve(promise);
+  return new Promise<T>((resolve, reject) => {
+    const abort = (): void => reject(signal.reason);
+    if (signal.aborted) {
+      pending.catch(() => {});
+      reject(signal.reason);
+      return;
+    }
+    signal.addEventListener("abort", abort, { once: true });
+    pending.then(resolve, reject).finally(() => signal.removeEventListener("abort", abort)).catch(() => {});
+  });
+}

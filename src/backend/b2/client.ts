@@ -1,3 +1,4 @@
+import { toInteger } from "../../check.ts";
 import { z } from "zod";
 import { isBytes, toRequestBytes, toView } from "../../bytes.ts";
 import type { FetchType } from "../../request.ts";
@@ -105,11 +106,6 @@ function name(value: string): string {
   }
   return value;
 }
-/** Safe integers prevent Range construction from losing precision. */
-function integer(value: number, label: string): number {
-  if (!Number.isSafeInteger(value) || value < 0) throw new RangeError(`${label} must be a nonnegative safe integer.`);
-  return value;
-}
 /** Convert version metadata without assigning a B2 identity to an ETag. */
 function stat(file: B2FileType): ObjectStatType {
   return {
@@ -174,7 +170,7 @@ export function createB2Client(options: B2ClientOptionsType): B2ClientType {
   const fetch = options.fetch;
   const subtle = options.subtle;
   const maxUploadBytes = options.maxUploadBytes ?? B2_UPLOAD_BYTES;
-  if (integer(maxUploadBytes, "maxUploadBytes") < 1 || maxUploadBytes > B2_UPLOAD_BYTES) {
+  if (toInteger(maxUploadBytes, "maxUploadBytes") < 1 || maxUploadBytes > B2_UPLOAD_BYTES) {
     throw new RangeError("B2 upload policy exceeds the implementation ceiling.");
   }
   /** Every call is one attempt; redirect refusal prevents token forwarding to another endpoint. */
@@ -219,8 +215,10 @@ export function createB2Client(options: B2ClientOptionsType): B2ClientType {
       request.revision !== undefined &&
       (request.revision.kind !== "version" || request.revision.value !== snapshot.fileId)
     ) throw new TypeError("B2 snapshot revision must equal its native file ID.");
-    const at = integer(request.at ?? 0, "Read offset");
-    const length = request.length === undefined ? snapshot.contentLength - at : integer(request.length, "Read length");
+    const at = toInteger(request.at ?? 0, "Read offset");
+    const length = request.length === undefined
+      ? snapshot.contentLength - at
+      : toInteger(request.length, "Read length");
     if (at > snapshot.contentLength || length < 0 || !Number.isSafeInteger(at + length)) {
       throw new RangeError("B2 range exceeds safe offsets.");
     }
@@ -440,7 +438,7 @@ export function createB2Client(options: B2ClientOptionsType): B2ClientType {
         throw new TypeError("This B2 profile admits only the slash delimiter.");
       }
       const limit = request.limit ?? 1000;
-      if (integer(limit, "List limit") < 1 || limit > 10000) throw new RangeError("B2 list limit must be 1..10000.");
+      if (toInteger(limit, "List limit") < 1 || limit > 10000) throw new RangeError("B2 list limit must be 1..10000.");
       const result = z.object({ files: z.array(z.unknown()).max(limit), nextFileName: z.string().nullable() }).parse(
         await call("b2_list_file_names", {
           bucketId,

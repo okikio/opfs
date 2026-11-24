@@ -1,4 +1,5 @@
 /** CAR v1 block locations and independently verified block reads; no DAG traversal. @module */
+import { toInteger } from "../check.ts";
 import { createSourceBudget, limitSource } from "../source.ts";
 import type { ByteSourceType, SourceBudgetType, SourceReadOptionsType } from "../source.ts";
 import { MAX_CID_BYTES, parseCid, readCid, readUnsigned, verifyBlock } from "./cid.ts";
@@ -37,12 +38,6 @@ export interface CarReaderType {
   read(cid: string | Uint8Array, options?: SourceReadOptionsType): Promise<CarBlockType>;
   /** Single-pass pull iterator. Early return starts no further reads and closes no borrowed source. */
   blocks(options?: SourceReadOptionsType): AsyncIterable<CarBlockType>;
-}
-
-/** Rejects unsafe user policy before reading or allocating. */
-function limit(value: number, name: string): number {
-  if (!Number.isSafeInteger(value) || value < 0) throw new RangeError(`Invalid CAR ${name} limit.`);
-  return value;
 }
 
 /** Minimal definite-length DAG-CBOR header reader, deliberately not a general CBOR decoder.
@@ -102,11 +97,11 @@ function header(bytes: Uint8Array, maxRoots: number): readonly string[] {
 export async function openCar(source: ByteSourceType, options: CarOptionsType = {}): Promise<CarReaderType> {
   const { signal } = options;
   signal?.throwIfAborted();
-  const maxArchiveBytes = limit(options.maxArchiveBytes ?? 1024 * 1024 * 1024, "archive bytes");
-  const maxHeaderBytes = limit(options.maxHeaderBytes ?? 65536, "header bytes");
-  const maxBlockBytes = limit(options.maxBlockBytes ?? 8 * 1024 * 1024, "block bytes");
-  const maxBlocks = limit(options.maxBlocks ?? 100000, "block count");
-  const maxRoots = limit(options.maxRoots ?? 1024, "root count");
+  const maxArchiveBytes = toInteger(options.maxArchiveBytes ?? 1024 * 1024 * 1024, `CAR ${"archive bytes"} limit`);
+  const maxHeaderBytes = toInteger(options.maxHeaderBytes ?? 65536, `CAR ${"header bytes"} limit`);
+  const maxBlockBytes = toInteger(options.maxBlockBytes ?? 8 * 1024 * 1024, `CAR ${"block bytes"} limit`);
+  const maxBlocks = toInteger(options.maxBlocks ?? 100000, `CAR ${"block count"} limit`);
+  const maxRoots = toInteger(options.maxRoots ?? 1024, `CAR ${"root count"} limit`);
   if (!Number.isSafeInteger(source.size) || source.size < 1 || source.size > maxArchiveBytes) {
     throw new RangeError("CAR source size exceeds its archive limit or is empty.");
   }

@@ -1,4 +1,5 @@
 /** Bounded LAS 1.2 uncompressed point-column preview over a borrowed snapshot. @module */
+import { toSafeInteger } from "../archive/budget.ts";
 import type { ByteSourceType } from "../source.ts";
 import { ArchiveBudget, assertInteger, createArchiveLedger } from "../archive/budget.ts";
 import { ArchiveError, invalid, unsupported } from "../archive/error.ts";
@@ -103,11 +104,6 @@ export interface LasDatasetType {
   ): Promise<{ readonly bytes: Uint8Array; readonly integrity: "not-provided"; readonly work: ArchiveWorkType }>;
 }
 
-/** Arithmetic stays exact before converting to source offsets or allocation lengths. */
-function exact(value: bigint): number {
-  if (value < 0n || value > BigInt(Number.MAX_SAFE_INTEGER)) throw unsupported("LAS extent exceeds safe indexing.");
-  return Number(value);
-}
 /** LAS fixed strings are ASCII with zero padding, not a Unicode/host path contract. */
 function ascii(bytes: Uint8Array): string {
   let result = "", ended = false;
@@ -203,7 +199,7 @@ export async function openLas(input: ByteSourceType, options: LasOpenOptionsType
   if (pointOffset > maxMetadata || vlrCount > maxVlrs) {
     throw new ArchiveError("budget-exceeded", "LAS metadata extent/count limit exceeded.");
   }
-  const pointBytes = exact(BigInt(points) * BigInt(recordBytes));
+  const pointBytes = toSafeInteger(BigInt(points) * BigInt(recordBytes), "LAS extent");
   if (pointBytes > size - pointOffset) throw invalid("LAS point records exceed source.");
   const scale = Object.freeze([131, 139, 147].map((at) => data.getFloat64(at, true))),
     offset = Object.freeze([155, 163, 171].map((at) => data.getFloat64(at, true)));
@@ -271,15 +267,16 @@ export async function openLas(input: ByteSourceType, options: LasOpenOptionsType
       if (start > points || count > points - start) throw new RangeError("LAS selection exceeds point count.");
       if (count > maxPoints) throw new ArchiveError("budget-exceeded", "LAS selected point limit exceeded.");
       if (mode !== "raw" && mode !== "physical") throw new TypeError("Unknown LAS coordinate mode.");
-      const bytes = exact(BigInt(count) * BigInt(recordBytes)),
+      const bytes = toSafeInteger(BigInt(count) * BigInt(recordBytes), "LAS extent"),
         requests = Math.ceil(count / rowsPerRequest),
         current = operation(opts, bytes, requests);
       current.reserve("decodedBytes", bytes);
       current.reserve(
         "outputBytes",
-        exact(
+        toSafeInteger(
           BigInt(count) *
             BigInt(26 + (gps ? 8 : 0) + (color ? 6 : 0) + (mode === "physical" ? 24 : 0) + extraBytesPerPoint),
+          "LAS extent",
         ),
       );
       current.signal?.throwIfAborted();
@@ -298,7 +295,7 @@ export async function openLas(input: ByteSourceType, options: LasOpenOptionsType
         scanAngleRank = new Int8Array(count),
         userData = new Uint8Array(count),
         sourceId = new Uint16Array(count),
-        extra = new Uint8Array(exact(BigInt(count) * BigInt(extraBytesPerPoint)));
+        extra = new Uint8Array(toSafeInteger(BigInt(count) * BigInt(extraBytesPerPoint), "LAS extent"));
       const gpsTime = gps ? new Float64Array(count) : undefined,
         red = color ? new Uint16Array(count) : undefined,
         green = color ? new Uint16Array(count) : undefined,
@@ -309,7 +306,7 @@ export async function openLas(input: ByteSourceType, options: LasOpenOptionsType
       for (let row = 0; row < count; row += rowsPerRequest) {
         const take = Math.min(rowsPerRequest, count - row),
           raw = await current.budget.read(
-            exact(BigInt(pointOffset) + BigInt(start + row) * BigInt(recordBytes)),
+            toSafeInteger(BigInt(pointOffset) + BigInt(start + row) * BigInt(recordBytes), "LAS extent"),
             take * recordBytes,
           ),
           wire = createView(raw);

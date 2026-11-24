@@ -1,4 +1,5 @@
 /** Bounded Apple-profile XAR1 inspection. The heap is borrowed, never extracted to host paths. @module */
+import { assertAtMost } from "./budget.ts";
 import type { XmlElement } from "@std/xml/types";
 import type { ByteSourceType } from "../source.ts";
 import { assertExtent } from "../source.ts";
@@ -97,9 +98,6 @@ interface DataType {
   readonly archived?: XarChecksumType;
   readonly extracted?: XarChecksumType;
 }
-function cap(value: number, maximum: number, name: string): void {
-  if (value > maximum) throw new ArchiveError("budget-exceeded", `${name} limit exceeded.`);
-}
 function elements(node: XmlElement): XmlElement[] {
   return node.children.filter((child): child is XmlElement => child.type === "element");
 }
@@ -109,14 +107,14 @@ function child(node: XmlElement, name: string): XmlElement | undefined {
   if (matches.length > 1) throw invalid(`Duplicate XAR ${name} field.`);
   return matches[0];
 }
-function text(node: XmlElement): string {
+function readText(node: XmlElement): string {
   if (elements(node).length) throw invalid("XAR scalar contains nested elements.");
   return node.children.map((part) => part.type === "text" || part.type === "cdata" ? part.text : "").join("");
 }
 function scalar(node: XmlElement, name: string): string {
   const value = child(node, name);
   if (!value) throw invalid(`Missing XAR ${name} field.`);
-  return text(value);
+  return readText(value);
 }
 function decimal(value: string): number {
   if (!/^(0|[1-9][0-9]*)$/.test(value)) throw invalid("XAR integer must be canonical unsigned decimal.");
@@ -146,7 +144,7 @@ function digestOf(node: XmlElement, name: string): XarChecksumType | undefined {
   if (!value) return undefined;
   const nameOf = value.attributes.style;
   if (!nameOf) throw invalid("XAR checksum requires a style.");
-  const hex = text(value);
+  const hex = readText(value);
   if (!/^[0-9a-fA-F]+$/.test(hex) || hex.length % 2) throw invalid("XAR checksum must be hexadecimal.");
   if (["sha1", "sha256", "sha512"].includes(nameOf) && hex.length !== algorithm(nameOf).size * 2) {
     throw invalid("XAR checksum length disagrees with algorithm.");
@@ -215,8 +213,8 @@ class XarBudget {
 }
 /** Read source chunks into one admitted destination; native source buffers remain borrowed. */
 async function collect(work: XarBudget, offset: number, length: number): Promise<Uint8Array> {
-  cap(length, work.limits.maxSourceBytes - work.inspect().sourceBytes, "XAR source bytes");
-  cap(Math.ceil(length / 65536), work.limits.maxRequests - work.inspect().requests, "XAR requests");
+  assertAtMost(length, work.limits.maxSourceBytes - work.inspect().sourceBytes, "XAR source bytes");
+  assertAtMost(Math.ceil(length / 65536), work.limits.maxRequests - work.inspect().requests, "XAR requests");
   work.admit(length, Math.ceil(length / 65536));
   const output = new Uint8Array(length);
   for (let done = 0; done < length;) {
@@ -263,7 +261,7 @@ async function inflate(bytes: Uint8Array, size: number, signal?: AbortSignal): P
         done = true;
         break;
       }
-      cap(next.value.length, size - used, "XAR decoded size");
+      assertAtMost(next.value.length, size - used, "XAR decoded size");
       output.set(next.value, used);
       used += next.value.length;
     }
@@ -335,13 +333,13 @@ export async function openXar(input: ByteSourceType, options: XarOpenOptionsType
   const compressed = wide(view, 8), decoded = wide(view, 16), code = view.getUint32(24);
   const name = code === 0 ? "none" : code === 1 ? "sha1" : code === 3 ? "sha256" : code === 4 ? "sha512" : undefined;
   if (name === undefined) throw unsupported("Unsupported Apple XAR TOC checksum code.");
-  cap(compressed, policy.toc, "XAR compressed TOC");
-  cap(decoded, policy.xml, "XAR XML bytes");
-  cap(decoded, policy.metadata, "XAR retained metadata");
+  assertAtMost(compressed, policy.toc, "XAR compressed TOC");
+  assertAtMost(decoded, policy.xml, "XAR XML bytes");
+  assertAtMost(decoded, policy.metadata, "XAR retained metadata");
   assertExtent(size, 28, compressed);
   if (options.verifyToc !== false && name !== "none") {
     if (!subtle) throw unsupported("XAR TOC verification requires caller-supplied SubtleCrypto.");
-    cap(compressed, policy.verify, "XAR verification bytes");
+    assertAtMost(compressed, policy.verify, "XAR verification bytes");
   }
   opening.decoded(decoded + (options.verifyToc !== false && name !== "none" ? compressed : 0));
   const packed = await collect(opening, 28, compressed);
@@ -350,7 +348,7 @@ export async function openXar(input: ByteSourceType, options: XarOpenOptionsType
   if (/<!DOCTYPE|<!ENTITY/i.test(value)) throw unsupported("XAR DTD/entity declarations are forbidden.");
   let tokens = 0;
   for (let index = 0; index < value.length; index++) {
-    if (value.charCodeAt(index) === 60) cap(++tokens, policy.tokens, "XAR XML tokens");
+    if (value.charCodeAt(index) === 60) assertAtMost(++tokens, policy.tokens, "XAR XML tokens");
   }
   const root = parseXmlRoot(value);
   const pending = [root];
@@ -432,9 +430,9 @@ export async function openXar(input: ByteSourceType, options: XarOpenOptionsType
   }));
   while (stack.length) {
     const { node, parent, depth } = stack.pop()!;
-    cap(entries.length + 1, policy.entries, "XAR entries");
-    cap(depth, 32, "XAR file depth");
-    cap(retained + 256, policy.metadata, "XAR retained metadata");
+    assertAtMost(entries.length + 1, policy.entries, "XAR entries");
+    assertAtMost(depth, 32, "XAR file depth");
+    assertAtMost(retained + 256, policy.metadata, "XAR retained metadata");
     retained += 256;
     const fileId = node.attributes.id;
     if (!fileId || !/^(0|[1-9][0-9]*)$/.test(fileId) || ids.has(fileId)) {
@@ -453,10 +451,10 @@ export async function openXar(input: ByteSourceType, options: XarOpenOptionsType
     const nameNode = child(node, "name")!;
     if (Object.keys(nameNode.attributes).length) throw unsupported("Encoded XAR names are outside this UTF8 profile.");
     const path = parent ? `${parent}/${nameOf}` : nameOf;
-    cap(path.length, policy.path, "XAR path bytes");
+    assertAtMost(path.length, policy.path, "XAR path bytes");
     const pathBytes = new TextEncoder().encode(path).length;
-    cap(pathBytes, policy.path, "XAR path bytes");
-    cap(retained + pathBytes, policy.metadata, "XAR retained metadata");
+    assertAtMost(pathBytes, policy.path, "XAR path bytes");
+    assertAtMost(retained + pathBytes, policy.metadata, "XAR retained metadata");
     retained += pathBytes;
     if (paths.has(path)) throw invalid("Duplicate XAR logical path.");
     paths.add(path);
@@ -471,7 +469,7 @@ export async function openXar(input: ByteSourceType, options: XarOpenOptionsType
     }
     const attributes: { name: string; extent: XarExtentType }[] = [];
     for (const ea of elements(node).filter((item) => item.name.raw === "ea")) {
-      cap(retained + 128, policy.metadata, "XAR retained metadata");
+      assertAtMost(retained + 128, policy.metadata, "XAR retained metadata");
       retained += 128;
       attributes.push(Object.freeze({ name: scalar(ea, "name"), extent: dataOf(ea, true).extent }));
     }
@@ -548,13 +546,13 @@ export async function openXar(input: ByteSourceType, options: XarOpenOptionsType
       if (verify) {
         if (!subtle) throw unsupported("XAR member verification requires caller-supplied SubtleCrypto.");
         for (const digest of [archived, extracted]) if (digest) algorithm(digest.algorithm);
-        if (archived) cap(extent.length, policy.verify, "XAR verification bytes");
-        if (extracted) cap(size, policy.verify, "XAR verification bytes");
+        if (archived) assertAtMost(extent.length, policy.verify, "XAR verification bytes");
+        if (extracted) assertAtMost(size, policy.verify, "XAR verification bytes");
       }
       const complete = verify || !stored;
-      if (complete) cap(extent.length, 67108864, "XAR stored member implementation bytes");
+      if (complete) assertAtMost(extent.length, 67108864, "XAR stored member implementation bytes");
       const decodeBytes = complete ? size : length;
-      if (complete) cap(size, policy.member, "XAR decoded member");
+      if (complete) assertAtMost(size, policy.member, "XAR decoded member");
       // Admit output and decoded/hash work before acquiring member buffers or source ranges.
       work.output(length);
       work.decoded(decodeBytes + (verify && archived ? extent.length : 0) + (verify && extracted ? size : 0));

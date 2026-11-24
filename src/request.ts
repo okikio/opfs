@@ -1,3 +1,4 @@
+import { resolveLimit } from "./check.ts";
 import { retry, RetryError } from "@std/async/retry";
 import { aggregate } from "./close.ts";
 import { createCancellation, retainCancellation } from "./abort.ts";
@@ -139,15 +140,6 @@ interface RequestAttemptType {
   readonly init?: RequestInit;
 }
 
-/** Validates integer policy values once before a request loop starts. */
-function integer(value: number | undefined, fallback: number, name: string, minimum: number): number {
-  const resolved = value ?? fallback;
-  if (!Number.isSafeInteger(resolved) || resolved < minimum) {
-    throw new RangeError(`${name} must be an integer greater than or equal to ${minimum}.`);
-  }
-  return resolved;
-}
-
 /** Resolves and validates the shared request policy. */
 export function getRequestPolicy(
   policy: RequestPolicyType | undefined,
@@ -155,9 +147,9 @@ export function getRequestPolicy(
   readonly timeoutMs?: number | false;
 } {
   const parsed = RequestPolicySchema.parse(policy ?? {});
-  const retries = integer(parsed.retries, 3, "retries", 0);
-  const minDelayMs = integer(parsed.minDelayMs, 200, "minDelayMs", 0);
-  const maxDelayMs = integer(parsed.maxDelayMs, 20_000, "maxDelayMs", minDelayMs);
+  const retries = resolveLimit(parsed.retries, 3, Number.MAX_SAFE_INTEGER, "retries");
+  const minDelayMs = resolveLimit(parsed.minDelayMs, 200, Number.MAX_SAFE_INTEGER, "minDelayMs");
+  const maxDelayMs = resolveLimit(parsed.maxDelayMs, 20_000, Number.MAX_SAFE_INTEGER, "maxDelayMs", minDelayMs);
   const multiplier = parsed.multiplier ?? 2;
   const jitter = parsed.jitter ?? 0.5;
   if (!Number.isFinite(multiplier) || multiplier < 1) throw new RangeError("multiplier must be a finite number >= 1.");

@@ -1,4 +1,6 @@
 /** SFTP v3 packets over an explicitly acquired SSH subsystem byte channel. @module */
+import { raceAbort } from "../../abort.ts";
+import { resolveLimit } from "../../check.ts";
 import { isBytes, toView } from "../../bytes.ts";
 import { close } from "../../close.ts";
 
@@ -179,13 +181,6 @@ function join(...parts: readonly Uint8Array[]): Uint8Array {
 function string(bytes: Uint8Array): Uint8Array {
   return join(uint(bytes.length), bytes);
 }
-function limit(value: number | undefined, fallback: number, maximum: number): number {
-  const result = value ?? fallback;
-  if (!Number.isSafeInteger(result) || result < 1 || result > maximum) {
-    throw new RangeError("Invalid SFTP policy limit.");
-  }
-  return result;
-}
 function extent(at: number, length: number): void {
   if (
     !Number.isSafeInteger(at) || at < 0 || !Number.isSafeInteger(length) || length < 0 ||
@@ -208,18 +203,6 @@ function path(value: string, maximum: number): Uint8Array {
   const bytes = new TextEncoder().encode(value);
   if (bytes.length > maximum) throw new RangeError("SFTP pathname exceeds budget.");
   return bytes;
-}
-/** A bounded abort race observes the borrowed promise's eventual rejection. */
-function wait<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
-  if (signal.aborted) {
-    promise.catch(() => {});
-    return Promise.reject(signal.reason);
-  }
-  return new Promise<T>((resolve, reject) => {
-    const abort = () => reject(signal.reason);
-    signal.addEventListener("abort", abort, { once: true });
-    promise.then(resolve, reject).finally(() => signal.removeEventListener("abort", abort));
-  });
 }
 /** Attribute flags select exact fields; longname cannot invent missing type/size. */
 function attributes(cursor: Cursor): SftpAttributesType {
@@ -310,18 +293,18 @@ export class SftpClient implements AsyncDisposable {
       throw new TypeError("An explicit SFTP subsystem capability is required.");
     }
     this.#options = { ...options, openChannel: options.openChannel.bind(options) };
-    this.#timeout = limit(options.timeoutMs, 30_000, 86_400_000);
-    this.#cleanup = limit(options.cleanupMs, 5000, 60_000);
-    this.#packet = limit(options.maxPacketBytes, 262_144, 8_388_608);
+    this.#timeout = resolveLimit(options.timeoutMs, 30_000, 86_400_000, "SFTP policy limit", 1);
+    this.#cleanup = resolveLimit(options.cleanupMs, 5000, 60_000, "SFTP policy limit", 1);
+    this.#packet = resolveLimit(options.maxPacketBytes, 262_144, 8_388_608, "SFTP policy limit", 1);
     if (this.#packet < 1024) throw new RangeError("SFTP packet policy must admit at least 1024 bytes.");
-    this.#chunk = limit(options.maxChunkBytes, 65_536, 8_388_608);
-    this.#read = limit(options.maxReadBytes, 8_388_608, 67_108_864);
-    this.#write = limit(options.maxWriteBytes, 8_388_608, 67_108_864);
-    this.#path = limit(options.maxPathBytes, 8192, 1_048_576);
-    this.#list = limit(options.maxListBytes, 8_388_608, 67_108_864);
-    this.#entries = limit(options.maxEntries, 100_000, 1_000_000);
-    this.#open = limit(options.maxOpenFiles, 16, 1024);
-    this.#requests = limit(options.maxRequests, 1_000_000, 0xffffffff);
+    this.#chunk = resolveLimit(options.maxChunkBytes, 65_536, 8_388_608, "SFTP policy limit", 1);
+    this.#read = resolveLimit(options.maxReadBytes, 8_388_608, 67_108_864, "SFTP policy limit", 1);
+    this.#write = resolveLimit(options.maxWriteBytes, 8_388_608, 67_108_864, "SFTP policy limit", 1);
+    this.#path = resolveLimit(options.maxPathBytes, 8192, 1_048_576, "SFTP policy limit", 1);
+    this.#list = resolveLimit(options.maxListBytes, 8_388_608, 67_108_864, "SFTP policy limit", 1);
+    this.#entries = resolveLimit(options.maxEntries, 100_000, 1_000_000, "SFTP policy limit", 1);
+    this.#open = resolveLimit(options.maxOpenFiles, 16, 1024, "SFTP policy limit", 1);
+    this.#requests = resolveLimit(options.maxRequests, 1_000_000, 0xffffffff, "SFTP policy limit", 1);
   }
   /** Advertised version strings are descriptive; unsupported extensions are never invoked. */
   get extensions(): Readonly<Record<string, readonly string[]>> {
@@ -361,7 +344,7 @@ export class SftpClient implements AsyncDisposable {
     let empty = 0;
     while (at < size) {
       if (this.#position === this.#pending.length) {
-        const chunk = await wait(this.#reader!.read(), signal);
+        const chunk = await raceAbort(this.#reader!.read(), signal);
         if (chunk.done) throw new SftpProtocolError("SFTP channel ended before its packet.");
         if (!isBytes(chunk.value)) throw new SftpProtocolError("SFTP channel returned non-byte data.");
         const view = toView(chunk.value);
@@ -395,14 +378,17 @@ export class SftpClient implements AsyncDisposable {
     if (packet.length > this.#packet) throw new RangeError("SFTP request packet exceeds local budget.");
     signal.throwIfAborted();
     dispatch?.();
-    await wait(this.#writer!.write(join(uint(packet.length), packet)), signal);
+    await raceAbort(this.#writer!.write(join(uint(packet.length), packet)), signal);
   }
   /** Initializes only v3; other versions need distinct schemas rather than guessed decoding. */
   async open(): Promise<void> {
     if (this.#channel) throw new SftpProtocolError("SFTP channel was already opened.");
     await this.#run(
       async (life) => {
-        this.#channel = await wait(this.#options.openChannel({ subsystem: "sftp", signal: life.signal }), life.signal);
+        this.#channel = await raceAbort(
+          this.#options.openChannel({ subsystem: "sftp", signal: life.signal }),
+          life.signal,
+        );
         this.#reader = this.#channel.readable.getReader();
         this.#writer = this.#channel.writable.getWriter();
         await this.#send(join(new Uint8Array([1]), uint(3)), life.signal);
@@ -688,7 +674,7 @@ export class SftpClient implements AsyncDisposable {
       this.#active?.abort.abort(new SftpProtocolError("SFTP channel was closed."));
       await close([
         async () => {
-          if (channel) await wait(channel.close(), AbortSignal.timeout(this.#cleanup));
+          if (channel) await raceAbort(channel.close(), AbortSignal.timeout(this.#cleanup));
         },
         () => reader?.releaseLock(),
         () => writer?.releaseLock(),

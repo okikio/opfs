@@ -1,3 +1,4 @@
+import { toInteger } from "../../check.ts";
 import { z } from "zod";
 
 import { isBytes, toRequestBytes } from "../../bytes.ts";
@@ -196,14 +197,6 @@ function decimal(value: unknown): value is string {
   return typeof value === "string" && value.length > 0 && value[0] !== "0" && !/\D/.test(value);
 }
 
-/** Admission uses encoded-byte safe integers before acquiring credentials or sources. */
-function integer(value: number, name: string, maximum = Number.MAX_SAFE_INTEGER): number {
-  if (!Number.isSafeInteger(value) || value < 0 || value > maximum) {
-    throw new RangeError(`${name} must be a nonnegative safe integer no greater than ${maximum}.`);
-  }
-  return value;
-}
-
 /**
  * Generation conditions retain raw ASCII decimal strings, including the existing zero condition.
  * Unlike returned object identities, input conditions preserve leading zeroes; no
@@ -252,7 +245,7 @@ function metadata(value: unknown, key?: string): GcsReceiptType & { readonly key
   const data = GcsMetadataSchema.parse(value);
   if (key !== undefined && data.name !== key) throw new TypeError("GCS acknowledgement names a different object.");
   const size = Number(data.size);
-  integer(size, "Object size", GCS_MAX_BYTES);
+  toInteger(size, "Object size", GCS_MAX_BYTES);
   const modified = data.updated === undefined ? undefined : Date.parse(data.updated);
   if (modified !== undefined && !Number.isFinite(modified)) throw new TypeError("Invalid GCS update timestamp.");
   return {
@@ -305,11 +298,11 @@ class GcsClient implements GcsClientType {
       throw new TypeError("GCS endpoint must be an HTTP(S) service origin without credentials, path or query.");
     }
     const size = options.chunkSize ?? 8 * 1024 * 1024;
-    integer(size, "Upload chunk size");
+    toInteger(size, "Upload chunk size");
     if (size === 0 || size % GCS_CHUNK_BYTES !== 0) {
       throw new RangeError("Upload chunk size must be a positive 256 KiB multiple.");
     }
-    const maxRewrite = integer(options.maxRewriteRequests ?? 1024, "Rewrite request limit");
+    const maxRewrite = toInteger(options.maxRewriteRequests ?? 1024, "Rewrite request limit");
     if (maxRewrite === 0) throw new RangeError("Rewrite request limit must be positive.");
     this.identity = JSON.stringify(["gcs", endpoint.origin, endpoint.pathname, options.bucket]);
     this.#origin = endpoint.origin;
@@ -338,7 +331,7 @@ class GcsClient implements GcsClientType {
     if (url.origin !== this.#origin || url.username || url.password || url.hash) {
       throw new TypeError("GCS session is outside the configured origin.");
     }
-    if (upload.size !== undefined) integer(upload.size, "Upload total", GCS_MAX_BYTES);
+    if (upload.size !== undefined) toInteger(upload.size, "Upload total", GCS_MAX_BYTES);
     if (upload.storageClass !== undefined) GcsStorageClassSchema.parse(upload.storageClass);
     return url;
   }
@@ -456,9 +449,9 @@ class GcsClient implements GcsClientType {
         if (response.status !== 206 || match === null) {
           throw new TypeError("GCS did not honor the requested byte range.");
         }
-        const start = integer(Number(match[1]), "Range start");
-        const end = integer(Number(match[2]), "Range end");
-        const total = integer(Number(match[3]), "Range total", GCS_MAX_BYTES);
+        const start = toInteger(Number(match[1]), "Range start");
+        const end = toInteger(Number(match[2]), "Range end");
+        const total = toInteger(Number(match[3]), "Range total", GCS_MAX_BYTES);
         if (
           start !== (options.at ?? 0) || end < start || end >= total ||
           (options.length !== undefined && end !== Math.min(total - 1, start + options.length - 1))
@@ -498,7 +491,7 @@ class GcsClient implements GcsClientType {
   }
 
   async list(options: ObjectListOptionsType): Promise<GcsListType> {
-    if (options.limit !== undefined && (integer(options.limit, "List limit", 1000) === 0)) {
+    if (options.limit !== undefined && (toInteger(options.limit, "List limit", 1000) === 0)) {
       throw new RangeError("List limit must be positive.");
     }
     const data = z.object({
@@ -548,7 +541,7 @@ class GcsClient implements GcsClientType {
       : GcsStorageClassSchema.parse(options.storageClass);
     const match = condition(options);
     const metadataMatch = metageneration(options.ifMetagenerationMatch, match);
-    if (options.size !== undefined) integer(options.size, "Upload size", GCS_MAX_BYTES);
+    if (options.size !== undefined) toInteger(options.size, "Upload size", GCS_MAX_BYTES);
     const response = await this.#send(this.#path(undefined, true), "POST", {
       query: { uploadType: "resumable", name: key, ifGenerationMatch: match, ifMetagenerationMatch: metadataMatch },
       headers: {
@@ -584,7 +577,7 @@ class GcsClient implements GcsClientType {
         const value = response.headers.get("range");
         const match = value === null ? undefined : /^bytes=0-(\d+)$/.exec(value);
         if (value !== null && !match) throw new TypeError("GCS upload acknowledgement has an invalid retained range.");
-        const offset = match === undefined ? 0 : integer(Number(match![1]) + 1, "Acknowledged offset", GCS_MAX_BYTES);
+        const offset = match === undefined ? 0 : toInteger(Number(match![1]) + 1, "Acknowledged offset", GCS_MAX_BYTES);
         if ((maximum !== undefined && offset > maximum) || (upload.size !== undefined && offset > upload.size)) {
           throw new TypeError("GCS acknowledged bytes beyond the submitted extent.");
         }
@@ -630,11 +623,11 @@ class GcsClient implements GcsClientType {
   ): Promise<GcsUploadStatusType> {
     upload = { ...upload };
     const url = this.#session(upload);
-    const offset = integer(options.offset, "Upload offset", GCS_MAX_BYTES);
+    const offset = toInteger(options.offset, "Upload offset", GCS_MAX_BYTES);
     const bytes = toRequestBytes(body);
-    const end = integer(offset + bytes.byteLength, "Upload extent", GCS_MAX_BYTES);
+    const end = toInteger(offset + bytes.byteLength, "Upload extent", GCS_MAX_BYTES);
     const total = options.total ?? upload.size;
-    if (total !== undefined) integer(total, "Upload total", GCS_MAX_BYTES);
+    if (total !== undefined) toInteger(total, "Upload total", GCS_MAX_BYTES);
     if (upload.size !== undefined && total !== upload.size) {
       throw new TypeError("Upload total changed from session creation.");
     }
@@ -704,7 +697,7 @@ class GcsClient implements GcsClientType {
       return result.receipt;
     }
     if (!isStream(body)) throw new TypeError("A GCS upload body must be bytes or a native readable stream.");
-    if (options.size !== undefined) integer(options.size, "Upload size", GCS_MAX_BYTES);
+    if (options.size !== undefined) toInteger(options.size, "Upload size", GCS_MAX_BYTES);
     const chunks = open(body, this.#chunkSize, options.signal);
     let primary: readonly unknown[] = [];
     try {
@@ -821,7 +814,7 @@ export function createGcsClient(options: GcsClientOptionsType): GcsClientType {
 export function createGcsUploadDestination(client: GcsClientType, upload: GcsUploadType): UploadDestinationType {
   upload = Object.freeze({ ...upload });
   if (upload.size === undefined) throw new TypeError("Checkpoint transfer requires a known GCS session size.");
-  const size = integer(upload.size, "Upload total", GCS_MAX_BYTES);
+  const size = toInteger(upload.size, "Upload total", GCS_MAX_BYTES);
   let completed: UploadStatusType | undefined;
   const status = (result: GcsUploadStatusType): UploadStatusType => {
     const value = { offset: result.offset, size, complete: result.complete };
