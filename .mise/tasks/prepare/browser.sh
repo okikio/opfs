@@ -6,4 +6,62 @@ set -euo pipefail
 if [[ $# -eq 0 ]]; then set -- chromium firefox webkit; fi
 # Use the test runner's own CLI. node_modules/playwright can be a different version, and its browser builds
 # would not match the ones @playwright/test launches.
-exec node node_modules/@playwright/test/cli.js install --with-deps "$@"
+cli=(node node_modules/@playwright/test/cli.js)
+
+# OPFS_PLAYWRIGHT_APT names a folder of Ubuntu .deb files, which CI caches (.github/actions/playwright-cache).
+# Without it, or off apt-based Linux, Playwright installs its system packages itself.
+debs="${OPFS_PLAYWRIGHT_APT:-}"
+if [[ -z "$debs" ]] || ! command -v apt-get >/dev/null; then exec "${cli[@]}" install --with-deps "$@"; fi
+
+# Hit: the folder holds every package apt downloaded last time. dpkg installs them all in one call, so they can
+# depend on each other, without apt's package lists or a mirror. apt-get install --no-download is not enough: the
+# runner image ships without package lists, so apt cannot resolve the local files and asks for a download. A local
+# .deb has no signature to check, so CI writes this folder's cache only from trusted refs. The dry run then proves
+# nothing is missing; anything left half-configured is repaired by the miss path below.
+if compgen -G "$debs/*.deb" >/dev/null &&
+	sudo DEBIAN_FRONTEND=noninteractive dpkg --install --skip-same-version "$debs"/*.deb >/dev/null &&
+	"${cli[@]}" install-deps --dry-run "$@" >/dev/null; then
+	echo "Installed Playwright's Ubuntu packages from $(find "$debs" -maxdepth 1 -name '*.deb' | wc -l) cached files."
+	exec "${cli[@]}" install "$@"
+fi
+
+# Miss, or the cached files no longer fit this runner image: install normally, but have apt download into the
+# cache folder. The runner deletes .deb files from /var/cache/apt/archives after installing, so copying them
+# from there afterwards finds almost nothing.
+rm -rf "$debs"
+mkdir -p "$debs/partial"
+# Translations are not needed to install anything, and they are a sixth of the index download.
+sudo apt-get update -o Acquire::Languages=none
+# Playwright's dry run simulates the install and lists every missing package, dependencies included.
+mapfile -t packages < <("${cli[@]}" install-deps --dry-run "$@" | sed -n 's/^  \([^ ]\+\)$/\1/p')
+if [[ ${#packages[@]} -gt 0 ]]; then
+	# A slow mirror limits each connection, not the runner: one job measured 65 kB/s from the EC2 mirror and timed
+	# out. So fetch the files apt would fetch over 8 connections first. apt then installs from the folder and still
+	# checks every file against the signed index; it downloads anything missing or wrong itself.
+	# GitHub's runners point apt at a mirror list file, so a URI can name the list instead of a host. Map those onto
+	# each listed mirror in order.
+	OPFS_MIRRORS="$(sed -n 's|^\(https\{0,1\}://[^[:space:]]*\).*|\1|p' /etc/apt/apt-mirrors.txt 2>/dev/null | tr '\n' ' ')"
+	export OPFS_MIRRORS debs
+	# shellcheck disable=SC2016 # The child bash expands $1, $2, $debs and $OPFS_MIRRORS, not this one.
+	apt-get install --print-uris -qq --no-install-recommends "${packages[@]}" |
+		sed -n "s/^'\([^']*\)' \([^ ]*\) .*/\1 \2/p" |
+		xargs -r -P 8 -n 2 bash -c '
+			uri=$1 name=$2
+			if [[ $uri == http* ]]; then sources=("$uri"); else
+				sources=(); for base in $OPFS_MIRRORS; do sources+=("${base%/}/pool/${uri#*/pool/}"); done
+			fi
+			for source in "${sources[@]}"; do
+				curl -fsSL --retry 2 -o "$debs/partial/$name" "$source" && mv "$debs/partial/$name" "$debs/$name" && exit 0
+			done
+			rm -f "$debs/partial/$name"' _ || true
+	echo "Fetched $(find "$debs" -maxdepth 1 -name '*.deb' | wc -l) packages over parallel connections."
+	# --fix-broken also finishes anything a failed cached install left half-configured.
+	sudo apt-get install --yes --fix-broken --no-install-recommends -o "Dir::Cache::Archives=$debs" \
+		-o APT::Keep-Downloaded-Packages=true "${packages[@]}"
+fi
+sudo rm -rf "$debs/partial" "$debs/lock"
+sudo chown -R "$(id -u):$(id -g)" "$debs"
+echo "Kept $(find "$debs" -name '*.deb' | wc -l) Ubuntu packages for the next run."
+# The dry run exits nonzero while anything is still missing; only then let Playwright install it itself.
+if ! "${cli[@]}" install-deps --dry-run "$@" >/dev/null; then exec "${cli[@]}" install --with-deps "$@"; fi
+exec "${cli[@]}" install "$@"

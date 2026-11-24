@@ -92,5 +92,12 @@ long suites are split into shards.
   dispatch (`fresh: true`) bypasses it.
 - **Download caches.** Deno's package downloads, Deno's compiler state and the stored fixtures are cached separately. A
   restored download is still verified: `deno ci` checks the lockfile and fixtures are hashed before use.
+- **Playwright's Ubuntu packages.** `prepare:browser` installs the browsers' system packages from cached `.deb` files
+  with one `dpkg --install`, so a slow Ubuntu mirror cannot spend a job's 10 minutes. On a miss, or when the files no
+  longer fit the runner image, it fetches the same files over 8 parallel connections first, because a slow mirror limits
+  each connection, then has apt install from that folder; apt checks every file against the signed index and downloads
+  anything missing itself. A local `.deb` has no signature for apt to check, so only trusted refs write this cache. See
+  `.github/actions/playwright-cache`. GitHub scopes caches by ref: a pull request reads its own entries and `main`'s, so
+  the first run of a new pull request misses until `main` has saved an entry.
 - **Evidence.** A push to `main` selects work changed since the last commit whose CI passed. Release requires a passing
   main-push CI run on the exact commit being published.

@@ -348,6 +348,9 @@ jobs:
           key: opfs-fixtures-v1-${{ hashFiles('tests/fixtures/store.json') }}
       - run: mise run prepare:fixtures
         if: steps.passed.outputs.hit != 'true'
+      # Playwright's Ubuntu packages, so a slow mirror cannot spend the job's 10 minutes on apt.
+      - uses: $/.github/actions/playwright-cache
+        if: steps.passed.outputs.hit != 'true'
       - run: mise run ci:lane -- browser --shard "$SHARD/3"
         if: steps.passed.outputs.hit != 'true'
       - name: Retain reports
@@ -362,6 +365,11 @@ jobs:
       - name: Save dependency downloads after successful checks
         if: steps.passed.outputs.hit != 'true'
         uses: $/.github/actions/dependency-cache
+        with:
+          mode: save
+      - name: Save Playwright Ubuntu packages after successful checks
+        if: steps.passed.outputs.hit != 'true'
+        uses: $/.github/actions/playwright-cache
         with:
           mode: save
       - name: Record this pass for identical inputs
@@ -674,6 +682,11 @@ jobs:
           key: opfs-fixtures-v1-${{ hashFiles('tests/fixtures/store.json') }}
       - run: mise run prepare:fixtures
         if: steps.passed.outputs.hit != 'true'
+      # The browser benchmarks install Chromium only.
+      - uses: $/.github/actions/playwright-cache
+        if: steps.passed.outputs.hit != 'true' && matrix.kind == 'browser'
+        with:
+          engines: chromium
       - run: mise run ci:lane -- bench --kind "$KIND" ${SHARD:+--shard "$SHARD/3"}
         if: steps.passed.outputs.hit != 'true'
       - name: Retain reports
@@ -688,6 +701,11 @@ jobs:
       - name: Save dependency downloads after successful checks
         if: steps.passed.outputs.hit != 'true'
         uses: $/.github/actions/dependency-cache
+        with:
+          mode: save
+      - name: Save Playwright Ubuntu packages after successful checks
+        if: steps.passed.outputs.hit != 'true' && matrix.kind == 'browser'
+        uses: $/.github/actions/playwright-cache
         with:
           mode: save
       - name: Record this pass for identical inputs

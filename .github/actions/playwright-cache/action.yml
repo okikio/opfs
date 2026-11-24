@@ -1,0 +1,104 @@
+name: Playwright Ubuntu packages
+description: >-
+  Restore or save the Ubuntu .deb files that Playwright's browsers need. A job calls this twice: once with
+  mode restore before `mise run ci:lane`, and once with mode save as its last step, so only a job whose
+  checks passed can write the cache. `prepare:browser` installs the restored files with apt --no-download,
+  which skips apt's index refresh and every mirror download. When they no longer fit the runner image, it
+  installs normally and refills the folder. apt checks each file's dependencies but not its signature: a local
+  .deb file has none. So only trusted refs write this cache, with the same rule as dependency-cache, and a PR
+  can never write an entry that main or another PR restores.
+
+inputs:
+  mode:
+    description: restore (before the lane) or save (after successful checks)
+    default: restore
+  engines:
+    description: Space-separated Playwright engines, the same ones the lane installs
+    default: chromium firefox webkit
+
+runs:
+  using: composite
+  steps:
+    - name: Locate the package folder
+      id: locate
+      if: inputs.mode == 'restore'
+      shell: bash
+      env:
+        ENGINES: ${{ inputs.engines }}
+      run: |
+        set -euo pipefail
+        # Only the fixed engine names below reach the key; any other word stops the job.
+        names=()
+        for engine in $ENGINES; do
+          case "$engine" in
+            chromium | firefox | webkit) names+=("$engine") ;;
+            *) echo "::error::Unknown Playwright engine. Use chromium, firefox or webkit." >&2; exit 1 ;;
+          esac
+        done
+        # The runner image decides which packages are already installed, so it is part of the key. A new image
+        # misses the exact key but still restores the previous image's files, which usually still install.
+        {
+          ( IFS=-; echo "prefix=playwright-apt-v1-${ImageOS}-${RUNNER_ARCH}-${names[*]}-" )
+          echo "image=${ImageVersion}"
+        } >> "$GITHUB_OUTPUT"
+
+    # prepare:browser reads this folder. This step reads no input, so the job environment receives only a path
+    # built from the runner's own temp directory.
+    - name: Use the job's package folder
+      if: inputs.mode == 'restore'
+      shell: bash
+      # The value is the runner's own temp path; no input or event text reaches it.
+      run: echo "OPFS_PLAYWRIGHT_APT=$RUNNER_TEMP/playwright-apt" >> "$GITHUB_ENV" # zizmor: ignore[github-env]
+
+    - name: Restore Playwright Ubuntu packages
+      id: restore
+      if: inputs.mode == 'restore'
+      continue-on-error: true
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/playwright-apt
+        # The lockfile pins @playwright/test, and each Playwright release can change its package list.
+        key: ${{ steps.locate.outputs.prefix }}${{ steps.locate.outputs.image }}-${{ hashFiles('deno.lock') }}
+        restore-keys: ${{ steps.locate.outputs.prefix }}
+
+    - name: Record the restored key
+      if: inputs.mode == 'restore'
+      shell: bash
+      env:
+        PRIMARY: ${{ steps.restore.outputs.cache-primary-key }}
+        HIT: ${{ steps.restore.outputs.cache-hit }}
+      run: |
+        set -euo pipefail
+        {
+          echo "PLAYWRIGHT_APT_KEY=$PRIMARY"
+          echo "PLAYWRIGHT_APT_HIT=${HIT:-false}"
+        } >> "$GITHUB_ENV"
+
+    # An exact hit already holds these files. Saving needs a folder that prepare:browser filled.
+    - name: Check whether there is anything new to save
+      id: check
+      if: inputs.mode == 'save'
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [[ "${PLAYWRIGHT_APT_HIT:-}" != true && -n "${PLAYWRIGHT_APT_KEY:-}" ]] &&
+          compgen -G "$RUNNER_TEMP/playwright-apt/*.deb" >/dev/null; then
+          echo "save=true" >> "$GITHUB_OUTPUT"
+        fi
+
+    # Only trusted refs write, because restored files are installed without a signature check.
+    - name: Save Playwright Ubuntu packages
+      if: >-
+        inputs.mode == 'save' && steps.check.outputs.save == 'true' &&
+        github.event.repository.fork == false &&
+        (
+          (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref_protected == true)) ||
+          (github.event_name == 'pull_request' && startsWith(github.ref, 'refs/pull/') && endsWith(github.ref, '/merge') &&
+           github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.repo.fork == false) ||
+          (github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/heads/'))
+        )
+      continue-on-error: true
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/playwright-apt
+        key: ${{ env.PLAYWRIGHT_APT_KEY }}
