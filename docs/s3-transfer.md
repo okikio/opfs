@@ -83,7 +83,7 @@ Protocol tests cover lost part/completion receipts, malformed layouts and public
 SeaweedFS test kills separate Node processes after server acknowledgments but before client/checkpoint observation, then
 uses a new process to continue and the AWS SDK to compare all published bytes. This proves the exercised compatible
 server behavior, not AWS IAM, encryption policy, production durability or concurrent writer safety. Run it with
-`mise run test:providers -- tests/s3-transfer-provider.test.ts` after provisioning Docker. Runtime-only tests are
+`mise run test:providers -- tests/s3/transfer-provider.test.ts` after provisioning Docker. Runtime-only tests are
 separate from serial static and installed-package gates.
 
 The wire contracts follow Amazon's [ListParts](https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListParts.html) and

@@ -10,7 +10,7 @@ describe("runtime test commands", () => {
     expect(command.at(-1)).toBe("tests/xz.test.ts");
   });
   it("adds Deno KV only when a kv test is selected", () => {
-    expect(suite.createCommand("deno", ["tests/deno-kv.test.ts"], new Set(["kv"]))).toContain("--unstable-kv");
+    expect(suite.createCommand("deno", ["tests/deno-kv/mod.test.ts"], new Set(["kv"]))).toContain("--unstable-kv");
     expect(suite.createCommand("deno", ["tests/xz.test.ts"], new Set(["portable"]))).not.toContain("--unstable-kv");
   });
   it("refuses stress and coverage modes outside Deno", () => {

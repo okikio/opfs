@@ -3,14 +3,16 @@
  *
  * `node tools/bench/local.ts [--shard i/n] [--list] [bench/name.bench.ts ...]`
  *
- * Every `bench/*.bench.ts` file is a benchmark. Each one checks its result bytes before timing (see
+ * Every `bench/**\/*.bench.ts` file is a benchmark, except under `bench/browser/`, which Playwright runs. Each one
+ * checks its result bytes before timing (see
  * `bench/result.ts`), so a run that finishes proves the measured code produced the expected output on that
  * runtime. With `BENCH_JSON=1` (set here) each file writes Mitata's JSON report to stdout, which this tool saves
- * under `.tmp/reports/bench/<name>.json`. CI keeps those reports; it does not compare timings, because shared
+ * under `.tmp/reports/bench/<name>.json`, where a folder becomes a dash prefix (`bench/zip/bzip.bench.ts` writes
+ * `zip-bzip.json`). CI keeps those reports; it does not compare timings, because shared
  * runners are too noisy for a pass/fail threshold.
  *
  * The runtime follows the file name: `deno*` and `memory` run on Deno, `bun*` on Bun, everything else on Node.js
- * with `--expose-gc`. Provider benchmarks need containers and run through `bench/providers.ts` instead.
+ * with `--expose-gc`. Provider benchmarks need containers and run through `bench/provider/run.ts` instead.
  *
  * @module
  */
@@ -23,8 +25,12 @@ import { shard } from "../test/discover.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 
-/** Benchmarks that start provider or FUSE containers. `bench/providers.ts` owns them. */
-const containers = new Set(["provider.bench.ts", "filesystem-provider.bench.ts", "bun-provider.bench.ts"]);
+/** Benchmarks that start provider or FUSE containers. `bench/provider/run.ts` owns them. */
+const containers = new Set([
+  "bench/provider/mod.bench.ts",
+  "bench/filesystem-provider.bench.ts",
+  "bench/bun-provider.bench.ts",
+]);
 
 /** A discovered benchmark and the command that runs it once. */
 export interface BenchType {
@@ -50,12 +56,13 @@ export function createCommand(path: string): string[] {
   return ["node", "--expose-gc", path];
 }
 
-/** Every container-free benchmark under `bench/`, sorted. */
+/** Every container-free benchmark under `bench/`, sorted. `bench/browser/` belongs to Playwright. */
 export function discover(base = root): BenchType[] {
-  return readdirSync(`${base}/bench`)
-    .filter((name) => name.endsWith(".bench.ts") && !containers.has(name))
+  return readdirSync(`${base}/bench`, { recursive: true, encoding: "utf8" })
+    .map((name) => `bench/${name.split("\\").join("/")}`)
+    .filter((path) => path.endsWith(".bench.ts") && !path.startsWith("bench/browser/") && !containers.has(path))
     .sort()
-    .map((name) => ({ path: `bench/${name}`, command: createCommand(`bench/${name}`) }));
+    .map((path) => ({ path, command: createCommand(path) }));
 }
 
 if (import.meta.main) {
@@ -90,7 +97,7 @@ if (import.meta.main) {
         maxBuffer: 256 * 1024 * 1024,
         stdio: ["ignore", "pipe", "inherit"],
       });
-      const name = bench.path.slice("bench/".length, -".bench.ts".length);
+      const name = bench.path.slice("bench/".length, -".bench.ts".length).replaceAll("/", "-");
       writeFileSync(`${reports}/${name}.json`, result.stdout ?? "");
       const seconds = ((performance.now() - started) / 1000).toFixed(1);
       console.log(`${result.status === 0 ? "ok    " : "FAILED"} ${bench.path} (${seconds} s)`);

@@ -98,7 +98,7 @@ colons, controls, unpaired surrogates, trailing dots/spaces and reserved Windows
 of silently renaming. Lowercase comparison is the documented collision policy, not a claim to model every target
 filesystem's Unicode case equivalence. A later extractor must enforce its own target-specific policy too.
 
-`tests/zip-write.test.ts` covers split-invariant output, CRC, descriptors, empty files, UTF-8 names, pull behavior,
+`tests/zip/write.test.ts` covers split-invariant output, CRC, descriptors, empty files, UTF-8 names, pull behavior,
 mutation, cancellation, cleanup failures, budgets and refused names. The independent fixture below feeds emitted ZIP
 bytes to CPython's standard-library `zipfile`, which verifies authored payloads, CRCs, flags and descriptor fields:
 

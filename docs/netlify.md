@@ -176,8 +176,8 @@ source separately, with the full-download cost visible. The
 [Netlify expansion plan](https://github.com/okikio/opfs/blob/codex/release-2026-10-06/planning/storage/NETLIFY.md)
 records the independent SDK/server fixture, its admission boundary and the further evidence needed for broader support.
 
-The authored tests in `tests/netlify.test.ts` exercise request construction, bounded parsing and failure ownership. They
-passed in Deno, Node and Bun; those injected peers are not independent service proof. Separately, the official SDK
+The authored tests in `tests/netlify/mod.test.ts` exercise request construction, bounded parsing and failure ownership.
+They passed in Deno, Node and Bun; those injected peers are not independent service proof. Separately, the official SDK
 11.1.7/local-server fixture passed empty and 128 KiB full-byte comparisons in both directions, Unicode metadata reads,
 conditions, credential separation and lost-reply reconciliation. Its exact candidate bundle and retained run are
 recorded in the

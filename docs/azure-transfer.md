@@ -120,11 +120,11 @@ encryption scopes, tags, custom user metadata, parallel upload and cross-writer 
 
 ## Verification
 
-`tests/azure-transfer.test.ts` uses authored protocol responses to check exact layout admission, stage reconciliation,
+`tests/azure/transfer.test.ts` uses authored protocol responses to check exact layout admission, stage reconciliation,
 unknown final publication, empty objects, backend mismatch, native-byte extent checks, changed destination baselines,
 malformed direct XML scalars, conditional rejection and pre-aborted operations. These are protocol-contract tests.
 
-`tests/azure-transfer-provider.test.ts` uses the repository's disposable Testcontainers Azurite fixture. It saves the
+`tests/azure/transfer-provider.test.ts` uses the repository's disposable Testcontainers Azurite fixture. It saves the
 actual session and checkpoint files, kills a child after a successful block response before checkpoint persistence,
 restarts and kills it after final publication before completion persistence, then starts another child to reconcile
 without rereading source bytes. The independent Azure SDK checks retained block size, final bytes and session metadata.

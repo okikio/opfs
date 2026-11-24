@@ -2,9 +2,9 @@
  * Discover every authored test once, then classify the few that need a particular runtime or external resource.
  *
  * A new `tests/**\/*.test.ts` file runs on Deno, Node.js and Bun with no edit anywhere else. Only a file whose
- * needs differ gets a rule below, and each rule says why. The rules match names and folders, not lists of today's
- * files, so a new provider test (`*-provider.test.ts`) or archive interoperability test (`*-process.test.ts`) joins
- * its family by being named for it.
+ * needs differ gets a rule below, and each rule says why. Tests for one subject live in one folder, such as
+ * `tests/zip/` or `tests/s3/`. A new provider test (`provider.test.ts` or `*-provider.test.ts`, in any folder) joins
+ * the provider family by its name; the few other families are named by path.
  *
  * ```text
  *   tests/**\/*.test.ts ─► classify(path) ─► family ─► runtimes and CI lane
@@ -100,35 +100,35 @@ export function classify(path: string): TestFileType {
   const name = path.slice(path.lastIndexOf("/") + 1);
   const fixture = fixtureTests[path];
   if (fixture) return { path, ...fixture };
-  if (name.startsWith("netlify-")) {
+  if (name.startsWith("netlify-") || (path.startsWith("tests/netlify/") && name !== "mod.test.ts")) {
     return {
       path,
       family: "netlify",
       reason: "Runs the bundled Netlify candidate against the frozen SDK closure inside Deno.",
     };
   }
-  if (name === "provider.test.ts" || name.endsWith("-provider.test.ts")) {
+  if (name === "provider.test.ts" || name.endsWith("-provider.test.ts") || path === "tests/provider/mod.test.ts") {
     return { path, family: "provider", reason: "Starts provider containers with Testcontainers." };
   }
-  if (["compress-process.test.ts", "tar-process.test.ts", "zip-process.test.ts"].includes(name)) {
+  if (["tests/compress-process.test.ts", "tests/tar/process.test.ts", "tests/zip/process.test.ts"].includes(path)) {
     return {
       path,
       family: "interop",
       reason: "Compares archives with installed native consumers (7-Zip, bsdtar, unzip).",
     };
   }
-  if (name === "fixture-group.test.ts" || name === "process.test.ts") {
+  if (name === "fixture-group.test.ts" || path === "tests/process.test.ts") {
     return { path, family: "process", reason: "Signals child process groups, which Bun does not model the same way." };
   }
   if (name === "transfer-process.test.ts") {
     return { path, family: "deno", reason: "Kills and restarts a Node.js upload process from a Deno supervisor." };
   }
   if (name === "deno.test.ts") return { path, family: "deno", reason: "Tests the Deno filesystem driver." };
-  if (name === "deno-kv.test.ts" || name === "generation.test.ts") {
+  if (path === "tests/deno-kv/mod.test.ts" || name === "generation.test.ts") {
     return { path, family: "kv", reason: "Needs Deno KV (`--unstable-kv`)." };
   }
   if (name === "bun.test.ts") return { path, family: "bun", reason: "Tests the Bun filesystem driver." };
-  if (name === "node.test.ts" || name === "record-node.test.ts") {
+  if (name === "node.test.ts" || path === "tests/record/node.test.ts") {
     return { path, family: "node", reason: "Tests the Node.js filesystem driver." };
   }
   if (name === "d1.test.ts") {

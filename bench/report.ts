@@ -21,7 +21,7 @@ const programs = [
   ["bun", "bun", ["run", "bench/bun.bench.ts"]],
   ["lanes", "node", ["--expose-gc", "bench/lanes.bench.ts"]],
   ["lifecycle", "node", ["--expose-gc", "bench/lifecycle.bench.ts"]],
-  ["providers", "node", ["--expose-gc", "bench/providers.ts"]],
+  ["providers", "node", ["--expose-gc", "bench/provider/run.ts"]],
 ] as const;
 const selected = env.OPFS_BENCH_ONLY?.split(",");
 if (selected?.some((name) => !programs.some(([known]) => known === name))) {
