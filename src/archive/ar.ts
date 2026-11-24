@@ -64,6 +64,11 @@ export interface ArArchiveType {
     readonly identity?: string;
     readonly stability: "immutable" | "provider" | "caller" | "unverified";
   };
+  /**
+   * Reads entry `id` into memory, within the archive limits and `options`.
+   * @param id Entry ID from the archive index.
+   * @param options Limits and cancellation for this read.
+   */
   read(id: number, options?: ArReadOptionsType): Promise<ArReadType>;
   /** Borrow an exact member extent for nested readers. Names never become source identities or host paths. */
   member(id: number, options?: ArMemberOptionsType): ByteSourceType;

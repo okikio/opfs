@@ -73,6 +73,11 @@ export interface LhaMemberOptionsType extends ArchiveLimitsType {
 export interface LhaArchiveType {
   readonly entries: readonly LhaEntryType[];
   readonly work: ArchiveWorkType;
+  /**
+   * Reads entry `id` into memory, within the archive limits and `options`.
+   * @param id Entry ID from the archive index.
+   * @param options Limits and cancellation for this read.
+   */
   read(id: number, options?: LhaReadOptionsType): Promise<LhaReadType>;
   /** Exact stored bytes for nesting. Partial nested reads do not imply a whole-member CRC check. */
   member(id: number, options?: LhaMemberOptionsType): ByteSourceType;

@@ -88,6 +88,10 @@ export interface YandexDownloadType {
 /** Sanitized service failure; arbitrary injected capability errors retain caller-owned context. */
 export class YandexError extends Error {
   readonly status: number;
+  /**
+   * Creates the error.
+   * @param status HTTP status the service returned.
+   */
   constructor(status: number) {
     super("Yandex Disk request failed.");
     this.name = "YandexError";
@@ -97,6 +101,10 @@ export class YandexError extends Error {
 /** Dispatch occurred without a delivered trustworthy receipt. Reconcile before another mutation. */
 export class YandexPublicationError extends Error {
   readonly outcome = "unknown";
+  /**
+   * Creates the error.
+   * @param cause Failure that caused this error.
+   */
   constructor(cause: unknown) {
     super("Yandex Disk mutation outcome is unknown; reconcile before retrying.", { cause });
     this.name = "YandexPublicationError";
@@ -198,6 +206,10 @@ export class YandexClient {
   readonly #pages: number;
   readonly #entries: number;
   readonly #metrics = new RequestMetrics();
+  /**
+   * Creates the client from `options`.
+   * @param options Options that configure the client.
+   */
   constructor(options: YandexOptionsType) {
     const http = options.allowHttp === true;
     this.#api = endpoint(options.endpoint ?? "https://cloud-api.yandex.net/v1/disk/", http);

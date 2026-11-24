@@ -122,14 +122,37 @@ export interface McapFileType {
   readonly channels: readonly McapChannelType[];
   readonly attachments: readonly McapAttachmentType[];
   readonly metadata: readonly { readonly name: string; readonly values: Readonly<Record<string, string>> }[];
+  /**
+   * Returns one page of message entries from the index.
+   * @param options Page size and cursor.
+   */
   messages(options?: McapPageOptionsType): McapPageType;
+  /**
+   * Reads the payload of message `id`.
+   * @param id Message ID from the index.
+   * @param options Limits and cancellation.
+   */
   read(id: number, options?: McapReadOptionsType): Promise<McapReadType>;
+  /**
+   * Reads the data of attachment `id`.
+   * @param id Attachment ID from the index.
+   * @param options Limits and cancellation.
+   */
   readAttachment(id: number, options?: McapReadOptionsType): Promise<McapReadType>;
   /** A physical payload view carries no implicit CRC verification. */ source(
     id: number,
     options?: McapCallOptionsType,
   ): ByteSourceType;
+  /**
+   * Returns a byte source over the data of attachment `id`. The CRC is not checked.
+   * @param id Attachment ID from the index.
+   * @param options Limits and cancellation.
+   */
   attachmentSource(id: number, options?: McapCallOptionsType): ByteSourceType;
+  /**
+   * Checks the CRCs that the file carries for one scope.
+   * @param options The scope (summary, data, one chunk or one attachment), the chunk or attachment `id`, limits and cancellation.
+   */
   verify(
     options: McapVerifyOptionsType,
   ): Promise<{ readonly integrity: McapIntegrityType; readonly work: McapWorkType }>;

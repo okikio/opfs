@@ -100,6 +100,10 @@ export type FirebaseUploadType = FirebaseStatusType | {
 /** Sanitized HTTP failure. Arbitrary injected errors may still contain caller-owned secrets. */
 export class FirebaseError extends Error {
   readonly status: number;
+  /**
+   * Creates the error.
+   * @param status HTTP status the service returned.
+   */
   constructor(status: number) {
     super(`Firebase Storage request failed: HTTP ${status}.`);
     this.name = "FirebaseError";
@@ -109,6 +113,10 @@ export class FirebaseError extends Error {
 /** Dispatch did not deliver a validated receipt; reconcile explicitly rather than blindly retrying. */
 export class FirebasePublicationError extends Error {
   readonly outcome = "unknown";
+  /**
+   * Creates the error.
+   * @param cause Failure that caused this error.
+   */
   constructor(cause: unknown) {
     super("Firebase Storage mutation outcome is unknown; reconcile before retrying.", { cause });
     this.name = "FirebasePublicationError";
@@ -226,6 +234,10 @@ export class FirebaseClient {
   readonly #pages: number;
   readonly #entries: number;
   readonly #metrics = new RequestMetrics();
+  /**
+   * Creates the client from `options`.
+   * @param options Options that configure the client.
+   */
   constructor(options: FirebaseOptionsType) {
     const api = parsedUrl(options.endpoint ?? "https://firebasestorage.googleapis.com/v0/");
     if (

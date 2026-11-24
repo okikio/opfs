@@ -53,6 +53,10 @@ export interface GitObjectType {
   readonly integrity: "sha1" | "sha256";
   readonly source: ByteSourceType;
   readonly budget: SourceBudgetType;
+  /**
+   * Reads the object's content into memory.
+   * @param options Limits and cancellation for this read.
+   */
   read(options?: SourceReadOptionsType): Promise<Uint8Array>;
   /** Each call copies name buffers. Only a verified tree has entries. */
   entries(): readonly GitTreeEntryType[];

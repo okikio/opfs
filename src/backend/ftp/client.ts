@@ -10,6 +10,7 @@ export interface FtpSocketType {
   readonly writable: WritableStream<Uint8Array>;
   /** Concrete connected network address, not a hostname to resolve again. */
   readonly peerAddress: string;
+  /** Closes the socket. */
   close(): Promise<void>;
 }
 
@@ -27,9 +28,11 @@ export interface FtpSecureSocketType {
  * Successful secure transfers socket ownership; failure leaves it with caller.
  */
 export interface FtpTransportType {
+  /** Opens a TCP connection to the server. */
   connect(
     options: { readonly host: string; readonly port: number; readonly signal: AbortSignal },
   ): Promise<FtpSocketType>;
+  /** Upgrades a connection to TLS. Leave it out when the transport has no TLS. */
   secure?(
     socket: FtpSocketType,
     options: {
@@ -82,12 +85,20 @@ export interface FtpReceiptType {
 export interface FtpReadType {
   readonly stream: ReadableStream<Uint8Array>;
   readonly done: Promise<FtpReceiptType>;
+  /**
+   * Stops the download and closes its data connection.
+   * @param reason Why the download stopped.
+   */
   cancel(reason?: unknown): Promise<void>;
 }
 
 /** Protocol refusal or malformed response. Replies intentionally omit credentials. */
 export class FtpError extends Error {
   readonly code: number | undefined;
+  /**
+   * Creates the error.
+   * @param message Message that explains the failure.
+   */
   constructor(message: string, code?: number, options?: ErrorOptions) {
     super(message, options);
     this.name = "FtpError";
@@ -97,6 +108,7 @@ export class FtpError extends Error {
 
 /** STOR was dispatched but its completion could not be established. Do not retry blindly. */
 export class FtpPublicationError extends Error {
+  /** Creates the error. */
   constructor(options?: ErrorOptions) {
     super("FTP upload publication is unknown; inspect remote state before deciding how to recover.", options);
     this.name = "FtpPublicationError";
@@ -389,6 +401,7 @@ export class FtpClient implements AsyncDisposable {
     });
     return this.#closing;
   }
+  /** Closes the control connection. Same as `close()`. */
   [Symbol.asyncDispose](): Promise<void> {
     return this.close();
   }

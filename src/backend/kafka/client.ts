@@ -76,6 +76,10 @@ export class KafkaError extends Error {
   readonly operation: string;
   readonly code: number;
   readonly observation: unknown;
+  /**
+   * Creates the error.
+   * @param operation Operation that failed.
+   */
   constructor(operation: string, code: number, observation?: unknown) {
     super("Kafka refused the selected operation.");
     this.name = "KafkaError";
@@ -87,6 +91,10 @@ export class KafkaError extends Error {
 /** Produce was handed to the transport. Reconcile before retrying, including after a native nonzero response. */
 export class KafkaOutcomeError extends Error {
   readonly outcome = "unknown";
+  /**
+   * Creates the error.
+   * @param cause Failure that caused this error.
+   */
   constructor(cause: unknown) {
     super("Kafka append outcome is unknown; reconcile before retrying.", { cause });
     this.name = "KafkaOutcomeError";
@@ -95,6 +103,10 @@ export class KafkaOutcomeError extends Error {
 /** A parsed result survived a later cancellation or retirement failure. Retain it for recovery. */
 export class KafkaCompletionError extends Error {
   readonly receipt: ResultType;
+  /**
+   * Creates the error.
+   * @param cause Failure that caused this error.
+   */
   constructor(receipt: ResultType, cause: unknown) {
     super("Kafka returned a known result, but channel retirement or cancellation failed.", { cause });
     this.name = "KafkaCompletionError";
@@ -184,6 +196,10 @@ export class KafkaClient {
   readonly #broker: number;
   readonly #session: KafkaSessionOptionsType;
   readonly #limits: KafkaRecordLimitsType;
+  /**
+   * Creates the client from `options`.
+   * @param options Options that configure the client.
+   */
   constructor(options: KafkaOptionsType) {
     const topic = options.topic;
     if (typeof topic !== "string" || !/^[A-Za-z0-9._-]{1,249}$/.test(topic) || topic === "." || topic === "..") {

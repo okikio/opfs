@@ -41,6 +41,11 @@ export class AzureCommitError extends Error {
   readonly effect = "unknown";
   /** Exact object whose publication needs reconciliation. */
   readonly key: string;
+  /**
+   * Creates the error.
+   * @param key Key the operation used.
+   * @param cause Failure that caused this error.
+   */
   constructor(key: string, cause: unknown) {
     super(`Publication of '${key}' has an unknown outcome.`, { cause });
     this.name = "AzureCommitError";

@@ -68,6 +68,10 @@ export interface PcloudDownloadType {
 export class PcloudError extends Error {
   readonly status: number;
   readonly result: string | undefined;
+  /**
+   * Creates the error.
+   * @param status HTTP status the service returned.
+   */
   constructor(status: number, result?: string) {
     super("pCloud request failed.");
     this.name = "PcloudError";
@@ -78,6 +82,10 @@ export class PcloudError extends Error {
 /** Dispatch occurred but no trustworthy final receipt reached the caller. Do not retry blindly. */
 export class PcloudPublicationError extends Error {
   readonly outcome = "unknown";
+  /**
+   * Creates the error.
+   * @param cause Failure that caused this error.
+   */
   constructor(cause: unknown) {
     super("pCloud mutation outcome is unknown; reconcile it before retrying.", { cause });
     this.name = "PcloudPublicationError";
@@ -188,6 +196,10 @@ export class PcloudClient {
   readonly #bytes: number;
   readonly #entries: number;
   readonly #metrics = new RequestMetrics();
+  /**
+   * Creates the client from `options`.
+   * @param options Options that configure the client.
+   */
   constructor(options: PcloudOptionsType) {
     this.#http = options.allowHttp === true;
     this.#endpoint = origin(options.endpoint, this.#http);

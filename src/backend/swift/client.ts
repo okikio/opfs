@@ -41,6 +41,7 @@ export interface SwiftClientOptionsType {
 /** Native client operations do not need a filesystem projection. */
 export interface SwiftClientType extends ObjectBackendType {
   readonly identity: string;
+  /** Returns counts of requests, retries, failures and responses so far. */
   getMetrics(): RequestMetricsType;
 }
 
@@ -48,6 +49,7 @@ export interface SwiftClientType extends ObjectBackendType {
 export class SwiftError extends Error {
   readonly status: number;
   readonly requestId: string | undefined;
+  /** Creates the error. */
   constructor(response: Response) {
     super(`Swift request failed with HTTP ${response.status}.`);
     this.name = "SwiftError";
@@ -59,6 +61,11 @@ export class SwiftError extends Error {
 /** A dispatched PUT has no attributable acknowledgement. A later HEAD cannot prove which writer published. */
 export class SwiftPublicationError extends Error {
   readonly key: string;
+  /**
+   * Creates the error.
+   * @param key Key the operation used.
+   * @param cause Failure that caused this error.
+   */
   constructor(key: string, cause: unknown) {
     super("Swift publication has no validated acknowledgement; do not blindly replay it.", { cause });
     this.name = "SwiftPublicationError";

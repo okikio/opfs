@@ -70,7 +70,17 @@ export interface UdfArchiveType {
     readonly identity?: string;
     readonly stability: "immutable" | "provider" | "caller" | "unverified";
   };
+  /**
+   * Reads entry `id` into memory, within the archive limits and `options`.
+   * @param id Entry ID from the archive index.
+   * @param options Limits and cancellation for this read.
+   */
   read(id: number, options?: UdfReadOptionsType): Promise<UdfReadType>;
+  /**
+   * Returns a byte source over member `id`. Nothing is read until you read the source.
+   * @param id Member ID from the index.
+   * @param options Limits and cancellation for reads through the source.
+   */
   member(id: number, options?: UdfMemberOptionsType): ByteSourceType;
 }
 

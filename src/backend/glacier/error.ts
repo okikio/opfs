@@ -10,6 +10,7 @@ export class GlacierError extends Error {
   readonly status: number;
   readonly requestId: string | undefined;
   readonly code: string | undefined;
+  /** Creates the error. */
   constructor(response: Response, code?: string) {
     super(`Glacier request failed with HTTP ${response.status}${code === undefined ? "" : ` (${code})`}.`);
     this.name = "GlacierError";
@@ -24,6 +25,11 @@ export class GlacierPublicationError extends Error {
   readonly operation: string;
   readonly outcome: "unknown" | "confirmed";
   readonly receipt: GlacierReceiptType | undefined;
+  /**
+   * Creates the error.
+   * @param operation Operation that failed.
+   * @param cause Failure that caused this error.
+   */
   constructor(operation: string, cause: unknown, receipt?: GlacierReceiptType) {
     super(
       `Glacier ${operation} ${

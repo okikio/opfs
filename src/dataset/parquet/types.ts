@@ -91,6 +91,11 @@ export interface ParquetDatasetType {
   readonly rowGroups: readonly ParquetRowGroupType[];
   readonly integrity: "metadata-unverified";
   readonly work: ArchiveWorkType;
+  /**
+   * Reads one column into typed arrays.
+   * @param column Column index from the schema.
+   * @param options Value range, limits and cancellation.
+   */
   read(column: number, options?: ParquetReadOptionsType): Promise<ParquetReadType>;
 }
 

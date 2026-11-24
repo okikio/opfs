@@ -19,7 +19,12 @@ export interface ZarrStoreType {
 }
 /** Separate aggregate authority for object lookups, including absent keys. */
 export interface ZarrObjectLedgerType {
+  /**
+   * Charges `count` object lookups to the ledger. Throws when the limit is reached.
+   * @param count Number of lookups.
+   */
   reserve(count: number): void;
+  /** Returns the number of lookups charged so far. */
   inspect(): number;
 }
 /** Creates a finite explicit lookup owner. No cache, registration or I/O. */
@@ -105,6 +110,10 @@ export interface ZarrArrayType {
   readonly chunkBytes: number;
   readonly fillValue: number | bigint | null;
   readonly work: ZarrWorkType;
+  /**
+   * Reads the array, or a run of its elements, into a typed array.
+   * @param options Element range.
+   */
   read(options?: ZarrReadOptionsType): Promise<ZarrReadType>;
 }
 

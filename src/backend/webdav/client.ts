@@ -54,6 +54,11 @@ export interface WebdavCopyOptionsType {
 export class WebdavError extends Error {
   readonly status: number;
   readonly operation: string;
+  /**
+   * Creates the error.
+   * @param status HTTP status the service returned.
+   * @param operation Operation that failed.
+   */
   constructor(status: number, operation: string) {
     super(`WebDAV ${operation} failed with HTTP ${status}.`);
     this.name = "WebdavError";
@@ -65,6 +70,11 @@ export class WebdavError extends Error {
 /** A dispatched mutation has uncertain or partial effects; retry requires application reconciliation. */
 export class WebdavPublicationError extends Error {
   readonly operation: string;
+  /**
+   * Creates the error.
+   * @param operation Operation that failed.
+   * @param cause Failure that caused this error.
+   */
   constructor(operation: string, cause: unknown) {
     super(`WebDAV ${operation} has no complete success acknowledgement.`, { cause });
     this.name = "WebdavPublicationError";
@@ -76,15 +86,64 @@ export class WebdavPublicationError extends Error {
 export interface WebdavClientType {
   readonly name: string;
   readonly identity: string | undefined;
+  /**
+   * Reads the properties of one resource, or returns `null` when it does not exist.
+   * @param path Resource path under the client's base URL.
+   * @param options Cancellation for the request.
+   */
   stat(path: string, options?: { readonly signal?: AbortSignal }): Promise<WebdavEntryType | null>;
+  /**
+   * Lists the members of one collection.
+   * @param path Collection path under the client's base URL.
+   * @param options Cancellation for the request.
+   */
   list(path: string, options?: { readonly signal?: AbortSignal }): Promise<readonly WebdavEntryType[]>;
+  /**
+   * Downloads one resource as a stream.
+   * @param path Resource path under the client's base URL.
+   * @param options Range and cancellation.
+   */
   get(path: string, options?: ObjectGetOptionsType): Promise<ReadableStream<Uint8Array>>;
+  /**
+   * Writes one resource and returns its new ETag when the server sends one.
+   * @param path Resource path under the client's base URL.
+   * @param bytes The resource's bytes.
+   * @param options Preconditions, content type and cancellation.
+   */
   put(path: string, bytes: Uint8Array, options?: WebdavWriteOptionsType): Promise<{ readonly etag?: string }>;
+  /**
+   * Creates one collection. The parent must exist.
+   * @param path Collection path under the client's base URL.
+   * @param options Cancellation for the request.
+   */
   mkdir(path: string, options?: { readonly signal?: AbortSignal }): Promise<void>;
+  /**
+   * Deletes one resource or collection.
+   * @param path Path under the client's base URL.
+   * @param options Cancellation and an optional `If-Match` ETag.
+   */
   remove(path: string, options?: { readonly signal?: AbortSignal; readonly ifMatch?: string }): Promise<void>;
+  /**
+   * Copies a resource on the server.
+   * @param source Path to copy.
+   * @param destination Path of the copy.
+   * @param options Overwrite policy, a source `If-Match` ETag and cancellation.
+   */
   copy(source: string, destination: string, options?: WebdavCopyOptionsType): Promise<void>;
+  /**
+   * Moves a resource on the server.
+   * @param source Path to move.
+   * @param destination New path.
+   * @param options Overwrite policy, a source `If-Match` ETag and cancellation.
+   */
   move(source: string, destination: string, options?: WebdavCopyOptionsType): Promise<void>;
+  /**
+   * Opens a byte source over one resource that reads it with range requests.
+   * @param path Resource path under the client's base URL.
+   * @param options Limits and cancellation for reads through the source.
+   */
   openSource(path: string, options?: ObjectSourceOptionsType): Promise<ByteSourceType>;
+  /** Returns counts of requests, retries, failures and responses so far. */
   getMetrics(): RequestMetricsType;
 }
 

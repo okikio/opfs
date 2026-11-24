@@ -101,6 +101,10 @@ export class DropboxError extends Error {
   readonly status: number;
   readonly tag?: string;
   readonly correctOffset?: number;
+  /**
+   * Creates the error.
+   * @param status HTTP status the service returned.
+   */
   constructor(status: number, tag?: string, correctOffset?: number) {
     super(`Dropbox request failed with HTTP ${status}.`);
     this.name = "DropboxError";
@@ -111,6 +115,10 @@ export class DropboxError extends Error {
 }
 /** A dispatched mutation without its validated acknowledgement must not be blindly repeated. */
 export class DropboxPublicationError extends Error {
+  /**
+   * Creates the error.
+   * @param cause Failure that caused this error.
+   */
   constructor(cause: unknown) {
     super("Dropbox mutation has no validated acknowledgement; reconcile before retrying.", { cause });
     this.name = "DropboxPublicationError";
@@ -274,6 +282,10 @@ export class DropboxClient {
   readonly #entries: number;
   readonly #bytes: number;
   readonly #metrics = new RequestMetrics();
+  /**
+   * Creates the client from `options`.
+   * @param options Options that configure the client.
+   */
   constructor(options: DropboxOptionsType) {
     this.#rpc = endpoint(options.endpoint ?? "https://api.dropboxapi.com/2/", options.allowHttp === true);
     this.#content = endpoint(

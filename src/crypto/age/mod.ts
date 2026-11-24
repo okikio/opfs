@@ -12,6 +12,7 @@ export type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../.
 
 /** Recipient unlocking, ASCII armor and encryption are separate profiles. */
 export const AgeProfileSchema: z.ZodLiteral<"age-v1-file-key"> = z.literal("age-v1-file-key");
+/** The age recipient types and limits that a reader accepts. */
 export type AgeProfileType = z.infer<typeof AgeProfileSchema>;
 /** Authenticated recipient metadata remains opaque; this reader does not unwrap it. */
 export const AgeStanzaSchema: z.ZodReadonly<
@@ -21,6 +22,7 @@ export const AgeStanzaSchema: z.ZodReadonly<
     body: z.ZodString;
   }, z.core.$strict>
 > = z.object({ type: z.string(), args: z.array(z.string()).readonly(), body: z.string() }).strict().readonly();
+/** One recipient stanza from an age header. */
 export type AgeStanzaType = z.infer<typeof AgeStanzaSchema>;
 
 /**
@@ -35,6 +37,7 @@ export type AgeStanzaType = z.infer<typeof AgeStanzaSchema>;
  * The interface and copying cannot prove that a provider performs cryptography.
  */
 export interface AgeAeadType {
+  /** Decrypts and authenticates one ChaCha20-Poly1305 payload chunk. */
   decrypt(
     key: Uint8Array<ArrayBuffer>,
     nonce: Uint8Array<ArrayBuffer>,
@@ -42,6 +45,7 @@ export interface AgeAeadType {
     options?: SourceReadOptionsType,
   ): Promise<Uint8Array>;
 }
+/** Limits and cancellation for reading plaintext from an age file. */
 export interface AgeReadOptionsType extends ArchiveLimitsType {
   readonly signal?: AbortSignal;
 }
@@ -106,6 +110,7 @@ export interface AgePlanType {
   readonly materializedBytes: number;
   readonly peakMaterializedBytes: number;
 }
+/** Plaintext bytes and the work it took to decrypt them. */
 export interface AgeReadType {
   readonly bytes: Uint8Array;
   readonly integrity: "selected-chunks-authenticated";
@@ -113,12 +118,19 @@ export interface AgeReadType {
   readonly chunkCount: number;
   readonly work: AgeWorkType;
 }
+/** The result of checking every payload chunk. */
 export interface AgeVerifyType {
   readonly integrity: "all-chunks-authenticated";
   readonly work: AgeWorkType;
 }
 /** Borrow only while its opening owner is alive; returned copies belong to the caller. */
 export interface AgeSourceType extends ByteSourceType {
+  /**
+   * Reads ciphertext bytes from the underlying file.
+   * @param offset Byte offset in the ciphertext.
+   * @param length Number of bytes to read.
+   * @param options Limits and cancellation.
+   */
   read(offset: number, length: number, options?: AgeReadOptionsType): Promise<Uint8Array>;
 }
 /**
@@ -138,10 +150,30 @@ export interface AgeOpenedType extends AsyncDisposable {
   readonly source: AgeSourceType;
   readonly work: AgeWorkType;
   readonly closed: Promise<void>;
+  /**
+   * Returns which payload chunks a plaintext range needs, without reading them.
+   * @param offset Byte offset in the plaintext.
+   * @param length Number of plaintext bytes.
+   */
   plan(offset: number, length: number): AgePlanType;
+  /**
+   * Decrypts and authenticates a plaintext range.
+   * @param offset Byte offset in the plaintext.
+   * @param length Number of plaintext bytes.
+   * @param options Limits and cancellation.
+   */
   read(offset: number, length: number, options?: AgeReadOptionsType): Promise<AgeReadType>;
+  /**
+   * Decrypts and authenticates every chunk without keeping the plaintext.
+   * @param options Limits and cancellation.
+   */
   verify(options?: AgeReadOptionsType): Promise<AgeVerifyType>;
+  /**
+   * Stops the current operation. Returns at once.
+   * @param reason Why the operation stopped.
+   */
   cancel(reason?: unknown): void;
+  /** Cancels any operation, waits for borrowed callbacks to finish, and clears keys as far as JavaScript allows. */
   dispose(): Promise<void>;
 }
 /** Stable local categories; provider failures retain their own reasons during cancellation. */
@@ -156,6 +188,10 @@ export class AgeError extends Error {
     | "closed"
     | "busy"
     | "capability";
+  /**
+   * Creates the error.
+   * @param message Message that explains the failure.
+   */
   constructor(code: AgeError["code"], message: string) {
     super(message);
     this.name = "AgeError";

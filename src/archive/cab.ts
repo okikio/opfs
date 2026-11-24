@@ -37,6 +37,7 @@ export interface CabBlockType {
   readonly checksum: number;
 }
 
+/** One CAB folder: a run of data blocks with one compression method. */
 export interface CabFolderType {
   readonly id: number;
   readonly compression: "none" | "mszip" | "quantum" | "lzx";
@@ -50,6 +51,7 @@ export interface CabFolderType {
   readonly blocks: readonly CabBlockType[];
 }
 
+/** Limits, cancellation and source details for opening a CAB archive. */
 export interface CabOpenOptionsType extends ArchiveLimitsType {
   readonly signal?: AbortSignal;
   /** Default 256; the on-disk count remains a 16-bit field. */
@@ -65,6 +67,7 @@ export interface CabOpenOptionsType extends ArchiveLimitsType {
   readonly allowUnverifiedSource?: boolean;
 }
 
+/** Limits and cancellation for reading one CAB member. */
 export interface CabReadOptionsType extends ArchiveLimitsType {
   readonly signal?: AbortSignal;
   readonly offset?: number;
@@ -82,6 +85,7 @@ export interface CabBlockReadType {
   readonly status: "checksum-verified" | "checksum-absent" | "pending";
 }
 
+/** The bytes of one CAB member and the work it took to read them. */
 export interface CabReadType {
   readonly bytes: Uint8Array;
   /** Raw DEFLATE blocks processed across the required MSZIP units; zero for NONE and empty reads. */
@@ -101,6 +105,11 @@ export interface CabArchiveType {
     readonly identity?: string;
     readonly stability: "immutable" | "provider" | "caller" | "unverified";
   };
+  /**
+   * Reads entry `id` into memory, within the archive limits and `options`.
+   * @param id Entry ID from the archive index.
+   * @param options Limits and cancellation for this read.
+   */
   read(id: number, options?: CabReadOptionsType): Promise<CabReadType>;
 }
 

@@ -9,7 +9,13 @@ import { z } from "zod";
 export const GLACIER_MIB = 1024 * 1024;
 
 /** Provider bounds; these do not authorize materializing a 4 GiB part. */
-export const GLACIER_LIMITS = Object.freeze({
+export const GLACIER_LIMITS: Readonly<{
+  maxParts: number;
+  minPartBytes: number;
+  maxPartBytes: number;
+  maxPage: number;
+  maxJobPage: number;
+}> = Object.freeze({
   maxParts: 10000,
   minPartBytes: GLACIER_MIB,
   maxPartBytes: 4 * 1024 ** 3,
@@ -28,6 +34,7 @@ export const GlacierCredentialsSchema: z.ZodObject<{
   sessionToken: z.string().min(1).optional(),
 }).strict();
 
+/** Access key, secret and optional session token for SigV4 signing. */
 export type GlacierCredentialsType = z.infer<typeof GlacierCredentialsSchema>;
 
 export const HashSchema: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>> = z.string().length(64).refine(

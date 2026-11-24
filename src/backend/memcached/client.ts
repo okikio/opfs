@@ -15,6 +15,7 @@ import { close } from "../../close.ts";
 export interface MemcachedChannelType {
   readonly readable: ReadableStream<Uint8Array>;
   readonly writable: WritableStream<Uint8Array>;
+  /** Closes the connection. */
   close(): Promise<void>;
 }
 const RelativeSchema: z.ZodObject<{
@@ -79,6 +80,7 @@ export interface MemcachedOptionsType {
 /** An attributable native error reply; untrusted reason text is deliberately omitted. Effects can still have occurred. */
 export class MemcachedError extends Error {
   readonly kind: "error" | "client" | "server";
+  /** Creates the error. */
   constructor(kind: MemcachedError["kind"]) {
     super(`Memcached returned a native ${kind} error.`);
     this.name = "MemcachedError";
@@ -87,6 +89,10 @@ export class MemcachedError extends Error {
 }
 /** Invalid framing, unrelated replies or local connection-state refusal. */
 export class MemcachedProtocolError extends Error {
+  /**
+   * Creates the error.
+   * @param message Message that explains the failure.
+   */
   constructor(message: string) {
     super(message);
     this.name = "MemcachedProtocolError";
@@ -97,6 +103,12 @@ export class MemcachedPublicationError extends Error {
   readonly outcome = "unknown";
   readonly operation: "put" | "remove";
   readonly key: string;
+  /**
+   * Creates the error.
+   * @param operation Operation that failed.
+   * @param key Key the operation used.
+   * @param cause Failure that caused this error.
+   */
   constructor(operation: "put" | "remove", key: string, cause: unknown) {
     super("Memcached mutation outcome is unknown; reconcile before deciding whether to retry.", { cause });
     this.name = "MemcachedPublicationError";
@@ -171,6 +183,7 @@ export class MemcachedClient implements AsyncDisposable {
     this.#chunk = resolveLimit(options.maxChunkBytes, 65_536, 1_048_576, "Memcached policy limit", 1);
     this.#lineMaximum = resolveLimit(options.maxLineBytes, 1024, 8192, "Memcached policy limit", 1);
   }
+  /** Whether the client is closed. */
   get closed(): boolean {
     return this.#closed;
   }
@@ -413,6 +426,7 @@ export class MemcachedClient implements AsyncDisposable {
     );
     return this.#closing;
   }
+  /** Closes the client. Same as `close()`. */
   [Symbol.asyncDispose](): Promise<void> {
     return this.close();
   }

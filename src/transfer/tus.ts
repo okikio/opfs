@@ -31,6 +31,11 @@ export interface TusCapabilitiesType {
 export class TusError extends Error {
   readonly code: "protocol" | "conflict" | "missing" | "unsupported";
   readonly status: number | undefined;
+  /**
+   * Creates the error.
+   * @param message Message that explains the failure.
+   * @param status HTTP status the service returned.
+   */
   constructor(code: TusError["code"], message: string, status?: number) {
     super(message);
     this.name = "TusError";
@@ -97,6 +102,10 @@ export class TusClient {
   readonly #credentials: RequestCredentials;
   readonly #allow: (url: URL) => boolean;
 
+  /**
+   * Creates the client from `options`.
+   * @param options Options that configure the client.
+   */
   constructor(options: TusClientOptionsType) {
     this.#endpoint = new URL(options.endpoint);
     if (!["http:", "https:"].includes(this.#endpoint.protocol) || this.#endpoint.username || this.#endpoint.password) {

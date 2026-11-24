@@ -7,6 +7,7 @@ import { isBytes, toView } from "../bytes.ts";
 export interface SourceFixtureType {
   readonly source: ByteSourceType;
   readonly expected: Uint8Array;
+  /** Stops the fixture and releases what it holds. */
   close(): void | Promise<void>;
 }
 

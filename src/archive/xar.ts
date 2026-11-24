@@ -82,6 +82,11 @@ export interface XarArchiveType {
     readonly stability: "immutable" | "provider" | "caller" | "unverified";
   };
   readonly work: ArchiveWorkType;
+  /**
+   * Reads entry `id` into memory, within the archive limits and `options`.
+   * @param id Entry ID from the archive index.
+   * @param options Limits and cancellation for this read.
+   */
   read(id: number, options?: XarReadOptionsType): Promise<XarReadType>;
   /** Stored regular files only. Returned source supplies no per-read member checksum guarantee. */
   source(id: number, options?: Omit<XarReadOptionsType, "verify">): ByteSourceType;

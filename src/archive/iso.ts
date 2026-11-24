@@ -77,6 +77,11 @@ export interface IsoArchiveType {
     readonly identity?: string;
     readonly stability: "immutable" | "provider" | "caller" | "unverified";
   };
+  /**
+   * Reads entry `id` into memory, within the archive limits and `options`.
+   * @param id Entry ID from the archive index.
+   * @param options Limits and cancellation for this read.
+   */
   read(id: number, options?: IsoReadOptionsType): Promise<IsoReadType>;
   /** Borrow a regular member extent. Names never become host paths or identity evidence. */
   member(id: number, options?: IsoMemberOptionsType): ByteSourceType;

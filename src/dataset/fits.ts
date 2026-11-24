@@ -71,7 +71,17 @@ export interface FitsDatasetType {
     readonly identity?: string;
     readonly stability: "immutable" | "provider" | "caller" | "unverified";
   };
+  /**
+   * Reads values from the data unit of HDU `id`.
+   * @param id HDU index, starting at 0 for the primary HDU.
+   * @param options Value range, scaling and cancellation.
+   */
   read(id: number, options?: FitsReadOptionsType): Promise<FitsReadType>;
+  /**
+   * Checks the `DATASUM` and `CHECKSUM` cards of HDU `id`.
+   * @param id HDU index, starting at 0 for the primary HDU.
+   * @param options Limits and cancellation.
+   */
   verify(id: number, options?: ArchiveLimitsType & { readonly signal?: AbortSignal }): Promise<FitsVerificationType>;
 }
 

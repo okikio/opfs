@@ -31,6 +31,11 @@ export interface ArweaveRemoteTransactionType {
 }
 /** Read-only native gateway surface. No status, proof-range, upload, funding, wallet or ambient authentication route. */
 export interface ArweaveClientType {
+  /**
+   * Fetches the transaction `id` and checks its header, without downloading its data.
+   * @param id Base64url transaction ID.
+   * @param options Limits and cancellation for the request.
+   */
   open(id: string, options?: ArweaveOpenOptionsType): Promise<ArweaveRemoteTransactionType>;
 }
 function cap(value: number, maximum: number, label: string): void {

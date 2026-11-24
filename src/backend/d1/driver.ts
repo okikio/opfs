@@ -21,12 +21,16 @@ export interface D1ResultType {
 }
 /** Narrow prepared-statement surface consumed by this driver. bind() returns an operation-local statement. */
 export interface D1StatementType {
+  /** Binds positional parameters, as the D1 binding does. */
   bind(...values: D1ParameterType[]): D1StatementType;
+  /** Runs the statement and returns its rows, as the D1 binding does. */
   all(): Promise<D1ResultType>;
+  /** Runs the statement and returns its write metadata, as the D1 binding does. */
   run(): Promise<D1ResultType>;
 }
 /** Application-injected D1 database or session. The library neither acquires nor closes it. */
 export interface D1BindingType {
+  /** Prepares one SQL statement, as the D1 binding does. */
   prepare(sql: string): D1StatementType;
 }
 /** Explicit storage layout and bounded query policies; none read ambient Worker configuration. */
@@ -45,6 +49,10 @@ export interface D1DriverOptionsType {
 /** A native query returned failure instead of a successful result; its provider text remains available. */
 export class D1Error extends Error {
   readonly providerError: string | undefined;
+  /**
+   * Creates the error.
+   * @param operation Operation that failed.
+   */
   constructor(operation: string, result: D1ResultType) {
     super(`D1 did not confirm ${operation}.`);
     this.name = "D1Error";
@@ -54,6 +62,10 @@ export class D1Error extends Error {
 /** An invoked mutation lacks an acknowledged outcome. The driver never automatically replays it. */
 export class D1MutationError extends Error {
   readonly outcome = "unknown";
+  /**
+   * Creates the error.
+   * @param cause Failure that caused this error.
+   */
   constructor(cause: unknown) {
     super("D1 mutation outcome is unknown; inspect the exact row before retrying.", { cause });
     this.name = "D1MutationError";

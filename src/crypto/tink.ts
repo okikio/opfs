@@ -45,6 +45,12 @@ export interface TinkReadType {
 export interface TinkSourceType extends ByteSourceType {
   readonly profile: "tink-aes-gcm-hkdf-sha256";
   readonly finalSegmentVerified: true;
+  /**
+   * Decrypts and authenticates a plaintext range.
+   * @param offset Byte offset in the plaintext.
+   * @param length Number of plaintext bytes.
+   * @param options Limits and cancellation.
+   */
   readVerified(offset: number, length: number, options?: SourceReadOptionsType): Promise<TinkReadType>;
   /** Reads all encrypted segments under an explicit whole-ciphertext admission budget. */
   verify(options: SourceReadOptionsType & { readonly maxCiphertextBytes: number }): Promise<{
@@ -62,13 +68,19 @@ export interface TinkProfileType {
   readonly maxSegmentsPerRead: number;
   readonly maxAssociatedDataBytes: number;
   readonly maxKeyBytes: number;
+  /**
+   * Returns the ciphertext size for a plaintext of `plaintextSize` bytes.
+   * @param plaintextSize Plaintext size in bytes.
+   */
   ciphertextSize(plaintextSize: number): number;
+  /** Encrypts a plaintext source into a ciphertext stream. */
   encrypt(
     source: ByteSourceType,
     key: TinkKeyType,
     associatedData?: Uint8Array,
     options?: TinkOpenOptionsType,
   ): ReadableStream<Uint8Array>;
+  /** Opens a ciphertext source and checks its header, without decrypting the segments. */
   open(
     source: ByteSourceType,
     key: TinkKeyType,
@@ -80,6 +92,10 @@ export interface TinkProfileType {
 /** Structural, parameter or authentication failure; causes retain native crypto errors without exposing key material. */
 export class TinkError extends Error {
   readonly code: "format" | "authentication" | "key" | "limit" | "stability";
+  /**
+   * Creates the error.
+   * @param message Message that explains the failure.
+   */
   constructor(code: TinkError["code"], message: string, options?: ErrorOptions) {
     super(message, options);
     this.name = "TinkError";

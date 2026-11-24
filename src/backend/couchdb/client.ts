@@ -88,6 +88,10 @@ export interface CouchdbClientOptionsType {
 /** Status-only error messages never echo server-controlled body text or credential-bearing URLs. */
 export class CouchdbError extends Error {
   readonly status: number;
+  /**
+   * Creates the error.
+   * @param status HTTP status the service returned.
+   */
   constructor(status: number) {
     super(`CouchDB request failed with HTTP ${status}.`);
     this.name = "CouchdbError";
@@ -101,6 +105,11 @@ export class CouchdbPublicationError extends Error {
   readonly document: string;
   readonly attachment: string;
   readonly revision: string | undefined;
+  /**
+   * Creates the error.
+   * @param operation Operation that failed.
+   * @param cause Failure that caused this error.
+   */
   constructor(
     operation: "put" | "remove",
     document: string,
@@ -205,6 +214,10 @@ export class CouchdbClient {
   readonly #policy: RequestPolicyType | undefined;
   readonly #max: number;
   readonly #attachments: number;
+  /**
+   * Creates the client from `options`.
+   * @param options Options that configure the client.
+   */
   constructor(options: CouchdbClientOptionsType) {
     const raw = String(options.endpoint);
     if (

@@ -62,7 +62,16 @@ export interface ArcArchiveType {
     readonly identity?: string;
     readonly stability: "immutable" | "provider" | "caller" | "unverified";
   };
+  /**
+   * Reads entry `id` into memory, within the archive limits and `options`.
+   * @param id Entry ID from the archive index.
+   * @param options Limits and cancellation for this read.
+   */
   read(id: number, options?: ArcReadOptionsType): Promise<ArcReadType>;
+  /**
+   * Returns a byte source over entry `id`. Nothing is read until you read the source.
+   * @param id Entry ID from the archive index.
+   */
   source(id: number, options?: ArcReadOptionsType): ByteSourceType;
 }
 /** Metadata is printable ASCII by policy; binary content is never passed through this decoder. */

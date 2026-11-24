@@ -47,9 +47,11 @@ export interface SeafileDownloadType {
   readonly size: number;
   readonly evidence: "server-trusted";
 }
+/** Cancellation for one Seafile request. */
 export interface SeafileOperationType {
   readonly signal?: AbortSignal;
 }
+/** Range, limits and cancellation for reading one Seafile file. */
 export interface SeafileReadType extends SeafileOperationType {
   readonly at?: number;
   readonly length?: number;
@@ -74,6 +76,10 @@ export interface SeafileClientOptionsType {
 /** Native HTTP failure without capability URLs or response text in library-owned messages. */
 export class SeafileError extends Error {
   readonly status: number;
+  /**
+   * Creates the error.
+   * @param status HTTP status the service returned.
+   */
   constructor(status: number) {
     super(`Seafile request failed with HTTP ${status}.`);
     this.name = "SeafileError";
@@ -85,6 +91,10 @@ export class SeafilePublicationError extends Error {
   readonly outcome = "unknown";
   readonly library: string;
   readonly parent: string;
+  /**
+   * Creates the error.
+   * @param cause Failure that caused this error.
+   */
   constructor(library: string, parent: string, name: string, cause: unknown) {
     super("Seafile upload has no complete success acknowledgement.", { cause });
     this.name = "SeafilePublicationError";
@@ -180,6 +190,10 @@ export class SeafileClient {
   readonly #entries: number;
   readonly #redirects: number;
   readonly #metrics = new RequestMetrics();
+  /**
+   * Creates the client from `options`.
+   * @param options Options that configure the client.
+   */
   constructor(options: SeafileClientOptionsType) {
     const base = new URL(options.endpoint);
     if (
@@ -222,6 +236,7 @@ export class SeafileClient {
     this.#downloads = grants(options.downloadGrants);
     this.#uploads = grants(options.uploadGrants);
   }
+  /** Returns counts of requests, retries, failures and responses so far. */
   getMetrics(): RequestMetricsType {
     return this.#metrics.snapshot();
   }
@@ -294,6 +309,10 @@ export class SeafileClient {
       return parseJson(await body(), jsonLimits);
     });
   }
+  /**
+   * Reads the library that this client works in.
+   * @param options Cancellation for the request.
+   */
   async getLibrary(options: SeafileOperationType = {}): Promise<SeafileLibraryType> {
     const { signal } = options;
     const data = parse(
@@ -314,6 +333,11 @@ export class SeafileClient {
     const library = await this.getLibrary(signal === undefined ? {} : { signal });
     if (library.encrypted) throw new TypeError("Encrypted Seafile libraries are outside this data profile.");
   }
+  /**
+   * Reads the metadata of one file.
+   * @param file Path of the file in the library.
+   * @param options Cancellation for the request.
+   */
   async stat(file: string, options: SeafileOperationType = {}): Promise<SeafileEntryType> {
     file = path(file);
     const { signal } = options;
@@ -332,6 +356,11 @@ export class SeafileClient {
       size: data.size,
     });
   }
+  /**
+   * Lists the entries of one directory.
+   * @param directory Path of the directory in the library. The default is the root.
+   * @param options Cancellation for the request.
+   */
   async list(directory = "/", options: SeafileOperationType = {}): Promise<readonly SeafileEntryType[]> {
     directory = path(directory, true);
     const { signal } = options;
@@ -361,6 +390,11 @@ export class SeafileClient {
       });
     }));
   }
+  /**
+   * Downloads one file as a stream with its metadata.
+   * @param file Path of the file in the library.
+   * @param options Range, limits and cancellation.
+   */
   async download(file: string, options: SeafileReadType = {}): Promise<SeafileDownloadType> {
     file = path(file);
     const { signal, at, length } = options;
@@ -437,6 +471,11 @@ export class SeafileClient {
       });
     }
   }
+  /**
+   * Reads one file into memory.
+   * @param file Path of the file in the library.
+   * @param options Range, limits and cancellation.
+   */
   async read(file: string, options: SeafileReadType = {}): Promise<Uint8Array> {
     const { signal, at, length } = options;
     const result = await this.download(file, {

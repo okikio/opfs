@@ -127,6 +127,10 @@ export interface EtcdClientOptionsType {
 /** Native HTTP refusal without echoing foreign error bodies, keys, values or tokens. */
 export class EtcdError extends Error {
   readonly status: number;
+  /**
+   * Creates the error.
+   * @param status HTTP status the service returned.
+   */
   constructor(status: number) {
     super(`etcd gateway request failed with HTTP ${status}.`);
     this.name = "EtcdError";
@@ -138,6 +142,12 @@ export class EtcdPublicationError extends Error {
   readonly outcome = "unknown";
   readonly operation: "put" | "remove";
   readonly key: string;
+  /**
+   * Creates the error.
+   * @param operation Operation that failed.
+   * @param key Key the operation used.
+   * @param cause Failure that caused this error.
+   */
   constructor(operation: "put" | "remove", key: string, cause: unknown) {
     super("etcd mutation has no complete acknowledgement.", { cause });
     this.name = "EtcdPublicationError";
@@ -239,6 +249,10 @@ export class EtcdClient {
   readonly #credentials: EtcdClientOptionsType["credentials"];
   readonly #policy: RequestPolicyType | undefined;
   readonly #max: number;
+  /**
+   * Creates the client from `options`.
+   * @param options Options that configure the client.
+   */
   constructor(options: EtcdClientOptionsType) {
     const raw = String(options.endpoint);
     if (

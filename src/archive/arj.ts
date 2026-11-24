@@ -80,6 +80,11 @@ export interface ArjArchiveType {
   readonly comment: string;
   readonly entries: readonly ArjEntryType[];
   readonly work: ArchiveWorkType;
+  /**
+   * Reads entry `id` into memory, within the archive limits and `options`.
+   * @param id Entry ID from the archive index.
+   * @param options Limits and cancellation for this read.
+   */
   read(id: number, options?: ArjReadOptionsType): Promise<ArjReadType>;
   /** Partial nested reads carry no whole-member CRC claim. Opening authority is retained. */
   member(id: number, options?: ArjMemberOptionsType): ByteSourceType;

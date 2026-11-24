@@ -19,12 +19,16 @@ import { DriverPlanInputSchema, DriverPlanSchema } from "../../driver/definition
 export const CLOUDFLARE_KV_BYTES = 25 * 1024 * 1024;
 /** Narrow native binding surface. The caller owns credentials, runtime and namespace lifetime. */
 export interface CloudflareKvBindingType {
+  /** Reads a value and its metadata, as the Workers KV binding does. */
   getWithMetadata(
     key: string,
     options: { type: "stream"; cacheTtl?: number },
   ): Promise<{ value: ReadableStream<Uint8Array> | null; metadata: unknown }>;
+  /** Writes a value with optional metadata and expiry, as the Workers KV binding does. */
   put(key: string, value: ArrayBuffer, options?: { metadata?: object; expirationTtl?: number }): Promise<void>;
+  /** Deletes a key, as the Workers KV binding does. */
   delete(key: string): Promise<void>;
+  /** Lists keys by prefix, one page at a time, as the Workers KV binding does. */
   list(
     options?: { prefix?: string; limit?: number; cursor?: string },
   ): Promise<
@@ -50,11 +54,19 @@ export interface CloudflareKvPageType {
 /** Native one-page listing stays independently usable, with eventual consistency explicitly retained. */
 export interface CloudflareKvDriverType extends ObjectDriverType {
   readonly consistency: "eventual";
+  /**
+   * Lists one page of stored keys under a prefix.
+   * @param options Prefix, page size and cursor. Delimiters are not supported.
+   */
   listKeys(options: Omit<ObjectListOptionsType, "delimiter">): Promise<CloudflareKvPageType>;
 }
 /** A failed native mutation has no receipt proving rollback or publication. */
 export class CloudflareKvPublicationError extends Error {
   readonly outcome = "unknown";
+  /**
+   * Creates the error.
+   * @param cause Failure that caused this error.
+   */
   constructor(cause: unknown) {
     super("Workers KV mutation outcome is unknown; do not blindly replay it.", { cause });
     this.name = "CloudflareKvPublicationError";

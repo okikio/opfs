@@ -26,17 +26,22 @@ export interface R2BodyType extends R2ObjectType {
 }
 /** The application supplies the actual bucket binding; no Cloudflare type package is required. */
 export interface R2BindingType {
+  /** Reads an object's metadata, as the R2 binding does. */
   head(key: string): Promise<R2ObjectType | null>;
+  /** Reads an object, or a range of it, as the R2 binding does. */
   get(
     key: string,
     options?: { onlyIf?: Headers; range?: { offset: number; length?: number } },
   ): Promise<R2BodyType | R2ObjectType | null>;
+  /** Writes an object with optional metadata and conditions, as the R2 binding does. */
   put(
     key: string,
     value: ArrayBuffer,
     options?: { onlyIf?: Headers; httpMetadata?: { contentType?: string }; customMetadata?: Record<string, string> },
   ): Promise<R2ObjectType | null>;
+  /** Deletes an object, as the R2 binding does. */
   delete(key: string): Promise<void>;
+  /** Lists one page of objects, as the R2 binding does. */
   list(
     options?: {
       limit?: number;
@@ -63,6 +68,7 @@ export interface R2ClientType extends ObjectBackendType {
 /** Native binding absence and failed conditional operations remain machine-readable. */
 export class R2Error extends Error {
   readonly code: "not-found" | "locked";
+  /** Creates the error. */
   constructor(code: "not-found" | "locked") {
     super(`R2 operation failed: ${code}.`);
     this.name = "R2Error";
@@ -72,6 +78,10 @@ export class R2Error extends Error {
 /** The binding call was dispatched but no valid receipt proves this write's outcome. */
 export class R2PublicationError extends Error {
   readonly outcome = "unknown";
+  /**
+   * Creates the error.
+   * @param cause Failure that caused this error.
+   */
   constructor(cause: unknown) {
     super("R2 publication outcome is unknown; do not blindly retry.", { cause });
     this.name = "R2PublicationError";

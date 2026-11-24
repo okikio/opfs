@@ -13,6 +13,7 @@ export type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../a
 export const JweProfileSchema: z.ZodEnum<
   { "jwe-compact-dir-a128gcm": "jwe-compact-dir-a128gcm"; "jwe-compact-dir-a256gcm": "jwe-compact-dir-a256gcm" }
 > = z.enum(["jwe-compact-dir-a128gcm", "jwe-compact-dir-a256gcm"]);
+/** The JWE algorithms and limits that a reader accepts. */
 export type JweProfileType = z.infer<typeof JweProfileSchema>;
 /** Known authenticated declarations; unknown noncritical members remain in the original raw header. */
 export const JweProtectedSchema: z.ZodObject<{
@@ -28,9 +29,11 @@ export const JweProtectedSchema: z.ZodObject<{
   typ: z.string().optional(),
   cty: z.string().optional(),
 }).strict();
+/** The checked JWE protected header. */
 export type JweProtectedType = z.infer<typeof JweProtectedSchema>;
 /** Only high-entropy direct AES keys; no password derivation or key resolution occurs. */
 export type JweKeyType = Uint8Array | CryptoKey;
+/** Limits and cancellation for reading plaintext from a JWE. */
 export interface JweReadOptionsType extends ArchiveLimitsType {
   readonly signal?: AbortSignal;
 }
@@ -57,6 +60,7 @@ export interface JweWorkType extends ArchiveWorkType {
   readonly nativeCalls: number;
   readonly materializedBytes: number;
 }
+/** Plaintext bytes and the work it took to decrypt them. */
 export interface JweReadType {
   readonly bytes: Uint8Array;
   readonly integrity: "whole-jwe-message-authenticated";
@@ -70,6 +74,12 @@ export interface JweHeaderType {
 }
 /** Borrow this source only while its opening owner is alive. Returned copies remain caller-owned. */
 export interface JweSourceType extends ByteSourceType {
+  /**
+   * Reads bytes from the compact JWE text.
+   * @param offset Byte offset in the JWE.
+   * @param length Number of bytes to read.
+   * @param options Limits and cancellation.
+   */
   read(offset: number, length: number, options?: JweReadOptionsType): Promise<Uint8Array>;
 }
 /** Disposal rejects new/reentrant unfinished reads and clears the private snapshot best-effort. */
@@ -79,12 +89,23 @@ export interface JweOpenedType extends Disposable {
   readonly integrity: "whole-jwe-message-authenticated";
   readonly source: JweSourceType;
   readonly work: JweWorkType;
+  /**
+   * Returns a range of the decrypted and authenticated plaintext.
+   * @param offset Byte offset in the plaintext.
+   * @param length Number of plaintext bytes.
+   * @param options Limits and cancellation.
+   */
   read(offset: number, length: number, options?: JweReadOptionsType): Promise<JweReadType>;
+  /** Clears the decrypted plaintext and keys as far as JavaScript allows. */
   dispose(): void;
 }
 /** Native authentication failures omit provider causes, keys and speculative plaintext. */
 export class JweError extends Error {
   readonly code: "format" | "profile" | "key" | "authentication" | "limit" | "stability" | "disposed";
+  /**
+   * Creates the error.
+   * @param message Message that explains the failure.
+   */
   constructor(code: JweError["code"], message: string) {
     super(message);
     this.name = "JweError";

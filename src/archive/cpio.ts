@@ -33,6 +33,7 @@ export interface CpioEntryType {
   readonly checksum: number;
 }
 
+/** Limits, cancellation and source details for opening a cpio archive. */
 export interface CpioOpenOptionsType extends ArchiveLimitsType {
   readonly signal?: AbortSignal;
   /** Maximum ordinary headers. Default 100,000. The required trailer is separate. */
@@ -45,6 +46,7 @@ export interface CpioOpenOptionsType extends ArchiveLimitsType {
   readonly allowUnverifiedSource?: boolean;
 }
 
+/** Limits and cancellation for reading one cpio member. */
 export interface CpioReadOptionsType extends ArchiveLimitsType {
   readonly signal?: AbortSignal;
   readonly offset?: number;
@@ -69,6 +71,11 @@ export interface CpioArchiveType {
     readonly identity?: string;
     readonly stability: "immutable" | "provider" | "caller" | "unverified";
   };
+  /**
+   * Reads entry `id` into memory, within the archive limits and `options`.
+   * @param id Entry ID from the archive index.
+   * @param options Limits and cancellation for this read.
+   */
   read(id: number, options?: CpioReadOptionsType): Promise<CpioReadType>;
 }
 

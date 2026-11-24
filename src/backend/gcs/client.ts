@@ -138,20 +138,68 @@ export interface GcsUploadWriteOptionsType {
 
 /** GCS-native operations remain usable without a filesystem adapter. */
 export interface GcsClientType extends ObjectBackendType {
+  /** Returns counts of requests, retries, failures and responses so far. */
   getMetrics(): RequestMetricsType;
+  /**
+   * Reads an object's metadata, or returns `null` when the object does not exist.
+   * @param key Object name in the bucket.
+   * @param options Generation preconditions and cancellation.
+   */
   head(key: string, options?: GcsHeadOptionsType): Promise<GcsStatType | null>;
+  /**
+   * Downloads an object as a stream.
+   * @param key Object name in the bucket.
+   * @param options Range, generation preconditions and cancellation.
+   */
   get(key: string, options?: GcsGetOptionsType): Promise<ReadableStream<Uint8Array>>;
+  /**
+   * Deletes an object.
+   * @param key Object name in the bucket.
+   * @param options Generation preconditions and cancellation.
+   */
   delete(key: string, options?: GcsDeleteOptionsType): Promise<void>;
+  /**
+   * Lists one page of objects.
+   * @param options Prefix, delimiter, page size and cursor.
+   */
   list(options: ObjectListOptionsType): Promise<GcsListType>;
+  /**
+   * Uploads an object through one resumable upload session. A stream is sent in chunks.
+   * @param key Object name in the bucket.
+   * @param body The object's bytes.
+   * @param options Content type, metadata, preconditions and cancellation.
+   */
   put(key: string, body: Uint8Array | ReadableStream<Uint8Array>, options?: GcsPutOptionsType): Promise<GcsReceiptType>;
+  /**
+   * Starts a resumable upload and returns its session.
+   * @param key Object name in the bucket.
+   * @param options Content type, metadata, preconditions and cancellation.
+   */
   createUpload(key: string, options?: GcsPutOptionsType): Promise<GcsUploadType>;
+  /**
+   * Asks how many bytes a resumable upload has stored.
+   * @param upload The upload session.
+   * @param signal Cancels the request.
+   */
   queryUpload(upload: GcsUploadType, signal?: AbortSignal): Promise<GcsUploadStatusType>;
+  /** Sends the next chunk of a resumable upload. */
   writeUpload(
     upload: GcsUploadType,
     body: Uint8Array,
     options: GcsUploadWriteOptionsType,
   ): Promise<GcsUploadStatusType>;
+  /**
+   * Cancels a resumable upload. The object is not created.
+   * @param upload The upload session.
+   * @param signal Cancels the request.
+   */
   cancelUpload(upload: GcsUploadType, signal?: AbortSignal): Promise<void>;
+  /**
+   * Copies an object inside the service.
+   * @param source Name of the object to copy.
+   * @param destination Name of the new object.
+   * @param options Preconditions and cancellation.
+   */
   copy(source: string, destination: string, options?: GcsCopyOptionsType): Promise<GcsReceiptType>;
 }
 
@@ -159,6 +207,7 @@ export interface GcsClientType extends ObjectBackendType {
 export class GcsError extends Error {
   readonly status: number;
   readonly response: Response;
+  /** Creates the error. */
   constructor(response: Response) {
     super(`Google Cloud Storage request failed with HTTP ${response.status}.`);
     this.name = "GcsError";
@@ -170,6 +219,11 @@ export class GcsError extends Error {
 /** A dispatched publication has no validated acknowledgement; query its session. */
 export class GcsPublicationError extends Error {
   readonly key: string;
+  /**
+   * Creates the error.
+   * @param key Key the operation used.
+   * @param cause Failure that caused this error.
+   */
   constructor(key: string, cause: unknown) {
     super("Google Cloud Storage publication could not be attributed from its acknowledgement.", { cause });
     this.name = "GcsPublicationError";

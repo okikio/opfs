@@ -231,6 +231,12 @@ class NodeFile implements FileDriverWritableFileType {
 
 /** Ordered native resource; direct construction obeys the same admission contract as drivers. */
 export class NodeWritableFile extends QueuedWritableFile {
+  /**
+   * Wraps an open Node file handle for one writable session.
+   * @param path Path of the file in the driver's root.
+   * @param file The open file handle. The session closes it.
+   * @param options Write mode and size limits.
+   */
   constructor(path: PathType, file: NodeFileHandle, options: WritableOptionsType = {}) {
     super(new NodeFile(path, file), options);
   }
@@ -411,6 +417,11 @@ export class NodeBackend implements FileBackendType {
     }
   }
 
+  /**
+   * Reads the entry at `path`, or returns `null` when nothing is there.
+   * @param path Path in the driver's root.
+   * @param options Cancellation for the call.
+   */
   async stat(path: PathType, options: FileDriverSignalOptionsType = {}): Promise<FileDriverStatType | null> {
     throwIfAborted(options.signal, "stat", path);
     try {

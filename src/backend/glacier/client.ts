@@ -81,6 +81,10 @@ export class GlacierClient {
   readonly #now: () => Date;
   readonly #policy: RequestPolicyType | undefined;
   readonly #max: number;
+  /**
+   * Creates the client from `options`.
+   * @param options Options that configure the client.
+   */
   constructor(options: GlacierOptionsType) {
     const endpoint = new URL(options.endpoint);
     if (

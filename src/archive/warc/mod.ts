@@ -111,7 +111,17 @@ export interface WarcArchiveType {
     readonly identity?: string;
     readonly stability: "immutable" | "provider" | "caller" | "unverified";
   };
+  /**
+   * Reads entry `id` into memory, within the archive limits and `options`.
+   * @param id Entry ID from the archive index.
+   * @param options Limits and cancellation for this read.
+   */
   read(id: number, options?: WarcReadOptionsType): Promise<WarcReadType>;
+  /**
+   * Checks the block of record `id` against its `WARC-Block-Digest`.
+   * @param id Record ID from the index.
+   * @param options Limits, cancellation and the hash functions to use.
+   */
   verifyBlock(id: number, options: WarcVerifyOptionsType): Promise<WarcVerificationType>;
 }
 

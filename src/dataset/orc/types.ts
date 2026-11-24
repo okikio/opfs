@@ -103,6 +103,11 @@ export interface OrcDatasetType {
   readonly integrity: "none";
   /** Frozen work from opening only, not later lifetime counters. */
   readonly work: ArchiveWorkType;
+  /**
+   * Reads one column into typed arrays.
+   * @param columnId Column ID from the file's type list.
+   * @param options Value range, limits and cancellation.
+   */
   read(columnId: number, options?: OrcReadOptionsType): Promise<OrcReadType>;
 }
 

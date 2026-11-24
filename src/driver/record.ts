@@ -90,15 +90,25 @@ export interface RecordBackendType {
     readonly writeModes?: readonly WriteModeType[];
     readonly streamWriteModes?: readonly WriteModeType[];
   };
+  /** Reads the record at `path`, or returns `null` when there is none. */
   get(path: PathType): Promise<RecordType | null>;
+  /** Reads a record's listing data without its value. Leave it out to use `get`. */
   stat?(path: PathType): Promise<RecordListType | null>;
+  /** Reads a file's bytes directly. Leave it out to read them from the record. */
   readFile?(path: PathType, options?: FileDriverReadOptionsType): Promise<Uint8Array>;
+  /** Opens a file as a stream. Leave it out when the backend cannot stream reads. */
   openReadStream?(path: PathType, options?: FileDriverReadOptionsType): Promise<ReadableStream<Uint8Array>>;
+  /** Writes a file's bytes directly. Leave it out to write a whole record with `set`. */
   writeFile?(path: PathType, data: Uint8Array, options: FileDriverWriteOptionsType): Promise<void>;
+  /** Writes a file from a stream. Leave it out when the backend cannot stream writes. */
   writeStream?(path: PathType, source: ReadableStream<Uint8Array>, options: FileDriverWriteOptionsType): Promise<void>;
+  /** Creates or replaces one record. */
   set(record: RecordType): Promise<void>;
+  /** Deletes the record at `path`. */
   delete(path: PathType): Promise<void>;
+  /** Lists the records whose parent is `parent`. */
   list(parent: PathType): AsyncIterableIterator<RecordListType>;
+  /** Releases what the backend holds. Called when the owning driver closes. */
   dispose?(): void | Promise<void>;
 }
 
@@ -127,12 +137,46 @@ export interface DefineRecordDriverOptionsType extends Omit<DefineDriverOptionsT
   readonly disposeBackend?: boolean;
 }
 
-/** Returns whether one preflight operation needs backend mutation. */
+/**
+ * Returns whether an operation changes stored data.
+ *
+ * `write`, `copy`, `move` and `remove` change data. `read`, `stat` and `list`
+ * do not. A read-only driver uses this to refuse a plan before it asks the
+ * backend anything.
+ *
+ * @param operation The operation from a plan input.
+ * @returns `true` when the operation writes, copies, moves or removes.
+ *
+ * @example
+ * ```ts
+ * import { mutates } from "@okikio/opfs/driver/record";
+ *
+ * mutates("write"); // true
+ * mutates("read"); // false
+ * ```
+ */
 export function mutates(operation: DriverPlanInputType["operation"]): boolean {
   return operation === "write" || operation === "copy" || operation === "move" || operation === "remove";
 }
 
-/** Creates a deterministic read-only rejection before backend-specific planning. */
+/**
+ * Returns the plan that refuses an operation on a read-only driver.
+ *
+ * The plan has one `read-only` problem and suggests two actions: change the
+ * policy or pick another driver. It does not look at the backend, so the same
+ * input always gives the same plan.
+ *
+ * @param input The operation to refuse. It is checked against the plan-input schema.
+ * @returns An unsupported plan for `input.operation`.
+ *
+ * @example
+ * ```ts
+ * import { mutates, readOnlyPlan } from "@okikio/opfs/driver/record";
+ *
+ * const input = { operation: "write", path: "/notes/a.txt", size: 12 } as const;
+ * if (mutates(input.operation)) console.log(readOnlyPlan(input).problems[0]?.code); // "read-only"
+ * ```
+ */
 export function readOnlyPlan(input: DriverPlanInputType): DriverPlanType {
   const request = DriverPlanInputSchema.parse(input);
   return DriverPlanSchema.parse({
@@ -149,7 +193,29 @@ export function readOnlyPlan(input: DriverPlanInputType): DriverPlanType {
   });
 }
 
-/** Creates the default record-driver plan from known file size and configured limits. */
+/**
+ * Returns the default plan for a record driver from its configured limits.
+ *
+ * The plan refuses the operation when a path is longer than the driver's
+ * `path-length` limit, or when `input.size` is larger than its `file-bytes`
+ * limit. Otherwise it reports native support. It does not ask the backend, so a
+ * backend that knows more can pass its own planner as `options.plan` to
+ * {@link defineRecordDriver}.
+ *
+ * @param base The driver whose limits apply.
+ * @param input The operation, its paths and its expected size.
+ * @returns A supported plan, or an unsupported plan with one problem.
+ *
+ * @example
+ * ```ts
+ * import type { DriverType } from "@okikio/opfs/driver";
+ * import { createRecordPlan } from "@okikio/opfs/driver/record";
+ *
+ * declare const driver: DriverType;
+ * const plan = createRecordPlan(driver, { operation: "write", path: "/a.bin", size: 2 ** 30 });
+ * if (!plan.supported) console.log(plan.problems[0]?.code); // "file-too-large" when the limit is lower
+ * ```
+ */
 export function createRecordPlan(base: DriverType, input: DriverPlanInputType): DriverPlanType {
   const request = DriverPlanInputSchema.parse(input);
   const maxPath = base.limits.find((limit) => limit.code === "path-length" && limit.value !== undefined);
@@ -208,8 +274,9 @@ export function createRecordPlan(base: DriverType, input: DriverPlanInputType): 
  *
  * @example Mark one configured store as read-only.
  * ```ts
- * import { defineRecordDriver } from "@okikio/opfs/driver/record";
+ * import { defineRecordDriver, type RecordBackendType } from "@okikio/opfs/driver/record";
  *
+ * declare const backend: RecordBackendType;
  * const driver = defineRecordDriver(backend, {
  *   name: "readonly-cache",
  *   readOnly: true,
