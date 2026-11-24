@@ -14,6 +14,11 @@ Application code normally calls `FileSystemType`, the filesystem returned by `op
 It owns virtual paths, handles, cancellation, and the available fallbacks. The lower layers translate that request into
 the selected backend's operations:
 
+![The layers of @okikio/opfs: your code, an optional bridge, FileSystemType, an adapter in one of three shapes (object, file, record), a driver, a client and the backend, with one S3 write traced through each layer](docs/assets/layers.svg)
+
+The orange path follows one `fs.writeFile()` to S3. The dashed line is `fs.backend`: the typed client behind the driver,
+for calls a file API cannot express, such as deleting one B2 version.
+
 | Component           | Responsibility                                                                                                           |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | Client, when needed | Implements a wire protocol, such as S3 or Azure Blob REST.                                                               |

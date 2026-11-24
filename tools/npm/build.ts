@@ -183,6 +183,16 @@ await build({
         );
       }
     }
+    // Images the documents embed, such as the layer diagram, travel with them.
+    await Deno.mkdir(join(output, "docs", "assets"), { recursive: true });
+    for await (const entry of Deno.readDir(join(root, "docs", "assets"))) {
+      if (entry.isFile) {
+        await Deno.copyFile(
+          join(root, "docs", "assets", entry.name),
+          join(output, "docs", "assets", entry.name),
+        );
+      }
+    }
     await assertNoJsrDependencies(join(output, "package.json"));
   },
 });
