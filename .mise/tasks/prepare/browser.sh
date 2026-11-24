@@ -13,13 +13,15 @@ cli=(node node_modules/@playwright/test/cli.js)
 debs="${OPFS_PLAYWRIGHT_APT:-}"
 if [[ -z "$debs" ]] || ! command -v apt-get >/dev/null; then exec "${cli[@]}" install --with-deps "$@"; fi
 
-# Hit: the folder holds every package apt downloaded last time. --no-download installs them without refreshing
-# apt's index or reaching a mirror. apt checks each file's dependencies, but a local .deb has no signature to
-# check, so CI writes this folder's cache only from trusted refs. A slow Ubuntu mirror once spent a whole
-# 10-minute job on this download.
+# Hit: the folder holds every package apt downloaded last time. dpkg installs them all in one call, so they can
+# depend on each other, without apt's package lists or a mirror. apt-get install --no-download is not enough: the
+# runner image ships without package lists, so apt cannot resolve the local files and asks for a download. A local
+# .deb has no signature to check, so CI writes this folder's cache only from trusted refs. The dry run then proves
+# nothing is missing; anything left half-configured is repaired by the miss path below.
 if compgen -G "$debs/*.deb" >/dev/null &&
-	sudo apt-get install --yes --no-install-recommends --no-download "$debs"/*.deb; then
-	echo "Installed Playwright's Ubuntu packages from $(find "$debs" -name '*.deb' | wc -l) cached files."
+	sudo DEBIAN_FRONTEND=noninteractive dpkg --install --skip-same-version "$debs"/*.deb >/dev/null &&
+	"${cli[@]}" install-deps --dry-run "$@" >/dev/null; then
+	echo "Installed Playwright's Ubuntu packages from $(find "$debs" -maxdepth 1 -name '*.deb' | wc -l) cached files."
 	exec "${cli[@]}" install "$@"
 fi
 
@@ -53,7 +55,8 @@ if [[ ${#packages[@]} -gt 0 ]]; then
 			done
 			rm -f "$debs/partial/$name"' _ || true
 	echo "Fetched $(find "$debs" -maxdepth 1 -name '*.deb' | wc -l) packages over parallel connections."
-	sudo apt-get install --yes --no-install-recommends -o "Dir::Cache::Archives=$debs" \
+	# --fix-broken also finishes anything a failed cached install left half-configured.
+	sudo apt-get install --yes --fix-broken --no-install-recommends -o "Dir::Cache::Archives=$debs" \
 		-o APT::Keep-Downloaded-Packages=true "${packages[@]}"
 fi
 sudo rm -rf "$debs/partial" "$debs/lock"
