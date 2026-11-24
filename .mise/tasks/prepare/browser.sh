@@ -28,10 +28,31 @@ fi
 # from there afterwards finds almost nothing.
 rm -rf "$debs"
 mkdir -p "$debs/partial"
-sudo apt-get update
+# Translations are not needed to install anything, and they are a sixth of the index download.
+sudo apt-get update -o Acquire::Languages=none
 # Playwright's dry run simulates the install and lists every missing package, dependencies included.
 mapfile -t packages < <("${cli[@]}" install-deps --dry-run "$@" | sed -n 's/^  \([^ ]\+\)$/\1/p')
 if [[ ${#packages[@]} -gt 0 ]]; then
+	# A slow mirror limits each connection, not the runner: one job measured 65 kB/s from the EC2 mirror and timed
+	# out. So fetch the files apt would fetch over 8 connections first. apt then installs from the folder and still
+	# checks every file against the signed index; it downloads anything missing or wrong itself.
+	# GitHub's runners point apt at a mirror list file, so a URI can name the list instead of a host. Map those onto
+	# each listed mirror in order.
+	OPFS_MIRRORS="$(sed -n 's|^\(https\{0,1\}://[^[:space:]]*\).*|\1|p' /etc/apt/apt-mirrors.txt 2>/dev/null | tr '\n' ' ')"
+	export OPFS_MIRRORS debs
+	# shellcheck disable=SC2016 # The child bash expands $1, $2, $debs and $OPFS_MIRRORS, not this one.
+	apt-get install --print-uris -qq --no-install-recommends "${packages[@]}" |
+		sed -n "s/^'\([^']*\)' \([^ ]*\) .*/\1 \2/p" |
+		xargs -r -P 8 -n 2 bash -c '
+			uri=$1 name=$2
+			if [[ $uri == http* ]]; then sources=("$uri"); else
+				sources=(); for base in $OPFS_MIRRORS; do sources+=("${base%/}/pool/${uri#*/pool/}"); done
+			fi
+			for source in "${sources[@]}"; do
+				curl -fsSL --retry 2 -o "$debs/partial/$name" "$source" && mv "$debs/partial/$name" "$debs/$name" && exit 0
+			done
+			rm -f "$debs/partial/$name"' _ || true
+	echo "Fetched $(find "$debs" -maxdepth 1 -name '*.deb' | wc -l) packages over parallel connections."
 	sudo apt-get install --yes --no-install-recommends -o "Dir::Cache::Archives=$debs" \
 		-o APT::Keep-Downloaded-Packages=true "${packages[@]}"
 fi
