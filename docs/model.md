@@ -8,6 +8,212 @@ OPFS connects those jobs without treating every service as a disk. Start with th
 a lower layer when you need a provider operation that a file API cannot express. Add a bridge when another library needs
 to consume your filesystem.
 
+## Five layers, one question each
+
+Every storage call in this package passes through up to five layers. Each one answers a single question, and each one is
+useful on its own:
+
+| Layer            | Question it answers                          | S3 example                                                   | Start here when you need                                      |
+| ---------------- | -------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------- |
+| Client           | How do I talk to this service?               | `createS3Client()` signs and sends S3 HTTP requests          | an S3-only feature: multipart upload control, receipts, ETags |
+| Driver           | What are this backend's rules?               | `createS3Driver()` declares S3's size and part limits        | to check limits or plan work before any request               |
+| Adapter          | How does this kind of storage look as files? | `createObjectAdapter()` turns paths into keys                | rarely by hand; `createS3Adapter()` builds it for you         |
+| `FileSystemType` | How does my application work with files?     | `createFileSystem()` gives `writeFile`, directories, handles | ordinary file work                                            |
+| Bridge, optional | How does another library use these files?    | `createKeyValueBridge()` puts a key-value interface on top   | an existing consumer that expects a different interface       |
+
+Only remote protocols have a client. Node, Deno, Bun, browser OPFS and IndexedDB already have callable APIs, so their
+path starts at the driver.
+
+## A driver knows one backend; an adapter knows one shape
+
+The driver and the adapter are the two layers that are easiest to confuse. The difference is what each one is written
+for:
+
+- A **driver** is written once per backend. S3, Azure Blob and Google Cloud Storage each have their own driver because
+  each has different authentication, size limits, failure rules and optimizations.
+- An **adapter** is written once per _shape_ of storage. There are three shapes: **files** (a real filesystem),
+  **records** (a value stored under a key, such as a database row) and **objects** (a named blob with metadata, as in
+  cloud storage). The adapter turns that shape into files and directories.
+
+So 24 backends share three generic adapters. A backend's own `createXAdapter()` function, such as `createS3Adapter()`,
+is a shortcut: it builds that backend's driver and hands it to the adapter for its shape. Adding support for a new
+storage service usually means writing one driver and reusing an existing adapter.
+
+The diagram shows a few backends from each shape, read from the top. Arrows show which layer wraps which; a request
+travels the opposite way, from the application down to the service. The table after it lists every backend.
+
+```mermaid
+flowchart TD
+  S3C["S3 client"] --> S3D["S3 driver"]
+  AzC["Azure client"] --> AzD["Azure Blob driver"]
+  NodeD["Node driver"]
+  OpfsD["Browser OPFS driver"]
+  IdbD["IndexedDB driver"]
+  KvD["Deno KV driver"]
+  S3D --> ObjA["Object adapter: keys and marker objects become files"]
+  AzD --> ObjA
+  NodeD --> FileA["File adapter: files stay files"]
+  OpfsD --> FileA
+  IdbD --> RecA["Record adapter: one record per file or directory"]
+  KvD --> RecA
+  ObjA --> FS["FileSystemType: paths, handles, locks"]
+  FileA --> FS
+  RecA --> FS
+  FS --> App["Your application"]
+  FS --> Bridge["Bridge: key-value or unstorage view"]
+```
+
+| Shape   | Generic adapter               | Backends                                                                                           | What an append or partial update costs                                                                                         |
+| ------- | ----------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Files   | `@okikio/opfs/adapter/file`   | Node, Deno, Bun, browser OPFS, WebDAV, WebHDFS                                                     | Native positional writes on local disks and browser OPFS. WebDAV and WebHDFS have none; `inspect()` reports this               |
+| Records | `@okikio/opfs/adapter/record` | memory, IndexedDB, Deno KV, localStorage, Cache Storage, SQLite, D1, db0, Drizzle, RxDB, unstorage | Usually read the whole record, change it, replace it. A driver with a faster route, such as Deno KV, reports it in `inspect()` |
+| Objects | `@okikio/opfs/adapter/object` | S3, Azure Blob, Google Cloud Storage, R2, B2, Swift, Cloudflare KV                                 | Read the whole object, change it, replace it; directories are marker objects                                                   |
+
+The last column is why the shape matters. The same `writeFile(path, data, { mode: "append" })` call is cheap on a local
+disk and rewrites the whole value on S3 or IndexedDB. The adapter does that rewrite with the shared
+[`applyWrite()`](design.md#entry-points-main-types-and-advanced) rule, and the driver's `plan()` tells you about the
+limits before you start.
+
+## Follow one S3 write through every layer
+
+This example builds each layer by hand so you can see where each one starts and ends. The endpoint and credentials are
+placeholders; the [S3 guide](s3.md) explains real configuration.
+
+```ts
+import { createFileSystem } from "@okikio/opfs";
+import { createObjectAdapter } from "@okikio/opfs/adapter/object";
+import { createS3DriverFromClient } from "@okikio/opfs/driver/s3";
+import { createS3Client } from "@okikio/opfs/s3";
+
+// 1. Client: knows how to sign and send S3 requests. Nothing about files.
+const client = createS3Client({
+  endpoint: "https://s3.us-east-1.amazonaws.com",
+  bucket: "example-bucket",
+  region: "us-east-1",
+  credentials: { accessKeyId: "APPLICATION_ACCESS_KEY", secretAccessKey: "APPLICATION_SECRET" },
+});
+
+// 2. Driver: knows S3's rules. plan() checks a write against them without sending a request.
+const driver = createS3DriverFromClient(client);
+console.log(driver.plan({ operation: "write", path: "/reports/q3.csv", size: 6 * 1024 ** 3 }));
+
+// 3. Adapter: makes objects look like files. Paths become keys; directories become marker objects.
+const adapter = createObjectAdapter(driver);
+
+// 4. Filesystem: the API your application uses.
+await using files = createFileSystem(adapter, { disposeAdapter: true });
+await files.writeFile("/reports/q3.csv", "region,total\nwest,42\n", { parents: true });
+```
+
+In application code, steps 2 and 3 are usually one call: `createFileSystem(createS3Adapter(client))`. Build them
+separately when you want the driver's `plan()` and `inspect()`, or when you write your own driver.
+
+That single `writeFile()` call does different work at each layer:
+
+| Layer          | Receives                                                | Does                                                                                                                                                                                                 | Calls next                                                            |
+| -------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Filesystem     | `writeFile("/reports/q3.csv", text, { parents: true })` | Checks the write against the backend's limits, locks the file path, creates the missing `/reports` directory, checks the parent and destination, encodes the text                                    | `adapter.createDir("/reports")`, then `adapter.writeFile(...)`        |
+| Object adapter | Paths                                                   | Maps `/reports` to the marker key `reports/` and the file to the key `reports/q3.csv`. Checks the path is not a directory. Adds an ETag condition so a concurrent change is not silently overwritten | `driver.head(...)`, `driver.put("reports/q3.csv", bytes, conditions)` |
+| S3 driver      | Keys and bytes                                          | Holds S3's limits and requirements for planning, and forwards object calls                                                                                                                           | `client.put(...)`                                                     |
+| S3 client      | Keys and bytes                                          | Signs the request, sends one `PUT` or a multipart upload, returns a receipt with the ETag                                                                                                            | HTTPS to S3                                                           |
+
+The ETag condition comes from the adapter, not from S3 itself. For a new file it sends `If-None-Match: *`, which fails
+if someone created the object in the meantime. For an existing file it sends `If-Match` with the ETag it just read.
+
+The sequence below shows the same call over time. Each "checks" note stands for three requests the adapter sends through
+the driver and client: a `HEAD` for a file with that name, a `HEAD` for a directory marker, and a `LIST` for any key
+under the prefix.
+
+```mermaid
+sequenceDiagram
+  participant App as Application
+  participant FS as FileSystemType
+  participant A as Object adapter
+  participant D as S3 driver and client
+  participant S as S3
+  App->>FS: writeFile("/reports/q3.csv", text, { parents: true })
+  FS->>A: stat("/reports")
+  A->>S: checks "reports"
+  FS->>A: createDir("/reports")
+  A->>S: checks "reports" again
+  A->>D: put("reports/", empty marker)
+  D->>S: signed PUT reports/
+  FS->>A: stat("/reports"), parent must be a directory
+  A->>S: checks "reports"
+  FS->>A: stat("/reports/q3.csv"), destination must not be a directory
+  A->>S: checks "reports/q3.csv"
+  FS->>A: writeFile("/reports/q3.csv", bytes, { mode: "replace" })
+  A->>S: checks "reports/q3.csv" again
+  A->>D: put("reports/q3.csv", bytes, If-None-Match: *)
+  D->>S: signed PUT reports/q3.csv
+  S-->>A: 200 with ETag, through client and driver
+  A-->>FS: write complete
+  FS-->>App: awaited write completes
+```
+
+These are the actual requests the call above sends, recorded by running it against a stand-in S3 endpoint that logs each
+request:
+
+```text
+HEAD reports            ┐
+HEAD reports/           ├ filesystem: does /reports exist? (no)
+LIST prefix=reports/    ┘
+HEAD reports            ┐
+HEAD reports/           ├ adapter, inside createDir: check again before writing
+LIST prefix=reports/    ┘
+PUT  reports/ (0 bytes)   adapter: the directory marker
+HEAD reports            ┐
+HEAD reports/           ├ filesystem: is the parent now a directory? (yes)
+LIST prefix=reports/    ┘
+HEAD reports/q3.csv     ┐
+HEAD reports/q3.csv/    ├ filesystem: is the destination a directory? (no)
+LIST prefix=reports/q3.csv/
+HEAD reports/q3.csv     ┐
+HEAD reports/q3.csv/    ├ adapter, inside writeFile: check again right before writing
+LIST prefix=reports/q3.csv/
+PUT  reports/q3.csv (21 bytes) If-None-Match: *
+```
+
+To decide whether `/reports` exists, the adapter asks three questions in order: is there an object named `reports` (a
+file)? Is there a marker object `reports/` (an empty directory)? Does any key start with `reports/` (a directory that
+only exists because files are under it)? Object storage has no real directories, so this is how the adapter makes them.
+
+Seventeen requests for one small file is the cost of making object storage behave like a filesystem safely. Two checks
+repeat on purpose. The adapter checks again inside `createDir()` and `writeFile()` because another writer can change the
+bucket between the filesystem's check and the write. The filesystem checks the destination itself unless you set
+`optimizations.writeAdmission: true`, which lets an adapter that validates replacements do that check alone for a
+complete replacement; [architecture and invariants](design.md) explains the conditions. A file adapter on a local disk
+answers the same questions with one `stat` each.
+
+Creating `/reports` and writing the file are separate requests. If the second one fails, the marker from the first one
+stays. The filesystem does not pretend the two steps are one transaction.
+
+## What each layer does not do
+
+Knowing where a layer stops is as useful as knowing what it does:
+
+- A **client** knows nothing about paths or directories. `client.put("reports/q3.csv", ...)` is an object key, not a
+  file.
+- A **driver** does not walk directories recursively or emulate an operation its backend lacks. It reports what the
+  backend can do and what it cannot.
+- An **adapter** holds no credentials and no provider limits. It asks its driver, and it supports only six required
+  operations: `stat`, `readFile`, `writeFile`, `readDir`, `createDir` and `remove`.
+- The **filesystem** does not know which backend it is on. Recursive copy, move and walk, parent creation and locks live
+  here, built from the adapter's six operations when the adapter has no faster route.
+- A **bridge** adds no storage. It gives an existing filesystem another library's interface, with that library's naming
+  rules.
+
+## Where to start
+
+| You want to                                                      | Start at                                                                                    |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Read and write files in an application                           | `createFileSystem(createS3Adapter(client))`, or any `@okikio/opfs/adapter/<backend>`        |
+| Check limits or plan a large upload before doing it              | The driver: `driver.inspect()` and `driver.plan(...)`                                       |
+| Use a feature only the service has, such as multipart control    | The client                                                                                  |
+| Support a new storage service                                    | Write a driver for its shape and reuse the shape's adapter; see [extensions](extensions.md) |
+| Give your files to a library that expects key-value or unstorage | A bridge: `@okikio/opfs/bridge/kv` or `@okikio/opfs/bridge/unstorage`                       |
+| Read one archive or byte range without any filesystem            | A [byte source](source.md); see the last sections of this page                              |
+
 ## Save a document, then expose a key-value view
 
 This complete example uses memory, so it needs no account, credentials or host directory. Run it with the package
@@ -46,35 +252,10 @@ The bridge borrows `files` by default. Disposing the bridge leaves the filesyste
 filesystem at the end of the scope, and `disposeAdapter: true` also disposes its adapter. Finish reads, streams and file
 resources before leaving that scope; filesystem close does not settle resources already returned to callers.
 
-## Understand the two directions
+## Adapters bring storage in; bridges take files out
 
 The defining composition path is **client → driver → adapter → FileSystemType → bridge**. The first four stages bring
-storage into the file API. The last stage lets another interface use that file API. A client is optional when the
-backend already exposes callable file or database methods.
-
-This diagram shows dependency and translation direction, rather than the order of individual network requests. Read it
-from storage toward its consumers. Applications can stop at a client or driver; they need not construct all five layers.
-Retry and publication details remain specific to the selected backend.
-
-```mermaid
-flowchart TD
-  Service["Storage service"] --> Client["Client: protocol operations"]
-  Native["Host file API or injected database"] --> Driver["Driver: backend storage mechanics"]
-  Client --> Driver
-  Driver --> Adapter["Adapter: filesystem primitives"]
-  Adapter --> Files["FileSystemType: paths, handles and file operations"]
-  Files --> App["Application uses files directly"]
-  Files --> Bridge["Bridge: external method and key rules"]
-  Bridge --> Consumer["Key-value or unstorage consumer"]
-```
-
-| Layer            | Question it answers                                       | Concrete reason to use it                                                                                               |
-| ---------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Client           | What does this protocol let me request?                   | Keep S3 upload IDs, conditional requests or native metadata without projecting a filesystem.                            |
-| Driver           | How does this configured backend store data?              | Inspect backend limits, physical operations and storage policy independently of file traversal.                         |
-| Adapter          | How can this driver supply filesystem primitives?         | Translate native files, logical records or objects into `stat`, reads, writes, listing, directory creation and removal. |
-| `FileSystemType` | How does my application work with paths and file handles? | Create parents, walk directories, coordinate mutations and use portable fallbacks.                                      |
-| Bridge           | How can another ecosystem consume these files?            | Supply a real key-value or unstorage contract, including its naming and disposal rules.                                 |
+storage into the file API. The last stage lets another interface use that file API.
 
 An adapter and a bridge therefore face different directions. An unstorage **adapter** takes an existing unstorage
 `Storage` and makes it usable by `FileSystemType`. An unstorage **bridge** takes an existing `FileSystemType` and
@@ -187,9 +368,11 @@ properties require explicit source and protocol support.
 
 ## Find the owner when changing behavior
 
-The implementation follows the same boundaries: protocol modules such as `src/backend/s3/client.ts`, backend
-implementations under `src/driver/`, translation under `src/adapter/`, the facade in `src/filesystem.ts`, and outgoing
-contracts under `src/bridge/`. `src/integration/` describes available directions; it does not execute them.
+The implementation follows the same boundaries. Each backend keeps its layers together in `src/backend/<name>/`:
+`client.ts` when it has a wire protocol, `driver.ts`, and `adapter.ts` for its convenience constructor. The three
+generic adapters live in `src/adapter/` (`file.ts`, `record.ts`, `object.ts`), the shared driver contracts in
+`src/driver/`, the facade in `src/filesystem.ts`, and outgoing contracts under `src/bridge/`. `src/integration/`
+describes available directions; it does not execute them.
 
 [Architecture and invariants](design.md) records the rules maintainers must preserve.
 [Drivers and adapters](adapters.md) lists concrete implementations, and [ecosystems](ecosystems.md) describes their
