@@ -164,7 +164,7 @@ async function getPathId(path: string): Promise<string> {
 }
 
 /** Builds only the small DDL subset verified across db0's four public dialects. */
-export function getCreateTableSql(table: string, dialect: Db0DialectType): string {
+export function getTableSql(table: string, dialect: Db0DialectType): string {
   const q = quoteIdentifier(table, dialect);
   const integer = dialect === "postgresql" || dialect === "mysql" ? "BIGINT" : "INTEGER";
   const columns = dialect === "mysql"
@@ -324,7 +324,7 @@ export async function createDb0Driver(
   const table = SqlIdentifierSchema.parse(options.table ?? "opfs_entries");
   const quotedTable = quoteIdentifier(table, dialect);
   if (options.initialize ?? true) {
-    const result = await database.prepare(getCreateTableSql(table, dialect)).run();
+    const result = await database.prepare(getTableSql(table, dialect)).run();
     if (!result.success) throw new Error(`db0 did not confirm initialization of table '${table}'.`);
   }
 

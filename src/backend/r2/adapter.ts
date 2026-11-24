@@ -1,6 +1,6 @@
 import { R2Error } from "./client.ts";
 import type { R2ClientType } from "./client.ts";
-import { createR2DriverFromClient } from "./driver.ts";
+import { createR2Driver } from "./driver.ts";
 import type { DriverPlanInputType } from "../../driver/definition.ts";
 import type {
   FileDriverCopyOptionsType,
@@ -35,7 +35,7 @@ async function translated<Value>(operation: string, path: PathType, action: () =
 
 /** Projects a borrowed R2 client through its driver and the generic object adapter. */
 export function createR2Adapter(client: R2ClientType, options: R2AdapterOptionsType = {}): AdapterType<R2ClientType> {
-  const adapter = createObjectAdapter(createR2DriverFromClient(client), options);
+  const adapter = createObjectAdapter(createR2Driver(client), options);
   return {
     name: adapter.name,
     driver: adapter.driver,

@@ -1,11 +1,23 @@
-import { B2_UPLOAD_BYTES, createB2Client } from "./client.ts";
-import type { B2ClientOptionsType, B2ClientType } from "./client.ts";
+import { B2_UPLOAD_BYTES } from "./client.ts";
+import type { B2ClientType } from "./client.ts";
 import { DriverPlanInputSchema, DriverPlanSchema } from "../../driver/definition.ts";
 import { defineObjectDriver } from "../../driver/object.ts";
 import type { ObjectDriverType } from "../../driver/object.ts";
 
-/** Attach upload-specific native limits while borrowing the caller's configured client. */
-export function createB2DriverFromClient(client: B2ClientType): ObjectDriverType<B2ClientType> {
+/**
+ * Creates the B2 driver over a native Backblaze B2 client that you made.
+ *
+ * The driver borrows the client: closing the driver or a filesystem built on it
+ * leaves the client, its credentials and its transport open, so you can keep
+ * using the client for calls the filesystem does not model. Adds B2's upload limits; `fs.backend` keeps B2's version calls.
+ *
+ * @example
+ * ```ts
+ * const client = createB2Client({ authorization, bucketId, fetch, subtle: crypto.subtle });
+ * const driver = createB2Driver(client);
+ * ```
+ */
+export function createB2Driver(client: B2ClientType): ObjectDriverType<B2ClientType> {
   const implementation = {
     code: "upload-bytes",
     kind: "hard",
@@ -45,8 +57,4 @@ export function createB2DriverFromClient(client: B2ClientType): ObjectDriverType
       });
     },
   });
-}
-/** Compose a native B2 client and object driver without performing network I/O. */
-export function createB2Driver(options: B2ClientOptionsType): ObjectDriverType<B2ClientType> {
-  return createB2DriverFromClient(createB2Client(options));
 }

@@ -1,7 +1,7 @@
 import type { AdapterType } from "../../adapter/definition.ts";
 import { createObjectAdapter, type ObjectAdapterOptionsType } from "../../adapter/object.ts";
 import type { AzureClientType } from "./client.ts";
-import { createAzureDriverFromClient } from "./driver.ts";
+import { createAzureDriver } from "./driver.ts";
 
 /** Azure Blob filesystem mapping options. */
 export type AzureAdapterOptionsType = ObjectAdapterOptionsType;
@@ -11,5 +11,5 @@ export function createAzureAdapter(
   client: AzureClientType,
   options: AzureAdapterOptionsType = {},
 ): AdapterType<AzureClientType> {
-  return createObjectAdapter(createAzureDriverFromClient(client), options);
+  return createObjectAdapter(createAzureDriver(client), options);
 }

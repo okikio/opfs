@@ -1,6 +1,6 @@
 /** File projection of one native WebDAV collection; unprotected read-modify-write is refused. @module */
-import { createWebdavClient, WebdavError } from "./client.ts";
-import type { WebdavClientOptionsType, WebdavClientType } from "./client.ts";
+import { WebdavError } from "./client.ts";
+import type { WebdavClientType } from "./client.ts";
 import { defineFileDriver } from "../../driver/file.ts";
 import type { FileBackendType, FileDriverType } from "../../driver/file.ts";
 import type { DriverPlanInputType, DriverPlanType } from "../../driver/definition.ts";
@@ -10,10 +10,6 @@ import { resolveRange } from "../../range.ts";
 import { FileSystemError } from "../../error.ts";
 import { getPrimary } from "../../close.ts";
 
-/** Bounded materialization belongs to the file projection, not the protocol's streaming GET. */
-export interface WebdavDriverOptionsType extends WebdavClientOptionsType {
-  readonly maxReadBytes?: number;
-}
 export interface WebdavProjectionOptionsType {
   readonly maxReadBytes?: number;
 }
@@ -66,8 +62,20 @@ function admission(input: DriverPlanInputType): DriverPlanType {
   };
 }
 
-/** A borrowed client remains useful after this driver or its facade is closed. */
-export function createWebdavDriverFromClient(
+/**
+ * Creates the Webdav driver over a WebDAV client that you made.
+ *
+ * The driver borrows the client: closing the driver or a filesystem built on it
+ * leaves the client, its credentials and its transport open, so you can keep
+ * using the client for calls the filesystem does not model. Reads are materialized up to `maxReadBytes` (default 8 MiB).
+ *
+ * @example
+ * ```ts
+ * const client = createWebdavClient({ endpoint, credentials });
+ * const driver = createWebdavDriver(client, { maxReadBytes: 16 * 1024 * 1024 });
+ * ```
+ */
+export function createWebdavDriver(
   client: WebdavClientType,
   options: WebdavProjectionOptionsType = {},
 ): FileDriverType {
@@ -202,9 +210,4 @@ export function createWebdavDriverFromClient(
     getMetrics: () => client.getMetrics(),
     limits: [{ code: "read-bytes", kind: "policy", source: "user", unit: "bytes", value: maximum }],
   });
-}
-
-/** Creates a client and a regular file projection without probing the server. */
-export function createWebdavDriver(options: WebdavDriverOptionsType): FileDriverType {
-  return createWebdavDriverFromClient(createWebdavClient(options), options);
 }

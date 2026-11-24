@@ -10,7 +10,7 @@ import {
   GcsStorageClassSchema,
 } from "../src/backend/gcs/client.ts";
 import type { GcsHeadOptionsType } from "../src/backend/gcs/client.ts";
-import { createGcsDriverFromClient } from "../src/backend/gcs/driver.ts";
+import { createGcsDriver } from "../src/backend/gcs/driver.ts";
 import { createGcsAdapter } from "../src/backend/gcs/adapter.ts";
 import { FileSystemError } from "../src/error.ts";
 
@@ -38,7 +38,7 @@ describe("Google Cloud Storage JSON client", () => {
       revision: { kind: "generation", value: generation },
     });
     expect(requests[0]!.pathname).toBe("/storage/v1/b/test/o/archive%2Fa%3Fb.zip");
-    const driver = createGcsDriverFromClient(client);
+    const driver = createGcsDriver(client);
     expect(driver.inspect().ownership).toBe("borrowed");
     expect(driver.inspect().limits).toContainEqual(
       expect.objectContaining({ source: "provider", code: "upload-chunk-alignment" }),
@@ -490,7 +490,7 @@ describe("GCS native metadata observations and paired conditions", () => {
         return Response.json(url.pathname.includes("/rewriteTo/") ? { done: true, resource: reported } : reported);
       },
     });
-    const driver = createGcsDriverFromClient(client);
+    const driver = createGcsDriver(client);
     const expected = {
       key,
       size: 3,
@@ -607,7 +607,7 @@ describe("GCS native metadata observations and paired conditions", () => {
           : Response.json(reported);
       },
     });
-    const driver = createGcsDriverFromClient(client);
+    const driver = createGcsDriver(client);
     const options = { revision, ifMetagenerationMatch: metageneration };
     expect((await driver.head(key, options))?.metageneration).toBe(metageneration);
     expect(new Uint8Array(await new Response(await driver.get(key, options)).arrayBuffer())).toEqual(
@@ -642,7 +642,7 @@ describe("GCS native metadata observations and paired conditions", () => {
         return Response.json({ ...reported, metageneration: "1" });
       },
     });
-    const receipt = await createGcsDriverFromClient(client).put(key, new Uint8Array([1, 2, 3]), options);
+    const receipt = await createGcsDriver(client).put(key, new Uint8Array([1, 2, 3]), options);
     expect(receipt.metageneration).toBe("1");
     expect(requests).toBe(2);
   });
@@ -677,7 +677,7 @@ describe("GCS native metadata observations and paired conditions", () => {
           : Response.json({ done: true, resource: reported });
       },
     });
-    expect((await createGcsDriverFromClient(client).copy("source", key, options)).metageneration).toBe(metageneration);
+    expect((await createGcsDriver(client).copy("source", key, options)).metageneration).toBe(metageneration);
     expect(requests).toBe(2);
   });
 

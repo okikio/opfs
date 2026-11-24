@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 import { runInNewContext } from "node:vm";
-import { assertExtent, budgetSource, createByteSource, createSourceBudget, openObjectSource } from "../src/source.ts";
+import { assertExtent, createByteSource, createSourceBudget, limitSource, openObjectSource } from "../src/source.ts";
 import type { ObjectBackendType, ObjectGetOptionsType } from "../src/driver/object.ts";
 
 /** Unused mutations deliberately fail so a source test cannot accidentally publish data. */
@@ -35,16 +35,16 @@ describe("revision-bound byte sources", () => {
 
   it("shares one budget across nested wrappers and counts failed requests", async () => {
     const ledger = createSourceBudget({ maxBytes: 3, maxRequests: 2 });
-    const source = budgetSource(createByteSource(new Uint8Array(4)), ledger);
+    const source = limitSource(createByteSource(new Uint8Array(4)), ledger);
     expect(await source.read(4, 0)).toEqual(new Uint8Array());
     await source.read(0, 2);
     await source.read(2, 1);
     await expect(source.read(0, 1)).rejects.toThrow("budget");
     expect(ledger.inspect()).toEqual({ bytes: 3, requests: 2 });
-    const failed = budgetSource({ size: 2, read: () => Promise.reject("network") }, ledger);
+    const failed = limitSource({ size: 2, read: () => Promise.reject("network") }, ledger);
     await expect(failed.read(0, 1)).rejects.toThrow("budget");
     const fresh = createSourceBudget({ maxBytes: 2, maxRequests: 1 });
-    await expect(budgetSource({ size: 2, read: () => Promise.reject("network") }, fresh).read(0, 2)).rejects.toBe(
+    await expect(limitSource({ size: 2, read: () => Promise.reject("network") }, fresh).read(0, 2)).rejects.toBe(
       "network",
     );
     expect(fresh.inspect()).toEqual({ bytes: 2, requests: 1 });
@@ -52,7 +52,7 @@ describe("revision-bound byte sources", () => {
 
   it("accepts native cross-realm bytes without accepting arbitrary byte-shaped objects", async () => {
     const foreign: Uint8Array = runInNewContext("new Uint8Array([3, 5])");
-    const source = budgetSource(
+    const source = limitSource(
       { size: 2, read: () => Promise.resolve(foreign) },
       createSourceBudget({ maxBytes: 2, maxRequests: 1 }),
     );
@@ -75,14 +75,14 @@ describe("revision-bound byte sources", () => {
         throw new Error("shadow getter");
       },
     });
-    const wrapped = budgetSource(
+    const wrapped = limitSource(
       { size: 2, read: () => Promise.resolve(bytes) },
       createSourceBudget({ maxBytes: 2, maxRequests: 1 }),
     );
     expect([...(await wrapped.read(0, 2))]).toEqual([7, 11]);
     const short = new Uint8Array([1]);
     Object.defineProperty(short, "byteLength", { value: 2 });
-    const invalid = budgetSource(
+    const invalid = limitSource(
       { size: 2, read: () => Promise.resolve(short) },
       createSourceBudget({ maxBytes: 2, maxRequests: 1 }),
     );

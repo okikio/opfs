@@ -1,16 +1,12 @@
-import { createS3Client, type S3ClientOptionsType, type S3ClientType } from "./client.ts";
-import type { DriverOwnershipType } from "../../schema/mod.ts";
+import { type S3ClientType } from "./client.ts";
 import { defineObjectDriver, type ObjectDriverType } from "../../driver/object.ts";
 
-/** Options for the configured S3 object driver. */
-export interface S3DriverOptionsType extends S3ClientOptionsType {}
-
 /** Adds backend-driver metadata to one configured S3 protocol client. */
-function createDriver(client: S3ClientType, ownership: DriverOwnershipType): ObjectDriverType<S3ClientType> {
+function createDriver(client: S3ClientType): ObjectDriverType<S3ClientType> {
   const limits = client.limits ?? {};
   return defineObjectDriver(client, {
     name: client.name,
-    ownership,
+    ownership: "borrowed",
     requirements: [{ code: "s3-endpoint", state: "available" }],
     limits: [
       ...(limits.maxFileBytes === undefined ? [] : [{
@@ -72,17 +68,18 @@ function createDriver(client: S3ClientType, ownership: DriverOwnershipType): Obj
 }
 
 /**
- * Creates an S3 backend driver from direct protocol-client options.
+ * Creates the S3 driver over an S3 or S3-compatible client that you made.
  *
- * The client remains independently usable for protocol-specific operations.
- * The driver adds storage requirements, limit provenance, and optimization
- * metadata consumed by adapters and filesystem inspection.
+ * The driver borrows the client: closing the driver or a filesystem built on it
+ * leaves the client, its credentials and its transport open, so you can keep
+ * using the client for calls the filesystem does not model. Adds S3's part-size and object-size limits and the signing-key cache to `inspect()`.
+ *
+ * @example
+ * ```ts
+ * const client = createS3Client({ endpoint, bucket, region, credentials });
+ * const driver = createS3Driver(client);
+ * ```
  */
-export function createS3Driver(options: S3DriverOptionsType): ObjectDriverType<S3ClientType> {
-  return createDriver(createS3Client(options), "owned");
-}
-
-/** Attaches driver metadata to an already configured S3 client. */
-export function createS3DriverFromClient(client: S3ClientType): ObjectDriverType<S3ClientType> {
-  return createDriver(client, "borrowed");
+export function createS3Driver(client: S3ClientType): ObjectDriverType<S3ClientType> {
+  return createDriver(client);
 }

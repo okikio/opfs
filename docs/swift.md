@@ -28,9 +28,9 @@ never reads environment credentials. Endpoint credentials, query strings and fra
 returned as failures instead of forwarding authorization elsewhere.
 
 For a filesystem projection, pass the client to `createSwiftAdapter()` from `adapter/swift`, then use
-`createFileSystem()` as for the other object adapters. `createSwiftDriver()` constructs an independently useful driver;
-`createSwiftDriverFromClient()` borrows an existing client. The configured account URL and container contribute to the
-credential-free source identity. Tokens are not included.
+`createFileSystem()` as for the other object adapters. `createSwiftDriver(client)` builds a driver that borrows the
+client you made. The configured account URL and container contribute to the credential-free source identity. Tokens are
+not included.
 
 ## Supported operations and concurrency
 

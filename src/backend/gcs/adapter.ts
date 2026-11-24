@@ -1,6 +1,6 @@
 import { GcsError } from "./client.ts";
 import type { GcsClientType } from "./client.ts";
-import { createGcsDriverFromClient } from "./driver.ts";
+import { createGcsDriver } from "./driver.ts";
 import type { DriverPlanInputType } from "../../driver/definition.ts";
 import type {
   FileDriverCopyOptionsType,
@@ -52,7 +52,7 @@ export function createGcsAdapter(
   client: GcsClientType,
   options: GcsAdapterOptionsType = {},
 ): AdapterType<GcsClientType> {
-  const adapter = createObjectAdapter(createGcsDriverFromClient(client), options);
+  const adapter = createObjectAdapter(createGcsDriver(client), options);
   return {
     name: adapter.name,
     driver: adapter.driver,

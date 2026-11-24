@@ -73,7 +73,7 @@ record. Use `verify()` explicitly to authenticate every segment.
 
 A prefix of 4 KiB can require reading a complete 1 MiB encrypted segment, plus the header and final segment needed
 during opening. The selected-read counter excludes work already performed by opening. Compose the encrypted source with
-`budgetSource()` and a shared `createSourceBudget()` to enforce aggregate physical bytes and requests across opening,
+`limitSource()` and a shared `createSourceBudget()` to enforce aggregate physical bytes and requests across opening,
 nested archive access and verification. Do not count only returned plaintext bytes.
 
 An encrypted ZIP can be opened as this authenticated byte source, then passed into `openZip()` from `archive/zip`. The
@@ -89,7 +89,7 @@ the outer reader authenticates each encrypted segment used to obtain those bytes
 
 ```ts
 import { createNativeTink } from "@okikio/opfs/crypto/tink";
-import { budgetSource, createBlobSource, createSourceBudget } from "@okikio/opfs/source";
+import { createBlobSource, createSourceBudget, limitSource } from "@okikio/opfs/source";
 import { openZip } from "@okikio/opfs/archive/zip";
 
 export async function previewEncryptedZip(
@@ -100,7 +100,7 @@ export async function previewEncryptedZip(
 ) {
   const request = signal === undefined ? {} : { signal };
   const budget = createSourceBudget({ maxBytes: 32 * 1024 * 1024, maxRequests: 128 });
-  const source = budgetSource(createBlobSource(ciphertext), budget);
+  const source = limitSource(createBlobSource(ciphertext), budget);
   const plaintext = await createNativeTink().open(source, key, associatedData, request);
   const archive = await openZip(plaintext, {
     ...request,

@@ -3,7 +3,7 @@ import { isBytes, toView } from "../bytes.ts";
 import { close } from "../close.ts";
 import { decompressStream } from "../archive/compress.ts";
 import type { ArchiveLedgerType } from "../archive/budget.ts";
-import { assertExtent, budgetSource, createSourceBudget } from "../source.ts";
+import { assertExtent, createSourceBudget, limitSource } from "../source.ts";
 import type { ByteSourceType, SourceBudgetType, SourceReadOptionsType } from "../source.ts";
 import { openBytes } from "../stream.ts";
 
@@ -226,7 +226,7 @@ export async function openGitObject(source: ByteSourceType, options: GitOptionsT
   if (size > compressed) throw new RangeError("Git compressed source exceeds its byte budget.");
   const read = source.read.bind(source);
   const budget = options.budget ?? createSourceBudget({ maxBytes: compressed, maxRequests: 1024 });
-  const checked = budgetSource({ size, read }, budget);
+  const checked = limitSource({ size, read }, budget);
   signal?.throwIfAborted();
   let offset = 0;
   const producer = new ReadableStream<Uint8Array>({

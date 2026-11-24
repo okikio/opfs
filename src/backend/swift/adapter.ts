@@ -1,6 +1,6 @@
 import { SwiftError } from "./client.ts";
 import type { SwiftClientType } from "./client.ts";
-import { createSwiftDriverFromClient } from "./driver.ts";
+import { createSwiftDriver } from "./driver.ts";
 import type { DriverPlanInputType } from "../../driver/definition.ts";
 import type {
   FileDriverCopyOptionsType,
@@ -57,7 +57,7 @@ export function createSwiftAdapter(
   client: SwiftClientType,
   options: SwiftAdapterOptionsType = {},
 ): AdapterType<SwiftClientType> {
-  const adapter = createObjectAdapter(createSwiftDriverFromClient(client), options);
+  const adapter = createObjectAdapter(createSwiftDriver(client), options);
   return {
     name: adapter.name,
     driver: adapter.driver,

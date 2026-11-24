@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 import { createWebhdfsClient, WebhdfsPublicationError } from "../src/backend/webhdfs/client.ts";
 import { collectBytes } from "../src/stream.ts";
-import { createWebhdfsDriverFromClient } from "../src/backend/webhdfs/driver.ts";
+import { createWebhdfsDriver } from "../src/backend/webhdfs/driver.ts";
 import { createWebhdfsAdapter } from "../src/backend/webhdfs/adapter.ts";
 import { createFileSystem } from "../mod.ts";
 
@@ -275,7 +275,7 @@ describe("native WebHDFS authority", () => {
         throw new Error("unexpected");
       },
     });
-    const driver = createWebhdfsDriverFromClient(client);
+    const driver = createWebhdfsDriver(client);
     await expect(driver.createDir("/new")).rejects.toMatchObject({ code: "not-supported" });
     await expect(driver.writeFile("/new", payload, { mode: "update" })).rejects.toMatchObject({
       code: "not-supported",
@@ -299,7 +299,7 @@ describe("native WebHDFS authority", () => {
       dataOrigins: [],
       fetch: () => Promise.resolve(json({ boolean: false })),
     });
-    await expect(createWebhdfsDriverFromClient(rejected).remove("/entry")).rejects.toMatchObject({
+    await expect(createWebhdfsDriver(rejected).remove("/entry")).rejects.toMatchObject({
       code: "invalid-operation",
       cause: { name: "WebhdfsRejectionError" },
     });
@@ -316,7 +316,7 @@ describe("native WebHDFS authority", () => {
       dataOrigins: [],
       fetch: () => Promise.resolve(new Response(null, { status: 403 })),
     });
-    await expect(createWebhdfsDriverFromClient(client).remove("/entry")).rejects.toMatchObject({
+    await expect(createWebhdfsDriver(client).remove("/entry")).rejects.toMatchObject({
       code: "permission-denied",
       cause: { status: 403 },
     });

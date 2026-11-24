@@ -1,6 +1,6 @@
 import { B2Error } from "./client.ts";
 import type { B2ClientType } from "./client.ts";
-import { createB2DriverFromClient } from "./driver.ts";
+import { createB2Driver } from "./driver.ts";
 import type { DriverPlanInputType } from "../../driver/definition.ts";
 import type {
   FileDriverCopyOptionsType,
@@ -49,7 +49,7 @@ async function translated<Value>(operation: string, path: PathType, action: () =
 
 /** Projects a borrowed B2 client through its driver and the generic object adapter. */
 export function createB2Adapter(client: B2ClientType, options: B2AdapterOptionsType = {}): AdapterType<B2ClientType> {
-  const adapter = createObjectAdapter(createB2DriverFromClient(client), options);
+  const adapter = createObjectAdapter(createB2Driver(client), options);
   return {
     name: adapter.name,
     driver: adapter.driver,

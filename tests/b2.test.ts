@@ -3,7 +3,7 @@ import { expect } from "@std/expect";
 import { authorizeB2, B2PublicationError, createB2Client } from "../src/backend/b2/client.ts";
 import type { B2FileType } from "../src/backend/b2/client.ts";
 import type { FetchType } from "../src/request.ts";
-import { createB2DriverFromClient } from "../src/backend/b2/driver.ts";
+import { createB2Driver } from "../src/backend/b2/driver.ts";
 import { createB2Adapter } from "../src/backend/b2/adapter.ts";
 import { openObjectSource } from "../src/source.ts";
 
@@ -87,7 +87,7 @@ describe("B2 native protocol", () => {
       expect(new Headers(init?.headers).get("range")).toBe("bytes=1-2");
       return media("bc", 206, { "content-range": "bytes 1-2/3" });
     });
-    const source = await openObjectSource(createB2DriverFromClient(value), file.fileName);
+    const source = await openObjectSource(createB2Driver(value), file.fileName);
     expect(await source.read(1, 2)).toEqual(new TextEncoder().encode("bc"));
     expect(requests.filter((path) => path.endsWith("b2_list_file_names"))).toHaveLength(1);
   });
@@ -261,7 +261,7 @@ describe("B2 native protocol", () => {
     const value = client(async () => {
       throw new Error("plan must not fetch");
     }, 1024);
-    const driver = createB2DriverFromClient(value);
+    const driver = createB2Driver(value);
     expect(driver.inspect().limits).toEqual(expect.arrayContaining([
       expect.objectContaining({
         code: "upload-bytes",
@@ -291,7 +291,7 @@ describe("B2 native protocol", () => {
     await value.deleteVersion(file);
     expect(operations).toEqual(["b2_hide_file", "b2_delete_file_version"]);
     expect(createB2Adapter(value).capabilities.streamWriteModes).toEqual([]);
-    expect(createB2DriverFromClient(value).capabilities.conditionalWrite).toBe(false);
+    expect(createB2Driver(value).capabilities.conditionalWrite).toBe(false);
   });
   it("retains opaque cursors and distinguishes folder entries", async () => {
     const value = client(async (_input, init) => {

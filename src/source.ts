@@ -95,7 +95,7 @@ export function createSourceBudget(options: SourceBudgetOptionsType): SourceBudg
  * work inside an arbitrary implementation; that implementation must report its
  * own transport/decoder costs. Empty reads perform no source I/O.
  */
-export function budgetSource(source: ByteSourceType, budget: SourceBudgetType): ByteSourceType {
+export function limitSource(source: ByteSourceType, budget: SourceBudgetType): ByteSourceType {
   const { size, identity, stability } = source;
   integer(size, "size");
   return {

@@ -3,7 +3,7 @@ import type { DriverPlanInputType, DriverPlanType } from "../../driver/definitio
 import { map } from "../../pool.ts";
 import { encodeHex } from "@std/encoding/hex";
 import { z } from "zod";
-import { hmac, signingKey } from "../../sigv4.ts";
+import { deriveSigningKey, hmac } from "../../sigv4.ts";
 
 import { open } from "../../chunk.ts";
 import { isBuffer, isBytes, toRequestBuffer, toRequestBytes, toView } from "../../bytes.ts";
@@ -421,7 +421,7 @@ async function getHmac(key: BufferSource, value: string): Promise<Uint8Array> {
 
 /** Derives the date, region, and service-specific Signature Version 4 signing key. */
 async function getSigningKey(secret: string, date: string, region: string): Promise<Uint8Array> {
-  return await signingKey(crypto.subtle, secret, date, region, "s3");
+  return await deriveSigningKey(crypto.subtle, secret, date, region, "s3");
 }
 
 /** Formats one UTC instant as the compact timestamp required by Signature Version 4. */

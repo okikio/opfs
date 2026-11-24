@@ -87,11 +87,11 @@ The driver remains a separate public layer:
 
 ```ts
 import { createAzureClient } from "@okikio/opfs/azure";
-import { createAzureDriverFromClient } from "@okikio/opfs/driver/azure";
+import { createAzureDriver } from "@okikio/opfs/driver/azure";
 import { createObjectAdapter } from "@okikio/opfs/adapter/object";
 
 const client = createAzureClient(options);
-const driver = createAzureDriverFromClient(client);
+const driver = createAzureDriver(client);
 const adapter = createObjectAdapter(driver);
 ```
 

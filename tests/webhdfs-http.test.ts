@@ -5,7 +5,7 @@ import type { Server } from "node:http";
 import { once } from "node:events";
 import { close } from "../src/close.ts";
 import { createWebhdfsClient } from "../src/backend/webhdfs/client.ts";
-import { createWebhdfsDriverFromClient } from "../src/backend/webhdfs/driver.ts";
+import { createWebhdfsDriver } from "../src/backend/webhdfs/driver.ts";
 import { createWebhdfsAdapter } from "../src/backend/webhdfs/adapter.ts";
 import { createFileSystem } from "../mod.ts";
 
@@ -215,7 +215,7 @@ describe("WebHDFS two-origin HTTP protocol", () => {
       });
       await client.mkdir("/native/parents");
       expect(directories.has("/workspace/native/parents")).toBe(true);
-      const driver = createWebhdfsDriverFromClient(client);
+      const driver = createWebhdfsDriver(client);
       await driver.writeFile("/one", new Uint8Array([1, 2]), { mode: "replace" });
       await driver.writeFile("/one", new Uint8Array([3]), { mode: "append" });
       expect(await driver.readFile("/one", { at: 1, length: 2 })).toEqual(new Uint8Array([2, 3]));

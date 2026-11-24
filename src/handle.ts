@@ -309,13 +309,13 @@ export abstract class BaseHandle implements HandleType {
   }
 
   /** Returns whether another facade belongs to this exact filesystem instance. */
-  protected belongsToSameFileSystem(other: HandleType): boolean {
+  protected sharesFileSystem(other: HandleType): boolean {
     return other instanceof BaseHandle && other.#fileSystem === this.#fileSystem;
   }
 
   /** Compares both filesystem identity and canonical path, not only the visible name. */
   async isSameEntry(other: HandleType): Promise<boolean> {
-    return this.belongsToSameFileSystem(other) && other.path === this.path;
+    return this.sharesFileSystem(other) && other.path === this.path;
   }
 }
 
@@ -388,7 +388,7 @@ export class DirectoryHandle extends BaseHandle implements DirectoryHandleType {
 
   /** Resolves a descendant only when both handles belong to this same filesystem instance. */
   async resolve(possibleDescendant: HandleType): Promise<string[] | null> {
-    if (!(possibleDescendant instanceof BaseHandle) || !this.belongsToSameFileSystem(possibleDescendant)) return null;
+    if (!(possibleDescendant instanceof BaseHandle) || !this.sharesFileSystem(possibleDescendant)) return null;
     if (possibleDescendant.path === this.path) return [];
     if (!isAncestorPath(this.path, possibleDescendant.path)) return null;
     const relative = possibleDescendant.path.slice(this.path === "/" ? 1 : this.path.length + 1);

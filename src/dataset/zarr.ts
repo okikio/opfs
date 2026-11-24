@@ -22,7 +22,7 @@ export interface ZarrObjectLedgerType {
   inspect(): number;
 }
 /** Creates a finite explicit lookup owner. No cache, registration or I/O. */
-export function createZarrObjectLedger(maxObjects = 4096): ZarrObjectLedgerType {
+export function createZarrLedger(maxObjects = 4096): ZarrObjectLedgerType {
   assertInteger(maxObjects, "Zarr object limit");
   let used = 0;
   return {
@@ -260,7 +260,7 @@ export async function openZarr(store: ZarrStoreType, options: ZarrOpenOptionsTyp
     maxPlanSteps = limit(options.maxPlanSteps, 16 * 1024 * 1024, "maxPlanSteps");
   const lifetime = createArchiveLedger(options),
     external = options.ledger,
-    lifetimeObjects = createZarrObjectLedger(options.maxObjects),
+    lifetimeObjects = createZarrLedger(options.maxObjects),
     externalObjects = options.objectLedger;
   /** Known physical byte/request cost is reserved before output. Read credits ensure
    * ArchiveBudget still checks exact extents without charging aggregate owners twice. */
@@ -270,7 +270,7 @@ export async function openZarr(store: ZarrStoreType, options: ZarrOpenOptionsTyp
       ? AbortSignal.any([options.signal, opts.signal])
       : options.signal ?? opts.signal;
     const own = createArchiveLedger(opts),
-      objects = createZarrObjectLedger(opts.maxObjects),
+      objects = createZarrLedger(opts.maxObjects),
       extra = opts.ledger,
       extraObjects = opts.objectLedger;
     let byteCredit = 0, requestCredit = 0;

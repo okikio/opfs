@@ -293,10 +293,10 @@ try {
     import { LakefsClient } from '@okikio/opfs/lakefs';
     import { createGcsClient, GcsStorageClassSchema } from '@okikio/opfs/gcs';
     import { createGlacierClient, glacierTreeHash, glacierMultipartHash, GLACIER_MIB, GlacierPublicationError } from '@okikio/opfs/glacier';
-    import { createGcsDriverFromClient } from '@okikio/opfs/driver/gcs';
+    import { createGcsDriver } from '@okikio/opfs/driver/gcs';
     import { openFits } from '@okikio/opfs/dataset/fits';
     import { openNetcdf } from '@okikio/opfs/dataset/netcdf';
-    import { openZarr, createZarrObjectLedger } from '@okikio/opfs/dataset/zarr';
+    import { openZarr, createZarrLedger } from '@okikio/opfs/dataset/zarr';
     import { openLas } from '@okikio/opfs/dataset/las';
     import { openArfs } from '@okikio/opfs/content/arfs';
     import { SeafileClient } from '@okikio/opfs/seafile';
@@ -1790,7 +1790,7 @@ try {
     });
     const gcsArchiveReceipt = await gcsArchive.put('archive.bin', new Uint8Array([1, 2, 3]), { storageClass: GcsStorageClassSchema.parse('ARCHIVE'), revision: {kind: 'generation', value: '9007199254740993'}, ifMetagenerationMatch: '18446744073709551615' });
     if (gcsArchiveReceipt.storageClass !== 'ARCHIVE' || gcsArchiveReceipt.revision.value !== gcsReported.generation || gcsArchiveReceipt.metageneration !== gcsReported.metageneration || gcsArchiveReceipt.crc32c !== gcsReported.crc32c) throw new Error('Packed GCS native receipt lost exact metadata');
-    const gcsDriver = createGcsDriverFromClient(gcsArchive);
+    const gcsDriver = createGcsDriver(gcsArchive);
     const gcsHead = await gcsDriver.head('archive.bin', {revision: gcsArchiveReceipt.revision, ifMetagenerationMatch: gcsArchiveReceipt.metageneration});
     const gcsListed = await gcsDriver.list({prefix: 'archive'});
     for (const observation of [gcsHead, gcsListed.objects[0]]) {
@@ -1981,7 +1981,7 @@ try {
     };
     for (const fixture of zarrFixtures) {
       const objects = new Map(Object.entries(fixture.objects).map(([key, value]) => [key, Uint8Array.from(atob(value.base64), (byte) => byte.charCodeAt(0))]));
-      const objectLedger = createZarrObjectLedger(1024);
+      const objectLedger = createZarrLedger(1024);
       const array = await openZarr({ stability: 'immutable', async open(key) { const bytes = objects.get(key); return bytes ? createByteSource(bytes) : undefined; } }, { objectLedger });
       const result = await array.read();
       assertBytes(new Uint8Array(result.values.buffer, result.values.byteOffset, result.values.byteLength), Uint8Array.from(atob(fixture.original.base64), (byte) => byte.charCodeAt(0)));
@@ -2380,10 +2380,10 @@ try {
     import { LakefsClient } from '@okikio/opfs/lakefs';
     import { createGcsClient, GcsStorageClassSchema } from '@okikio/opfs/gcs';
     import { createGlacierClient } from '@okikio/opfs/glacier';
-    import { createGcsDriverFromClient } from '@okikio/opfs/driver/gcs';
+    import { createGcsDriver } from '@okikio/opfs/driver/gcs';
     import { openFits } from '@okikio/opfs/dataset/fits';
     import { openNetcdf } from '@okikio/opfs/dataset/netcdf';
-    import { openZarr, createZarrObjectLedger } from '@okikio/opfs/dataset/zarr';
+    import { openZarr, createZarrLedger } from '@okikio/opfs/dataset/zarr';
     import { openLas } from '@okikio/opfs/dataset/las';
     import { openArfs } from '@okikio/opfs/content/arfs';
     import { SeafileClient } from '@okikio/opfs/seafile';
@@ -2544,7 +2544,7 @@ try {
     const gcsRead: import('@okikio/opfs/gcs').GcsGetOptionsType = {...gcsGuard, at: 0, length: 1};
     const gcsDelete: import('@okikio/opfs/gcs').GcsDeleteOptionsType = gcsGuard;
     const gcsCopy: import('@okikio/opfs/gcs').GcsCopyOptionsType = {...gcsGuard, sourceRevision: gcsGuard.revision, ifSourceMetagenerationMatch: '18446744073709551615'};
-    const gcsDriver: import('@okikio/opfs/driver/gcs').GcsDriverType = createGcsDriverFromClient(gcsNative);
+    const gcsDriver: import('@okikio/opfs/driver/gcs').GcsDriverType = createGcsDriver(gcsNative);
     const gcsHead: import('@okikio/opfs/gcs').GcsStatType | null = await gcsDriver.head('object', gcsGuard);
     const gcsList: import('@okikio/opfs/gcs').GcsListType = await gcsDriver.list({prefix: ''});
     const gcsDriverPut: import('@okikio/opfs/gcs').GcsReceiptType = await gcsDriver.put('object', new Uint8Array(), gcsGuard);
@@ -2567,7 +2567,7 @@ try {
     const netcdf: import('@okikio/opfs/dataset/netcdf').NetcdfDatasetType = await openNetcdf(createByteSource(new Uint8Array()), { recordVsize: 'validate' });
     const netcdfRead: import('@okikio/opfs/dataset/netcdf').NetcdfReadType = await netcdf.read(0, { missing: 'attributes', scale: 'physical' });
     const zarrStore: import('@okikio/opfs/dataset/zarr').ZarrStoreType = { stability: 'caller', async open() { return undefined; } };
-    const zarr: import('@okikio/opfs/dataset/zarr').ZarrArrayType = await openZarr(zarrStore, { objectLedger: createZarrObjectLedger() });
+    const zarr: import('@okikio/opfs/dataset/zarr').ZarrArrayType = await openZarr(zarrStore, { objectLedger: createZarrLedger() });
     const zarrRead: import('@okikio/opfs/dataset/zarr').ZarrReadType = await zarr.read({ offset: 0, count: 0 });
     if (unixfs.kind === 'hamt-directory') {
       const hamt: import('@okikio/opfs/content/unixfs').UnixfsHamtType = unixfs;

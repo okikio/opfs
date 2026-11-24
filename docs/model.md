@@ -209,7 +209,7 @@ placeholders; the [S3 guide](s3.md) explains real configuration.
 ```ts
 import { createFileSystem } from "@okikio/opfs";
 import { createObjectAdapter } from "@okikio/opfs/adapter/object";
-import { createS3DriverFromClient } from "@okikio/opfs/driver/s3";
+import { createS3Driver } from "@okikio/opfs/driver/s3";
 import { createS3Client } from "@okikio/opfs/s3";
 
 // 1. Client: knows how to sign and send S3 requests. Nothing about files.
@@ -221,7 +221,7 @@ const client = createS3Client({
 });
 
 // 2. Driver: knows S3's rules. plan() checks a write against them without sending a request.
-const driver = createS3DriverFromClient(client);
+const driver = createS3Driver(client);
 console.log(driver.plan({ operation: "write", path: "/reports/q3.csv", size: 6 * 1024 ** 3 }));
 
 // 3. Adapter: makes objects look like files. Paths become keys; directories become marker objects.

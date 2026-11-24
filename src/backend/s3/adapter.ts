@@ -1,7 +1,7 @@
 import type { AdapterType } from "../../adapter/definition.ts";
 import { createObjectAdapter, type ObjectAdapterOptionsType } from "../../adapter/object.ts";
 import type { S3ClientType } from "./client.ts";
-import { createS3DriverFromClient } from "./driver.ts";
+import { createS3Driver } from "./driver.ts";
 
 /** S3 filesystem mapping options. */
 export type S3AdapterOptionsType = ObjectAdapterOptionsType;
@@ -14,5 +14,5 @@ export type S3AdapterOptionsType = ObjectAdapterOptionsType;
  * and provider optimization policy remain separately inspectable.
  */
 export function createS3Adapter(client: S3ClientType, options: S3AdapterOptionsType = {}): AdapterType<S3ClientType> {
-  return createObjectAdapter(createS3DriverFromClient(client), options);
+  return createObjectAdapter(createS3Driver(client), options);
 }

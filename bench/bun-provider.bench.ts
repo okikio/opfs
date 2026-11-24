@@ -8,7 +8,7 @@ import { expectBytes, finish, payload as makePayload, report } from "./result.ts
 
 import { createFileSystem } from "../mod.ts";
 import { createObjectAdapter } from "../src/adapter/object.ts";
-import { createS3DriverFromClient } from "../src/backend/s3/driver.ts";
+import { createS3Driver } from "../src/backend/s3/driver.ts";
 import { createS3Client } from "../src/backend/s3/client.ts";
 
 import { S3_ACCESS_KEY, S3_LIST_ENCODING, S3_SECRET_KEY, STORAGE_NAME } from "../tests/provider/fixture.ts";
@@ -118,7 +118,7 @@ const s3 = createS3Client({
   concurrency: 4,
 });
 /** Driver layer exposes the same publication route with backend metadata and planning available. */
-const driver = createS3DriverFromClient(s3);
+const driver = createS3Driver(s3);
 /** Object-adapter layer adds file/directory conflict admission before publication. */
 const adapter = createObjectAdapter(driver, { prefix: `${PREFIX}/adapter` });
 /** Filesystem facade with metrics disabled. */
@@ -176,7 +176,7 @@ async function verifyPublicationContracts(): Promise<void> {
       partSize: 5 * 1024 * 1024,
       concurrency: 4,
     });
-    const backend = createS3DriverFromClient(project);
+    const backend = createS3Driver(project);
     const key = `${PREFIX}/oracle.bin`;
     const one = { "PUT object": 1 };
     const multiple = { "POST initiate": 1, "PUT part": 2, "POST commit": 1 };
