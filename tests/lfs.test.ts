@@ -287,6 +287,22 @@ describe("native Git LFS pointers and basic transfer", () => {
     expect((failure as LfsVerificationError).upload.state).toBe("uploaded");
     expect((failure as Error).cause).toBeInstanceOf(LfsPublicationError);
   });
+  it("accepts verify actions that send the Git LFS JSON media type, with or without parameters", async () => {
+    // Native servers such as Gitea send these headers on the verify action. The client must treat them as the
+    // same JSON protocol it speaks, not as a conflict.
+    const header = {
+      Accept: "application/vnd.git-lfs+json; q=0.9",
+      "Content-Type": "application/vnd.git-lfs+json; charset=utf-8",
+    };
+    const client = new LfsClient(
+      options(async (input) =>
+        input.toString().endsWith("batch")
+          ? batch({ upload: action("object"), verify: action("verify", header) })
+          : new Response()
+      ),
+    );
+    expect((await client.upload(selected, bytes)).state).toBe("verified");
+  });
   it("does not retry unknown upload outcomes", async () => {
     let puts = 0;
     const client = new LfsClient(options(async (input) => {
