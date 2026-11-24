@@ -2,7 +2,7 @@ import type { DriverPlanInputType, DriverPlanType } from "../driver/definition.t
 import { toBytes as readStreamBytes } from "@std/streams/to-bytes";
 import { FileSystemError, throwIfAborted } from "../error.ts";
 import { joinPath, type PathType, ROOT_PATH, validateName } from "../path.ts";
-import type { AdapterLimitsType, WriteModeType } from "../schema/mod.ts";
+import type { AdapterLimitsType } from "../schema/mod.ts";
 import type { AdapterType } from "./definition.ts";
 import { defineAdapter } from "./definition.ts";
 import type {
@@ -15,6 +15,7 @@ import type {
 } from "../driver/file.ts";
 
 import type { ObjectDriverType, ObjectListType, ObjectPutOptionsType, ObjectStatType } from "../driver/object.ts";
+import { applyWrite } from "../driver/image.ts";
 
 /** Filesystem mapping options for an object store. */
 export interface ObjectAdapterOptionsType {
@@ -63,30 +64,6 @@ function childName(parentKey: string, key: string): string | null {
   const rest = key.slice(parentKey.length).replace(/\/$/, "");
   if (rest.length === 0 || rest.includes("/")) return null;
   return validateName(rest);
-}
-
-/**
- * Applies append or positional-update semantics to one materialized object.
- *
- * Object services replace complete objects. They do not expose a portable
- * in-place append primitive, so these modes intentionally allocate a new file
- * image before the conditional replacement is committed.
- */
-function applyWrite(
-  existing: Uint8Array,
-  data: Uint8Array,
-  mode: WriteModeType,
-  at: number | undefined,
-  truncate: boolean,
-): Uint8Array {
-  if (mode === "replace") return data.slice();
-  const position = mode === "append" ? existing.byteLength : at ?? 0;
-  const size = Math.max(existing.byteLength, position + data.byteLength);
-  let output = new Uint8Array(size);
-  output.set(existing);
-  output.set(data, position);
-  if (truncate) output = output.slice(0, position + data.byteLength);
-  return output;
 }
 
 /**

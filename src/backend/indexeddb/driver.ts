@@ -10,7 +10,10 @@ import type { FileDriverWriteOptionsType } from "../../driver/file.ts";
 import { FileSystemError, throwIfAborted } from "../../error.ts";
 import { basename, dirname, type PathType } from "../../path.ts";
 import { RecordSchema, type RecordType } from "../../schema/mod.ts";
-import { Listeners, type ObservationType, Refusal, requested, Transaction } from "./transaction.ts";
+import { Listeners, type ObservationType, Refusal, requested } from "./observe.ts";
+import { Transaction } from "./transaction.ts";
+import { applyWrite } from "../../driver/image.ts";
+import { upgrade } from "./store.ts";
 
 /**
  * Options for an existing IndexedDB database.
@@ -41,43 +44,6 @@ export interface IndexedDbOpenOptionsType extends Omit<IndexedDbDriverOptionsTyp
   readonly name?: string;
   /** Database schema version. Defaults to 1. */
   readonly version?: number;
-}
-
-/** Builds the next complete file bytes while one IndexedDB transaction owns the current record. */
-function writeBytes(
-  existing: Uint8Array,
-  data: Uint8Array,
-  mode: FileDriverWriteOptionsType["mode"],
-  at: number | undefined,
-  truncate: boolean,
-): Uint8Array {
-  if (mode === "replace") return data.slice();
-  const position = mode === "append" ? existing.byteLength : at ?? 0;
-  const size = Math.max(existing.byteLength, position + data.byteLength);
-  let output = new Uint8Array(size);
-  output.set(existing);
-  output.set(data, position);
-  if (truncate) output = output.slice(0, position + data.byteLength);
-  return output;
-}
-
-/**
- * Creates the record object store and its parent index during a version upgrade.
- *
- * The step is idempotent, so repeated opens can reuse the same database name without callers dropping
- * storage between test runs or upgrades. It keeps the acquired database and upgrade transaction stable
- * through schema effects.
- */
-function upgrade(
-  database: IDBDatabase,
-  transaction: IDBTransaction | null,
-  storeName: string,
-  parentIndex: string,
-): void {
-  const store = database.objectStoreNames.contains(storeName)
-    ? transaction!.objectStore(storeName)
-    : database.createObjectStore(storeName, { keyPath: "path" });
-  if (!store.indexNames.contains(parentIndex)) store.createIndex(parentIndex, "parent", { unique: false });
 }
 
 /**
@@ -140,14 +106,14 @@ export class IndexedDbBackend implements RecordBackendType {
       const value = await owner.request(store.get(path));
       // A signal callback has already recorded its event. Avoid manufacturing
       // another observation by throwing the same checkpoint a second time.
-      if (owner.listeners.failures.length > 0) return;
+      if (owner.failed) return;
       const previous = value === undefined ? null : RecordSchema.parse(value);
       if (previous?.kind === "directory") {
         throw new FileSystemError("type-mismatch", "write", path, `'${path}' is a directory.`);
       }
 
       const existing = options.mode === "replace" || previous === null ? new Uint8Array() : decodeBase64(previous.data);
-      const bytes = writeBytes(existing, data, options.mode, options.at, options.truncate ?? false);
+      const bytes = applyWrite(existing, data, options.mode, options.at, options.truncate ?? false);
       const record: RecordType = RecordSchema.parse({
         version: 1,
         path,
@@ -159,7 +125,7 @@ export class IndexedDbBackend implements RecordBackendType {
         lastModified: Date.now(),
         mediaType: options.mediaType ?? (previous?.kind === "file" ? previous.mediaType : ""),
       });
-      if (owner.listeners.failures.length > 0) return;
+      if (owner.failed) return;
       await owner.request(store.put(record));
     });
   }

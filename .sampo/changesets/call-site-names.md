@@ -2,9 +2,9 @@
 npm/@okikio/opfs: minor
 ---
 
-Rename three public functions so each reads clearly where it is called, and stop exporting five internal helpers that
-were public by accident. Behavior does not change. This is a breaking change for code that imports the old names; the
-package is still 0.x, so it ships as a minor release with no aliases.
+Rename three public functions so each reads clearly where it is called, and move five lower-level helpers from their
+main entry points to new advanced entry points. Behavior does not change. This is a breaking change for code that
+imports the old names or paths; the package is still 0.x, so it ships as a minor release with no aliases.
 
 | Subpath                        | Before             | After            | How it is called                                           |
 | ------------------------------ | ------------------ | ---------------- | ---------------------------------------------------------- |
@@ -47,12 +47,30 @@ import { decodeLfsPointer, toLfsObject } from "@okikio/opfs/content/lfs";
 const request = toLfsObject(decodeLfsPointer(bytes));
 ```
 
-These exports are removed because nothing outside the package needs them:
+These helpers moved off their main entry points. Each is still public, at an advanced entry point under the same owner;
+the `_` marks a mechanism most consumers never need. `docs/design.md` describes the convention.
 
-| Subpath                         | Removed                                                | Reason                                                                                         |
-| ------------------------------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
-| `@okikio/opfs/archive/tar`      | `tarPadding`                                           | Marked internal; only TAR reading and writing used it                                          |
-| `@okikio/opfs/driver/indexeddb` | `result`, `committed`, `writeBytes`, `upgradeDatabase` | Request and transaction mechanics of the driver itself; `upgradeDatabase` had no caller at all |
+| Before                                                 | After                                                              |
+| ------------------------------------------------------ | ------------------------------------------------------------------ |
+| `tarPadding` from `@okikio/opfs/archive/tar`           | `padding` from `@okikio/opfs/archive/tar/_block`                   |
+| `writeBytes` from `@okikio/opfs/driver/indexeddb`      | `applyWrite` from `@okikio/opfs/driver/_image`                     |
+| `upgradeDatabase` from `@okikio/opfs/driver/indexeddb` | `upgradeDatabase` from `@okikio/opfs/driver/indexeddb/_store`      |
+| `result` from `@okikio/opfs/driver/indexeddb`          | `waitForRequest` from `@okikio/opfs/driver/indexeddb/_transaction` |
+| `committed` from `@okikio/opfs/driver/indexeddb`       | `committed` from `@okikio/opfs/driver/indexeddb/_transaction`      |
 
-Code that used them can compute TAR padding as `(512 - size % 512) % 512`, and wrap an `IDBRequest` in a promise with
-its `success` and `error` events. A type checker reports every old import as a missing export.
+`applyWrite` replaces three identical copies of the same whole-file write rule (in the object adapter, the record
+adapter and the IndexedDB driver), so custom drivers that store a file as one value can apply exactly the same
+`replace`, `append` and `update` semantics. `_transaction` also publishes the `Transaction` owner the IndexedDB driver
+uses for every read and write.
+
+```ts
+// Before
+import { committed, result } from "@okikio/opfs/driver/indexeddb";
+// After
+import { committed, waitForRequest } from "@okikio/opfs/driver/indexeddb/_transaction";
+
+const value = await waitForRequest(store.get(path));
+await committed(transaction);
+```
+
+A type checker reports every old import as a missing export.

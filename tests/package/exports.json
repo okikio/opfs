@@ -590,6 +590,9 @@
     "interface TarReadType",
     "interface TarSparseType"
   ],
+  "./archive/tar/_block": [
+    "function padding"
+  ],
   "./archive/udf": [
     "reference ArchiveError",
     "reference ArchiveLedgerType",
@@ -1249,6 +1252,10 @@
     "typeAlias ProblemSeverityType",
     "interface ProblemType"
   ],
+  "./driver/_image": [
+    "function applyWrite",
+    "reference WriteModeType"
+  ],
   "./driver/azure": [
     "interface AzureDriverOptionsType",
     "function createAzureDriver",
@@ -1395,6 +1402,16 @@
     "interface IndexedDbDriverOptionsType",
     "interface IndexedDbOpenOptionsType",
     "function openIndexedDbDriver"
+  ],
+  "./driver/indexeddb/_store": [
+    "function upgrade",
+    "function upgradeDatabase"
+  ],
+  "./driver/indexeddb/_transaction": [
+    "function committed",
+    "reference PathType",
+    "class Transaction",
+    "function waitForRequest"
   ],
   "./driver/localstorage": [
     "function createLocalStorageDriver",

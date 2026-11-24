@@ -2,8 +2,10 @@
  * TAR's 512-byte block rule, shared by the reader in `mod.ts` and the stream reader and writer in `stream.ts`.
  *
  * Every TAR header and payload occupies whole 512-byte blocks. A payload whose size is not a multiple of 512
- * is followed by zero bytes up to the next block boundary. This module is internal: no public subpath
- * exports it.
+ * is followed by zero bytes up to the next block boundary.
+ *
+ * Published at `@okikio/opfs/archive/tar/_block` for code that reads or writes TAR blocks itself. Most callers
+ * never need it: `openTar()`, `readTarStream()` and `createTarStream()` already apply it.
  *
  * @module
  */

@@ -23,6 +23,7 @@ import {
 
 import { mutates, readOnlyPlan, type RecordDriverType } from "../driver/record.ts";
 import type { DriverPlanInputType, DriverPlanType } from "../driver/definition.ts";
+import { applyWrite } from "../driver/image.ts";
 
 /** Options for a filesystem adapter created from a record driver. */
 export interface RecordAdapterOptionsType {
@@ -84,29 +85,6 @@ function writeSettings(options: FileDriverWriteOptionsType, path: PathType): Rea
     ...(truncate === undefined ? {} : { truncate }),
     ...(mediaType === undefined ? {} : { mediaType }),
   });
-}
-
-/**
- * Applies filesystem write semantics to one materialized record image.
- *
- * Record stores cannot update an arbitrary byte range natively, so append and
- * update build the next complete byte image before the record is replaced.
- */
-function applyWrite(
-  existing: Uint8Array,
-  data: Uint8Array,
-  mode: "replace" | "append" | "update",
-  at: number | undefined,
-  truncate: boolean,
-): Uint8Array {
-  if (mode === "replace") return data.slice();
-  const position = mode === "append" ? existing.byteLength : at ?? 0;
-  const size = Math.max(existing.byteLength, position + data.byteLength);
-  let output = new Uint8Array(size);
-  output.set(existing);
-  output.set(data, position);
-  if (truncate) output = output.slice(0, position + data.byteLength);
-  return output;
 }
 
 /** Fails before touching a record driver when the adapter was intentionally opened read-only. */
