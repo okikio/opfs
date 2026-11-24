@@ -2,8 +2,8 @@ import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 import { decodeBase64 } from "@std/encoding/base64";
 import native from "./fixtures/orc/independent.json" with { type: "json" };
-import { createArchiveLedger, openOrc } from "../src/dataset/orc.ts";
-import type { OrcValuesType } from "../src/dataset/orc.ts";
+import { createArchiveLedger, openOrc } from "../src/dataset/orc/mod.ts";
+import type { OrcValuesType } from "../src/dataset/orc/mod.ts";
 import type { ByteSourceType } from "../src/source.ts";
 
 function array(values: OrcValuesType): (number | bigint)[] {

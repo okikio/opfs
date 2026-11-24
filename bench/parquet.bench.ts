@@ -1,7 +1,7 @@
 import { bench, do_not_optimize } from "mitata";
 import { decodeBase64 } from "@std/encoding/base64";
 import { createBlobSource } from "../src/source.ts";
-import { openParquet } from "../src/dataset/parquet.ts";
+import { openParquet } from "../src/dataset/parquet/mod.ts";
 import { expectBytes, report } from "./result.ts";
 import native from "../tests/fixtures/parquet/independent.json" with { type: "json" };
 

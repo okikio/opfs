@@ -1,8 +1,8 @@
 import { bench, do_not_optimize } from "mitata";
 import { decodeBase64 } from "@std/encoding/base64";
 import { createBlobSource } from "../src/source.ts";
-import { openOrc } from "../src/dataset/orc.ts";
-import type { OrcDatasetType, OrcValuesType } from "../src/dataset/orc.ts";
+import { openOrc } from "../src/dataset/orc/mod.ts";
+import type { OrcDatasetType, OrcValuesType } from "../src/dataset/orc/mod.ts";
 import type { ByteSourceType } from "../src/source.ts";
 import { expectBytes, report } from "./result.ts";
 import native from "../tests/fixtures/orc/independent.json" with { type: "json" };

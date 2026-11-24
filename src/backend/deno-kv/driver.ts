@@ -1,24 +1,48 @@
-import { type GenerationOptionsType, KvGeneration, type KvPinType, type KvUsageType } from "./generation.ts";
+import { createDenoKvPlan } from "./plan.ts";
+import {
+  DenoKvFileSchema,
+  DenoKvManifestSchema,
+  type DenoKvManifestType,
+  type DenoKvStoredEntryType,
+  type DenoKvStoredType,
+  generation,
+  isManifest,
+  key,
+  listKey,
+  manifestList,
+  partKey,
+} from "./layout.ts";
+import { DenoKvCommitError } from "./error.ts";
+import {
+  DENO_KV_DEFAULT_COLLECT_AGE_MS,
+  DENO_KV_DEFAULT_COLLECT_DELETES,
+  DENO_KV_DEFAULT_CONCURRENCY,
+  DENO_KV_DEFAULT_INLINE_BYTES,
+  DENO_KV_DEFAULT_MAX_PARTS,
+  DENO_KV_DEFAULT_PART_BYTES,
+  DENO_KV_MAX_ATOMIC_BYTES,
+  DENO_KV_MAX_KEY_BYTES,
+  DENO_KV_MAX_VALUE_BYTES,
+  DENO_KV_SAFE_PART_BYTES,
+  positive,
+  validateSizePolicy,
+} from "./limits.ts";
+import type {
+  DenoKvCollectOptionsType,
+  DenoKvCollectResultType,
+  DenoKvDriverOptionsType,
+  DenoKvDriverType,
+  DenoKvType,
+  DenoKvUsageType,
+} from "./types.ts";
+import { KvGeneration, type KvPinType } from "./generation.ts";
 import { map as pooledMap } from "../../pool.ts";
 import { concat } from "@std/bytes";
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
 import { z } from "zod";
 
 import { FileSystemError, throwIfAborted } from "../../error.ts";
-import {
-  defineRecordDriver,
-  type RecordBackendType,
-  type RecordDriverType,
-  type RecordListType,
-} from "../../driver/record.ts";
-import {
-  type ActionType,
-  DriverPlanInputSchema,
-  type DriverPlanInputType,
-  DriverPlanSchema,
-  type DriverPlanType,
-  type ProblemType,
-} from "../../driver/definition.ts";
+import { defineRecordDriver, type RecordBackendType, type RecordListType } from "../../driver/record.ts";
 import type { FileDriverReadOptionsType, FileDriverWriteOptionsType } from "../../driver/file.ts";
 import { basename, dirname } from "../../path.ts";
 import { open } from "../../chunk.ts";
@@ -28,423 +52,10 @@ import { retire as retireBytes } from "../../stream.ts";
 import {
   PartitionModeSchema,
   type PartitionModeType,
-  PathSchema,
-  RecordMetadataSchema,
   RecordSchema,
   type RecordType,
   type WriteModeType,
 } from "../../schema/mod.ts";
-
-/** Maximum serialized Deno KV key size documented by the runtime. */
-export const DENO_KV_MAX_KEY_BYTES = 2 * 1024;
-/** Maximum serialized Deno KV value size documented by the runtime. */
-export const DENO_KV_MAX_VALUE_BYTES = 64 * 1024;
-/** Maximum total serialized size of one Deno KV atomic operation. */
-export const DENO_KV_MAX_ATOMIC_BYTES = 800 * 1024;
-/** Conservative raw Uint8Array payload budget below the serialized 64 KiB provider ceiling. */
-export const DENO_KV_SAFE_PART_BYTES = 60 * 1024;
-/** Conservative decoded inline body budget after base64 expansion and record metadata. */
-export const DENO_KV_SAFE_INLINE_BYTES = 40 * 1024;
-/** Conservative decoded payload kept in one raw binary part. */
-export const DENO_KV_DEFAULT_PART_BYTES = 48 * 1024;
-/** Conservative decoded payload kept inline with filesystem metadata. */
-export const DENO_KV_DEFAULT_INLINE_BYTES = 32 * 1024;
-/** Explicit safety ceiling that prevents one logical file from creating unbounded keys. */
-export const DENO_KV_DEFAULT_MAX_PARTS = 10_000;
-/** Default concurrent exact reads/deletes for partitioned file bodies. */
-export const DENO_KV_DEFAULT_CONCURRENCY = 8;
-/** Default grace period before superseded or unpublished physical generations are eligible for collection. */
-export const DENO_KV_DEFAULT_COLLECT_AGE_MS = 60 * 60 * 1000;
-/** Default deletion budget for one explicit collection pass. */
-export const DENO_KV_DEFAULT_COLLECT_DELETES = 10_000;
-
-/**
- * Native Deno KV key tuple. The package exposes this structural contract so
- * importing its types does not require an unstable ambient Deno namespace.
- */
-export type DenoKvKeyType = readonly (Uint8Array | string | number | bigint | boolean | symbol)[];
-
-/** Native prefix or ordered-range selector accepted by the borrowed database. */
-export type DenoKvListSelectorType =
-  | { readonly prefix: DenoKvKeyType }
-  | { readonly prefix: DenoKvKeyType; readonly start: DenoKvKeyType }
-  | { readonly prefix: DenoKvKeyType; readonly end: DenoKvKeyType }
-  | { readonly start: DenoKvKeyType; readonly end: DenoKvKeyType };
-
-/** Native list options. Consistency applies to each provider batch separately. */
-export interface DenoKvListOptionsType {
-  /** Maximum number of matching entries returned. */
-  readonly limit?: number;
-  /** Provider cursor used to resume iteration. */
-  readonly cursor?: string;
-  /** Iterates keys in descending order when enabled. */
-  readonly reverse?: boolean;
-  /** Selects strong or eventual consistency for each returned batch. */
-  readonly consistency?: "strong" | "eventual";
-  /** Requested batch size, bounded by the provider's native limit. */
-  readonly batchSize?: number;
-}
-
-/** Structural Deno KV entry used by the driver. */
-export interface DenoKvEntryType<T> {
-  /** Stored tuple returned by exact reads and prefix iteration. */
-  readonly key: DenoKvKeyType;
-  /** Stored value, or null for a missing exact get. */
-  readonly value: T | null;
-  /** Provider version used for optimistic visibility commits. Missing entries use null. */
-  readonly versionstamp: string | null;
-}
-
-/** Version check accepted by the Deno KV atomic operation. */
-export interface DenoKvCheckType {
-  /** Exact logical entry key observed before the operation started. */
-  readonly key: DenoKvKeyType;
-  /** Version observed by `get()`, or null when the logical entry did not exist. */
-  readonly versionstamp: string | null;
-}
-
-/** Result subset returned by a Deno KV atomic commit. */
-export interface DenoKvCommitType {
-  /** False means an optimistic version check failed and no mutation was applied. */
-  readonly ok: boolean;
-}
-
-/** Structural Deno KV atomic operation required for one logical visibility commit. */
-export interface DenoKvAtomicType {
-  /** Requires the logical entry to retain the version observed before physical preparation. */
-  check(...checks: DenoKvCheckType[]): DenoKvAtomicType;
-  /** Adds one small metadata or logical-entry replacement to the transaction. */
-  set(key: DenoKvKeyType, value: unknown): DenoKvAtomicType;
-  /** Adds one logical-entry deletion to the transaction. */
-  delete(key: DenoKvKeyType): DenoKvAtomicType;
-  /** Commits checks and metadata mutations atomically. */
-  commit(): Promise<DenoKvCommitType>;
-}
-
-/** Structural Deno KV subset required by this driver. */
-export interface DenoKvType {
-  /** Reads one exact key. */
-  get<T = unknown>(key: DenoKvKeyType): Promise<DenoKvEntryType<T>>;
-  /** Replaces one key. */
-  set(key: DenoKvKeyType, value: unknown): Promise<unknown>;
-  /** Removes one key. */
-  delete(key: DenoKvKeyType): Promise<void>;
-  /** Starts one optimistic transaction for the logical visibility mutation. */
-  atomic(): DenoKvAtomicType;
-  /**
-   * Streams keys through Deno KV's native selector contract.
-   *
-   * The driver currently uses prefix-based listing, but the wider selector type
-   * keeps the structural contract compatible with the real Deno KV API.
-   */
-  list<T = unknown>(
-    selector: DenoKvListSelectorType,
-    options?: DenoKvListOptionsType,
-  ): AsyncIterable<DenoKvEntryType<T>>;
-  /** Closes the database when the caller transfers ownership. */
-  close?(): void;
-}
-
-/** Options for explicit reclamation of superseded or unpublished Deno KV body parts. */
-export interface DenoKvCollectOptionsType {
-  /** Opaque continuation returned by a bounded previous pass. */
-  readonly cursor?: string;
-  /**
-   * Minimum retirement age before physical parts can be removed.
-   *
-   * Defaults to one hour. Published generations measure this delay from the
-   * moment they are retired, so a long-lived generation is not reclaimed
-   * immediately after an overwrite. Unpublished work becomes eligible only after
-   * its writer lease expires. Every deletion also requires a versioned claim.
-   */
-  readonly minAgeMs?: number;
-  /** Maximum part deletions in one call. Defaults to 10,000. */
-  readonly maxDeletes?: number;
-  /** Maximum state/part records scanned. Defaults to 20,000. */
-  readonly maxScans?: number;
-  /** Maximum pin records examined. Defaults to 1,000. */
-  readonly maxPinScans?: number;
-  /** Reclaimed state retention before removing its fence record. Defaults to one hour. */
-  readonly tombstoneAgeMs?: number;
-  /** Cancels scanning and deletion between provider operations. */
-  readonly signal?: AbortSignal;
-}
-
-/** Result of one bounded Deno KV physical-generation collection pass. */
-export interface DenoKvCollectResultType {
-  /** Distinct physical generations inspected. */
-  readonly generations: number;
-  /** Physical part keys inspected. */
-  readonly parts: number;
-  /** Unreachable physical part keys removed. */
-  readonly deleted: number;
-  /** Reachable or grace-period physical part keys retained. */
-  readonly retained: number;
-  /** True when `maxDeletes`, `maxScans` or `maxPinScans` stopped the pass early; continue with `cursor`. */
-  readonly truncated: boolean;
-  /** Generations kept because they are published, still being written, or retired less than `minAgeMs` ago. */
-  readonly active: number;
-  /** Generations kept because a reader still holds an unexpired pin. */
-  readonly pinned: number;
-  /** Generations skipped because a pin or state change raced the pass; a later pass retries them. */
-  readonly conflicts: number;
-  /** State, part and pin records read, counted against `maxScans`. */
-  readonly scanned: number;
-  /** Expired reader pins released by this pass. */
-  readonly prunedPins: number;
-  /** Continue this pass with collect({ cursor }); absent means the scan completed. */
-  readonly cursor?: string;
-}
-
-/** Live partition retention and operation-owned unknown-reader cleanup count. */
-export type DenoKvUsageType = KvUsageType & { readonly pendingReaders: number };
-
-/** A dispatched visibility commit whose outcome could not be reconciled from its own generation state. */
-export class DenoKvCommitError extends FileSystemError {
-  /** A lost response can follow an applied commit; retry requires application reconciliation. */
-  readonly effect = "unknown" as const;
-  constructor(operation: string, path: string, cause: unknown) {
-    super(
-      "unknown",
-      operation,
-      path,
-      "Deno KV visibility commit outcome is unknown; inspect logical state before replaying publication.",
-      cause,
-    );
-  }
-}
-
-/** Deno KV record driver with explicit physical maintenance. */
-export interface DenoKvDriverType extends RecordDriverType {
-  /** Reclaims old part generations that are not referenced by a published manifest. */
-  collect(options?: DenoKvCollectOptionsType): Promise<DenoKvCollectResultType>;
-  /** Explicit live retention probe; inspect remains I/O-free. */
-  probe(): Promise<DenoKvUsageType>;
-  /** Configured maintenance policy, excluding live state. */
-  readonly maintenance: {
-    readonly layout: "deno-kv-parts-v3";
-    readonly writerLeaseMs: number;
-    readonly readerLeaseMs: number;
-    readonly maxReaders: number;
-    readonly maxRetainedBytes?: number;
-    readonly maxGenerations?: number;
-  };
-}
-
-/** Configuration for the Deno KV record driver and its physical partition layout. */
-export interface DenoKvDriverOptionsType extends GenerationOptionsType {
-  /** Key namespace. Defaults to `okikio-opfs`. */
-  readonly prefix?: string;
-  /** Closes the injected KV database with the driver. */
-  readonly disposeDatabase?: boolean;
-  /** Prevents mutations. */
-  readonly readOnly?: boolean;
-  /** Physical large-file layout. Defaults to `auto`. */
-  readonly partition?: PartitionModeType;
-  /** Maximum decoded bytes in one partition. Defaults to 48 KiB. */
-  readonly partBytes?: number;
-  /** Maximum decoded bytes stored as one normal record in `auto` mode. Defaults to 32 KiB. */
-  readonly inlineBytes?: number;
-  /** Maximum physical part count for one logical file. Defaults to 10,000. */
-  readonly maxParts?: number;
-  /** Maximum concurrent exact part reads/deletes. Defaults to 8. */
-  readonly concurrency?: number;
-}
-
-/** File metadata retained in the small manifest committed after all body parts. */
-const DenoKvFileSchema = z.object({
-  version: z.literal(1),
-  path: PathSchema,
-  parent: PathSchema,
-  name: z.string(),
-  kind: z.literal("file"),
-  size: z.number().int().nonnegative(),
-  lastModified: z.number().int().nonnegative(),
-  mediaType: z.string(),
-}).strict().refine(
-  (record) => record.path !== "/" && RecordMetadataSchema.safeParse(record).success,
-  "Partition file path, parent and name must agree.",
-);
-
-/** Durable pointer to one generation of raw Deno KV body parts. */
-const DenoKvManifestSchema = z.object({
-  storage: z.literal("deno-kv-parts-v3"),
-  generation: z.string().min(1).max(128),
-  parts: z.number().int().positive(),
-  partBytes: z.number().int().positive(),
-  file: DenoKvFileSchema,
-}).strict().refine(
-  (manifest) => manifest.parts === Math.max(1, Math.ceil(manifest.file.size / manifest.partBytes)),
-  { message: "Partition count must match the logical file size and physical part size." },
-);
-
-/** Validated private manifest that publishes one complete partition generation. */
-type DenoKvManifestType = z.output<typeof DenoKvManifestSchema>;
-
-/** Physical value stored at one logical entry key: inline record or partition manifest. */
-type DenoKvStoredType = RecordType | DenoKvManifestType;
-
-/** Parsed logical entry plus the Deno KV version that protects its visibility mutation. */
-type DenoKvStoredEntryType = DenoKvEntryType<DenoKvStoredType>;
-
-/** Maps one exact virtual path to a Deno KV entry key derived from its parent and name. */
-function key(prefix: string, path: string): DenoKvKeyType {
-  return [prefix, "entry", dirname(path), basename(path)];
-}
-
-/** Prefix whose entries are exactly the direct children of one canonical parent path. */
-function listKey(prefix: string, parent: string): DenoKvKeyType {
-  return [prefix, "entry", parent];
-}
-
-/** Maps one logical file generation and part number to a separate raw binary key. */
-function partKey(prefix: string, path: string, generation: string, index: number): DenoKvKeyType {
-  return [prefix, "part", path, generation, index];
-}
-
-/** Validates a positive safe integer configuration value. */
-function positive(value: number | undefined, fallback: number, name: string): number {
-  const resolved = value ?? fallback;
-  if (!Number.isSafeInteger(resolved) || resolved < 1) throw new RangeError(`${name} must be a positive safe integer.`);
-  return resolved;
-}
-
-/** Validates physical part policy before any derived logical-size arithmetic is used. */
-function validateSizePolicy(partBytes: number, inlineBytes: number, maxParts: number): void {
-  if (partBytes > DENO_KV_SAFE_PART_BYTES) {
-    throw new RangeError(
-      `partBytes must be <= ${DENO_KV_SAFE_PART_BYTES} bytes so serialization overhead stays below ` +
-        `Deno KV's ${DENO_KV_MAX_VALUE_BYTES}-byte value ceiling.`,
-    );
-  }
-  if (inlineBytes > DENO_KV_SAFE_INLINE_BYTES) {
-    throw new RangeError(
-      `inlineBytes must be <= ${DENO_KV_SAFE_INLINE_BYTES} decoded bytes so base64 data plus record metadata ` +
-        "stays below Deno KV's serialized value ceiling.",
-    );
-  }
-  if (maxParts > Math.floor(Number.MAX_SAFE_INTEGER / partBytes)) {
-    throw new RangeError("maxParts and partBytes must produce an exactly representable logical file-size limit.");
-  }
-}
-
-/** Returns true when a stored value is the private partition manifest rather than a public record. */
-function isManifest(value: unknown): value is DenoKvManifestType {
-  return typeof value === "object" && value !== null && (value as { storage?: unknown }).storage === "deno-kv-parts-v3";
-}
-
-/** Projects a manifest to listing metadata without reading any body part. */
-function manifestList(manifest: DenoKvManifestType): RecordListType {
-  return manifest.file;
-}
-
-/** Creates one new generation identifier without depending on Deno globals. */
-function generation(): string {
-  return `${Date.now().toString(36)}-${crypto.randomUUID()}`;
-}
-
-/** UTF-8 encoder used for conservative Deno KV tuple-size planning. */
-const keyEncoder = new TextEncoder();
-
-/** Conservatively estimates serialized tuple bytes for the key component types used here. */
-function estimateKeyBytes(value: DenoKvKeyType): number {
-  let bytes = 0;
-  for (const component of value) {
-    bytes += 16;
-    if (typeof component === "string") bytes += keyEncoder.encode(component).byteLength;
-    else if (typeof component === "number") bytes += 8;
-    else bytes += 32;
-  }
-  return bytes;
-}
-
-/** Creates a path-aware Deno KV plan before any provider request is sent. */
-function createDenoKvPlan(options: DenoKvDriverOptionsType, input: DriverPlanInputType): DriverPlanType {
-  const request = DriverPlanInputSchema.parse(input);
-  const partition = PartitionModeSchema.parse(options.partition ?? "auto");
-  const prefix = `${options.prefix ?? "okikio-opfs"}:v3`;
-  const partBytes = positive(options.partBytes, DENO_KV_DEFAULT_PART_BYTES, "partBytes");
-  const inlineBytes = positive(options.inlineBytes, DENO_KV_DEFAULT_INLINE_BYTES, "inlineBytes");
-  const maxParts = positive(options.maxParts, DENO_KV_DEFAULT_MAX_PARTS, "maxParts");
-  validateSizePolicy(partBytes, inlineBytes, maxParts);
-  const problems: ProblemType[] = [];
-  const actions: ActionType[] = [];
-  if (request.path !== undefined) {
-    const entryBytes = estimateKeyBytes(key(prefix, request.path));
-    const partBytesEstimate = estimateKeyBytes(
-      [
-        prefix,
-        "pin",
-        request.path,
-        "00000000000-00000000-0000-4000-8000-000000000000",
-        "00000000-0000-4000-8000-000000000000",
-      ],
-    );
-    const estimated = Math.max(entryBytes, partBytesEstimate);
-    if (estimated > DENO_KV_MAX_KEY_BYTES) {
-      problems.push({
-        code: "key-too-large",
-        layer: "driver",
-        severity: "error",
-        message: `Deno KV physical key estimate ${estimated} bytes exceeds the ${DENO_KV_MAX_KEY_BYTES}-byte ` +
-          `serialized provider limit for '${request.path}'.`,
-        limit: {
-          code: "serialized-key-bytes",
-          kind: "hard",
-          source: "provider",
-          unit: "bytes",
-          value: DENO_KV_MAX_KEY_BYTES,
-        },
-      });
-      actions.push({ kind: "reduce-input" }, { kind: "select-driver" });
-    }
-  }
-  let support: "native" | "partitioned" | "unsupported" = "native";
-  let count: number | undefined;
-  if (request.operation === "write" && request.size !== undefined) {
-    const usesParts = partition === "always" || (partition === "auto" && request.size > inlineBytes);
-    if (partition === "never" && request.size > inlineBytes) {
-      support = "unsupported";
-      problems.push({
-        code: "partition-disabled",
-        layer: "driver",
-        severity: "error",
-        message:
-          `The ${request.size}-byte write exceeds inlineBytes=${inlineBytes}, but Deno KV partitioning is disabled.`,
-      });
-      actions.push({ kind: "change-policy" }, { kind: "select-driver" });
-    } else if (usesParts) {
-      support = "partitioned";
-      count = Math.max(1, Math.ceil(request.size / partBytes));
-      if (count > maxParts) {
-        support = "unsupported";
-        problems.push({
-          code: "too-many-parts",
-          layer: "driver",
-          severity: "error",
-          message: `The write needs ${count} Deno KV parts, above configured maxParts=${maxParts}.`,
-          limit: {
-            code: "parts",
-            kind: "policy",
-            source: "user",
-            unit: "count",
-            value: maxParts,
-          },
-        });
-        actions.push({ kind: "change-policy" }, { kind: "select-driver" });
-      }
-    }
-  }
-  const supported = support !== "unsupported" && problems.every((problem) => problem.severity !== "error");
-  return DriverPlanSchema.parse({
-    operation: request.operation,
-    supported,
-    support: supported ? support : "unsupported",
-    ...(count === undefined ? {} : { parts: count, partBytes }),
-    problems,
-    actions,
-  });
-}
 
 /**
  * Record-store projection over one caller-owned Deno KV database.
@@ -1448,3 +1059,35 @@ export function createDenoKvDriver(database: DenoKvType, options: DenoKvDriverOp
     },
   });
 }
+
+export type {
+  DenoKvAtomicType,
+  DenoKvCheckType,
+  DenoKvCollectOptionsType,
+  DenoKvCollectResultType,
+  DenoKvCommitType,
+  DenoKvDriverOptionsType,
+  DenoKvDriverType,
+  DenoKvEntryType,
+  DenoKvKeyType,
+  DenoKvListOptionsType,
+  DenoKvListSelectorType,
+  DenoKvType,
+  DenoKvUsageType,
+} from "./types.ts";
+
+export {
+  DENO_KV_DEFAULT_COLLECT_AGE_MS,
+  DENO_KV_DEFAULT_COLLECT_DELETES,
+  DENO_KV_DEFAULT_CONCURRENCY,
+  DENO_KV_DEFAULT_INLINE_BYTES,
+  DENO_KV_DEFAULT_MAX_PARTS,
+  DENO_KV_DEFAULT_PART_BYTES,
+  DENO_KV_MAX_ATOMIC_BYTES,
+  DENO_KV_MAX_KEY_BYTES,
+  DENO_KV_MAX_VALUE_BYTES,
+  DENO_KV_SAFE_INLINE_BYTES,
+  DENO_KV_SAFE_PART_BYTES,
+} from "./limits.ts";
+
+export { DenoKvCommitError } from "./error.ts";

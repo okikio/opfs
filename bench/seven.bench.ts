@@ -1,7 +1,7 @@
 import { bench, do_not_optimize } from "mitata";
 import { decodeBase64 } from "@std/encoding/base64";
 import { createBlobSource } from "../src/source.ts";
-import { openSeven } from "../src/archive/seven.ts";
+import { openSeven } from "../src/archive/seven/mod.ts";
 import { expectBytes, report } from "./result.ts";
 import fixtures from "../tests/fixtures/seven/independent.json" with { type: "json" };
 

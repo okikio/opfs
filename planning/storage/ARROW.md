@@ -59,7 +59,7 @@ must fail instead of replacement-decoding. Check monotone nonnegative offsets, f
 node/buffer cardinality and field lengths, including empty batches and absent validity buffers when valid.
 
 Return inspectable column records with physical type, row count, values and validity, preserving the column-oriented
-programming model used by [ORC](../../src/dataset/orc.ts). Do not allocate an object for every row by default. An
+programming model used by [ORC](../../src/dataset/orc/mod.ts). Do not allocate an object for every row by default. An
 explicit row projection may allocate later. Returned arrays must own stable bytes; reading the next batch must not
 mutate an earlier result. Document when a caller holding results retains their buffers. Use DataView reads or a checked
 aligned-copy route, rather than assuming source offsets satisfy typed-array alignment.

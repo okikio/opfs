@@ -2,9 +2,9 @@ import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 import { decodeBase64 } from "@std/encoding/base64";
 import native from "./fixtures/parquet/independent.json" with { type: "json" };
-import type { ParquetValuesType } from "../src/dataset/parquet.ts";
+import type { ParquetValuesType } from "../src/dataset/parquet/mod.ts";
 import { runInNewContext } from "node:vm";
-import { ArchiveError, createArchiveLedger, openParquet } from "../src/dataset/parquet.ts";
+import { ArchiveError, createArchiveLedger, openParquet } from "../src/dataset/parquet/mod.ts";
 import type { ByteSourceType } from "../src/source.ts";
 
 // Authored wire controls exercise the pinned grammar. They are not native
