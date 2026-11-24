@@ -252,10 +252,7 @@ function headers(value: HeadersInit): Headers {
 /** Native Accept values can include quality weights without changing action authority. */
 function acceptsJson(value: string): boolean {
   return value.split(",").some((part) => {
-    const match =
-      /^\s*application\/vnd\.git-lfs\+parseJson(?:\s*;\s*q=(0(?:\.\d{1,3})?|1(?:\.0{1,3})?), jsonLimits)?\s*$/i.exec(
-        part,
-      );
+    const match = /^\s*application\/vnd\.git-lfs\+json(?:\s*;\s*q=(0(?:\.\d{1,3})?|1(?:\.0{1,3})?))?\s*$/i.exec(part);
     return match !== null && (match[1] === undefined || Number(match[1]) > 0);
   });
 }
@@ -645,7 +642,7 @@ export class LfsClient {
       if (
         verify.headers.has("Accept") && !acceptsJson(verify.headers.get("Accept")!) ||
         verify.headers.has("Content-Type") &&
-          !/^application\/vnd\.git-lfs\+parseJson(?:;\s*charset=utf-8, jsonLimits)?$/i.test(
+          !/^application\/vnd\.git-lfs\+json(?:;\s*charset=utf-8)?$/i.test(
             verify.headers.get("Content-Type")!,
           )
       ) throw new TypeError("Git LFS verify headers conflict with its JSON protocol.");
