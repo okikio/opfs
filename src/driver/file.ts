@@ -58,6 +58,26 @@ export interface FileDriverReadOptionsType extends FileDriverSignalOptionsType {
   readonly length?: number;
 }
 
+/**
+ * One exact version of a file's content, as its backend names it.
+ *
+ * Read it from `fs.stat(path).revision`, then pass it back as `writeFile(path, data, { ifRevision })` so the write
+ * replaces only that version. The kind says how the backend compares it: `etag` is an HTTP entity tag (S3, Azure,
+ * R2), `generation` a counter that changes on every write (Google Cloud Storage), and `version` an immutable version
+ * ID (Backblaze B2 file IDs). Values are opaque: compare them only with the same kind from the same backend.
+ *
+ * ```ts
+ * const stat = await fs.stat("/settings.json");
+ * if (stat.kind === "file" && stat.revision) {
+ *   await fs.writeFile("/settings.json", next, { ifRevision: stat.revision }); // throws `locked` if it changed
+ * }
+ * ```
+ */
+export type RevisionType =
+  | { readonly kind: "etag"; readonly value: string }
+  | { readonly kind: "generation"; readonly value: string }
+  | { readonly kind: "version"; readonly value: string };
+
 /** Write semantics that a file driver must preserve. */
 export interface FileDriverWriteOptionsType extends FileDriverSignalOptionsType {
   /** Relationship between incoming bytes and any existing file body. */
@@ -68,6 +88,11 @@ export interface FileDriverWriteOptionsType extends FileDriverSignalOptionsType 
   readonly truncate?: boolean;
   /** Media type retained when the backend tracks it. */
   readonly mediaType?: string;
+  /**
+   * Replace only the version with this revision; a missing file or a different revision throws `locked`. Only an
+   * adapter that declares `capabilities.revisions` accepts it, and it holds the condition atomically.
+   */
+  readonly ifRevision?: RevisionType;
 }
 
 /** Options for a file-driver native copy. */
@@ -162,6 +187,8 @@ export type FileDriverStatType =
     readonly lastModified: number;
     /** Media type, or an empty string when the backend does not know one. */
     readonly mediaType: string;
+    /** This exact content version, when the backend names versions. See {@link RevisionType}. */
+    readonly revision?: RevisionType | undefined;
   }
   | {
     /** Portable discriminator for directory metadata. */

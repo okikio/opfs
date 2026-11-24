@@ -7,12 +7,7 @@
  *
  * @module
  */
-import type {
-  ObjectCopyOptionsType,
-  ObjectPutOptionsType,
-  ObjectRevisionType,
-  ObjectStatType,
-} from "./driver/object.ts";
+import type { ObjectCopyOptionsType, ObjectPutOptionsType, ObjectStatType, RevisionType } from "./driver/object.ts";
 
 /**
  * Returns the ETag a conditional request must match, from a revision, an explicit `ifMatch`, or both.
@@ -21,7 +16,7 @@ import type {
  * A revision of another kind, an empty ETag, or two different values throw `TypeError`, so a precondition is
  * never silently dropped.
  */
-export function resolveETag(revision?: ObjectRevisionType, ifMatch?: string): string | undefined {
+export function resolveETag(revision?: RevisionType, ifMatch?: string): string | undefined {
   if (revision === undefined) return ifMatch;
   if (revision.kind !== "etag" || revision.value.length === 0) {
     throw new TypeError("This protocol requires a nonempty ETag revision.");

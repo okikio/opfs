@@ -6,7 +6,7 @@ import { defineObjectDriver, type ObjectDriverType } from "../../driver/object.t
 export interface AzureDriverOptionsType extends AzureClientOptionsType {}
 
 /** Adds backend-driver metadata to one configured Azure Blob protocol client. */
-function createDriver(client: AzureClientType, ownership: DriverOwnershipType): ObjectDriverType {
+function createDriver(client: AzureClientType, ownership: DriverOwnershipType): ObjectDriverType<AzureClientType> {
   const limits = client.limits ?? {};
   return defineObjectDriver(client, {
     name: client.name,
@@ -65,11 +65,11 @@ function createDriver(client: AzureClientType, ownership: DriverOwnershipType): 
 }
 
 /** Creates an Azure Blob driver from direct protocol-client options. */
-export function createAzureDriver(options: AzureDriverOptionsType): ObjectDriverType {
+export function createAzureDriver(options: AzureDriverOptionsType): ObjectDriverType<AzureClientType> {
   return createDriver(createAzureClient(options), "owned");
 }
 
 /** Attaches driver metadata to an already configured Azure Blob client. */
-export function createAzureDriverFromClient(client: AzureClientType): ObjectDriverType {
+export function createAzureDriverFromClient(client: AzureClientType): ObjectDriverType<AzureClientType> {
   return createDriver(client, "borrowed");
 }

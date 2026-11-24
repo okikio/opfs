@@ -8,7 +8,8 @@ import type { ObjectDriverType } from "../../driver/object.ts";
 export interface GcsDriverOptionsType extends GcsClientOptionsType {}
 
 /** Native GCS metadata and conditions remain visible alongside portable driver inspection. */
-export interface GcsDriverType extends Omit<ObjectDriverType, "head" | "get" | "put" | "delete" | "list" | "copy"> {
+export interface GcsDriverType
+  extends Omit<ObjectDriverType<GcsClientType>, "head" | "get" | "put" | "delete" | "list" | "copy"> {
   head: GcsClientType["head"];
   get: GcsClientType["get"];
   put: GcsClientType["put"];

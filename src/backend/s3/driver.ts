@@ -6,7 +6,7 @@ import { defineObjectDriver, type ObjectDriverType } from "../../driver/object.t
 export interface S3DriverOptionsType extends S3ClientOptionsType {}
 
 /** Adds backend-driver metadata to one configured S3 protocol client. */
-function createDriver(client: S3ClientType, ownership: DriverOwnershipType): ObjectDriverType {
+function createDriver(client: S3ClientType, ownership: DriverOwnershipType): ObjectDriverType<S3ClientType> {
   const limits = client.limits ?? {};
   return defineObjectDriver(client, {
     name: client.name,
@@ -78,11 +78,11 @@ function createDriver(client: S3ClientType, ownership: DriverOwnershipType): Obj
  * The driver adds storage requirements, limit provenance, and optimization
  * metadata consumed by adapters and filesystem inspection.
  */
-export function createS3Driver(options: S3DriverOptionsType): ObjectDriverType {
+export function createS3Driver(options: S3DriverOptionsType): ObjectDriverType<S3ClientType> {
   return createDriver(createS3Client(options), "owned");
 }
 
 /** Attaches driver metadata to an already configured S3 client. */
-export function createS3DriverFromClient(client: S3ClientType): ObjectDriverType {
+export function createS3DriverFromClient(client: S3ClientType): ObjectDriverType<S3ClientType> {
   return createDriver(client, "borrowed");
 }

@@ -53,7 +53,10 @@ async function translated<Value>(operation: string, path: PathType, action: () =
  * destination revision replacement condition. Applications must serialize peer
  * writers when they need protection from a concurrent overwrite.
  */
-export function createSwiftAdapter(client: SwiftClientType, options: SwiftAdapterOptionsType = {}): AdapterType {
+export function createSwiftAdapter(
+  client: SwiftClientType,
+  options: SwiftAdapterOptionsType = {},
+): AdapterType<SwiftClientType> {
   const adapter = createObjectAdapter(createSwiftDriverFromClient(client), options);
   return {
     name: adapter.name,

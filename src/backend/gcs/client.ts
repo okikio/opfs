@@ -12,8 +12,8 @@ import type {
   ObjectListType,
   ObjectPutOptionsType,
   ObjectReceiptType,
-  ObjectRevisionType,
   ObjectStatType,
+  RevisionType,
 } from "../../driver/object.ts";
 import { resolveRange } from "../../range.ts";
 import { RequestMetrics, sendRequest } from "../../request.ts";
@@ -58,7 +58,7 @@ export interface GcsListType extends ObjectListType {
 /** Metadata observation options; a metadata guard also requires a positive generation revision. */
 export interface GcsHeadOptionsType {
   /** Selects the object generation; decimal text is retained without numeric coercion. */
-  readonly revision?: ObjectRevisionType;
+  readonly revision?: RevisionType;
   /** Requires this metadata version together with the selected generation. */
   readonly ifMetagenerationMatch?: string;
   readonly signal?: AbortSignal;
@@ -209,7 +209,7 @@ function integer(value: number, name: string, maximum = Number.MAX_SAFE_INTEGER)
  * Unlike returned object identities, input conditions preserve leading zeroes; no
  * Number conversion or end-anchor exception may admit other characters or values.
  */
-function generation(revision: ObjectRevisionType | undefined): string | undefined {
+function generation(revision: RevisionType | undefined): string | undefined {
   if (revision === undefined) return undefined;
   if (
     revision.kind !== "generation" || typeof revision.value !== "string" ||

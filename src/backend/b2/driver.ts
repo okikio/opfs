@@ -5,7 +5,7 @@ import { defineObjectDriver } from "../../driver/object.ts";
 import type { ObjectDriverType } from "../../driver/object.ts";
 
 /** Attach upload-specific native limits while borrowing the caller's configured client. */
-export function createB2DriverFromClient(client: B2ClientType): ObjectDriverType {
+export function createB2DriverFromClient(client: B2ClientType): ObjectDriverType<B2ClientType> {
   const implementation = {
     code: "upload-bytes",
     kind: "hard",
@@ -47,6 +47,6 @@ export function createB2DriverFromClient(client: B2ClientType): ObjectDriverType
   });
 }
 /** Compose a native B2 client and object driver without performing network I/O. */
-export function createB2Driver(options: B2ClientOptionsType): ObjectDriverType {
+export function createB2Driver(options: B2ClientOptionsType): ObjectDriverType<B2ClientType> {
   return createB2DriverFromClient(createB2Client(options));
 }

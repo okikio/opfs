@@ -74,6 +74,7 @@ export type AdapterCapabilitiesType = {
   "positionalWrite": boolean;
   "syncAccess": boolean;
   "validatesReplacement"?: boolean | undefined;
+  "revisions"?: boolean | undefined;
 };
 
 /** Structural output compiled from the runtime schema for `ErrorCodeType`. */

@@ -15,6 +15,7 @@ import { createAzureClient } from "../src/backend/azure/client.ts";
 import { createAzureDriverFromClient } from "../src/backend/azure/driver.ts";
 import { createS3DriverFromClient } from "../src/backend/s3/driver.ts";
 import { createS3Client } from "../src/backend/s3/client.ts";
+import type { ObjectDriverType } from "../src/driver/object.ts";
 
 import {
   AZURE_ACCOUNT,
@@ -226,7 +227,9 @@ async function verifyPublicationContracts(): Promise<void> {
         ["Azure", blobs, observedAzure],
       ] as const
     ) {
-      const driver = name === "S3" ? createS3DriverFromClient(project) : createAzureDriverFromClient(blobs);
+      const driver: ObjectDriverType = name === "S3"
+        ? createS3DriverFromClient(project)
+        : createAzureDriverFromClient(blobs);
       expectReceipt(
         await observer.check(`${name} client acknowledged replace`, () => client.put(key, payload), one),
         payload,

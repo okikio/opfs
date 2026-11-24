@@ -332,7 +332,15 @@ type _DriverInspectionTypeMatchesSchema = AssertTrue<
  * policy, and optional lifecycle. Adapters translate a driver into the small
  * filesystem primitive contract.
  */
-export interface DriverType {
+export interface DriverType<Backend = unknown> {
+  /**
+   * The object this driver borrows from the caller, such as an S3 or B2 client, when it has one.
+   *
+   * Use it for provider operations that have no file meaning, such as deleting one B2 version or reading S3 object
+   * tags. `createFileSystem()` exposes it as `fs.backend`, with the same type. The caller still owns it: closing the
+   * filesystem does not close it unless an option transferred ownership.
+   */
+  readonly backend?: Backend;
   /** Stable configured driver name. */
   readonly name: string;
   /** Native storage family implemented by this driver. */
@@ -470,7 +478,12 @@ function freezeFacts(value: unknown): void {
  * });
  * ```
  */
-export function defineDriver(options: DefineDriverOptionsType): DriverType {
+export function defineDriver<Backend = unknown>(
+  options: DefineDriverOptionsType & {
+    /** The borrowed client, database or store to expose as {@link DriverType.backend}. */
+    readonly backend?: Backend;
+  },
+): DriverType<Backend> {
   const inspection = parseDriverSchema("definition", DriverInspectionSchema, {
     name: options.name,
     kind: options.kind,
@@ -484,6 +497,7 @@ export function defineDriver(options: DefineDriverOptionsType): DriverType {
   freezeFacts(inspection);
   return {
     ...inspection,
+    ...(options.backend === undefined ? {} : { backend: options.backend }),
     inspect: () => DriverInspectionSchema.parse(inspection),
     plan: options.plan ?? ((input) =>
       DriverPlanSchema.parse({

@@ -9,7 +9,7 @@ import type { DriverOwnershipType } from "../../schema/mod.ts";
 export interface SwiftDriverOptionsType extends SwiftClientOptionsType {}
 
 /** A single regular-object limit is caller policy; no configured Swift cluster was probed. */
-function driver(client: SwiftClientType, ownership: DriverOwnershipType): ObjectDriverType {
+function driver(client: SwiftClientType, ownership: DriverOwnershipType): ObjectDriverType<SwiftClientType> {
   return defineObjectDriver(client, {
     name: client.name,
     ownership,
@@ -26,11 +26,11 @@ function driver(client: SwiftClientType, ownership: DriverOwnershipType): Object
 }
 
 /** Creates a regular-object client; does not obtain a token or contact the account. */
-export function createSwiftDriver(options: SwiftDriverOptionsType): ObjectDriverType {
+export function createSwiftDriver(options: SwiftDriverOptionsType): ObjectDriverType<SwiftClientType> {
   return driver(createSwiftClient(options), "owned");
 }
 
 /** Borrows a configured client and its credential owner. */
-export function createSwiftDriverFromClient(client: SwiftClientType): ObjectDriverType {
+export function createSwiftDriverFromClient(client: SwiftClientType): ObjectDriverType<SwiftClientType> {
   return driver(client, "borrowed");
 }

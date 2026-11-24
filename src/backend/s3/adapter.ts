@@ -13,6 +13,6 @@ export type S3AdapterOptionsType = ObjectAdapterOptionsType;
  * between the protocol client and filesystem adapter so limits, requirements,
  * and provider optimization policy remain separately inspectable.
  */
-export function createS3Adapter(client: S3ClientType, options: S3AdapterOptionsType = {}): AdapterType {
+export function createS3Adapter(client: S3ClientType, options: S3AdapterOptionsType = {}): AdapterType<S3ClientType> {
   return createObjectAdapter(createS3DriverFromClient(client), options);
 }

@@ -48,7 +48,10 @@ async function translated<Value>(operation: string, path: PathType, action: () =
 }
 
 /** Projects a borrowed GCS client through its driver and the generic object adapter. */
-export function createGcsAdapter(client: GcsClientType, options: GcsAdapterOptionsType = {}): AdapterType {
+export function createGcsAdapter(
+  client: GcsClientType,
+  options: GcsAdapterOptionsType = {},
+): AdapterType<GcsClientType> {
   const adapter = createObjectAdapter(createGcsDriverFromClient(client), options);
   return {
     name: adapter.name,

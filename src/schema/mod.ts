@@ -250,6 +250,11 @@ export const AdapterCapabilitiesSchema: z.ZodType<AdapterCapabilitiesType, Adapt
    * acquisition, parent validation, or append/update semantics.
    */
   validatesReplacement: z.boolean().optional(),
+  /**
+   * File stats carry a `revision`, and writes accept `ifRevision` and hold it atomically: the write replaces only that
+   * exact version, or throws `locked`. Absent or false means neither is available.
+   */
+  revisions: z.boolean().optional(),
 });
 
 /** Native operations implemented by one adapter. */
