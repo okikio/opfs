@@ -95,6 +95,8 @@ long suites are split into shards.
 - **Playwright's Ubuntu packages.** `prepare:browser` installs the browsers' system packages from cached `.deb` files
   with `apt-get --no-download`, so a slow Ubuntu mirror cannot spend a job's 10 minutes. On a miss, or when the files no
   longer fit the runner image, it installs normally and has apt download into the cache folder. A local `.deb` has no
-  signature for apt to check, so only trusted refs write this cache. See `.github/actions/playwright-cache`.
+  signature for apt to check, so only trusted refs write this cache. See `.github/actions/playwright-cache`. GitHub
+  scopes caches by ref: a pull request reads its own entries and `main`'s, so the first run of a new pull request misses
+  until `main` has saved an entry.
 - **Evidence.** A push to `main` selects work changed since the last commit whose CI passed. Release requires a passing
   main-push CI run on the exact commit being published.
