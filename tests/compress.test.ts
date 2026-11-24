@@ -4,7 +4,7 @@ import { expect } from "@std/expect";
 import { decodeBase64 } from "@std/encoding/base64";
 import { toRequestBytes } from "../src/bytes.ts";
 import { createArchiveLedger } from "../src/archive/budget.ts";
-import { compressStream, createCompressedTar, decompressStream, readCompressedTar } from "../src/archive/compress.ts";
+import { compressStream, createCompressedTar, decompressStream, scanCompressedTar } from "../src/archive/compress.ts";
 import fixtures from "./fixtures/compression/independent.json" with { type: "json" };
 import tarFixtures from "./fixtures/tar/independent.json" with { type: "json" };
 
@@ -267,7 +267,7 @@ describe("compressed TAR consumer workflow", () => {
   for (const format of ["gzip", "deflate", "deflate-raw"] as const) {
     it(`visits independent Python PAX TAR through ${format} without collecting the archive`, async () => {
       const members: string[] = [];
-      const result = await readCompressedTar(
+      const result = await scanCompressedTar(
         stream(decodeBase64(fixtures.formats[format].tar), 31),
         format,
         async (entry, body) => {
@@ -296,7 +296,7 @@ describe("compressed TAR consumer workflow", () => {
     const bytes = new TextEncoder().encode("streamed member");
     const output = createCompressedTar([{ name: "one", size: bytes.length, body: stream(bytes, 3) }], "gzip");
     let offset = 0;
-    const result = await readCompressedTar(output, "gzip", async (_entry, body) => {
+    const result = await scanCompressedTar(output, "gzip", async (_entry, body) => {
       for await (const chunk of body) {
         expect(chunk).toEqual(bytes.subarray(offset, offset + chunk.length));
         offset += chunk.length;
@@ -304,7 +304,7 @@ describe("compressed TAR consumer workflow", () => {
     });
     expect(offset).toBe(bytes.length);
     expect(result.compression.complete).toBe(true);
-    const partial = await readCompressedTar(
+    const partial = await scanCompressedTar(
       stream(decodeBase64(fixtures.formats.gzip.tar), 31),
       "gzip",
       async (_entry, body) => {
@@ -325,20 +325,20 @@ describe("compressed TAR consumer workflow", () => {
     corrupt[corrupt.length - 8] = corrupt[corrupt.length - 8]! ^ 1;
     for (const input of [corrupt, bytes.subarray(0, -1), bytes.subarray(0, -8)]) {
       const source = stream(input, Math.max(1, input.length - 8));
-      await expect(readCompressedTar(source, "gzip", () => {})).rejects.toBeInstanceOf(Error);
+      await expect(scanCompressedTar(source, "gzip", () => {})).rejects.toBeInstanceOf(Error);
       expect(source.locked).toBe(false);
     }
   });
 
   it("applies independent expanded/TAR budgets and closes the codec on visitor failure", async () => {
     const bytes = decodeBase64(fixtures.formats.gzip.tar);
-    await expect(readCompressedTar(stream(bytes), "gzip", () => {}, { compression: { maxDecodedBytes: 100 } })).rejects
+    await expect(scanCompressedTar(stream(bytes), "gzip", () => {}, { compression: { maxDecodedBytes: 100 } })).rejects
       .toMatchObject({ code: "budget-exceeded" });
-    await expect(readCompressedTar(stream(bytes), "gzip", () => {}, { tar: { maxDecodedBytes: 1 } })).rejects
+    await expect(scanCompressedTar(stream(bytes), "gzip", () => {}, { tar: { maxDecodedBytes: 1 } })).rejects
       .toMatchObject({ code: "budget-exceeded" });
     const source = stream(bytes);
     const primary = new Error("visitor primary");
-    await expect(readCompressedTar(source, "gzip", () => {
+    await expect(scanCompressedTar(source, "gzip", () => {
       throw primary;
     })).rejects.toBe(primary);
     expect(source.locked).toBe(false);

@@ -6,15 +6,15 @@ import { padding } from "./block.ts";
 import { TarHeaders } from "./mod.ts";
 import type { TarEntryType, TarOpenOptionsType } from "./mod.ts";
 
-/** Limits for `readTarStream()`: the archive limits plus per-chunk ceilings for a one-shot source. */
-export interface TarStreamOptionsType extends Omit<TarOpenOptionsType, "allowUnverifiedSource"> {
+/** Limits for `scanTar()`: the archive limits plus per-chunk ceilings for a one-shot source. */
+export interface TarScanOptionsType extends Omit<TarOpenOptionsType, "allowUnverifiedSource"> {
   /** Reject a larger producer chunk after receiving it. The producer controls its allocation. Default 64 KiB. */
   readonly maxChunkBytes?: number;
   /** Maximum byte view delivered by one body iteration. Set a smaller size for bounded prefixes. Default 64 KiB. */
   readonly bodyChunkBytes?: number;
 }
 
-/** The result of one `readTarStream()` scan. */
+/** The result of one `scanTar()` scan. */
 export interface TarScanType {
   /** Entries delivered to the visitor. */
   readonly entries: number;
@@ -33,15 +33,27 @@ export type TarVisitorType = (
 ) => void | boolean | Promise<void | boolean>;
 
 /**
- * Scan one uncompressed TAR stream. Awaited visitor consumption applies backpressure;
- * unread member bytes are drained under the same source/decoded budgets before the next header.
- * Return false to stop without draining. This operation owns the acquired reader and cancels
- * it on completion, stop, abort, or failure, then releases its lock. It offers no random access.
+ * Makes one forward pass over an uncompressed TAR stream, calling `visit` once per entry in archive order.
+ *
+ * Use it for a source you can read only once, such as a response body. Use `openTar()` from
+ * `@okikio/opfs/archive/tar` instead when the source supports byte ranges and you want to jump to a member.
+ *
+ * ```ts
+ * const result = await scanTar(response.body!, async (entry, body) => {
+ *   if (entry.name !== "notes/hello.txt") return; // its bytes are drained, not delivered
+ *   for await (const bytes of body) console.log(bytes.length);
+ * });
+ * console.log(result.entries, result.complete);
+ * ```
+ *
+ * An awaited visitor applies backpressure. Unread member bytes are drained under the same source and decoded budgets
+ * before the next header. Return `false` from `visit` to stop without draining; `complete` is then false. This
+ * operation owns the acquired reader and cancels it on completion, stop, abort or failure, then releases its lock.
  */
-export async function readTarStream(
+export async function scanTar(
   source: ReadableStream<Uint8Array>,
   visit: TarVisitorType,
-  options: TarStreamOptionsType = {},
+  options: TarScanOptionsType = {},
 ): Promise<TarScanType> {
   const headers = new TarHeaders(options);
   const bodyChunkBytes = options.bodyChunkBytes ?? 64 * 1024;
@@ -124,7 +136,7 @@ class TarCursor {
   #offset = 0;
   #cancelled: Promise<void> | undefined;
 
-  constructor(source: ReadableStream<Uint8Array>, options: TarStreamOptionsType) {
+  constructor(source: ReadableStream<Uint8Array>, options: TarScanOptionsType) {
     this.#ledger = createArchiveLedger(options);
     this.#shared = options.ledger;
     this.#maximum = options.maxChunkBytes ?? 64 * 1024;

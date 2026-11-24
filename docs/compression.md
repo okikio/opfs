@@ -2,13 +2,13 @@
 
 Use native gzip, zlib-framed `deflate`, unframed `deflate-raw`, or optional Brotli/Zstandard codecs without collecting
 an archive. `compressStream()` and `decompressStream()` return Web byte streams. `createCompressedTar()` and
-`readCompressedTar()` compose those codecs with the [TAR writer and visitor](tar.md). A late TAR member still requires
+`scanCompressedTar()` compose those codecs with the [TAR writer and visitor](tar.md). A late TAR member still requires
 sequential decompression of preceding bytes; these APIs do not provide compressed random access or resume checkpoints.
 
 This example writes a gzip TAR, then consumes a selected member. Both layers have explicit byte limits:
 
 ```ts
-import { createCompressedTar, readCompressedTar } from "@okikio/opfs/archive/compress";
+import { createCompressedTar, scanCompressedTar } from "@okikio/opfs/archive/compress";
 
 const output = createCompressedTar(
   [
@@ -20,7 +20,7 @@ const output = createCompressedTar(
     compression: { maxSourceBytes: 16 * 1024, maxDecodedBytes: 16 * 1024, maxOutputBytes: 4096 },
   },
 );
-const result = await readCompressedTar(output, "gzip", async (entry, body) => {
+const result = await scanCompressedTar(output, "gzip", async (entry, body) => {
   if (entry.name === "notes/hello.txt") {
     const decoder = new TextDecoder();
     for await (const bytes of body) console.log(decoder.decode(bytes, { stream: true }));
@@ -34,7 +34,7 @@ console.log(result.complete, result.compression.integrity);
 // true, "gzip-crc32"
 ```
 
-TAR end blocks occur before the compression footer. After a complete TAR traversal, `readCompressedTar()` continues to
+TAR end blocks occur before the compression footer. After a complete TAR traversal, `scanCompressedTar()` continues to
 decoder EOF, discarding remaining TAR record padding under the compression budgets. This final drain checks gzip CRC32
 and uncompressed size, or zlib Adler32, against the decoded content. A corrupt/truncated footer rejects the operation
 even when all TAR visitors already ran. Consumer side effects are not rolled back: stage important writes and publish
@@ -82,7 +82,7 @@ decoding. Those checks use constant-size checksum/trailer state. They do not rep
 cryptographic verification. Successful gzip/zlib EOF establishes the applicable plaintext/footer checksum scope, not
 canonical encoding or authentication of metadata.
 
-Raw DEFLATE has no checksum. `readCompressedTar()` therefore reports `compression.integrity: "none"` for raw input, even
+Raw DEFLATE has no checksum. `scanCompressedTar()` therefore reports `compression.integrity: "none"` for raw input, even
 at native EOF. On Deno 2.9.8 the native raw decoder can return shortened plaintext and EOF for a truncated final block;
 native EOF does not independently prove structural DEFLATE completeness. TAR end markers also do not prove the absence
 of truncated later raw content. Callers that require complete raw bytes must check a trusted expected length/hash or use
@@ -128,7 +128,7 @@ open files or acquire credentials. Cancelling an output before its first pull le
 Errors preserve the primary source/codec failure and independently observed cleanup failures. `signal` is cooperative:
 an upstream cancellation hook must settle. There is no forced deadline or hidden retry.
 
-`readCompressedTar()` and `createCompressedTar()` accept one top-level `signal` and combine it with any layer signals.
+`scanCompressedTar()` and `createCompressedTar()` accept one top-level `signal` and combine it with any layer signals.
 This authority reaches TAR consumption/production and the final decoder drain. A stream or body is consumed once;
 retrying requires a new source and, for writing, a new entry sequence/body streams. These operations do not publish a
 transfer checkpoint or guarantee rollback of output already emitted.

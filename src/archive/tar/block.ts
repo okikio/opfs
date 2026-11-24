@@ -5,7 +5,7 @@
  * is followed by zero bytes up to the next block boundary.
  *
  * Published at `@okikio/opfs/archive/tar/_block` for code that reads or writes TAR blocks itself. Most callers
- * never need it: `openTar()`, `readTarStream()` and `createTarStream()` already apply it.
+ * never need it: `openTar()`, `scanTar()` and `createTarStream()` already apply it.
  *
  * @module
  */

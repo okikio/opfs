@@ -3,10 +3,10 @@ import { close } from "../close.ts";
 import { ArchiveError, invalid, unsupported } from "./error.ts";
 import { assertInteger, createArchiveLedger } from "./budget.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./budget.ts";
-import { createTarStream, readTarStream } from "./tar/stream.ts";
+import { createTarStream, scanTar } from "./tar/stream.ts";
 import type {
+  TarScanOptionsType,
   TarScanType,
-  TarStreamOptionsType,
   TarVisitorType,
   TarWriteEntryType,
   TarWriteOptionsType,
@@ -368,7 +368,7 @@ export interface CompressedTarOptionsType {
   /** Cancels acquisition, TAR traversal and the final decoder/footer drain. Combined with layer signals. */
   readonly signal?: AbortSignal;
   readonly compression?: CompressionOptionsType;
-  readonly tar?: TarStreamOptionsType;
+  readonly tar?: TarScanOptionsType;
 }
 
 /** Independent TAR production/codec policies, with one combined cancellation authority. */
@@ -380,7 +380,7 @@ export interface CompressedTarWriteOptionsType {
 }
 
 /** TAR traversal and compression EOF/checksum scope are separate observations. */
-export interface CompressedTarReadType extends TarScanType {
+export interface CompressedTarScanType extends TarScanType {
   readonly compression: {
     readonly format: CompressionFormatType;
     /** Native EOF after TAR end; gzip/zlib checksums passed. Raw EOF does not independently prove DEFLATE completeness. */
@@ -410,12 +410,12 @@ export function createCompressedTar(
  * including trailing TAR record padding, so a damaged gzip/zlib footer cannot hide after TAR end blocks.
  * Returning false cancels without this drain and reports a pending checksum.
  */
-export async function readCompressedTar(
+export async function scanCompressedTar(
   source: ReadableStream<Uint8Array>,
   format: CompressionFormatType,
   visit: TarVisitorType,
   options: CompressedTarOptionsType = {},
-): Promise<CompressedTarReadType> {
+): Promise<CompressedTarScanType> {
   const ledger = createArchiveLedger(options.compression);
   const signal = joinedSignal(options.signal, options.tar?.signal, options.compression?.signal);
   const shared = options.compression?.ledger;
@@ -453,7 +453,7 @@ export async function readCompressedTar(
     },
   }, { highWaterMark: 0 });
   try {
-    const result = await readTarStream(bridge, visit, { ...options.tar, ...(signal === undefined ? {} : { signal }) });
+    const result = await scanTar(bridge, visit, { ...options.tar, ...(signal === undefined ? {} : { signal }) });
     if (result.complete) {
       while (true) {
         let next: ReadableStreamReadResult<Uint8Array>;

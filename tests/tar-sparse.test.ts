@@ -4,7 +4,7 @@ import { decodeBase64 } from "@std/encoding/base64";
 import { createBlobSource } from "../src/source.ts";
 import type { ByteSourceType } from "../src/source.ts";
 import { createArchiveLedger, openTar } from "../src/archive/tar/mod.ts";
-import { readTarStream } from "../src/archive/tar/stream.ts";
+import { scanTar } from "../src/archive/tar/stream.ts";
 import { createTarAdapter } from "../src/view/tar.ts";
 import { createFileSystem } from "../src/filesystem.ts";
 import ordinary from "./fixtures/tar/independent.json" with { type: "json" };
@@ -180,7 +180,7 @@ describe("indexed GNU PAX sparse 1.0", () => {
         cancelled = true;
       },
     });
-    await expect(readTarStream(stream, () => {
+    await expect(scanTar(stream, () => {
       visited = true;
     })).rejects.toMatchObject({ code: "unsupported-profile" });
     expect(visited).toBe(false);

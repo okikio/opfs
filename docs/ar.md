@@ -49,7 +49,7 @@ scan so the gzip footer is checked.
 ```ts
 import { createBlobSource } from "@okikio/opfs/source";
 import { openAr } from "@okikio/opfs/archive/ar";
-import { readCompressedTar } from "@okikio/opfs/archive/compress";
+import { scanCompressedTar } from "@okikio/opfs/archive/compress";
 
 export async function readControl(archiveBytes: ArrayBuffer): Promise<Uint8Array | undefined> {
   const archive = await openAr(createBlobSource(new Blob([archiveBytes])));
@@ -74,7 +74,7 @@ export async function readControl(archiveBytes: ArrayBuffer): Promise<Uint8Array
     },
   });
   let control: Uint8Array | undefined;
-  const result = await readCompressedTar(stream, "gzip", async (entry, body) => {
+  const result = await scanCompressedTar(stream, "gzip", async (entry, body) => {
     if (entry.kind !== "file" || (entry.name !== "control" && entry.name !== "./control")) return;
     if (control !== undefined) throw new Error("Package contains duplicate control files.");
     const chunks: Uint8Array[] = [];

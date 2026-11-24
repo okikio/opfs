@@ -6,16 +6,16 @@ npm/@okikio/opfs: minor
 
 The optional `archive/compress` subpath exposes native Web compression/decompression streams with explicit producer,
 decoded-byte and delivered-output budgets. `createCompressedTar()` connects the TAR/PAX writer directly to a codec;
-`readCompressedTar()` visits members sequentially and drains past TAR end blocks to validate the compression footer. See
+`scanCompressedTar()` visits members sequentially and drains past TAR end blocks to validate the compression footer. See
 [the complete streaming example](docs/compression.md) for separate TAR/codec policies and early preview.
 
 ```ts
-import { createCompressedTar, readCompressedTar } from "@okikio/opfs/archive/compress";
+import { createCompressedTar, scanCompressedTar } from "@okikio/opfs/archive/compress";
 
 const gzip = createCompressedTar([
   { name: "hello.txt", size: 5, body: new Blob(["hello"]).stream() },
 ], "gzip");
-const result = await readCompressedTar(gzip, "gzip", async (entry, body) => {
+const result = await scanCompressedTar(gzip, "gzip", async (entry, body) => {
   const decoder = new TextDecoder();
   for await (const bytes of body) console.log(entry.name, decoder.decode(bytes, { stream: true }));
   console.log(decoder.decode());

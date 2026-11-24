@@ -556,14 +556,14 @@
   ],
   "./archive/compress": [
     "interface CompressedTarOptionsType",
-    "interface CompressedTarReadType",
+    "interface CompressedTarScanType",
     "interface CompressedTarWriteOptionsType",
     "typeAlias CompressionFormatType",
     "interface CompressionOptionsType",
     "function compressStream",
     "function createCompressedTar",
     "function decompressStream",
-    "function readCompressedTar"
+    "function scanCompressedTar"
   ],
   "./archive/cpio": [
     "reference ArchiveError",
@@ -741,9 +741,9 @@
   ],
   "./archive/tar/stream": [
     "function createTarStream",
-    "function readTarStream",
+    "function scanTar",
+    "interface TarScanOptionsType",
     "interface TarScanType",
-    "interface TarStreamOptionsType",
     "typeAlias TarVisitorType",
     "interface TarWriteEntryType",
     "interface TarWriteOptionsType"

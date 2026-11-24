@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 import { decodeBase64 } from "@std/encoding/base64";
 import { ArchiveError } from "../src/archive/error.ts";
-import { compressStream, createCompressedTar, decompressStream, readCompressedTar } from "../src/archive/compress.ts";
+import { compressStream, createCompressedTar, decompressStream, scanCompressedTar } from "../src/archive/compress.ts";
 import fixtures from "./fixtures/compression/native.json" with { type: "json" };
 
 function stream(bytes: Uint8Array, chunk = 64): ReadableStream<Uint8Array> {
@@ -68,7 +68,7 @@ describe("optional native Brotli and Zstandard codecs", () => {
         format,
       );
       let body: Uint8Array = new Uint8Array();
-      const result = await readCompressedTar(tar, format, async (_entry, source) => {
+      const result = await scanCompressedTar(tar, format, async (_entry, source) => {
         body = await collect(source);
       });
       expect(body).toEqual(new TextEncoder().encode("note"));

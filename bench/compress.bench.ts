@@ -1,7 +1,7 @@
 import { bench, do_not_optimize } from "mitata";
 import { toRequestBytes } from "../src/bytes.ts";
 import { createArchiveLedger } from "../src/archive/budget.ts";
-import { compressStream, createCompressedTar, decompressStream, readCompressedTar } from "../src/archive/compress.ts";
+import { compressStream, createCompressedTar, decompressStream, scanCompressedTar } from "../src/archive/compress.ts";
 import { expectBytes, payload, report } from "./result.ts";
 
 /** Producer chunks are bounded independently of Blob.stream() runtime choices. No per-pull payload allocation. */
@@ -104,7 +104,7 @@ const write = () =>
   createCompressedTar([{ name: "payload.bin", size: tarPayload.length, body: streamed(tarPayload) }], "gzip");
 const tarEncoded = new Uint8Array(await new Response(write()).arrayBuffer());
 let visible = 0;
-const scan = await readCompressedTar(streamed(tarEncoded), "gzip", async (_entry, body) => {
+const scan = await scanCompressedTar(streamed(tarEncoded), "gzip", async (_entry, body) => {
   for await (const chunk of body) {
     expectBytes(chunk, tarPayload.subarray(visible, visible + chunk.length), "compress/tar-payload-oracle");
     visible += chunk.length;
@@ -122,7 +122,7 @@ bench(`compress/TAR gzip write + discard: payload=${tarPayload.length}B encoded=
 bench(
   `compress/TAR gzip list + footer: source=${scan.compression.work.sourceBytes}B decoded=${scan.compression.work.decodedBytes}B TAR-payload-discard=${tarPayload.length}B`,
   async () => {
-    do_not_optimize(await readCompressedTar(streamed(tarEncoded), "gzip", () => {}));
+    do_not_optimize(await scanCompressedTar(streamed(tarEncoded), "gzip", () => {}));
   },
 );
 
