@@ -109,7 +109,7 @@ export interface RecordBackendType {
  * stores, and SQL-backed row persistence that does not naturally behave like a
  * byte-addressable directory tree.
  */
-export interface RecordDriverType extends DriverType, RecordBackendType {
+export interface RecordDriverType<Backend = unknown> extends DriverType<Backend>, RecordBackendType {
   readonly kind: "record";
   /** Native record-oriented behaviors the backend can expose directly. */
   readonly capabilities: RecordDriverCapabilitiesType;
@@ -216,10 +216,13 @@ export function createRecordPlan(base: DriverType, input: DriverPlanInputType): 
  * });
  * ```
  */
-export function defineRecordDriver(
+export function defineRecordDriver<Backend = unknown>(
   backend: RecordBackendType,
-  options: DefineRecordDriverOptionsType,
-): RecordDriverType {
+  options: DefineRecordDriverOptionsType & {
+    /** The caller's store, such as a browser extension storage area, to expose as {@link DriverType.backend}. */
+    readonly backend?: Backend;
+  },
+): RecordDriverType<Backend> {
   options = { ...options }; // Callbacks and policy flags belong to this configured instance.
   const readOnly = options.readOnly === true || options.capabilities?.write === false ||
     backend.capabilities?.write === false;
@@ -235,7 +238,7 @@ export function defineRecordDriver(
     write: !readOnly,
   });
 
-  const base: DriverType = defineDriver({
+  const base: DriverType<Backend> = defineDriver<Backend>({
     ...options,
     kind: "record",
     provides: options.provides ?? [

@@ -113,7 +113,7 @@ function assertWritable(readOnly: boolean, operation: string, path: string): voi
  * access remain facade-owned or unsupported because they are not record-store
  * primitives.
  */
-class RecordAdapter implements AdapterType {
+class RecordAdapter<Backend = unknown> implements AdapterType<Backend> {
   /** Diagnostic adapter identity exposed through the public facade. */
   readonly name: string;
   readonly publication: NonNullable<AdapterType["publication"]>;
@@ -124,16 +124,16 @@ class RecordAdapter implements AdapterType {
   /** Physical partition layout inherited from the underlying value store. */
   readonly partition?: AdapterPartitionType;
   /** Store that owns durable record persistence. */
-  readonly driver: RecordDriverType;
+  readonly driver: RecordDriverType<Backend>;
   /** Native operations use the captured store, independent of public inspector shadows. */
-  readonly #driver: RecordDriverType;
+  readonly #driver: RecordDriverType<Backend>;
   /** Prevents all mutation when the upstream storage is read-only. */
   readonly #readOnly: boolean;
   /** Whether adapter disposal also disposes the injected driver. */
   readonly #disposeDriver: boolean;
 
   /** Resolves immutable adapter policy once instead of closing over factory locals. */
-  constructor(driver: RecordDriverType, options: RecordAdapterOptionsType) {
+  constructor(driver: RecordDriverType<Backend>, options: RecordAdapterOptionsType) {
     this.driver = driver;
     this.#driver = driver;
     this.publication = {
@@ -399,6 +399,9 @@ class RecordAdapter implements AdapterType {
  * await fs.writeFile("/state.json", "{}", { parents: true });
  * ```
  */
-export function createRecordAdapter(driver: RecordDriverType, options: RecordAdapterOptionsType = {}): AdapterType {
+export function createRecordAdapter<Backend = unknown>(
+  driver: RecordDriverType<Backend>,
+  options: RecordAdapterOptionsType = {},
+): AdapterType<Backend> {
   return defineAdapter(new RecordAdapter(driver, options));
 }
