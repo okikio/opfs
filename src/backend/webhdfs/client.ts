@@ -1,4 +1,5 @@
 /** Native WebHDFS requests with explicit NameNode/DataNode authority. @module */
+import { toInteger } from "../../check.ts";
 import { RequestMetrics, sendRequest } from "../../request.ts";
 import type { FetchType, RequestMetricsType, RequestPolicyType } from "../../request.ts";
 import { readResponse } from "../../response.ts";
@@ -100,12 +101,6 @@ export interface WebhdfsClientType {
   getMetrics(): RequestMetricsType;
 }
 
-/** Safe arithmetic is admitted before allocation or credential acquisition. */
-function integer(value: number, name: string): number {
-  if (!Number.isSafeInteger(value) || value < 0) throw new RangeError(`${name} must be a nonnegative safe integer.`);
-  return value;
-}
-
 /** Direct paths are canonical absolute names, never URI or backslash aliases. */
 function path(value: string): string {
   if (
@@ -148,8 +143,8 @@ function entry(value: unknown, child: boolean): WebhdfsEntryType {
   return Object.freeze({
     name: row.pathSuffix,
     kind,
-    size: integer(row.length, "file length"),
-    lastModified: integer(row.modificationTime, "modification time"),
+    size: toInteger(row.length, "file length"),
+    lastModified: toInteger(row.modificationTime, "modification time"),
   });
 }
 
@@ -256,10 +251,10 @@ class WebhdfsClient implements WebhdfsClientType {
     this.#auth = options.auth;
     this.#fetch = options.fetch ?? globalThis.fetch;
     this.#policy = options.policy === undefined ? undefined : { ...options.policy };
-    this.#writeBytes = integer(options.maxWriteBytes ?? 8 * 1024 * 1024, "maxWriteBytes");
-    this.#readBytes = integer(options.maxReadBytes ?? 1024 * 1024 * 1024, "maxReadBytes");
-    this.#entries = integer(options.maxEntries ?? 100000, "maxEntries");
-    this.#pages = integer(options.maxPages ?? 10000, "maxPages");
+    this.#writeBytes = toInteger(options.maxWriteBytes ?? 8 * 1024 * 1024, "maxWriteBytes");
+    this.#readBytes = toInteger(options.maxReadBytes ?? 1024 * 1024 * 1024, "maxReadBytes");
+    this.#entries = toInteger(options.maxEntries ?? 100000, "maxEntries");
+    this.#pages = toInteger(options.maxPages ?? 10000, "maxPages");
     this.name = options.name ?? "webhdfs";
   }
 
@@ -435,7 +430,7 @@ class WebhdfsClient implements WebhdfsClientType {
           .DirectoryListing,
       );
       if (typeof listing.remainingEntries !== "number") throw new TypeError("Missing WebHDFS remainingEntries.");
-      const remaining = integer(listing.remainingEntries, "remaining entries");
+      const remaining = toInteger(listing.remainingEntries, "remaining entries");
       const values = object(object(listing.partialListing).FileStatuses).FileStatus;
       if (!Array.isArray(values)) throw new TypeError("Malformed WebHDFS partial listing.");
       if (values.length > this.#entries - result.length) throw new RangeError("WebHDFS listing exceeds maxEntries.");
@@ -480,7 +475,7 @@ class WebhdfsClient implements WebhdfsClientType {
         throw new TypeError("Encoded WebHDFS responses cannot preserve offsets.");
       }
       const text = response.headers.get("content-length");
-      const expected = text === null ? undefined : /^\d+$/.test(text) ? integer(Number(text), "Content-Length") : NaN;
+      const expected = text === null ? undefined : /^\d+$/.test(text) ? toInteger(Number(text), "Content-Length") : NaN;
       const maximum = Math.min(length ?? this.#readBytes, this.#readBytes);
       if (expected !== undefined && (!Number.isSafeInteger(expected) || expected > maximum)) {
         throw new RangeError("WebHDFS Content-Length exceeds its extent or limit.");

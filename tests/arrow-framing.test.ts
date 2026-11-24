@@ -159,7 +159,7 @@ describe("private Arrow modern framing", () => {
     failure(() => inspectFileTail(tail(7), 26), "invalid-archive");
     failure(() => inspectFileTail(Buffer.alloc(10), 26), "invalid-archive");
     failure(() => inspectFileTail(tail(8), 26, { maxMetadataBytes: 7 }), "budget-exceeded");
-    expect(() => inspectFileTail(tail(8), Number.MAX_SAFE_INTEGER + 1)).toThrow(TypeError);
+    expect(() => inspectFileTail(tail(8), Number.MAX_SAFE_INTEGER + 1)).toThrow(RangeError);
   });
   it("admits exact safe ranges and rejects the whole index for any late bad block", () => {
     expect(inspectBlocks([valid], bounds)).toEqual([{
@@ -191,7 +191,7 @@ describe("private Arrow modern framing", () => {
     failure(() => inspectBlocks([valid], { ...bounds, footerOffset: 1040 }), "invalid-archive");
     failure(() => inspectBlocks([valid], bounds, { maxMetadataBytes: 15 }), "budget-exceeded");
     failure(() => inspectBlocks([valid], bounds, { maxBodyBytes: 15 }), "budget-exceeded");
-    expect(() => inspectBlocks([], { ...bounds, sourceSize: Number.POSITIVE_INFINITY })).toThrow(TypeError);
-    expect(() => inspectBlocks([], bounds, { maxBodyBytes: -1 })).toThrow(TypeError);
+    expect(() => inspectBlocks([], { ...bounds, sourceSize: Number.POSITIVE_INFINITY })).toThrow(RangeError);
+    expect(() => inspectBlocks([], bounds, { maxBodyBytes: -1 })).toThrow(RangeError);
   });
 });

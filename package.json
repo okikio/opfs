@@ -250,6 +250,8 @@
     "./netlify": "./src/backend/netlify/client.ts",
     "./_abort": "./src/abort.ts",
     "./_body": "./src/body.ts",
+    "./_json": "./src/json.ts",
+    "./_check": "./src/check.ts",
     "./_bytes": "./src/bytes.ts",
     "./_chunk": "./src/chunk.ts",
     "./_close": "./src/close.ts",

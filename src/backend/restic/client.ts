@@ -1,4 +1,6 @@
 /** Opaque restic REST repository objects, without backup decryption, locking or restore semantics. @module */
+import { toInteger } from "../../check.ts";
+import { exactLength } from "../../body.ts";
 import { z } from "zod";
 import { isBytes, toRequestBytes, toView } from "../../bytes.ts";
 import { close } from "../../close.ts";
@@ -6,7 +8,7 @@ import { assertRangeResponse, resolveRange } from "../../range.ts";
 import { RequestMetrics, sendRequest } from "../../request.ts";
 import type { FetchType, RequestPolicyType } from "../../request.ts";
 import { readResponse } from "../../response.ts";
-import { collectBytes, openBytes, withAbortSignal } from "../../stream.ts";
+import { collectBytes } from "../../stream.ts";
 
 /** Local per-operation ceiling, independent of the server's repository quota or pack-size policy. */
 export const RESTIC_BUFFER_BYTES = 64 * 1024 * 1024;
@@ -78,13 +80,6 @@ export class ResticPublicationError extends Error {
   }
 }
 
-/** Reject unsafe lengths before allocation and before arithmetic can lose integer precision. */
-function integer(value: number, maximum = Number.MAX_SAFE_INTEGER): number {
-  if (!Number.isSafeInteger(value) || value < 0 || value > maximum) {
-    throw new RangeError("Restic REST size exceeds its finite bound.");
-  }
-  return value;
-}
 /** Sanitize schema diagnostics so foreign locator input is never echoed by a library-owned error. */
 function locator(value: unknown): ResticObjectType {
   const parsed = ResticObjectSchema.safeParse(value);
@@ -97,7 +92,7 @@ function length(response: Response): number {
   if (raw === null || !/^(0|[1-9][0-9]{0,15})$/u.test(raw)) {
     throw new TypeError("Restic REST requires a safe Content-Length.");
   }
-  return integer(Number(raw));
+  return toInteger(Number(raw), "Restic REST size");
 }
 /** A narrow V2 grammar rejects duplicate keys and oversized numeric lexemes before conversion, without a general JSON tree. */
 function listing(text: string, maximum: number): readonly ResticEntryType[] {
@@ -135,7 +130,7 @@ function listing(text: string, maximum: number): readonly ResticEntryType[] {
         keys.add(selected);
         character(":");
         if (selected === "name") id = token(name)[1]!;
-        else bytes = integer(Number(token(size)[0]));
+        else bytes = toInteger(Number(token(size)[0]), "Restic REST size");
         if (field === 0) character(",");
       }
       character("}");
@@ -153,55 +148,6 @@ function listing(text: string, maximum: number): readonly ResticEntryType[] {
   whitespace();
   if (at !== text.length) throw new TypeError("Trailing restic REST listing data.");
   return Object.freeze(entries);
-}
-/** One reader owns exact actual EOF and cancellation; a native read rejection is terminal and is not re-cancelled. */
-function extent(body: ReadableStream<Uint8Array>, expected: number, signal?: AbortSignal): ReadableStream<Uint8Array> {
-  const reader = openBytes(body);
-  let seen = 0, empty = 0, terminal = false;
-  return withAbortSignal(
-    new ReadableStream<Uint8Array>({
-      async pull(controller) {
-        try {
-          let next: ReadableStreamReadResult<Uint8Array>;
-          try {
-            next = await reader.read();
-          } catch (reason) {
-            terminal = true;
-            throw reason;
-          }
-          if (next.done) {
-            terminal = true;
-            if (seen !== expected) throw new TypeError("Restic REST body is truncated.");
-            reader.releaseLock();
-            controller.close();
-            return;
-          }
-          if (!isBytes(next.value)) throw new TypeError("Restic REST body requires bytes.");
-          const bytes = toView(next.value);
-          if (bytes.length > expected - seen) throw new TypeError("Restic REST body exceeds its extent.");
-          seen += bytes.length;
-          if (!bytes.length) { if (++empty > 16) throw new TypeError("Restic REST body makes no progress."); }
-          else empty = 0;
-          controller.enqueue(bytes);
-        } catch (reason) {
-          try {
-            await close([...(terminal ? [] : [() => reader.cancel(reason)]), () => reader.releaseLock()], [reason]);
-          } catch (failure) {
-            controller.error(failure);
-          }
-          terminal = true;
-        }
-      },
-      async cancel(reason) {
-        if (terminal) return;
-        terminal = true;
-        await close([() => reader.cancel(reason), () => reader.releaseLock()]);
-      },
-    }, { highWaterMark: 0 }),
-    signal,
-    "Restic REST",
-    "download",
-  );
 }
 
 /** Native opaque object storage. The caller owns repository initialization, maintenance locks and deletion policy. */
@@ -247,8 +193,8 @@ export class ResticClient {
     }
     this.#digest = digest === undefined ? undefined : digest.bind(subtle);
     this.#policy = options.policy === undefined ? undefined : { ...options.policy };
-    this.#max = integer(options.maxBytes ?? 8 * 1024 * 1024, RESTIC_BUFFER_BYTES);
-    this.#entries = integer(options.maxEntries ?? 10000, 100000);
+    this.#max = toInteger(options.maxBytes ?? 8 * 1024 * 1024, "Restic REST size", RESTIC_BUFFER_BYTES);
+    this.#entries = toInteger(options.maxEntries ?? 10000, "Restic REST size", 100000);
   }
   /** Construct only native typed routes; no remote action URL or redirect is admitted. */
   #url(object: ResticObjectType): URL {
@@ -408,7 +354,15 @@ export class ResticClient {
           evidence: "server-trusted",
         };
       }
-      return { bytes: extent(response.body, size, selected.signal), size, evidence: "server-trusted" };
+      return {
+        bytes: exactLength(response.body, size, {
+          label: "Restic REST body",
+          resource: "Restic REST",
+          signal: selected.signal,
+        }),
+        size,
+        evidence: "server-trusted",
+      };
     } catch (reason) {
       await close(response.body === null ? [] : [() => response.body!.cancel(reason)], [reason]);
       throw reason;
@@ -469,7 +423,7 @@ export class ResticClient {
     if (!parsed.success) throw new TypeError("Invalid restic REST object kind.");
     if (!isBytes(bytes)) throw new TypeError("Restic REST save requires a Uint8Array.");
     const view = toView(bytes);
-    integer(view.length, this.#max);
+    toInteger(view.length, "Restic REST size", this.#max);
     const owned = new Uint8Array(view), id = await this.#hash(owned, signal);
     const object = locator({ kind: parsed.data, id });
     await this.#mutate(this.#url(object), "POST", "save object", object, signal, owned);

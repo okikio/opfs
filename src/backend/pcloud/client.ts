@@ -1,4 +1,7 @@
 /** pCloud ID-based native HTTP operations with explicit account and download authority. @module */
+import { toInteger } from "../../check.ts";
+import { exactLength } from "../../body.ts";
+import { type JsonLimitsType, parseJson } from "../../json.ts";
 import { z } from "zod";
 import { isBytes, toView } from "../../bytes.ts";
 import { close } from "../../close.ts";
@@ -6,7 +9,7 @@ import { assertRangeResponse, resolveRange } from "../../range.ts";
 import { RequestMetrics, sendRequest } from "../../request.ts";
 import type { FetchType, RequestPolicyType } from "../../request.ts";
 import { readResponse } from "../../response.ts";
-import { collectBytes, openBytes, withAbortSignal } from "../../stream.ts";
+import { collectBytes } from "../../stream.ts";
 
 /** Local materialization ceiling, not a pCloud file-size limit. */
 export const PCLOUD_BUFFER_BYTES = 64 * 1024 * 1024;
@@ -92,11 +95,6 @@ const MetadataSchema = z.object({
   isdeleted: z.boolean().optional(),
   contents: z.unknown().optional(),
 });
-/** Admission bounds precede all allocations and foreign capability awaits. */
-function integer(value: number, maximum: number, label: string): number {
-  if (!Number.isSafeInteger(value) || value < 0 || value > maximum) throw new RangeError(`Invalid pCloud ${label}.`);
-  return value;
-}
 /** uint64 protocol fields never pass through Number before identity comparison. */
 function id(value: unknown): string {
   if (
@@ -107,7 +105,7 @@ function id(value: unknown): string {
 }
 function size(value: unknown): number {
   const exact = id(value);
-  return integer(Number(exact), Number.MAX_SAFE_INTEGER, "byte size");
+  return toInteger(Number(exact), "pCloud byte size");
 }
 /** pCloud names are shorter than 1024 UTF-8 bytes; paths and names are distinct. */
 function name(value: string): string {
@@ -139,110 +137,16 @@ function separators(value: string): boolean {
   }
   return false;
 }
-/**
- * JSON numbers are parsed as exact lexical strings. JSON.parse is only used on
- * bounded string tokens, so uint64 identities cannot be rounded first. This
- * private dialect also rejects duplicate decoded keys and prototype keys before
- * schemas select authority. Limits: 8 MiB text, depth32, 1M tokens, 32K lexical
- * string characters and 128 lexical numeric characters. No eval or reviver hook.
- */
-function json(text: string): unknown {
-  if (text.length > 8 * 1024 * 1024) throw new RangeError("pCloud JSON exceeds its lexical budget.");
-  let at = 0, tokens = 0;
-  const fail = (): never => {
-    throw new TypeError("Malformed or over-budget pCloud JSON.");
-  };
-  const whitespace = (): void => {
-    while (/[ \t\r\n]/.test(text[at] ?? "x")) at++;
-  };
-  const count = (): void => {
-    if (++tokens > 1000000) fail();
-  };
-  function string(): string {
-    const start = at++;
-    while (at < text.length) {
-      if (at - start > 32768) fail();
-      const char = text[at++];
-      if (char === "\\") {
-        at++;
-        continue;
-      }
-      if (char === '"') {
-        let value: unknown;
-        // Native SyntaxError context may contain the signed URL inside this string.
-        try {
-          value = JSON.parse(text.slice(start, at));
-        } catch {
-          return fail();
-        }
-        if (typeof value !== "string") fail();
-        return value as string;
-      }
-    }
-    return fail();
-  }
-  function value(depth: number): unknown {
-    count();
-    if (depth > 32) fail();
-    whitespace();
-    if (text[at] === '"') return string();
-    if (text[at] === "{") {
-      at++;
-      whitespace();
-      const object: Record<string, unknown> = Object.create(null);
-      if (text[at] === "}") {
-        at++;
-        return object;
-      }
-      while (true) {
-        count();
-        whitespace();
-        if (text[at] !== '"') fail();
-        const key = string();
-        if (key === "__proto__" || key === "constructor" || key === "prototype" || Object.hasOwn(object, key)) fail();
-        whitespace();
-        if (text[at++] !== ":") fail();
-        object[key] = value(depth + 1);
-        whitespace();
-        const end = text[at++];
-        if (end === "}") return object;
-        if (end !== ",") fail();
-      }
-    }
-    if (text[at] === "[") {
-      at++;
-      whitespace();
-      const array: unknown[] = [];
-      if (text[at] === "]") {
-        at++;
-        return array;
-      }
-      while (true) {
-        array.push(value(depth + 1));
-        whitespace();
-        const end = text[at++];
-        if (end === "]") return array;
-        if (end !== ",") fail();
-      }
-    }
-    const start = at;
-    while (at < text.length && !/[ \t\r\n,}\]]/.test(text[at]!)) {
-      if (at - start > 128) fail();
-      at++;
-    }
-    const raw = text.slice(start, at);
-    if (raw.length > 128) fail();
-    if (raw === "true") return true;
-    if (raw === "false") return false;
-    if (raw === "null") return null;
-    if (!/^-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?$/.test(raw)) return fail();
-    return raw;
-  }
-  const result = value(0);
-  whitespace();
-  if (at !== text.length) fail();
-  return result;
-}
+/** Limits for this service's JSON responses; see `parseJson`. */
+const jsonLimits: JsonLimitsType = {
+  label: "pCloud",
+  maxLength: 8 * 1024 * 1024,
+  maxTokens: 1_000_000,
+  maxString: 32_768,
+  maxScalar: 128,
+  number: (raw) => raw,
+};
+
 /** Metadata identity must agree with both its prefixed ID and concrete native kind. */
 function metadata(value: unknown): PcloudMetadataType {
   const data = MetadataSchema.parse(value), selected = id(data.isfolder ? data.folderid : data.fileid);
@@ -272,56 +176,6 @@ function file(value: unknown, expected?: string): PcloudFileType {
   }
   return { ...data, kind: "file", size: data.size };
 }
-/** A response stream's true EOF is necessary even after a matching length header. */
-function extent(source: ReadableStream<Uint8Array>, length: number, signal?: AbortSignal): ReadableStream<Uint8Array> {
-  const reader = openBytes(source);
-  let remaining = length, ended = false, empty = 0;
-  return withAbortSignal(
-    new ReadableStream<Uint8Array>({
-      async pull(controller) {
-        try {
-          let next: ReadableStreamReadResult<Uint8Array>;
-          try {
-            next = await reader.read();
-          } catch (reason) {
-            ended = true;
-            throw reason;
-          }
-          if (ended) return;
-          if (next.done) {
-            ended = true;
-            if (remaining !== 0) throw new TypeError("pCloud body is truncated.");
-            reader.releaseLock();
-            controller.close();
-            return;
-          }
-          if (!isBytes(next.value)) throw new TypeError("pCloud body requires byte chunks.");
-          const bytes = toView(next.value);
-          if (bytes.length > remaining) throw new TypeError("pCloud body exceeds its selected extent.");
-          if (bytes.length === 0) { if (++empty > 16) throw new TypeError("pCloud body makes no progress."); }
-          else empty = 0;
-          remaining -= bytes.length;
-          controller.enqueue(bytes);
-        } catch (reason) {
-          try {
-            await close([...(ended ? [] : [() => reader.cancel(reason)]), () => reader.releaseLock()], [reason]);
-          } catch (failure) {
-            controller.error(failure);
-          }
-          ended = true;
-        }
-      },
-      async cancel(reason) {
-        if (ended) return;
-        ended = true;
-        await close([() => reader.cancel(reason), () => reader.releaseLock()]);
-      },
-    }, { highWaterMark: 0 }),
-    signal,
-    "pCloud content",
-    "download",
-  );
-}
 
 /** Native ID client; construction has no network, login, region or cookie discovery. */
 export class PcloudClient {
@@ -341,8 +195,8 @@ export class PcloudClient {
     this.#token = options.token;
     this.#fetch = options.fetch ?? globalThis.fetch;
     this.#request = options.request === undefined ? undefined : { ...options.request };
-    this.#bytes = integer(options.maxBytes ?? 8 * 1024 * 1024, PCLOUD_BUFFER_BYTES, "byte budget");
-    this.#entries = integer(options.maxEntries ?? 10000, 100000, "entry budget");
+    this.#bytes = toInteger(options.maxBytes ?? 8 * 1024 * 1024, "pCloud byte budget", PCLOUD_BUFFER_BYTES);
+    this.#entries = toInteger(options.maxEntries ?? 10000, "pCloud entry budget", 100000);
   }
   /** Each API operation reauthenticates the connection; credentials never enter its URL. */
   async #call<Value>(
@@ -402,7 +256,7 @@ export class PcloudClient {
       );
       return await readResponse(response, async (text) => {
         if (response.status !== 200) throw new PcloudError(response.status);
-        const value = z.record(z.string(), z.unknown()).parse(json(await text()));
+        const value = z.record(z.string(), z.unknown()).parse(parseJson(await text(), jsonLimits));
         const result = id(value.result);
         if (result !== "0") throw new PcloudError(response.status, result);
         return parse(value);
@@ -591,7 +445,12 @@ export class PcloudClient {
             controller.close();
           },
         });
-        return { file: stored, bytes: extent(body, expected, signal), length: expected, evidence: "server-trusted" };
+        return {
+          file: stored,
+          bytes: exactLength(body, expected, { label: "pCloud body", resource: "pCloud content", signal: signal }),
+          length: expected,
+          evidence: "server-trusted",
+        };
       } catch (reason) {
         await close(response.body === null ? [] : [() => response.body!.cancel(reason)], [reason]);
         throw reason;

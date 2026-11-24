@@ -1,4 +1,6 @@
 /** Box native IDs, versioned downloads and part-based upload sessions. @module */
+import { toInteger } from "../../check.ts";
+import { exactLength } from "../../body.ts";
 import { encodeBase64 } from "@std/encoding/base64";
 import { z } from "zod";
 import { isBytes, toRequestBytes, toView } from "../../bytes.ts";
@@ -7,7 +9,7 @@ import { assertRangeResponse, resolveRange } from "../../range.ts";
 import { RequestMetrics, sendRequest } from "../../request.ts";
 import type { FetchType, RequestPolicyType } from "../../request.ts";
 import { readResponse } from "../../response.ts";
-import { collectBytes, openBytes, withAbortSignal } from "../../stream.ts";
+import { collectBytes } from "../../stream.ts";
 
 const fields = "id,type,name,size,sha1,etag,file_version,parent";
 /** Local finite-buffer ceiling, not an account's provider upload allowance. */
@@ -151,11 +153,6 @@ export class BoxPendingError extends Error {
     this.retryAfterSeconds = seconds;
   }
 }
-/** Bound arithmetic before credentials and materialization. */
-function integer(value: number, label: string, maximum = Number.MAX_SAFE_INTEGER): number {
-  if (!Number.isSafeInteger(value) || value < 0 || value > maximum) throw new RangeError(`Invalid Box ${label}.`);
-  return value;
-}
 /** IDs remain strings even if they exceed JavaScript's integer precision. */
 function id(value: string): string {
   if (typeof value !== "string" || !/^\d{1,128}$/.test(value)) throw new TypeError("Invalid Box ID.");
@@ -245,57 +242,7 @@ function retry(response: Response): number {
   if (value === null || !/^\d{1,8}$/.test(value)) {
     throw new TypeError("Box pending receipt requires bounded Retry-After seconds.");
   }
-  return integer(Number(value), "Retry-After", 86400);
-}
-/** One exact body owner observes real EOF, not merely a declared Content-Length. */
-function extent(source: ReadableStream<Uint8Array>, length: number, signal?: AbortSignal): ReadableStream<Uint8Array> {
-  const reader = openBytes(source);
-  let remaining = length, ended = false, empty = 0;
-  return withAbortSignal(
-    new ReadableStream<Uint8Array>({
-      async pull(controller) {
-        try {
-          let next: ReadableStreamReadResult<Uint8Array>;
-          try {
-            next = await reader.read();
-          } catch (reason) {
-            ended = true;
-            throw reason;
-          }
-          if (ended) return;
-          if (next.done) {
-            ended = true;
-            if (remaining !== 0) throw new TypeError("Box body is truncated.");
-            reader.releaseLock();
-            controller.close();
-            return;
-          }
-          if (!isBytes(next.value)) throw new TypeError("Box body requires byte chunks.");
-          const chunk = toView(next.value);
-          if (chunk.length > remaining) throw new TypeError("Box body exceeds the selected extent.");
-          if (chunk.length === 0) { if (++empty > 16) throw new TypeError("Box body makes no progress."); }
-          else empty = 0;
-          remaining -= chunk.length;
-          controller.enqueue(chunk);
-        } catch (reason) {
-          try {
-            await close([...(ended ? [] : [() => reader.cancel(reason)]), () => reader.releaseLock()], [reason]);
-          } catch (failure) {
-            controller.error(failure);
-          }
-          ended = true;
-        }
-      },
-      async cancel(reason) {
-        if (ended) return;
-        ended = true;
-        await close([() => reader.cancel(reason), () => reader.releaseLock()]);
-      },
-    }, { highWaterMark: 0 }),
-    signal,
-    "Box content",
-    "download",
-  );
+  return toInteger(Number(value), "Box Retry-After", 86400);
 }
 
 /** Native stateless client. Import and construction perform no network or account discovery. */
@@ -323,10 +270,10 @@ export class BoxClient {
     this.#token = options.token;
     this.#fetch = options.fetch ?? globalThis.fetch;
     this.#policy = options.request === undefined ? undefined : { ...options.request };
-    this.#bytes = integer(options.maxBytes ?? 8 * 1024 * 1024, "byte budget", BOX_BUFFER_BYTES);
-    this.#pages = integer(options.maxPages ?? 1000, "page budget", 100000);
-    this.#entries = integer(options.maxEntries ?? 100000, "entry budget", 1000000);
-    this.#parts = integer(options.maxParts ?? 10000, "part budget", 10000);
+    this.#bytes = toInteger(options.maxBytes ?? 8 * 1024 * 1024, "Box byte budget", BOX_BUFFER_BYTES);
+    this.#pages = toInteger(options.maxPages ?? 1000, "Box page budget", 100000);
+    this.#entries = toInteger(options.maxEntries ?? 100000, "Box entry budget", 1000000);
+    this.#parts = toInteger(options.maxParts ?? 10000, "Box part budget", 10000);
     this.#context = new Headers();
     if (options.asUser !== undefined) this.#context.set("As-User", id(options.asUser));
   }
@@ -552,14 +499,14 @@ export class BoxClient {
         return {
           fileId: selected,
           version,
-          bytes: extent(
+          bytes: exactLength(
             response.body ?? new ReadableStream({
               start(controller) {
                 controller.close();
               },
             }),
             length,
-            signal,
+            { label: "Box body", resource: "Box content", signal: signal },
           ),
         };
       } catch (reason) {
@@ -664,9 +611,9 @@ export class BoxClient {
   #capture(upload: BoxUploadType): BoxUploadType {
     const sessionId = text(upload.id, "session ID", 256);
     if (!/^[A-Za-z0-9_-]+$/.test(sessionId)) throw new TypeError("Invalid Box session ID.");
-    const size = integer(upload.size, "session file size"),
-      partSize = integer(upload.partSize, "part size", this.#bytes),
-      totalParts = integer(upload.totalParts, "total parts", this.#parts);
+    const size = toInteger(upload.size, "Box session file size"),
+      partSize = toInteger(upload.partSize, "Box part size", this.#bytes),
+      totalParts = toInteger(upload.totalParts, "Box total parts", this.#parts);
     if (size === 0 || partSize === 0 || totalParts !== Math.ceil(size / partSize)) {
       throw new TypeError("Box session has inconsistent fixed extents.");
     }
@@ -718,11 +665,14 @@ export class BoxClient {
       target: selected,
       endpoint: data.session_endpoints.upload_part,
     });
-    return { upload, processedParts: integer(data.num_parts_processed, "processed part count", upload.totalParts) };
+    return {
+      upload,
+      processedParts: toInteger(data.num_parts_processed, "Box processed part count", upload.totalParts),
+    };
   }
   /** Native create/replace sessions; account size permissions and minimum-size enforcement remain provider-owned. */
   async startUpload(selectedTarget: BoxTargetType, size: number, signal?: AbortSignal): Promise<BoxUploadType> {
-    const selected = target(selectedTarget), amount = integer(size, "file size");
+    const selected = target(selectedTarget), amount = toInteger(size, "Box file size");
     if (amount === 0) {
       throw new RangeError("Box chunked sessions require a nonempty file; use multipart for empty files.");
     }
@@ -772,7 +722,7 @@ export class BoxClient {
     options: { readonly offset?: number; readonly signal?: AbortSignal } = {},
   ): Promise<BoxPartsPageType> {
     const captured = this.#capture(upload),
-      offset = integer(options.offset ?? 0, "part page offset", 10000),
+      offset = toInteger(options.offset ?? 0, "Box part page offset", 10000),
       signal = options.signal;
     const url = new URL(`${captured.endpoint}/parts`);
     url.searchParams.set("offset", String(offset));
@@ -784,8 +734,8 @@ export class BoxClient {
         limit: z.number(),
         total_count: z.number(),
       }).parse(value);
-      const total = integer(data.total_count, "part collection bound", this.#parts),
-        limit = integer(data.limit, "part page limit", 1000);
+      const total = toInteger(data.total_count, "Box part collection bound", this.#parts),
+        limit = toInteger(data.limit, "Box part page limit", 1000);
       if (
         data.offset !== offset || limit === 0 || data.entries.length > limit || total < offset + data.entries.length
       ) throw new TypeError("Box part page has inconsistent positions.");
@@ -819,7 +769,7 @@ export class BoxClient {
     options: { readonly subtle: Pick<SubtleCrypto, "digest">; readonly signal?: AbortSignal },
   ): Promise<BoxPartType> {
     const captured = this.#capture(upload),
-      offset = integer(at, "part offset"),
+      offset = toInteger(at, "Box part offset"),
       owned = this.#owned(bytes),
       subtle = options.subtle,
       signal = options.signal;

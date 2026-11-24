@@ -1,14 +1,15 @@
-import type { FileBackendType, FileDriverType } from "../../driver/file.ts";
-import { defineFileDriver } from "../../driver/file.ts";
 import type {
+  FileBackendType,
   FileDriverDirectoryEntryType,
   FileDriverReadOptionsType,
   FileDriverSignalOptionsType,
   FileDriverStatType,
   FileDriverSyncFileType,
+  FileDriverType,
   FileDriverWritableFileType,
   FileDriverWriteOptionsType,
 } from "../../driver/file.ts";
+import { defineFileDriver } from "../../driver/file.ts";
 import { FileSystemError, throwIfAborted, toFileSystemError } from "../../error.ts";
 import { basename, dirname, type PathType, ROOT_PATH, splitPath } from "../../path.ts";
 import { openBytes, toByteStream, withAbortSignal } from "../../stream.ts";

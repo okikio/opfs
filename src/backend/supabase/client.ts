@@ -1,4 +1,7 @@
 /** Native Supabase Storage files-bucket REST operations, separate from S3, Auth and tus. @module */
+import { toInteger } from "../../check.ts";
+import { exactLength } from "../../body.ts";
+import { type JsonLimitsType, parseJson, readFiniteNumber } from "../../json.ts";
 import { z } from "zod";
 import { isBytes, toView } from "../../bytes.ts";
 import { close } from "../../close.ts";
@@ -7,7 +10,7 @@ import type { RangeType } from "../../range.ts";
 import { RequestMetrics, sendRequest } from "../../request.ts";
 import type { FetchType, RequestPolicyType } from "../../request.ts";
 import { readResponse } from "../../response.ts";
-import { collectBytes, openBytes, withAbortSignal } from "../../stream.ts";
+import { collectBytes } from "../../stream.ts";
 
 /** Implementation ceiling for a copied upload or whole materialized read; streaming downloads are separate. */
 export const SUPABASE_BUFFER_BYTES = 64 * 1024 * 1024;
@@ -98,12 +101,6 @@ export class SupabasePublicationError extends Error {
     this.name = "SupabasePublicationError";
   }
 }
-function integer(value: number, max = Number.MAX_SAFE_INTEGER): number {
-  if (!Number.isSafeInteger(value) || value < 0 || value > max) {
-    throw new RangeError("Invalid Supabase Storage budget or extent.");
-  }
-  return value;
-}
 /** Segment admission precedes URL encoding, avoiding dot/separator aliases without normalizing the caller's key. */
 function component(value: string): string {
   if (
@@ -161,86 +158,15 @@ function url(value: string | URL, http: boolean): URL {
   ) throw new TypeError("Invalid Supabase Storage URL authority.");
   return target;
 }
-/** Duplicate-aware finite JSON admission protects paths, headers and native identity from last-key-wins parsing. */
-function json(text: string): unknown {
-  let at = 0, values = 0;
-  const fail = (): never => {
-    throw new TypeError("Malformed or over-budget Supabase Storage JSON.");
-  };
-  const space = (): void => {
-    while (/[ \t\r\n]/.test(text[at] ?? "x")) at++;
-  };
-  function string(): string {
-    const start = at++;
-    while (at < text.length) {
-      if (at - start > 65536) fail();
-      const char = text[at++];
-      if (char === "\\") {
-        at++;
-        continue;
-      }
-      if (char === '"') {
-        try {
-          return JSON.parse(text.slice(start, at)) as string;
-        } catch {
-          return fail();
-        }
-      }
-    }
-    return fail();
-  }
-  function value(depth: number): void {
-    if (++values > 100000 || depth > 32) fail();
-    space();
-    if (text[at] === '"') {
-      string();
-      return;
-    }
-    if (text[at] === "{" || text[at] === "[") {
-      const object = text[at++] === "{", end = object ? "}" : "]", keys = new Set<string>();
-      space();
-      if (text[at] === end) {
-        at++;
-        return;
-      }
-      while (true) {
-        if (object) {
-          space();
-          if (text[at] !== '"') fail();
-          const name = string();
-          if (keys.has(name) || ["__proto__", "constructor", "prototype"].includes(name)) fail();
-          keys.add(name);
-          space();
-          if (text[at++] !== ":") fail();
-        }
-        value(depth + 1);
-        space();
-        const char = text[at++];
-        if (char === end) return;
-        if (char !== ",") fail();
-      }
-    }
-    const start = at;
-    while (at < text.length && !/[ \t\r\n,}\]]/.test(text[at]!)) {
-      if (at - start >= 128) fail();
-      at++;
-    }
-    const raw = text.slice(start, at), number = Number(raw);
-    if (
-      !["true", "false", "null"].includes(raw) &&
-      (!/^-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?$/.test(raw) || !Number.isFinite(number) ||
-        Number.isInteger(number) && !Number.isSafeInteger(number))
-    ) fail();
-  }
-  value(0);
-  space();
-  if (at !== text.length) fail();
-  try {
-    return JSON.parse(text);
-  } catch {
-    return fail();
-  }
-}
+/** Limits for this service's JSON responses; see `parseJson`. */
+const jsonLimits: JsonLimitsType = {
+  label: "Supabase Storage",
+  maxTokens: 100_000,
+  maxString: 65_536,
+  maxScalar: 128,
+  number: readFiniteNumber,
+};
+
 const InfoSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -262,61 +188,6 @@ const DeletedSchema = z.object({
   bucket_id: z.string(),
   version: z.string().nullish(),
 });
-/** The wrapper owns one reader until real EOF/cancellation. Native terminal errors are not re-cancelled and duplicated. */
-function extent(
-  body: ReadableStream<Uint8Array>,
-  expected: number | undefined,
-  signal?: AbortSignal,
-): ReadableStream<Uint8Array> {
-  const reader = openBytes(body);
-  let seen = 0, empty = 0, terminal = false;
-  return withAbortSignal(
-    new ReadableStream<Uint8Array>({
-      async pull(controller) {
-        try {
-          let next: ReadableStreamReadResult<Uint8Array>;
-          try {
-            next = await reader.read();
-          } catch (reason) {
-            terminal = true;
-            throw reason;
-          }
-          if (next.done) {
-            terminal = true;
-            if (expected !== undefined && seen !== expected) throw new TypeError("Supabase Storage body is truncated.");
-            reader.releaseLock();
-            controller.close();
-            return;
-          }
-          if (!isBytes(next.value)) throw new TypeError("Supabase Storage body requires bytes.");
-          const bytes = toView(next.value);
-          if (
-            bytes.length > Number.MAX_SAFE_INTEGER - seen || expected !== undefined && bytes.length > expected - seen
-          ) throw new TypeError("Supabase Storage body exceeds its extent.");
-          seen += bytes.length;
-          if (!bytes.length) { if (++empty > 16) throw new TypeError("Supabase Storage body makes no progress."); }
-          else empty = 0;
-          controller.enqueue(bytes);
-        } catch (reason) {
-          try {
-            await close([...(terminal ? [] : [() => reader.cancel(reason)]), () => reader.releaseLock()], [reason]);
-          } catch (failure) {
-            controller.error(failure);
-          }
-          terminal = true;
-        }
-      },
-      async cancel(reason) {
-        if (terminal) return;
-        terminal = true;
-        await close([() => reader.cancel(reason), () => reader.releaseLock()]);
-      },
-    }, { highWaterMark: 0 }),
-    signal,
-    "Supabase Storage",
-    "download",
-  );
-}
 /** Native files-bucket client. RLS/retention and authentication lifecycle belong to the application and server. */
 export class SupabaseClient {
   readonly #base: URL;
@@ -338,7 +209,11 @@ export class SupabaseClient {
     this.#credentials = options.credentials;
     this.#fetch = options.fetch ?? globalThis.fetch;
     this.#request = options.request === undefined ? undefined : { ...options.request };
-    this.#max = integer(options.maxBytes ?? 8 * 1024 * 1024, SUPABASE_BUFFER_BYTES);
+    this.#max = toInteger(
+      options.maxBytes ?? 8 * 1024 * 1024,
+      "Supabase Storage budget or extent",
+      SUPABASE_BUFFER_BYTES,
+    );
     const origins = options.signedOrigins ?? [];
     if (!Array.isArray(origins) || origins.length > 64) {
       throw new RangeError("Supabase signed origin grants exceed their budget.");
@@ -441,7 +316,7 @@ export class SupabaseClient {
       );
       return await readResponse(response, async (text) => {
         if (response.status !== 200) throw new SupabaseError(response.status);
-        return consume(json(await text()));
+        return consume(parseJson(await text(), jsonLimits));
       });
     } catch (reason) {
       if (mutation && dispatched) throw new SupabasePublicationError(reason);
@@ -460,7 +335,7 @@ export class SupabaseClient {
         bucket: this.#bucket,
         key: selected,
         id: data.id,
-        size: integer(data.size),
+        size: toInteger(data.size, "Supabase Storage budget or extent"),
         ...(data.version == null ? {} : { version: data.version }),
         ...(data.etag == null ? {} : { etag: data.etag }),
         ...(data.content_type == null ? {} : { mediaType: data.content_type }),
@@ -476,8 +351,8 @@ export class SupabaseClient {
     if (typeof prefix !== "string") throw new TypeError("Supabase Storage prefix requires a string.");
     if (prefix) key(prefix.endsWith("/") ? prefix.slice(0, -1) : prefix);
     const captured = prefix,
-      offset = integer(options.offset ?? 0, 1_000_000),
-      limit = integer(options.limit ?? 100, 500),
+      offset = toInteger(options.offset ?? 0, "Supabase Storage budget or extent", 1_000_000),
+      limit = toInteger(options.limit ?? 100, "Supabase Storage budget or extent", 500),
       signal = options.signal;
     if (!limit) throw new RangeError("Supabase Storage page limit must be positive.");
     return await this.#control(
@@ -530,7 +405,7 @@ export class SupabaseClient {
     }
     if (!isBytes(bytes)) throw new TypeError("Supabase Storage upload requires bytes.");
     const view = toView(bytes);
-    integer(view.length, this.#max);
+    toInteger(view.length, "Supabase Storage budget or extent", this.#max);
     const copied = new Uint8Array(view);
     return await this.#control(this.#object("", selected), "POST", copied, signal, true, (value) => {
       const data = z.object({ Key: z.string(), Id: z.string().optional() }).parse(value);
@@ -576,7 +451,9 @@ export class SupabaseClient {
     value: string,
     options: { readonly expiresIn: number; readonly signal?: AbortSignal },
   ): Promise<string> {
-    const selected = key(value), expiresIn = integer(options.expiresIn, 86400), signal = options.signal;
+    const selected = key(value),
+      expiresIn = toInteger(options.expiresIn, "Supabase Storage budget or extent", 86400),
+      signal = options.signal;
     if (!expiresIn) throw new RangeError("Supabase signed expiry must be positive seconds.");
     return await this.#control(
       this.#object("sign/", selected),
@@ -636,7 +513,7 @@ export class SupabaseClient {
       let size: number | undefined;
       if (raw !== null) {
         if (!/^(0|[1-9][0-9]*)$/.test(raw)) throw new TypeError("Invalid Supabase Storage response length.");
-        size = integer(Number(raw));
+        size = toInteger(Number(raw), "Supabase Storage budget or extent");
       }
       if (selected.header !== undefined) {
         const match = /^bytes (\d+)-(\d+)\/(\d+)$/.exec(response.headers.get("content-range")!);
@@ -644,7 +521,11 @@ export class SupabaseClient {
       }
       if (response.body === null) throw new TypeError("Supabase Storage download lacks a body.");
       return {
-        bytes: extent(response.body, size, selected.signal),
+        bytes: exactLength(response.body, size, {
+          label: "Supabase Storage body",
+          resource: "Supabase Storage",
+          signal: selected.signal,
+        }),
         ...(size === undefined ? {} : { size }),
         evidence: "server-trusted",
       };

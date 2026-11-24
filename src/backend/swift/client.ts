@@ -1,4 +1,5 @@
 /** Native regular-object subset of the OpenStack Swift v1 REST API. @module */
+import { toInteger } from "../../check.ts";
 import { z } from "zod";
 import { isBytes, toView } from "../../bytes.ts";
 import { assertRequestStream, isStream } from "../../body.ts";
@@ -78,14 +79,6 @@ const SwiftEntrySchema = z.union([
 ]);
 const SwiftListSchema = z.array(SwiftEntrySchema).max(10000);
 
-/** Admit safe arithmetic before credentials, allocations or source acquisition. */
-function integer(value: number, name: string, minimum = 0, maximum = Number.MAX_SAFE_INTEGER): number {
-  if (!Number.isSafeInteger(value) || value < minimum || value > maximum) {
-    throw new RangeError(`${name} must be an integer between ${minimum} and ${maximum}.`);
-  }
-  return value;
-}
-
 /** Regular Swift hashes are unquoted MD5 values on some deployments; normalize to one strong HTTP entity tag. */
 function etag(value: string | null): string | undefined {
   if (value === null) return undefined;
@@ -113,7 +106,7 @@ function stat(headers: Headers): ObjectStatType {
   regular(headers);
   const length = headers.get("content-length");
   if (length === null || !/^\d+$/.test(length)) throw new TypeError("Swift object metadata needs a byte length.");
-  const size = integer(Number(length), "Swift object size");
+  const size = toInteger(Number(length), "Swift object size");
   const tag = etag(headers.get("etag"));
   const modified = headers.get("last-modified");
   const lastModified = modified === null ? undefined : Date.parse(modified);
@@ -176,8 +169,8 @@ class SwiftClient implements SwiftClientType {
     this.#fetch = options.fetch ?? globalThis.fetch;
     this.#nativeFetch = options.fetch === undefined;
     this.#policy = options.request === undefined ? undefined : { ...options.request };
-    this.#pageSize = integer(options.pageSize ?? 1000, "pageSize", 1, 10000);
-    this.limits = Object.freeze({ maxFileBytes: integer(options.maxObjectBytes ?? 5 * 1024 ** 3, "maxObjectBytes") });
+    this.#pageSize = toInteger(options.pageSize ?? 1000, "pageSize", 10000, 1);
+    this.limits = Object.freeze({ maxFileBytes: toInteger(options.maxObjectBytes ?? 5 * 1024 ** 3, "maxObjectBytes") });
     this.identity = JSON.stringify(["swift", endpoint.origin, endpoint.pathname, this.#container]);
     this.#url(); // Validate the namespace before any request.
   }
@@ -308,14 +301,14 @@ class SwiftClient implements SwiftClientType {
       headers.set(`x-object-meta-${name}`, value);
       metadata[name.toLowerCase()] = headers.get(`x-object-meta-${name}`)!;
     }
-    if (request.size !== undefined) integer(request.size, "Upload size", 0, this.limits.maxFileBytes);
+    if (request.size !== undefined) toInteger(request.size, "Upload size", this.limits.maxFileBytes);
     let count = 0;
     let complete = false;
     let chunks: ChunkSourceType | undefined;
     let payload: Uint8Array<ArrayBuffer> | ReadableStream<Uint8Array>;
     if (isBytes(body)) {
       const view = toView(body);
-      integer(view.byteLength, "Upload size", 0, this.limits.maxFileBytes);
+      toInteger(view.byteLength, "Upload size", this.limits.maxFileBytes);
       if (request.size !== undefined && request.size !== view.byteLength) throw new RangeError("Swift size mismatch.");
       payload = new Uint8Array(view);
       count = payload.byteLength;
@@ -335,7 +328,7 @@ class SwiftClient implements SwiftClientType {
               complete = true;
               output.close();
             } else {
-              integer(count + next.value.byteLength, "Upload size", 0, this.limits.maxFileBytes);
+              toInteger(count + next.value.byteLength, "Upload size", this.limits.maxFileBytes);
               if (request.size !== undefined && count + next.value.byteLength > request.size) {
                 throw new RangeError("Swift stream exceeds its declared size.");
               }
@@ -409,7 +402,7 @@ class SwiftClient implements SwiftClientType {
 
   async list(options: ObjectListOptionsType): Promise<ObjectListType> {
     const { prefix, delimiter, cursor, signal } = options;
-    const limit = integer(options.limit ?? this.#pageSize, "Page size", 1, 10000);
+    const limit = toInteger(options.limit ?? this.#pageSize, "Page size", 10000, 1);
     if (delimiter !== undefined && [...delimiter].length !== 1) {
       throw new TypeError("Swift delimiter is one character.");
     }

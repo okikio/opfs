@@ -1,4 +1,5 @@
 /** Bounded AMQP 0-9-1 publication confirms and explicitly destructive queue reads. @module */
+import { raceAbort } from "../../abort.ts";
 import { isBytes, toView } from "../../bytes.ts";
 import { close } from "../../close.ts";
 
@@ -245,21 +246,6 @@ function properties(reader: Reader): Uint8Array<ArrayBuffer> {
   values.end();
   return new Uint8Array(raw);
 }
-/** Race only owned waits; the late promise remains observed. Adapters still own actual IO retirement. */
-function wait<T>(promise: PromiseLike<T>, signal: AbortSignal): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const abort = () => reject(signal.reason);
-    if (signal.aborted) {
-      Promise.resolve(promise).catch(() => {});
-      reject(signal.reason);
-      return;
-    }
-    signal.addEventListener("abort", abort, { once: true });
-    Promise.resolve(promise).then(resolve, reject).finally(() => signal.removeEventListener("abort", abort)).catch(
-      () => {},
-    );
-  });
-}
 interface FrameType {
   readonly type: number;
   readonly channel: number;
@@ -289,7 +275,7 @@ class Session {
   async send(bytes: Uint8Array, dispatch?: () => void): Promise<void> {
     this.#signal.throwIfAborted();
     dispatch?.();
-    await wait(this.#writer.write(bytes), this.#signal);
+    await raceAbort(this.#writer.write(bytes), this.#signal);
     this.#signal.throwIfAborted();
     this.#lastWrite = Date.now();
   }
@@ -302,14 +288,14 @@ class Session {
     }
     this.#signal.throwIfAborted();
     const pending = this.#reader.read();
-    if (!this.#interval) return await wait(pending, this.#signal);
+    if (!this.#interval) return await raceAbort(pending, this.#signal);
     while (true) {
       let timer: ReturnType<typeof setTimeout> | undefined;
       try {
         const tick = new Promise<null>((resolve) => {
           timer = setTimeout(() => resolve(null), Math.max(0, this.#lastWrite + this.#interval - Date.now()));
         });
-        const result = await wait(Promise.race([pending, tick]), this.#signal);
+        const result = await raceAbort(Promise.race([pending, tick]), this.#signal);
         this.#signal.throwIfAborted();
         if (result !== null) return result;
         if (++this.#controls > 128) throw new RangeError("AMQP heartbeat/control budget exceeded.");
@@ -501,7 +487,7 @@ export class AmqpClient {
     let returned: AmqpReceiptType["returned"];
     const failures: unknown[] = [];
     try {
-      const channel = await wait(this.#open({ signal: combined }), combined), closeMethod = channel.close;
+      const channel = await raceAbort(this.#open({ signal: combined }), combined), closeMethod = channel.close;
       if (typeof closeMethod !== "function") throw new TypeError("AMQP channel requires close capability.");
       retire = closeMethod.bind(channel);
       combined.throwIfAborted();
@@ -528,7 +514,7 @@ export class AmqpClient {
     try {
       await close([
         async () => {
-          if (retire) await wait(Promise.resolve().then(retire), AbortSignal.timeout(this.#cleanup));
+          if (retire) await raceAbort(Promise.resolve().then(retire), AbortSignal.timeout(this.#cleanup));
         },
         () => reader?.releaseLock(),
         () => writer?.releaseLock(),

@@ -1,4 +1,7 @@
 /** Firebase Storage's Rules-authenticated object and resumable upload protocol. @module */
+import { toInteger } from "../../check.ts";
+import { exactLength } from "../../body.ts";
+import { type JsonLimitsType, parseJson } from "../../json.ts";
 import { z } from "zod";
 import { isBytes, toView } from "../../bytes.ts";
 import { close } from "../../close.ts";
@@ -6,7 +9,7 @@ import { readResponse } from "../../response.ts";
 import { RequestMetrics, sendRequest } from "../../request.ts";
 import type { FetchType, RequestPolicyType } from "../../request.ts";
 import { assertRangeResponse, resolveRange } from "../../range.ts";
-import { openBytes, withAbortSignal } from "../../stream.ts";
+import { openBytes } from "../../stream.ts";
 
 /** Implementation ceiling for each copied upload or materialized read; streams have no whole-file allocation. */
 export const FIREBASE_BUFFER_BYTES = 64 * 1024 * 1024;
@@ -130,10 +133,6 @@ const WriteMetadataSchema = z.object({
   contentLanguage: z.string().max(1024).optional(),
   customMetadata: z.record(z.string().max(1024), z.string().max(8192)).optional(),
 }).strict();
-function integer(value: number, maximum: number, label: string): number {
-  if (!Number.isSafeInteger(value) || value < 0 || value > maximum) throw new RangeError(`Invalid Firebase ${label}.`);
-  return value;
-}
 /** Preserve native object names literally, including slash/dot/%; only the complete name is URL encoded. */
 function name(value: string, empty = false): string {
   if (
@@ -198,7 +197,7 @@ function metadata(value: unknown, bucket: string, selected?: string, size?: numb
     throw new TypeError("Firebase metadata identity differs.");
   }
   name(data.name);
-  const count = integer(Number(data.size), Number.MAX_SAFE_INTEGER, "object size");
+  const count = toInteger(Number(data.size), "Firebase object size");
   if (size !== undefined && count !== size) throw new TypeError("Firebase upload receipt size differs.");
   return {
     bucket,
@@ -212,135 +211,9 @@ function metadata(value: unknown, bucket: string, selected?: string, size?: numb
     ...(data.metadata === undefined ? {} : { customMetadata: { ...data.metadata } }),
   };
 }
-/** Refuse duplicate authority fields and excessive nesting before ordinary JSON parsing. */
-function json(text: string): unknown {
-  let at = 0, tokens = 0;
-  const fail = (): never => {
-    throw new TypeError("Malformed or over-budget Firebase JSON.");
-  };
-  const space = (): void => {
-    while (/[ \t\r\n]/.test(text[at] ?? "x")) at++;
-  };
-  function string(): string {
-    const start = at++;
-    while (at < text.length) {
-      if (at - start > 65536) fail();
-      const char = text[at++];
-      if (char === "\\") {
-        at++;
-        continue;
-      }
-      if (char === '"') {
-        try {
-          return JSON.parse(text.slice(start, at)) as string;
-        } catch {
-          return fail();
-        }
-      }
-    }
-    return fail();
-  }
-  function value(depth: number): void {
-    if (++tokens > 100000 || depth > 32) fail();
-    space();
-    if (text[at] === '"') {
-      string();
-      return;
-    }
-    if (text[at] === "{" || text[at] === "[") {
-      const object = text[at++] === "{", end = object ? "}" : "]", keys = new Set<string>();
-      space();
-      if (text[at] === end) {
-        at++;
-        return;
-      }
-      while (true) {
-        if (object) {
-          space();
-          if (text[at] !== '"') fail();
-          const key = string();
-          if (keys.has(key) || ["__proto__", "constructor", "prototype"].includes(key)) fail();
-          keys.add(key);
-          space();
-          if (text[at++] !== ":") fail();
-        }
-        value(depth + 1);
-        space();
-        const char = text[at++];
-        if (char === end) return;
-        if (char !== ",") fail();
-      }
-    }
-    const start = at;
-    while (at < text.length && !/[ \t\r\n,}\]]/.test(text[at]!)) {
-      if (at - start > 128) fail();
-      at++;
-    }
-    const raw = text.slice(start, at);
-    if (
-      !["true", "false", "null"].includes(raw) &&
-      (!/^-?(0|[1-9][0-9]*)$/.test(raw) || !Number.isSafeInteger(Number(raw)))
-    ) fail();
-  }
-  value(0);
-  space();
-  if (at !== text.length) fail();
-  try {
-    return JSON.parse(text);
-  } catch {
-    return fail();
-  }
-}
-/** Complete selected extents require real EOF; cancellation retains primary and independent cleanup failures. */
-function extent(body: ReadableStream<Uint8Array>, length: number, signal?: AbortSignal): ReadableStream<Uint8Array> {
-  const reader = openBytes(body);
-  let left = length, ended = false, empty = 0;
-  return withAbortSignal(
-    new ReadableStream<Uint8Array>({
-      async pull(controller) {
-        try {
-          let next: ReadableStreamReadResult<Uint8Array>;
-          try {
-            next = await reader.read();
-          } catch (reason) {
-            ended = true;
-            throw reason;
-          }
-          if (ended) return;
-          if (next.done) {
-            ended = true;
-            reader.releaseLock();
-            if (left) throw new TypeError("Firebase content is truncated.");
-            controller.close();
-            return;
-          }
-          if (!isBytes(next.value)) throw new TypeError("Firebase content requires bytes.");
-          const bytes = toView(next.value);
-          if (bytes.length > left) throw new TypeError("Firebase content exceeds its selected extent.");
-          if (!bytes.length) { if (++empty > 16) throw new TypeError("Firebase content makes no progress."); }
-          else empty = 0;
-          left -= bytes.length;
-          controller.enqueue(bytes);
-        } catch (reason) {
-          try {
-            await close([...(ended ? [] : [() => reader.cancel(reason)]), () => reader.releaseLock()], [reason]);
-          } catch (failure) {
-            controller.error(failure);
-          }
-          ended = true;
-        }
-      },
-      async cancel(reason) {
-        if (ended) return;
-        ended = true;
-        await close([() => reader.cancel(reason), () => reader.releaseLock()]);
-      },
-    }, { highWaterMark: 0 }),
-    signal,
-    "Firebase content",
-    "download",
-  );
-}
+/** Limits for this service's JSON responses; see `parseJson`. */
+const jsonLimits: JsonLimitsType = { label: "Firebase", maxTokens: 100_000, maxString: 65_536, maxScalar: 128 };
+
 /** Native Firebase protocol; this class does not supply an OPFS filesystem or immutable byte-source identity. */
 export class FirebaseClient {
   readonly #api: URL;
@@ -366,9 +239,9 @@ export class FirebaseClient {
     this.#appId = options.appId === undefined ? undefined : token(options.appId);
     this.#fetch = options.fetch ?? globalThis.fetch;
     this.#request = options.request === undefined ? undefined : { ...options.request };
-    this.#bytes = integer(options.maxBytes ?? 8 * 1024 * 1024, FIREBASE_BUFFER_BYTES, "byte budget");
-    this.#pages = integer(options.maxPages ?? 1000, 100000, "page budget");
-    this.#entries = integer(options.maxEntries ?? 100000, 1000000, "entry budget");
+    this.#bytes = toInteger(options.maxBytes ?? 8 * 1024 * 1024, "Firebase byte budget", FIREBASE_BUFFER_BYTES);
+    this.#pages = toInteger(options.maxPages ?? 1000, "Firebase page budget", 100000);
+    this.#entries = toInteger(options.maxEntries ?? 100000, "Firebase entry budget", 1000000);
   }
   #url(selected?: string): URL {
     return new URL(
@@ -451,7 +324,7 @@ export class FirebaseClient {
       undefined,
       signal,
       false,
-      async (_response, text) => metadata(json(await text()), this.#bucket, selected),
+      async (_response, text) => metadata(parseJson(await text(), jsonLimits), this.#bucket, selected),
     );
   }
   /** A Rules-v2 delimiter page; prefixes are virtual and are not directory resources. */
@@ -461,7 +334,7 @@ export class FirebaseClient {
   ): Promise<FirebaseListType> {
     prefix = name(prefix, true);
     const signal = options.signal, pageToken = options.pageToken;
-    const limit = integer(options.limit ?? 1000, 1000, "page size");
+    const limit = toInteger(options.limit ?? 1000, "Firebase page size", 1000);
     if (!limit) throw new RangeError("Firebase page size must be positive.");
     const target = this.#url();
     target.searchParams.set("prefix", prefix);
@@ -476,7 +349,7 @@ export class FirebaseClient {
         items: z.array(z.object({ name: z.string(), bucket: z.string().optional() })).optional(),
         prefixes: z.array(z.string()).optional(),
         nextPageToken: z.string().min(1).max(16384).optional(),
-      }).parse(json(await text()));
+      }).parse(parseJson(await text(), jsonLimits));
       const items = (data.items ?? []).map((item) => {
         if (item.bucket !== undefined && item.bucket !== this.#bucket) {
           throw new TypeError("Firebase listing bucket differs.");
@@ -543,7 +416,7 @@ export class FirebaseClient {
       body,
       signal,
       true,
-      async (_response, text) => metadata(json(await text()), this.#bucket, selected),
+      async (_response, text) => metadata(parseJson(await text(), jsonLimits), this.#bucket, selected),
     );
   }
   /** Delete the current object, not a version-conditional filesystem primitive. No automatic retry occurs. */
@@ -589,13 +462,13 @@ export class FirebaseClient {
       body,
       signal,
       true,
-      async (_response, text) => metadata(json(await text()), this.#bucket, selected, data.length),
+      async (_response, text) => metadata(parseJson(await text(), jsonLimits), this.#bucket, selected, data.length),
     );
   }
   #copy(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
     if (!isBytes(bytes)) throw new TypeError("Firebase upload requires Uint8Array bytes.");
     const view = toView(bytes);
-    integer(view.length, this.#bytes, "upload byte budget");
+    toInteger(view.length, "Firebase upload byte budget", this.#bytes);
     return new Uint8Array(view);
   }
   /** Exact authenticated media read. Equal-size overwrites between metadata and content remain possible. */
@@ -638,7 +511,7 @@ export class FirebaseClient {
           metadata: info,
           length,
           evidence: "server-trusted",
-          bytes: extent(response.body, length, chosen.signal),
+          bytes: exactLength(response.body, length, { label: "Firebase content", signal: chosen.signal }),
         };
       },
       true,
@@ -655,7 +528,7 @@ export class FirebaseClient {
       0,
       Math.min(info.size - chosen.start, chosen.end === undefined ? info.size : chosen.end - chosen.start + 1),
     );
-    integer(length, this.#bytes, "read byte budget");
+    toInteger(length, "Firebase read byte budget", this.#bytes);
     const result = await this.download(selected, {
       ...(chosen.header === undefined ? {} : { at: chosen.start }),
       ...(chosen.end === undefined ? {} : { length: chosen.end - chosen.start + 1 }),
@@ -697,7 +570,7 @@ export class FirebaseClient {
   getDownloadLink(selected: string, signal?: AbortSignal): Promise<string | undefined> {
     selected = name(selected);
     return this.#send(this.#url(selected), "GET", new Headers(), undefined, signal, false, async (_response, text) => {
-      const raw = json(await text());
+      const raw = parseJson(await text(), jsonLimits);
       metadata(raw, this.#bucket, selected);
       const data = z.object({ downloadTokens: z.string().max(65536).optional() }).parse(raw);
       if (!data.downloadTokens) return undefined;
@@ -715,7 +588,7 @@ export class FirebaseClient {
     signal?: AbortSignal,
   ): Promise<FirebaseSessionType> {
     selected = name(selected);
-    size = integer(size, Number.MAX_SAFE_INTEGER, "upload size");
+    size = toInteger(size, "Firebase upload size");
     const info = writable(value), target = this.#url();
     target.searchParams.set("name", selected);
     return this.#send(
@@ -754,7 +627,7 @@ export class FirebaseClient {
       throw new TypeError("Invalid Firebase session URL.");
     }
     const selected = name(session.name),
-      size = integer(session.size, Number.MAX_SAFE_INTEGER, "session size"),
+      size = toInteger(session.size, "Firebase session size"),
       target = parsedUrl(session.url),
       base = this.#url();
     if (
@@ -791,7 +664,7 @@ export class FirebaseClient {
         if (
           state !== "active" && state !== "final" || raw === null || !/^(0|[1-9][0-9]*)$/.test(raw)
         ) throw new TypeError("Invalid Firebase upload status.");
-        const offset = integer(Number(raw), captured.size, "acknowledged offset");
+        const offset = toInteger(Number(raw), "Firebase acknowledged offset", captured.size);
         if (state === "final" && offset !== captured.size) {
           throw new TypeError(
             "Firebase finalized an incomplete session.",
@@ -812,7 +685,7 @@ export class FirebaseClient {
       data = this.#copy(bytes),
       finalize = options.finalize,
       signal = options.signal;
-    integer(offset, captured.size, "upload offset");
+    toInteger(offset, "Firebase upload offset", captured.size);
     if (
       typeof finalize !== "boolean" || data.length > captured.size - offset ||
       finalize && offset + data.length !== captured.size ||
@@ -833,7 +706,7 @@ export class FirebaseClient {
           return {
             state: "published",
             evidence: "metadata-receipt",
-            metadata: metadata(json(await text()), this.#bucket, captured.name, captured.size),
+            metadata: metadata(parseJson(await text(), jsonLimits), this.#bucket, captured.name, captured.size),
           };
         }
         if (state !== "active" || finalize) throw new TypeError("Firebase upload finality was not acknowledged.");

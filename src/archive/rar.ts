@@ -1,6 +1,6 @@
 /** Bounded physical RAR5 indexing and STORED member preview without extraction. @module */
+import { ArchiveBudget, assertInteger, createArchiveLedger, toSafeInteger } from "./budget.ts";
 import type { ByteSourceType } from "../source.ts";
-import { ArchiveBudget, assertInteger, createArchiveLedger } from "./budget.ts";
 import { ArchiveError, invalid, unsupported } from "./error.ts";
 import { createView } from "./field.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./budget.ts";
@@ -67,10 +67,6 @@ export interface RarArchiveType {
   read(id: number, options?: RarReadOptionsType): Promise<RarReadType>;
 }
 
-function exact(value: bigint): number {
-  if (value > BigInt(Number.MAX_SAFE_INTEGER)) throw unsupported("RAR integer exceeds exact JavaScript indexing.");
-  return Number(value);
-}
 /** RAR permits overallocated vints. The tenth byte may carry only bit 63. */
 class Cursor {
   at = 0;
@@ -84,7 +80,7 @@ class Cursor {
       const next = this.take(1)[0]!;
       if (byte === 9 && (next & 0xfe)) throw invalid("RAR vint exceeds 64 bits.");
       result |= BigInt(next & 127) << BigInt(byte * 7);
-      if (!(next & 128)) return exact(result);
+      if (!(next & 128)) return toSafeInteger(result, "RAR integer");
     }
     throw invalid("RAR vint has no terminator.");
   }
@@ -187,7 +183,7 @@ export async function openRar(input: ByteSourceType, supplied: RarOpenOptionsTyp
     }
     headerBytes += fullSize;
     budget.decoded(fullSize);
-    const bodyOffset = exact(BigInt(offset) + BigInt(4 + encoded.length));
+    const bodyOffset = toSafeInteger(BigInt(offset) + BigInt(4 + encoded.length), "RAR integer");
     const body = await budget.read(bodyOffset, bodySize);
     const state = crc32(body, crc32(Uint8Array.from(encoded)));
     if (((state ^ 0xffffffff) >>> 0) !== expectedCrc) {
@@ -202,7 +198,7 @@ export async function openRar(input: ByteSourceType, supplied: RarOpenOptionsTyp
     if (extraSize > body.length - cursor.at) throw invalid("RAR extra area overlaps its common fields.");
     const fields = new Cursor(body.subarray(cursor.at, body.length - extraSize));
     const types = extras(body.subarray(body.length - extraSize), budget);
-    const dataOffset = exact(BigInt(bodyOffset) + BigInt(bodySize));
+    const dataOffset = toSafeInteger(BigInt(bodyOffset) + BigInt(bodySize), "RAR integer");
     const next = BigInt(dataOffset) + BigInt(packedSize);
     if (next > BigInt(size)) throw invalid("RAR data extent exceeds the source.");
     if (type === 4) throw unsupported("Encrypted RAR headers are unsupported.");
@@ -294,7 +290,7 @@ export async function openRar(input: ByteSourceType, supplied: RarOpenOptionsTyp
       if (next !== BigInt(size)) throw unsupported("This RAR profile requires EOF immediately after the end header.");
       ended = true;
     } else throw unsupported(`RAR header type ${type} is unsupported.`);
-    offset = exact(next);
+    offset = toSafeInteger(next, "RAR integer");
     if (ended) break;
   }
   if (!main || !ended) throw invalid("RAR main or end header is missing.");

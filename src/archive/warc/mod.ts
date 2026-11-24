@@ -11,10 +11,10 @@
  * @module
  */
 import type { ByteSourceType } from "../../source.ts";
-import { ArchiveBudget, assertInteger } from "../budget.ts";
+import { ArchiveBudget, assertAtMost, assertInteger } from "../budget.ts";
 import { ArchiveError, invalid, unsupported } from "../error.ts";
 import type { ArchiveLimitsType, ArchiveWorkType } from "../budget.ts";
-import { base32, cap, type HeaderLimitsType, type HeaderType, isSeparator, parseHeader } from "./header.ts";
+import { base32, type HeaderLimitsType, type HeaderType, isSeparator, parseHeader } from "./header.ts";
 import type { WarcFieldType } from "./header.ts";
 import { inflate, isGzip, scanMember } from "./gzip.ts";
 export { ArchiveError } from "../error.ts";
@@ -182,7 +182,7 @@ export async function openWarc(input: ByteSourceType, options: WarcOpenOptionsTy
   let offset = 0;
   let metadata = 0;
   while (offset < source.size) {
-    cap(entries.length + 1, limits.maxEntries, "WARC record count");
+    assertAtMost(entries.length + 1, limits.maxEntries, "WARC record count");
     const headerLimits = {
       ...limits,
       maxHeaderBytes: Math.min(limits.maxHeaderBytes, limits.maxMetadataBytes - metadata),
@@ -229,7 +229,7 @@ export async function openWarc(input: ByteSourceType, options: WarcOpenOptionsTy
       slots.push({ block: header.end });
     }
     metadata += header.end - (compression === "none" ? offset : 0);
-    cap(metadata, limits.maxMetadataBytes, "WARC retained metadata");
+    assertAtMost(metadata, limits.maxMetadataBytes, "WARC retained metadata");
     const segmented = header.fields.some((field) => field.name.toLowerCase().startsWith("warc-segment-"));
     entries.push(Object.freeze({
       id: entries.length,
@@ -299,7 +299,7 @@ export async function openWarc(input: ByteSourceType, options: WarcOpenOptionsTy
       const maximum = verifyOptions.maxVerifyBytes ?? 1024 * 1024;
       assertInteger(maximum, "Verification byte limit");
       if (maximum > 16 * 1024 * 1024) throw new RangeError("Verification ceiling cannot exceed 16 MiB.");
-      cap(entry.size, maximum, "WARC whole-block verification");
+      assertAtMost(entry.size, maximum, "WARC whole-block verification");
       const labelled = entry.fields.find((field) => field.name.toLowerCase() === "warc-block-digest")?.value;
       const match = /^(sha1|sha256):([A-Z2-7]+)$/.exec(labelled ?? "");
       if (

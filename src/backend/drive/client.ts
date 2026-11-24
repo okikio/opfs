@@ -1,4 +1,5 @@
 /** ID-based Google Drive stored-file operations. No filesystem namespace is implied. @module */
+import { toInteger } from "../../check.ts";
 import { z } from "zod";
 import { isBytes, toRequestBytes, toView } from "../../bytes.ts";
 import { assertRangeResponse, resolveRange } from "../../range.ts";
@@ -80,11 +81,6 @@ export class DriveError extends Error {
     this.status = status;
   }
 }
-/** Bound arithmetic before transport or credentials. */
-function integer(value: number, label: string, maximum = Number.MAX_SAFE_INTEGER): number {
-  if (!Number.isSafeInteger(value) || value < 0 || value > maximum) throw new RangeError(`Invalid ${label}.`);
-  return value;
-}
 /** IDs have no path/query interpretation. Root is a documented Drive alias. */
 function id(value: string): string {
   if (typeof value !== "string" || !/^[A-Za-z0-9_-]{1,1024}$/.test(value)) throw new TypeError("Invalid Drive ID.");
@@ -96,7 +92,7 @@ function file(value: unknown, expected?: string): DriveFileType {
   if (expected !== undefined && expected !== "root" && data.id !== expected) {
     throw new TypeError("Drive receipt names another file.");
   }
-  const size = data.size === undefined ? undefined : integer(Number(data.size), "Drive file size");
+  const size = data.size === undefined ? undefined : toInteger(Number(data.size), "Drive file size");
   // Wire optionals can include explicit undefined. The public exact-optional
   // contract omits those properties instead of spreading the parsed wire shape.
   return {
@@ -143,8 +139,8 @@ export class DriveClient {
     this.#token = options.token;
     this.#fetch = options.fetch ?? globalThis.fetch;
     this.#policy = options.request;
-    this.#pages = integer(options.maxPages ?? 1000, "page budget");
-    this.#entries = integer(options.maxEntries ?? 100000, "entry budget");
+    this.#pages = toInteger(options.maxPages ?? 1000, "page budget");
+    this.#entries = toInteger(options.maxEntries ?? 100000, "entry budget");
   }
   /** Control responses are bounded by the shared 8 MiB control-body policy. */
   async #json(response: Response): Promise<unknown> {
@@ -197,7 +193,7 @@ export class DriveClient {
   /** One bounded native page; duplicate names are retained. */
   async listPage(options: DriveListOptionsType = {}): Promise<DrivePageType> {
     const { parent, sharedDriveId, pageToken, signal } = options;
-    const pageSize = integer(options.pageSize ?? 100, "page size", 1000);
+    const pageSize = toInteger(options.pageSize ?? 100, "page size", 1000);
     if (pageSize === 0 || (pageToken !== undefined && (!pageToken || pageToken.length > 16384))) {
       throw new TypeError("Invalid Drive page request.");
     }
@@ -338,7 +334,7 @@ export class DriveClient {
     }
     return {
       url,
-      size: integer(size, "upload size"),
+      size: toInteger(size, "upload size"),
       ...(fileId === undefined ? {} : { fileId }),
     };
   }
@@ -354,7 +350,7 @@ export class DriveClient {
     },
   ): Promise<DriveUploadType> {
     const { size, fileId, name, mimeType, parent, signal } = options;
-    integer(size, "upload size");
+    toInteger(size, "upload size");
     stored(mimeType);
     if (fileId === undefined && (typeof name !== "string" || !name)) {
       throw new TypeError("New Drive files require a name.");
@@ -395,7 +391,7 @@ export class DriveClient {
         const value = response.headers.get("range");
         const match = value === null ? undefined : /^bytes=0-(\d+)$/.exec(value);
         if (value !== null && !match) throw new TypeError("Malformed Drive acknowledged range.");
-        const offset = match ? integer(Number(match[1]) + 1, "acknowledged offset", upload.size) : 0;
+        const offset = match ? toInteger(Number(match[1]) + 1, "acknowledged offset", upload.size) : 0;
         return { complete: false, offset };
       }
       if (response.status !== 200 && response.status !== 201) throw new DriveError(response.status);
@@ -427,7 +423,7 @@ export class DriveClient {
     signal?: AbortSignal,
   ): Promise<DriveUploadStatusType> {
     const selected = this.#session(upload);
-    integer(offset, "upload offset", selected.size);
+    toInteger(offset, "upload offset", selected.size);
     if (!isBytes(bytes)) throw new TypeError("Drive upload requires a Uint8Array.");
     const view = toView(bytes);
     const end = offset + view.byteLength;

@@ -1,6 +1,6 @@
 /** Bounded numeric ORC previews over a borrowed stable byte source. @module */
+import { ArchiveBudget, assertInteger, createArchiveLedger, toSafeInteger } from "../archive/budget.ts";
 import type { ByteSourceType } from "../source.ts";
-import { ArchiveBudget, assertInteger, createArchiveLedger } from "../archive/budget.ts";
 import { ArchiveError, invalid, unsupported } from "../archive/error.ts";
 import { createView } from "../archive/field.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/budget.ts";
@@ -127,12 +127,6 @@ interface PolicyType {
 function limit(label: string): never {
   throw new ArchiveError("budget-exceeded", `ORC ${label} limit exceeded.`);
 }
-function exact(value: bigint, label: string): number {
-  if (value < 0n || value > BigInt(Number.MAX_SAFE_INTEGER)) {
-    throw invalid(`ORC ${label} exceeds exact nonnegative integers.`);
-  }
-  return Number(value);
-}
 
 /** Count wire and expanded work independently of returned bytes. No global parser or allocation state exists. */
 class Meter {
@@ -204,11 +198,11 @@ class Wire {
   }
   number(type: number, bits = 64): number {
     this.type(type, 0);
-    return exact(this.uint(bits), "integer field");
+    return toSafeInteger(this.uint(bits), `ORC ${"integer field"}`);
   }
   binary(type: number): Uint8Array {
     this.type(type, 2);
-    return this.take(exact(this.uint(), "binary length"));
+    return this.take(toSafeInteger(this.uint(), `ORC ${"binary length"}`));
   }
   message(type: number): Wire {
     return new Wire(this.binary(type), this.meter, this.depth + 1);
@@ -244,7 +238,7 @@ class Wire {
     const append = (cursor: Wire): void => {
       if (target.length >= maximum) limit("Repeated integer count");
       cursor.meter.retain(8);
-      target.push(exact(cursor.uint(32), "repeated integer"));
+      target.push(toSafeInteger(cursor.uint(32), `ORC ${"repeated integer"}`));
     };
     if (type === 0) append(this);
     else {
@@ -577,7 +571,7 @@ export async function openOrc(input: ByteSourceType, supplied: OrcOpenOptionsTyp
   }
   const formatVersion = version[1] === 11 ? "0.11" : "0.12";
   if (footerLength > policy.footer) limit("File footer byte");
-  const tailLength = exact(BigInt(footerLength) + BigInt(metadataLength), "tail length");
+  const tailLength = toSafeInteger(BigInt(footerLength) + BigInt(metadataLength), `ORC ${"tail length"}`);
   if (footerLength === 0 || tailLength > postOffset - 3) throw invalid("ORC footer/metadata extents are invalid.");
   const footerOffset = postOffset - footerLength, metadataStart = postOffset - tailLength;
   const footer = new Wire(await metadata(footerOffset, footerLength), meter);
@@ -646,9 +640,9 @@ export async function openOrc(input: ByteSourceType, supplied: OrcOpenOptionsTyp
   let end = headerLength, rowOffset = 0;
   for (let id = 0; id < declaredStripes.length; id++) {
     const stripe = declaredStripes[id]!;
-    const next = exact(
+    const next = toSafeInteger(
       BigInt(stripe.offset) + BigInt(stripe.index) + BigInt(stripe.data) + BigInt(stripe.footer),
-      "stripe end",
+      `ORC ${"stripe end"}`,
     );
     if (stripe.offset !== end || next > metadataStart || stripe.footer === 0) {
       throw invalid("ORC stripes overlap, contain unsupported padding, or exceed the body.");
@@ -665,7 +659,7 @@ export async function openOrc(input: ByteSourceType, supplied: OrcOpenOptionsTyp
         footerBytes: stripe.footer,
       }),
     );
-    rowOffset = exact(BigInt(rowOffset) + BigInt(stripe.rows), "row count");
+    rowOffset = toSafeInteger(BigInt(rowOffset) + BigInt(stripe.rows), `ORC ${"row count"}`);
     end = next;
   }
   if (end !== metadataStart || rowOffset !== rows) {
@@ -755,11 +749,11 @@ export async function openOrc(input: ByteSourceType, supplied: OrcOpenOptionsTyp
             throw invalid("ORC stream column/kind is invalid or repeated.");
           }
           identities.add(identity);
-          const next = exact(BigInt(at) + BigInt(stream.length), "stream end");
+          const next = toSafeInteger(BigInt(at) + BigInt(stream.length), `ORC ${"stream end"}`);
           const indexStream = stream.kind >= 6;
           if (indexStream) {
             if (at > dataStart || next > dataStart) throw invalid("ORC index stream exceeds its declared section.");
-            indexBytes = exact(BigInt(indexBytes) + BigInt(stream.length), "index stream bytes");
+            indexBytes = toSafeInteger(BigInt(indexBytes) + BigInt(stream.length), `ORC ${"index stream bytes"}`);
           } else if (at < dataStart || next > footerStart) {
             throw invalid("ORC data stream exceeds its declared section.");
           }
@@ -777,11 +771,14 @@ export async function openOrc(input: ByteSourceType, supplied: OrcOpenOptionsTyp
         if (indexBytes !== stripe.indexBytes || at !== footerStart) {
           throw invalid("ORC stream lengths disagree with stripe sections.");
         }
-        const stored = exact(BigInt(present?.length ?? 0) + BigInt(data?.length ?? 0), "selected stream bytes");
-        inputBytes = exact(BigInt(inputBytes) + BigInt(stored), "aggregate selected stream bytes");
+        const stored = toSafeInteger(
+          BigInt(present?.length ?? 0) + BigInt(data?.length ?? 0),
+          `ORC ${"selected stream bytes"}`,
+        );
+        inputBytes = toSafeInteger(BigInt(inputBytes) + BigInt(stored), `ORC ${"aggregate selected stream bytes"}`);
         if (inputBytes > policy.input) limit("Selected stream byte");
         requests += Number((present?.length ?? 0) !== 0) + Number((data?.length ?? 0) !== 0);
-        decodedRows = exact(BigInt(decodedRows) + BigInt(stripe.rows), "decoded rows");
+        decodedRows = toSafeInteger(BigInt(decodedRows) + BigInt(stripe.rows), `ORC ${"decoded rows"}`);
         selected.push({ stripe, ...(present ? { present } : {}), ...(data ? { data } : {}), stored });
       }
       readMeter.admitSteps(decodedRows);
@@ -794,10 +791,13 @@ export async function openOrc(input: ByteSourceType, supplied: OrcOpenOptionsTyp
       owners.reserve("requests", requests);
       credits.sourceBytes = inputBytes;
       credits.requests = requests;
-      const outputBytes = exact(BigInt(length) * BigInt(width(column.kind) + 1), "output bytes");
+      const outputBytes = toSafeInteger(BigInt(length) * BigInt(width(column.kind) + 1), `ORC ${"output bytes"}`);
       operation.decoded(inputBytes);
       operation.decoded(
-        exact(BigInt(decodedRows) * BigInt(width(column.kind) + 1) + BigInt(outputBytes), "decoded/copy bytes"),
+        toSafeInteger(
+          BigInt(decodedRows) * BigInt(width(column.kind) + 1) + BigInt(outputBytes),
+          `ORC ${"decoded/copy bytes"}`,
+        ),
       );
       operation.output(outputBytes);
       signal?.throwIfAborted();

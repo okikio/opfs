@@ -126,19 +126,28 @@
     "interface CancellationType",
     "function createCancellation",
     "function getCancellation",
+    "function raceAbort",
     "function retainCancellation"
   ],
   "./_body": [
     "function assertRequestStream",
+    "function exactLength",
+    "interface ExactLengthOptionsType",
     "function isStream",
     "function supportsRequestStream"
   ],
   "./_bytes": [
+    "function encodeText",
     "function isBuffer",
     "function isBytes",
     "function toRequestBuffer",
     "function toRequestBytes",
     "function toView"
+  ],
+  "./_check": [
+    "function assertInteger",
+    "function resolveLimit",
+    "function toInteger"
   ],
   "./_chunk": [
     "interface ChunkSourceType",
@@ -180,6 +189,12 @@
   ],
   "./_iteration": [
     "function project"
+  ],
+  "./_json": [
+    "interface JsonLimitsType",
+    "function parseJson",
+    "function readFiniteNumber",
+    "function readSafeInteger"
   ],
   "./_lock": [
     "interface HeldLockType",
@@ -427,9 +442,12 @@
     "interface ArchiveLedgerType",
     "interface ArchiveLimitsType",
     "interface ArchiveWorkType",
-    "function assertInteger",
+    "function assertAtMost",
+    "reference assertInteger",
     "function createArchiveLedger",
-    "function resolveLimits"
+    "function createChildLedger",
+    "function resolveLimits",
+    "function toSafeInteger"
   ],
   "./archive/_deflate": [
     "function readDeflate"
@@ -826,7 +844,6 @@
   ],
   "./archive/warc/_header": [
     "function base32",
-    "function cap",
     "interface HeaderLimitsType",
     "typeAlias HeaderReadType",
     "interface HeaderType",

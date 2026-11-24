@@ -1,4 +1,5 @@
 /** Pure modern Arrow IPC framing and file-index arithmetic, with no source acquisition. @module */
+import { assertInteger } from "../../check.ts";
 import { ArchiveError } from "../../archive/error.ts";
 import type { ArrowBlockType } from "./schema.ts";
 
@@ -51,14 +52,11 @@ export interface ArrowFrameType {
 function invalid(message: string): ArchiveError {
   return new ArchiveError("invalid-archive", `Arrow IPC ${message}`);
 }
-function integer(value: number, label: string): void {
-  if (!Number.isSafeInteger(value) || value < 0) throw new TypeError(`${label} must be a nonnegative safe integer.`);
-}
 function limits(options: ArrowFramingLimitsType): { metadata: number; body: number } {
   const metadata = options.maxMetadataBytes ?? 8 * 1024 * 1024;
   const body = options.maxBodyBytes ?? 64 * 1024 * 1024;
-  integer(metadata, "Arrow metadata limit");
-  integer(body, "Arrow body limit");
+  assertInteger(metadata, "Arrow metadata limit");
+  assertInteger(body, "Arrow body limit");
   return { metadata, body };
 }
 function admit(value: bigint, maximum: number, label: string): void {
@@ -107,7 +105,7 @@ export function inspectFileTail(
   sourceSize: number,
   options: ArrowFramingLimitsType = {},
 ): ArrowTailType {
-  integer(sourceSize, "Arrow source size");
+  assertInteger(sourceSize, "Arrow source size");
   const maximum = limits(options);
   if (bytes.byteLength !== 10 || sourceSize < 18) throw invalid("file trailer is truncated.");
   magic(bytes, 4);
@@ -130,9 +128,9 @@ export function inspectBlocks(
   bounds: ArrowFileBoundsType,
   options: ArrowFramingLimitsType = {},
 ): ArrowFrameType[] {
-  integer(bounds.sourceSize, "Arrow source size");
-  integer(bounds.footerOffset, "Arrow footer offset");
-  integer(bounds.schemaEnd, "Arrow embedded schema end");
+  assertInteger(bounds.sourceSize, "Arrow source size");
+  assertInteger(bounds.footerOffset, "Arrow footer offset");
+  assertInteger(bounds.schemaEnd, "Arrow embedded schema end");
   const maximum = limits(options);
   if (
     bounds.sourceSize < 18 || bounds.footerOffset < 8 || bounds.footerOffset > bounds.sourceSize - 10 ||

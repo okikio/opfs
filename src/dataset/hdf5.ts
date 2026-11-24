@@ -1,9 +1,10 @@
 /** Bounded classic HDF5 root links and selected contiguous numeric values. @module */
+import { resolveLimit } from "../check.ts";
+import { assertAtMost, assertInteger, createArchiveLedger, toSafeInteger } from "../archive/budget.ts";
 import { isBytes, toView } from "../bytes.ts";
 import type { ByteSourceType } from "../source.ts";
 import { assertExtent } from "../source.ts";
-import { ArchiveError, invalid, unsupported } from "../archive/error.ts";
-import { assertInteger, createArchiveLedger } from "../archive/budget.ts";
+import { invalid, unsupported } from "../archive/error.ts";
 import { createView } from "../archive/field.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/budget.ts";
 export { ArchiveError } from "../archive/error.ts";
@@ -98,19 +99,6 @@ export interface Hdf5FileType {
   list(options?: Hdf5CallOptionsType): readonly Hdf5LinkType[];
   dataset(name: string, options?: Hdf5CallOptionsType): Promise<Hdf5DatasetType>;
 }
-function cap(n: number, max: number, label: string): void {
-  if (n > max) throw new ArchiveError("budget-exceeded", `${label} exceeded.`);
-}
-function limit(n: number | undefined, fallback: number, hard: number, label: string): number {
-  const value = n ?? fallback;
-  assertInteger(value, label);
-  cap(value, hard, label);
-  return value;
-}
-function exact(n: bigint, label: string): number {
-  if (n < 0n || n > BigInt(Number.MAX_SAFE_INTEGER)) throw unsupported(`${label} exceeds safe address arithmetic.`);
-  return Number(n);
-}
 function combined(...items: readonly (AbortSignal | undefined)[]): AbortSignal | undefined {
   const list = [...new Set(items.filter((s): s is AbortSignal => s !== undefined))];
   return list.length === 0 ? undefined : list.length === 1 ? list[0] : AbortSignal.any(list);
@@ -135,7 +123,7 @@ function authority(options: Hdf5CallOptionsType, parent?: AuthorityType): Author
       owners.push({ identity: ledger, reserve: reserve.bind(ledger) });
     }
   }
-  cap(owners.length, 16, "HDF5 inherited ledger owners");
+  assertAtMost(owners.length, 16, "HDF5 inherited ledger owners");
   return { owners, signal: combined(parent?.signal, options.signal) };
 }
 interface WorkType {
@@ -175,7 +163,7 @@ const missing = 0xffffffffffffffffn;
 /** A physical address may be undefined; lengths never silently inherit that meaning. */
 function address(data: DataView, at: number): number | undefined {
   const n = data.getBigUint64(at, true);
-  return n === missing ? undefined : exact(n, "HDF5 address");
+  return n === missing ? undefined : toSafeInteger(n, "HDF5 address");
 }
 function required(data: DataView, at: number): number {
   const n = address(data, at);
@@ -208,15 +196,15 @@ export async function openHdf5(input: ByteSourceType, inputOptions: Hdf5OpenOpti
     );
   }
   const policy = {
-    metadata: limit(options.maxMetadataBytes, 4 * 1024 * 1024, 16 * 1024 * 1024, "HDF5 metadata bytes"),
-    links: limit(options.maxLinks, 4096, 65536, "HDF5 links"),
-    nodes: limit(options.maxNodes, 4096, 16384, "HDF5 nodes"),
-    messages: limit(options.maxMessages, 16384, 65536, "HDF5 messages"),
-    depth: limit(options.maxDepth, 16, 64, "HDF5 continuation depth"),
-    rank: limit(options.maxRank, 16, 32, "HDF5 rank"),
-    name: limit(options.maxNameBytes, 4096, 65536, "HDF5 name bytes"),
-    elements: limit(options.maxElements, 1048576, 4194304, "HDF5 selected elements"),
-    read: limit(options.maxReadBytes, 8 * 1024 * 1024, 32 * 1024 * 1024, "HDF5 selected bytes"),
+    metadata: resolveLimit(options.maxMetadataBytes, 4 * 1024 * 1024, 16 * 1024 * 1024, "HDF5 metadata bytes"),
+    links: resolveLimit(options.maxLinks, 4096, 65536, "HDF5 links"),
+    nodes: resolveLimit(options.maxNodes, 4096, 16384, "HDF5 nodes"),
+    messages: resolveLimit(options.maxMessages, 16384, 65536, "HDF5 messages"),
+    depth: resolveLimit(options.maxDepth, 16, 64, "HDF5 continuation depth"),
+    rank: resolveLimit(options.maxRank, 16, 32, "HDF5 rank"),
+    name: resolveLimit(options.maxNameBytes, 4096, 65536, "HDF5 name bytes"),
+    elements: resolveLimit(options.maxElements, 1048576, 4194304, "HDF5 selected elements"),
+    read: resolveLimit(options.maxReadBytes, 8 * 1024 * 1024, 32 * 1024 * 1024, "HDF5 selected bytes"),
   };
   const opening = authority(options);
   const lifetime = fresh();
@@ -225,7 +213,7 @@ export async function openHdf5(input: ByteSourceType, inputOptions: Hdf5OpenOpti
     return Object.freeze({ ...lifetime });
   }
   function count(work: WorkType, key: "metadataBytes" | "nodes" | "messages" | "links", n: number, max: number): void {
-    cap(lifetime[key] + n, max, `HDF5 ${key}`);
+    assertAtMost(lifetime[key] + n, max, `HDF5 ${key}`);
     lifetime[key] += n;
     if (work !== lifetime) work[key] += n;
   }
@@ -312,7 +300,7 @@ export async function openHdf5(input: ByteSourceType, inputOptions: Hdf5OpenOpti
     let total = 0;
     while (todo.length) {
       const next = todo.pop()!;
-      cap(next.depth, policy.depth, "HDF5 continuation depth");
+      assertAtMost(next.depth, policy.depth, "HDF5 continuation depth");
       assertExtent(end, next.at, next.length);
       let low = 0, high = visited.length;
       while (low < high) {
@@ -342,7 +330,7 @@ export async function openHdf5(input: ByteSourceType, inputOptions: Hdf5OpenOpti
         if (type === 16) {
           if (n !== 16) throw invalid("HDF5 continuation message size is invalid.");
           const c = createView(body);
-          const offset = required(c, 0), size = exact(c.getBigUint64(8, true), "HDF5 continuation size");
+          const offset = required(c, 0), size = toSafeInteger(c.getBigUint64(8, true), "HDF5 continuation size");
           if (size % 8 || size === 0) throw invalid("HDF5 continuation size is invalid.");
           todo.push({ at: offset, length: size, depth: next.depth + 1 });
         } else result.push({ type, bytes: body });
@@ -376,13 +364,13 @@ export async function openHdf5(input: ByteSourceType, inputOptions: Hdf5OpenOpti
     throw unsupported("HDF5 profile requires version-zero local heaps.");
   }
   zero(heapPrefix.subarray(5, 8), "local heap");
-  const heapSize = exact(hp.getBigUint64(8, true), "HDF5 heap size");
+  const heapSize = toSafeInteger(hp.getBigUint64(8, true), "HDF5 heap size");
   const heap = await meta(opening, lifetime, required(hp, 24), heapSize);
   function text(offset: number, literal: boolean): { name: string; bytes: Uint8Array } {
     if (offset >= heap.length) throw invalid("HDF5 heap string offset is outside heap.");
     let stop = offset;
     while (stop < heap.length && heap[stop] !== 0) {
-      cap(stop - offset + 1, policy.name, "HDF5 name bytes");
+      assertAtMost(stop - offset + 1, policy.name, "HDF5 name bytes");
       stop++;
     }
     if (stop === heap.length) throw invalid("HDF5 heap string is unterminated.");
@@ -409,19 +397,19 @@ export async function openHdf5(input: ByteSourceType, inputOptions: Hdf5OpenOpti
   }
   const children = tp.getUint16(6, true);
   if (children > 2 * internalK) throw invalid("HDF5 root B-tree child count exceeds fanout.");
-  cap(children, policy.nodes, "HDF5 root children");
+  assertAtMost(children, policy.nodes, "HDF5 root children");
   const tree = await meta(opening, lifetime, treeAddress + 24, 8 + children * 16), tv = createView(tree);
   const links: Hdf5LinkType[] = [];
   let retained = 0;
   function retain(nameBytes: number, targetBytes = 0): void {
     retained += 128 + nameBytes * 3 + targetBytes * 2;
-    cap(retained, policy.metadata, "HDF5 retained link metadata bytes");
+    assertAtMost(retained, policy.metadata, "HDF5 retained link metadata bytes");
   }
   const childSeen = new Set<number>();
   let previous: Uint8Array | undefined;
   for (let child = 0; child < children; child++) {
-    const lower = text(exact(tv.getBigUint64(child * 16, true), "HDF5 B-tree key"), false).bytes;
-    const upper = text(exact(tv.getBigUint64(child * 16 + 16, true), "HDF5 B-tree key"), false).bytes;
+    const lower = text(toSafeInteger(tv.getBigUint64(child * 16, true), "HDF5 B-tree key"), false).bytes;
+    const upper = text(toSafeInteger(tv.getBigUint64(child * 16 + 16, true), "HDF5 B-tree key"), false).bytes;
     if ((child === 0 && lower.length !== 0) || (previous && compare(previous, lower) !== 0)) {
       throw invalid("HDF5 root B-tree boundary keys disagree.");
     }
@@ -441,7 +429,7 @@ export async function openHdf5(input: ByteSourceType, inputOptions: Hdf5OpenOpti
     let last = lower;
     for (let i = 0; i < n; i++) {
       const entry = entries.subarray(i * 40, (i + 1) * 40), v = createView(entry);
-      const named = text(exact(v.getBigUint64(0, true), "HDF5 name offset"), true);
+      const named = text(toSafeInteger(v.getBigUint64(0, true), "HDF5 name offset"), true);
       if (compare(last, named.bytes) >= 0) throw invalid("HDF5 root links are duplicate or unsorted.");
       last = named.bytes;
       zero(entry.subarray(20, 24), "symbol entry");
@@ -534,7 +522,7 @@ export async function openHdf5(input: ByteSourceType, inputOptions: Hdf5OpenOpti
     const space = single(items, 1)!;
     if (space.length < 8 || space[0] !== 1) throw unsupported("HDF5 profile requires dataspace version one.");
     const rank = space[1]!, flags = space[2]!;
-    cap(rank, policy.rank, "HDF5 rank");
+    assertAtMost(rank, policy.rank, "HDF5 rank");
     if (flags & ~1) throw unsupported("HDF5 dataspace flags are outside this profile.");
     zero(space.subarray(3, 8), "dataspace");
     const expected = 8 + rank * 8 * (flags & 1 ? 2 : 1);
@@ -544,15 +532,15 @@ export async function openHdf5(input: ByteSourceType, inputOptions: Hdf5OpenOpti
     const shape: number[] = [];
     for (let i = 0; i < rank; i++) {
       const dim = sv.getBigUint64(8 + i * 8, true);
-      shape.push(exact(dim, "HDF5 dimension"));
+      shape.push(toSafeInteger(dim, "HDF5 dimension"));
       product *= dim;
       if (flags & 1) {
         const max = sv.getBigUint64(8 + rank * 8 + i * 8, true);
         if (max !== missing && max < dim) throw invalid("HDF5 maximum dimension is smaller than current dimension.");
       }
     }
-    const elements = exact(product, "HDF5 element count"),
-      byteLength = exact(product * BigInt(type.bytes), "HDF5 dataset bytes");
+    const elements = toSafeInteger(product, "HDF5 element count"),
+      byteLength = toSafeInteger(product * BigInt(type.bytes), "HDF5 dataset bytes");
     const layout = single(items, 8)!;
     if (layout.length < 2 || layout[0] !== 3 || layout[1] !== 1) {
       throw unsupported("HDF5 profile requires version-three contiguous layout.");
@@ -560,7 +548,7 @@ export async function openHdf5(input: ByteSourceType, inputOptions: Hdf5OpenOpti
     if (layout.length !== 24) throw invalid("HDF5 contiguous layout extent is invalid.");
     const lv = createView(layout),
       dataAddress = address(lv, 2),
-      stored = exact(lv.getBigUint64(10, true), "HDF5 stored size");
+      stored = toSafeInteger(lv.getBigUint64(10, true), "HDF5 stored size");
     zero(layout.subarray(18), "contiguous layout");
     if (stored !== byteLength) {
       throw unsupported("HDF5 unallocated or mismatched contiguous storage is not synthesized.");
@@ -586,9 +574,9 @@ export async function openHdf5(input: ByteSourceType, inputOptions: Hdf5OpenOpti
       const count = next.count ?? elements - offset;
       assertInteger(count, "HDF5 element count");
       if (count > elements - offset) throw new RangeError("HDF5 element interval exceeds dataset.");
-      cap(count, policy.elements, "HDF5 selected elements");
+      assertAtMost(count, policy.elements, "HDF5 selected elements");
       const bytes = count * type.bytes;
-      cap(bytes, policy.read, "HDF5 selected bytes");
+      assertAtMost(bytes, policy.read, "HDF5 selected bytes");
       return { offset, count, bytes };
     }
     return Object.freeze({
@@ -643,7 +631,7 @@ export async function openHdf5(input: ByteSourceType, inputOptions: Hdf5OpenOpti
             const signal = combined(a.signal, call.signal), borrowed = { ...a, signal };
             signal?.throwIfAborted();
             assertExtent(byteLength, offset, length);
-            cap(length, policy.read, "HDF5 raw selected bytes");
+            assertAtMost(length, policy.read, "HDF5 raw selected bytes");
             const w = fresh();
             plan(borrowed, w, (dataAddress ?? 0) + offset, length, true, true);
             return await collect(borrowed, (dataAddress ?? 0) + offset, length);

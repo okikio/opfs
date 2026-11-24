@@ -1,4 +1,5 @@
 /** Injected Cloudflare R2 bindings; this module never discovers Worker globals or opens a service. @module */
+import { toInteger } from "../../check.ts";
 import type { ObjectBackendType, ObjectStatType } from "../../driver/object.ts";
 import { isBytes, toView } from "../../bytes.ts";
 import { close } from "../../close.ts";
@@ -76,13 +77,6 @@ export class R2PublicationError extends Error {
     this.name = "R2PublicationError";
   }
 }
-/** Validate safe arithmetic before native calls and byte allocation. */
-function integer(value: number, label: string, maximum = Number.MAX_SAFE_INTEGER): number {
-  if (!Number.isSafeInteger(value) || value < 0 || value > maximum) {
-    throw new RangeError(`${label} exceeds its nonnegative safe-integer limit.`);
-  }
-  return value;
-}
 /** Refuse lossy Unicode encoding and provider key overflow before calling a binding. */
 function key(value: string, empty = false): void {
   if (
@@ -114,7 +108,7 @@ function stat(object: R2ObjectType, expected: string): ObjectStatType {
     object.key !== expected || !object.version || !/^"[\x21\x23-\x7e\x80-\xff]*"$/.test(object.httpEtag) ||
     object.httpEtag !== `"${object.etag}"`
   ) throw new TypeError("R2 metadata has inconsistent key, version or ETag.");
-  const size = integer(object.size, "R2 object size");
+  const size = toInteger(object.size, "R2 object size");
   const uploaded = Date.prototype.getTime.call(object.uploaded);
   if (!Number.isFinite(uploaded)) throw new TypeError("R2 upload date is invalid.");
   return {
@@ -135,9 +129,9 @@ function condition(value: string | undefined): void {
 }
 /** Compose the portable object API over a borrowed native binding. Construction performs no binding calls. */
 export function createR2Client(binding: R2BindingType, options: R2ClientOptionsType = {}): R2ClientType {
-  const maxUploadBytes = integer(options.maxUploadBytes ?? R2_UPLOAD_BYTES, "R2 upload policy", R2_UPLOAD_BYTES);
-  const maxReadBytes = integer(options.maxReadBytes ?? 64 * 1024 * 1024, "R2 read policy");
-  const maxChunkBytes = integer(options.maxChunkBytes ?? 1024 * 1024, "R2 chunk policy");
+  const maxUploadBytes = toInteger(options.maxUploadBytes ?? R2_UPLOAD_BYTES, "R2 upload policy", R2_UPLOAD_BYTES);
+  const maxReadBytes = toInteger(options.maxReadBytes ?? 64 * 1024 * 1024, "R2 read policy");
+  const maxChunkBytes = toInteger(options.maxChunkBytes ?? 1024 * 1024, "R2 chunk policy");
   if (maxChunkBytes === 0) throw new RangeError("R2 chunk policy must be positive.");
   return {
     name: "r2",
@@ -276,7 +270,7 @@ export function createR2Client(binding: R2BindingType, options: R2ClientOptionsT
     },
     async list(request) {
       key(request.prefix, true);
-      const limit = integer(request.limit ?? 1000, "R2 page limit", 1000);
+      const limit = toInteger(request.limit ?? 1000, "R2 page limit", 1000);
       if (!limit) throw new RangeError("R2 page limit must be positive.");
       if (request.delimiter !== undefined && request.delimiter !== "/") {
         throw new TypeError("This R2 profile admits only a slash delimiter.");

@@ -1,11 +1,10 @@
 /** Verified UnixFS file ranges and literal directory links, without a transport or mutable filesystem. @module */
+import { assertAtMost, assertInteger, createArchiveLedger, toSafeInteger } from "../archive/budget.ts";
 import { isBytes, toView } from "../bytes.ts";
 import { parseCid } from "./cid.ts";
 import { murmur } from "./murmur.ts";
 import { assertExtent } from "../source.ts";
 import type { ByteSourceType } from "../source.ts";
-import { ArchiveError } from "../archive/error.ts";
-import { assertInteger, createArchiveLedger } from "../archive/budget.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/budget.ts";
 export { createArchiveLedger } from "../archive/budget.ts";
 
@@ -169,16 +168,9 @@ function invalid(message: string): TypeError {
 function unsupported(message: string): TypeError {
   return new TypeError(`Unsupported UnixFS profile: ${message}`);
 }
-function cap(value: number, maximum: number, label: string): void {
-  if (value > maximum) throw new ArchiveError("budget-exceeded", `UnixFS ${label} limit exceeded.`);
-}
 function signals(...values: readonly (AbortSignal | undefined)[]): AbortSignal | undefined {
   const present = [...new Set(values.filter((value): value is AbortSignal => value !== undefined))];
   return present.length > 1 ? AbortSignal.any(present) : present[0];
-}
-function exact(value: bigint): number {
-  if (value > BigInt(Number.MAX_SAFE_INTEGER)) throw unsupported("logical size exceeds exact JavaScript integers");
-  return Number(value);
 }
 
 /** A work owner charges all distinct ancestor ledgers once. Failed reservations are never refunded. */
@@ -216,17 +208,17 @@ class Work {
   }
   step(count = 1): void {
     this.signal?.throwIfAborted();
-    cap(count, this.policy.steps - this.used.steps, "parser steps");
+    assertAtMost(count, this.policy.steps - this.used.steps, `UnixFS ${"parser steps"}`);
     this.used.steps += count;
   }
   index(count: number): void {
-    cap(count, this.policy.index - this.used.indexBytes, "index bytes");
+    assertAtMost(count, this.policy.index - this.used.indexBytes, `UnixFS ${"index bytes"}`);
     this.charge("decodedBytes", count);
     this.used.indexBytes += count;
   }
   edge(): void {
     this.step();
-    cap(1, this.policy.edges - this.used.edges, "edges");
+    assertAtMost(1, this.policy.edges - this.used.edges, `UnixFS ${"edges"}`);
     this.used.edges++;
   }
   inspect(): UnixfsWorkType {
@@ -300,7 +292,7 @@ class Proto {
     return { field: Number(key >> 3n), wire: Number(key & 7n) };
   }
   data(): Uint8Array {
-    const size = exact(this.uint());
+    const size = toSafeInteger(this.uint(), "UnixFS logical size");
     if (size > this.bytes.length - this.at) throw invalid("protobuf byte extent exceeds its enclosing message");
     this.work.step(size);
     const result = this.bytes.subarray(this.at, this.at + size);
@@ -316,7 +308,7 @@ class Proto {
   }
 }
 function utf8(bytes: Uint8Array, maximum: number): string {
-  cap(bytes.length, maximum, "name bytes");
+  assertAtMost(bytes.length, maximum, `UnixFS ${"name bytes"}`);
   return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
 }
 function time(bytes: Uint8Array, work: Work): UnixfsMetadataType["mtime"] {
@@ -349,7 +341,7 @@ function link(bytes: Uint8Array, work: Work): UnixfsLinkType {
       cid = parseCid(hash).id;
     } else if (field === 2 && wire === 2) {
       const bytes = reader.data();
-      cap(bytes.length, work.policy.name, "name bytes");
+      assertAtMost(bytes.length, work.policy.name, `UnixFS ${"name bytes"}`);
       work.index(bytes.length * 2);
       name = utf8(bytes, work.policy.name);
     } else if (field === 3 && wire === 0) tsize = reader.uint().toString();
@@ -374,7 +366,7 @@ function node(cid: string, bytes: Uint8Array, codec: number, work: Work, hamt: b
     } else if (field === 2 && wire === 2) {
       if (group === "data" && !dataFirst) throw invalid("PBNode Links cannot straddle Data");
       group = "links";
-      cap(1, work.policy.links - links.length, "links per node");
+      assertAtMost(1, work.policy.links - links.length, `UnixFS ${"links per node"}`);
       work.used.links++;
       links.push(link(reader.data(), work));
     } else throw invalid("PBNode field is duplicate, unknown or has the wrong wire type");
@@ -392,22 +384,22 @@ function node(cid: string, bytes: Uint8Array, codec: number, work: Work, hamt: b
       if (seen.has(field)) throw invalid("duplicate singular UnixFS field");
       seen.add(field);
     }
-    if (field === 1 && wire === 0) type = exact(inner.uint());
+    if (field === 1 && wire === 0) type = toSafeInteger(inner.uint(), "UnixFS logical size");
     else if (field === 2 && wire === 2) body = inner.data();
-    else if (field === 3 && wire === 0) declared = exact(inner.uint());
+    else if (field === 3 && wire === 0) declared = toSafeInteger(inner.uint(), "UnixFS logical size");
     else if (field === 4 && (wire === 0 || wire === 2)) {
       const add = (value: bigint): void => {
-        cap(1, work.policy.links - sizes.length, "blocksizes");
+        assertAtMost(1, work.policy.links - sizes.length, `UnixFS ${"blocksizes"}`);
         work.index(8);
-        sizes.push(exact(value));
+        sizes.push(toSafeInteger(value, "UnixFS logical size"));
       };
       if (wire === 0) add(inner.uint());
       else {
         const packed = new Proto(inner.data(), work);
         while (packed.at < packed.bytes.length) add(packed.uint());
       }
-    } else if (field === 5 && wire === 0) hashType = exact(inner.uint());
-    else if (field === 6 && wire === 0) fanout = exact(inner.uint());
+    } else if (field === 5 && wire === 0) hashType = toSafeInteger(inner.uint(), "UnixFS logical size");
+    else if (field === 6 && wire === 0) fanout = toSafeInteger(inner.uint(), "UnixFS logical size");
     else if (field === 7 && wire === 0) {
       const raw = inner.uint();
       if (raw > 0xffffffffn) throw invalid("mode exceeds uint32");
@@ -536,8 +528,8 @@ export async function openUnixfs(
     );
   async function load(cid: string, work: Work, depth: number): Promise<NodeType> {
     work.step();
-    cap(depth, policy.depth, "depth");
-    cap(1, policy.nodes - work.used.nodes, "nodes");
+    assertAtMost(depth, policy.depth, `UnixFS ${"depth"}`);
+    assertAtMost(1, policy.nodes - work.used.nodes, `UnixFS ${"nodes"}`);
     work.used.nodes++;
     const cached = work.cache.get(cid);
     if (cached) {
@@ -556,7 +548,7 @@ export async function openUnixfs(
     work.signal?.throwIfAborted();
     if (!isBytes(incoming)) throw invalid("block reader returned a non-native byte view");
     const view = toView(incoming);
-    cap(view.length, policy.block, "serialized block bytes");
+    assertAtMost(view.length, policy.block, `UnixFS ${"serialized block bytes"}`);
     // Callback allocation has already happened. Admit all owned copies and hash work before allocating any of them.
     work.charge("sourceBytes", view.length);
     work.charge("decodedBytes", view.length * 2);
@@ -586,7 +578,7 @@ export async function openUnixfs(
     destination = 0,
   ): Promise<void> {
     work.step();
-    cap(depth, policy.depth, "depth");
+    assertAtMost(depth, policy.depth, `UnixFS ${"depth"}`);
     if (current.kind !== "file") throw invalid("File child is not a raw or DAG-PB File");
     if (!whole && !length) return;
     const end = offset + length, inlineEnd = Math.min(end, current.data.length);
@@ -635,7 +627,7 @@ export async function openUnixfs(
     call = { ...call };
     const offset = call.offset ?? 0, length = call.length ?? current.size - offset;
     assertExtent(current.size, offset, length);
-    cap(length, 16777216, "buffered output bytes");
+    assertAtMost(length, 16777216, `UnixFS ${"buffered output bytes"}`);
     const work = context(ancestors, call, parentSignal);
     work.charge("outputBytes", length);
     const bytes = new Uint8Array(length);
@@ -690,7 +682,7 @@ export async function openUnixfs(
           const child = await load(entry.cid, work, depth + 1);
           await visit(child, depth + 1, [...path, Number.parseInt(entry.name, 16)]);
         } else {
-          cap(1, policy.entries - entries.length, "directory entries");
+          assertAtMost(1, policy.entries - entries.length, `UnixFS ${"directory entries"}`);
           work.index(128 + entry.name.length * 2 + entry.cid.length * 2);
           const name = entry.name.slice(2);
           if (names.has(name)) throw invalid("duplicate HAMT directory name");
@@ -747,7 +739,7 @@ export async function openUnixfs(
             const code = point.codePointAt(0)!;
             nameBytes += code < 0x80 ? 1 : code < 0x800 ? 2 : code < 0x10000 ? 3 : 4;
           }
-          cap(nameBytes + 2, policy.name, "HAMT lookup name bytes including prefix");
+          assertAtMost(nameBytes + 2, policy.name, `UnixFS ${"HAMT lookup name bytes including prefix"}`);
           const childParents = [...ancestors, createArchiveLedger(call), ...(call.ledger ? [call.ledger] : [])];
           const childSignal = signals(signal, call.signal), work = context(childParents, {}, childSignal);
           const child = await lookup(current, name, depth, work);
@@ -776,7 +768,7 @@ export async function openUnixfs(
           ) {
             throw new TypeError("UnixFS lookup requires a bounded well-formed literal name.");
           }
-          cap(new TextEncoder().encode(name).length, policy.name, "lookup name bytes");
+          assertAtMost(new TextEncoder().encode(name).length, policy.name, `UnixFS ${"lookup name bytes"}`);
           const childParents = [...ancestors, createArchiveLedger(call), ...(call.ledger ? [call.ledger] : [])];
           const childSignal = signals(signal, call.signal), work = context(childParents, {}, childSignal);
           let entry: LinkType | undefined;

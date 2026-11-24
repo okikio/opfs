@@ -1,4 +1,5 @@
 /** Checked classic Kafka fields. Flexible versions and tagged fields are outside this profile. @module */
+import { toInteger } from "../../check.ts";
 import { isBytes, toView } from "../../bytes.ts";
 
 /** Local body ceiling, independent of advertised broker fetch/request policy. */
@@ -8,13 +9,6 @@ export const MIN_LONG: bigint = -(1n << 63n);
 /** Largest representable signed int64 protocol value. */
 export const MAX_LONG = (1n << 63n) - 1n;
 
-/** Validates a protocol integer without truncation or coercion. */
-function integer(value: number, minimum: number, maximum: number): number {
-  if (!Number.isSafeInteger(value) || value < minimum || value > maximum) {
-    throw new RangeError("Kafka integer is outside its admitted range.");
-  }
-  return value;
-}
 /**
  * Returns `value` if it fits Kafka's signed 64-bit `long`, and throws `RangeError` otherwise.
  *
@@ -61,7 +55,7 @@ export class Reader {
   }
   /** Borrowed checked range; its lifetime must not escape the synchronous parser. */
   take(count: number): Uint8Array {
-    integer(count, 0, this.remaining);
+    toInteger(count, "Kafka integer", this.remaining);
     const bytes = this.#bytes.subarray(this.#at, this.#at + count);
     this.#at += count;
     return bytes;
@@ -105,7 +99,7 @@ export class Reader {
   text(nullable = false): string | null {
     const count = this.short();
     if (count === -1 && nullable) return null;
-    integer(count, 0, 32767);
+    toInteger(count, "Kafka integer", 32767);
     return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(this.take(count));
   }
   /**
@@ -116,11 +110,11 @@ export class Reader {
   /** Classic array count for a nullable array; -1 reads as null. */
   arrayLength(minimumBytes: number, nullable: true, maximum?: number): number | null;
   arrayLength(minimumBytes: number, nullable = false, maximum = 1024): number | null {
-    integer(minimumBytes, 1, MAX_FRAME);
-    integer(maximum, 0, MAX_FRAME);
+    toInteger(minimumBytes, "Kafka integer", MAX_FRAME, 1);
+    toInteger(maximum, "Kafka integer", MAX_FRAME);
     const count = this.int();
     if (count === -1 && nullable) return null;
-    return integer(count, 0, Math.min(maximum, Math.floor(this.remaining / minimumBytes)));
+    return toInteger(count, "Kafka integer", Math.min(maximum, Math.floor(this.remaining / minimumBytes)));
   }
   /** Minimal signed zigzag int32, limited to five bytes and its exact final nibble. */
   varint(): number {
@@ -164,7 +158,7 @@ export class Writer {
   #length = 0;
   /** `maximum` bounds the total encoded bytes this writer retains. Defaults to and cannot exceed `MAX_FRAME`. */
   constructor(maximum = MAX_FRAME) {
-    this.#maximum = integer(maximum, 0, MAX_FRAME);
+    this.#maximum = toInteger(maximum, "Kafka integer", MAX_FRAME);
   }
   /** Encoded bytes currently retained, including scalar and length fields. */
   get length(): number {
@@ -174,35 +168,35 @@ export class Writer {
   raw(bytes: Uint8Array): this {
     if (!isBytes(bytes)) throw new TypeError("Kafka output must be bytes.");
     const view = toView(bytes);
-    integer(view.byteLength, 0, this.#maximum - this.#length);
+    toInteger(view.byteLength, "Kafka integer", this.#maximum - this.#length);
     if (view.byteLength > 0) this.#chunks.push(view);
     this.#length += view.byteLength;
     return this;
   }
   #scalar(size: number, write: (view: DataView) => void): this {
-    integer(size, 0, this.#maximum - this.#length);
+    toInteger(size, "Kafka integer", this.#maximum - this.#length);
     const bytes = new Uint8Array(size);
     write(new DataView(bytes.buffer));
     return this.raw(bytes);
   }
   /** Unsigned byte. */
   byte(value: number): this {
-    integer(value, 0, 255);
+    toInteger(value, "Kafka integer", 255);
     return this.#scalar(1, (view) => view.setUint8(0, value));
   }
   /** Signed network-order int16. */
   short(value: number): this {
-    integer(value, -32768, 32767);
+    toInteger(value, "Kafka integer", 32767, -32768);
     return this.#scalar(2, (view) => view.setInt16(0, value));
   }
   /** Signed network-order int32. */
   int(value: number): this {
-    integer(value, -2147483648, 2147483647);
+    toInteger(value, "Kafka integer", 2147483647, -2147483648);
     return this.#scalar(4, (view) => view.setInt32(0, value));
   }
   /** Unsigned network-order CRC field. */
   uint(value: number): this {
-    integer(value, 0, 4294967295);
+    toInteger(value, "Kafka integer", 4294967295);
     return this.#scalar(4, (view) => view.setUint32(0, value));
   }
   /** Signed network-order int64. */
@@ -217,8 +211,8 @@ export class Writer {
       throw new RangeError("Kafka text exceeds the admitted byte ceiling.");
     }
     const bytes = utf8(value);
-    integer(bytes.byteLength, 0, 32767);
-    integer(bytes.byteLength + 2, 0, this.#maximum - this.#length);
+    toInteger(bytes.byteLength, "Kafka integer", 32767);
+    toInteger(bytes.byteLength + 2, "Kafka integer", this.#maximum - this.#length);
     return this.short(bytes.byteLength).raw(bytes);
   }
   /** Classic nullable bytes, with a signed int32 byte length. */
@@ -226,12 +220,12 @@ export class Writer {
     if (value === null) return this.int(-1);
     if (!isBytes(value)) throw new TypeError("Kafka field must be nullable bytes.");
     const bytes = toView(value);
-    integer(bytes.byteLength + 4, 0, this.#maximum - this.#length);
+    toInteger(bytes.byteLength + 4, "Kafka integer", this.#maximum - this.#length);
     return this.int(bytes.byteLength).raw(bytes);
   }
   /** Minimal signed zigzag int32. */
   varint(value: number): this {
-    integer(value, -2147483648, 2147483647);
+    toInteger(value, "Kafka integer", 2147483647, -2147483648);
     return this.#var(BigInt(value));
   }
   /** Minimal signed zigzag int64. */
@@ -264,7 +258,7 @@ export class Writer {
 export function frame(body: Uint8Array): Uint8Array<ArrayBuffer> {
   if (!isBytes(body)) throw new TypeError("Kafka frame body must be bytes.");
   const bytes = toView(body);
-  integer(bytes.byteLength, 0, MAX_FRAME);
+  toInteger(bytes.byteLength, "Kafka integer", MAX_FRAME);
   const output = new Uint8Array(bytes.byteLength + 4);
   new DataView(output.buffer).setInt32(0, bytes.byteLength);
   output.set(bytes, 4);
@@ -273,7 +267,7 @@ export function frame(body: Uint8Array): Uint8Array<ArrayBuffer> {
 /** Validates a complete classic frame and borrows only its exact body range. */
 export function unframe(bytes: Uint8Array): Uint8Array {
   const reader = new Reader(bytes), length = reader.int();
-  integer(length, 0, MAX_FRAME);
+  toInteger(length, "Kafka integer", MAX_FRAME);
   const body = reader.take(length);
   reader.done();
   return body;

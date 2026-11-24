@@ -1,4 +1,5 @@
 /** Explicit fixed-length uploads using draft-ietf-httpbis-resumable-upload-15, interop10. @module */
+import { assertInteger } from "../check.ts";
 import { z } from "zod";
 import { isBytes, toView } from "../bytes.ts";
 import { close } from "../close.ts";
@@ -6,15 +7,9 @@ import type { FetchType } from "../request.ts";
 import { readDictionary, readField } from "./fields.ts";
 
 const maximum = 999999999999999;
-/** A draft integer is narrower than JavaScript's safe-integer range. */
-function integer(value: number, label: string): void {
-  if (!Number.isSafeInteger(value) || value < 0 || value > maximum) {
-    throw new RangeError(`${label} must be a nonnegative RFC9651 integer.`);
-  }
-}
 function finite(value: number | undefined, fallback: number, hard: number, label: string): number {
   const n = value ?? fallback;
-  integer(n, label);
+  assertInteger(n, label, maximum);
   if (n > hard) throw new RangeError(`${label} exceeds the implementation ceiling.`);
   return n;
 }
@@ -469,7 +464,7 @@ export class UploadClient {
   /** Empty known-size creation sent once. A lost Location cannot be recovered by silently issuing another creation. */
   async create(input: UploadCreateOptionsType): Promise<UploadCreateType> {
     const options = { ...input };
-    integer(options.size, "Upload size");
+    assertInteger(options.size, "Upload size", maximum);
     if (options.method !== "POST" && options.method !== "PUT") {
       throw new TypeError("Upload creation method must be POST or PUT.");
     }
@@ -557,7 +552,7 @@ export class UploadClient {
       ...(parsed.limits === undefined ? {} : { limits: Object.freeze({ ...parsed.limits }) }),
     });
     let offset = options.acknowledgedOffset ?? 0;
-    integer(offset, "Acknowledged upload offset");
+    assertInteger(offset, "Acknowledged upload offset", maximum);
     if (offset > session.size) throw new RangeError("Acknowledged offset exceeds session size.");
     let limits: UploadLimitsType = session.limits ?? Object.freeze({}),
       busy = false,
@@ -621,7 +616,7 @@ export class UploadClient {
         }),
       append: (at: number, input: Uint8Array, call: UploadRequestOptionsType = {}) =>
         lock(call, async (owner) => {
-          integer(at, "Upload offset");
+          assertInteger(at, "Upload offset", maximum);
           if (stopped || remoteTerminal || !synced || at !== offset) {
             throw new UploadError("state", "Reconcile this resource before appending at its acknowledged offset.");
           }

@@ -1,10 +1,10 @@
 /** Public ArFS 0.15 metadata and selected file bytes over an explicit supplied inventory. @module */
+import { assertAtMost, assertInteger, createArchiveLedger } from "../archive/budget.ts";
 import { z } from "zod";
 import { isBytes, toView } from "../bytes.ts";
 import { assertExtent } from "../source.ts";
 import type { ByteSourceType } from "../source.ts";
-import { ArchiveError, invalid, unsupported } from "../archive/error.ts";
-import { assertInteger, createArchiveLedger } from "../archive/budget.ts";
+import { invalid, unsupported } from "../archive/error.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/budget.ts";
 export { ArchiveError } from "../archive/error.ts";
 export { createArchiveLedger } from "../archive/budget.ts";
@@ -146,16 +146,13 @@ const fileSchema: z.ZodObject<
   lastModifiedDate: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
   pinnedDataOwner: z.string().optional(),
 });
-function cap(value: number, maximum: number, name: string): void {
-  if (value > maximum) throw new ArchiveError("budget-exceeded", `${name} exceeded.`);
-}
 /** Preflight UTF16 before UTF8 encoding so malicious caller strings cannot force unbounded temporary allocations. */
 function utf8(value: string, maximum: number, name: string): number {
   if (typeof value !== "string") throw new TypeError(`${name} must be a string.`);
-  cap(value.length, maximum, name);
+  assertAtMost(value.length, maximum, name);
   if (!value.isWellFormed()) throw invalid(`${name} has unpaired UTF16 surrogates.`);
   const length = new TextEncoder().encode(value).byteLength;
-  cap(length, maximum, name);
+  assertAtMost(length, maximum, name);
   return length;
 }
 function uuid(value: string): string {
@@ -206,7 +203,7 @@ async function collect(
 ): Promise<ArfsReadType> {
   signal?.throwIfAborted();
   assertExtent(source.size, offset, length);
-  cap(length, metadata ? 4 * 1024 * 1024 : 16 * 1024 * 1024, "ArFS collected extent");
+  assertAtMost(length, metadata ? 4 * 1024 * 1024 : 16 * 1024 * 1024, "ArFS collected extent");
   const work = {
     sourceBytes: length,
     requests: Math.ceil(length / 65536),
@@ -247,7 +244,7 @@ function jsonOf(text: string, depth: number, tokens: number, stringBytes: number
         continue;
       }
       if (c === '"') {
-        cap(at - start - 2, stringBytes * 6, "ArFS encoded JSON string");
+        assertAtMost(at - start - 2, stringBytes * 6, "ArFS encoded JSON string");
         let value: unknown;
         try {
           value = JSON.parse(text.slice(start, at));
@@ -262,8 +259,8 @@ function jsonOf(text: string, depth: number, tokens: number, stringBytes: number
     throw invalid("Unterminated JSON string.");
   }
   function value(level: number, authorityKey?: string): void {
-    cap(level, depth, "ArFS JSON depth");
-    cap(++count, tokens, "ArFS JSON tokens");
+    assertAtMost(level, depth, "ArFS JSON depth");
+    assertAtMost(++count, tokens, "ArFS JSON tokens");
     whitespace();
     if (text[at] === "{") {
       at++;
@@ -274,7 +271,7 @@ function jsonOf(text: string, depth: number, tokens: number, stringBytes: number
         return;
       }
       while (true) {
-        cap(++count, tokens, "ArFS JSON keys");
+        assertAtMost(++count, tokens, "ArFS JSON keys");
         whitespace();
         const key = string();
         if (keys.has(key)) throw invalid("Duplicate decoded JSON object key.");
@@ -362,13 +359,13 @@ export async function openArfs(input: ArfsInputType, options: ArfsOptionsType = 
   };
   for (const [key, n] of Object.entries(policy)) {
     assertInteger(n, key);
-    cap(n, hard[key as keyof typeof hard], `ArFS ${key} policy ceiling`);
+    assertAtMost(n, hard[key as keyof typeof hard], `ArFS ${key} policy ceiling`);
   }
   options.signal?.throwIfAborted();
   const { drive: driveInput, entities: selected } = input;
   if (!Array.isArray(selected)) throw new TypeError("ArFS requires a finite selected inventory array.");
   const entityCount = selected.length;
-  cap(entityCount, policy.entities, "ArFS selected entities");
+  assertAtMost(entityCount, policy.entities, "ArFS selected entities");
   const records: {
     transactionId: string;
     owner: string;
@@ -378,7 +375,7 @@ export async function openArfs(input: ArfsInputType, options: ArfsOptionsType = 
   }[] = [];
   let retained = 0, total = 0;
   const retain = (count: number): void => {
-    cap(count, policy.index - retained, "ArFS retained index estimate");
+    assertAtMost(count, policy.index - retained, "ArFS retained index estimate");
     retained += count;
   };
   const txids = new Set<string>();
@@ -411,22 +408,22 @@ export async function openArfs(input: ArfsInputType, options: ArfsOptionsType = 
     txids.add(transactionId);
     if (!Array.isArray(tags)) throw new TypeError("ArFS decoded tags must be an array.");
     const tagCount = tags.length;
-    cap(tagCount, policy.tags, "ArFS tags");
+    assertAtMost(tagCount, policy.tags, "ArFS tags");
     let tagBytes = 0;
     const values = new Map<string, string>();
     const copied: ArfsTagType[] = [];
     for (let tagIndex = 0; tagIndex < tagCount; tagIndex++) {
       const { name, value } = tags[tagIndex]!;
       tagBytes += utf8(name, policy.tag, "ArFS tag name") + utf8(value, policy.tag, "ArFS tag value");
-      cap(tagBytes, policy.tagTotal, "ArFS aggregate tags");
+      assertAtMost(tagBytes, policy.tagTotal, "ArFS aggregate tags");
       if (singular.has(name) && values.has(name)) throw invalid(`Duplicate ArFS authority tag ${name}.`);
       values.set(name, value);
       copied.push(Object.freeze({ name, value }));
     }
     const snapshot = capture(source);
-    cap(snapshot.size, policy.metadata, "ArFS metadata bytes");
+    assertAtMost(snapshot.size, policy.metadata, "ArFS metadata bytes");
     total += snapshot.size;
-    cap(total, policy.total, "ArFS aggregate metadata bytes");
+    assertAtMost(total, policy.total, "ArFS aggregate metadata bytes");
     retain(
       512 + snapshot.size * 4 + tagBytes * 2 + tagCount * 64 +
         utf8(snapshot.identity, 65536, "ArFS source identity") * 2,

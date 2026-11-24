@@ -1,7 +1,8 @@
 /** Explicit native Fetch reads compose signature checks with complete bounded data-root verification. @module */
+import { resolveLimit } from "../../check.ts";
 import { isBytes, toView } from "../../bytes.ts";
 import { close } from "../../close.ts";
-import { assertInteger, createArchiveLedger } from "../../archive/budget.ts";
+import { createArchiveLedger } from "../../archive/budget.ts";
 import type { ArchiveLedgerType, ArchiveWorkType } from "../../archive/budget.ts";
 import { ArweaveError, parseArweaveId, verifyArweaveTransaction } from "../../content/arweave.ts";
 import type {
@@ -35,12 +36,6 @@ export interface ArweaveClientType {
 function cap(value: number, maximum: number, label: string): void {
   if (value > maximum) throw new ArweaveError("budget-exceeded", `${label} exceeded.`);
 }
-function limit(value: number | undefined, fallback: number, hard: number, label: string): number {
-  const n = value ?? fallback;
-  assertInteger(n, label);
-  cap(n, hard, label);
-  return n;
-}
 function signals(...values: readonly (AbortSignal | undefined)[]): AbortSignal | undefined {
   const list = [...new Set(values.filter((v): v is AbortSignal => v !== undefined))];
   return list.length === 0 ? undefined : list.length === 1 ? list[0] : AbortSignal.any(list);
@@ -52,9 +47,9 @@ interface OwnersType {
 }
 /** Flatten actual owners, never aggregate wrappers, so repeated caller ledgers are charged once. */
 function owners(options: ArweaveLimitsType, parent?: OwnersType): OwnersType {
-  limit(options.maxHashBytes, 67108864, 268435456, "Arweave hash bytes");
-  limit(options.maxDigestCalls, 4096, 16384, "Arweave digest calls");
-  limit(options.maxMaterializedBytes, 8388608, 16777216, "Arweave retained bytes");
+  resolveLimit(options.maxHashBytes, 67108864, 268435456, "Arweave hash bytes");
+  resolveLimit(options.maxDigestCalls, 4096, 16384, "Arweave digest calls");
+  resolveLimit(options.maxMaterializedBytes, 8388608, 16777216, "Arweave retained bytes");
   const supplied: ArchiveLedgerType[] = [];
   const list = options.ledgers;
   if (list !== undefined) {
@@ -184,13 +179,13 @@ export function createArweaveClient(input: ArweaveClientOptionsType): ArweaveCli
     digest = subtle.digest.bind(subtle),
     importKey = subtle.importKey.bind(subtle),
     verify = subtle.verify.bind(subtle);
-  const hashMax = limit(options.maxHashBytes, 67108864, 268435456, "Arweave client hash bytes"),
-    callsMax = limit(options.maxDigestCalls, 4096, 16384, "Arweave client digest calls"),
-    materializedMax = limit(options.maxMaterializedBytes, 8388608, 16777216, "Arweave client retained data"),
-    headerMax = limit(options.maxHeaderBytes, 1048576, 4194304, "Arweave client header");
-  limit(options.maxTags, 256, 2048, "Arweave tags");
-  limit(options.maxTagBytes, 65536, 262144, "Arweave tag bytes");
-  limit(options.maxDecimalDigits, 128, 512, "Arweave decimal digits");
+  const hashMax = resolveLimit(options.maxHashBytes, 67108864, 268435456, "Arweave client hash bytes"),
+    callsMax = resolveLimit(options.maxDigestCalls, 4096, 16384, "Arweave client digest calls"),
+    materializedMax = resolveLimit(options.maxMaterializedBytes, 8388608, 16777216, "Arweave client retained data"),
+    headerMax = resolveLimit(options.maxHeaderBytes, 1048576, 4194304, "Arweave client header");
+  resolveLimit(options.maxTags, 256, 2048, "Arweave tags");
+  resolveLimit(options.maxTagBytes, 65536, 262144, "Arweave tag bytes");
+  resolveLimit(options.maxDecimalDigits, 128, 512, "Arweave decimal digits");
   let hashes = 0, calls = 0, materialized = 0;
   const lifetime = owners(options);
   /** Constructor crypto allowance is reserved atomically; a transaction's private credits cannot be stolen by another open. */
@@ -232,7 +227,7 @@ export function createArweaveClient(input: ArweaveClientOptionsType): ArweaveCli
       const id = parseArweaveId(value), owner = owners(call, lifetime);
       owner.signal?.throwIfAborted();
       if (call.expectedOwner !== undefined) parseArweaveId(call.expectedOwner);
-      const max = limit(call.maxHeaderBytes, headerMax, headerMax, "Arweave open header");
+      const max = resolveLimit(call.maxHeaderBytes, headerMax, headerMax, "Arweave open header");
       // Reserve the finite control-body ceiling before Fetch, not after an opaque host allocation.
       reserve(owner, "sourceBytes", max);
       reserve(owner, "requests", 1);

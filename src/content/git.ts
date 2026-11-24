@@ -1,4 +1,5 @@
 /** Verified bounded Git loose objects and raw tree-entry codecs, without repository discovery. @module */
+import { toInteger } from "../check.ts";
 import { isBytes, toView } from "../bytes.ts";
 import { close } from "../close.ts";
 import { decompressStream } from "../archive/compress.ts";
@@ -57,11 +58,6 @@ export interface GitObjectType {
   entries(): readonly GitTreeEntryType[];
 }
 const ceiling = 64 * 1024 * 1024;
-/** Bound sizes before allocations and foreign acquisition. */
-function integer(value: number, label: string, maximum = ceiling): number {
-  if (!Number.isSafeInteger(value) || value < 0 || value > maximum) throw new RangeError(`Invalid Git ${label}.`);
-  return value;
-}
 /** Repository format fixes every raw tree reference width before parsing. */
 function width(algorithm: GitAlgorithmType): number {
   if (algorithm !== "sha1" && algorithm !== "sha256") {
@@ -177,9 +173,9 @@ export function encodeGitTree(
   options: GitTreeOptionsType,
 ): Uint8Array<ArrayBuffer> {
   const algorithm = options.algorithm, oidBytes = width(algorithm);
-  const maxEntries = integer(options.maxEntries ?? 100000, "tree entry budget", 1000000);
-  const maxName = integer(options.maxNameBytes ?? 4096, "tree name budget", 1024 * 1024);
-  const maximum = integer(options.maxObjectBytes ?? 8 * 1024 * 1024, "tree byte budget");
+  const maxEntries = toInteger(options.maxEntries ?? 100000, "Git tree entry budget", 1000000);
+  const maxName = toInteger(options.maxNameBytes ?? 4096, "Git tree name budget", 1024 * 1024);
+  const maximum = toInteger(options.maxObjectBytes ?? 8 * 1024 * 1024, "Git tree byte budget", ceiling);
   if (entries.length > maxEntries) throw new RangeError("Git tree exceeds its entry budget.");
   let size = 0;
   const captured = entries.map((entry) => {
@@ -218,11 +214,11 @@ export function encodeGitTree(
 export async function openGitObject(source: ByteSourceType, options: GitOptionsType): Promise<GitObjectType> {
   const algorithm = options.algorithm, expected = objectId(options.oid, algorithm), signal = options.signal;
   const digest = options.subtle.digest.bind(options.subtle);
-  const compressed = integer(options.maxCompressedBytes ?? 16 * 1024 * 1024, "compressed byte budget");
-  const maximum = integer(options.maxObjectBytes ?? 8 * 1024 * 1024, "decoded object byte budget");
-  const maxEntries = integer(options.maxEntries ?? 100000, "tree entry budget", 1000000);
-  const maxName = integer(options.maxNameBytes ?? 4096, "tree name budget", 1024 * 1024);
-  const size = integer(source.size, "compressed source size");
+  const compressed = toInteger(options.maxCompressedBytes ?? 16 * 1024 * 1024, "Git compressed byte budget", ceiling);
+  const maximum = toInteger(options.maxObjectBytes ?? 8 * 1024 * 1024, "Git decoded object byte budget", ceiling);
+  const maxEntries = toInteger(options.maxEntries ?? 100000, "Git tree entry budget", 1000000);
+  const maxName = toInteger(options.maxNameBytes ?? 4096, "Git tree name budget", 1024 * 1024);
+  const size = toInteger(source.size, "Git compressed source size", ceiling);
   if (size > compressed) throw new RangeError("Git compressed source exceeds its byte budget.");
   const read = source.read.bind(source);
   const budget = options.budget ?? createSourceBudget({ maxBytes: compressed, maxRequests: 1024 });
@@ -285,7 +281,7 @@ export async function openGitObject(source: ByteSourceType, options: GitOptionsT
             for (let index = 0; index < headerBytes - 1; index++) header += String.fromCharCode(prefix[index]!);
             const match = /^(blob|tree|commit|tag) (0|[1-9][0-9]*)$/.exec(header);
             if (match === null) throw new TypeError("Malformed Git loose object header.");
-            const payloadSize = integer(Number(match[2]), "declared payload size");
+            const payloadSize = toInteger(Number(match[2]), "Git declared payload size", ceiling);
             if (payloadSize > maximum - headerBytes) {
               throw new RangeError("Git declared object exceeds its decoded byte budget.");
             }

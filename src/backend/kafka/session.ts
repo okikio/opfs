@@ -7,6 +7,8 @@
  *
  * @module
  */
+import { raceAbort } from "../../abort.ts";
+import { resolveLimit } from "../../check.ts";
 import { isBytes, toView } from "../../bytes.ts";
 import { close } from "../../close.ts";
 import { frame, Reader, Writer } from "./wire.ts";
@@ -42,28 +44,6 @@ export interface KafkaSessionOptionsType {
   readonly allowPlaintext?: boolean;
 }
 const FRAME_LIMIT = 4194304, IO_LIMIT = 8388608, CHUNK_LIMIT = 65536;
-/** Keep implementation admission policy separate from provider protocol limits. */
-function limit(value: number | undefined, fallback: number, maximum: number): number {
-  const result = value ?? fallback;
-  if (!Number.isSafeInteger(result) || result < 1 || result > maximum) {
-    throw new RangeError("Invalid Kafka session deadline.");
-  }
-  return result;
-}
-/** Observe late promise settlement; the opener or transferred channel still owns actual foreign IO retirement. */
-function wait<T>(promise: PromiseLike<T>, signal: AbortSignal): Promise<T> {
-  const pending = Promise.resolve(promise);
-  return new Promise<T>((resolve, reject) => {
-    const abort = (): void => reject(signal.reason);
-    if (signal.aborted) {
-      pending.catch(() => {});
-      reject(signal.reason);
-      return;
-    }
-    signal.addEventListener("abort", abort, { once: true });
-    pending.then(resolve, reject).finally(() => signal.removeEventListener("abort", abort)).catch(() => {});
-  });
-}
 /**
  * A wrapper-owned sequence of at most five classic requests on one exclusive channel.
  *
@@ -108,7 +88,7 @@ export class KafkaSession {
     while (at < size) {
       this.#signal.throwIfAborted();
       if (this.#at === this.#pending.length) {
-        const next = await wait(this.#reader.read(), this.#signal);
+        const next = await raceAbort(this.#reader.read(), this.#signal);
         this.#signal.throwIfAborted();
         const done = next.done;
         this.#signal.throwIfAborted();
@@ -169,7 +149,7 @@ export class KafkaSession {
       if (this.#at !== this.#pending.length) throw new TypeError("Kafka channel contains an unsolicited response.");
       dispatch?.();
       this.#signal.throwIfAborted();
-      await wait(this.#writer.write(request), this.#signal);
+      await raceAbort(this.#writer.write(request), this.#signal);
       this.#signal.throwIfAborted();
       const prefix = new Reader(await this.#take(4)), size = prefix.int();
       prefix.done();
@@ -210,7 +190,8 @@ export async function withKafkaSession<T>(
   options: KafkaSessionOptionsType,
   action: (session: KafkaSession) => Promise<T>,
 ): Promise<T> {
-  const timeout = limit(options.timeoutMs, 30000, 86400000), cleanup = limit(options.cleanupMs, 5000, 60000);
+  const timeout = resolveLimit(options.timeoutMs, 30000, 86400000, "Kafka session deadline", 1),
+    cleanup = resolveLimit(options.cleanupMs, 5000, 60000, "Kafka session deadline", 1);
   const opener = options.openChannel, parent = options.signal, plaintext = options.allowPlaintext ?? false;
   if (typeof opener !== "function" || typeof action !== "function" || typeof plaintext !== "boolean") {
     throw new TypeError("Invalid Kafka session capabilities or policy.");
@@ -231,7 +212,7 @@ export async function withKafkaSession<T>(
   let result: T | undefined, complete = false;
   const failures: unknown[] = [];
   try {
-    const channel = await wait(
+    const channel = await raceAbort(
         Promise.resolve().then(() => {
           signal.throwIfAborted();
           return opener({ signal });
@@ -256,7 +237,7 @@ export async function withKafkaSession<T>(
     writer = writable.getWriter();
     signal.throwIfAborted();
     session = new KafkaSession(reader, writer, signal);
-    result = await wait(
+    result = await raceAbort(
       Promise.resolve().then(() => {
         signal.throwIfAborted();
         return action(session!);
@@ -283,7 +264,7 @@ export async function withKafkaSession<T>(
         cleanup,
       );
       try {
-        await wait(Promise.resolve().then(retire), retirement.signal);
+        await raceAbort(Promise.resolve().then(retire), retirement.signal);
       } finally {
         clearTimeout(timer);
       }

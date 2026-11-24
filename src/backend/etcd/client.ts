@@ -1,4 +1,6 @@
 /** Bounded native etcd v3 JSON gateway operations. Byte keys and MVCC revisions are not filesystem paths. @module */
+import { toInteger } from "../../check.ts";
+import { type JsonLimitsType, parseJson } from "../../json.ts";
 import { z } from "zod";
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
 import { isBytes, toView } from "../../bytes.ts";
@@ -143,12 +145,6 @@ export class EtcdPublicationError extends Error {
     this.key = key;
   }
 }
-function integer(value: number, maximum: number): number {
-  if (!Number.isSafeInteger(value) || value < 0 || value > maximum) {
-    throw new RangeError("etcd value exceeds its finite policy.");
-  }
-  return value;
-}
 /** Sanitized boundary errors do not expose Zod diagnostics containing caller/provider data. */
 function parse<T>(schema: z.ZodType<T>, value: unknown): T {
   const result = schema.safeParse(value);
@@ -158,7 +154,7 @@ function parse<T>(schema: z.ZodType<T>, value: unknown): T {
 function key(value: Uint8Array, maximum = ETCD_KEY_BYTES): Uint8Array<ArrayBuffer> {
   if (!isBytes(value)) throw new TypeError("etcd keys require bytes.");
   const view = toView(value);
-  integer(view.length, maximum);
+  toInteger(view.length, "etcd value", maximum);
   if (!view.length) throw new RangeError("etcd key must be nonempty.");
   return new Uint8Array(view);
 }
@@ -227,109 +223,15 @@ const TxnSchema = z.object({
   responses: z.array(z.record(z.string(), z.unknown())).max(1).default([]),
 });
 
-/** Bounded control JSON rejects duplicate/prototype keys and noncanonical numeric lexemes before Number conversion.
- * The finite profile admits only safe integers, depth32, 100000 tokens and 2 MiB lexical strings within 8 MiB text.
- * JSON.parse is restricted to bounded string tokens, so fractional rounding cannot create accepted byte authority.
- */
-function json(text: string): unknown {
-  if (text.length > 8 * 1024 * 1024) throw new RangeError("etcd JSON exceeds its lexical budget.");
-  let at = 0, tokens = 0;
-  const fail = (): never => {
-    throw new TypeError("Malformed or over-budget etcd JSON.");
-  };
-  const whitespace = (): void => {
-    while (/[ \t\r\n]/.test(text[at] ?? "x")) at++;
-  };
-  const count = (): void => {
-    if (++tokens > 100000) fail();
-  };
-  function string(): string {
-    const start = at++;
-    while (at < text.length) {
-      if (at - start > 2097152) fail();
-      const char = text[at++];
-      if (char === "\\") {
-        at++;
-        continue;
-      }
-      if (char === '"') {
-        let value: unknown;
-        // Native SyntaxError context may contain the signed URL inside this string.
-        try {
-          value = JSON.parse(text.slice(start, at));
-        } catch {
-          return fail();
-        }
-        if (typeof value !== "string") fail();
-        return value as string;
-      }
-    }
-    return fail();
-  }
-  function value(depth: number): unknown {
-    count();
-    if (depth > 32) fail();
-    whitespace();
-    if (text[at] === '"') return string();
-    if (text[at] === "{") {
-      at++;
-      whitespace();
-      const object: Record<string, unknown> = Object.create(null);
-      if (text[at] === "}") {
-        at++;
-        return object;
-      }
-      while (true) {
-        count();
-        whitespace();
-        if (text[at] !== '"') fail();
-        const key = string();
-        if (key === "__proto__" || key === "constructor" || key === "prototype" || Object.hasOwn(object, key)) fail();
-        whitespace();
-        if (text[at++] !== ":") fail();
-        object[key] = value(depth + 1);
-        whitespace();
-        const end = text[at++];
-        if (end === "}") return object;
-        if (end !== ",") fail();
-      }
-    }
-    if (text[at] === "[") {
-      at++;
-      whitespace();
-      const array: unknown[] = [];
-      if (text[at] === "]") {
-        at++;
-        return array;
-      }
-      while (true) {
-        array.push(value(depth + 1));
-        whitespace();
-        const end = text[at++];
-        if (end === "]") return array;
-        if (end !== ",") fail();
-      }
-    }
-    const start = at;
-    while (at < text.length && !/[ \t\r\n,}\]]/.test(text[at]!)) {
-      if (at - start > 17) fail();
-      at++;
-    }
-    const raw = text.slice(start, at);
-    if (raw.length > 17) fail();
-    if (raw === "true") return true;
-    if (raw === "false") return false;
-    if (raw === "null") return null;
-    if (!/^-?(0|[1-9][0-9]{0,15})$/.test(raw) || raw === "-0") return fail();
-    const number = Number(raw);
-    if (!Number.isSafeInteger(number)) return fail();
-    return number;
-  }
-  const result = value(0);
-  whitespace();
-  if (at !== text.length) fail();
-  return result;
-}
+/** Limits for this service's JSON responses; see `parseJson`. */
+const jsonLimits: JsonLimitsType = {
+  label: "etcd",
+  maxLength: 8 * 1024 * 1024,
+  maxTokens: 100_000,
+  maxString: 2_097_152,
+  maxScalar: 17,
+};
+
 /** A finite byte-KV client; import/construction does not contact a member or acquire an authentication session. */
 export class EtcdClient {
   readonly #endpoint: URL;
@@ -357,7 +259,7 @@ export class EtcdClient {
     this.#fetch = options.fetch ?? globalThis.fetch.bind(globalThis);
     this.#credentials = options.credentials;
     this.#policy = options.policy === undefined ? undefined : { ...options.policy };
-    this.#max = integer(options.maxBytes ?? ETCD_VALUE_BYTES, ETCD_VALUE_BYTES);
+    this.#max = toInteger(options.maxBytes ?? ETCD_VALUE_BYTES, "etcd value", ETCD_VALUE_BYTES);
   }
   /** Serialize private captured data before credentials; remote metadata/redirects never select a credential target. */
   async #send(
@@ -411,7 +313,7 @@ export class EtcdClient {
     const response = await this.#send("range", request, signal);
     return await readResponse(response, async (body) => {
       if (response.status !== 200) throw new EtcdError(response.status);
-      const data = parse(RangeSchema, json(await body()));
+      const data = parse(RangeSchema, parseJson(await body(), jsonLimits));
       signal?.throwIfAborted();
       return data;
     });
@@ -455,7 +357,7 @@ export class EtcdClient {
   async list(input: Uint8Array, options: EtcdListType = {}): Promise<EtcdPageType> {
     const signal = options.signal;
     signal?.throwIfAborted();
-    const prefix = key(input), limit = integer(options.limit ?? 100, 1000);
+    const prefix = key(input), limit = toInteger(options.limit ?? 100, "etcd value", 1000);
     if (limit === 0) throw new RangeError("etcd list limit must be positive.");
     const supplied = options.cursor, cursor = supplied === undefined ? undefined : parse(EtcdCursorSchema, supplied);
     let first = prefix;
@@ -544,7 +446,7 @@ export class EtcdClient {
           refused = response.status >= 400 && response.status < 500 && response.status !== 408;
           throw new EtcdError(response.status);
         }
-        const data = parse(TxnSchema, json(await body()));
+        const data = parse(TxnSchema, parseJson(await body(), jsonLimits));
         if (data.succeeded) {
           if (data.responses.length !== 1) throw new TypeError("etcd applied transaction has no complete receipt.");
           const item = data.responses[0]!, expected = operation === "put" ? "response_put" : "response_delete_range";
@@ -596,7 +498,7 @@ export class EtcdClient {
     const mod = raw === undefined ? undefined : parse(revision(true), raw);
     if (!isBytes(value)) throw new TypeError("etcd values require bytes.");
     const view = toView(value);
-    integer(view.length, this.#max);
+    toInteger(view.length, "etcd value", this.#max);
     const encoded = encodeBase64(new Uint8Array(view)), encodedKey = encodeBase64(owned);
     return await this.#mutate(
       "put",

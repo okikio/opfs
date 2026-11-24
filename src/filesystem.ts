@@ -1,8 +1,13 @@
+import { assertInteger } from "./check.ts";
 import type { DriverPlanInputType } from "./driver/definition.ts";
 import { validateWritableOptions } from "./driver/writable.ts";
-import type { WritableOptionsType } from "./driver/file.ts";
+import type {
+  FileDriverDirectoryEntryType,
+  FileDriverSignalOptionsType,
+  RevisionType,
+  WritableOptionsType,
+} from "./driver/file.ts";
 import type { AdapterType, FileSystemOptionsType } from "./adapter/definition.ts";
-import type { FileDriverDirectoryEntryType, FileDriverSignalOptionsType, RevisionType } from "./driver/file.ts";
 import { FileSystemError, throwIfAborted, toFileSystemError } from "./error.ts";
 import { close } from "./close.ts";
 import { MutationLocks } from "./lock.ts";
@@ -329,11 +334,6 @@ export interface FileSystemType<Backend = unknown> extends AsyncDisposable {
   openSyncFile(path: string, options?: OpenSyncFileOptionsType): Promise<SyncFileType>;
   /** Releases an adapter only when ownership was transferred at creation. */
   close(): Promise<void>;
-}
-
-/** Validates byte offsets, lengths, and finite walk depths before an adapter sees them. */
-function assertNonNegativeInteger(value: number, name: string): void {
-  if (!Number.isSafeInteger(value) || value < 0) throw new RangeError(`${name} must be a non-negative safe integer.`);
 }
 
 /** Resolves and validates bounded copy/removal concurrency. */
@@ -924,7 +924,7 @@ class FileSystemFacade<Backend = unknown> implements FileSystemType<Backend> {
     const root = normalizePath(path);
     const maxDepth = options.maxDepth ?? Number.POSITIVE_INFINITY;
     if (maxDepth < 0) return;
-    if (Number.isFinite(maxDepth)) assertNonNegativeInteger(maxDepth, "maxDepth");
+    if (Number.isFinite(maxDepth)) assertInteger(maxDepth, "maxDepth");
     const includeFiles = options.includeFiles ?? true;
     const includeDirectories = options.includeDirectories ?? true;
 
@@ -950,8 +950,8 @@ class FileSystemFacade<Backend = unknown> implements FileSystemType<Backend> {
   async readFile(path: string, options: ReadOptionsType = {}): Promise<Uint8Array> {
     this.#assertOpen();
     const normalized = normalizePath(path);
-    if (options.at !== undefined) assertNonNegativeInteger(options.at, "at");
-    if (options.length !== undefined) assertNonNegativeInteger(options.length, "length");
+    if (options.at !== undefined) assertInteger(options.at, "at");
+    if (options.length !== undefined) assertInteger(options.length, "length");
     throwIfAborted(options.signal, "read", normalized);
     const ranged = options.at !== undefined || options.length !== undefined;
     const support = ranged ? getSupport(this.adapter, this.optimizations).rangeRead : "native";
@@ -1002,8 +1002,8 @@ class FileSystemFacade<Backend = unknown> implements FileSystemType<Backend> {
     throwIfAborted(signal, "read", normalized);
     const length = options.length;
     throwIfAborted(signal, "read", normalized);
-    if (at !== undefined) assertNonNegativeInteger(at, "at");
-    if (length !== undefined) assertNonNegativeInteger(length, "length");
+    if (at !== undefined) assertInteger(at, "at");
+    if (length !== undefined) assertInteger(length, "length");
     const adapterOptions = {
       ...(at === undefined ? {} : { at }),
       ...(length === undefined ? {} : { length }),
@@ -1068,7 +1068,7 @@ class FileSystemFacade<Backend = unknown> implements FileSystemType<Backend> {
       throw new FileSystemError("type-mismatch", "write", normalized, "The virtual root is a directory.");
     }
     const mode = WriteModeSchema.parse(options.mode ?? "replace");
-    if (options.at !== undefined) assertNonNegativeInteger(options.at, "at");
+    if (options.at !== undefined) assertInteger(options.at, "at");
     // Refuse before any lock or source work: an adapter that cannot hold the condition must not write unconditionally.
     if (options.ifRevision !== undefined && this.adapter.capabilities.revisions !== true) {
       throw new FileSystemError(

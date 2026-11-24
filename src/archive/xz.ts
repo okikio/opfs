@@ -1,8 +1,8 @@
 /** Bounded indexed XZ single-stream inspection and selected LZMA2 block reads. @module */
+import { ArchiveBudget, assertInteger, createArchiveLedger, toSafeInteger } from "./budget.ts";
 import type { ByteSourceType } from "../source.ts";
 import { createLzmaDecoder } from "./lzma.ts";
 import type { LzmaLimitsType } from "./lzma.ts";
-import { ArchiveBudget, assertInteger, createArchiveLedger } from "./budget.ts";
 import { ArchiveError, invalid, unsupported } from "./error.ts";
 import { createView } from "./field.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./budget.ts";
@@ -89,14 +89,8 @@ export interface XzArchiveType {
   read(options?: XzReadOptionsType): Promise<XzReadType>;
 }
 
-function exact(value: bigint): number {
-  if (value < 0n || value > BigInt(Number.MAX_SAFE_INTEGER)) {
-    throw unsupported("XZ integer exceeds safe JavaScript indexing.");
-  }
-  return Number(value);
-}
 function add(left: number, right: number): number {
-  return exact(BigInt(left) + BigInt(right));
+  return toSafeInteger(BigInt(left) + BigInt(right), "XZ integer");
 }
 function crc(bytes: Uint8Array): number {
   return (crc32(bytes) ^ 0xffffffff) >>> 0;
@@ -126,7 +120,7 @@ class Cursor {
       value |= BigInt(byte & 127) << BigInt(at * 7);
       if (!(byte & 128)) {
         if (at > 0 && byte === 0) throw invalid("XZ VLI is noncanonical.");
-        return exact(value);
+        return toSafeInteger(value, "XZ integer");
       }
     }
     throw invalid("XZ VLI exceeds nine bytes.");
@@ -253,7 +247,7 @@ export async function openXz(input: ByteSourceType, supplied: XzOpenOptionsType 
   let decoded = 0;
   const blocks: XzBlockType[] = [];
   for (const record of records) {
-    const padded = exact((BigInt(record.unpadded) + 3n) & ~3n);
+    const padded = toSafeInteger((BigInt(record.unpadded) + 3n) & ~3n, "XZ integer");
     if (record.unpadded < 5 || padded > indexAt - physical) {
       throw invalid("XZ indexed block exceeds its payload region.");
     }

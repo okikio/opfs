@@ -1,10 +1,10 @@
 /** OCFL 1.1 inventory inspection and selected-content fixity over caller-supplied files. @module */
+import { ArchiveBudget, assertAtMost, assertInteger, createArchiveLedger, createChildLedger } from "./budget.ts";
 import { z } from "zod";
 import type { ByteSourceType } from "../source.ts";
 import { assertExtent } from "../source.ts";
-import { ArchiveBudget, assertInteger, createArchiveLedger } from "./budget.ts";
 import { ArchiveError, invalid, unsupported } from "./error.ts";
-import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./budget.ts";
+import type { ArchiveLimitsType, ArchiveWorkType } from "./budget.ts";
 export { ArchiveError } from "./error.ts";
 export { createArchiveLedger } from "./budget.ts";
 export type { ArchiveErrorCodeType } from "./error.ts";
@@ -138,16 +138,12 @@ export interface OcflArchiveType {
   verifyContent(version: string, path: string, options: OcflVerifyOptionsType): Promise<OcflVerificationType>;
 }
 
-/** Preflight allocation and metadata counters before producing arrays or encoded strings. */
-function cap(value: number, maximum: number, label: string): void {
-  if (value > maximum) throw new ArchiveError("budget-exceeded", `${label} limit exceeded.`);
-}
 function utf8(value: string, maximum: number, label: string): number {
-  cap(value.length, maximum, label);
+  assertAtMost(value.length, maximum, label);
   // TextEncoder otherwise silently replaces unpaired surrogates, creating aliases.
   if (!value.isWellFormed()) throw invalid(`${label} has an unpaired surrogate.`);
   const bytes = new TextEncoder().encode(value).length;
-  cap(bytes, maximum, label);
+  assertAtMost(bytes, maximum, label);
   return bytes;
 }
 function pathOf(value: string, maximum: number): void {
@@ -194,7 +190,7 @@ function jsonOf(text: string, depth: number, tokens: number, stringBytes: number
         continue;
       }
       if (c === '"') {
-        cap(at - start - 2, stringBytes * 6, "JSON encoded string bytes");
+        assertAtMost(at - start - 2, stringBytes * 6, "JSON encoded string bytes");
         let value: unknown;
         try {
           value = JSON.parse(text.slice(start, at));
@@ -209,8 +205,8 @@ function jsonOf(text: string, depth: number, tokens: number, stringBytes: number
     throw invalid("Unterminated JSON string.");
   }
   function value(level: number, scope: "root" | "fixity" | "other" = "other"): void {
-    cap(level, depth, "JSON depth");
-    cap(++count, tokens, "JSON tokens");
+    assertAtMost(level, depth, "JSON depth");
+    assertAtMost(++count, tokens, "JSON tokens");
     whitespace();
     if (text[at] === "{") {
       at++;
@@ -221,7 +217,7 @@ function jsonOf(text: string, depth: number, tokens: number, stringBytes: number
         return;
       }
       while (true) {
-        cap(++count, tokens, "JSON tokens");
+        assertAtMost(++count, tokens, "JSON tokens");
         whitespace();
         const key = string();
         if (keys.has(key)) throw invalid("Duplicate decoded JSON object key.");
@@ -294,17 +290,6 @@ function timestamp(value: string): void {
     (m[7] && (+m[8]! > 23 || +m[9]! > 59))
   ) throw invalid("Invalid OCFL timestamp calendar or zone.");
 }
-function ledgerOf(options: ArchiveLimitsType): ArchiveLedgerType {
-  const local = createArchiveLedger(options);
-  const outer = options.ledger;
-  return {
-    reserve(kind, count) {
-      local.reserve(kind, count);
-      outer?.reserve(kind, count);
-    },
-    inspect: () => local.inspect(),
-  };
-}
 /** Reserve whole-buffer and physical acquisition before allocation; internal reads do not double-charge the outer ledger. */
 async function bytesOf(
   source: ByteSourceType,
@@ -330,8 +315,8 @@ async function bytesOf(
       }
       : {}),
   }, options.signal);
-  cap(length, work.limits.maxSourceBytes, "OCFL source bytes");
-  cap(Math.ceil(length / chunk), work.limits.maxRequests, "OCFL requests");
+  assertAtMost(length, work.limits.maxSourceBytes, "OCFL source bytes");
+  assertAtMost(Math.ceil(length / chunk), work.limits.maxRequests, "OCFL requests");
   outer?.reserve("sourceBytes", length);
   outer?.reserve("requests", Math.ceil(length / chunk));
   if (decoded) work.decoded(length);
@@ -368,17 +353,17 @@ export async function openOcfl(
     throw new RangeError("OCFL inventory/depth/chunk implementation ceiling exceeded.");
   }
   if (!Array.isArray(input)) throw new TypeError("OCFL requires an explicit file inventory array.");
-  cap(input.length, policy.files, "OCFL files");
+  assertAtMost(input.length, policy.files, "OCFL files");
   const sources = new Map<string, ByteSourceType>();
   const provenance = new Map<string, OcflFileType>();
   let retained = 0;
   let references = 0;
   function retain(count: number): void {
-    cap(count, policy.metadata - retained, "OCFL metadata");
+    assertAtMost(count, policy.metadata - retained, "OCFL metadata");
     retained += count;
   }
   function reference(path: string): void {
-    cap(++references, policy.refs, "OCFL references");
+    assertAtMost(++references, policy.refs, "OCFL references");
     pathOf(path, policy.path);
     retain(128 + utf8(path, policy.path, "OCFL path bytes"));
   }
@@ -411,11 +396,11 @@ export async function openOcfl(
     );
   }
   nonconflicting([...sources.keys()]);
-  const ledger = ledgerOf(options);
+  const ledger = createChildLedger(options);
   async function metadata(path: string, maximum: number): Promise<Uint8Array> {
     const source = sources.get(path);
     if (!source) throw invalid(`Missing OCFL metadata: ${path}.`);
-    cap(source.size, maximum, "OCFL metadata file bytes");
+    assertAtMost(source.size, maximum, "OCFL metadata file bytes");
     retain(source.size * 4);
     return (await bytesOf(source, 0, source.size, { ...options, ledger }, policy.chunk, true)).bytes;
   }
@@ -444,7 +429,7 @@ export async function openOcfl(
   pathOf(directory, policy.path);
   if (directory.includes("/")) throw invalid("OCFL contentDirectory must be one component.");
   const versions = Object.keys(inventory.versions);
-  cap(versions.length, policy.versions, "OCFL versions");
+  assertAtMost(versions.length, policy.versions, "OCFL versions");
   if (!versions.length) throw invalid("OCFL inventory needs at least one version.");
   // The specification's E011 rule forbids a padded sequence from exhausting its leading zero.
   // For example, v0001..v0100 is valid, while v001..v100 crosses the forbidden boundary.
@@ -651,7 +636,7 @@ export async function openOcfl(
     const maximum = call.maxVerifyBytes ?? 1024 * 1024;
     assertInteger(maximum, "maxVerifyBytes");
     if (maximum > 16 * 1024 * 1024) throw new RangeError("OCFL whole-buffer verification hard ceiling is 16 MiB.");
-    cap(length, maximum, "OCFL whole-buffer verifier bytes");
+    assertAtMost(length, maximum, "OCFL whole-buffer verifier bytes");
   }
   return Object.freeze({
     inventory,

@@ -1,4 +1,5 @@
 /** Explicit byte sources for archive access and checkpoint replay. @module */
+import { assertInteger } from "./check.ts";
 import type { ObjectBackendType, RevisionType } from "./driver/object.ts";
 import { close } from "./close.ts";
 import { isBytes, toView } from "./bytes.ts";
@@ -44,11 +45,6 @@ export interface SourceBudgetType {
   inspect(): { readonly bytes: number; readonly requests: number };
 }
 
-/** Rejects unsafe arithmetic before allocation or source acquisition. */
-function integer(value: number, name: string): void {
-  if (!Number.isSafeInteger(value) || value < 0) throw new RangeError(`${name} must be a nonnegative safe integer.`);
-}
-
 /**
  * Throws `RangeError` unless `offset` and `length` describe a complete extent inside a source of `size` bytes.
  *
@@ -66,22 +62,22 @@ function integer(value: number, name: string): void {
  * byte span; HTTP `Range` selection lives in `range.ts`.
  */
 export function assertExtent(size: number, offset: number, length: number): void {
-  integer(size, "size");
-  integer(offset, "offset");
-  integer(length, "length");
+  assertInteger(size, "size");
+  assertInteger(offset, "offset");
+  assertInteger(length, "length");
   if (offset > size || length > size - offset) throw new RangeError("Byte source extent exceeds its snapshot.");
 }
 
 /** Creates a per-operation ledger. Share the same value through nested source wrappers. */
 export function createSourceBudget(options: SourceBudgetOptionsType): SourceBudgetType {
   const { maxBytes, maxRequests } = options;
-  integer(maxBytes, "maxBytes");
-  integer(maxRequests, "maxRequests");
+  assertInteger(maxBytes, "maxBytes");
+  assertInteger(maxRequests, "maxRequests");
   let bytes = 0;
   let requests = 0;
   return {
     reserve(length) {
-      integer(length, "length");
+      assertInteger(length, "length");
       if (length > maxBytes - bytes || requests >= maxRequests) throw new RangeError("Byte source budget exhausted.");
       bytes += length;
       requests++;
@@ -97,7 +93,7 @@ export function createSourceBudget(options: SourceBudgetOptionsType): SourceBudg
  */
 export function limitSource(source: ByteSourceType, budget: SourceBudgetType): ByteSourceType {
   const { size, identity, stability } = source;
-  integer(size, "size");
+  assertInteger(size, "size");
   return {
     size,
     ...(identity === undefined ? {} : { identity }),
@@ -122,7 +118,7 @@ export function limitSource(source: ByteSourceType, budget: SourceBudgetType): B
 /** Borrows an immutable Blob. A caller identity is an assertion used for resume comparison. */
 export function createBlobSource(blob: Blob, options: { readonly identity?: string } = {}): ByteSourceType {
   const { size } = blob;
-  integer(size, "size");
+  assertInteger(size, "size");
   return {
     size,
     ...(options.identity === undefined ? {} : { identity: options.identity }),
@@ -224,14 +220,14 @@ export async function openObjectSource(
   if (namespace !== undefined && namespace.length === 0) {
     throw new TypeError("Object namespace identity cannot be empty.");
   }
-  integer(maxReadBytes, "maxReadBytes");
+  assertInteger(maxReadBytes, "maxReadBytes");
   if (maxReadBytes === 0) throw new RangeError("maxReadBytes must be positive.");
   signal?.throwIfAborted();
   if (!backend.capabilities.rangeRead) throw new TypeError("Object backend does not support range reads.");
   const stat = await backend.head(key, signal === undefined ? {} : { signal });
   signal?.throwIfAborted();
   if (stat === null) throw new Error("Object source does not exist.");
-  integer(stat.size, "size");
+  assertInteger(stat.size, "size");
   // Only one strong opaque tag binds a representation. '*' tests existence and
   // a comma-separated list permits several versions; neither is a snapshot.
   const strongETag = (value: string) => /^"[\x21\x23-\x7e\x80-\xff]*"$/.test(value);

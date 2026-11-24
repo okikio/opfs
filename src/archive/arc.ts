@@ -1,9 +1,9 @@
 /** Bounded Internet Archive ARC 1.0 stored-record inspection, distinct from SEA ARC compression. @module */
+import { ArchiveBudget, assertAtMost, assertInteger, createArchiveLedger, createChildLedger } from "./budget.ts";
 import type { ByteSourceType } from "../source.ts";
 import { assertExtent } from "../source.ts";
-import { ArchiveBudget, assertInteger, createArchiveLedger } from "./budget.ts";
-import { ArchiveError, invalid, unsupported } from "./error.ts";
-import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./budget.ts";
+import { invalid, unsupported } from "./error.ts";
+import type { ArchiveLimitsType, ArchiveWorkType } from "./budget.ts";
 export { ArchiveError } from "./error.ts";
 export { createArchiveLedger } from "./budget.ts";
 export type { ArchiveErrorCodeType } from "./error.ts";
@@ -64,9 +64,6 @@ export interface ArcArchiveType {
   };
   read(id: number, options?: ArcReadOptionsType): Promise<ArcReadType>;
   source(id: number, options?: ArcReadOptionsType): ByteSourceType;
-}
-function cap(value: number, maximum: number, label: string): void {
-  if (value > maximum) throw new ArchiveError("budget-exceeded", `${label} limit exceeded.`);
 }
 /** Metadata is printable ASCII by policy; binary content is never passed through this decoder. */
 function ascii(bytes: Uint8Array): string {
@@ -139,21 +136,10 @@ class ArcCursor {
         this.#work.decoded(count + 1);
         return { text: ascii(result.subarray(0, count)), next: offset + count + 1, bytes: count + 1 };
       }
-      cap(count + 1, maximum, "ARC metadata line bytes");
+      assertAtMost(count + 1, maximum, "ARC metadata line bytes");
       result[count++] = byte;
     }
   }
-}
-function ledgerOf(options: ArchiveLimitsType): ArchiveLedgerType {
-  const local = createArchiveLedger(options);
-  const outer = options.ledger;
-  return {
-    reserve(kind, count) {
-      local.reserve(kind, count);
-      outer?.reserve(kind, count);
-    },
-    inspect: () => local.inspect(),
-  };
 }
 /** Admit the complete selected range and allocation before acquiring any underlying extent. */
 async function bytesOf(
@@ -179,8 +165,8 @@ async function bytesOf(
       }
       : {}),
   }, options.signal);
-  cap(length, work.limits.maxSourceBytes, "ARC source bytes");
-  cap(Math.ceil(length / chunk), work.limits.maxRequests, "ARC requests");
+  assertAtMost(length, work.limits.maxSourceBytes, "ARC source bytes");
+  assertAtMost(Math.ceil(length / chunk), work.limits.maxRequests, "ARC requests");
   outer?.reserve("sourceBytes", length);
   outer?.reserve("requests", Math.ceil(length / chunk));
   work.decoded(length);
@@ -229,11 +215,11 @@ export async function openArc(input: ByteSourceType, options: ArcOpenOptionsType
   if (separator !== "outside-length" && separator !== "inside-length") {
     throw new TypeError("Unknown ARC filedesc separator policy.");
   }
-  const ledger = ledgerOf(options);
+  const ledger = createChildLedger(options);
   const work = new ArchiveBudget(source, { ...options, ledger }, options.signal);
   const cursor = new ArcCursor(size, work, policy.chunk);
-  cap(1, policy.entries, "ARC entries");
-  cap(129, policy.metadata, "ARC retained metadata");
+  assertAtMost(1, policy.entries, "ARC entries");
+  assertAtMost(129, policy.metadata, "ARC retained metadata");
   const entries: ArcEntryType[] = [];
   let offset = 0;
   let retained = 0;
@@ -242,8 +228,8 @@ export async function openArc(input: ByteSourceType, options: ArcOpenOptionsType
     throw unsupported("Compose gzip decoding separately before ARC indexing.");
   }
   while (offset < size) {
-    cap(entries.length + 1, policy.entries, "ARC entries");
-    cap(129, policy.metadata - retained, "ARC retained metadata");
+    assertAtMost(entries.length + 1, policy.entries, "ARC entries");
+    assertAtMost(129, policy.metadata - retained, "ARC retained metadata");
     // Line admission excludes LF, but retained metadata includes LF and the record overhead.
     const line = await cursor.line(offset, Math.min(policy.line, policy.metadata - retained - 129));
     if (!line.text) throw invalid("Unexpected blank ARC record header.");
@@ -267,8 +253,8 @@ export async function openArc(input: ByteSourceType, options: ArcOpenOptionsType
     let end = line.next + blockSize;
     if (descriptor) {
       if (contentType !== "text/plain") throw invalid("ARC filedesc must declare text/plain.");
-      cap(blockSize, policy.filedesc, "ARC filedesc bytes");
-      cap(blockSize, policy.metadata - retained, "ARC retained metadata");
+      assertAtMost(blockSize, policy.filedesc, "ARC filedesc bytes");
+      assertAtMost(blockSize, policy.metadata - retained, "ARC retained metadata");
       // The descriptor is small retained metadata; ordinary blocks are skipped by physical length.
       work.decoded(blockSize);
       const bytes = new Uint8Array(blockSize);

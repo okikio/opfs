@@ -1,4 +1,7 @@
 /** PocketBase record-file operations with explicit API and protected-file authority. @module */
+import { toInteger } from "../../check.ts";
+import { exactLength } from "../../body.ts";
+import { type JsonLimitsType, parseJson, readFiniteNumber } from "../../json.ts";
 import { z } from "zod";
 import { isBytes, toView } from "../../bytes.ts";
 import { close } from "../../close.ts";
@@ -6,7 +9,7 @@ import { assertRangeResponse, resolveRange } from "../../range.ts";
 import { RequestMetrics, sendRequest } from "../../request.ts";
 import type { FetchType, RequestPolicyType } from "../../request.ts";
 import { readResponse } from "../../response.ts";
-import { collectBytes, openBytes, withAbortSignal } from "../../stream.ts";
+import { collectBytes } from "../../stream.ts";
 
 /** Implementation ceiling for one copied multipart upload or materialized download. */
 export const POCKETBASE_BUFFER_BYTES = 64 * 1024 * 1024;
@@ -76,12 +79,6 @@ export class PocketbasePublicationError extends Error {
     this.name = "PocketbasePublicationError";
   }
 }
-function integer(value: number, max: number): number {
-  if (!Number.isSafeInteger(value) || value < 0 || value > max) {
-    throw new RangeError("Invalid PocketBase budget or extent.");
-  }
-  return value;
-}
 /** Literal components cannot become path separators or URL-normalized dot aliases. */
 function component(value: string): string {
   if (
@@ -117,87 +114,15 @@ function authorization(value: string): string {
   }
   return value;
 }
-/** Refuse duplicate authority, prototype keys, deep inputs and imprecise numbers before JSON parsing. */
-function json(text: string): unknown {
-  let at = 0, tokens = 0;
-  const fail = (): never => {
-    throw new TypeError("Malformed or over-budget PocketBase JSON.");
-  };
-  const space = (): void => {
-    while (/[ \t\r\n]/.test(text[at] ?? "x")) at++;
-  };
-  function string(): string {
-    const start = at++;
-    while (at < text.length) {
-      if (at - start > 65536) fail();
-      const char = text[at++];
-      if (char === "\\") {
-        at++;
-        continue;
-      }
-      if (char === '"') {
-        try {
-          return JSON.parse(text.slice(start, at)) as string;
-        } catch {
-          return fail();
-        }
-      }
-    }
-    return fail();
-  }
-  function value(depth: number): void {
-    if (++tokens > 100000 || depth > 32) fail();
-    space();
-    if (text[at] === '"') {
-      string();
-      return;
-    }
-    if (text[at] === "{" || text[at] === "[") {
-      const object = text[at++] === "{", end = object ? "}" : "]", keys = new Set<string>();
-      space();
-      if (text[at] === end) {
-        at++;
-        return;
-      }
-      while (true) {
-        if (object) {
-          space();
-          if (text[at] !== '"') fail();
-          const key = string();
-          if (keys.has(key) || ["__proto__", "constructor", "prototype"].includes(key)) fail();
-          keys.add(key);
-          space();
-          if (text[at++] !== ":") fail();
-        }
-        value(depth + 1);
-        space();
-        const char = text[at++];
-        if (char === end) return;
-        if (char !== ",") fail();
-      }
-    }
-    const start = at;
-    while (at < text.length && !/[ \t\r\n,}\]]/.test(text[at]!)) {
-      if (at - start >= 128) fail();
-      at++;
-    }
-    const raw = text.slice(start, at);
-    if (!["true", "false", "null"].includes(raw)) {
-      if (
-        !/^-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?$/.test(raw) || !Number.isFinite(Number(raw)) ||
-        Number.isInteger(Number(raw)) && !Number.isSafeInteger(Number(raw))
-      ) fail();
-    }
-  }
-  value(0);
-  space();
-  if (at !== text.length) fail();
-  try {
-    return JSON.parse(text);
-  } catch {
-    return fail();
-  }
-}
+/** Limits for this service's JSON responses; see `parseJson`. */
+const jsonLimits: JsonLimitsType = {
+  label: "PocketBase",
+  maxTokens: 100_000,
+  maxString: 65_536,
+  maxScalar: 128,
+  number: readFiniteNumber,
+};
+
 const RecordSchema = z.looseObject({ id: z.string(), collectionId: z.string(), collectionName: z.string() });
 const PageSchema = z.object({
   page: z.number(),
@@ -206,63 +131,6 @@ const PageSchema = z.object({
   totalPages: z.number(),
   items: z.array(z.unknown()).max(500),
 });
-/** Preserve native terminal read errors; cancel only independently detected local extent failures. */
-function extent(
-  body: ReadableStream<Uint8Array>,
-  expected: number | undefined,
-  signal?: AbortSignal,
-): ReadableStream<Uint8Array> {
-  const reader = openBytes(body);
-  let seen = 0, empty = 0, terminal = false;
-  return withAbortSignal(
-    new ReadableStream<Uint8Array>({
-      async pull(controller) {
-        try {
-          let next: ReadableStreamReadResult<Uint8Array>;
-          try {
-            next = await reader.read();
-          } catch (reason) {
-            terminal = true;
-            throw reason;
-          }
-          if (next.done) {
-            terminal = true;
-            if (expected !== undefined && seen !== expected) {
-              throw new TypeError("PocketBase file extent is truncated.");
-            }
-            reader.releaseLock();
-            controller.close();
-            return;
-          }
-          if (!isBytes(next.value)) throw new TypeError("PocketBase file stream requires bytes.");
-          const bytes = toView(next.value);
-          if (
-            bytes.length > Number.MAX_SAFE_INTEGER - seen || expected !== undefined && bytes.length > expected - seen
-          ) throw new TypeError("PocketBase file exceeds its declared extent.");
-          seen += bytes.length;
-          if (!bytes.length) { if (++empty > 16) throw new TypeError("PocketBase file makes no progress."); }
-          else empty = 0;
-          controller.enqueue(bytes);
-        } catch (reason) {
-          try {
-            await close([...(terminal ? [] : [() => reader.cancel(reason)]), () => reader.releaseLock()], [reason]);
-          } catch (failure) {
-            controller.error(failure);
-          }
-          terminal = true;
-        }
-      },
-      async cancel(reason) {
-        if (terminal) return;
-        terminal = true;
-        await close([() => reader.cancel(reason), () => reader.releaseLock()]);
-      },
-    }, { highWaterMark: 0 }),
-    signal,
-    "PocketBase content",
-    "download",
-  );
-}
 /** Native collection-file service, not an arbitrary filesystem or a transactional record store. */
 export class PocketbaseClient {
   readonly #base: URL;
@@ -293,7 +161,7 @@ export class PocketbaseClient {
     this.#credentials = options.credentials;
     this.#fetch = options.fetch ?? globalThis.fetch;
     this.#request = options.request === undefined ? undefined : { ...options.request };
-    this.#max = integer(options.maxBytes ?? 8 * 1024 * 1024, POCKETBASE_BUFFER_BYTES);
+    this.#max = toInteger(options.maxBytes ?? 8 * 1024 * 1024, "PocketBase budget or extent", POCKETBASE_BUFFER_BYTES);
   }
   #url(path: string): URL {
     return new URL(`api/${path}`, this.#base);
@@ -390,15 +258,15 @@ export class PocketbaseClient {
       undefined,
       signal,
       false,
-      async (_response, text) => this.#record(json(await text()), captured),
+      async (_response, text) => this.#record(parseJson(await text(), jsonLimits), captured),
     );
   }
   /** Fetch one finite native offset page. Sorting/filtering, full scans and snapshot consistency are not inferred. */
   async listPage(
     options: { readonly page?: number; readonly perPage?: number; readonly signal?: AbortSignal } = {},
   ): Promise<PocketbasePageType> {
-    const page = integer(options.page ?? 1, 1_000_000),
-      perPage = integer(options.perPage ?? 30, 500),
+    const page = toInteger(options.page ?? 1, "PocketBase budget or extent", 1_000_000),
+      perPage = toInteger(options.perPage ?? 30, "PocketBase budget or extent", 500),
       signal = options.signal;
     if (!page || !perPage) throw new RangeError("PocketBase pages start at one.");
     const target = this.#url(this.#recordPath());
@@ -406,12 +274,12 @@ export class PocketbaseClient {
     target.searchParams.set("perPage", String(perPage));
     target.searchParams.set("sort", "id");
     return await this.#send(target, "GET", undefined, signal, false, async (_response, text) => {
-      const data = PageSchema.parse(json(await text()));
+      const data = PageSchema.parse(parseJson(await text(), jsonLimits));
       if (data.page !== page || data.perPage !== perPage || data.items.length > perPage) {
         throw new TypeError("PocketBase page extent differs.");
       }
-      integer(data.totalItems, Number.MAX_SAFE_INTEGER);
-      integer(data.totalPages, Number.MAX_SAFE_INTEGER);
+      toInteger(data.totalItems, "PocketBase budget or extent");
+      toInteger(data.totalPages, "PocketBase budget or extent");
       const items = data.items.map((item) => this.#record(item));
       if (new Set(items.map((item) => item.id)).size !== items.length) {
         throw new TypeError("PocketBase page repeats a record.");
@@ -458,7 +326,7 @@ export class PocketbaseClient {
       if (!isBytes(supplied)) throw new TypeError("PocketBase file requires bytes.");
       const view = toView(supplied);
       bytes += view.length;
-      integer(bytes, this.#max);
+      toInteger(bytes, "PocketBase budget or extent", this.#max);
       return { name, blob: new Blob([new Uint8Array(view)], { type: mediaType }) };
     });
     const body = new FormData();
@@ -480,7 +348,7 @@ export class PocketbaseClient {
       body,
       signal,
       true,
-      async (_response, text) => this.#record(json(await text())),
+      async (_response, text) => this.#record(parseJson(await text(), jsonLimits)),
     );
   }
   /** Replace or append file-field entries. Append is not byte append and does not make a read-modify-write promise. */
@@ -501,7 +369,7 @@ export class PocketbaseClient {
       body,
       signal,
       true,
-      async (_response, text) => this.#record(json(await text()), captured),
+      async (_response, text) => this.#record(parseJson(await text(), jsonLimits), captured),
     );
   }
   /** Remove named entries through the file-field '-' modifier. This requires record update permission, not delete permission. */
@@ -519,7 +387,7 @@ export class PocketbaseClient {
       body,
       signal,
       true,
-      async (_response, text) => this.#record(json(await text()), captured),
+      async (_response, text) => this.#record(parseJson(await text(), jsonLimits), captured),
     );
   }
   /** Delete the entire native record and its associated files. This is never a file-only removal fallback. */
@@ -535,7 +403,8 @@ export class PocketbaseClient {
       undefined,
       signal,
       false,
-      async (_response, text) => secret(z.object({ token: z.string() }).parse(json(await text())).token),
+      async (_response, text) =>
+        secret(z.object({ token: z.string() }).parse(parseJson(await text(), jsonLimits)).token),
     );
   }
   /** Original file bytes only. Ordinary API credentials are never acquired or forwarded, including same-origin files. */
@@ -597,7 +466,7 @@ export class PocketbaseClient {
       let size: number | undefined;
       if (raw !== null) {
         if (!/^(0|[1-9][0-9]*)$/.test(raw)) throw new TypeError("Invalid PocketBase file length.");
-        size = integer(Number(raw), Number.MAX_SAFE_INTEGER);
+        size = toInteger(Number(raw), "PocketBase budget or extent");
       }
       if (selected.header !== undefined) {
         const match = /^bytes (\d+)-(\d+)\/(\d+)$/.exec(contentRange!);
@@ -605,7 +474,11 @@ export class PocketbaseClient {
       }
       if (response.body === null) throw new TypeError("PocketBase file response lacks a readable body.");
       return {
-        bytes: extent(response.body, size, selected.signal),
+        bytes: exactLength(response.body, size, {
+          label: "PocketBase file extent",
+          resource: "PocketBase content",
+          signal: selected.signal,
+        }),
         ...(size === undefined ? {} : { size }),
         evidence: "server-trusted",
       };

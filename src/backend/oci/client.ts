@@ -1,4 +1,5 @@
 /** Bounded OCI Distribution pull operations with explicit content-integrity evidence. @module */
+import { toInteger } from "../../check.ts";
 import { z } from "zod";
 import { encodeHex } from "@std/encoding/hex";
 import { toRequestBytes } from "../../bytes.ts";
@@ -82,11 +83,6 @@ export class OciError extends Error {
     this.status = status;
   }
 }
-/** Bound policies and sizes before allocation or credential acquisition. */
-function integer(value: number, label: string, maximum = Number.MAX_SAFE_INTEGER): number {
-  if (!Number.isSafeInteger(value) || value < 0 || value > maximum) throw new RangeError(`Invalid OCI ${label}.`);
-  return value;
-}
 /** This profile fetches SHA-256 content only; descriptor declarations can name other algorithms. */
 function digest(value: string): string {
   if (typeof value !== "string" || !/^sha256:[a-f0-9]{64}$/.test(value)) {
@@ -152,15 +148,15 @@ export class OciClient {
       if (url.pathname !== "/" || url.search) throw new TypeError("OCI redirect policy requires exact origins.");
       return url.origin;
     }));
-    this.#redirects = integer(options.maxRedirects ?? 3, "redirect budget", 10);
-    this.#manifestBytes = integer(
+    this.#redirects = toInteger(options.maxRedirects ?? 3, "OCI redirect budget", 10);
+    this.#manifestBytes = toInteger(
       options.maxManifestBytes ?? 8 * 1024 * 1024,
-      "manifest byte budget",
+      "OCI manifest byte budget",
       64 * 1024 * 1024,
     );
-    this.#blobBytes = integer(options.maxBlobBytes ?? 64 * 1024 * 1024, "blob byte budget", 1024 * 1024 * 1024);
-    this.#pages = integer(options.maxPages ?? 1000, "page budget");
-    this.#tags = integer(options.maxTags ?? 100000, "tag budget");
+    this.#blobBytes = toInteger(options.maxBlobBytes ?? 64 * 1024 * 1024, "OCI blob byte budget", 1024 * 1024 * 1024);
+    this.#pages = toInteger(options.maxPages ?? 1000, "OCI page budget");
+    this.#tags = toInteger(options.maxTags ?? 100000, "OCI tag budget");
   }
   /** Canonical URL parsing is not credential discovery. Relative redirects are resolved by the caller before admission. */
   #url(value: string | URL): URL {
@@ -253,7 +249,7 @@ export class OciClient {
       const value = response.headers.get("content-length");
       if (value !== null) {
         if (!/^\d+$/.test(value)) throw new TypeError("Invalid OCI Content-Length.");
-        declared = integer(Number(value), "Content-Length", maximum);
+        declared = toInteger(Number(value), "OCI Content-Length", maximum);
       }
       if (response.body === null && declared !== 0) throw new TypeError("OCI content response has no body.");
     } catch (cause) {
@@ -343,7 +339,7 @@ export class OciClient {
       if (length === null || !/^\d+$/.test(length)) {
         throw new TypeError("OCI blob metadata requires a safe Content-Length.");
       }
-      return { digest: selected, size: integer(Number(length), "blob size"), integrity: "server" };
+      return { digest: selected, size: toInteger(Number(length), "OCI blob size"), integrity: "server" };
     });
   }
   /** Explicit server-trusted streamed read. A digest-shaped URL is not proof of partial bytes. */
@@ -394,8 +390,8 @@ export class OciClient {
   ): Promise<Uint8Array> {
     const { signal, size } = options;
     const selected = digest(value);
-    const maximum = integer(options.maxBytes ?? this.#blobBytes, "blob byte budget", this.#blobBytes);
-    if (size !== undefined) integer(size, "expected blob size", maximum);
+    const maximum = toInteger(options.maxBytes ?? this.#blobBytes, "OCI blob byte budget", this.#blobBytes);
+    if (size !== undefined) toInteger(size, "OCI expected blob size", maximum);
     const response = await this.#blob(this.#route(`blobs/${selected}`), "GET", new Headers(), signal);
     const bytes = await this.#bytes(response, maximum, signal);
     if (size !== undefined && bytes.byteLength !== size) {
@@ -439,7 +435,7 @@ export class OciClient {
       }
       names.add(key);
       if (key === "last") tag(value);
-      else if (!/^\d+$/.test(value) || integer(Number(value), "tag page size", 1000) === 0) {
+      else if (!/^\d+$/.test(value) || toInteger(Number(value), "OCI tag page size", 1000) === 0) {
         throw new TypeError("Invalid OCI tag page size.");
       }
     }
@@ -450,7 +446,7 @@ export class OciClient {
     options: { readonly next?: string; readonly pageSize?: number; readonly signal?: AbortSignal } = {},
   ): Promise<OciTagsType> {
     const { next, signal } = options;
-    const size = integer(options.pageSize ?? 100, "tag page size", 1000);
+    const size = toInteger(options.pageSize ?? 100, "OCI tag page size", 1000);
     if (size === 0) throw new RangeError("OCI tag page size must be positive.");
     const route = this.#route("tags/list");
     const url = next === undefined ? route : this.#next(next, route);

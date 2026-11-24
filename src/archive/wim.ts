@@ -1,11 +1,11 @@
 /** Ordinary stored/XPRESS/LZX WIM resource and selected-image inspection; no Windows restoration. @module */
+import { ArchiveBudget, assertAtMost, assertInteger, createArchiveLedger } from "./budget.ts";
 import type { XmlElement } from "@std/xml/types";
 import type { ByteSourceType } from "../source.ts";
 import { assertExtent } from "../source.ts";
 import { parseXmlRoot } from "../xml.ts";
 import { decodeXpress } from "./xpress.ts";
 import { decodeLzx } from "./lzx.ts";
-import { ArchiveBudget, assertInteger, createArchiveLedger } from "./budget.ts";
 import { ArchiveError, invalid, unsupported } from "./error.ts";
 import type { ArchiveLimitsType, ArchiveWorkType } from "./budget.ts";
 export { ArchiveError } from "./error.ts";
@@ -137,9 +137,6 @@ function signals(...values: readonly (AbortSignal | undefined)[]): AbortSignal |
   const present = values.filter((value): value is AbortSignal => value !== undefined);
   return present.length > 1 ? AbortSignal.any(present) : present[0];
 }
-function cap(value: number, maximum: number, label: string): void {
-  if (value > maximum) throw new ArchiveError("budget-exceeded", `${label} limit exceeded.`);
-}
 function wide(view: DataView, offset: number): number {
   const value = view.getBigUint64(offset, true);
   if (value > BigInt(Number.MAX_SAFE_INTEGER)) throw unsupported("WIM extent exceeds exact JavaScript integers.");
@@ -203,8 +200,12 @@ class WimBudget {
   /** Reserve a complete payload plan before allocating its result, then consume credits during collection. */
   prepare(length: number, requests = Math.ceil(length / 65536)): void {
     const bytes = Math.max(0, length - this.#bytes), count = Math.max(0, requests - this.#requests);
-    cap(bytes, this.work.limits.maxSourceBytes - this.work.inspect().sourceBytes - this.#bytes, "WIM source bytes");
-    cap(count, this.work.limits.maxRequests - this.work.inspect().requests - this.#requests, "WIM requests");
+    assertAtMost(
+      bytes,
+      this.work.limits.maxSourceBytes - this.work.inspect().sourceBytes - this.#bytes,
+      "WIM source bytes",
+    );
+    assertAtMost(count, this.work.limits.maxRequests - this.work.inspect().requests - this.#requests, "WIM requests");
     this.#reserve("sourceBytes", bytes);
     this.#bytes += bytes;
     this.#reserve("requests", count);
@@ -297,7 +298,7 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
     throw unsupported("Split WIM parts require a separate profile.");
   }
   const count = view.getUint32(44, true);
-  cap(count, policy.images, "WIM images");
+  assertAtMost(count, policy.images, "WIM images");
   if (!count) throw unsupported("This WIM profile requires at least one image.");
   const table = extent(view, 48, size),
     xml = extent(view, 72, size),
@@ -305,11 +306,11 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
     integrity = extent(view, 124, size);
   const bootIndex = view.getUint32(120, true);
   if (bootIndex > count || (!bootIndex && boot.size)) throw invalid("WIM boot metadata index is inconsistent.");
-  cap(table.size, policy.table, "WIM table bytes");
-  cap(xml.size, policy.xml, "WIM XML bytes");
+  assertAtMost(table.size, policy.table, "WIM table bytes");
+  assertAtMost(xml.size, policy.xml, "WIM XML bytes");
   if (table.size % 50) throw invalid("WIM blob table is not a multiple of 50 bytes.");
-  cap(table.size / 50, policy.resources, "WIM resources");
-  cap(table.size / 50 * 256, policy.index, "WIM resource index bytes");
+  assertAtMost(table.size / 50, policy.resources, "WIM resources");
+  assertAtMost(table.size / 50 * 256, policy.index, "WIM resource index bytes");
   opening.work.decoded(table.size + xml.size);
   const tableBytes = await opening.collect(table.offset, table.size), tableView = new DataView(tableBytes.buffer);
   const resources: WimResourceType[] = [], metadata: number[] = [], hashes = new Map<string, number>();
@@ -352,7 +353,7 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
   const text = new TextDecoder("utf-16le", { fatal: true }).decode(xmlBytes);
   if (/<!DOCTYPE|<!ENTITY/i.test(text)) throw unsupported("WIM XML DTD/entity declarations are forbidden.");
   let tokens = 0;
-  for (const char of text) if (char === "<") cap(++tokens, 20000, "WIM XML tokens");
+  for (const char of text) if (char === "<") assertAtMost(++tokens, 20000, "WIM XML tokens");
   const root = parseXmlRoot(text);
   if (root.name.raw !== "WIM") throw invalid("WIM XML root is missing.");
   const nodes = [root];
@@ -398,9 +399,9 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
   ): Promise<{ bytes: Uint8Array; xpressSteps: number; lzxSteps: number; lzxBlocks: number }> {
     if (!length) return { bytes: new Uint8Array(0), xpressSteps: 0, lzxSteps: 0, lzxBlocks: 0 };
     const chunks = Math.ceil(item.size / 32768), width = item.size < 4294967296 ? 4 : 8;
-    cap(chunks, item.compression === "lzx" ? policy.lzxChunks : policy.chunks, "WIM resource chunks");
+    assertAtMost(chunks, item.compression === "lzx" ? policy.lzxChunks : policy.chunks, "WIM resource chunks");
     const tableLength = (chunks - 1) * width;
-    cap(tableLength, policy.chunkTable, "WIM chunk table bytes");
+    assertAtMost(tableLength, policy.chunkTable, "WIM chunk table bytes");
     if (tableLength >= item.storedSize) throw invalid("WIM chunk table exceeds its resource.");
     work.work.decoded(tableLength);
     const table = await work.collect(item.offset, tableLength), view = new DataView(table.buffer);
@@ -441,17 +442,17 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
         if (item.compression === "lzx") {
           decodeLzx(packed, decoded, (count) => {
             signal?.throwIfAborted();
-            cap(count, policy.lzxSteps - lzxSteps, "WIM LZX steps");
+            assertAtMost(count, policy.lzxSteps - lzxSteps, "WIM LZX steps");
             lzxSteps += count;
           }, () => {
             signal?.throwIfAborted();
-            cap(1, policy.lzxBlocks - lzxBlocks, "WIM LZX blocks");
+            assertAtMost(1, policy.lzxBlocks - lzxBlocks, "WIM LZX blocks");
             lzxBlocks++;
           });
         } else {
           decodeXpress(packed, decoded, (count) => {
             signal?.throwIfAborted();
-            cap(count, policy.steps - xpressSteps, "WIM XPRESS steps");
+            assertAtMost(count, policy.steps - xpressSteps, "WIM XPRESS steps");
             xpressSteps += count;
           });
         }
@@ -471,10 +472,10 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
     const verify = call.verify !== false;
     if (verify) {
       if (!digest) throw unsupported("WIM SHA1 verification requires caller-supplied SubtleCrypto.");
-      cap(item.size, policy.verify, "WIM verification bytes");
+      assertAtMost(item.size, policy.verify, "WIM verification bytes");
     }
     // A buffered preview remains finite even when a caller raises generic work limits.
-    cap(verify ? item.size : length, 16777216, "WIM buffered read bytes");
+    assertAtMost(verify ? item.size : length, 16777216, "WIM buffered read bytes");
     const work = operation(call);
     work.work.output(internal ? 0 : length);
     let bytes: Uint8Array, xpressSteps = 0, lzxSteps = 0, lzxBlocks = 0;
@@ -569,7 +570,7 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
         throw new RangeError("WIM image implementation ceiling exceeded.");
       }
       const metadata = resourceOf(image.metadata);
-      cap(metadata.size, limits.metadata, "WIM image metadata bytes");
+      assertAtMost(metadata.size, limits.metadata, "WIM image metadata bytes");
       const viewPolicy = call, viewSignal = signals(options.signal, call.signal);
       const viewLedger = createArchiveLedger(call);
       function viewCall(next: WimReadOptionsType): WimReadOptionsType {
@@ -595,7 +596,7 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
       const declared = view.getUint32(0, true),
         securityCount = view.getUint32(4, true),
         end = declared === 0 ? 8 : Math.ceil(declared / 8) * 8;
-      cap(securityCount, limits.security, "WIM security descriptors");
+      assertAtMost(securityCount, limits.security, "WIM security descriptors");
       assertExtent(bytes.length, 0, end);
       if (8 + securityCount * 8 > end) throw invalid("WIM security descriptor table exceeds its block.");
       let used = 8 + securityCount * 8;
@@ -606,7 +607,7 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
       }
       if (end - used > 7) throw invalid("WIM security block has unexplained bytes.");
       let indexBytes = Math.ceil(bytes.length / 8);
-      cap(indexBytes, limits.index, "WIM retained index");
+      assertAtMost(indexBytes, limits.index, "WIM retained index");
       const occupied = new Uint8Array(indexBytes);
       /** Every dentry, extra stream and list sentinel owns disjoint aligned metadata units. */
       function claim(offset: number, length: number): void {
@@ -636,7 +637,7 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
       }
       while (lists.length) {
         const list = lists.pop()!;
-        cap(list.depth, limits.depth, "WIM directory depth");
+        assertAtMost(list.depth, limits.depth, "WIM directory depth");
         let at = list.offset;
         while (true) {
           assertExtent(bytes.length, at, 8);
@@ -648,7 +649,7 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
           }
           if (length < 102 || length % 8) throw invalid("WIM dentry length is invalid.");
           claim(at, length);
-          cap(entries.length + 1, limits.entries, "WIM entries");
+          assertAtMost(entries.length + 1, limits.entries, "WIM entries");
           const attributes = view.getUint32(at + 8, true),
             security = view.getUint32(at + 12, true),
             subdir = wide(view, at + 16),
@@ -660,9 +661,9 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
           const streamCount = view.getUint16(at + 96, true),
             shortLength = view.getUint16(at + 98, true),
             nameLength = view.getUint16(at + 100, true);
-          cap(streamCount, limits.streams, "WIM extra streams");
-          cap(nameLength, limits.name, "WIM name bytes");
-          cap(shortLength, limits.name, "WIM short-name bytes");
+          assertAtMost(streamCount, limits.streams, "WIM extra streams");
+          assertAtMost(nameLength, limits.name, "WIM name bytes");
+          assertAtMost(shortLength, limits.name, "WIM short-name bytes");
           const name = nameOf(at + 102, nameLength, at + length);
           nameOf(at + 102 + nameLength + (nameLength ? 2 : 0), shortLength, at + length);
           if (
@@ -671,13 +672,13 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
               return code < 32 || code === 127 || code === 47 || code === 92;
             })
           ) throw unsupported("Unsafe or noncanonical WIM path component.");
-          cap(list.parent.length + (list.parent ? 1 : 0) + name.length, limits.path, "WIM full path length");
+          assertAtMost(list.parent.length + (list.parent ? 1 : 0) + name.length, limits.path, "WIM full path length");
           const path = list.parent ? `${list.parent}/${name}` : name;
-          cap(path.length, limits.path, "WIM full path length");
+          assertAtMost(path.length, limits.path, "WIM full path length");
           if (paths.has(path)) throw invalid("Duplicate WIM exact logical path.");
           paths.add(path);
           indexBytes += 256 + path.length * 2 + streamCount * 128;
-          cap(indexBytes, limits.index, "WIM retained index");
+          assertAtMost(indexBytes, limits.index, "WIM retained index");
           const type = attributes & 0x400
             ? "reparse"
             : attributes & 0x4000
@@ -701,9 +702,9 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
             const length = wide(view, at), namedLength = view.getUint16(at + 36, true);
             if (length < 38 || length % 8) throw invalid("WIM extra stream length is invalid.");
             claim(at, length);
-            cap(namedLength, limits.name, "WIM stream-name bytes");
+            assertAtMost(namedLength, limits.name, "WIM stream-name bytes");
             indexBytes += namedLength;
-            cap(indexBytes, limits.index, "WIM retained index");
+            assertAtMost(indexBytes, limits.index, "WIM retained index");
             const streamName = nameOf(at + 38, namedLength, at + length),
               streamHash = hex(bytes.subarray(at + 16, at + 36));
             if (streamNames.has(streamName)) throw invalid("Duplicate WIM extra stream name.");

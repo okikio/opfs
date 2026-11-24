@@ -1,8 +1,8 @@
 /** Indexed Arrow IPC previews over a caller-owned stable byte source. @module */
+import { ArchiveBudget, assertInteger, createArchiveLedger, toSafeInteger } from "../archive/budget.ts";
 import type { ByteSourceType } from "../source.ts";
 import { isBytes, toView } from "../bytes.ts";
 import { close } from "../close.ts";
-import { ArchiveBudget, assertInteger, createArchiveLedger } from "../archive/budget.ts";
 import { ArchiveError } from "../archive/error.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/budget.ts";
 import { inspectBlocks, inspectFileMagic, inspectFileTail, inspectPrefix } from "./arrow/framing.ts";
@@ -108,11 +108,6 @@ export interface ArrowStreamBatchType extends Omit<ArrowReadType, "batch"> {
 /** Creates the `invalid-archive` error with an "Arrow" prefix; call as `throw invalid("...")`. */
 function invalid(message: string): ArchiveError {
   return new ArchiveError("invalid-archive", `Arrow ${message}`);
-}
-/** Wire integers remain bigint until their complete extent is known to be addressable. */
-function exact(value: bigint): number {
-  if (value < 0n || value > BigInt(Number.MAX_SAFE_INTEGER)) throw invalid("extent exceeds safe addressable integers.");
-  return Number(value);
 }
 /** Freeze all exposed schema data so a caller cannot change a later buffer plan. */
 function freezeSchema(schema: ArrowSchemaType): ArrowSchemaType {
@@ -261,7 +256,13 @@ export async function openArrow(input: ByteSourceType, supplied: ArrowOpenOption
         const field = plan.fields[column.ordinal]!, buffers: Uint8Array[] = [];
         for (let at = 0; at < field.buffers; at++) {
           const extent = message.batch.buffers[field.buffer + at]!;
-          buffers.push(await ownedRead(budget, block.bodyOffset + exact(extent.offset), exact(extent.length)));
+          buffers.push(
+            await ownedRead(
+              budget,
+              block.bodyOffset + toSafeInteger(extent.offset, "Arrow extent"),
+              toSafeInteger(extent.length, "Arrow extent"),
+            ),
+          );
         }
         signal?.throwIfAborted();
         output.push(decodeColumn(schema, message.batch, message.bodyLength, column.ordinal, buffers, {
@@ -408,15 +409,17 @@ export async function* readArrow(
       const admission = admitColumns(schema, message.batch, message.bodyLength, options);
       // Whole bounded bodies must arrive in stream order. Indexed files can avoid
       // these excluded bytes; a forward-only stream cannot seek over them.
-      meter.reserve("decodedBytes", exact(message.bodyLength));
+      meter.reserve("decodedBytes", toSafeInteger(message.bodyLength, "Arrow extent"));
       meter.reserve("outputBytes", admission.outputBytes);
-      const body = (await take(exact(message.bodyLength)))!, plan = requireEligibleSchema(schema);
+      const body = (await take(toSafeInteger(message.bodyLength, "Arrow extent")))!,
+        plan = requireEligibleSchema(schema);
       const columns: ArrowColumnType[] = [];
       for (const column of admission.columns) {
         const field = plan.fields[column.ordinal]!, buffers: Uint8Array[] = [];
         for (let index = 0; index < field.buffers; index++) {
-          const extent = message.batch.buffers[field.buffer + index]!, offset = exact(extent.offset);
-          buffers.push(body.subarray(offset, offset + exact(extent.length)));
+          const extent = message.batch.buffers[field.buffer + index]!,
+            offset = toSafeInteger(extent.offset, "Arrow extent");
+          buffers.push(body.subarray(offset, offset + toSafeInteger(extent.length, "Arrow extent")));
         }
         signal?.throwIfAborted();
         columns.push(decodeColumn(schema, message.batch, message.bodyLength, column.ordinal, buffers, options));

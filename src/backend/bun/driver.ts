@@ -1,9 +1,8 @@
 import { assertHostAdmission } from "../../driver/host.ts";
 import type { DriverPlanInputType, DriverPlanType } from "../../driver/definition.ts";
 import type { WritableOptionsType } from "../../driver/writable.ts";
-import type { FileBackendType, FileDriverType } from "../../driver/file.ts";
-import { defineFileDriver } from "../../driver/file.ts";
 import type {
+  FileBackendType,
   FileDriverCopyOptionsType,
   FileDriverDirectoryEntryType,
   FileDriverMoveOptionsType,
@@ -11,9 +10,11 @@ import type {
   FileDriverSignalOptionsType,
   FileDriverStatType,
   FileDriverSyncFileType,
+  FileDriverType,
   FileDriverWritableFileType,
   FileDriverWriteOptionsType,
 } from "../../driver/file.ts";
+import { defineFileDriver } from "../../driver/file.ts";
 import { createLocalPath } from "../../driver/local.ts";
 import { createNodeDriver, type NodeDriverOptionsType } from "../node/driver.ts";
 import { FileSystemError, throwIfAborted } from "../../error.ts";

@@ -279,7 +279,7 @@ export class TarHeaders {
           if (payload.length === 0 || payload[payload.length - 1] !== 0) {
             throw invalid("GNU long metadata must end in NUL.");
           }
-          const value = text(payload.subarray(0, -1));
+          const value = decodeField(payload.subarray(0, -1));
           if (payload.subarray(0, -1).includes(0)) throw invalid("GNU long metadata contains an embedded NUL.");
           this.#local.set(type === 76 ? "path" : "linkpath", value);
           this.#pending = true;
@@ -307,11 +307,11 @@ export class TarHeaders {
       if (charset && charset !== "ISO-IR 10646 2000 UTF-8") throw unsupported("Non-UTF-8 PAX metadata is unsupported.");
       let name = values.get("path");
       if (name === undefined) {
-        const prefix = posix ? text(header.subarray(345, 500)) : "";
-        const suffix = text(header.subarray(0, 100));
+        const prefix = posix ? decodeField(header.subarray(345, 500)) : "";
+        const suffix = decodeField(header.subarray(0, 100));
         name = prefix ? `${prefix}/${suffix}` : suffix;
       }
-      const link = values.get("linkpath") ?? text(header.subarray(157, 257));
+      const link = values.get("linkpath") ?? decodeField(header.subarray(157, 257));
       const sizeText = values.get("size");
       if (sizeText !== undefined && !/^[0-9]+$/.test(sizeText)) {
         throw invalid("PAX size is not an unsigned decimal integer.");
@@ -420,7 +420,7 @@ function pax(bytes: Uint8Array, sparse: boolean): Map<string, string> {
   while (offset < bytes.length) {
     const space = bytes.indexOf(32, offset);
     if (space < 0 || space - offset > 16) throw invalid("PAX record length is missing or too large.");
-    const digits = text(bytes.subarray(offset, space));
+    const digits = decodeField(bytes.subarray(offset, space));
     if (!/^[1-9][0-9]*$/.test(digits)) throw invalid("PAX record length is invalid.");
     const length = Number(digits);
     if (!Number.isSafeInteger(length) || length > bytes.length - offset || length < space - offset + 4) {
@@ -468,7 +468,7 @@ function utf8(bytes: Uint8Array): string {
 }
 
 /** NUL-terminated metadata is decoded without normalizing or projecting path components. */
-function text(bytes: Uint8Array): string {
+function decodeField(bytes: Uint8Array): string {
   const end = bytes.indexOf(0);
   try {
     return new TextDecoder("utf-8", { fatal: true }).decode(end < 0 ? bytes : bytes.subarray(0, end));
@@ -480,7 +480,7 @@ function text(bytes: Uint8Array): string {
 /** Base-256 numeric extensions are not silently interpreted as POSIX octal. */
 function octal(bytes: Uint8Array): number {
   if (bytes[0]! & 128) throw unsupported("Base-256 TAR numeric fields are unsupported.");
-  const raw = text(bytes).trim();
+  const raw = decodeField(bytes).trim();
   if (!/^[0-7]+$/.test(raw)) throw invalid("TAR numeric field is not octal.");
   const value = Number.parseInt(raw, 8);
   if (!Number.isSafeInteger(value)) throw unsupported("TAR size exceeds exact JavaScript integers.");

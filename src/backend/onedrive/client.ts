@@ -1,4 +1,5 @@
 /** Microsoft Graph drive/item IDs and native upload sessions; no filesystem namespace. @module */
+import { toInteger } from "../../check.ts";
 import { z } from "zod";
 import { isBytes, toRequestBytes, toView } from "../../bytes.ts";
 import { assertRangeResponse, resolveRange } from "../../range.ts";
@@ -95,11 +96,6 @@ export class OnedrivePublicationError extends Error {
     super("OneDrive mutation has no validated acknowledgement; reconcile without blind replay.", { cause });
     this.name = "OnedrivePublicationError";
   }
-}
-/** Safe arithmetic and bounded native fragments are admitted before credentials or allocation. */
-function integer(value: number, label: string, maximum = Number.MAX_SAFE_INTEGER): number {
-  if (!Number.isSafeInteger(value) || value < 0 || value > maximum) throw new RangeError(`Invalid OneDrive ${label}.`);
-  return value;
 }
 /** Control code units have no ID/name route interpretation, including embedded NUL. */
 function controls(value: string): boolean {
@@ -215,8 +211,8 @@ export class OnedriveClient {
         prefix.split("/").some((part) => part === "." || part === "..")
       ) throw new TypeError("Invalid OneDrive upload path prefix.");
     }
-    this.#pages = integer(options.maxPages ?? 1000, "page budget");
-    this.#entries = integer(options.maxEntries ?? 100000, "entry budget");
+    this.#pages = toInteger(options.maxPages ?? 1000, "OneDrive page budget");
+    this.#entries = toInteger(options.maxEntries ?? 100000, "OneDrive entry budget");
   }
   /** Every capability is admitted before network access; its opaque query is secret authority. */
   #url(value: string | URL): URL {
@@ -328,7 +324,7 @@ export class OnedriveClient {
     options: { readonly next?: string; readonly pageSize?: number; readonly signal?: AbortSignal } = {},
   ): Promise<OnedrivePageType> {
     const { next, signal } = options;
-    const pageSize = integer(options.pageSize ?? 200, "page size", 1000);
+    const pageSize = toInteger(options.pageSize ?? 200, "OneDrive page size", 1000);
     if (pageSize === 0) throw new RangeError("OneDrive page size must be positive.");
     const route = this.#route(parentId, "/children");
     const url = next === undefined ? route : this.#page(next, route);
@@ -428,7 +424,7 @@ export class OnedriveClient {
   #session(value: OnedriveUploadType): OnedriveUploadType {
     const { url, driveId, size, target: destination, expires: expiration } = value;
     if (driveId !== this.#drive) throw new TypeError("OneDrive session belongs to another drive.");
-    if (integer(size, "upload size") === 0) {
+    if (toInteger(size, "OneDrive upload size") === 0) {
       throw new RangeError("This OneDrive resumable profile requires a positive size.");
     }
     return {
@@ -445,7 +441,7 @@ export class OnedriveClient {
   ): Promise<OnedriveUploadType> {
     const { size, signal } = options;
     const destination = target(options.target);
-    if (integer(size, "upload size") === 0) {
+    if (toInteger(size, "OneDrive upload size") === 0) {
       throw new RangeError("This OneDrive resumable profile requires a positive size.");
     }
     const url = destination.kind === "update"
@@ -489,9 +485,9 @@ export class OnedriveClient {
     const missing = data.nextExpectedRanges.map((value): OnedriveMissingType => {
       const match = /^(\d+)-(\d*)$/.exec(value);
       if (match === null) throw new TypeError("Malformed OneDrive missing range.");
-      const start = integer(Number(match[1]), "missing range start", size - 1);
+      const start = toInteger(Number(match[1]), "OneDrive missing range start", size - 1);
       if (match[2] === "") return { start };
-      const end = integer(Number(match[2]), "missing range end", size - 1);
+      const end = toInteger(Number(match[2]), "OneDrive missing range end", size - 1);
       if (end < start) throw new TypeError("Reversed OneDrive missing range.");
       return { start, end };
     });
@@ -513,7 +509,7 @@ export class OnedriveClient {
     signal?: AbortSignal,
   ): Promise<OnedriveUploadStatusType> {
     const upload = this.#session(value);
-    integer(offset, "upload offset", upload.size);
+    toInteger(offset, "OneDrive upload offset", upload.size);
     if (!isBytes(bytes)) throw new TypeError("OneDrive upload requires a Uint8Array.");
     const view = toView(bytes);
     const length = view.byteLength;

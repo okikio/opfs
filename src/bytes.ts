@@ -109,3 +109,14 @@ export function toRequestBuffer(value: ArrayBuffer): ArrayBuffer {
   const view = new Bytes(value, 0, size);
   return isCanonicalBuffer(value) ? value : new Bytes(view).buffer;
 }
+
+/**
+ * Encodes a string as UTF-8 bytes backed by a plain `ArrayBuffer`.
+ *
+ * Protocol clients build request frames from text, such as `encodeText("PING\r\n")`.
+ * The `ArrayBuffer` backing lets the bytes go straight to `fetch`, sockets and
+ * Web Crypto, which refuse views over a `SharedArrayBuffer`.
+ */
+export function encodeText(value: string): Uint8Array<ArrayBuffer> {
+  return new TextEncoder().encode(value);
+}

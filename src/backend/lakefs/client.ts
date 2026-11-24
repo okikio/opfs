@@ -1,4 +1,7 @@
 /** Native lakeFS repository/ref operations; staged uploads and commits have separate receipts. @module */
+import { toInteger } from "../../check.ts";
+import { exactLength } from "../../body.ts";
+import { type JsonLimitsType, parseJson } from "../../json.ts";
 import { z } from "zod";
 import { isBytes, toRequestBytes, toView } from "../../bytes.ts";
 import { close } from "../../close.ts";
@@ -6,7 +9,7 @@ import { assertRangeResponse, resolveRange } from "../../range.ts";
 import { RequestMetrics, sendRequest } from "../../request.ts";
 import type { FetchType, RequestPolicyType } from "../../request.ts";
 import { readResponse } from "../../response.ts";
-import { collectBytes, openBytes, withAbortSignal } from "../../stream.ts";
+import { collectBytes } from "../../stream.ts";
 
 /** Finite copied-upload/materialization ceiling, independent of repository quotas. */
 export const LAKEFS_BUFFER_BYTES = 64 * 1024 * 1024;
@@ -139,12 +142,6 @@ function segment(value: string): string {
   if (value === "." || value === "..") throw new TypeError("Invalid lakeFS route segment.");
   return encodeURIComponent(value);
 }
-function integer(value: number, max = Number.MAX_SAFE_INTEGER): number {
-  if (!Number.isSafeInteger(value) || value < 0 || value > max) {
-    throw new RangeError("lakeFS size exceeds its finite bound.");
-  }
-  return value;
-}
 /** Never expose Zod's foreign input diagnostics through a provider-owned error. */
 function parse<T>(schema: z.ZodType<T>, value: unknown): T {
   const result = schema.safeParse(value);
@@ -164,7 +161,7 @@ function stat(value: unknown, expected?: string): LakefsStatType {
     kind: data.path_type,
     ...(data.size_bytes === undefined ? {} : { size: data.size_bytes }),
     ...(data.checksum === undefined ? {} : { checksum: data.checksum }),
-    ...(data.mtime === undefined ? {} : { modified: integer(data.mtime * 1000) }),
+    ...(data.mtime === undefined ? {} : { modified: toInteger(data.mtime * 1000, "lakeFS size") }),
     ...(data.content_type === undefined ? {} : { mediaType: data.content_type }),
   });
 }
@@ -175,161 +172,17 @@ function commit(value: unknown): LakefsCommitType {
     parents: Object.freeze(data.parents),
     message: data.message,
     committer: data.committer,
-    created: integer(data.creation_date * 1000),
+    created: toInteger(data.creation_date * 1000, "lakeFS size"),
   });
 }
-/** Bounded control JSON rejects duplicate/prototype keys and noncanonical numeric lexemes before Number conversion.
- * The finite profile admits only safe integers, depth32, 100000 tokens and 512 KiB lexical strings within 8 MiB text.
- * JSON.parse is restricted to bounded string tokens, so fractional rounding cannot create accepted byte authority.
- */
-function json(text: string): unknown {
-  if (text.length > 8 * 1024 * 1024) throw new RangeError("lakeFS JSON exceeds its lexical budget.");
-  let at = 0, tokens = 0;
-  const fail = (): never => {
-    throw new TypeError("Malformed or over-budget lakeFS JSON.");
-  };
-  const whitespace = (): void => {
-    while (/[ \t\r\n]/.test(text[at] ?? "x")) at++;
-  };
-  const count = (): void => {
-    if (++tokens > 100000) fail();
-  };
-  function string(): string {
-    const start = at++;
-    while (at < text.length) {
-      if (at - start > 524288) fail();
-      const char = text[at++];
-      if (char === "\\") {
-        at++;
-        continue;
-      }
-      if (char === '"') {
-        let value: unknown;
-        // Native SyntaxError context may contain the signed URL inside this string.
-        try {
-          value = JSON.parse(text.slice(start, at));
-        } catch {
-          return fail();
-        }
-        if (typeof value !== "string") fail();
-        return value as string;
-      }
-    }
-    return fail();
-  }
-  function value(depth: number): unknown {
-    count();
-    if (depth > 32) fail();
-    whitespace();
-    if (text[at] === '"') return string();
-    if (text[at] === "{") {
-      at++;
-      whitespace();
-      const object: Record<string, unknown> = Object.create(null);
-      if (text[at] === "}") {
-        at++;
-        return object;
-      }
-      while (true) {
-        count();
-        whitespace();
-        if (text[at] !== '"') fail();
-        const key = string();
-        if (key === "__proto__" || key === "constructor" || key === "prototype" || Object.hasOwn(object, key)) fail();
-        whitespace();
-        if (text[at++] !== ":") fail();
-        object[key] = value(depth + 1);
-        whitespace();
-        const end = text[at++];
-        if (end === "}") return object;
-        if (end !== ",") fail();
-      }
-    }
-    if (text[at] === "[") {
-      at++;
-      whitespace();
-      const array: unknown[] = [];
-      if (text[at] === "]") {
-        at++;
-        return array;
-      }
-      while (true) {
-        array.push(value(depth + 1));
-        whitespace();
-        const end = text[at++];
-        if (end === "]") return array;
-        if (end !== ",") fail();
-      }
-    }
-    const start = at;
-    while (at < text.length && !/[ \t\r\n,}\]]/.test(text[at]!)) {
-      if (at - start > 17) fail();
-      at++;
-    }
-    const raw = text.slice(start, at);
-    if (raw.length > 17) fail();
-    if (raw === "true") return true;
-    if (raw === "false") return false;
-    if (raw === "null") return null;
-    if (!/^-?(0|[1-9][0-9]{0,15})$/.test(raw) || raw === "-0") return fail();
-    const number = Number(raw);
-    if (!Number.isSafeInteger(number)) return fail();
-    return number;
-  }
-  const result = value(0);
-  whitespace();
-  if (at !== text.length) fail();
-  return result;
-}
-/** A single byte reader owns actual EOF validation and cancellation, including failed native reads. */
-function extent(body: ReadableStream<Uint8Array>, expected: number, signal?: AbortSignal): ReadableStream<Uint8Array> {
-  const reader = openBytes(body);
-  let seen = 0, empty = 0, terminal = false;
-  return withAbortSignal(
-    new ReadableStream<Uint8Array>({
-      async pull(controller) {
-        try {
-          let next: ReadableStreamReadResult<Uint8Array>;
-          try {
-            next = await reader.read();
-          } catch (reason) {
-            terminal = true;
-            throw reason;
-          }
-          if (next.done) {
-            terminal = true;
-            if (seen !== expected) throw new TypeError("lakeFS body is truncated.");
-            reader.releaseLock();
-            controller.close();
-            return;
-          }
-          if (!isBytes(next.value)) throw new TypeError("lakeFS body requires bytes.");
-          const bytes = toView(next.value);
-          if (bytes.length > expected - seen) throw new TypeError("lakeFS body exceeds its declared extent.");
-          seen += bytes.length;
-          if (!bytes.length) { if (++empty > 16) throw new TypeError("lakeFS body makes no progress."); }
-          else empty = 0;
-          controller.enqueue(bytes);
-        } catch (reason) {
-          try {
-            await close([...(terminal ? [] : [() => reader.cancel(reason)]), () => reader.releaseLock()], [reason]);
-          } catch (failure) {
-            controller.error(failure);
-          }
-          terminal = true;
-        }
-      },
-      async cancel(reason) {
-        if (terminal) return;
-        terminal = true;
-        await close([() => reader.cancel(reason), () => reader.releaseLock()]);
-      },
-    }, { highWaterMark: 0 }),
-    signal,
-    "lakeFS",
-    "download",
-  );
-}
+/** Limits for this service's JSON responses; see `parseJson`. */
+const jsonLimits: JsonLimitsType = {
+  label: "lakeFS",
+  maxLength: 8 * 1024 * 1024,
+  maxTokens: 100_000,
+  maxString: 524_288,
+  maxScalar: 17,
+};
 
 /** No background work, implicit commits or canonical filesystem projection. */
 export class LakefsClient {
@@ -354,7 +207,7 @@ export class LakefsClient {
     this.#credentials = options.credentials;
     const policy = options.policy;
     this.#policy = policy === undefined ? undefined : { ...policy };
-    this.#max = integer(options.maxBytes ?? 8 * 1024 * 1024, LAKEFS_BUFFER_BYTES);
+    this.#max = toInteger(options.maxBytes ?? 8 * 1024 * 1024, "lakeFS size", LAKEFS_BUFFER_BYTES);
   }
   getMetrics(): import("../../request.ts").RequestMetricsType {
     return this.#metrics.snapshot();
@@ -415,7 +268,7 @@ export class LakefsClient {
       if (plain) return await body();
       const raw = await body();
       try {
-        return json(raw);
+        return parseJson(raw, jsonLimits);
       } catch {
         throw new TypeError("Invalid lakeFS JSON response.");
       }
@@ -478,7 +331,7 @@ export class LakefsClient {
     options: LakefsOperationType & { readonly prefix?: string; readonly cursor?: string; readonly limit?: number } = {},
   ): Promise<LakefsPageType> {
     const { signal, prefix = "", cursor, limit = 1000 } = options;
-    if (!integer(limit, 1000)) throw new RangeError("lakeFS page limit must be positive.");
+    if (!toInteger(limit, "lakeFS size", 1000)) throw new RangeError("lakeFS page limit must be positive.");
     const url = this.#url(`refs/${segment(ref)}/objects/ls`, {
       prefix: text(prefix, 4096, true),
       amount: String(limit),
@@ -543,7 +396,7 @@ export class LakefsClient {
       if (raw === null || !/^(0|[1-9][0-9]{0,15})$/u.test(raw)) {
         throw new TypeError("lakeFS requires a finite Content-Length.");
       }
-      size = integer(Number(raw));
+      size = toInteger(Number(raw), "lakeFS size");
       if (response.body === null && size !== 0) throw new TypeError("lakeFS response omitted bytes.");
     } catch (reason) {
       await close([() => response.body?.cancel(reason)], [reason]);
@@ -554,7 +407,11 @@ export class LakefsClient {
         controller.close();
       },
     });
-    return Object.freeze({ bytes: extent(body, size, signal), size, evidence: "server-trusted" });
+    return Object.freeze({
+      bytes: exactLength(body, size, { label: "lakeFS body", resource: "lakeFS", signal: signal }),
+      size,
+      evidence: "server-trusted",
+    });
   }
   async read(ref: string, path: string, options: LakefsReadType = {}): Promise<Uint8Array> {
     const { signal, at, length } = options;
@@ -583,7 +440,7 @@ export class LakefsClient {
     if (ifNoneMatch !== undefined) headers.set("if-none-match", ifNoneMatch);
     if (!isBytes(bytes)) throw new TypeError("lakeFS uploads require native bytes.");
     const admitted = toView(bytes);
-    integer(admitted.byteLength, this.#max);
+    toInteger(admitted.byteLength, "lakeFS size", this.#max);
     signal?.throwIfAborted();
     const body = toRequestBytes(admitted.slice());
     return await this.#mutate(url, "stage", branch, path, body, headers, signal, (value) => {

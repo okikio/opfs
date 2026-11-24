@@ -1,6 +1,8 @@
 /** Bounded Redis/Valkey RESP2 commands over an explicitly acquired byte channel. @module */
+import { raceAbort } from "../../abort.ts";
+import { encodeText, isBytes, toView } from "../../bytes.ts";
+import { resolveLimit } from "../../check.ts";
 import { z } from "zod";
-import { isBytes, toView } from "../../bytes.ts";
 import { close } from "../../close.ts";
 
 /**
@@ -118,13 +120,6 @@ export class RedisPublicationError extends Error {
     this.operation = operation;
   }
 }
-function limit(value: number | undefined, fallback: number, maximum: number): number {
-  const selected = value ?? fallback;
-  if (!Number.isSafeInteger(selected) || selected < 1 || selected > maximum) {
-    throw new RangeError("Invalid Redis/Valkey policy limit.");
-  }
-  return selected;
-}
 /** Copy before any asynchronous boundary or later structural getter can change the byte authority. */
 function copy(value: Uint8Array, maximum: number): Uint8Array<ArrayBuffer> {
   if (!isBytes(value)) throw new TypeError("Redis/Valkey commands require byte views.");
@@ -143,13 +138,9 @@ function integer(value: string): bigint {
   }
   return result;
 }
-/** Only fixed native command arguments enter this function; caller data is always a length-prefixed bulk string. */
-function text(value: string): Uint8Array<ArrayBuffer> {
-  return new TextEncoder().encode(value);
-}
 /** Bounded commands are one private packet, preserving framing even when keys or values contain CRLF and NUL. */
 function packet(parts: readonly Uint8Array[]): Uint8Array<ArrayBuffer> {
-  const start = text(`*${parts.length}\r\n`), headers = parts.map((part) => text(`$${part.length}\r\n`));
+  const start = encodeText(`*${parts.length}\r\n`), headers = parts.map((part) => encodeText(`$${part.length}\r\n`));
   const size = start.length + parts.reduce((sum, part, index) => sum + headers[index]!.length + part.length + 2, 0);
   const result = new Uint8Array(size);
   result.set(start);
@@ -164,18 +155,6 @@ function packet(parts: readonly Uint8Array[]): Uint8Array<ArrayBuffer> {
     at += 2;
   }
   return result;
-}
-/** The abort race observes late rejection. The acquired adapter still owns actually stopping its pending IO. */
-function wait<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
-  if (signal.aborted) {
-    promise.catch(() => {});
-    return Promise.reject(signal.reason);
-  }
-  return new Promise<T>((resolve, reject) => {
-    const abort = () => reject(signal.reason);
-    signal.addEventListener("abort", abort, { once: true });
-    promise.then(resolve, reject).finally(() => signal.removeEventListener("abort", abort));
-  });
 }
 interface MutationType {
   readonly operation: "put" | "remove";
@@ -222,22 +201,24 @@ export class RedisClient implements AsyncDisposable {
     if (auth !== undefined) {
       const password = copy(auth.password, 4096), suppliedUsername = auth.username;
       const username = suppliedUsername === undefined ? undefined : copy(suppliedUsername, 1024);
-      initial.push(packet(username === undefined ? [text("AUTH"), password] : [text("AUTH"), username, password]));
+      initial.push(
+        packet(username === undefined ? [encodeText("AUTH"), password] : [encodeText("AUTH"), username, password]),
+      );
     }
     const database = options.database;
     if (database !== undefined) {
       if (!Number.isSafeInteger(database) || database < 0 || database > 65535) {
         throw new RangeError("Redis/Valkey database index exceeds policy.");
       }
-      initial.push(packet([text("SELECT"), text(String(database))]));
+      initial.push(packet([encodeText("SELECT"), encodeText(String(database))]));
     }
     this.#initial = initial;
-    this.#timeout = limit(options.timeoutMs, 30_000, 86_400_000);
-    this.#cleanup = limit(options.cleanupMs, 5000, 60_000);
-    this.#maximum = limit(options.maxBytes, 1_048_576, 1_048_576);
-    this.#keyMaximum = limit(options.maxKeyBytes, 1024, 1024);
-    this.#chunk = limit(options.maxChunkBytes, 65_536, 1_048_576);
-    this.#lineMaximum = limit(options.maxLineBytes, 1024, 8192);
+    this.#timeout = resolveLimit(options.timeoutMs, 30_000, 86_400_000, "Redis/Valkey policy limit", 1);
+    this.#cleanup = resolveLimit(options.cleanupMs, 5000, 60_000, "Redis/Valkey policy limit", 1);
+    this.#maximum = resolveLimit(options.maxBytes, 1_048_576, 1_048_576, "Redis/Valkey policy limit", 1);
+    this.#keyMaximum = resolveLimit(options.maxKeyBytes, 1024, 1024, "Redis/Valkey policy limit", 1);
+    this.#chunk = resolveLimit(options.maxChunkBytes, 65_536, 1_048_576, "Redis/Valkey policy limit", 1);
+    this.#lineMaximum = resolveLimit(options.maxLineBytes, 1024, 8192, "Redis/Valkey policy limit", 1);
   }
   get closed(): boolean {
     return this.#closed;
@@ -277,7 +258,7 @@ export class RedisClient implements AsyncDisposable {
     if (this.#opened) throw new RedisProtocolError("Redis/Valkey connection was already opened.");
     await this.#run(
       async (signal) => {
-        const channel = await wait(this.#acquire({ signal }), signal), retire = channel.close;
+        const channel = await raceAbort(this.#acquire({ signal }), signal), retire = channel.close;
         if (typeof retire !== "function") throw new TypeError("Redis/Valkey channel has no close capability.");
         this.#retire = retire.bind(channel);
         signal.throwIfAborted();
@@ -305,7 +286,7 @@ export class RedisClient implements AsyncDisposable {
     let at = 0, empty = 0;
     while (at < length) {
       if (this.#position === this.#pending.length) {
-        const next = await wait(this.#reader!.read(), signal);
+        const next = await raceAbort(this.#reader!.read(), signal);
         if (next.done) throw new RedisProtocolError("Redis/Valkey connection ended before its reply.");
         if (!isBytes(next.value)) throw new RedisProtocolError("Redis/Valkey channel returned non-byte data.");
         const view = toView(next.value);
@@ -380,13 +361,13 @@ export class RedisClient implements AsyncDisposable {
   async #send(request: Uint8Array, signal: AbortSignal, mutation?: MutationType): Promise<void> {
     signal.throwIfAborted();
     if (mutation) mutation.dispatched = true;
-    await wait(this.#writer!.write(request), signal);
+    await raceAbort(this.#writer!.write(request), signal);
   }
   /** Native GET for one literal binary key. Missing differs from an existing empty value; returned bytes belong to the caller. */
   async get(key: Uint8Array, options: RedisOperationType = {}): Promise<Uint8Array<ArrayBuffer> | null> {
     const name = copy(key, this.#keyMaximum), signal = options.signal;
     signal?.throwIfAborted();
-    const request = packet([text("GET"), name]);
+    const request = packet([encodeText("GET"), name]);
     return await this.#run(async (combined) => {
       await this.#send(request, combined);
       const reply = await this.#reply(combined);
@@ -403,11 +384,14 @@ export class RedisClient implements AsyncDisposable {
     if (!["any", "absent", "present"].includes(mode) || !expiry.success) {
       throw new TypeError("SET requires a native existence mode and explicit valid expiry policy.");
     }
-    const parts = [text("SET"), name, value];
-    if (mode !== "any") parts.push(text(mode === "absent" ? "NX" : "XX"));
-    if (expiry.data.kind === "keep") parts.push(text("KEEPTTL"));
+    const parts = [encodeText("SET"), name, value];
+    if (mode !== "any") parts.push(encodeText(mode === "absent" ? "NX" : "XX"));
+    if (expiry.data.kind === "keep") parts.push(encodeText("KEEPTTL"));
     else if (expiry.data.kind !== "persist") {
-      parts.push(text(expiry.data.kind === "relative" ? "PX" : "PXAT"), text(String(expiry.data.milliseconds)));
+      parts.push(
+        encodeText(expiry.data.kind === "relative" ? "PX" : "PXAT"),
+        encodeText(String(expiry.data.milliseconds)),
+      );
     }
     const request = packet(parts),
       mutation: MutationType = {
@@ -436,7 +420,7 @@ export class RedisClient implements AsyncDisposable {
   async ttl(key: Uint8Array, options: RedisOperationType = {}): Promise<RedisTtlType> {
     const name = copy(key, this.#keyMaximum), signal = options.signal;
     signal?.throwIfAborted();
-    const request = packet([text("PTTL"), name]);
+    const request = packet([encodeText("PTTL"), name]);
     return await this.#run(async (combined) => {
       await this.#send(request, combined);
       const reply = await this.#reply(combined);
@@ -453,7 +437,7 @@ export class RedisClient implements AsyncDisposable {
   async remove(key: Uint8Array, options: RedisOperationType = {}): Promise<boolean> {
     const name = copy(key, this.#keyMaximum), signal = options.signal;
     signal?.throwIfAborted();
-    const request = packet([text("DEL"), name]),
+    const request = packet([encodeText("DEL"), name]),
       mutation: MutationType = {
         operation: "remove",
         dispatched: false,
@@ -484,7 +468,7 @@ export class RedisClient implements AsyncDisposable {
     this.#closing = Promise.resolve().then(() =>
       close([
         async () => {
-          if (retire) await wait(retire(), AbortSignal.timeout(this.#cleanup));
+          if (retire) await raceAbort(retire(), AbortSignal.timeout(this.#cleanup));
         },
         () => reader?.releaseLock(),
         () => writer?.releaseLock(),

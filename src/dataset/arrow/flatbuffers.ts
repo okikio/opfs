@@ -1,4 +1,5 @@
 /** Checked synchronous access to one borrowed FlatBuffer metadata region. @module */
+import { assertInteger } from "../../check.ts";
 import { ArchiveError } from "../../archive/error.ts";
 
 /** Safety policy, independent of Arrow's format limits and source-read accounting. */
@@ -23,10 +24,6 @@ export interface FlatBufferVectorType {
   readonly length: number;
   /** Bytes per element. */
   readonly stride: number;
-}
-
-function integer(value: number, label: string): void {
-  if (!Number.isSafeInteger(value) || value < 0) throw new TypeError(`${label} must be a nonnegative safe integer.`);
 }
 
 /** Creates the `invalid-archive` error with a "FlatBuffers" prefix; call as `throw invalid("...")`. */
@@ -61,7 +58,7 @@ export class FlatBuffers {
       maxReferences: limits.maxReferences ?? 65536,
       maxStringBytes: limits.maxStringBytes ?? 1024 * 1024,
     };
-    for (const [label, value] of Object.entries(maximum)) integer(value, label);
+    for (const [label, value] of Object.entries(maximum)) assertInteger(value, label);
     if (bytes.byteLength > maximum.maxInputBytes) this.#limit("input bytes");
     this.#maximum = maximum;
     this.#bytes = bytes;
@@ -74,8 +71,8 @@ export class FlatBuffers {
 
   /** Admission precedes every read/view; repeated work cannot evade the ledger. */
   #extent(offset: number, length: number): void {
-    integer(offset, "FlatBuffers offset");
-    integer(length, "FlatBuffers length");
+    assertInteger(offset, "FlatBuffers offset");
+    assertInteger(length, "FlatBuffers length");
     if (offset > this.#bytes.byteLength || length > this.#bytes.byteLength - offset) {
       throw invalid("extent is out of bounds.");
     }
@@ -175,8 +172,8 @@ export class FlatBuffers {
 
   /** Validate a present field's complete inline width before reading its value. */
   field(table: number, slot: number, width: number): number | null {
-    integer(slot, "FlatBuffers slot");
-    integer(width, "FlatBuffers field width");
+    assertInteger(slot, "FlatBuffers slot");
+    assertInteger(width, "FlatBuffers field width");
     if (width === 0) throw new TypeError("FlatBuffers field width must be positive.");
     const descriptor = this.#table(table);
     if (slot >= descriptor.slots) return null;
@@ -191,7 +188,7 @@ export class FlatBuffers {
 
   /** Counts and products are checked before exposing any vector elements. */
   vector(offset: number, stride: number): FlatBufferVectorType {
-    integer(stride, "FlatBuffers vector stride");
+    assertInteger(stride, "FlatBuffers vector stride");
     if (stride === 0) throw new TypeError("FlatBuffers vector stride must be positive.");
     if (offset % 4 !== 0) throw invalid("vector count is not four-byte aligned.");
     const length = this.u32(offset);

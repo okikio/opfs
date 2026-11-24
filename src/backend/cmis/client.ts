@@ -1,4 +1,6 @@
 /** Native CMIS 1.1 Browser Binding operations. Repository objects are not filesystem paths. @module */
+import { toInteger } from "../../check.ts";
+import { type JsonLimitsType, parseJson } from "../../json.ts";
 import { isBytes, toRequestBytes, toView } from "../../bytes.ts";
 import { sendRequest } from "../../request.ts";
 import type { FetchType, RequestPolicyType } from "../../request.ts";
@@ -108,12 +110,6 @@ function text(value: unknown, maximum = 4096, empty = false): string {
   }
   return value;
 }
-function integer(value: number, max = Number.MAX_SAFE_INTEGER): number {
-  if (!Number.isSafeInteger(value) || value < 0 || value > max) {
-    throw new RangeError("CMIS integer exceeds its finite policy.");
-  }
-  return value;
-}
 function record(value: unknown): Record<string, unknown> {
   if (value === null || typeof value !== "object" || Array.isArray(value) || value instanceof Numeric) {
     throw new TypeError("Invalid CMIS object response.");
@@ -129,7 +125,7 @@ class Numeric {
 }
 function count(value: unknown): number {
   if (!(value instanceof Numeric) || !/^(0|[1-9][0-9]*)$/u.test(value.raw)) throw new TypeError("Invalid CMIS count.");
-  return integer(Number(value.raw));
+  return toInteger(Number(value.raw), "CMIS integer");
 }
 function endpoint(value: string | URL, allowHttp: boolean): URL {
   const url = new URL(value);
@@ -224,106 +220,15 @@ function series(value: CmisObjectType): string | undefined {
     : single(value.properties, "cmis:versionSeriesId", "id");
 }
 
-/** Bounded JSON tokenization rejects duplicate/prototype keys before property interpretation.
- * Numeric tokens retain up to 128 lexical characters, including exponents and negative zero.
- */
-function json(text: string): unknown {
-  if (text.length > 8 * 1024 * 1024) throw new RangeError("CMIS JSON exceeds its lexical budget.");
-  let at = 0, tokens = 0;
-  const fail = (): never => {
-    throw new TypeError("Malformed or over-budget CMIS JSON.");
-  };
-  const whitespace = (): void => {
-    while (/[ \t\r\n]/.test(text[at] ?? "x")) at++;
-  };
-  const count = (): void => {
-    if (++tokens > 100000) fail();
-  };
-  function string(): string {
-    const start = at++;
-    while (at < text.length) {
-      if (at - start > 524288) fail();
-      const char = text[at++];
-      if (char === "\\") {
-        at++;
-        continue;
-      }
-      if (char === '"') {
-        let value: unknown;
-        // Native SyntaxError context may contain the signed URL inside this string.
-        try {
-          value = JSON.parse(text.slice(start, at));
-        } catch {
-          return fail();
-        }
-        if (typeof value !== "string") fail();
-        return value as string;
-      }
-    }
-    return fail();
-  }
-  function value(depth: number): unknown {
-    count();
-    if (depth > 32) fail();
-    whitespace();
-    if (text[at] === '"') return string();
-    if (text[at] === "{") {
-      at++;
-      whitespace();
-      const object: Record<string, unknown> = Object.create(null);
-      if (text[at] === "}") {
-        at++;
-        return object;
-      }
-      while (true) {
-        count();
-        whitespace();
-        if (text[at] !== '"') fail();
-        const key = string();
-        if (key === "__proto__" || key === "constructor" || key === "prototype" || Object.hasOwn(object, key)) fail();
-        whitespace();
-        if (text[at++] !== ":") fail();
-        object[key] = value(depth + 1);
-        whitespace();
-        const end = text[at++];
-        if (end === "}") return object;
-        if (end !== ",") fail();
-      }
-    }
-    if (text[at] === "[") {
-      at++;
-      whitespace();
-      const array: unknown[] = [];
-      if (text[at] === "]") {
-        at++;
-        return array;
-      }
-      while (true) {
-        array.push(value(depth + 1));
-        whitespace();
-        const end = text[at++];
-        if (end === "]") return array;
-        if (end !== ",") fail();
-      }
-    }
-    const start = at;
-    while (at < text.length && !/[ \t\r\n,}\]]/.test(text[at]!)) {
-      if (at - start > 128) fail();
-      at++;
-    }
-    const raw = text.slice(start, at);
-    if (raw.length > 128) fail();
-    if (raw === "true") return true;
-    if (raw === "false") return false;
-    if (raw === "null") return null;
-    if (!/^-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?$/u.test(raw)) return fail();
-    return new Numeric(raw);
-  }
-  const result = value(0);
-  whitespace();
-  if (at !== text.length) fail();
-  return result;
-}
+/** Limits for this service's JSON responses; see `parseJson`. */
+const jsonLimits: JsonLimitsType = {
+  label: "CMIS",
+  maxLength: 8 * 1024 * 1024,
+  maxTokens: 100_000,
+  maxString: 524_288,
+  maxScalar: 128,
+  number: (raw) => new Numeric(raw),
+};
 
 /** A finite native client; borrowed Fetch and credentials are never disposed or discovered. */
 export class CmisClient {
@@ -343,7 +248,7 @@ export class CmisClient {
     this.#fetch = options.fetch ?? globalThis.fetch.bind(globalThis);
     const policy = options.policy;
     this.#policy = policy === undefined ? undefined : { ...policy };
-    this.#max = integer(options.maxBytes ?? 8 * 1024 * 1024, CMIS_BUFFER_BYTES);
+    this.#max = toInteger(options.maxBytes ?? 8 * 1024 * 1024, "CMIS integer", CMIS_BUFFER_BYTES);
   }
   #url(root: boolean, query: Readonly<Record<string, string>>): URL {
     const url = new URL(root ? this.#rootUrl : this.#repositoryUrl);
@@ -403,7 +308,7 @@ export class CmisClient {
       let exception: string | undefined;
       const raw = await body();
       try {
-        const input = record(json(raw));
+        const input = record(parseJson(raw, jsonLimits));
         if (
           typeof input.exception === "string" && [
             "constraint",
@@ -426,7 +331,7 @@ export class CmisClient {
       } catch { /* HTTP status remains authoritative even when its diagnostic body is malformed. */ }
       throw new CmisError(response.status, exception);
     }
-    return json(await body());
+    return parseJson(await body(), jsonLimits);
   }
   async #control(response: Response, expected = 200): Promise<unknown> {
     return await readResponse(response, (body) => this.#value(response, body, expected));
@@ -470,7 +375,9 @@ export class CmisClient {
   /** List one folder page. Native hasMoreItems is not a snapshot or a stable continuation token. */
   async list(id: string, options: CmisListType = {}): Promise<CmisPageType> {
     id = text(id);
-    const signal = options.signal, skip = integer(options.skip ?? 0), limit = integer(options.limit ?? 100, 1000);
+    const signal = options.signal,
+      skip = toInteger(options.skip ?? 0, "CMIS integer"),
+      limit = toInteger(options.limit ?? 100, "CMIS integer", 1000);
     if (limit === 0) throw new RangeError("CMIS page limit must be positive.");
     const data = record(
       await this.#control(
@@ -498,7 +405,7 @@ export class CmisClient {
     return Object.freeze({
       objects: Object.freeze(objects),
       more: data.hasMoreItems,
-      ...(data.hasMoreItems ? { next: integer(skip + objects.length) } : {}),
+      ...(data.hasMoreItems ? { next: toInteger(skip + objects.length, "CMIS integer") } : {}),
       ...(data.numItems === undefined || data.numItems === null ? {} : { total: count(data.numItems) }),
     });
   }
@@ -525,7 +432,7 @@ export class CmisClient {
         if (!/^(0|[1-9][0-9]*)$/u.test(declared) || declared.length > 16) {
           throw new TypeError("Invalid CMIS content length.");
         }
-        size = integer(Number(declared), this.#max);
+        size = toInteger(Number(declared), "CMIS integer", this.#max);
       }
     } catch (reason) {
       return await readResponse(response, () => {
@@ -544,7 +451,7 @@ export class CmisClient {
   #content(bytes: Uint8Array, mediaType: string): Blob {
     if (!isBytes(bytes)) throw new TypeError("CMIS content must be bytes.");
     const view = toView(bytes);
-    integer(view.byteLength, this.#max);
+    toInteger(view.byteLength, "CMIS integer", this.#max);
     if (!/^[\x21-\x7e]+$/u.test(mediaType) || mediaType.length > 1024) throw new TypeError("Invalid CMIS media type.");
     return new Blob([toRequestBytes(view)], { type: mediaType });
   }

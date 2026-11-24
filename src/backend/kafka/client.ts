@@ -1,4 +1,5 @@
 /** Explicit-partition Kafka classic APIs. No transport, credentials, retry loop or filesystem is discovered. @module */
+import { toInteger } from "../../check.ts";
 import { Reader, Writer } from "./wire.ts";
 import { decodeRecords, encodeBatch, recordLimits, snapshotRecords } from "./records.ts";
 import type { KafkaRecordLimitsType, KafkaRecordType } from "./records.ts";
@@ -103,18 +104,14 @@ export class KafkaCompletionError extends Error {
 function requireValue(value: boolean, message: string): asserts value {
   if (!value) throw new TypeError(`Malformed or unsupported Kafka ${message}.`);
 }
-function integer(value: number, minimum = 0): number {
-  if (!Number.isInteger(value) || value < minimum || value > 2147483647) throw new RangeError("Invalid Kafka integer.");
-  return value;
-}
 function throttle(reader: Reader): number {
-  return integer(reader.int());
+  return toInteger(reader.int(), "Kafka integer", 2147483647);
 }
 /** Validate collections before iteration; replica order remains distinct from ISR membership. */
 function nodes(reader: Reader): number[] {
   const count = reader.arrayLength(4, false, 128), result: number[] = [], seen = new Set<number>();
   for (let at = 0; at < count; at++) {
-    const id = integer(reader.int());
+    const id = toInteger(reader.int(), "Kafka integer", 2147483647);
     requireValue(!seen.has(id), "duplicate node ID");
     seen.add(id);
     result.push(id);
@@ -126,7 +123,10 @@ function metadata(bytes: Uint8Array, topic: string): KafkaMetadataType {
   const reader = new Reader(bytes), throttleMs = throttle(reader), count = reader.arrayLength(12, false, 128);
   const brokers: KafkaBrokerType[] = [], seen = new Set<number>();
   for (let at = 0; at < count; at++) {
-    const id = integer(reader.int()), host = reader.text(), port = reader.int(), rack = reader.text(true);
+    const id = toInteger(reader.int(), "Kafka integer", 2147483647),
+      host = reader.text(),
+      port = reader.int(),
+      rack = reader.text(true);
     requireValue(
       !seen.has(id) && host.length > 0 && host.length <= 1024 && (rack?.length ?? 0) <= 1024 && port >= 1 &&
         port <= 65535,
@@ -135,7 +135,7 @@ function metadata(bytes: Uint8Array, topic: string): KafkaMetadataType {
     seen.add(id);
     brokers.push({ id, host, port, rack });
   }
-  const clusterId = reader.text(true), controllerId = integer(reader.int(), -1);
+  const clusterId = reader.text(true), controllerId = toInteger(reader.int(), "Kafka integer", 2147483647, -1);
   requireValue((clusterId?.length ?? 0) <= 1024 && reader.arrayLength(9, false, 1) === 1, "metadata topic extent");
   const error = reader.short(), actual = reader.text(), flag = reader.byte();
   requireValue(actual === topic && flag <= 1, "metadata topic identity");
@@ -144,7 +144,9 @@ function metadata(bytes: Uint8Array, topic: string): KafkaMetadataType {
     indexes = new Set<number>();
   let remainingNodes = 8192;
   for (let at = 0; at < length; at++) {
-    const error = reader.short(), index = integer(reader.int()), leader = integer(reader.int(), -1);
+    const error = reader.short(),
+      index = toInteger(reader.int(), "Kafka integer", 2147483647),
+      leader = toInteger(reader.int(), "Kafka integer", 2147483647, -1);
     requireValue(!indexes.has(index), "duplicate partition");
     indexes.add(index);
     const replicas = nodes(reader), isr = nodes(reader);
@@ -188,8 +190,8 @@ export class KafkaClient {
       throw new TypeError("Invalid Kafka topic.");
     }
     this.#topic = topic;
-    this.#partition = integer(options.partition);
-    this.#broker = integer(options.brokerId);
+    this.#partition = toInteger(options.partition, "Kafka integer", 2147483647);
+    this.#broker = toInteger(options.brokerId, "Kafka integer", 2147483647);
     const acquire = options.openChannel;
     if (typeof acquire !== "function") throw new TypeError("Kafka requires an explicit channel opener.");
     const { signal, timeoutMs, cleanupMs, allowPlaintext, maxBytes, maxRecords, maxHeaders, maxRecordHeaders } =

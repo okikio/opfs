@@ -1,4 +1,7 @@
 /** Native unencrypted Seafile library files, with API tokens isolated from capability URLs. @module */
+import { toInteger } from "../../check.ts";
+import { exactLength } from "../../body.ts";
+import { type JsonLimitsType, parseJson } from "../../json.ts";
 import { z } from "zod";
 import { isBytes, toRequestBytes, toView } from "../../bytes.ts";
 import { close } from "../../close.ts";
@@ -6,7 +9,7 @@ import { assertRangeResponse, resolveRange } from "../../range.ts";
 import { RequestMetrics, sendRequest } from "../../request.ts";
 import type { FetchType, RequestMetricsType, RequestPolicyType } from "../../request.ts";
 import { readResponse } from "../../response.ts";
-import { collectBytes, openBytes, withAbortSignal } from "../../stream.ts";
+import { collectBytes } from "../../stream.ts";
 
 /** Finite copied-upload/materialization policy ceiling, separate from server quotas. */
 export const SEAFILE_BUFFER_BYTES = 64 * 1024 * 1024;
@@ -116,12 +119,6 @@ const EntrySchema = z.object({
   size: z.number().int().nonnegative().safe().optional(),
 });
 const ReceiptSchema = z.object({ id: z.string(), name: z.string(), size: z.number().int().nonnegative().safe() });
-function integer(value: number, max = Number.MAX_SAFE_INTEGER): number {
-  if (!Number.isSafeInteger(value) || value < 0 || value > max) {
-    throw new RangeError("Seafile value exceeds its finite bound.");
-  }
-  return value;
-}
 /** This path profile is literal Unicode with no aliases, controls or malformed UTF-16. */
 function text(value: string, max = 4096): string {
   if (typeof value !== "string" || !value.length || value.length > max) {
@@ -161,158 +158,14 @@ function parse<T>(schema: z.ZodType<T>, value: unknown): T {
   if (!result.success) throw new TypeError("Invalid Seafile native acknowledgement.");
   return result.data;
 }
-/** Bounded control JSON rejects duplicate/prototype keys and noncanonical numeric lexemes before Number conversion.
- * The finite profile admits only safe integers, depth32, 100000 tokens and 512 KiB lexical strings within 8 MiB text.
- * JSON.parse is restricted to bounded string tokens, so fractional rounding cannot create accepted byte authority.
- */
-function json(text: string): unknown {
-  if (text.length > 8 * 1024 * 1024) throw new RangeError("Seafile JSON exceeds its lexical budget.");
-  let at = 0, tokens = 0;
-  const fail = (): never => {
-    throw new TypeError("Malformed or over-budget Seafile JSON.");
-  };
-  const whitespace = (): void => {
-    while (/[ \t\r\n]/.test(text[at] ?? "x")) at++;
-  };
-  const count = (): void => {
-    if (++tokens > 100000) fail();
-  };
-  function string(): string {
-    const start = at++;
-    while (at < text.length) {
-      if (at - start > 524288) fail();
-      const char = text[at++];
-      if (char === "\\") {
-        at++;
-        continue;
-      }
-      if (char === '"') {
-        let value: unknown;
-        // Native SyntaxError context may contain the signed URL inside this string.
-        try {
-          value = JSON.parse(text.slice(start, at));
-        } catch {
-          return fail();
-        }
-        if (typeof value !== "string") fail();
-        return value as string;
-      }
-    }
-    return fail();
-  }
-  function value(depth: number): unknown {
-    count();
-    if (depth > 32) fail();
-    whitespace();
-    if (text[at] === '"') return string();
-    if (text[at] === "{") {
-      at++;
-      whitespace();
-      const object: Record<string, unknown> = Object.create(null);
-      if (text[at] === "}") {
-        at++;
-        return object;
-      }
-      while (true) {
-        count();
-        whitespace();
-        if (text[at] !== '"') fail();
-        const key = string();
-        if (key === "__proto__" || key === "constructor" || key === "prototype" || Object.hasOwn(object, key)) fail();
-        whitespace();
-        if (text[at++] !== ":") fail();
-        object[key] = value(depth + 1);
-        whitespace();
-        const end = text[at++];
-        if (end === "}") return object;
-        if (end !== ",") fail();
-      }
-    }
-    if (text[at] === "[") {
-      at++;
-      whitespace();
-      const array: unknown[] = [];
-      if (text[at] === "]") {
-        at++;
-        return array;
-      }
-      while (true) {
-        array.push(value(depth + 1));
-        whitespace();
-        const end = text[at++];
-        if (end === "]") return array;
-        if (end !== ",") fail();
-      }
-    }
-    const start = at;
-    while (at < text.length && !/[ \t\r\n,}\]]/.test(text[at]!)) {
-      if (at - start > 17) fail();
-      at++;
-    }
-    const raw = text.slice(start, at);
-    if (raw.length > 17) fail();
-    if (raw === "true") return true;
-    if (raw === "false") return false;
-    if (raw === "null") return null;
-    if (!/^-?(0|[1-9][0-9]{0,15})$/.test(raw) || raw === "-0") return fail();
-    const number = Number(raw);
-    if (!Number.isSafeInteger(number)) return fail();
-    return number;
-  }
-  const result = value(0);
-  whitespace();
-  if (at !== text.length) fail();
-  return result;
-}
-/** A single byte reader owns actual EOF validation and cancellation, including failed native reads. */
-function extent(body: ReadableStream<Uint8Array>, expected: number, signal?: AbortSignal): ReadableStream<Uint8Array> {
-  const reader = openBytes(body);
-  let seen = 0, empty = 0, terminal = false;
-  return withAbortSignal(
-    new ReadableStream<Uint8Array>({
-      async pull(controller) {
-        try {
-          let next: ReadableStreamReadResult<Uint8Array>;
-          try {
-            next = await reader.read();
-          } catch (reason) {
-            terminal = true;
-            throw reason;
-          }
-          if (next.done) {
-            terminal = true;
-            if (seen !== expected) throw new TypeError("Seafile body is truncated.");
-            reader.releaseLock();
-            controller.close();
-            return;
-          }
-          if (!isBytes(next.value)) throw new TypeError("Seafile body requires bytes.");
-          const bytes = toView(next.value);
-          if (bytes.length > expected - seen) throw new TypeError("Seafile body exceeds its declared extent.");
-          seen += bytes.length;
-          if (!bytes.length) { if (++empty > 16) throw new TypeError("Seafile body makes no progress."); }
-          else empty = 0;
-          controller.enqueue(bytes);
-        } catch (reason) {
-          try {
-            await close([...(terminal ? [] : [() => reader.cancel(reason)]), () => reader.releaseLock()], [reason]);
-          } catch (failure) {
-            controller.error(failure);
-          }
-          terminal = true;
-        }
-      },
-      async cancel(reason) {
-        if (terminal) return;
-        terminal = true;
-        await close([() => reader.cancel(reason), () => reader.releaseLock()]);
-      },
-    }, { highWaterMark: 0 }),
-    signal,
-    "Seafile",
-    "download",
-  );
-}
+/** Limits for this service's JSON responses; see `parseJson`. */
+const jsonLimits: JsonLimitsType = {
+  label: "Seafile",
+  maxLength: 8 * 1024 * 1024,
+  maxTokens: 100_000,
+  maxString: 524_288,
+  maxScalar: 17,
+};
 
 /** One configured library; caller owns authentication, permissions and coordination of concurrent writers. */
 export class SeafileClient {
@@ -346,9 +199,9 @@ export class SeafileClient {
     this.#fetch = options.fetch ?? globalThis.fetch.bind(globalThis);
     const policy = options.policy;
     this.#policy = policy === undefined ? undefined : { ...policy };
-    this.#max = integer(options.maxBytes ?? 8 * 1024 * 1024, SEAFILE_BUFFER_BYTES);
-    this.#entries = integer(options.maxEntries ?? 10000, 100000);
-    this.#redirects = integer(options.maxRedirects ?? 3, 8);
+    this.#max = toInteger(options.maxBytes ?? 8 * 1024 * 1024, "Seafile value", SEAFILE_BUFFER_BYTES);
+    this.#entries = toInteger(options.maxEntries ?? 10000, "Seafile value", 100000);
+    this.#redirects = toInteger(options.maxRedirects ?? 3, "Seafile value", 8);
     const grants = (
       values: readonly SeafileGrantType[] | undefined,
     ): readonly Readonly<{ origin: string; prefix: string }>[] => {
@@ -438,7 +291,7 @@ export class SeafileClient {
   async #json(response: Response): Promise<unknown> {
     return await readResponse(response, async (body) => {
       if (response.status !== 200) throw new SeafileError(response.status);
-      return json(await body());
+      return parseJson(await body(), jsonLimits);
     });
   }
   async getLibrary(options: SeafileOperationType = {}): Promise<SeafileLibraryType> {
@@ -566,7 +419,7 @@ export class SeafileClient {
         if (raw === null || !/^(0|[1-9][0-9]{0,15})$/u.test(raw)) {
           throw new TypeError("Seafile data requires safe Content-Length.");
         }
-        size = integer(Number(raw));
+        size = toInteger(Number(raw), "Seafile value");
         if (response.body === null && size !== 0) throw new TypeError("Seafile data response omitted bytes.");
       } catch (reason) {
         await close([() => response.body?.cancel(reason)], [reason]);
@@ -577,7 +430,11 @@ export class SeafileClient {
           controller.close();
         },
       });
-      return Object.freeze({ bytes: extent(body, size, signal), size, evidence: "server-trusted" });
+      return Object.freeze({
+        bytes: exactLength(body, size, { label: "Seafile body", resource: "Seafile", signal: signal }),
+        size,
+        evidence: "server-trusted",
+      });
     }
   }
   async read(file: string, options: SeafileReadType = {}): Promise<Uint8Array> {
@@ -607,7 +464,7 @@ export class SeafileClient {
     if (typeof replace !== "boolean") throw new TypeError("Seafile replace must be a boolean.");
     if (!isBytes(bytes)) throw new TypeError("Seafile upload requires native bytes.");
     const view = toView(bytes);
-    integer(view.byteLength, this.#max);
+    toInteger(view.byteLength, "Seafile value", this.#max);
     signal?.throwIfAborted();
     const body = toRequestBytes(view.slice());
     const api = this.#url(`api2/repos/${this.#library}/upload-link/`, { p: directory, replace: replace ? "1" : "0" });

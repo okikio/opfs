@@ -1,4 +1,5 @@
 /** One raw KV value plus associated versioned metadata; no base64 record tree or Worker discovery. @module */
+import { toInteger } from "../../check.ts";
 import { z } from "zod";
 import { isBytes, toView } from "../../bytes.ts";
 import { openBytes } from "../../stream.ts";
@@ -68,13 +69,6 @@ const MetadataSchema = z.object({
   metadata: z.record(z.string().max(1024), z.string().max(1024)),
 }).strict();
 type MetadataType = z.infer<typeof MetadataSchema>;
-/** Finite policy checks occur before binding invocation or byte copying. */
-function integer(value: number, label: string, maximum = Number.MAX_SAFE_INTEGER): number {
-  if (!Number.isSafeInteger(value) || value < 0 || value > maximum) {
-    throw new RangeError(`${label} exceeds its nonnegative safe-integer limit.`);
-  }
-  return value;
-}
 /** Keep string allocation bounded before UTF-8 validation and refuse replacement encoding. */
 function text(value: string, maximum: number): void {
   if (typeof value !== "string" || value.length > maximum || new TextEncoder().encode(value).byteLength > maximum) {
@@ -117,24 +111,24 @@ export function createCloudflareKvDriver(
   if (!prefix || !prefix.endsWith("/")) {
     throw new TypeError("Workers KV needs an explicitly reserved prefix ending in a slash.");
   }
-  const maxReadBytes = integer(
+  const maxReadBytes = toInteger(
     options.maxReadBytes ?? CLOUDFLARE_KV_BYTES,
     "Workers KV read policy",
     CLOUDFLARE_KV_BYTES,
   );
-  const maxUploadBytes = integer(
+  const maxUploadBytes = toInteger(
     options.maxUploadBytes ?? CLOUDFLARE_KV_BYTES,
     "Workers KV upload policy",
     CLOUDFLARE_KV_BYTES,
   );
-  const maxChunkBytes = integer(options.maxChunkBytes ?? 1024 * 1024, "Workers KV chunk policy", CLOUDFLARE_KV_BYTES);
+  const maxChunkBytes = toInteger(options.maxChunkBytes ?? 1024 * 1024, "Workers KV chunk policy", CLOUDFLARE_KV_BYTES);
   if (!maxChunkBytes) throw new RangeError("Workers KV chunk policy must be positive.");
   const cacheTtl = options.cacheTtl;
   const expirationTtl = options.expirationTtl;
-  if (cacheTtl !== undefined && integer(cacheTtl, "Workers KV cache TTL") < 30) {
+  if (cacheTtl !== undefined && toInteger(cacheTtl, "Workers KV cache TTL") < 30) {
     throw new RangeError("Workers KV cache TTL must be at least 30 seconds.");
   }
-  if (expirationTtl !== undefined && integer(expirationTtl, "Workers KV expiration TTL") < 60) {
+  if (expirationTtl !== undefined && toInteger(expirationTtl, "Workers KV expiration TTL") < 60) {
     throw new RangeError("Workers KV expiration TTL must be at least 60 seconds.");
   }
   /** No encoding layer aliases arbitrary provider keys into another path. */
@@ -168,7 +162,7 @@ export function createCloudflareKvDriver(
   /** Native cursors can advance through empty pages; no logical directory grouping is fabricated. */
   async function listKeys(request: Omit<ObjectListOptionsType, "delimiter">): Promise<CloudflareKvPageType> {
     const selected = physical(request.prefix, true);
-    const limit = integer(request.limit ?? 1000, "Workers KV page limit", 1000);
+    const limit = toInteger(request.limit ?? 1000, "Workers KV page limit", 1000);
     if (!limit) throw new RangeError("Workers KV page limit must be positive.");
     if (request.cursor !== undefined) text(request.cursor, 8192);
     request.signal?.throwIfAborted();
@@ -187,7 +181,7 @@ export function createCloudflareKvDriver(
       if (!entry.name.startsWith(selected)) throw new TypeError("Workers KV listing escaped its reserved prefix.");
       const key = entry.name.slice(prefix.length);
       const value = envelope(entry.metadata, key);
-      if (entry.expiration !== undefined) integer(entry.expiration, "Workers KV expiration");
+      if (entry.expiration !== undefined) toInteger(entry.expiration, "Workers KV expiration");
       return { key, ...stat(value), ...(entry.expiration === undefined ? {} : { expiration: entry.expiration }) };
     });
     return { keys, ...(page.list_complete ? {} : { cursor: page.cursor! }) };

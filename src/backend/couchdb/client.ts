@@ -1,11 +1,13 @@
 /** Native CouchDB attachments. Document revisions are not attachment digests or filesystem paths. @module */
+import { toInteger } from "../../check.ts";
+import { exactLength } from "../../body.ts";
+import { type JsonLimitsType, parseJson } from "../../json.ts";
 import { isBytes, toRequestBytes, toView } from "../../bytes.ts";
-import { close } from "../../close.ts";
 import { assertRangeResponse, resolveRange } from "../../range.ts";
 import { sendRequest } from "../../request.ts";
 import type { FetchType, RequestPolicyType } from "../../request.ts";
 import { readResponse } from "../../response.ts";
-import { collectBytes, openBytes, withAbortSignal } from "../../stream.ts";
+import { collectBytes } from "../../stream.ts";
 
 /** Implementation ceiling for materialized payloads; server/document quotas remain separate. */
 export const COUCHDB_BUFFER_BYTES = 64 * 1024 * 1024;
@@ -150,12 +152,6 @@ function revision(value: unknown): string {
   if (!/^[1-9][0-9]*-[A-Za-z0-9]+$/u.test(result)) throw new TypeError("Invalid CouchDB revision token.");
   return result;
 }
-function integer(value: number, maximum = Number.MAX_SAFE_INTEGER): number {
-  if (!Number.isSafeInteger(value) || value < 0 || value > maximum) {
-    throw new RangeError("CouchDB integer exceeds its finite bound.");
-  }
-  return value;
-}
 function record(value: unknown): Record<string, unknown> {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
     throw new TypeError("Invalid CouchDB object.");
@@ -173,14 +169,14 @@ function size(value: unknown): number {
   if (!(value instanceof Numeric) || !/^(0|[1-9][0-9]{0,15})$/u.test(value.raw)) {
     throw new TypeError("Unsupported CouchDB numeric field.");
   }
-  return integer(Number(value.raw));
+  return toInteger(Number(value.raw), "CouchDB integer");
 }
 function length(response: Response): number {
   const raw = response.headers.get("content-length");
   if (raw === null || !/^(0|[1-9][0-9]{0,15})$/u.test(raw)) {
     throw new TypeError("CouchDB byte reads require a safe Content-Length.");
   }
-  return integer(Number(raw));
+  return toInteger(Number(raw), "CouchDB integer");
 }
 function etag(response: Response): string {
   const value = response.headers.get("etag");
@@ -190,154 +186,15 @@ function etag(response: Response): string {
   return value;
 }
 
-/** Bounded lossless control parsing rejects duplicate/prototype keys before interpreting selected native fields. */
-function json(text: string): unknown {
-  if (text.length > 8 * 1024 * 1024) throw new RangeError("CouchDB JSON exceeds its lexical budget.");
-  let at = 0, tokens = 0;
-  const fail = (): never => {
-    throw new TypeError("Malformed or over-budget CouchDB JSON.");
-  };
-  const whitespace = (): void => {
-    while (/[ \t\r\n]/.test(text[at] ?? "x")) at++;
-  };
-  const count = (): void => {
-    if (++tokens > 100000) fail();
-  };
-  function string(): string {
-    const start = at++;
-    while (at < text.length) {
-      if (at - start > 524288) fail();
-      const char = text[at++];
-      if (char === "\\") {
-        at++;
-        continue;
-      }
-      if (char === '"') {
-        let value: unknown;
-        // Native SyntaxError context may contain the signed URL inside this string.
-        try {
-          value = JSON.parse(text.slice(start, at));
-        } catch {
-          return fail();
-        }
-        if (typeof value !== "string") fail();
-        return value as string;
-      }
-    }
-    return fail();
-  }
-  function value(depth: number): unknown {
-    count();
-    if (depth > 32) fail();
-    whitespace();
-    if (text[at] === '"') return string();
-    if (text[at] === "{") {
-      at++;
-      whitespace();
-      const object: Record<string, unknown> = Object.create(null);
-      if (text[at] === "}") {
-        at++;
-        return object;
-      }
-      while (true) {
-        count();
-        whitespace();
-        if (text[at] !== '"') fail();
-        const key = string();
-        if (key === "__proto__" || key === "constructor" || key === "prototype" || Object.hasOwn(object, key)) fail();
-        whitespace();
-        if (text[at++] !== ":") fail();
-        object[key] = value(depth + 1);
-        whitespace();
-        const end = text[at++];
-        if (end === "}") return object;
-        if (end !== ",") fail();
-      }
-    }
-    if (text[at] === "[") {
-      at++;
-      whitespace();
-      const array: unknown[] = [];
-      if (text[at] === "]") {
-        at++;
-        return array;
-      }
-      while (true) {
-        array.push(value(depth + 1));
-        whitespace();
-        const end = text[at++];
-        if (end === "]") return array;
-        if (end !== ",") fail();
-      }
-    }
-    const start = at;
-    while (at < text.length && !/[ \t\r\n,}\]]/.test(text[at]!)) {
-      if (at - start > 128) fail();
-      at++;
-    }
-    const raw = text.slice(start, at);
-    if (raw.length > 128) fail();
-    if (raw === "true") return true;
-    if (raw === "false") return false;
-    if (raw === "null") return null;
-    if (!/^-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?$/u.test(raw)) return fail();
-    return new Numeric(raw);
-  }
-  const result = value(0);
-  whitespace();
-  if (at !== text.length) fail();
-  return result;
-}
-
-/** A single byte reader owns actual EOF validation and cancellation, including failed native reads. */
-function extent(body: ReadableStream<Uint8Array>, expected: number, signal?: AbortSignal): ReadableStream<Uint8Array> {
-  const reader = openBytes(body);
-  let seen = 0, empty = 0, terminal = false;
-  return withAbortSignal(
-    new ReadableStream<Uint8Array>({
-      async pull(controller) {
-        try {
-          let next: ReadableStreamReadResult<Uint8Array>;
-          try {
-            next = await reader.read();
-          } catch (reason) {
-            terminal = true;
-            throw reason;
-          }
-          if (next.done) {
-            terminal = true;
-            if (seen !== expected) throw new TypeError("CouchDB body is truncated.");
-            reader.releaseLock();
-            controller.close();
-            return;
-          }
-          if (!isBytes(next.value)) throw new TypeError("CouchDB body requires bytes.");
-          const bytes = toView(next.value);
-          if (bytes.length > expected - seen) throw new TypeError("CouchDB body exceeds its declared extent.");
-          seen += bytes.length;
-          if (!bytes.length) { if (++empty > 16) throw new TypeError("CouchDB body makes no progress."); }
-          else empty = 0;
-          controller.enqueue(bytes);
-        } catch (reason) {
-          try {
-            await close([...(terminal ? [] : [() => reader.cancel(reason)]), () => reader.releaseLock()], [reason]);
-          } catch (failure) {
-            controller.error(failure);
-          }
-          terminal = true;
-        }
-      },
-      async cancel(reason) {
-        if (terminal) return;
-        terminal = true;
-        await close([() => reader.cancel(reason), () => reader.releaseLock()]);
-      },
-    }, { highWaterMark: 0 }),
-    signal,
-    "CouchDB",
-    "download",
-  );
-}
+/** Limits for this service's JSON responses; see `parseJson`. */
+const jsonLimits: JsonLimitsType = {
+  label: "CouchDB",
+  maxLength: 8 * 1024 * 1024,
+  maxTokens: 100_000,
+  maxString: 524_288,
+  maxScalar: 128,
+  number: (raw) => new Numeric(raw),
+};
 
 /** Independent operations borrow Fetch and credentials. No background work or client-owned connection pool is acquired. */
 export class CouchdbClient {
@@ -377,8 +234,8 @@ export class CouchdbClient {
     this.#credentials = options.credentials;
     this.#fetch = options.fetch ?? globalThis.fetch.bind(globalThis);
     this.#policy = options.policy === undefined ? undefined : { ...options.policy };
-    this.#max = integer(options.maxBytes ?? 8 * 1024 * 1024, COUCHDB_BUFFER_BYTES);
-    this.#attachments = integer(options.maxAttachments ?? 1000, 10000);
+    this.#max = toInteger(options.maxBytes ?? 8 * 1024 * 1024, "CouchDB integer", COUCHDB_BUFFER_BYTES);
+    this.#attachments = toInteger(options.maxAttachments ?? 1000, "CouchDB integer", 10000);
   }
   #url(document: string, attachment?: string, rev?: string): URL {
     const url = new URL(
@@ -435,7 +292,7 @@ export class CouchdbClient {
   async #control(response: Response): Promise<unknown> {
     return await readResponse(response, async (body) => {
       if (response.status !== 200) throw new CouchdbError(response.status);
-      return json(await body());
+      return parseJson(await body(), jsonLimits);
     });
   }
   /** Inspect one document without downloading inline attachment data. Unknown application fields do not become library records. */
@@ -538,7 +395,11 @@ export class CouchdbClient {
     try {
       const count = length(response), digest = etag(response), body = response.body;
       if (body === null) throw new TypeError("CouchDB download has no body.");
-      return Object.freeze({ bytes: extent(body, count, selected.signal), size: count, etag: digest });
+      return Object.freeze({
+        bytes: exactLength(body, count, { label: "CouchDB body", resource: "CouchDB", signal: selected.signal }),
+        size: count,
+        etag: digest,
+      });
     } catch (reason) {
       await readResponse(response, () => {
         throw reason;
@@ -580,7 +441,7 @@ export class CouchdbClient {
           refused = status >= 400 && status < 500 && status !== 408;
           throw new CouchdbError(status);
         }
-        const data = record(json(await body())), next = revision(data.rev);
+        const data = record(parseJson(await body(), jsonLimits)), next = revision(data.rev);
         if (data.ok !== true || data.id !== id || next === rev) {
           throw new TypeError("CouchDB receipt does not describe the intended mutation.");
         }
@@ -607,7 +468,7 @@ export class CouchdbClient {
     if (/[^\u0020-\u007e]/u.test(mediaType)) throw new TypeError("Invalid CouchDB media type.");
     if (!isBytes(bytes)) throw new TypeError("CouchDB uploads require bytes.");
     const view = toView(bytes);
-    integer(view.length, this.#max);
+    toInteger(view.length, "CouchDB integer", this.#max);
     const owned = new Uint8Array(view);
     return await this.#mutate(id, name, rev, "put", signal, owned, mediaType);
   }

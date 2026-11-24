@@ -1,6 +1,6 @@
 /** Bounded CDF-1/CDF-2 metadata and selected raw numeric ranges. @module */
+import { ArchiveBudget, assertInteger, createArchiveLedger, resolveLimits, toSafeInteger } from "../archive/budget.ts";
 import type { ByteSourceType } from "../source.ts";
-import { ArchiveBudget, assertInteger, createArchiveLedger, resolveLimits } from "../archive/budget.ts";
 import { ArchiveError, invalid, unsupported } from "../archive/error.ts";
 import { createView } from "../archive/field.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/budget.ts";
@@ -101,12 +101,6 @@ export interface NetcdfDatasetType {
   readonly variables: readonly NetcdfVariableType[];
   readonly work: ArchiveWorkType;
   read(id: number, options?: NetcdfReadOptionsType): Promise<NetcdfReadType>;
-}
-function exact(value: bigint): number {
-  if (value < 0n || value > BigInt(Number.MAX_SAFE_INTEGER)) {
-    throw unsupported("netCDF extent exceeds exact JavaScript indexing.");
-  }
-  return Number(value);
 }
 function policy(value: number | undefined, fallback: number, label: string): number {
   const count = value ?? fallback;
@@ -308,7 +302,8 @@ export async function openNetcdf(
         throw new ArchiveError("budget-exceeded", "netCDF aggregate attribute value limit exceeded.");
       }
       attributeValues += count;
-      const length = exact(BigInt(count) * BigInt(widthOf(type))), bytes = await header.take(length);
+      const length = toSafeInteger(BigInt(count) * BigInt(widthOf(type)), "netCDF extent"),
+        bytes = await header.take(length);
       await header.padding(length);
       // Frozen number arrays keep caller mutation from changing interpretation later.
       work.decoded(count * 8);
@@ -346,9 +341,9 @@ export async function openNetcdf(
     const encodedOffset = version === 1
       ? BigInt(createView(await header.take(4)).getInt32(0, false))
       : createView(await header.take(8)).getBigInt64(0, false);
-    const offset = exact(encodedOffset),
+    const offset = toSafeInteger(encodedOffset, "netCDF extent"),
       slabBytes = slabCount * BigInt(widthOf(type)),
-      padded = exact((slabBytes + 3n) / 4n * 4n);
+      padded = toSafeInteger((slabBytes + 3n) / 4n * 4n, "netCDF extent");
     if (padded !== vsize) deviations.push(Object.freeze({ id, declaredVsize: vsize, expectedVsize: padded }));
     if (offset % 4) throw invalid("netCDF variable start is not four-byte aligned.");
     variables.push(
@@ -358,19 +353,19 @@ export async function openNetcdf(
         type,
         dimensions: Object.freeze(ids),
         shape: Object.freeze(shape),
-        elements: exact(elementCount),
+        elements: toSafeInteger(elementCount, "netCDF extent"),
         attributes: attrs,
         offset,
         vsize,
         record,
-        recordElements: exact(slabCount),
+        recordElements: toSafeInteger(slabCount, "netCDF extent"),
       }),
     );
   }
   let fixedEnd = header.at;
   for (const variable of variables.filter((variable) => !variable.record)) {
     if (variable.offset < fixedEnd) throw invalid("netCDF fixed variables overlap metadata or previous data.");
-    fixedEnd = exact(BigInt(variable.offset) + BigInt(variable.vsize));
+    fixedEnd = toSafeInteger(BigInt(variable.offset) + BigInt(variable.vsize), "netCDF extent");
     if (fixedEnd > size) throw invalid("Truncated netCDF fixed variable.");
   }
   const recordVariables = variables.filter((variable) => variable.record);
@@ -394,7 +389,10 @@ export async function openNetcdf(
   }
   // The one-record-variable exception drops inter-slab padding, but never changes vsize.
   const single = recordVariables.length === 1 ? recordVariables[0] : undefined;
-  const recordStride = exact(single ? BigInt(single.recordElements) * BigInt(widthOf(single.type)) : paddedStride);
+  const recordStride = toSafeInteger(
+    single ? BigInt(single.recordElements) * BigInt(widthOf(single.type)) : paddedStride,
+    "netCDF extent",
+  );
   if (records && recordVariables.length && BigInt(recordBase) + BigInt(records) * BigInt(recordStride) > BigInt(size)) {
     throw invalid("Truncated netCDF record data.");
   }
@@ -488,7 +486,7 @@ export async function openNetcdf(
           ]);
         }
       }
-      const width = widthOf(variable.type), bytes = exact(BigInt(count) * BigInt(width));
+      const width = widthOf(variable.type), bytes = toSafeInteger(BigInt(count) * BigInt(width), "netCDF extent");
       const segments: { offset: number; elements: number }[] = [];
       let remaining = count, element = offset;
       while (remaining) {
@@ -503,7 +501,10 @@ export async function openNetcdf(
           65536 / width,
         );
         segments.push({
-          offset: exact(BigInt(variable.offset) + BigInt(slab) * BigInt(recordStride) + BigInt(inner) * BigInt(width)),
+          offset: toSafeInteger(
+            BigInt(variable.offset) + BigInt(slab) * BigInt(recordStride) + BigInt(inner) * BigInt(width),
+            "netCDF extent",
+          ),
           elements,
         });
         remaining -= elements;
@@ -534,8 +535,8 @@ export async function openNetcdf(
         inspect: local.inspect,
       };
       const budget = new ArchiveBudget(source, { ...opts, ledger }, signal);
-      budget.decoded(exact(BigInt(bytes) + BigInt(sentinelCount) * 8n));
-      budget.output(exact(BigInt(count) * BigInt((scale === "physical" ? 8 : width) + 1)));
+      budget.decoded(toSafeInteger(BigInt(bytes) + BigInt(sentinelCount) * 8n, "netCDF extent"));
+      budget.output(toSafeInteger(BigInt(count) * BigInt((scale === "physical" ? 8 : width) + 1), "netCDF extent"));
       signal?.throwIfAborted();
       const sentinels = new Set<number>();
       for (const array of sentinelArrays) for (const value of array) sentinels.add(value);
