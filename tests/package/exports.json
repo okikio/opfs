@@ -1994,11 +1994,7 @@
     "interface GlacierUploadsType",
     "typeAlias GlacierUploadType",
     "variable GlacierVaultSchema",
-    "typeAlias GlacierVaultType",
-    "variable HashSchema",
-    "variable IdSchema",
-    "variable MarkerSchema",
-    "variable SizeSchema"
+    "typeAlias GlacierVaultType"
   ],
   "./http": [
     "class HttpError",
