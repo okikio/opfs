@@ -82,9 +82,7 @@ async function pack(): Promise<string> {
   const text = new TextDecoder().decode(packed.stdout);
   await Deno.writeTextFile(resolve(output, "pack.json"), text);
   const report: unknown = JSON.parse(text);
-  const first: unknown = Array.isArray(report) && report.length === 1
-    ? report[0]
-    : undefined;
+  const first: unknown = Array.isArray(report) && report.length === 1 ? report[0] : undefined;
   if (
     typeof first !== "object" || first === null || !("filename" in first) ||
     typeof first.filename !== "string" ||
