@@ -2,7 +2,7 @@
 import type { ByteSourceType } from "../source.ts";
 import { isBytes, toView } from "../bytes.ts";
 import { close } from "../close.ts";
-import { ArchiveBudget, ArchiveError, createArchiveLedger, integer } from "../archive/record.ts";
+import { ArchiveBudget, ArchiveError, assertInteger, createArchiveLedger } from "../archive/record.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
 import { inspectBlocks, inspectFileMagic, inspectFileTail, inspectPrefix } from "./arrow/framing.ts";
 import { parseFooter, parseMessage, requireEligibleSchema, validateBatch } from "./arrow/schema.ts";
@@ -102,12 +102,13 @@ export interface ArrowStreamBatchType extends Omit<ArrowReadType, "batch"> {
   readonly schema: ArrowSchemaType;
 }
 
-function invalid(message: string): never {
-  throw new ArchiveError("invalid-archive", `Arrow ${message}`);
+/** Creates the `invalid-archive` error with an "Arrow" prefix; call as `throw invalid("...")`. */
+function invalid(message: string): ArchiveError {
+  return new ArchiveError("invalid-archive", `Arrow ${message}`);
 }
 /** Wire integers remain bigint until their complete extent is known to be addressable. */
 function exact(value: bigint): number {
-  if (value < 0n || value > BigInt(Number.MAX_SAFE_INTEGER)) invalid("extent exceeds safe addressable integers.");
+  if (value < 0n || value > BigInt(Number.MAX_SAFE_INTEGER)) throw invalid("extent exceeds safe addressable integers.");
   return Number(value);
 }
 /** Freeze all exposed schema data so a caller cannot change a later buffer plan. */
@@ -176,7 +177,7 @@ function joinLedgers(lifetime: ArchiveLedgerType, external?: ArchiveLedgerType):
  */
 export async function openArrow(input: ByteSourceType, supplied: ArrowOpenOptionsType = {}): Promise<ArrowDatasetType> {
   const options = { ...supplied }, size = input.size, stability = input.stability, read = input.read.bind(input);
-  integer(size, "Arrow source size");
+  assertInteger(size, "Arrow source size");
   if (options.allowUnverifiedSource !== undefined && typeof options.allowUnverifiedSource !== "boolean") {
     throw new TypeError("Arrow allowUnverifiedSource must be a boolean.");
   }
@@ -194,18 +195,18 @@ export async function openArrow(input: ByteSourceType, supplied: ArrowOpenOption
     budget.decoded(length);
     return await ownedRead(budget, offset, length);
   };
-  if (size < 26) invalid("file is too short for its magic, schema and footer.");
+  if (size < 26) throw invalid("file is too short for its magic, schema and footer.");
   inspectFileMagic(await ownedRead(opening, 0, 8));
   const tail = inspectFileTail(await ownedRead(opening, size - 10, 10), size, options);
   const footer = parseFooter(await metadataRead(opening, tail.footerOffset, tail.footerLength), options);
   const schema = freezeSchema(footer.schema), plan = requireEligibleSchema(schema);
   const prefix = inspectPrefix(await ownedRead(opening, 8, 8), options);
-  if (prefix.kind !== "message") invalid("embedded schema is absent.");
+  if (prefix.kind !== "message") throw invalid("embedded schema is absent.");
   const schemaEnd = 16 + prefix.metadataLength;
-  if (schemaEnd > tail.footerOffset) invalid("embedded schema overlaps footer.");
+  if (schemaEnd > tail.footerOffset) throw invalid("embedded schema overlaps footer.");
   const embedded = parseMessage(await metadataRead(opening, 16, prefix.metadataLength), options);
   if (embedded.kind !== "schema" || !sameSchema(schema, embedded.schema)) {
-    invalid("embedded and footer schemas disagree.");
+    throw invalid("embedded and footer schemas disagree.");
   }
   const blocks = inspectBlocks(
     footer.batches,
@@ -231,7 +232,7 @@ export async function openArrow(input: ByteSourceType, supplied: ArrowOpenOption
       columns: readonly number[],
       suppliedRead: ArrowReadOptionsType = {},
     ): Promise<ArrowReadType> {
-      integer(batch, "Arrow batch ordinal");
+      assertInteger(batch, "Arrow batch ordinal");
       const block = blocks[batch];
       if (!block) throw new RangeError("Unknown Arrow batch ordinal.");
       if (columns.length > schema.fields.length) throw new TypeError("Arrow selection has too many column ordinals.");
@@ -241,11 +242,11 @@ export async function openArrow(input: ByteSourceType, supplied: ArrowOpenOption
       const budget = new ArchiveBudget(source, { ...options, ledger: lifetime }, signal);
       const prefix = inspectPrefix(await ownedRead(budget, block.offset, 8), options);
       if (prefix.kind !== "message" || prefix.metadataLength !== block.metadataLength) {
-        invalid("indexed metadata length disagrees with the message prefix.");
+        throw invalid("indexed metadata length disagrees with the message prefix.");
       }
       const message = parseMessage(await metadataRead(budget, block.metadataOffset, block.metadataLength), options);
       if (message.kind !== "record-batch" || message.bodyLength !== BigInt(block.bodyLength)) {
-        invalid("indexed body length or record-batch kind disagrees with its message.");
+        throw invalid("indexed body length or record-batch kind disagrees with its message.");
       }
       validateBatch(message.batch, plan, message.bodyLength, options);
       const admitted = admitColumns(schema, message.batch, message.bodyLength, { ...options, columns: selected });
@@ -312,7 +313,7 @@ export async function* readArrow(
   }
   const options = { ...inputOptions, ...(selection === undefined ? {} : { columns: [...selection] }) };
   const maximum = options.maxChunkBytes ?? 65536;
-  integer(maximum, "Arrow incoming chunk bytes");
+  assertInteger(maximum, "Arrow incoming chunk bytes");
   const meter = joinLedgers(createArchiveLedger(options), options.ledger), signal = options.signal;
   signal?.throwIfAborted();
   const reader = stream.getReader();
@@ -349,9 +350,9 @@ export async function* readArrow(
         signal?.throwIfAborted();
         if (item.done) {
           if (boundary && at === 0) return null;
-          invalid("stream ended inside a frame.");
+          throw invalid("stream ended inside a frame.");
         }
-        if (!isBytes(item.value)) invalid("stream returned a non-byte chunk.");
+        if (!isBytes(item.value)) throw invalid("stream returned a non-byte chunk.");
         const bytes = toView(item.value);
         if (bytes.byteLength > maximum) {
           throw new ArchiveError("budget-exceeded", "Arrow incoming chunk exceeds its allowance.");
@@ -378,26 +379,26 @@ export async function* readArrow(
     while (true) {
       const bytes = await take(8, true);
       if (bytes === null) {
-        if (!schema) invalid("stream ended before its schema.");
+        if (!schema) throw invalid("stream ended before its schema.");
         finished = true;
         break;
       }
       const prefix = inspectPrefix(bytes, options);
       if (prefix.kind === "eos") {
-        if (!schema) invalid("stream ended before its schema.");
-        if (await take(1, true) !== null) invalid("stream contains bytes after EOS.");
+        if (!schema) throw invalid("stream ended before its schema.");
+        if (await take(1, true) !== null) throw invalid("stream contains bytes after EOS.");
         finished = true;
         break;
       }
       meter.reserve("decodedBytes", prefix.metadataLength);
       const message = parseMessage((await take(prefix.metadataLength))!, options);
       if (!schema) {
-        if (message.kind !== "schema") invalid("stream's first message is not a schema.");
+        if (message.kind !== "schema") throw invalid("stream's first message is not a schema.");
         requireEligibleSchema(message.schema);
         schema = freezeSchema(message.schema);
         continue;
       }
-      if (message.kind !== "record-batch") invalid("stream contains a second schema.");
+      if (message.kind !== "record-batch") throw invalid("stream contains a second schema.");
       if (batch >= (options.maxBatches ?? 4096)) {
         throw new ArchiveError("budget-exceeded", "Arrow stream batch count exceeds its allowance.");
       }

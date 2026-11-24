@@ -1,7 +1,15 @@
 /** Bounded Microsoft Cabinet inspection and NONE/MSZIP folder previews. @module */
 import type { ByteSourceType } from "../source.ts";
 import { readMszip } from "./mszip.ts";
-import { ArchiveBudget, ArchiveError, createArchiveLedger, integer, invalid, unsupported, view } from "./record.ts";
+import {
+  ArchiveBudget,
+  ArchiveError,
+  assertInteger,
+  createArchiveLedger,
+  createView,
+  invalid,
+  unsupported,
+} from "./record.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
 export { ArchiveError, createArchiveLedger } from "./record.ts";
 export type { ArchiveErrorCodeType, ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
@@ -117,7 +125,7 @@ export async function openCab(source: ByteSourceType, options: CabOpenOptionsTyp
   options = { ...options };
   const archiveSignal = options.signal;
   const { size, identity, stability } = source;
-  integer(size, "CAB source size");
+  assertInteger(size, "CAB source size");
   if (stability !== undefined && !["immutable", "provider", "caller"].includes(stability)) {
     throw new TypeError("Unknown CAB source stability evidence.");
   }
@@ -125,7 +133,7 @@ export async function openCab(source: ByteSourceType, options: CabOpenOptionsTyp
     throw new TypeError("CAB source identity must be a string of at most 8192 UTF16 code units.");
   }
   if (!stability && !options.allowUnverifiedSource) {
-    unsupported("CAB index reads require declared source stability or explicit unverified-source acceptance.");
+    throw unsupported("CAB index reads require declared source stability or explicit unverified-source acceptance.");
   }
   const maxFolders = options.maxFolders ?? 256;
   const maxEntries = options.maxEntries ?? 100000;
@@ -133,7 +141,7 @@ export async function openCab(source: ByteSourceType, options: CabOpenOptionsTyp
   const maxNameBytes = options.maxNameBytes ?? 256;
   const maxMetadataBytes = options.maxMetadataBytes ?? 1024 * 1024;
   for (const [name, value] of Object.entries({ maxFolders, maxEntries, maxBlocks, maxNameBytes, maxMetadataBytes })) {
-    integer(value, name);
+    assertInteger(value, name);
   }
   if (maxNameBytes > 256) throw new RangeError("CAB profile filename limit is 256 encoded bytes including NUL.");
   const snapshot: ByteSourceType = {
@@ -161,28 +169,28 @@ export async function openCab(source: ByteSourceType, options: CabOpenOptionsTyp
     return await budget.read(offset, length);
   };
   const header = await readMetadata(0, 36);
-  const h = view(header);
-  if (h.getUint32(0, true) !== 0x4643534d) invalid("CAB signature must be MSCF at source offset zero.");
+  const h = createView(header);
+  if (h.getUint32(0, true) !== 0x4643534d) throw invalid("CAB signature must be MSCF at source offset zero.");
   if (h.getUint32(4, true) || h.getUint32(12, true) || h.getUint32(20, true)) {
-    invalid("CAB reserved header words must be zero.");
+    throw invalid("CAB reserved header words must be zero.");
   }
-  if (header[24] !== 3 || header[25] !== 1) unsupported("Only CAB format version 1.3 is supported.");
-  if (h.getUint32(8, true) !== snapshot.size) invalid("CAB declared size must equal the complete source extent.");
+  if (header[24] !== 3 || header[25] !== 1) throw unsupported("Only CAB format version 1.3 is supported.");
+  if (h.getUint32(8, true) !== snapshot.size) throw invalid("CAB declared size must equal the complete source extent.");
   const filesAt = h.getUint32(16, true);
   const folderCount = h.getUint16(26, true);
   const fileCount = h.getUint16(28, true);
   const flags = h.getUint16(30, true);
-  if ((flags & ~7) !== 0) unsupported("CAB header has unsupported flags.");
-  if ((flags & 3) !== 0 || h.getUint16(34, true) !== 0) unsupported("Multi-cabinet CAB sets are not supported.");
+  if ((flags & ~7) !== 0) throw unsupported("CAB header has unsupported flags.");
+  if ((flags & 3) !== 0 || h.getUint16(34, true) !== 0) throw unsupported("Multi-cabinet CAB sets are not supported.");
   if (folderCount > maxFolders || fileCount > maxEntries) {
     throw new ArchiveError("budget-exceeded", "CAB directory count limit exceeded.");
   }
-  if (folderCount === 0) unsupported("This CAB profile requires at least one folder.");
+  if (folderCount === 0) throw unsupported("This CAB profile requires at least one folder.");
   let at = 36;
   let folderReserve = 0;
   let blockReserve = 0;
   if (flags & 4) {
-    const reserved = view(await readMetadata(at, 4));
+    const reserved = createView(await readMetadata(at, 4));
     const headerReserve = reserved.getUint16(0, true);
     folderReserve = reserved.getUint8(2);
     blockReserve = reserved.getUint8(3);
@@ -192,46 +200,46 @@ export async function openCab(source: ByteSourceType, options: CabOpenOptionsTyp
   }
   const descriptors: { offset: number; count: number; code: number }[] = [];
   for (let id = 0; id < folderCount; id++) {
-    const folder = view(await readMetadata(at, 8 + folderReserve));
+    const folder = createView(await readMetadata(at, 8 + folderReserve));
     const offset = folder.getUint32(0, true);
     const count = folder.getUint16(4, true);
     const code = folder.getUint16(6, true);
     if ((code & 15) > 3 || ((code & 15) === 0 && code !== 0)) {
-      unsupported("CAB folder compression profile is not supported.");
+      throw unsupported("CAB folder compression profile is not supported.");
     }
     descriptors.push({ offset, count, code });
     at += 8 + folderReserve;
   }
-  if (filesAt < at) invalid("CAB file table overlaps the header or folder table.");
+  if (filesAt < at) throw invalid("CAB file table overlaps the header or folder table.");
   const dataStart = descriptors.reduce((minimum, folder) => Math.min(minimum, folder.offset), snapshot.size);
   if (dataStart < filesAt || dataStart > snapshot.size) {
-    invalid("CAB folder data starts outside the admitted data region.");
+    throw invalid("CAB folder data starts outside the admitted data region.");
   }
   const entries: CabEntryType[] = [];
   at = filesAt;
   for (let id = 0; id < fileCount; id++) {
-    if (16 > dataStart - at) invalid("CAB file header overlaps folder data.");
-    const file = view(await readMetadata(at, 16));
+    if (16 > dataStart - at) throw invalid("CAB file header overlaps folder data.");
+    const file = createView(await readMetadata(at, 16));
     const size = file.getUint32(0, true);
     const folderOffset = file.getUint32(4, true);
     const folderId = file.getUint16(8, true);
     const attributes = file.getUint16(14, true);
-    if (folderId >= 0xfffd) unsupported("CAB file continuation markers require an unsupported cabinet set.");
-    if (folderId >= folderCount) invalid("CAB file refers to a missing folder.");
+    if (folderId >= 0xfffd) throw unsupported("CAB file continuation markers require an unsupported cabinet set.");
+    if (folderId >= folderCount) throw invalid("CAB file refers to a missing folder.");
     at += 16;
     const encoded = await readMetadata(at, Math.min(maxNameBytes, dataStart - at));
     const end = encoded.indexOf(0);
-    if (end < 0) invalid("CAB filename terminator is missing or exceeds the admitted name limit.");
-    if (end === 0) invalid("CAB filenames cannot be empty.");
+    if (end < 0) throw invalid("CAB filename terminator is missing or exceeds the admitted name limit.");
+    if (end === 0) throw invalid("CAB filenames cannot be empty.");
     const nameBytes = encoded.subarray(0, end);
     if (!(attributes & 0x80) && nameBytes.some((byte) => byte > 127)) {
-      unsupported("CAB non-ASCII names require the UTF-8 attribute; locale decoding is not implicit.");
+      throw unsupported("CAB non-ASCII names require the UTF-8 attribute; locale decoding is not implicit.");
     }
     let name: string;
     try {
       name = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(nameBytes);
     } catch {
-      return unsupported("CAB filename UTF-8 is invalid.");
+      throw unsupported("CAB filename UTF-8 is invalid.");
     }
     entries.push(
       Object.freeze({
@@ -259,25 +267,25 @@ export async function openCab(source: ByteSourceType, options: CabOpenOptionsTyp
     }
     let position = descriptor.offset;
     if (position < directoryEnd || position > snapshot.size) {
-      invalid("CAB folder data overlaps the directory or exceeds source.");
+      throw invalid("CAB folder data overlaps the directory or exceeds source.");
     }
     let size = 0;
     const blocks: CabBlockType[] = [];
     for (let index = 0; index < descriptor.count; index++) {
       const raw = await readMetadata(position, 8 + blockReserve);
-      const block = view(raw);
+      const block = createView(raw);
       const storedSize = block.getUint16(4, true);
       const plainSize = block.getUint16(6, true);
-      if (plainSize === 0) unsupported("Split/zero-output CAB blocks are not supported.");
-      if (plainSize > 32768) invalid("CAB uncompressed block exceeds 32 KiB.");
+      if (plainSize === 0) throw unsupported("Split/zero-output CAB blocks are not supported.");
+      if (plainSize > 32768) throw invalid("CAB uncompressed block exceeds 32 KiB.");
       if (
         storedSize === 0 || (descriptor.code === 0 && storedSize !== plainSize) ||
         (descriptor.code === 1 && (storedSize < 3 || storedSize > 32780))
       ) {
-        invalid("CAB block sizes do not match the folder profile.");
+        throw invalid("CAB block sizes do not match the folder profile.");
       }
       position += 8 + blockReserve;
-      if (storedSize > snapshot.size - position) invalid("CAB block payload exceeds source.");
+      if (storedSize > snapshot.size - position) throw invalid("CAB block payload exceeds source.");
       blocks.push(
         Object.freeze({
           id: blockCount++,
@@ -311,14 +319,14 @@ export async function openCab(source: ByteSourceType, options: CabOpenOptionsTyp
   spans.sort((left, right) => left.start - right.start);
   let previousEnd = directoryEnd;
   for (const span of spans) {
-    if (span.start < previousEnd) invalid("CAB physical folder extents overlap.");
+    if (span.start < previousEnd) throw invalid("CAB physical folder extents overlap.");
     previousEnd = span.end;
   }
-  if (previousEnd !== snapshot.size) unsupported("CAB trailing data outside the last folder is not supported.");
+  if (previousEnd !== snapshot.size) throw unsupported("CAB trailing data outside the last folder is not supported.");
   for (const entry of entries) {
     const folder = folders[entry.folderId]!;
     if (entry.folderOffset > folder.size || entry.size > folder.size - entry.folderOffset) {
-      invalid("CAB file range exceeds its logical folder.");
+      throw invalid("CAB file range exceeds its logical folder.");
     }
   }
   return Object.freeze({
@@ -332,22 +340,22 @@ export async function openCab(source: ByteSourceType, options: CabOpenOptionsTyp
     async read(id: number, readOptions: CabReadOptionsType = {}): Promise<CabReadType> {
       readOptions = { ...readOptions };
       const maxDeflateBlocks = readOptions.maxDeflateBlocks ?? 8192;
-      integer(maxDeflateBlocks, "MSZIP DEFLATE block limit");
+      assertInteger(maxDeflateBlocks, "MSZIP DEFLATE block limit");
       if (maxDeflateBlocks > 65536) throw new RangeError("MSZIP DEFLATE block limit exceeds 65536.");
-      integer(id, "Entry ID");
+      assertInteger(id, "Entry ID");
       const entry = entries[id];
       if (!entry) throw new RangeError("CAB entry ID does not exist.");
       const folder = folders[entry.folderId]!;
       if (folder.compressionCode !== 0 && folder.compressionCode !== 1) {
-        unsupported("Only exact NONE and MSZIP CAB folder payloads can be read.");
+        throw unsupported("Only exact NONE and MSZIP CAB folder payloads can be read.");
       }
       if (folder.blockReserveBytes !== 0) {
-        unsupported("CAB CFDATA reserved-area checksum scope is not supported for payload reads.");
+        throw unsupported("CAB CFDATA reserved-area checksum scope is not supported for payload reads.");
       }
       const offset = readOptions.offset ?? 0;
       const length = readOptions.length ?? entry.size - offset;
-      integer(offset, "Member offset");
-      integer(length, "Member length");
+      assertInteger(offset, "Member offset");
+      assertInteger(length, "Member length");
       if (offset > entry.size || length > entry.size - offset) {
         throw new RangeError("CAB requested member range exceeds file.");
       }

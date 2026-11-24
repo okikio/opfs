@@ -135,11 +135,13 @@ type PolicyType = {
   readonly rows: bigint;
   readonly body: bigint;
 };
-function invalid(message: string): never {
-  throw new ArchiveError("invalid-archive", `Arrow ${message}`);
+/** Creates the `invalid-archive` error with an "Arrow" prefix; call as `throw invalid("...")`. */
+function invalid(message: string): ArchiveError {
+  return new ArchiveError("invalid-archive", `Arrow ${message}`);
 }
-function unsupported(message: string): never {
-  throw new ArchiveError("unsupported-profile", `Arrow ${message}`);
+/** Creates the `unsupported-profile` error with an "Arrow" prefix; call as `throw unsupported("...")`. */
+function unsupported(message: string): ArchiveError {
+  return new ArchiveError("unsupported-profile", `Arrow ${message}`);
 }
 function budget(message: string): never {
   throw new ArchiveError("budget-exceeded", `Arrow ${message}`);
@@ -178,7 +180,7 @@ class Grammar {
   }
   table(table: number, slot: number): number {
     const at = this.pointer(table, slot);
-    if (at === null) invalid("required table is absent.");
+    if (at === null) throw invalid("required table is absent.");
     // Validate even empty union payload tables (Bool, Binary and Utf8).
     this.fb.field(at, 0, 1);
     return at;
@@ -200,7 +202,7 @@ class Grammar {
   }
   bool(table: number, slot: number): boolean {
     const value = this.byte(table, slot);
-    if (value > 1) invalid("boolean scalar is neither zero nor one.");
+    if (value > 1) throw invalid("boolean scalar is neither zero nor one.");
     return value === 1;
   }
   int(table: number, slot: number): number {
@@ -230,11 +232,11 @@ class Grammar {
     return values;
   }
   version(table: number): void {
-    if (this.short(table, 0) !== 4) unsupported("metadata version must be V5.");
+    if (this.short(table, 0) !== 4) throw unsupported("metadata version must be V5.");
   }
   schema(table: number): ArrowSchemaType {
     const endianness = this.short(table, 0);
-    if (endianness !== 0 && endianness !== 1) invalid("endianness enum is unknown.");
+    if (endianness !== 0 && endianness !== 1) throw invalid("endianness enum is unknown.");
     const vector = this.vector(table, 1, 4, this.maximum.fields), fields: ArrowFieldType[] = [];
     for (let ordinal = 0; ordinal < vector.length; ordinal++) {
       const field = this.fb.reference(vector.offset + ordinal * 4);
@@ -242,16 +244,18 @@ class Grammar {
       let physical: ArrowPhysicalType;
       if (kind === 2) {
         const width = this.int(type, 0), signed = this.bool(type, 1);
-        if (!signed || (width !== 32 && width !== 64)) unsupported("only signed int32 and int64 are admitted.");
+        if (!signed || (width !== 32 && width !== 64)) throw unsupported("only signed int32 and int64 are admitted.");
         physical = width === 32 ? "int32" : "int64";
       } else if (kind === 3) {
-        if (this.short(type, 0) !== 2) unsupported("only float64 is admitted.");
+        if (this.short(type, 0) !== 2) throw unsupported("only float64 is admitted.");
         physical = "float64";
       } else if (kind === 4) physical = "binary";
       else if (kind === 5) physical = "utf8";
       else if (kind === 6) physical = "boolean";
-      else unsupported("field union type is outside the six-type profile.");
-      if (this.vector(field, 5, 4, this.maximum.fields).length !== 0) unsupported("nested fields are not admitted.");
+      else throw unsupported("field union type is outside the six-type profile.");
+      if (this.vector(field, 5, 4, this.maximum.fields).length !== 0) {
+        throw unsupported("nested fields are not admitted.");
+      }
       const dictionary = this.pointer(field, 4);
       if (dictionary !== null) {
         // A dictionary is a recognized refusal, never a guessed primitive layout.
@@ -272,26 +276,28 @@ class Grammar {
     return { endianness, fields, metadata, features };
   }
   body(length: bigint): void {
-    if (length < 0n || length % 8n !== 0n) invalid("body length must be nonnegative and eight-byte aligned.");
+    if (length < 0n || length % 8n !== 0n) throw invalid("body length must be nonnegative and eight-byte aligned.");
     if (length > this.maximum.body) budget("body bytes exceed their allowance.");
   }
   batch(table: number): ArrowBatchType {
-    if (this.pointer(table, 3) !== null) unsupported("compressed record batches are not admitted.");
-    if (this.vector(table, 4, 8, this.maximum.entries).length !== 0) unsupported("variadic buffers are not admitted.");
+    if (this.pointer(table, 3) !== null) throw unsupported("compressed record batches are not admitted.");
+    if (this.vector(table, 4, 8, this.maximum.entries).length !== 0) {
+      throw unsupported("variadic buffers are not admitted.");
+    }
     const rows = this.long(table, 0);
-    if (rows < 0n) invalid("row count is negative.");
+    if (rows < 0n) throw invalid("row count is negative.");
     if (rows > this.maximum.rows) budget("row count exceeds its allowance.");
     const nodes: ArrowNodeType[] = [], buffers: ArrowBufferType[] = [];
     const nodeVector = this.vector(table, 1, 16, this.maximum.fields);
     for (let i = 0; i < nodeVector.length; i++) {
       const at = nodeVector.offset + i * 16, length = this.fb.i64(at), nulls = this.fb.i64(at + 8);
-      if (length < 0n || nulls < 0n || nulls > length) invalid("field node length or null count is invalid.");
+      if (length < 0n || nulls < 0n || nulls > length) throw invalid("field node length or null count is invalid.");
       nodes.push({ length, nulls });
     }
     const bufferVector = this.vector(table, 2, 16, this.maximum.buffers);
     for (let i = 0; i < bufferVector.length; i++) {
       const at = bufferVector.offset + i * 16, offset = this.fb.i64(at), length = this.fb.i64(at + 8);
-      if (offset < 0n || length < 0n || offset % 8n !== 0n) invalid("buffer extent is negative or unaligned.");
+      if (offset < 0n || length < 0n || offset % 8n !== 0n) throw invalid("buffer extent is negative or unaligned.");
       buffers.push({ offset, length });
     }
     return { rows, nodes, buffers };
@@ -306,11 +312,11 @@ export function parseMessage(bytes: Uint8Array, options: ArrowMetadataLimitsType
   grammar.body(bodyLength);
   const metadata = grammar.metadata(table, 4);
   if (kind === 1) {
-    if (bodyLength !== 0n) invalid("schema message has a body.");
+    if (bodyLength !== 0n) throw invalid("schema message has a body.");
     return { kind: "schema", schema: grammar.schema(header), bodyLength, metadata };
   }
   if (kind === 3) return { kind: "record-batch", batch: grammar.batch(header), bodyLength, metadata };
-  unsupported("message union is outside the schema/record-batch profile.");
+  throw unsupported("message union is outside the schema/record-batch profile.");
 }
 
 /** Parse only the footer region. Outer acquisition owns magic, framing and index/source bounds. */
@@ -319,7 +325,7 @@ export function parseFooter(bytes: Uint8Array, options: ArrowMetadataLimitsType 
   grammar.version(table);
   const schema = grammar.schema(grammar.table(table, 1));
   if (grammar.vector(table, 2, 24, grammar.maximum.batches).length !== 0) {
-    unsupported("dictionary footer blocks are not admitted.");
+    throw unsupported("dictionary footer blocks are not admitted.");
   }
   const vector = grammar.vector(table, 3, 24, grammar.maximum.batches), batches: ArrowBlockType[] = [];
   let previousEnd = 8n;
@@ -330,7 +336,7 @@ export function parseFooter(bytes: Uint8Array, options: ArrowMetadataLimitsType 
       bodyLength = grammar.fb.i64(at + 16);
     grammar.body(bodyLength);
     if (offset < previousEnd || offset % 8n !== 0n || metadataLength < 16 || metadataLength % 8 !== 0) {
-      invalid("footer block is unordered, overlapping or unaligned.");
+      throw invalid("footer block is unordered, overlapping or unaligned.");
     }
     previousEnd = offset + BigInt(metadataLength) + bodyLength;
     batches.push({ offset, metadataLength, bodyLength });
@@ -340,9 +346,11 @@ export function parseFooter(bytes: Uint8Array, options: ArrowMetadataLimitsType 
 
 /** Admission precedes buffer ordinal assignment, including for unselected fields. */
 export function requireEligibleSchema(schema: ArrowSchemaType): ArrowPlanType {
-  if (schema.endianness !== 0) unsupported("only little-endian bodies are admitted.");
-  if (schema.features.some((feature) => feature !== 0n)) unsupported("required schema features are not admitted.");
-  if (schema.fields.some((field) => field.dictionary)) unsupported("dictionary fields are not admitted.");
+  if (schema.endianness !== 0) throw unsupported("only little-endian bodies are admitted.");
+  if (schema.features.some((feature) => feature !== 0n)) {
+    throw unsupported("required schema features are not admitted.");
+  }
+  if (schema.fields.some((field) => field.dictionary)) throw unsupported("dictionary fields are not admitted.");
   let buffers = 0;
   const fields = schema.fields.map((field) => {
     const count: 2 | 3 = field.physical === "utf8" || field.physical === "binary" ? 3 : 2;
@@ -365,19 +373,21 @@ export function validateBatch(
   options: ArrowMetadataLimitsType = {},
 ): void {
   const maximum = policy(options);
-  if (batch.rows < 0n || bodyLength < 0n || bodyLength % 8n !== 0n) invalid("batch rows or body length is invalid.");
+  if (batch.rows < 0n || bodyLength < 0n || bodyLength % 8n !== 0n) {
+    throw invalid("batch rows or body length is invalid.");
+  }
   if (batch.rows > maximum.rows || bodyLength > maximum.body) {
     budget("batch rows or body bytes exceed their allowance.");
   }
   if (batch.nodes.length !== plan.fields.length || batch.buffers.length !== plan.buffers) {
-    invalid("field node or buffer cardinality disagrees with schema.");
+    throw invalid("field node or buffer cardinality disagrees with schema.");
   }
   let end = 0n;
   for (const buffer of batch.buffers) {
     if (
       buffer.offset < end || buffer.offset < 0n || buffer.offset % 8n !== 0n || buffer.length < 0n ||
       buffer.offset > bodyLength || buffer.length > bodyLength - buffer.offset
-    ) invalid("buffer lies outside the body or overlaps its predecessor.");
+    ) throw invalid("buffer lies outside the body or overlaps its predecessor.");
     end = buffer.offset + buffer.length;
   }
   for (const field of plan.fields) {
@@ -385,11 +395,11 @@ export function validateBatch(
     if (
       node.length !== batch.rows || node.nulls < 0n || node.nulls > node.length ||
       (!field.nullable && node.nulls !== 0n)
-    ) invalid("field node disagrees with rows or nullability.");
+    ) throw invalid("field node disagrees with rows or nullability.");
     const validity = batch.buffers[field.buffer]!;
     const bitmapBytes = (batch.rows + 7n) / 8n;
     if (validity.length !== 0n && validity.length < bitmapBytes || node.nulls > 0n && validity.length < bitmapBytes) {
-      invalid("validity bitmap is too short.");
+      throw invalid("validity bitmap is too short.");
     }
     const values = batch.buffers[field.buffer + 1]!;
     const minimum = field.physical === "int32"
@@ -399,6 +409,6 @@ export function validateBatch(
       : field.physical === "boolean"
       ? bitmapBytes
       : (batch.rows + 1n) * 4n;
-    if (values.length < minimum) invalid("values or offsets buffer is too short.");
+    if (values.length < minimum) throw invalid("values or offsets buffer is too short.");
   }
 }

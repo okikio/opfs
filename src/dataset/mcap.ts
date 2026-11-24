@@ -1,7 +1,14 @@
 /** Inspect bounded, uncompressed MCAP major-0 recordings over an explicit borrowed source. @module */
 import { isBytes, toView } from "../bytes.ts";
 import type { ByteSourceType } from "../source.ts";
-import { ArchiveError, createArchiveLedger, integer, invalid, unsupported, view } from "../archive/record.ts";
+import {
+  ArchiveError,
+  assertInteger,
+  createArchiveLedger,
+  createView,
+  invalid,
+  unsupported,
+} from "../archive/record.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
 import { crc32 } from "../hash.ts";
 export { ArchiveError, createArchiveLedger } from "../archive/record.ts";
@@ -172,12 +179,12 @@ function cap(n: number, max: number, label: string): void {
 }
 function limit(n: number | undefined, defaultValue: number, hard: number, label: string): number {
   const value = n ?? defaultValue;
-  integer(value, label);
+  assertInteger(value, label);
   cap(value, hard, label);
   return value;
 }
 function safe(n: bigint): number {
-  if (n > BigInt(Number.MAX_SAFE_INTEGER)) unsupported("MCAP extent exceeds exact JavaScript addressing.");
+  if (n > BigInt(Number.MAX_SAFE_INTEGER)) throw unsupported("MCAP extent exceeds exact JavaScript addressing.");
   return Number(n);
 }
 function same(a: Uint8Array, b: Uint8Array): boolean {
@@ -201,7 +208,7 @@ function authority(options: McapCallOptionsType, parent?: AuthorityType): Author
   return { owners, signal: signals(parent?.signal, options.signal) };
 }
 function charge(auth: AuthorityType, work: WorkType, kind: keyof ArchiveWorkType, n: number): void {
-  integer(n, "MCAP work");
+  assertInteger(n, "MCAP work");
   auth.signal?.throwIfAborted();
   for (const owner of auth.owners) {
     owner.reserve(kind, n);
@@ -215,7 +222,7 @@ export async function openMcap(input: ByteSourceType, inputOptions: McapOpenOpti
   const options = { ...inputOptions };
   if (options.profile !== "mcap0-uncompressed") throw new TypeError("Select mcap0-uncompressed explicitly.");
   const { size, identity, stability } = input, read = input.read.bind(input);
-  integer(size, "MCAP source size");
+  assertInteger(size, "MCAP source size");
   if (identity !== undefined && (typeof identity !== "string" || !identity.length)) {
     throw new TypeError("MCAP source identity must be nonempty.");
   }
@@ -223,7 +230,7 @@ export async function openMcap(input: ByteSourceType, inputOptions: McapOpenOpti
     throw new TypeError("Unknown MCAP source stability.");
   }
   if (stability === undefined && !options.allowUnverifiedSource) {
-    unsupported("MCAP range composition requires stable source evidence or allowUnverifiedSource.");
+    throw unsupported("MCAP range composition requires stable source evidence or allowUnverifiedSource.");
   }
   const policy = {
     messages: limit(options.maxMessages, 100000, 1000000, "MCAP messages"),
@@ -239,7 +246,7 @@ export async function openMcap(input: ByteSourceType, inputOptions: McapOpenOpti
   const opening = authority(options), opened = fresh();
   const text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
   const metadata = (n: number) => {
-    integer(n, "MCAP metadata");
+    assertInteger(n, "MCAP metadata");
     cap(n, policy.metadata - opened.metadataBytes, "MCAP retained metadata");
     opened.metadataBytes += n;
   };
@@ -251,10 +258,10 @@ export async function openMcap(input: ByteSourceType, inputOptions: McapOpenOpti
     length: number,
     paid = false,
   ): Promise<Uint8Array> {
-    integer(offset, "MCAP offset");
-    integer(length, "MCAP length");
+    assertInteger(offset, "MCAP offset");
+    assertInteger(length, "MCAP length");
     auth.signal?.throwIfAborted();
-    if (offset > size || length > size - offset) invalid("MCAP extent exceeds source.");
+    if (offset > size || length > size - offset) throw invalid("MCAP extent exceeds source.");
     if (!length) return new Uint8Array();
     if (!paid) {
       charge(auth, work, "sourceBytes", length);
@@ -263,17 +270,17 @@ export async function openMcap(input: ByteSourceType, inputOptions: McapOpenOpti
     }
     const value = await read(offset, length, auth.signal ? { signal: auth.signal } : {});
     auth.signal?.throwIfAborted();
-    if (!isBytes(value)) invalid("MCAP source returned a non-byte extent.");
+    if (!isBytes(value)) throw invalid("MCAP source returned a non-byte extent.");
     const bytes = toView(value);
-    if (bytes.byteLength !== length) invalid("MCAP source returned an incomplete extent.");
+    if (bytes.byteLength !== length) throw invalid("MCAP source returned an incomplete extent.");
     return new Uint8Array(bytes);
   }
   /** A field cursor never treats a length prefix as permission to allocate unbounded metadata. */
   function cursor(offset: number, end: number) {
     let at = offset;
     async function bytes(n: number, retain = false): Promise<Uint8Array> {
-      integer(n, "MCAP field length");
-      if (n > end - at) invalid("MCAP field exceeds record.");
+      assertInteger(n, "MCAP field length");
+      if (n > end - at) throw invalid("MCAP field exceeds record.");
       if (retain) metadata(n);
       const result = await fetch(opening, opened, at, n);
       at += n;
@@ -282,10 +289,10 @@ export async function openMcap(input: ByteSourceType, inputOptions: McapOpenOpti
     async function number(n: 2 | 4 | 8): Promise<number> {
       const b = await bytes(n);
       return n === 8
-        ? safe(view(b).getBigUint64(0, true))
+        ? safe(createView(b).getBigUint64(0, true))
         : n === 4
-        ? view(b).getUint32(0, true)
-        : view(b).getUint16(0, true);
+        ? createView(b).getUint32(0, true)
+        : createView(b).getUint16(0, true);
     }
     async function string(): Promise<string> {
       const n = await number(4);
@@ -295,12 +302,12 @@ export async function openMcap(input: ByteSourceType, inputOptions: McapOpenOpti
       try {
         return text.decode(b);
       } catch {
-        invalid("MCAP field is not valid UTF8.");
+        throw invalid("MCAP field is not valid UTF8.");
       }
     }
     async function map(): Promise<Readonly<Record<string, string>>> {
       const n = await number(4);
-      if (n > end - at) invalid("MCAP map exceeds record.");
+      if (n > end - at) throw invalid("MCAP map exceeds record.");
       const stop = at + n;
       const nested = cursor(at, stop);
       const result: Record<string, string> = Object.create(null);
@@ -308,7 +315,7 @@ export async function openMcap(input: ByteSourceType, inputOptions: McapOpenOpti
       while (nested.position() < stop) {
         cap(++count, policy.map, "MCAP map entries");
         const key = await nested.string(), value = await nested.string();
-        if (Object.hasOwn(result, key)) unsupported("MCAP duplicate map keys are ambiguous in this profile.");
+        if (Object.hasOwn(result, key)) throw unsupported("MCAP duplicate map keys are ambiguous in this profile.");
         metadata(32);
         result[key] = value;
       }
@@ -335,7 +342,7 @@ export async function openMcap(input: ByteSourceType, inputOptions: McapOpenOpti
     meta: { name: string; values: Readonly<Record<string, string>> }[] = [];
   let count = 0, recordCount = 0, library = "", profile = "", dataEnd = -1, dataCrc = 0;
   function descriptor(id: number): McapMessageType {
-    integer(id, "MCAP message id");
+    assertInteger(id, "MCAP message id");
     if (id >= count) throw new RangeError("Unknown MCAP message id.");
     const col = columns[Math.floor(id / 256)]!, i = id % 256, chunk = col.chunk[i]!;
     return Object.freeze({
@@ -355,8 +362,8 @@ export async function openMcap(input: ByteSourceType, inputOptions: McapOpenOpti
   }
   function addMessage(offset: number, length: number, head: Uint8Array, chunk: number): void {
     cap(count + 1, policy.messages, "MCAP message count");
-    const data = view(head), channel = data.getUint16(0, true);
-    if (!channels.has(channel)) invalid("MCAP message precedes its Channel definition.");
+    const data = createView(head), channel = data.getUint16(0, true);
+    if (!channels.has(channel)) throw invalid("MCAP message precedes its Channel definition.");
     if (count % 256 === 0) {
       const n = Math.min(256, policy.messages - count);
       metadata(n * 44);
@@ -381,12 +388,12 @@ export async function openMcap(input: ByteSourceType, inputOptions: McapOpenOpti
     count++;
   }
   async function header(at: number, end: number): Promise<{ op: number; body: number; end: number; length: number }> {
-    if (end - at < 9) invalid("Truncated MCAP record header.");
+    if (end - at < 9) throw invalid("Truncated MCAP record header.");
     cap(++recordCount, policy.records, "MCAP record visits");
     opened.records++;
-    const h = await fetch(opening, opened, at, 9), length = safe(view(h).getBigUint64(1, true));
-    if (!h[0]) invalid("MCAP opcode zero is invalid.");
-    if (length > end - at - 9) invalid("MCAP record exceeds enclosing extent.");
+    const h = await fetch(opening, opened, at, 9), length = safe(createView(h).getBigUint64(1, true));
+    if (!h[0]) throw invalid("MCAP opcode zero is invalid.");
+    if (length > end - at - 9) throw invalid("MCAP record exceeds enclosing extent.");
     return { op: h[0]!, body: at + 9, end: at + 9 + length, length };
   }
   /** Definitions may repeat, but an ID never changes meaning after a message uses it. */
@@ -400,12 +407,12 @@ export async function openMcap(input: ByteSourceType, inputOptions: McapOpenOpti
       const data = await c.bytes(length, true), tail = await c.tail();
       const old = schemas.get(id);
       if (old && (old.name !== name || old.encoding !== encoding || !same(old.data, data) || !same(old.tail, tail))) {
-        invalid("Conflicting MCAP Schema definitions.");
+        throw invalid("Conflicting MCAP Schema definitions.");
       }
       if (!old) schemas.set(id, { id, name, encoding, data, tail });
     } else {
       const schemaId = await c.number(2);
-      if (schemaId && !schemas.has(schemaId)) invalid("MCAP Channel precedes its Schema definition.");
+      if (schemaId && !schemas.has(schemaId)) throw invalid("MCAP Channel precedes its Schema definition.");
       const topic = await c.string(),
         encoding = await c.string(),
         values = await c.map(),
@@ -417,7 +424,7 @@ export async function openMcap(input: ByteSourceType, inputOptions: McapOpenOpti
           Object.keys(old.metadata).length !== Object.keys(values).length || Object.keys(values).some((k) =>
             old.metadata[k] !== values[k]
           ))
-      ) invalid("Conflicting MCAP Channel definitions.");
+      ) throw invalid("Conflicting MCAP Channel definitions.");
       if (!old) channels.set(id, { id, schemaId, topic, encoding, metadata: values, tail });
     }
   }
@@ -427,21 +434,23 @@ export async function openMcap(input: ByteSourceType, inputOptions: McapOpenOpti
       return;
     }
     if (op === 5) {
-      if (end - body < 22) invalid("Truncated MCAP Message.");
+      if (end - body < 22) throw invalid("Truncated MCAP Message.");
       addMessage(body + 22, end - body - 22, await fetch(opening, opened, body, 22), chunk);
       return;
     }
     if (op === 6) {
-      if (chunk >= 0) invalid("Nested MCAP Chunk.");
+      if (chunk >= 0) throw invalid("Nested MCAP Chunk.");
       const c = cursor(body, end);
       await c.bytes(16);
       const uncompressed = await c.number(8),
         crc = await c.number(4),
         compression = await c.string(),
         length = await c.number(8);
-      if (compression !== "") unsupported("Compressed MCAP chunks are outside mcap0-uncompressed.");
+      if (compression !== "") throw unsupported("Compressed MCAP chunks are outside mcap0-uncompressed.");
       cap(length, policy.chunk, "MCAP uncompressed chunk extent");
-      if (length !== uncompressed || length > end - c.position()) invalid("MCAP uncompressed Chunk size mismatch.");
+      if (length !== uncompressed || length > end - c.position()) {
+        throw invalid("MCAP uncompressed Chunk size mismatch.");
+      }
       metadata(64);
       const id = chunks.length;
       chunks.push({ offset: c.position(), length, crc });
@@ -450,7 +459,7 @@ export async function openMcap(input: ByteSourceType, inputOptions: McapOpenOpti
       while (at < stop) {
         const h = await header(at, stop);
         if ([1, 2, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].includes(h.op)) {
-          invalid("Record is not permitted inside an MCAP Chunk.");
+          throw invalid("Record is not permitted inside an MCAP Chunk.");
         }
         await record(h.op, h.body, h.end, id);
         at = h.end;
@@ -459,13 +468,13 @@ export async function openMcap(input: ByteSourceType, inputOptions: McapOpenOpti
     }
     if (op === 9) {
       const c = cursor(body, end);
-      const times = view(await c.bytes(16)),
+      const times = createView(await c.bytes(16)),
         name = await c.string(),
         mediaType = await c.string(),
         length = await c.number(8),
         offset = c.position();
-      if (length > end - offset - 4) invalid("MCAP Attachment exceeds its record.");
-      const crc = view(await fetch(opening, opened, offset + length, 4)).getUint32(0, true);
+      if (length > end - offset - 4) throw invalid("MCAP Attachment exceeds its record.");
+      const crc = createView(await fetch(opening, opened, offset + length, 4)).getUint32(0, true);
       metadata(160);
       attachments.push({
         id: attachments.length,
@@ -485,29 +494,29 @@ export async function openMcap(input: ByteSourceType, inputOptions: McapOpenOpti
       meta.push({ name: await c.string(), values: await c.map() });
       return;
     }
-    if ([1, 2, 14, 15].includes(op)) invalid("MCAP structural record occurs in the wrong section.");
+    if ([1, 2, 14, 15].includes(op)) throw invalid("MCAP structural record occurs in the wrong section.");
     metadata(32);
     opaque.push({ opcode: op, offset: body - 9, size: end - body + 9 });
   }
-  if (size < 54) invalid("MCAP file is too short.");
+  if (size < 54) throw invalid("MCAP file is too short.");
   const magic = new Uint8Array([137, 77, 67, 65, 80, 48, 13, 10]);
   if (!same(await fetch(opening, opened, 0, 8), magic) || !same(await fetch(opening, opened, size - 8, 8), magic)) {
-    invalid("MCAP major-0 magic mismatch.");
+    throw invalid("MCAP major-0 magic mismatch.");
   }
   const footerAt = size - 37, footer = await header(footerAt, size - 8);
   if (footer.op !== 2 || footer.length !== 20 || footer.end !== size - 8) {
-    invalid("MCAP Footer must be the final exact 20-byte record.");
+    throw invalid("MCAP Footer must be the final exact 20-byte record.");
   }
-  const fd = view(await fetch(opening, opened, footer.body, 20)),
+  const fd = createView(await fetch(opening, opened, footer.body, 20)),
     summaryStart = safe(fd.getBigUint64(0, true)),
     offsetStart = safe(fd.getBigUint64(8, true)),
     summaryCrc = fd.getUint32(16, true);
   if (
     summaryStart > footerAt || offsetStart > footerAt || (!summaryStart && offsetStart) ||
     offsetStart && offsetStart < summaryStart
-  ) invalid("MCAP Footer summary extents are inconsistent.");
+  ) throw invalid("MCAP Footer summary extents are inconsistent.");
   const first = await header(8, footerAt);
-  if (first.op !== 1) invalid("MCAP Header must be first.");
+  if (first.op !== 1) throw invalid("MCAP Header must be first.");
   const hc = cursor(first.body, first.end);
   profile = await hc.string();
   library = await hc.string();
@@ -515,33 +524,35 @@ export async function openMcap(input: ByteSourceType, inputOptions: McapOpenOpti
   while (at < footerAt) {
     const h = await header(at, footerAt);
     if (h.op === 15) {
-      if (h.length !== 4) invalid("MCAP DataEnd is exactly 4 bytes.");
+      if (h.length !== 4) throw invalid("MCAP DataEnd is exactly 4 bytes.");
       dataEnd = at;
-      dataCrc = view(await fetch(opening, opened, h.body, 4)).getUint32(0, true);
+      dataCrc = createView(await fetch(opening, opened, h.body, 4)).getUint32(0, true);
       at = h.end;
       break;
     }
-    if ([8, 10, 11, 13].includes(h.op)) invalid("MCAP summary-only record occurs in the data section.");
+    if ([8, 10, 11, 13].includes(h.op)) throw invalid("MCAP summary-only record occurs in the data section.");
     await record(h.op, h.body, h.end);
     at = h.end;
   }
-  if (dataEnd < 0) invalid("MCAP data section lacks DataEnd.");
-  if (summaryStart ? at !== summaryStart : at !== footerAt) invalid("MCAP summary start does not follow DataEnd.");
+  if (dataEnd < 0) throw invalid("MCAP data section lacks DataEnd.");
+  if (summaryStart ? at !== summaryStart : at !== footerAt) {
+    throw invalid("MCAP summary start does not follow DataEnd.");
+  }
   const groupStop = offsetStart || footerAt, seenGroups = new Set<number>();
   let group = -1;
   while (at < groupStop) {
     const h = await header(at, groupStop);
-    if (![3, 4, 8, 10, 11, 13].includes(h.op)) invalid("Record is not permitted in MCAP summary.");
+    if (![3, 4, 8, 10, 11, 13].includes(h.op)) throw invalid("Record is not permitted in MCAP summary.");
     if (h.op !== group) {
-      if (seenGroups.has(h.op)) invalid("MCAP summary opcode group repeats.");
+      if (seenGroups.has(h.op)) throw invalid("MCAP summary opcode group repeats.");
       seenGroups.add(h.op);
       group = h.op;
     }
     if (h.op === 3 || h.op === 4) {
-      if (h.length < 2) invalid("Truncated MCAP summary definition.");
-      const id = view(await fetch(opening, opened, h.body, 2)).getUint16(0, true);
+      if (h.length < 2) throw invalid("Truncated MCAP summary definition.");
+      const id = createView(await fetch(opening, opened, h.body, 2)).getUint16(0, true);
       if (id !== 0 && h.op === 3 && !schemas.has(id) || h.op === 4 && !channels.has(id)) {
-        invalid("MCAP summary definition is absent from the data section.");
+        throw invalid("MCAP summary definition is absent from the data section.");
       }
       await definition(h.op, h.body, h.end);
     } else {
@@ -552,12 +563,12 @@ export async function openMcap(input: ByteSourceType, inputOptions: McapOpenOpti
   }
   while (at < footerAt) {
     const h = await header(at, footerAt);
-    if (h.op !== 14 || h.length < 17) invalid("Invalid MCAP SummaryOffset framing.");
+    if (h.op !== 14 || h.length < 17) throw invalid("Invalid MCAP SummaryOffset framing.");
     at = h.end;
   }
   /** Reserve full verification I/O before allocating its bounded scratch or selected result. */
   function reserve(auth: AuthorityType, work: WorkType, offset: number, length: number): void {
-    if (offset > size || length > size - offset) invalid("MCAP check extent exceeds source.");
+    if (offset > size || length > size - offset) throw invalid("MCAP check extent exceeds source.");
     cap(length, policy.verify, "MCAP whole CRC unit");
     charge(auth, work, "sourceBytes", length);
     charge(auth, work, "requests", Math.ceil(length / 65536));
@@ -595,15 +606,15 @@ export async function openMcap(input: ByteSourceType, inputOptions: McapOpenOpti
     : await check(opening, opened, summaryUnit, "summary");
   const dataUnit = { offset: 0, length: dataEnd, crc: dataCrc };
   function attachment(id: number): AttachmentType {
-    integer(id, "MCAP attachment id");
+    assertInteger(id, "MCAP attachment id");
     const a = attachments[id];
     if (!a) throw new RangeError("Unknown MCAP attachment id.");
     return a;
   }
   function interval(length: number, call: McapReadOptionsType): { offset: number; length: number } {
     const offset = call.offset ?? 0, n = call.length ?? length - offset;
-    integer(offset, "MCAP payload offset");
-    integer(n, "MCAP payload length");
+    assertInteger(offset, "MCAP payload offset");
+    assertInteger(n, "MCAP payload length");
     if (offset > length || n > length - offset) throw new RangeError("MCAP payload interval exceeds selected record.");
     cap(n, policy.read, "MCAP returned interval");
     return { offset, length: n };
@@ -650,8 +661,8 @@ export async function openMcap(input: ByteSourceType, inputOptions: McapOpenOpti
       ...(stability === undefined ? {} : { stability }),
       async read(offset, n, readOptions = {}) {
         const child = authority({ ...readOptions }, auth), work = fresh();
-        integer(offset, "MCAP source offset");
-        integer(n, "MCAP source length");
+        assertInteger(offset, "MCAP source offset");
+        assertInteger(n, "MCAP source length");
         if (offset > length || n > length - offset) throw new RangeError("MCAP payload source range exceeds record.");
         cap(n, policy.read, "MCAP source interval");
         charge(child, work, "outputBytes", n);
@@ -688,13 +699,13 @@ export async function openMcap(input: ByteSourceType, inputOptions: McapOpenOpti
       const auth = authority({ ...call }, opening);
       auth.signal?.throwIfAborted();
       let at = call.cursor ?? 0;
-      integer(at, "MCAP page cursor");
+      assertInteger(at, "MCAP page cursor");
       if (at > count) throw new RangeError("MCAP page cursor exceeds messages.");
       const take = limit(call.limit, 256, 4096, "MCAP page results"),
         scan = limit(call.maxScanned, 8192, 65536, "MCAP page scan");
       if (!take || !scan) throw new RangeError("MCAP page limits must be positive.");
       if (call.channelId !== undefined) {
-        integer(call.channelId, "MCAP channel filter");
+        assertInteger(call.channelId, "MCAP channel filter");
         if (call.channelId > 65535) throw new RangeError("MCAP channel id exceeds uint16.");
       }
       for (
@@ -742,7 +753,7 @@ export async function openMcap(input: ByteSourceType, inputOptions: McapOpenOpti
       else if (call.scope === "data") unit = dataUnit;
       else if (call.scope === "attachment") unit = attachment(call.id!).unit;
       else if (call.scope === "chunk") {
-        integer(call.id!, "MCAP chunk id");
+        assertInteger(call.id!, "MCAP chunk id");
         const found = chunks[call.id!];
         if (!found) throw new RangeError("Unknown MCAP chunk id.");
         unit = found;

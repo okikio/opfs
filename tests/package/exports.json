@@ -586,10 +586,12 @@
     "interface TarEntryType",
     "class TarHeaders",
     "interface TarOpenOptionsType",
-    "function tarPadding",
     "interface TarReadOptionsType",
     "interface TarReadType",
     "interface TarSparseType"
+  ],
+  "./archive/tar/_block": [
+    "function padding"
   ],
   "./archive/udf": [
     "reference ArchiveError",
@@ -828,13 +830,13 @@
     "interface ArweaveDataOptionsType",
     "interface ArweaveDataType",
     "class ArweaveError",
-    "function arweaveId",
     "interface ArweaveLimitsType",
     "interface ArweaveTagType",
     "interface ArweaveTransactionType",
     "interface ArweaveVerifyOptionsType",
     "interface ArweaveWorkType",
     "reference createArchiveLedger",
+    "function parseArweaveId",
     "function verifyArweaveTransaction"
   ],
   "./content/car": [
@@ -875,12 +877,12 @@
     "interface LfsFieldType",
     "interface LfsObjectType",
     "interface LfsOptionsType",
-    "function lfsPointerObject",
     "typeAlias LfsPointerType",
     "class LfsPublicationError",
     "typeAlias LfsResultType",
     "typeAlias LfsUploadType",
-    "class LfsVerificationError"
+    "class LfsVerificationError",
+    "function toLfsObject"
   ],
   "./content/unixfs": [
     "reference createArchiveLedger",
@@ -1250,6 +1252,10 @@
     "typeAlias ProblemSeverityType",
     "interface ProblemType"
   ],
+  "./driver/_image": [
+    "function applyWrite",
+    "reference WriteModeType"
+  ],
   "./driver/azure": [
     "interface AzureDriverOptionsType",
     "function createAzureDriver",
@@ -1391,15 +1397,21 @@
     "function resolveHostProfile"
   ],
   "./driver/indexeddb": [
-    "function committed",
     "function createIndexedDbDriver",
     "class IndexedDbBackend",
     "interface IndexedDbDriverOptionsType",
     "interface IndexedDbOpenOptionsType",
-    "function openIndexedDbDriver",
-    "function result",
-    "function upgradeDatabase",
-    "function writeBytes"
+    "function openIndexedDbDriver"
+  ],
+  "./driver/indexeddb/_store": [
+    "function upgrade",
+    "function upgradeDatabase"
+  ],
+  "./driver/indexeddb/_transaction": [
+    "function committed",
+    "reference PathType",
+    "class Transaction",
+    "function waitForRequest"
   ],
   "./driver/localstorage": [
     "function createLocalStorageDriver",
@@ -2096,6 +2108,7 @@
     "interface SftpReceiptType"
   ],
   "./source": [
+    "function assertExtent",
     "function budgetSource",
     "interface ByteSourceType",
     "function createBlobSource",
@@ -2106,7 +2119,6 @@
     "function openObjectSource",
     "interface SourceBudgetOptionsType",
     "interface SourceBudgetType",
-    "function sourceRange",
     "interface SourceReadOptionsType",
     "interface StreamSourceType"
   ],

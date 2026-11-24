@@ -1,6 +1,6 @@
 /** Read-only indexed TAR projection. @module */
 import type { AdapterType } from "../adapter/definition.ts";
-import type { TarArchiveType, TarReadOptionsType } from "../archive/tar.ts";
+import type { TarArchiveType, TarReadOptionsType } from "../archive/tar/mod.ts";
 import { createArchiveAdapter } from "./tree.ts";
 
 /** Per-read budgets; share a ledger when several previews need an aggregate limit. */

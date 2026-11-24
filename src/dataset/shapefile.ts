@@ -1,7 +1,14 @@
 /** Bounded 2D Shapefile geometry and explicitly supplied raw DBF rows. @module */
 import { isBytes, toView } from "../bytes.ts";
 import type { ByteSourceType } from "../source.ts";
-import { ArchiveError, createArchiveLedger, integer, invalid, unsupported, view } from "../archive/record.ts";
+import {
+  ArchiveError,
+  assertInteger,
+  createArchiveLedger,
+  createView,
+  invalid,
+  unsupported,
+} from "../archive/record.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
 export { ArchiveError, createArchiveLedger } from "../archive/record.ts";
 export type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
@@ -161,7 +168,7 @@ function cap(n: number, max: number, label: string): void {
 }
 function limit(n: number | undefined, fallback: number, hard: number, label: string): number {
   const value = n ?? fallback;
-  integer(value, label);
+  assertInteger(value, label);
   cap(value, hard, label);
   return value;
 }
@@ -178,7 +185,7 @@ function kind(type: number): ShapefileKindType {
     case 8:
       return "multipoint";
     default:
-      unsupported("Only Null, Point, PolyLine, Polygon and MultiPoint 2D Shapefile types are supported.");
+      throw unsupported("Only Null, Point, PolyLine, Polygon and MultiPoint 2D Shapefile types are supported.");
   }
 }
 function combined(a: AbortSignal | undefined, b: AbortSignal | undefined): AbortSignal | undefined {
@@ -199,7 +206,7 @@ function authority(options: ShapefileCallOptionsType, parent?: AuthorityType): A
   return { owners, signal: combined(parent?.signal, options.signal) };
 }
 function charge(auth: AuthorityType, work: WorkType, key: keyof ArchiveWorkType, n: number): void {
-  integer(n, "Shapefile work");
+  assertInteger(n, "Shapefile work");
   auth.signal?.throwIfAborted();
   for (const owner of auth.owners) {
     owner.reserve(key, n);
@@ -209,7 +216,7 @@ function charge(auth: AuthorityType, work: WorkType, key: keyof ArchiveWorkType,
 }
 function capture(source: ByteSourceType, allow: boolean): SourceType {
   const { size, identity, stability } = source, read = source.read.bind(source);
-  integer(size, "Shapefile component size");
+  assertInteger(size, "Shapefile component size");
   if (identity !== undefined && (typeof identity !== "string" || !identity.length || identity.length > 8192)) {
     throw new TypeError("Shapefile component identity must contain 1–8192 UTF-16 code units.");
   }
@@ -217,12 +224,12 @@ function capture(source: ByteSourceType, allow: boolean): SourceType {
     throw new TypeError("Unknown Shapefile source stability.");
   }
   if (stability === undefined && !allow) {
-    unsupported("Shapefile composition requires source stability evidence or allowUnverifiedSource.");
+    throw unsupported("Shapefile composition requires source stability evidence or allowUnverifiedSource.");
   }
   return { size, identity, stability, read };
 }
 function finite(n: number): number {
-  if (!Number.isFinite(n)) invalid("Shapefile coordinates/bounds must be finite.");
+  if (!Number.isFinite(n)) throw invalid("Shapefile coordinates/bounds must be finite.");
   return n;
 }
 function box(data: DataView, at: number): [number, number, number, number] {
@@ -232,17 +239,17 @@ function box(data: DataView, at: number): [number, number, number, number] {
     finite(data.getFloat64(at + 16, true)),
     finite(data.getFloat64(at + 24, true)),
   ];
-  if (b[0] > b[2] || b[1] > b[3]) invalid("Shapefile bounds are reversed.");
+  if (b[0] > b[2] || b[1] > b[3]) throw invalid("Shapefile bounds are reversed.");
   return b;
 }
 /** Signed 32-bit management fields count 16-bit words, unlike geometry's little-endian fields. */
 function words(data: DataView, at: number): number {
   const n = data.getInt32(at, false);
-  if (n < 0) invalid("Negative Shapefile word extent.");
+  if (n < 0) throw invalid("Negative Shapefile word extent.");
   return n * 2;
 }
 function zeros(bytes: Uint8Array, label: string): void {
-  if (bytes.some((n) => n !== 0)) unsupported(`Nonzero ${label} is outside the selected writer profile.`);
+  if (bytes.some((n) => n !== 0)) throw unsupported(`Nonzero ${label} is outside the selected writer profile.`);
 }
 
 /** Index supplied components without following paths, converting CRS or silently decoding DBF values. */
@@ -269,7 +276,7 @@ export async function openShapefile(
   };
   const opening = authority(options), opened = fresh();
   function meta(n: number): void {
-    integer(n, "Shapefile metadata");
+    assertInteger(n, "Shapefile metadata");
     cap(n, policy.metadata - opened.metadataBytes, "Shapefile retained metadata");
     opened.metadataBytes += n;
   }
@@ -282,9 +289,11 @@ export async function openShapefile(
     length: number,
     output = 0,
   ): void {
-    integer(offset, "Shapefile offset");
-    integer(length, "Shapefile length");
-    if (offset > source.size || length > source.size - offset) invalid("Shapefile extent exceeds supplied component.");
+    assertInteger(offset, "Shapefile offset");
+    assertInteger(length, "Shapefile length");
+    if (offset > source.size || length > source.size - offset) {
+      throw invalid("Shapefile extent exceeds supplied component.");
+    }
     charge(auth, work, "sourceBytes", length);
     charge(auth, work, "requests", Math.ceil(length / 65536));
     charge(auth, work, "decodedBytes", length);
@@ -295,9 +304,9 @@ export async function openShapefile(
     auth.signal?.throwIfAborted();
     const value = await source.read(offset, length, auth.signal ? { signal: auth.signal } : {});
     auth.signal?.throwIfAborted();
-    if (!isBytes(value)) invalid("Shapefile source returned non-bytes.");
+    if (!isBytes(value)) throw invalid("Shapefile source returned non-bytes.");
     const bytes = toView(value);
-    if (bytes.byteLength !== length) invalid("Shapefile source returned an incomplete extent.");
+    if (bytes.byteLength !== length) throw invalid("Shapefile source returned an incomplete extent.");
     return bytes;
   }
   /** The destination is allocated only after all source/decoded/output owners admitted its complete cost. */
@@ -316,19 +325,26 @@ export async function openShapefile(
     return await collect(opening, source, offset, length);
   }
   async function header(source: SourceType): Promise<Uint8Array> {
-    if (source.size < 100) invalid("Shapefile component header is shorter than 100 bytes.");
-    const raw = await metadata(source, 0, 100), d = view(raw);
-    if (d.getInt32(0, false) !== 9994 || d.getInt32(28, true) !== 1000) invalid("Shapefile code/version mismatch.");
+    if (source.size < 100) throw invalid("Shapefile component header is shorter than 100 bytes.");
+    const raw = await metadata(source, 0, 100), d = createView(raw);
+    if (d.getInt32(0, false) !== 9994 || d.getInt32(28, true) !== 1000) {
+      throw invalid("Shapefile code/version mismatch.");
+    }
     zeros(raw.subarray(4, 24), "Shapefile reserved header words");
-    if (words(d, 24) !== source.size) invalid("Shapefile declared file length does not match supplied component.");
+    if (words(d, 24) !== source.size) {
+      throw invalid("Shapefile declared file length does not match supplied component.");
+    }
     kind(d.getInt32(32, true));
     box(d, 36);
     for (let at = 68; at < 100; at += 8) {
-      if (d.getFloat64(at, true) !== 0) unsupported("Measured/Z header bounds are outside the 2D profile.");
+      if (d.getFloat64(at, true) !== 0) throw unsupported("Measured/Z header bounds are outside the 2D profile.");
     }
     return raw;
   }
-  const head = await header(shp), hd = view(head), type = hd.getInt32(32, true), bounds = Object.freeze(box(hd, 36));
+  const head = await header(shp),
+    hd = createView(head),
+    type = hd.getInt32(32, true),
+    bounds = Object.freeze(box(hd, 36));
   const columns: ColumnsType[] = [];
   let count = 0;
   function physical(
@@ -341,7 +357,7 @@ export async function openShapefile(
     parts: number;
     bounds: [number, number, number, number];
   } {
-    integer(id, "Shapefile feature id");
+    assertInteger(id, "Shapefile feature id");
     if (id >= count) throw new RangeError("Unknown Shapefile feature id.");
     const c = columns[Math.floor(id / 256)]!, i = id % 256;
     return {
@@ -369,24 +385,26 @@ export async function openShapefile(
   while (at < shp.size) {
     cap(++opened.records, policy.records, "Shapefile record visits");
     cap(count + 1, policy.features, "Shapefile feature count");
-    if (shp.size - at < 12) invalid("Truncated Shapefile record header/body.");
-    const r = view(await metadata(shp, at, 8));
-    if (r.getInt32(0, false) !== count + 1) invalid("Shapefile record numbers must begin at 1 and increase by 1.");
+    if (shp.size - at < 12) throw invalid("Truncated Shapefile record header/body.");
+    const r = createView(await metadata(shp, at, 8));
+    if (r.getInt32(0, false) !== count + 1) {
+      throw invalid("Shapefile record numbers must begin at 1 and increase by 1.");
+    }
     const length = words(r, 4), offset = at + 8;
-    if (length < 4 || length > shp.size - offset) invalid("Shapefile record extent exceeds main file.");
-    const prefix = view(await metadata(shp, offset, Math.min(length, type === 8 ? 40 : 44))),
+    if (length < 4 || length > shp.size - offset) throw invalid("Shapefile record extent exceeds main file.");
+    const prefix = createView(await metadata(shp, offset, Math.min(length, type === 8 ? 40 : 44))),
       t = prefix.getInt32(0, true);
     kind(t);
-    if (t !== 0 && t !== type) invalid("Non-null Shapefile record type differs from main header.");
+    if (t !== 0 && t !== type) throw invalid("Non-null Shapefile record type differs from main header.");
     let points = 0, parts = 0, b: [number, number, number, number] = [0, 0, 0, 0], expected = 4;
     if (t === 1) {
-      if (length !== 20) invalid("Shapefile Point body must be exactly 20 bytes.");
+      if (length !== 20) throw invalid("Shapefile Point body must be exactly 20 bytes.");
       const x = finite(prefix.getFloat64(4, true)), y = finite(prefix.getFloat64(12, true));
       points = 1;
       b = [x, y, x, y];
       expected = 20;
     } else if (t === 8 || t === 3 || t === 5) {
-      if (length < (t === 8 ? 40 : 44)) invalid("Truncated Shapefile geometry counts.");
+      if (length < (t === 8 ? 40 : 44)) throw invalid("Truncated Shapefile geometry counts.");
       b = box(prefix, 4);
       if (t === 8) {
         points = prefix.getInt32(36, true);
@@ -396,9 +414,11 @@ export async function openShapefile(
         points = prefix.getInt32(40, true);
         expected = 44 + parts * 4 + points * 16;
       }
-      if (points <= 0 || parts < 0 || (t !== 8 && parts === 0)) invalid("Shapefile geometry counts must be positive.");
+      if (points <= 0 || parts < 0 || (t !== 8 && parts === 0)) {
+        throw invalid("Shapefile geometry counts must be positive.");
+      }
     }
-    if (length !== expected) invalid("Shapefile geometry count/body extent mismatch.");
+    if (length !== expected) throw invalid("Shapefile geometry count/body extent mismatch.");
     if (count % 256 === 0) {
       const n = Math.min(256, policy.features - count);
       meta(n * 64);
@@ -425,17 +445,17 @@ export async function openShapefile(
     const indexHeader = await header(shx);
     for (let i = 0; i < 100; i++) {
       if ((i < 24 || i >= 28) && indexHeader[i] !== head[i]) {
-        invalid("Shapefile index header differs from main header.");
+        throw invalid("Shapefile index header differs from main header.");
       }
     }
-    if (shx.size !== 100 + count * 8) invalid("Shapefile index entry count differs from physical main records.");
+    if (shx.size !== 100 + count * 8) throw invalid("Shapefile index entry count differs from physical main records.");
     plan(opening, opened, shx, 100, count * 8);
     for (let n = 0; n < count; n += 8192) {
-      const raw = await collect(opening, shx, 100 + n * 8, Math.min(8192, count - n) * 8), d = view(raw);
+      const raw = await collect(opening, shx, 100 + n * 8, Math.min(8192, count - n) * 8), d = createView(raw);
       for (let j = 0; j < raw.length / 8; j++) {
         const p = physical(n + j);
         if (words(d, j * 8) !== p.offset - 8 || words(d, j * 8 + 4) !== p.length) {
-          invalid("Shapefile index tuple differs from main record.");
+          throw invalid("Shapefile index tuple differs from main record.");
         }
         opened.indexChecks++;
       }
@@ -444,44 +464,44 @@ export async function openShapefile(
   const fields: ShapefileFieldType[] = [];
   let rowLength = 0, rowStart = 0;
   if (dbf) {
-    if (dbf.size < 33) invalid("DBF3 component is shorter than its header.");
-    const raw = await metadata(dbf, 0, 32), d = view(raw);
-    if (raw[0] !== 3) unsupported("Only the inspected DBF version 03 writer profile is supported.");
+    if (dbf.size < 33) throw invalid("DBF3 component is shorter than its header.");
+    const raw = await metadata(dbf, 0, 32), d = createView(raw);
+    if (raw[0] !== 3) throw unsupported("Only the inspected DBF version 03 writer profile is supported.");
     zeros(raw.subarray(12, 32), "DBF3 header flags/reserved bytes");
-    if (d.getUint32(4, true) !== count) invalid("DBF physical row count differs from SHP feature count.");
+    if (d.getUint32(4, true) !== count) throw invalid("DBF physical row count differs from SHP feature count.");
     rowStart = d.getUint16(8, true);
     rowLength = d.getUint16(10, true);
-    if (rowStart < 33 || (rowStart - 33) % 32 !== 0 || !rowLength) invalid("Invalid DBF3 header/row extent.");
+    if (rowStart < 33 || (rowStart - 33) % 32 !== 0 || !rowLength) throw invalid("Invalid DBF3 header/row extent.");
     const n = (rowStart - 33) / 32;
     cap(n, policy.fields, "Shapefile DBF fields");
     cap(rowLength, policy.row, "Shapefile DBF row bytes");
-    if (!n) unsupported("DBF3 profile requires at least one field.");
-    if (rowStart > dbf.size || count * rowLength > dbf.size - rowStart) invalid("DBF3 rows exceed component.");
+    if (!n) throw unsupported("DBF3 profile requires at least one field.");
+    if (rowStart > dbf.size || count * rowLength > dbf.size - rowStart) throw invalid("DBF3 rows exceed component.");
     const tail = dbf.size - rowStart - count * rowLength;
-    if (tail > 1) invalid("Unexpected DBF3 trailing bytes.");
-    if (tail && (await metadata(dbf, dbf.size - 1, 1))[0] !== 0x1a) invalid("Unexpected DBF3 EOF marker.");
+    if (tail > 1) throw invalid("Unexpected DBF3 trailing bytes.");
+    if (tail && (await metadata(dbf, dbf.size - 1, 1))[0] !== 0x1a) throw invalid("Unexpected DBF3 EOF marker.");
     meta(n * 96);
     const table = await metadata(dbf, 32, rowStart - 32);
-    if (table[table.length - 1] !== 13) invalid("DBF3 field header lacks 0x0d terminator.");
+    if (table[table.length - 1] !== 13) throw invalid("DBF3 field header lacks 0x0d terminator.");
     const names = new Set<string>();
     let width = 1;
     for (let i = 0; i < n; i++) {
       const f = table.subarray(i * 32, i * 32 + 32), end = f.subarray(0, 11).indexOf(0);
-      if (end < 1 || end > 10) unsupported("DBF3 field names require 1–10 ASCII bytes and NUL padding.");
+      if (end < 1 || end > 10) throw unsupported("DBF3 field names require 1–10 ASCII bytes and NUL padding.");
       zeros(f.subarray(end, 11), "DBF3 name padding");
       if (f.subarray(0, end).some((c) => c < 33 || c > 126)) {
-        unsupported("Non-ASCII/control DBF3 field names are outside this profile.");
+        throw unsupported("Non-ASCII/control DBF3 field names are outside this profile.");
       }
       const name = String.fromCharCode(...f.subarray(0, end));
-      if (names.has(name)) invalid("Duplicate DBF3 field name.");
+      if (names.has(name)) throw invalid("Duplicate DBF3 field name.");
       names.add(name);
       const fieldType = String.fromCharCode(f[11]!);
       if (!["C", "N", "F", "L", "D"].includes(fieldType)) {
-        unsupported("Memo or other DBF field types are outside this raw-row profile.");
+        throw unsupported("Memo or other DBF field types are outside this raw-row profile.");
       }
       zeros(f.subarray(12, 16), "DBF3 field address");
       zeros(f.subarray(18, 32), "DBF3 field reserved bytes");
-      if (!f[16]) invalid("DBF3 field width is zero.");
+      if (!f[16]) throw invalid("DBF3 field width is zero.");
       const field = Object.freeze({
         name,
         type: fieldType as ShapefileFieldType["type"],
@@ -492,7 +512,7 @@ export async function openShapefile(
       width += field.width;
       meta(name.length * 2);
     }
-    if (width !== rowLength) invalid("DBF3 field widths do not sum to its row length.");
+    if (width !== rowLength) throw invalid("DBF3 field widths do not sum to its row length.");
   }
   const fieldList = Object.freeze(fields);
   /** Admit complete stored geometry and returned typed columns before any selected payload allocation. */
@@ -502,8 +522,8 @@ export async function openShapefile(
     cap(p.points, policy.points, "Shapefile selected points");
     cap(p.parts, policy.parts, "Shapefile selected parts");
     plan(auth, work, shp, p.offset, p.length, p.points * 16 + p.parts * 4);
-    const bytes = await collect(auth, shp, p.offset, p.length), d = view(bytes);
-    if (d.getInt32(0, true) !== p.type) invalid("Shapefile selected record type changed.");
+    const bytes = await collect(auth, shp, p.offset, p.length), d = createView(bytes);
+    if (d.getInt32(0, true) !== p.type) throw invalid("Shapefile selected record type changed.");
     const xy = new Float64Array(p.points * 2),
       parts = new Uint32Array(p.parts),
       pointAt = p.type === 1 ? 4 : p.type === 8 ? 40 : 44 + p.parts * 4;
@@ -511,7 +531,7 @@ export async function openShapefile(
       auth.signal?.throwIfAborted();
       const start = d.getInt32(44 + i * 4, true);
       if (start < 0 || start >= p.points || i === 0 && start !== 0 || i > 0 && start <= parts[i - 1]!) {
-        invalid("Shapefile part starts are not strictly increasing from zero.");
+        throw invalid("Shapefile part starts are not strictly increasing from zero.");
       }
       parts[i] = start;
       work.parts++;
@@ -529,13 +549,13 @@ export async function openShapefile(
       work.points++;
     }
     if (p.points && [minX, minY, maxX, maxY].some((v, i) => v !== p.bounds[i])) {
-      invalid("Shapefile selected bounds do not match complete coordinates.");
+      throw invalid("Shapefile selected bounds do not match complete coordinates.");
     }
     for (let i = 0; i < p.parts; i++) {
       const start = parts[i]!, stop = parts[i + 1] ?? p.points;
-      if (stop - start < (p.type === 5 ? 4 : 2)) invalid("Shapefile line/ring has too few points.");
+      if (stop - start < (p.type === 5 ? 4 : 2)) throw invalid("Shapefile line/ring has too few points.");
       if (p.type === 5 && (xy[start * 2] !== xy[(stop - 1) * 2] || xy[start * 2 + 1] !== xy[(stop - 1) * 2 + 1])) {
-        invalid("Shapefile polygon ring is not closed.");
+        throw invalid("Shapefile polygon ring is not closed.");
       }
     }
     auth.signal?.throwIfAborted();
@@ -561,7 +581,7 @@ export async function openShapefile(
       const call = { ...inputCall }, auth = authority(call, opening);
       auth.signal?.throwIfAborted();
       let at = call.cursor ?? 0;
-      integer(at, "Shapefile cursor");
+      assertInteger(at, "Shapefile cursor");
       if (at > count) throw new RangeError("Shapefile cursor exceeds features.");
       const take = limit(call.limit, 256, 4096, "Shapefile page results"),
         scan = limit(call.maxScanned, 8192, 65536, "Shapefile page scans");
@@ -590,7 +610,9 @@ export async function openShapefile(
       if (!dbf) return undefined;
       plan(auth, work, dbf, rowStart + id * rowLength, rowLength, rowLength);
       const bytes = await collect(auth, dbf, rowStart + id * rowLength, rowLength);
-      if (bytes[0] !== 0x20 && bytes[0] !== 0x2a) invalid("DBF3 row deletion flag is neither active nor deleted.");
+      if (bytes[0] !== 0x20 && bytes[0] !== 0x2a) {
+        throw invalid("DBF3 row deletion flag is neither active nor deleted.");
+      }
       let at = 1;
       const values = fieldList.map((field) => {
         const value = { field, bytes: bytes.subarray(at, at + field.width) };
@@ -619,8 +641,8 @@ export async function openShapefile(
         ...(shp.stability === undefined ? {} : { stability: shp.stability }),
         async read(offset, length, inputRead = {}) {
           const child = authority({ ...inputRead }, auth), work = fresh();
-          integer(offset, "Shapefile stored interval offset");
-          integer(length, "Shapefile stored interval length");
+          assertInteger(offset, "Shapefile stored interval offset");
+          assertInteger(length, "Shapefile stored interval length");
           if (offset > p.length || length > p.length - offset) {
             throw new RangeError("Shapefile stored interval exceeds record.");
           }

@@ -1,8 +1,8 @@
 /** Selected authenticated Cryptomator format 8 previews; no password or filesystem acquisition. @module */
 import { isBytes, toView } from "../bytes.ts";
-import { sourceRange } from "../source.ts";
+import { assertExtent } from "../source.ts";
 import type { ByteSourceType, SourceReadOptionsType } from "../source.ts";
-import { createArchiveLedger, integer, limitsOf } from "../archive/record.ts";
+import { assertInteger, createArchiveLedger, resolveLimits } from "../archive/record.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
 
 /** Explicit key context and finite aggregate work policy. Native cryptography is a trusted capability. */
@@ -86,7 +86,7 @@ function fail(code: CryptomatorError["code"], message: string): never {
 /** Hard ceilings protect allocation even if a caller supplies a large aggregate ledger. */
 function cap(value: number | undefined, fallback: number, ceiling: number, name: string): number {
   const result = value ?? fallback;
-  integer(result, name);
+  assertInteger(result, name);
   if (result > ceiling) fail("limit", `${name} exceeds the implementation ceiling.`);
   return result;
 }
@@ -106,7 +106,7 @@ function owner(ledger: ArchiveLedgerType | undefined): ArchiveLedgerType | undef
 }
 /** Intersect per-call limits while retaining opening lifetime ceilings separately. */
 function narrow(left: ArchiveLimitsType, right: ArchiveLimitsType): ArchiveLimitsType {
-  const a = limitsOf(left), b = limitsOf(right);
+  const a = resolveLimits(left), b = resolveLimits(right);
   return {
     maxSourceBytes: Math.min(a.maxSourceBytes, b.maxSourceBytes),
     maxRequests: Math.min(a.maxRequests, b.maxRequests),
@@ -203,7 +203,7 @@ function numberField(value: unknown, name: string): number {
     return fail("format", `${name} must be a canonical nonnegative JSON integer.`);
   }
   const result = Number(value.numeric);
-  integer(result, name);
+  assertInteger(result, name);
   return result;
 }
 /** Fixed-width GF(2^128) doubling: reduction uses a mask rather than a secret-dependent branch. */
@@ -497,7 +497,7 @@ export async function openCryptomator(
     async open(input: ByteSourceType, suppliedOpen: CryptomatorOpenOptionsType = {}) {
       if (closed) fail("closed", "The vault capability is closed.");
       const opts = { ...suppliedOpen }, { size, identity, stability } = input;
-      integer(size, "Encrypted file size");
+      assertInteger(size, "Encrypted file size");
       if (size < 68) fail("format", "Truncated encrypted file header.");
       if (stability !== undefined && stability !== "immutable" && stability !== "provider" && stability !== "caller") {
         fail("stability", "Unknown source stability.");
@@ -512,7 +512,7 @@ export async function openCryptomator(
       const body = size - 68, whole = Math.floor(body / 32796), tail = body % 32796;
       if (tail !== 0 && tail < 29) fail("profile", "A partial or explicit empty final chunk is outside this profile.");
       const clearSize = whole * 32768 + (tail ? tail - 28 : 0);
-      integer(clearSize, "Plaintext size");
+      assertInteger(clearSize, "Plaintext size");
       const chunkCount = whole + (tail ? 1 : 0);
       const policy = narrow(options, opts), fileLedger = createArchiveLedger(policy);
       const fileOwners = new Map(rootOwners);
@@ -562,7 +562,7 @@ export async function openCryptomator(
           const read = (offset: number, length: number, suppliedRead: CryptomatorReadOptionsType, keep: boolean) => {
             if (fileClosed || closed) fail("closed", "The plaintext source is closed.");
             const readOptions = { ...suppliedRead };
-            sourceRange(clearSize, offset, length);
+            assertExtent(clearSize, offset, length);
             const signal = signals(parentSignal, readOptions.signal);
             const work = accounting(narrow(policy, readOptions), owners(readOptions.ledger));
             const first = length === 0 ? 0 : Math.floor(offset / 32768);
@@ -640,7 +640,7 @@ export async function openCryptomator(
             },
             async verify(suppliedVerify) {
               const verifyOptions = { ...suppliedVerify };
-              integer(verifyOptions.maxCiphertextBytes, "Whole-file ciphertext allowance");
+              assertInteger(verifyOptions.maxCiphertextBytes, "Whole-file ciphertext allowance");
               if (size > verifyOptions.maxCiphertextBytes) fail("limit", "Whole-file ciphertext allowance exceeded.");
               const checked = await read(0, clearSize, verifyOptions, false);
               signals(parentSignal, verifyOptions.signal)?.throwIfAborted();

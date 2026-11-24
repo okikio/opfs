@@ -1,6 +1,6 @@
 /** Bounded normal GNU/SVR4 and BSD ar indexing with exact member ranges. @module */
 import type { ByteSourceType } from "../source.ts";
-import { ArchiveBudget, ArchiveError, createArchiveLedger, integer, invalid, unsupported } from "./record.ts";
+import { ArchiveBudget, ArchiveError, assertInteger, createArchiveLedger, invalid, unsupported } from "./record.ts";
 import type { ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
 export { ArchiveError, createArchiveLedger } from "./record.ts";
 export type { ArchiveErrorCodeType, ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
@@ -72,15 +72,15 @@ function numberOf(bytes: Uint8Array, base: number, optional = false): number | u
   while (end > 0 && bytes[end - 1] === 32) end--;
   if (end === 0) {
     if (optional) return undefined;
-    invalid("ar member size or name reference is missing.");
+    throw invalid("ar member size or name reference is missing.");
   }
   let value = 0n;
   for (const byte of bytes.subarray(0, end)) {
     const digit = byte - 48;
-    if (digit < 0 || digit >= base) invalid("ar numeric field contains invalid digits or padding.");
+    if (digit < 0 || digit >= base) throw invalid("ar numeric field contains invalid digits or padding.");
     value = value * BigInt(base) + BigInt(digit);
   }
-  if (value > BigInt(Number.MAX_SAFE_INTEGER)) unsupported("ar integer exceeds exact JavaScript indexing.");
+  if (value > BigInt(Number.MAX_SAFE_INTEGER)) throw unsupported("ar integer exceeds exact JavaScript indexing.");
   return Number(value);
 }
 
@@ -92,8 +92,8 @@ class Names {
   constructor(options: ArOpenOptionsType) {
     this.one = options.maxNameBytes ?? 65536;
     this.total = options.maxNamesBytes ?? 1024 * 1024;
-    integer(this.one, "maxNameBytes");
-    integer(this.total, "maxNamesBytes");
+    assertInteger(this.one, "maxNameBytes");
+    assertInteger(this.total, "maxNamesBytes");
   }
   admit(size: number): void {
     if (size > this.one || size > this.total - this.#used) {
@@ -104,12 +104,12 @@ class Names {
   decode(bytes: Uint8Array): string {
     this.admit(bytes.length);
     if (bytes.length === 0 || bytes.some((byte) => byte === 0 || byte === 10 || byte === 13)) {
-      invalid("ar name is empty or contains a forbidden separator byte.");
+      throw invalid("ar name is empty or contains a forbidden separator byte.");
     }
     try {
       return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
     } catch {
-      return unsupported("ar names require valid UTF-8 for this profile.");
+      throw unsupported("ar names require valid UTF-8 for this profile.");
     }
   }
 }
@@ -134,7 +134,7 @@ function kindOf(name: string): ArEntryType["kind"] {
 export async function openAr(source: ByteSourceType, options: ArOpenOptionsType = {}): Promise<ArArchiveType> {
   const { size, identity, stability } = source;
   if (!stability && !options.allowUnverifiedSource) {
-    unsupported("ar requires source stability or explicit unverified-source acceptance.");
+    throw unsupported("ar requires source stability or explicit unverified-source acceptance.");
   }
   const snapshot: ByteSourceType = {
     size,
@@ -145,14 +145,14 @@ export async function openAr(source: ByteSourceType, options: ArOpenOptionsType 
   const budget = new ArchiveBudget(snapshot, options, options.signal);
   const maxEntries = options.maxEntries ?? 100000;
   const maxTableBytes = options.maxTableBytes ?? 1024 * 1024;
-  integer(maxEntries, "maxEntries");
-  integer(maxTableBytes, "maxTableBytes");
+  assertInteger(maxEntries, "maxEntries");
+  assertInteger(maxTableBytes, "maxTableBytes");
   const names = new Names(options);
   const magic = await budget.read(0, 8);
   budget.decoded(8);
   const signature = String.fromCharCode(...magic);
-  if (signature === "!<thin>\n") unsupported("Thin ar archives refer to external files and are unsupported.");
-  if (signature !== "!<arch>\n") invalid("Normal ar signature must begin at offset zero.");
+  if (signature === "!<thin>\n") throw unsupported("Thin ar archives refer to external files and are unsupported.");
+  if (signature !== "!<arch>\n") throw invalid("Normal ar signature must begin at offset zero.");
   const entries: ArEntryType[] = [];
   let at = 8;
   let table: Map<number, { name: string; bytes: number }> | undefined;
@@ -160,19 +160,21 @@ export async function openAr(source: ByteSourceType, options: ArOpenOptionsType 
   while (at < size) {
     options.signal?.throwIfAborted();
     if (entries.length >= maxEntries) throw new ArchiveError("budget-exceeded", "ar entry admission limit exceeded.");
-    if (size - at < 60) invalid("ar member header is truncated or trailing bytes remain.");
+    if (size - at < 60) throw invalid("ar member header is truncated or trailing bytes remain.");
     const header = await budget.read(at, 60);
     budget.decoded(60);
-    if (header[58] !== 96 || header[59] !== 10) invalid("ar member header requires backtick and linefeed terminator.");
+    if (header[58] !== 96 || header[59] !== 10) {
+      throw invalid("ar member header requires backtick and linefeed terminator.");
+    }
     const storedSize = numberOf(header.subarray(48, 58), 10)!;
     const body = at + 60;
-    if (storedSize > size - body) invalid("ar member extends past the source snapshot.");
+    if (storedSize > size - body) throw invalid("ar member extends past the source snapshot.");
     const end = body + storedSize;
     if (storedSize % 2) {
-      if (end === size) invalid("ar odd member requires a final linefeed padding byte.");
+      if (end === size) throw invalid("ar odd member requires a final linefeed padding byte.");
       const padding = await budget.read(end, 1);
       budget.decoded(1);
-      if (padding[0] !== 10) invalid("ar alignment padding is not a linefeed.");
+      if (padding[0] !== 10) throw invalid("ar alignment padding is not a linefeed.");
     }
     const raw = trim(header.subarray(0, 16));
     const marker = String.fromCharCode(...raw);
@@ -181,7 +183,7 @@ export async function openAr(source: ByteSourceType, options: ArOpenOptionsType 
     let memberSize = storedSize;
     let format: ArEntryType["format"] = "short";
     if (marker === "//") {
-      if (table || ordinary) unsupported("ar supports one GNU name table before ordinary members.");
+      if (table || ordinary) throw unsupported("ar supports one GNU name table before ordinary members.");
       if (storedSize > maxTableBytes) {
         throw new ArchiveError("budget-exceeded", "ar GNU name table admission limit exceeded.");
       }
@@ -194,7 +196,7 @@ export async function openAr(source: ByteSourceType, options: ArOpenOptionsType 
         let until = start;
         while (until < bytes.length && bytes[until] !== 10) until++;
         if (until === bytes.length || until === start || bytes[until - 1] !== 47) {
-          invalid("ar GNU name table requires slash-linefeed records.");
+          throw invalid("ar GNU name table requires slash-linefeed records.");
         }
         if (table.size >= maxEntries) {
           throw new ArchiveError("budget-exceeded", "ar GNU name record admission limit exceeded.");
@@ -209,7 +211,7 @@ export async function openAr(source: ByteSourceType, options: ArOpenOptionsType 
     } else if (marker.startsWith("#1/")) {
       format = "bsd";
       const length = numberOf(raw.subarray(3), 10)!;
-      if (length > storedSize) invalid("ar BSD name exceeds its stored member body.");
+      if (length > storedSize) throw invalid("ar BSD name exceeds its stored member body.");
       if (length > names.one) throw new ArchiveError("budget-exceeded", "ar BSD encoded name limit exceeded.");
       const encoded = await budget.read(body, length);
       budget.decoded(length);
@@ -227,7 +229,7 @@ export async function openAr(source: ByteSourceType, options: ArOpenOptionsType 
       format = "gnu";
       const reference = numberOf(raw.subarray(1), 10)!;
       const found = table?.get(reference);
-      if (!found) invalid("ar GNU name reference does not point to an admitted record start.");
+      if (!found) throw invalid("ar GNU name reference does not point to an admitted record start.");
       names.admit(found.bytes);
       name = found.name;
     } else {
@@ -261,18 +263,20 @@ export async function openAr(source: ByteSourceType, options: ArOpenOptionsType 
   }
 
   const entryOf = (id: number): ArEntryType => {
-    integer(id, "Entry ID");
+    assertInteger(id, "Entry ID");
     const entry = entries[id];
     if (!entry) throw new RangeError("ar entry ID does not exist.");
-    if (entry.kind !== "file") unsupported("ar linker/name metadata is opaque and cannot be read as an ordinary file.");
+    if (entry.kind !== "file") {
+      throw unsupported("ar linker/name metadata is opaque and cannot be read as an ordinary file.");
+    }
     return entry;
   };
   const read = async (id: number, readOptions: ArReadOptionsType = {}): Promise<ArReadType> => {
     const entry = entryOf(id);
     const offset = readOptions.offset ?? 0;
     const length = readOptions.length ?? entry.size - offset;
-    integer(offset, "Member offset");
-    integer(length, "Member length");
+    assertInteger(offset, "Member offset");
+    assertInteger(length, "Member length");
     if (offset > entry.size || length > entry.size - offset) {
       throw new RangeError("ar member read exceeds its payload.");
     }

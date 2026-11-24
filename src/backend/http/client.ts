@@ -2,8 +2,8 @@
 import { sendRequest } from "../../request.ts";
 import type { FetchType, RequestPolicyType } from "../../request.ts";
 import { readResponse } from "../../response.ts";
-import { assertRangeResponse, range } from "../../range.ts";
-import { objectETag } from "../../publication.ts";
+import { assertRangeResponse, resolveRange } from "../../range.ts";
+import { resolveETag } from "../../publication.ts";
 import { openObjectSource } from "../../source.ts";
 import type { ByteSourceType, ObjectSourceBackendType, ObjectSourceOptionsType } from "../../source.ts";
 
@@ -102,8 +102,8 @@ export async function openHttpSource(
       });
     },
     async get(_key, requestOptions = {}) {
-      const selected = range(requestOptions);
-      const etag = objectETag(requestOptions.revision);
+      const selected = resolveRange(requestOptions);
+      const etag = resolveETag(requestOptions.revision);
       if (selected.empty) return new Blob().stream();
       const headers = new Headers();
       if (selected.header !== undefined) headers.set("range", selected.header);

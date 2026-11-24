@@ -3,7 +3,7 @@ import { isBytes, toView } from "../bytes.ts";
 import { close } from "../close.ts";
 import { decompressStream } from "../archive/compress.ts";
 import type { ArchiveLedgerType } from "../archive/record.ts";
-import { budgetSource, createSourceBudget, sourceRange } from "../source.ts";
+import { assertExtent, budgetSource, createSourceBudget } from "../source.ts";
 import type { ByteSourceType, SourceBudgetType, SourceReadOptionsType } from "../source.ts";
 import { openBytes } from "../stream.ts";
 
@@ -325,7 +325,7 @@ export async function openGitObject(source: ByteSourceType, options: GitOptionsT
     stability: "immutable" as const,
     async read(offset: number, length: number, options: SourceReadOptionsType = {}): Promise<Uint8Array> {
       options.signal?.throwIfAborted();
-      sourceRange(payload.length, offset, length);
+      assertExtent(payload.length, offset, length);
       return payload.slice(offset, offset + length);
     },
   });

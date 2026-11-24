@@ -5,8 +5,14 @@ import type {
   ObjectStatType,
 } from "./driver/object.ts";
 
-/** ETag protocols must never silently discard a different provider's revision. */
-export function objectETag(revision?: ObjectRevisionType, ifMatch?: string): string | undefined {
+/**
+ * Returns the ETag a conditional request must match, from a revision, an explicit `ifMatch`, or both.
+ *
+ * Call it where a provider builds `If-Match`: `const ifMatch = resolveETag(options.revision, options.ifMatch);`.
+ * A revision of another kind, an empty ETag, or two different values throw `TypeError`, so a precondition is
+ * never silently dropped.
+ */
+export function resolveETag(revision?: ObjectRevisionType, ifMatch?: string): string | undefined {
   if (revision === undefined) return ifMatch;
   if (revision.kind !== "etag" || revision.value.length === 0) {
     throw new TypeError("This protocol requires a nonempty ETag revision.");
@@ -15,28 +21,40 @@ export function objectETag(revision?: ObjectRevisionType, ifMatch?: string): str
   return revision.value;
 }
 
-/** Resolves revision admission before S3/Azure acquire a source or credentials. */
-export function etagPutOptions(options: ObjectPutOptionsType): ObjectPutOptionsType {
-  const ifMatch = objectETag(options.revision, options.ifMatch);
-  return { ...putOptions(options), ...(ifMatch === undefined ? {} : { ifMatch }) };
+/**
+ * Returns a private copy of put options with any revision resolved into `ifMatch`, for ETag providers.
+ *
+ * Call it first in an ETag provider's put, before a source read or credential request, and use only the
+ * result afterwards: `options = resolveETagPut(options);`. Revision errors then surface before any work.
+ */
+export function resolveETagPut(options: ObjectPutOptionsType): ObjectPutOptionsType {
+  const ifMatch = resolveETag(options.revision, options.ifMatch);
+  return { ...snapshotPut(options), ...(ifMatch === undefined ? {} : { ifMatch }) };
 }
 
-/** Resolves both sides of an ETag-based provider copy before source reads. */
-export function etagCopyOptions(options: ObjectCopyOptionsType): ObjectCopyOptionsType {
-  const ifMatch = objectETag(options.revision, options.ifMatch);
-  const sourceIfMatch = objectETag(options.sourceRevision, options.sourceIfMatch);
+/**
+ * Returns a private copy of copy options with both revisions resolved into `ifMatch` and `sourceIfMatch`.
+ *
+ * Call it first in an ETag provider's copy: `options = resolveETagCopy(options);`.
+ */
+export function resolveETagCopy(options: ObjectCopyOptionsType): ObjectCopyOptionsType {
+  const ifMatch = resolveETag(options.revision, options.ifMatch);
+  const sourceIfMatch = resolveETag(options.sourceRevision, options.sourceIfMatch);
   return {
-    ...copyOptions(options),
+    ...snapshotCopy(options),
     ...(ifMatch === undefined ? {} : { ifMatch }),
     ...(sourceIfMatch === undefined ? {} : { sourceIfMatch }),
   };
 }
 
-/** Owns publication policy before asynchronous source or credential work starts.
- * Header construction and acknowledgement attribution consume the same snapshot.
- * The signal remains borrowed: its later cancellation is intentionally observable.
+/**
+ * Returns a private copy of put options, so later caller mutation cannot change a request in flight.
+ *
+ * Call it once before asynchronous source or credential work and build headers and acknowledgements from the
+ * copy: `const request = snapshotPut(options);`. Revision and metadata objects are copied too. The signal
+ * stays borrowed, so a later cancellation is still observed.
  */
-export function putOptions(options: ObjectPutOptionsType): ObjectPutOptionsType {
+export function snapshotPut(options: ObjectPutOptionsType): ObjectPutOptionsType {
   return {
     ...options,
     ...(options.revision === undefined ? {} : { revision: { ...options.revision } }),
@@ -44,11 +62,14 @@ export function putOptions(options: ObjectPutOptionsType): ObjectPutOptionsType 
   };
 }
 
-/** Attributes only normalized properties applied to the publication headers.
- * Missing header properties are omitted, rather than retained from caller input.
- * Preconditions, declared size, and the borrowed cancellation signal retain their policy.
+/**
+ * Returns put options whose media type and metadata are exactly the normalized values sent as headers.
+ *
+ * Call it after header normalization: `options = applyProperties(options, properties);`. A property missing
+ * from `properties` is removed rather than kept from caller input. Preconditions, declared size and the
+ * borrowed signal are unchanged.
  */
-export function putProperties(
+export function applyProperties(
   options: ObjectPutOptionsType,
   properties: Pick<ObjectStatType, "mediaType" | "metadata">,
 ): ObjectPutOptionsType {
@@ -61,7 +82,7 @@ export function putProperties(
 }
 
 /** Copies mutable Date conditions as well as scalar policy before reading a source. */
-export function copyOptions(options: ObjectCopyOptionsType): ObjectCopyOptionsType {
+function snapshotCopy(options: ObjectCopyOptionsType): ObjectCopyOptionsType {
   return {
     ...options,
     ...(options.revision === undefined ? {} : { revision: { ...options.revision } }),

@@ -98,8 +98,9 @@ export interface ArrowColumnsType extends ArrowColumnsAdmissionType {
   /** Only selected payloads were decoded; excluded columns retain metadata-only checks. */
   readonly scope: "selected-columns";
 }
-function invalid(message: string): never {
-  throw new ArchiveError("invalid-archive", `Arrow ${message}`);
+/** Creates the `invalid-archive` error with an "Arrow" prefix; call as `throw invalid("...")`. */
+function invalid(message: string): ArchiveError {
+  return new ArchiveError("invalid-archive", `Arrow ${message}`);
 }
 function budget(message: string): never {
   throw new ArchiveError("budget-exceeded", `Arrow ${message}`);
@@ -132,15 +133,15 @@ export function admitColumns(
 ): ArrowColumnsAdmissionType {
   const limits = policy(options), plan = requireEligibleSchema(schema);
   if (plan.fields.length > 1024) budget("column count exceeds 1024 fields.");
-  if (plan.fields.some((field, index) => field.ordinal !== index)) invalid("field ordinals are not contiguous.");
+  if (plan.fields.some((field, index) => field.ordinal !== index)) throw invalid("field ordinals are not contiguous.");
   // Body size is geometry here, not bytes to allocate/read. Each selected extent
   // and their sum have separate allowances; unselected body bytes need no copy.
   if (bodyLength < 0n || bodyLength > BigInt(Number.MAX_SAFE_INTEGER)) {
-    invalid("body length is outside exact source extents.");
+    throw invalid("body length is outside exact source extents.");
   }
   validateBatch(batch, plan, bodyLength, { maxRows: limits.rows, maxBodyBytes: Number.MAX_SAFE_INTEGER });
   const selection = options.columns === undefined ? plan.fields.map((field) => field.ordinal) : options.columns;
-  if (selection.length > plan.fields.length) invalid("selection contains too many ordinals.");
+  if (selection.length > plan.fields.length) throw invalid("selection contains too many ordinals.");
   const seen = new Set<number>(), columns: { ordinal: number; inputBytes: number; outputBytes: number }[] = [];
   let selectedBytes = 0n, outputBytes = 0n;
   for (const ordinal of selection) {
@@ -182,7 +183,7 @@ function offsets(bytes: Uint8Array, rows: number, payloadLength: number): DataVi
   for (let row = 0; row <= rows; row++) {
     const offset = view.getInt32(row * 4, true);
     if (offset < prior || offset > payloadLength) {
-      invalid("variable offsets are negative, decreasing or outside payload.");
+      throw invalid("variable offsets are negative, decreasing or outside payload.");
     }
     prior = offset;
   }
@@ -205,10 +206,10 @@ export function decodeColumn(
 ): ArrowColumnType {
   const admission = admitColumns(schema, batch, bodyLength, { ...options, columns: [ordinal] });
   const plan = requireEligibleSchema(schema), field = plan.fields[ordinal]!;
-  if (buffers.length !== field.buffers) invalid("acquired column buffer count disagrees with schema.");
+  if (buffers.length !== field.buffers) throw invalid("acquired column buffer count disagrees with schema.");
   for (let index = 0; index < buffers.length; index++) {
     if (BigInt(buffers[index]!.byteLength) !== batch.buffers[field.buffer + index]!.length) {
-      invalid("acquired buffer length differs from its admitted extent.");
+      throw invalid("acquired buffer length differs from its admitted extent.");
     }
   }
   const rows = admission.rows, bitmap = buffers[0]!, data = buffers[1]!;
@@ -217,7 +218,9 @@ export function decodeColumn(
   for (let row = 0; row < rows; row++) {
     if (bitmap.length !== 0 && ((bitmap[row >> 3]! >> (row & 7)) & 1) === 0) nulls++;
   }
-  if (BigInt(nulls) !== batch.nodes[ordinal]!.nulls) invalid("validity bitmap count disagrees with its field node.");
+  if (BigInt(nulls) !== batch.nodes[ordinal]!.nulls) {
+    throw invalid("validity bitmap count disagrees with its field node.");
+  }
   const variable = field.physical === "utf8" || field.physical === "binary"
     ? offsets(data, rows, buffers[2]!.length)
     : null;
@@ -245,7 +248,7 @@ export function decodeColumn(
     for (let row = 0; row < rows; row++) if (validity[row]) values[row] = (data[row >> 3]! >> (row & 7)) & 1;
     return { ...base, physical: "boolean", values };
   }
-  if (variable === null) invalid("variable column offsets are absent.");
+  if (variable === null) throw invalid("variable column offsets are absent.");
   const payload = buffers[2]!;
   if (field.physical === "utf8") {
     const values: string[] = new Array<string>(rows);
@@ -262,7 +265,7 @@ export function decodeColumn(
         );
         outputBytes += values[row]!.length * 2;
       } catch {
-        invalid("selected UTF8 value contains invalid UTF-8.");
+        throw invalid("selected UTF8 value contains invalid UTF-8.");
       }
     }
     return { ...base, physical: "utf8", values, outputBytes };

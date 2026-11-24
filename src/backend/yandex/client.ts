@@ -2,7 +2,7 @@
 import { z } from "zod";
 import { isBytes, toView } from "../../bytes.ts";
 import { close } from "../../close.ts";
-import { assertRangeResponse, range } from "../../range.ts";
+import { assertRangeResponse, resolveRange } from "../../range.ts";
 import { RequestMetrics, sendRequest } from "../../request.ts";
 import type { FetchType, RequestPolicyType } from "../../request.ts";
 import { readResponse } from "../../response.ts";
@@ -555,7 +555,7 @@ export class YandexClient {
   }
   /** Borrow one token for metadata/link/INITIAL granted download; all redirect hops permanently strip it. */
   async #download(value: string, options: YandexReadOptionsType, maximum?: number): Promise<YandexDownloadType> {
-    const selectedPath = path(value), selected = range(options), signal = selected.signal;
+    const selectedPath = path(value), selected = resolveRange(options), signal = selected.signal;
     if (selected.empty) throw new RangeError("Use read() for an empty local Yandex Disk read.");
     const token = await this.#credential(this.#url("resources/download", { path: selectedPath }), signal);
     const stored = await this.#stat(selectedPath, token, signal);
@@ -634,7 +634,7 @@ export class YandexClient {
   }
   /** Bounded materialization preflights metadata before opening content; empty reads are local. */
   async read(value: string, options: YandexReadOptionsType = {}): Promise<Uint8Array> {
-    const selected = range(options), selectedPath = path(value);
+    const selected = resolveRange(options), selectedPath = path(value);
     if (selected.empty) return new Uint8Array();
     const captured = {
       ...(selected.header === undefined

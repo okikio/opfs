@@ -9,7 +9,7 @@
 import type { ByteSourceType } from "../../source.ts";
 import { close } from "../../close.ts";
 import { isBytes, toRequestBytes, toView } from "../../bytes.ts";
-import { ArchiveBudget, ArchiveError, createArchiveLedger, invalid, unsupported, view } from "../record.ts";
+import { ArchiveBudget, ArchiveError, createArchiveLedger, createView, invalid, unsupported } from "../record.ts";
 import type { ArchiveWorkType } from "../record.ts";
 import { crc32 } from "../../hash.ts";
 import { createZipCrypto } from "./zipcrypto.ts";
@@ -51,7 +51,7 @@ export async function readMember(
     if (plan.reason === "budget-exceeded") {
       throw new ArchiveError("budget-exceeded", "ZIP member exceeds the admitted work/output limits.");
     }
-    unsupported(
+    throw unsupported(
       plan.reason === "encrypted-member"
         ? "Encrypted ZIP member requires an exact supported encryption profile."
         : "ZIP compression method is unsupported.",
@@ -66,35 +66,37 @@ export async function readMember(
   try {
     // Exact source ranges may share scratch storage; keep this fixed header
     // independent of the later name/extra/payload reads that reuse that storage.
-    const header = view(new Uint8Array(await budget.read(record.offset, 30)));
+    const header = createView(new Uint8Array(await budget.read(record.offset, 30)));
     if (
       header.getUint32(0, true) !== 0x04034b50 || header.getUint16(6, true) !== record.flags ||
       header.getUint16(8, true) !== entry.method
-    ) invalid("ZIP local header disagrees with directory.");
+    ) throw invalid("ZIP local header disagrees with directory.");
     if (entry.method === 12 && header.getUint16(4, true) < 46) {
-      unsupported("ZIP BZip2 requires local version-needed 4.6 or later.");
+      throw unsupported("ZIP BZip2 requires local version-needed 4.6 or later.");
     }
     if (entry.method === 14 && header.getUint16(4, true) < 63) {
-      unsupported("ZIP LZMA requires local version-needed 6.3 or later.");
+      throw unsupported("ZIP LZMA requires local version-needed 6.3 or later.");
     }
     if (cipher && header.getUint16(10, true) !== record.time) {
-      invalid("ZIP encrypted local time disagrees with directory.");
+      throw invalid("ZIP encrypted local time disagrees with directory.");
     }
     const nameSize = header.getUint16(26, true);
     const extraSize = header.getUint16(28, true);
     const name = await budget.read(record.offset + 30, nameSize);
     if (name.length !== record.name.length || name.some((byte, index) => byte !== record.name[index])) {
-      invalid("ZIP local name disagrees with directory.");
+      throw invalid("ZIP local name disagrees with directory.");
     }
     const dataOffset = record.offset + 30 + nameSize + extraSize;
     if (dataOffset > boundary || entry.compressedSize > boundary - dataOffset) {
-      invalid("ZIP member data overlaps directory.");
+      throw invalid("ZIP member data overlaps directory.");
     }
-    const localExtra = cipher ? view(await budget.read(record.offset + 30 + nameSize, extraSize)) : undefined;
-    if (localExtra && hasExtra(localExtra, 0x9901)) unsupported("ZIP AES extra fields cannot be read as ZipCrypto.");
+    const localExtra = cipher ? createView(await budget.read(record.offset + 30 + nameSize, extraSize)) : undefined;
+    if (localExtra && hasExtra(localExtra, 0x9901)) {
+      throw unsupported("ZIP AES extra fields cannot be read as ZipCrypto.");
+    }
     if (!(record.flags & 8)) {
       const sizes = zip64(
-        localExtra ?? view(await budget.read(record.offset + 30 + nameSize, extraSize)),
+        localExtra ?? createView(await budget.read(record.offset + 30 + nameSize, extraSize)),
         header.getUint32(22, true) === 0xffffffff,
         header.getUint32(18, true) === 0xffffffff,
         false,
@@ -103,13 +105,13 @@ export async function readMember(
       if (
         header.getUint32(14, true) !== entry.crc32 || (sizes.size ?? header.getUint32(22, true)) !== entry.size ||
         (sizes.compressedSize ?? header.getUint32(18, true)) !== entry.compressedSize
-      ) invalid("ZIP local sizes or checksum disagree with directory.");
+      ) throw invalid("ZIP local sizes or checksum disagree with directory.");
     }
     const cipherHeader = cipher ? 12 : 0;
-    if (entry.compressedSize < cipherHeader) invalid("ZIP encryption header is truncated.");
+    if (entry.compressedSize < cipherHeader) throw invalid("ZIP encryption header is truncated.");
     const payloadSize = entry.compressedSize - cipherHeader;
     const payloadOffset = dataOffset + cipherHeader;
-    if (entry.method === 0 && entry.size !== payloadSize) invalid("Stored ZIP member sizes disagree.");
+    if (entry.method === 0 && entry.size !== payloadSize) throw invalid("Stored ZIP member sizes disagree.");
     if (cipher) {
       budget.decoded(12);
       const decodedHeader = cipher.decrypt(await budget.read(dataOffset, 12));
@@ -131,10 +133,10 @@ export async function readMember(
     let decoded = 0;
     let state = 0xffffffff;
     const consume = (value: Uint8Array, admitted = false): void => {
-      if (!isBytes(value)) invalid("ZIP decoder returned a non-byte chunk.");
+      if (!isBytes(value)) throw invalid("ZIP decoder returned a non-byte chunk.");
       const bytes = toView(value);
       if (!admitted) budget.decoded(bytes.byteLength);
-      if (bytes.byteLength > entry.size - decoded) invalid("ZIP decoded bytes exceed declared member size.");
+      if (bytes.byteLength > entry.size - decoded) throw invalid("ZIP decoded bytes exceed declared member size.");
       if (complete) state = crc32(bytes, state);
       const start = Math.max(0, offset - decoded);
       const end = Math.min(bytes.byteLength, offset + length - decoded);
@@ -169,10 +171,10 @@ export async function readMember(
           consume,
         );
       if ((complete && (terminal.status !== "complete" || decoded !== entry.size)) || decoded < offset + length) {
-        invalid("ZIP codec member ended before its declared size.");
+        throw invalid("ZIP codec member ended before its declared size.");
       }
       if (complete && terminal.integrity === "none" && terminal.termination !== "end-marker") {
-        invalid("ZIP LZMA EOS-required member did not reach its end marker.");
+        throw invalid("ZIP LZMA EOS-required member did not reach its end marker.");
       }
       if (complete && ((state ^ 0xffffffff) >>> 0) !== entry.crc32) {
         throw new ArchiveError("checksum-mismatch", "ZIP member CRC32 failed.");
@@ -244,7 +246,7 @@ export async function readMember(
         try {
           transform = new DecompressionStream("deflate-raw");
         } catch {
-          unsupported("Raw-DEFLATE is unavailable; inject an explicit codec factory.");
+          throw unsupported("Raw-DEFLATE is unavailable; inject an explicit codec factory.");
         }
       }
       const reader = input.pipeThrough(transform).getReader();
@@ -271,7 +273,7 @@ export async function readMember(
           consume(result.value);
         }
         if ((complete && decoded !== entry.size) || decoded < offset + length) {
-          invalid("ZIP member ended before its declared size.");
+          throw invalid("ZIP member ended before its declared size.");
         }
       } catch (reason) {
         failures = [reason];
@@ -319,6 +321,6 @@ function join(chunks: readonly Uint8Array[], length: number): Uint8Array {
     bytes.set(chunk, offset);
     offset += chunk.byteLength;
   }
-  if (offset !== length) invalid("ZIP selected output length disagrees with request.");
+  if (offset !== length) throw invalid("ZIP selected output length disagrees with request.");
   return bytes;
 }

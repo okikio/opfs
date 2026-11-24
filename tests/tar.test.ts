@@ -2,9 +2,9 @@ import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 import { decodeBase64 } from "@std/encoding/base64";
 import { createBlobSource } from "../src/source.ts";
-import { createArchiveLedger, openTar } from "../src/archive/tar.ts";
-import { createTarStream, readTarStream } from "../src/archive/stream.ts";
-import type { TarEntryType } from "../src/archive/tar.ts";
+import { createArchiveLedger, openTar } from "../src/archive/tar/mod.ts";
+import { createTarStream, readTarStream } from "../src/archive/tar/stream.ts";
+import type { TarEntryType } from "../src/archive/tar/mod.ts";
 import fixtures from "./fixtures/tar/independent.json" with { type: "json" };
 
 function stream(bytes: Uint8Array, cuts: number[] = [bytes.length]): ReadableStream<Uint8Array> {

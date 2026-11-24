@@ -2,10 +2,10 @@
 import { z } from "zod";
 import { decodeBase64Url, encodeBase64Url } from "@std/encoding/base64url";
 import { isBytes, toView } from "../bytes.ts";
-import { sourceRange } from "../source.ts";
+import { assertExtent } from "../source.ts";
 import type { ByteSourceType } from "../source.ts";
 import type { ArfsMetadataInputType } from "./arfs.ts";
-import { createArchiveLedger, integer } from "../archive/record.ts";
+import { assertInteger, createArchiveLedger } from "../archive/record.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
 export { createArchiveLedger } from "../archive/record.ts";
 
@@ -127,18 +127,20 @@ const transactionSchema: z.ZodObject<{
   signature: z.string(),
   denomination: z.literal(0).optional(),
 });
-function invalid(message: string): never {
-  throw new ArweaveError("invalid-transaction", message);
+/** Creates the `invalid-transaction` error for malformed Arweave data; call as `throw invalid("...")`. */
+function invalid(message: string): ArweaveError {
+  return new ArweaveError("invalid-transaction", message);
 }
-function unsupported(message: string): never {
-  throw new ArweaveError("unsupported-profile", message);
+/** Creates the `unsupported-profile` error for valid data outside this reader; call as `throw unsupported("...")`. */
+function unsupported(message: string): ArweaveError {
+  return new ArweaveError("unsupported-profile", message);
 }
 function cap(n: number, max: number, label: string): void {
   if (n > max) throw new ArweaveError("budget-exceeded", `${label} exceeded.`);
 }
 function policy(n: number | undefined, fallback: number, hard: number, label: string): number {
   const value = n ?? fallback;
-  integer(value, label);
+  assertInteger(value, label);
   cap(value, hard, label);
   return value;
 }
@@ -147,27 +149,33 @@ function decoded(text: string, max: number, label: string, length?: number): Uin
   if (
     typeof text !== "string" || text.length > Math.ceil(max * 4 / 3) || !/^[A-Za-z0-9_-]*$/.test(text) ||
     text.length % 4 === 1
-  ) invalid(`Malformed ${label} base64url.`);
+  ) throw invalid(`Malformed ${label} base64url.`);
   let bytes: Uint8Array;
   try {
     bytes = decodeBase64Url(text);
   } catch {
-    invalid(`Malformed ${label} base64url.`);
+    throw invalid(`Malformed ${label} base64url.`);
   }
   if (encodeBase64Url(bytes) !== text || (length !== undefined && bytes.byteLength !== length)) {
-    invalid(`Noncanonical ${label} extent.`);
+    throw invalid(`Noncanonical ${label} extent.`);
   }
   cap(bytes.byteLength, max, label);
   return new Uint8Array(bytes);
 }
-/** Exported preflight prevents a malformed locator from becoming a relative gateway path. */
-export function arweaveId(value: string): string {
+/**
+ * Returns `value` unchanged if it is a canonical Arweave ID: base64url text that decodes to exactly 32 bytes.
+ *
+ * Call it on any ID that will become part of a gateway URL, before the request is built:
+ * `const id = parseArweaveId(input);`. A malformed value throws `ArweaveError` with code
+ * `invalid-transaction`, so it can never become a relative path such as `../graphql`.
+ */
+export function parseArweaveId(value: string): string {
   decoded(value, 32, "Arweave ID", 32);
   return value;
 }
 function decimal(text: string, max: number, label: string): void {
   if (typeof text !== "string" || text.length > max || !/^(?:0|[1-9][0-9]*)$/.test(text)) {
-    invalid(`${label} requires canonical nonnegative decimal digits.`);
+    throw invalid(`${label} requires canonical nonnegative decimal digits.`);
   }
 }
 function same(a: Uint8Array, b: Uint8Array): boolean {
@@ -261,7 +269,7 @@ function meter(
   return {
     work,
     reserve(kind, count) {
-      integer(count, "Arweave work");
+      assertInteger(count, "Arweave work");
       if (kind === "sourceBytes" || kind === "requests" || kind === "decodedBytes" || kind === "outputBytes") {
         for (const owner of auth.ledgers) owner.reserve(kind, count);
       }
@@ -288,7 +296,7 @@ function jsonOf(text: string): unknown {
   };
   function string(): string {
     const start = at;
-    if (text[at++] !== '"') invalid("Expected JSON string.");
+    if (text[at++] !== '"') throw invalid("Expected JSON string.");
     while (at < text.length) {
       const c = text[at++];
       if (c === "\\") {
@@ -300,13 +308,15 @@ function jsonOf(text: string): unknown {
         try {
           value = JSON.parse(text.slice(start, at));
         } catch {
-          invalid("Malformed JSON string.");
+          throw invalid("Malformed JSON string.");
         }
-        if (typeof value !== "string" || !value.isWellFormed()) invalid("JSON strings require well-formed Unicode.");
+        if (typeof value !== "string" || !value.isWellFormed()) {
+          throw invalid("JSON strings require well-formed Unicode.");
+        }
         return value;
       }
     }
-    invalid("Unterminated JSON string.");
+    throw invalid("Unterminated JSON string.");
   }
   function value(depth: number, key?: string): void {
     cap(depth, 8, "Arweave JSON depth");
@@ -324,15 +334,15 @@ function jsonOf(text: string): unknown {
         space();
         const name = string();
         cap(++tokens, 200000, "Arweave JSON keys");
-        if (seen.has(name)) invalid("Duplicate decoded transaction JSON key.");
+        if (seen.has(name)) throw invalid("Duplicate decoded transaction JSON key.");
         seen.add(name);
         space();
-        if (text[at++] !== ":") invalid("Expected JSON colon.");
+        if (text[at++] !== ":") throw invalid("Expected JSON colon.");
         value(depth + 1, depth === 0 ? name : undefined);
         space();
         const end = text[at++];
         if (end === "}") return;
-        if (end !== ",") invalid("Expected JSON object delimiter.");
+        if (end !== ",") throw invalid("Expected JSON object delimiter.");
       }
     }
     if (text[at] === "[") {
@@ -347,7 +357,7 @@ function jsonOf(text: string): unknown {
         space();
         const end = text[at++];
         if (end === "]") return;
-        if (end !== ",") invalid("Expected JSON array delimiter.");
+        if (end !== ",") throw invalid("Expected JSON array delimiter.");
       }
     }
     if (text[at] === '"') {
@@ -356,17 +366,19 @@ function jsonOf(text: string): unknown {
     }
     const start = at;
     while (at < text.length && !/[ \t\r\n,}\]]/.test(text[at]!)) at++;
-    if (at === start) invalid("Missing JSON value.");
-    if (key === "format" && text.slice(start, at) !== "2") unsupported("Only exact format 2 is supported.");
-    if (key === "denomination" && text.slice(start, at) !== "0") unsupported("Only zero denomination is supported.");
+    if (at === start) throw invalid("Missing JSON value.");
+    if (key === "format" && text.slice(start, at) !== "2") throw unsupported("Only exact format 2 is supported.");
+    if (key === "denomination" && text.slice(start, at) !== "0") {
+      throw unsupported("Only zero denomination is supported.");
+    }
   }
   value(0);
   space();
-  if (at !== text.length) invalid("Trailing JSON bytes.");
+  if (at !== text.length) throw invalid("Trailing JSON bytes.");
   try {
     return JSON.parse(text);
   } catch {
-    invalid("Malformed transaction JSON.");
+    throw invalid("Malformed transaction JSON.");
   }
 }
 /** SHA384 deep-hash has fixed shallow shape here; tags remain raw binary and ordered. */
@@ -403,10 +415,10 @@ export async function verifyArweaveTransaction(
 ): Promise<ArweaveTransactionType> {
   options = { ...options };
   if (options.profile !== "rsa4096-pss32-v2") {
-    unsupported("Only the explicit RSA4096-PSS32 format 2 profile is supported.");
+    throw unsupported("Only the explicit RSA4096-PSS32 format 2 profile is supported.");
   }
-  const expectedId = arweaveId(options.expectedId),
-    expectedOwner = options.expectedOwner === undefined ? undefined : arweaveId(options.expectedOwner);
+  const expectedId = parseArweaveId(options.expectedId),
+    expectedOwner = options.expectedOwner === undefined ? undefined : parseArweaveId(options.expectedOwner);
   const subtle = options.subtle;
   const digest = subtle.digest.bind(subtle),
     importKey = subtle.importKey.bind(subtle),
@@ -427,15 +439,17 @@ export async function verifyArweaveTransaction(
   try {
     text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(owned);
   } catch {
-    invalid("Arweave JSON requires strict UTF8.");
+    throw invalid("Arweave JSON requires strict UTF8.");
   }
-  if (text.charCodeAt(0) === 0xfeff) invalid("Arweave JSON BOM is unsupported.");
+  if (text.charCodeAt(0) === 0xfeff) throw invalid("Arweave JSON BOM is unsupported.");
   const json = jsonOf(text);
   if (json !== null && typeof json === "object" && "tags" in json && Array.isArray(json.tags)) {
     cap(json.tags.length, tagsMax, "Arweave tag count");
   }
   const parsed = transactionSchema.safeParse(json);
-  if (!parsed.success) unsupported("Transaction envelope is outside the selected format 2 zero-denomination profile.");
+  if (!parsed.success) {
+    throw unsupported("Transaction envelope is outside the selected format 2 zero-denomination profile.");
+  }
   const tx = parsed.data;
   if (tx.id !== expectedId) {
     throw new ArweaveError("id-mismatch", "Received transaction ID differs from the expected locator.");
@@ -444,16 +458,20 @@ export async function verifyArweaveTransaction(
   decimal(tx.quantity, digitsMax, "Quantity");
   decimal(tx.reward, digitsMax, "Reward");
   decimal(tx.data_size, 16, "Data size");
-  if (!Number.isSafeInteger(Number(tx.data_size))) unsupported("Transaction size exceeds safe address arithmetic.");
+  if (!Number.isSafeInteger(Number(tx.data_size))) {
+    throw unsupported("Transaction size exceeds safe address arithmetic.");
+  }
   const size = Number(tx.data_size);
   const modulus = decoded(tx.owner, 512, "RSA modulus", 512);
-  if (modulus[0]! < 128 || (modulus[511]! & 1) === 0) unsupported("Only a full 4096-bit odd RSA modulus is supported.");
+  if (modulus[0]! < 128 || (modulus[511]! & 1) === 0) {
+    throw unsupported("Only a full 4096-bit odd RSA modulus is supported.");
+  }
   const signature = decoded(tx.signature, 512, "RSA signature", 512);
   const root = decoded(tx.data_root, 32, "Data root", size === 0 ? 0 : 32);
   const target = decoded(tx.target, 32, "Target");
-  if (target.length !== 0 && target.length !== 32) invalid("Target must be absent or 32 bytes.");
+  if (target.length !== 0 && target.length !== 32) throw invalid("Target must be absent or 32 bytes.");
   const anchor = decoded(tx.last_tx, 48, "Anchor");
-  if (![0, 32, 48].includes(anchor.length)) invalid("Anchor extent is outside the selected profile.");
+  if (![0, 32, 48].includes(anchor.length)) throw invalid("Anchor extent is outside the selected profile.");
   let totalTags = 0;
   const pairs: DeepType[] = [];
   const tags: ArweaveTagType[] = [];
@@ -567,7 +585,7 @@ export async function verifyArweaveTransaction(
     async verifyData(input: ByteSourceType, call: ArweaveDataOptionsType): Promise<ArweaveDataType> {
       call = { ...call };
       if (call.chunkProfile !== "arweave-js-1.15.7") {
-        unsupported("An explicit ArweaveJS 1.15.7 chunk profile is required.");
+        throw unsupported("An explicit ArweaveJS 1.15.7 chunk profile is required.");
       }
       const maxData = policy(call.maxDataBytes, 8388608, 16777216, "Arweave full data");
       cap(size, maxData, "Arweave signed payload");
@@ -575,8 +593,8 @@ export async function verifyArweaveTransaction(
       auth.signal?.throwIfAborted();
       const op = meter(auth);
       const { size: inputSize, read } = input;
-      integer(inputSize, "Arweave source size");
-      if (inputSize !== size) invalid("Payload source size differs from signed data_size.");
+      assertInteger(inputSize, "Arweave source size");
+      if (inputSize !== size) throw invalid("Payload source size differs from signed data_size.");
       if (typeof read !== "function") throw new TypeError("Payload source requires read.");
       const readSource = read.bind(input);
       const chunks = chunksOf(size),
@@ -595,9 +613,9 @@ export async function verifyArweaveTransaction(
         const length = Math.min(262144, size - offset),
           chunk = await readSource(offset, length, auth.signal ? { signal: auth.signal } : {});
         auth.signal?.throwIfAborted();
-        if (!isBytes(chunk)) invalid("Payload source returned a non-byte extent.");
+        if (!isBytes(chunk)) throw invalid("Payload source returned a non-byte extent.");
         const admitted = toView(chunk);
-        if (admitted.byteLength !== length) invalid("Payload source returned a different extent.");
+        if (admitted.byteLength !== length) throw invalid("Payload source returned a different extent.");
         bytes.set(admitted, offset);
         offset += length;
       }
@@ -665,7 +683,7 @@ export async function verifyArweaveTransaction(
         async read(offset: number, length: number, next: { readonly signal?: AbortSignal } = {}): Promise<Uint8Array> {
           const { signal: nextSignal } = next, signal = signalOf(auth.signal, nextSignal);
           signal?.throwIfAborted();
-          sourceRange(size, offset, length);
+          assertExtent(size, offset, length);
           const copy = meter(auth);
           copy.reserve("outputBytes", length);
           const result = new Uint8Array(length);

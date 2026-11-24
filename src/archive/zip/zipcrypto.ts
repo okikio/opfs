@@ -1,6 +1,6 @@
 /** Internal legacy ZIP password state. This cipher is obsolete and provides no authentication. @module */
 import { isBytes, toView } from "../../bytes.ts";
-import { ArchiveError, integer } from "../record.ts";
+import { ArchiveError, assertInteger } from "../record.ts";
 
 /** One sequential legacy cipher state; independent reads must never reuse it. */
 export interface ZipCryptoType {
@@ -10,7 +10,7 @@ export interface ZipCryptoType {
 
 /** Bounds and copies caller bytes before any source await; no password encoding is guessed or cached. */
 export function createZipCrypto(password: Uint8Array, maximum = 1024): ZipCryptoType {
-  integer(maximum, "maxPasswordBytes");
+  assertInteger(maximum, "maxPasswordBytes");
   if (!isBytes(password)) throw new TypeError("ZIP password must be explicit byte data.");
   const input = toView(password);
   if (input.byteLength > maximum) throw new ArchiveError("budget-exceeded", "ZIP password exceeds maxPasswordBytes.");

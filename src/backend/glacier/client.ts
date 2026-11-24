@@ -6,7 +6,7 @@ import { aggregate, close } from "../../close.ts";
 import { readResponse } from "../../response.ts";
 import { getRequestPolicy, sendRequest } from "../../request.ts";
 import type { FetchType, RequestPolicyType } from "../../request.ts";
-import { sourceRange } from "../../source.ts";
+import { assertExtent } from "../../source.ts";
 import type { ByteSourceType } from "../../source.ts";
 import { openBytes } from "../../stream.ts";
 
@@ -900,7 +900,7 @@ export class GlacierClient {
       throw new TypeError("Glacier output requires a successfully completed job.");
     }
     const size = outputSize(snapshot);
-    sourceRange(size, offset, length);
+    assertExtent(size, offset, length);
     if (length > this.#max) throw new RangeError("Output extent exceeds the configured materialization ceiling.");
     const expected = expectedInput === undefined ? undefined : HashSchema.parse(expectedInput);
     requestOptions.signal?.throwIfAborted();

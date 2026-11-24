@@ -1,6 +1,6 @@
 /** Bounded physical MIME indexing and explicit transfer-decoded previews. @module */
 import type { ByteSourceType } from "../source.ts";
-import { ArchiveBudget, ArchiveError, integer, invalid, unsupported } from "./record.ts";
+import { ArchiveBudget, ArchiveError, assertInteger, invalid, unsupported } from "./record.ts";
 import type { ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
 export { ArchiveError, createArchiveLedger } from "./record.ts";
 export type { ArchiveErrorCodeType, ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
@@ -124,7 +124,7 @@ export async function openMime(input: ByteSourceType, options: MimeOpenOptionsTy
     read: input.read.bind(input),
   };
   if (!source.stability && !options.allowUnverifiedSource) {
-    unsupported("MIME indexing requires source stability or explicit acceptance.");
+    throw unsupported("MIME indexing requires source stability or explicit acceptance.");
   }
   const policy = {
     parts: options.maxParts ?? 1000,
@@ -136,8 +136,8 @@ export async function openMime(input: ByteSourceType, options: MimeOpenOptionsTy
     padding: options.maxBoundaryPadding ?? 256,
     chunk: options.maxChunkBytes ?? 4096,
   };
-  for (const [name, value] of Object.entries(policy)) integer(value, name);
-  integer(policy.padding + 74, "Boundary candidate extent");
+  for (const [name, value] of Object.entries(policy)) assertInteger(value, name);
+  assertInteger(policy.padding + 74, "Boundary candidate extent");
   if (policy.chunk < 1 || policy.chunk > 65536) throw new RangeError("MIME chunk ceiling must be 1..65536 bytes.");
   const budget = new ArchiveBudget(source, options, options.signal);
   const wire = new MimeCursor(source.size, 0, budget, policy.chunk, true);
@@ -153,30 +153,32 @@ export async function openMime(input: ByteSourceType, options: MimeOpenOptionsTy
       const allowance = Math.min(policy.header - (wire.offset - start), policy.metadata - metadata);
       const line = await wire.line(policy.line, allowance, true);
       metadata += line.length + 2;
-      if (!line.crlf) invalid("MIME headers require a blank CRLF line before the body.");
+      if (!line.crlf) throw invalid("MIME headers require a blank CRLF line before the body.");
       let value: string;
       if (!options.utf8Headers && line.bytes.some((byte) => byte > 127)) {
-        unsupported("Non-ASCII mail headers require utf8Headers.");
+        throw unsupported("Non-ASCII mail headers require utf8Headers.");
       }
       try {
         value = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(line.bytes);
       } catch {
-        invalid("Invalid UTF8 MIME header.");
+        throw invalid("Invalid UTF8 MIME header.");
       }
-      if (line.bytes.some((byte) => (byte < 32 && byte !== 9) || byte === 127)) invalid("Control byte in MIME header.");
+      if (line.bytes.some((byte) => (byte < 32 && byte !== 9) || byte === 127)) {
+        throw invalid("Control byte in MIME header.");
+      }
       if (!value) break;
       if (/^[ \t]/.test(value)) {
         const previous = fields.at(-1);
-        if (!previous) invalid("MIME folded header has no preceding field.");
+        if (!previous) throw invalid("MIME folded header has no preceding field.");
         previous.value += value;
         continue;
       }
       cap(fields.length + 1, policy.fields, "MIME field count");
       const colon = value.indexOf(":");
       const name = value.slice(0, colon);
-      if (colon < 1 || !/^[\x21-\x39\x3b-\x7e]+$/.test(name)) invalid("Invalid MIME field name.");
+      if (colon < 1 || !/^[\x21-\x39\x3b-\x7e]+$/.test(name)) throw invalid("Invalid MIME field name.");
       const lower = name.toLowerCase();
-      if (interpreted.has(lower) && seen.has(lower)) invalid("Ambiguous duplicate MIME interpretation field.");
+      if (interpreted.has(lower) && seen.has(lower)) throw invalid("Ambiguous duplicate MIME interpretation field.");
       seen.add(lower);
       fields.push({ name, value: value.slice(colon + 1) });
     }
@@ -184,7 +186,7 @@ export async function openMime(input: ByteSourceType, options: MimeOpenOptionsTy
       fields.find((field) => field.name.toLowerCase() === name)?.value.replace(/^[ \t]+|[ \t]+$/g, "");
     const version = get("mime-version");
     if (version && version !== "1.0") {
-      unsupported("Only literal MIME-Version 1.0 is supported; comments/obsolete syntax are not interpreted.");
+      throw unsupported("Only literal MIME-Version 1.0 is supported; comments/obsolete syntax are not interpreted.");
     }
     const fallback = parent?.part.entry.type === "multipart/digest" ? "message/rfc822" : "text/plain";
     const media = parseMedia(get("content-type") ?? fallback, true);
@@ -195,16 +197,16 @@ export async function openMime(input: ByteSourceType, options: MimeOpenOptionsTy
       naming ? "filename" : "name",
     );
     const encoding = (get("content-transfer-encoding") ?? "7bit").toLowerCase();
-    if (!mimeToken.test(encoding)) unsupported("Unsupported MIME transfer encoding syntax.");
+    if (!mimeToken.test(encoding)) throw unsupported("Unsupported MIME transfer encoding syntax.");
     const boundary = media.value.startsWith("multipart/")
       ? media.parameters.find((parameter) => parameter.name === "boundary")?.value
       : undefined;
     if (media.value.startsWith("multipart/")) {
       if (!boundary || !/^[0-9A-Za-z'()+_,\-./:=? ]{1,70}$/.test(boundary) || boundary.endsWith(" ")) {
-        invalid("Invalid MIME multipart boundary.");
+        throw invalid("Invalid MIME multipart boundary.");
       }
       if (!["7bit", "8bit", "binary"].includes(encoding)) {
-        unsupported("Multipart transfer encoding cannot be base64 or quoted-printable.");
+        throw unsupported("Multipart transfer encoding cannot be base64 or quoted-printable.");
       }
     }
     let protection = parent?.part.entry.protection ?? "none";
@@ -267,11 +269,13 @@ export async function openMime(input: ByteSourceType, options: MimeOpenOptionsTy
         break;
       }
       if (matched < 0) continue;
-      if (matched !== stack.length - 1) invalid("Outer MIME boundary encountered before nested multipart closed.");
+      if (matched !== stack.length - 1) {
+        throw invalid("Outer MIME boundary encountered before nested multipart closed.");
+      }
       const state = stack[matched]!;
       if (state.child) state.child.end = Math.max(state.child.entry.offset, line.start - 2);
       if (closing) {
-        if (!state.children) invalid("MIME multipart contains no parts.");
+        if (!state.children) throw invalid("MIME multipart contains no parts.");
         stack.pop();
         if (!stack.length) {
           // Epilogue remains inert but is scanned/charged under the same finite work budget.
@@ -279,7 +283,7 @@ export async function openMime(input: ByteSourceType, options: MimeOpenOptionsTy
           break;
         }
       } else {
-        if (!line.crlf) invalid("MIME opening boundary requires CRLF before part headers.");
+        if (!line.crlf) throw invalid("MIME opening boundary requires CRLF before part headers.");
         const child = await part(state, stack.length);
         state.child = child;
         state.children++;
@@ -289,22 +293,22 @@ export async function openMime(input: ByteSourceType, options: MimeOpenOptionsTy
               ancestor.part.boundary!.startsWith(child.boundary!) || child.boundary!.startsWith(ancestor.part.boundary!)
             )
           ) {
-            unsupported("Prefix-colliding ancestor MIME boundaries are unsupported.");
+            throw unsupported("Prefix-colliding ancestor MIME boundaries are unsupported.");
           }
           stack.push({ part: child, child: undefined, children: 0 });
         }
       }
     }
-    if (stack.length) invalid("MIME multipart is missing its closing boundary.");
+    if (stack.length) throw invalid("MIME multipart is missing its closing boundary.");
   }
   const entries = Object.freeze(
     pending.map((record) => Object.freeze({ ...record.entry, size: record.end - record.entry.offset })),
   );
   function at(id: number, decode = false): MimeEntryType {
-    integer(id, "MIME ordinal");
+    assertInteger(id, "MIME ordinal");
     const entry = entries[id];
     if (!entry) throw new RangeError("MIME ordinal does not exist.");
-    if (decode && entry.type.startsWith("multipart/")) unsupported("Select a leaf MIME part for decoded reads.");
+    if (decode && entry.type.startsWith("multipart/")) throw unsupported("Select a leaf MIME part for decoded reads.");
     return entry;
   }
   async function raw(id: number, readOptions: MimeReadOptionsType, headers: boolean): Promise<MimeReadType> {
@@ -312,8 +316,8 @@ export async function openMime(input: ByteSourceType, options: MimeOpenOptionsTy
     const size = headers ? entry.headerSize : entry.size;
     const start = readOptions.offset ?? 0;
     const length = readOptions.length ?? size - start;
-    integer(start, "Raw offset");
-    integer(length, "Raw length");
+    assertInteger(start, "Raw offset");
+    assertInteger(length, "Raw length");
     if (start > size || length > size - start) throw new RangeError("MIME raw range exceeds its extent.");
     const work = new ArchiveBudget(source, readOptions, readOptions.signal);
     work.output(length);
@@ -324,11 +328,11 @@ export async function openMime(input: ByteSourceType, options: MimeOpenOptionsTy
   async function read(id: number, readOptions: MimeReadOptionsType, maximum?: number): Promise<MimeReadType> {
     const entry = at(id, true);
     if (!["7bit", "8bit", "binary", "base64", "quoted-printable"].includes(entry.encoding)) {
-      unsupported("Unknown MIME transfer encoding; use readRaw for opaque bytes.");
+      throw unsupported("Unknown MIME transfer encoding; use readRaw for opaque bytes.");
     }
     const start = readOptions.offset ?? 0;
-    integer(start, "Decoded offset");
-    if (readOptions.length !== undefined) integer(readOptions.length, "Decoded length");
+    assertInteger(start, "Decoded offset");
+    if (readOptions.length !== undefined) assertInteger(readOptions.length, "Decoded length");
     const work = new ArchiveBudget(source, readOptions, readOptions.signal);
     readOptions.signal?.throwIfAborted();
     // Zero prefix means no examination, even for empty wire parts or high offsets.
@@ -356,7 +360,7 @@ export async function openMime(input: ByteSourceType, options: MimeOpenOptionsTy
         output += length;
       }
       total += chunk.length;
-      if (!Number.isSafeInteger(total)) invalid("Decoded MIME extent exceeds safe arithmetic.");
+      if (!Number.isSafeInteger(total)) throw invalid("Decoded MIME extent exceeds safe arithmetic.");
       if (maximum !== undefined && output >= maximum) {
         complete = false;
         break;
@@ -383,7 +387,7 @@ export async function openMime(input: ByteSourceType, options: MimeOpenOptionsTy
     }),
     read: (id: number, readOptions: MimeReadOptionsType = {}) => read(id, readOptions),
     prefix(id: number, maximum: number, readOptions: MimePrefixOptionsType = {}): Promise<MimeReadType> {
-      integer(maximum, "Prefix byte limit");
+      assertInteger(maximum, "Prefix byte limit");
       return read(id, readOptions, maximum);
     },
     readRaw: (id: number, readOptions: MimeReadOptionsType = {}) => raw(id, readOptions, false),
@@ -401,24 +405,24 @@ function parseMedia(value: string, media: boolean): MediaType {
   function token(): string {
     const start = index;
     while (index < value.length && mimeToken.test(value[index]!)) index++;
-    if (index === start) unsupported("Unsupported MIME parameter syntax, including comments/obsolete forms.");
+    if (index === start) throw unsupported("Unsupported MIME parameter syntax, including comments/obsolete forms.");
     return value.slice(start, index);
   }
   skip();
   let kind = token().toLowerCase();
   if (media) {
-    if (value[index++] !== "/") invalid("Invalid MIME media type.");
+    if (value[index++] !== "/") throw invalid("Invalid MIME media type.");
     kind += `/${token().toLowerCase()}`;
   }
   const parameters: ParameterType[] = [];
   const seen = new Set<string>();
   skip();
   while (index < value.length) {
-    if (value[index++] !== ";") unsupported("Unsupported MIME parameter separator/comment.");
+    if (value[index++] !== ";") throw unsupported("Unsupported MIME parameter separator/comment.");
     skip();
     const name = token().toLowerCase();
     skip();
-    if (value[index++] !== "=") invalid("MIME parameter requires equals.");
+    if (value[index++] !== "=") throw invalid("MIME parameter requires equals.");
     skip();
     let parameter = "";
     if (value[index] === '"') {
@@ -431,13 +435,13 @@ function parseMedia(value: string, media: boolean): MediaType {
           break;
         }
         if (character === "\\") {
-          if (index === value.length) invalid("Unclosed MIME quoted pair.");
+          if (index === value.length) throw invalid("Unclosed MIME quoted pair.");
           parameter += value[index++]!;
         } else parameter += character;
       }
-      if (!closed) invalid("Unclosed MIME quoted string.");
+      if (!closed) throw invalid("Unclosed MIME quoted string.");
     } else parameter = token();
-    if (seen.has(name)) invalid("Duplicate MIME parameter.");
+    if (seen.has(name)) throw invalid("Duplicate MIME parameter.");
     seen.add(name);
     parameters.push({ name, value: parameter });
     skip();
@@ -572,7 +576,7 @@ async function* decodePart(
   if (["7bit", "8bit", "binary"].includes(entry.encoding)) {
     let byte: number | undefined;
     while ((byte = await cursor.next()) !== undefined) {
-      if (entry.encoding === "7bit" && byte > 127) invalid("Non-ASCII byte in 7bit MIME transfer encoding.");
+      if (entry.encoding === "7bit" && byte > 127) throw invalid("Non-ASCII byte in 7bit MIME transfer encoding.");
       push(byte);
       if (output.length >= outputMaximum) {
         yield new Uint8Array(output);
@@ -587,14 +591,14 @@ async function* decodePart(
     while ((byte = await cursor.next()) !== undefined) {
       if (byte === 32 || byte === 9 || byte === 13 || byte === 10) continue;
       const digit = byte === 61 ? 64 : alphabet.indexOf(String.fromCharCode(byte));
-      if (digit < 0 || ended) invalid("Invalid strict MIME Base64 alphabet or suffix.");
+      if (digit < 0 || ended) throw invalid("Invalid strict MIME Base64 alphabet or suffix.");
       quartet.push(digit);
       if (quartet.length === 4) {
         const [a, b, c, d] = quartet as [number, number, number, number];
         if (
           a === 64 || b === 64 || (c === 64 && d !== 64) || (c === 64 && (b & 15) !== 0) ||
           (d === 64 && c !== 64 && (c & 3) !== 0)
-        ) invalid("Invalid MIME Base64 padding or unused bits.");
+        ) throw invalid("Invalid MIME Base64 padding or unused bits.");
         push((a << 2) | (b >> 4));
         if (c !== 64) push(((b & 15) << 4) | (c >> 2));
         if (d !== 64) push(((c & 3) << 6) | d);
@@ -606,7 +610,7 @@ async function* decodePart(
         }
       }
     }
-    if (quartet.length) invalid("Incomplete MIME Base64 quantum.");
+    if (quartet.length) throw invalid("Incomplete MIME Base64 quantum.");
   } else {
     let byte: number | undefined;
     let whitespace: number[] = [];
@@ -618,7 +622,7 @@ async function* decodePart(
         continue;
       }
       if (byte === 13) {
-        if (await cursor.next() !== 10) invalid("Quoted-printable requires CRLF line breaks.");
+        if (await cursor.next() !== 10) throw invalid("Quoted-printable requires CRLF line breaks.");
         whitespace = [];
         line = 0;
         push(13);
@@ -633,11 +637,11 @@ async function* decodePart(
           else {
             cap(line += 2, 76, "Quoted-printable encoded line");
             const pair = String.fromCharCode(a ?? 0, b ?? 0);
-            if (!/^[0-9A-F]{2}$/.test(pair)) invalid("Invalid strict quoted-printable escape.");
+            if (!/^[0-9A-F]{2}$/.test(pair)) throw invalid("Invalid strict quoted-printable escape.");
             push(parseInt(pair, 16));
           }
         } else {
-          if (byte < 33 || byte > 126) invalid("Invalid quoted-printable literal byte.");
+          if (byte < 33 || byte > 126) throw invalid("Invalid quoted-printable literal byte.");
           push(byte);
         }
       }

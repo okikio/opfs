@@ -5,7 +5,7 @@ import { close } from "../../close.ts";
 import { readResponse } from "../../response.ts";
 import { RequestMetrics, sendRequest } from "../../request.ts";
 import type { FetchType, RequestPolicyType } from "../../request.ts";
-import { assertRangeResponse, range } from "../../range.ts";
+import { assertRangeResponse, resolveRange } from "../../range.ts";
 import { openBytes, withAbortSignal } from "../../stream.ts";
 
 /** Implementation ceiling for each copied upload or materialized read; streams have no whole-file allocation. */
@@ -601,7 +601,7 @@ export class FirebaseClient {
   /** Exact authenticated media read. Equal-size overwrites between metadata and content remain possible. */
   async download(selected: string, options: FirebaseReadOptionsType = {}): Promise<FirebaseDownloadType> {
     selected = name(selected);
-    const chosen = range(options);
+    const chosen = resolveRange(options);
     if (chosen.empty) throw new RangeError("Use read() for a local zero-length selection.");
     const info = await this.stat(selected, chosen.signal);
     const target = this.#url(selected);
@@ -647,7 +647,7 @@ export class FirebaseClient {
   /** Bounded materialized selection; zero length does not acquire credentials or prove existence. */
   async read(selected: string, options: FirebaseReadOptionsType = {}): Promise<Uint8Array<ArrayBuffer>> {
     selected = name(selected);
-    const chosen = range(options);
+    const chosen = resolveRange(options);
     if (chosen.empty) return new Uint8Array();
     // Avoid opening a body before the local materialization limit is known.
     const info = await this.stat(selected, chosen.signal);

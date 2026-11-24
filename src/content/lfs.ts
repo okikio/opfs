@@ -7,7 +7,7 @@ import { readResponse } from "../response.ts";
 import { RequestMetrics, sendRequest } from "../request.ts";
 import type { FetchType, RequestPolicyType } from "../request.ts";
 import { collectBytes, openBytes, withAbortSignal } from "../stream.ts";
-import { sourceRange } from "../source.ts";
+import { assertExtent } from "../source.ts";
 import type { ByteSourceType } from "../source.ts";
 
 /** Implementation ceiling for whole-object SHA-256 verification and copied uploads. */
@@ -172,8 +172,20 @@ export function encodeLfsPointer(value: LfsPointerType): Uint8Array<ArrayBuffer>
   decodeLfsPointer(bytes);
   return bytes;
 }
-/** No implicit extension transforms are applied when turning a pointer into a stored-object request. */
-export function lfsPointerObject(value: LfsPointerType): LfsObjectType {
+/**
+ * Converts a decoded LFS pointer into the object request (`oid` and `size`) a Git LFS server understands.
+ *
+ * Call it between decoding a pointer file and asking `LfsClient` for the object:
+ *
+ * ```ts
+ * const object = toLfsObject(decodeLfsPointer(bytes));
+ * ```
+ *
+ * Throws `TypeError` for an empty pass-through file, which has no remote object, and for a pointer with
+ * extension fields: extensions change the stored bytes, so the caller must interpret them explicitly. No
+ * extension program is discovered or run.
+ */
+export function toLfsObject(value: LfsPointerType): LfsObjectType {
   if (value.kind === "empty") throw new TypeError("An empty pass-through file has no remote pointer request.");
   if (value.fields.length) throw new TypeError("Pointer extensions require explicit interpretation before retrieval.");
   return object(value);
@@ -712,7 +724,7 @@ export class LfsClient {
         options: { readonly signal?: AbortSignal } = {},
       ): Promise<Uint8Array<ArrayBuffer>> {
         options.signal?.throwIfAborted();
-        sourceRange(size, offset, length);
+        assertExtent(size, offset, length);
         return bytes.slice(offset, offset + length);
       },
     });

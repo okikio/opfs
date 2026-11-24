@@ -3,11 +3,11 @@ import type { ByteSourceType } from "../source.ts";
 import {
   ArchiveBudget,
   ArchiveError,
+  assertInteger,
   createArchiveLedger,
-  integer,
+  createView,
   invalid,
   unsupported,
-  view,
 } from "../archive/record.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
 import { crc32 } from "../hash.ts";
@@ -148,7 +148,7 @@ function limit(label: string): never {
 /** Sizes and offsets are nonnegative exact integers. Signed values remain bigint until admitted. */
 function exact(value: bigint, label: string): number {
   if (value < 0n || value > BigInt(Number.MAX_SAFE_INTEGER)) {
-    invalid(`Parquet ${label} is outside exact nonnegative integers.`);
+    throw invalid(`Parquet ${label} is outside exact nonnegative integers.`);
   }
   return Number(value);
 }
@@ -179,37 +179,37 @@ class Compact {
       this.meter.step();
       const byte = this.byte();
       value |= BigInt(byte & 127) << BigInt(shift);
-      if (value >= 1n << BigInt(bits)) invalid("Parquet Compact integer exceeds its declared width.");
+      if (value >= 1n << BigInt(bits)) throw invalid("Parquet Compact integer exceeds its declared width.");
       if (byte < 128) return value;
     }
-    invalid("Parquet Compact varint has no terminator within its width.");
+    throw invalid("Parquet Compact varint has no terminator within its width.");
   }
   signed(bits: number): bigint {
     const value = this.uint(bits);
     return (value >> 1n) ^ -(value & 1n);
   }
   type(actual: number, expected: number): void {
-    if (actual !== expected) invalid("Parquet Compact field type mismatch.");
+    if (actual !== expected) throw invalid("Parquet Compact field type mismatch.");
   }
   number(type: number, bits = 32): number {
     this.type(type, bits === 64 ? 6 : bits === 16 ? 4 : 5);
     return exact(this.signed(bits), "integer field");
   }
   bool(type: number): boolean {
-    if (type !== 1 && type !== 2) invalid("Parquet Compact boolean field type mismatch.");
+    if (type !== 1 && type !== 2) throw invalid("Parquet Compact boolean field type mismatch.");
     return type === 1;
   }
   text(type: number, retain = true): string {
     this.type(type, 8);
     const length = Number(this.uint());
-    if (length > 0x7fffffff) invalid("Parquet Compact binary length exceeds signed int32.");
+    if (length > 0x7fffffff) throw invalid("Parquet Compact binary length exceeds signed int32.");
     if (length > this.meter.policy.string) limit("String byte");
     if (retain) this.meter.retain(length * 2);
     const bytes = this.take(length);
     try {
       return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
     } catch {
-      invalid("Parquet metadata string is not UTF-8.");
+      throw invalid("Parquet metadata string is not UTF-8.");
     }
   }
   nest<T>(body: () => T): T {
@@ -229,10 +229,12 @@ class Compact {
         const header = this.byte();
         if (header === 0) return;
         const type = header & 15;
-        if (type === 0 || type > 13) invalid("Parquet Compact field type is invalid.");
+        if (type === 0 || type > 13) throw invalid("Parquet Compact field type is invalid.");
         const delta = header >>> 4;
         const id = delta === 0 ? Number(this.signed(16)) : previous + delta;
-        if (id < -32768 || id > 32767 || seen.has(id)) invalid("Parquet Compact field ID is invalid or repeated.");
+        if (id < -32768 || id > 32767 || seen.has(id)) {
+          throw invalid("Parquet Compact field ID is invalid or repeated.");
+        }
         this.meter.retain(16);
         seen.add(id);
         observe?.();
@@ -248,8 +250,8 @@ class Compact {
     return this.nest(() => {
       const header = this.byte(), tag = header & 15;
       const count = header >>> 4 === 15 ? Number(this.uint()) : header >>> 4;
-      if (count > 0x7fffffff) invalid("Parquet Compact list size exceeds signed int32.");
-      if (tag !== element) invalid("Parquet Compact list element type mismatch.");
+      if (count > 0x7fffffff) throw invalid("Parquet Compact list size exceeds signed int32.");
+      if (tag !== element) throw invalid("Parquet Compact list element type mismatch.");
       if (count > maximum) limit("Collection count");
       this.meter.step(count);
       const output: T[] = [];
@@ -263,14 +265,14 @@ class Compact {
     if (type === 1 || type === 2) {
       if (!field) {
         const value = this.byte();
-        if (value !== 1 && value !== 2) invalid("Parquet Compact collection boolean is invalid.");
+        if (value !== 1 && value !== 2) throw invalid("Parquet Compact collection boolean is invalid.");
       }
     } else if (type === 3) this.take(1);
     else if (type >= 4 && type <= 6) this.signed(type === 4 ? 16 : type === 5 ? 32 : 64);
     else if (type === 7) this.take(8);
     else if (type === 8) {
       const count = Number(this.uint());
-      if (count > 0x7fffffff) invalid("Parquet Compact binary length exceeds signed int32.");
+      if (count > 0x7fffffff) throw invalid("Parquet Compact binary length exceeds signed int32.");
       if (count > this.meter.policy.string) limit("String byte");
       this.take(count);
     } else if (type === 9 || type === 10) {
@@ -278,7 +280,7 @@ class Compact {
         const header = this.byte(), element = header & 15;
         const count = header >>> 4 === 15 ? Number(this.uint()) : header >>> 4;
         if (count > 0x7fffffff || element < 1 || element > 13) {
-          invalid("Parquet Compact unknown collection is invalid.");
+          throw invalid("Parquet Compact unknown collection is invalid.");
         }
         this.meter.step(count);
         for (let i = 0; i < count; i++) this.skip(element);
@@ -286,11 +288,11 @@ class Compact {
     } else if (type === 11) {
       this.nest(() => {
         const count = Number(this.uint());
-        if (count > 0x7fffffff) invalid("Parquet Compact map size exceeds signed int32.");
+        if (count > 0x7fffffff) throw invalid("Parquet Compact map size exceeds signed int32.");
         this.meter.step(count * 2);
         if (count !== 0) {
           const header = this.byte(), key = header >>> 4, value = header & 15;
-          if (key < 1 || key > 13 || value < 1 || value > 13) invalid("Parquet Compact map type is invalid.");
+          if (key < 1 || key > 13 || value < 1 || value > 13) throw invalid("Parquet Compact map type is invalid.");
           for (let i = 0; i < count; i++) {
             this.skip(key);
             this.skip(value);
@@ -299,7 +301,7 @@ class Compact {
       });
     } else if (type === 12) this.fields({});
     else if (type === 13) this.take(16);
-    else invalid("Parquet Compact value type is invalid.");
+    else throw invalid("Parquet Compact value type is invalid.");
   }
 }
 
@@ -330,7 +332,7 @@ interface GroupType {
 }
 
 function required<T>(value: T | undefined, name: string): T {
-  if (value === undefined) invalid(`Parquet required ${name} field is absent.`);
+  if (value === undefined) throw invalid(`Parquet required ${name} field is absent.`);
   return value;
 }
 
@@ -352,13 +354,13 @@ function logical(cursor: Compact): { width: number; signed: boolean } | undefine
         },
       });
       const bits = required(width, "integer annotation bitWidth");
-      if (![8, 16, 32, 64].includes(bits)) invalid("Parquet integer annotation width is invalid.");
+      if (![8, 16, 32, 64].includes(bits)) throw invalid("Parquet integer annotation width is invalid.");
       result = { width: bits, signed: required(signed, "integer annotation isSigned") };
     },
   }, () => {
     count++;
   });
-  if (count !== 1) invalid("Parquet LogicalType union must contain exactly one member.");
+  if (count !== 1) throw invalid("Parquet LogicalType union must contain exactly one member.");
   return result;
 }
 
@@ -414,7 +416,7 @@ function schema(cursor: Compact): SchemaType {
     legacyInteger && integerType &&
     (legacyInteger.width !== integerType.width || legacyInteger.signed !== integerType.signed)
   ) {
-    invalid("Parquet integer annotations disagree.");
+    throw invalid("Parquet integer annotations disagree.");
   }
   if (converted !== undefined && legacyWidth === undefined) annotated = true;
   if (
@@ -439,7 +441,7 @@ function chunk(cursor: Compact): ChunkType {
   let fileOffset: number | undefined;
   cursor.fields({
     1: (t) => {
-      if (cursor.text(t) !== "") unsupported("Parquet external column files are unsupported.");
+      if (cursor.text(t) !== "") throw unsupported("Parquet external column files are unsupported.");
     },
     2: (t) => {
       fileOffset = cursor.number(t, 64);
@@ -500,8 +502,12 @@ function chunk(cursor: Compact): ChunkType {
         end: exact(BigInt(start) + BigInt(required(stored, "stored chunk size")), "chunk end"),
       };
     },
-    8: () => unsupported("Parquet encrypted column metadata is unsupported."),
-    9: () => unsupported("Parquet encrypted columns are unsupported."),
+    8: () => {
+      throw unsupported("Parquet encrypted column metadata is unsupported.");
+    },
+    9: () => {
+      throw unsupported("Parquet encrypted columns are unsupported.");
+    },
   });
   required(fileOffset, "column file offset");
   return required(metadata, "inline column metadata");
@@ -524,7 +530,7 @@ function group(cursor: Compact, maximum: number): GroupType {
   const columns = required(chunks, "row group columns");
   const expected = columns.reduce((sum, column) => sum + BigInt(column.uncompressed), 0n);
   if (BigInt(required(total, "row group byte size")) !== expected) {
-    invalid("Parquet row group byte size disagrees with its columns.");
+    throw invalid("Parquet row group byte size disagrees with its columns.");
   }
   return { rows: required(rows, "row group rows"), chunks: columns };
 }
@@ -590,8 +596,12 @@ function page(cursor: Compact, offset: number): PageType {
         repetition: required(repetition, "repetition encoding"),
       };
     },
-    6: () => unsupported("Parquet index pages are unsupported in the selected column."),
-    7: () => unsupported("Parquet dictionary pages are unsupported in the selected column."),
+    6: () => {
+      throw unsupported("Parquet index pages are unsupported in the selected column.");
+    },
+    7: () => {
+      throw unsupported("Parquet dictionary pages are unsupported in the selected column.");
+    },
     8: (t) => {
       cursor.type(t, 12);
       let count: number | undefined, rows: number | undefined, nulls: number | undefined, encoding: number | undefined;
@@ -620,7 +630,9 @@ function page(cursor: Compact, offset: number): PageType {
         },
       });
       const size = required(rows, "v2 page rows");
-      if (required(count, "v2 page value count") !== size) invalid("Parquet flat page row/value counts disagree.");
+      if (required(count, "v2 page value count") !== size) {
+        throw invalid("Parquet flat page row/value counts disagree.");
+      }
       v2 = {
         version: 2,
         rows: size,
@@ -629,13 +641,13 @@ function page(cursor: Compact, offset: number): PageType {
         definition: required(definition, "v2 definition length"),
         repetition: required(repetition, "v2 repetition length"),
       };
-      if (v2.nulls! > size) invalid("Parquet v2 null count exceeds rows.");
+      if (v2.nulls! > size) throw invalid("Parquet v2 null count exceeds rows.");
     },
   });
   const kind = required(type, "page type");
-  if (kind !== 0 && kind !== 3) unsupported("Parquet selected column has an unsupported page type.");
+  if (kind !== 0 && kind !== 3) throw unsupported("Parquet selected column has an unsupported page type.");
   if ((kind === 0 && (!v1 || v2)) || (kind === 3 && (!v2 || v1))) {
-    invalid("Parquet page-specific headers contradict its type.");
+    throw invalid("Parquet page-specific headers contradict its type.");
   }
   return {
     ...required(kind === 0 ? v1 : v2, "data page header"),
@@ -658,12 +670,12 @@ function levels(bytes: Uint8Array, count: number, visit: (row: number, valid: bo
   while (row < count) {
     meter.step();
     const header = Number(cursor.uint());
-    if (header < 2) invalid("Parquet definition run is empty.");
+    if (header < 2) throw invalid("Parquet definition run is empty.");
     const packed = (header & 1) !== 0;
     const length = packed ? (header >>> 1) * 8 : header >>> 1;
-    if (length > 0x7fffffff) invalid("Parquet definition run exceeds signed int32.");
+    if (length > 0x7fffffff) throw invalid("Parquet definition run exceeds signed int32.");
     if (length > count - row && (!packed || length - (count - row) > 7)) {
-      invalid("Parquet definition run exceeds page values.");
+      throw invalid("Parquet definition run exceeds page values.");
     }
     if (packed) {
       const payload = cursor.take(length / 8);
@@ -676,7 +688,7 @@ function levels(bytes: Uint8Array, count: number, visit: (row: number, valid: bo
       }
     } else {
       const value = cursor.byte();
-      if (value > 1) invalid("Parquet definition level exceeds flat optional depth.");
+      if (value > 1) throw invalid("Parquet definition level exceeds flat optional depth.");
       for (let i = 0; i < length; i++) {
         meter.step();
         visit(row++, value === 1);
@@ -684,7 +696,7 @@ function levels(bytes: Uint8Array, count: number, visit: (row: number, valid: bo
       if (value === 1) present += length;
     }
   }
-  if (cursor.at !== bytes.length) invalid("Parquet definition levels contain trailing runs.");
+  if (cursor.at !== bytes.length) throw invalid("Parquet definition levels contain trailing runs.");
   return present;
 }
 
@@ -699,7 +711,7 @@ function values(physical: number, count: number): ParquetValuesType {
   if (physical === 2) return new BigInt64Array(count);
   if (physical === 4) return new Float32Array(count);
   if (physical === 5) return new Float64Array(count);
-  unsupported("Parquet physical type is outside the numeric profile.");
+  throw unsupported("Parquet physical type is outside the numeric profile.");
 }
 
 /** Open bounded metadata, then preview selected physical numeric values.
@@ -716,7 +728,7 @@ export async function openParquet(
     throw new TypeError("Parquet unverified-source policy must be boolean.");
   }
   const { size, identity, stability } = input;
-  integer(size, "Parquet source size");
+  assertInteger(size, "Parquet source size");
   if (identity !== undefined && (typeof identity !== "string" || identity.length > 8192)) {
     throw new TypeError("Parquet identity must be a bounded string.");
   }
@@ -724,7 +736,7 @@ export async function openParquet(
     throw new TypeError("Unknown Parquet source stability.");
   }
   if (stability === undefined && !options.allowUnverifiedSource) {
-    unsupported("Parquet requires stable replay evidence.");
+    throw unsupported("Parquet requires stable replay evidence.");
   }
   const readSource = input.read.bind(input);
   const source: ByteSourceType = Object.freeze({
@@ -746,7 +758,7 @@ export async function openParquet(
     pages: options.maxPages ?? 65536,
     rows: options.maxRows ?? 1048576,
   };
-  for (const [name, count] of Object.entries(policy)) integer(count, `Parquet maximum ${name}`);
+  for (const [name, count] of Object.entries(policy)) assertInteger(count, `Parquet maximum ${name}`);
   const captured = new WeakMap<ArchiveLedgerType, ArchiveLedgerType>();
   const capture = (owner: ArchiveLedgerType | undefined): ArchiveLedgerType | undefined => {
     if (!owner) return undefined;
@@ -781,16 +793,18 @@ export async function openParquet(
     options.signal?.throwIfAborted();
     return (await budget.read(offset, length)).slice();
   };
-  if (size < 12) invalid("Parquet file is too short.");
+  if (size < 12) throw invalid("Parquet file is too short.");
   const tail = await metadata(size - 8, 8);
-  const magic = view(tail).getUint32(4, true);
-  if (magic === 0x45524150) unsupported("Parquet encrypted footers are unsupported.");
-  if (magic !== 0x31524150) invalid("Parquet footer magic mismatch.");
-  const footerLength = view(tail).getUint32(0, true);
+  const magic = createView(tail).getUint32(4, true);
+  if (magic === 0x45524150) throw unsupported("Parquet encrypted footers are unsupported.");
+  if (magic !== 0x31524150) throw invalid("Parquet footer magic mismatch.");
+  const footerLength = createView(tail).getUint32(0, true);
   if (footerLength > policy.footer) limit("Footer byte");
-  if (footerLength > size - 12) invalid("Parquet footer overlaps its leading magic.");
+  if (footerLength > size - 12) throw invalid("Parquet footer overlaps its leading magic.");
   const footerOffset = size - 8 - footerLength;
-  if (view(await metadata(0, 4)).getUint32(0, true) !== 0x31524150) invalid("Parquet leading magic mismatch.");
+  if (createView(await metadata(0, 4)).getUint32(0, true) !== 0x31524150) {
+    throw invalid("Parquet leading magic mismatch.");
+  }
   const footer = new Compact(await metadata(footerOffset, footerLength), meter);
   let version: number | undefined,
     schemaList: SchemaType[] | undefined,
@@ -810,23 +824,27 @@ export async function openParquet(
       4: (t) => {
         groups = footer.list(t, 12, policy.groups, () => group(footer, policy.columns));
       },
-      8: () => unsupported("Parquet footer encryption is unsupported."),
-      9: () => unsupported("Parquet signed/encrypted footer metadata is unsupported."),
+      8: () => {
+        throw unsupported("Parquet footer encryption is unsupported.");
+      },
+      9: () => {
+        throw unsupported("Parquet signed/encrypted footer metadata is unsupported.");
+      },
     });
   } catch (error) {
-    if (error instanceof NeedMore) invalid("Parquet footer is truncated.");
+    if (error instanceof NeedMore) throw invalid("Parquet footer is truncated.");
     throw error;
   }
-  if (footer.at !== footerLength) invalid("Parquet footer has trailing bytes.");
+  if (footer.at !== footerLength) throw invalid("Parquet footer has trailing bytes.");
   if (required(version, "file version") !== 1 && version !== 2) {
-    unsupported("Parquet file metadata version is unsupported.");
+    throw unsupported("Parquet file metadata version is unsupported.");
   }
   const fields = required(schemaList, "schema"),
     groupList = required(groups, "row groups"),
     rowCount = required(rows, "file rows");
   const root = fields[0];
   if (!root || root.physical !== undefined || root.children !== fields.length - 1) {
-    unsupported("Parquet requires a flat root schema.");
+    throw unsupported("Parquet requires a flat root schema.");
   }
   const names = new Set<string>();
   const columns: ParquetColumnType[] = [];
@@ -834,12 +852,12 @@ export async function openParquet(
     const field = fields[i]!;
     if (
       field.physical === undefined || field.children !== undefined || (field.repetition !== 0 && field.repetition !== 1)
-    ) unsupported("Parquet nested/repeated schemas are unsupported.");
+    ) throw unsupported("Parquet nested/repeated schemas are unsupported.");
     if (field.physical > 7 || names.has(field.name)) {
-      invalid("Parquet physical type or duplicate column name is invalid.");
+      throw invalid("Parquet physical type or duplicate column name is invalid.");
     }
     if (field.typeLength === 0 || (field.physical === 7 && field.typeLength === undefined)) {
-      invalid("Parquet fixed or declared type length is absent or zero.");
+      throw invalid("Parquet fixed or declared type length is absent or zero.");
     }
     names.add(field.name);
     let reason = field.annotated
@@ -852,7 +870,7 @@ export async function openParquet(
       if (
         !chunk || chunk.physical !== field.physical || chunk.path.length !== 1 || chunk.path[0] !== field.name ||
         chunk.values !== group.rows
-      ) invalid("Parquet column chunk disagrees with the flat schema or row count.");
+      ) throw invalid("Parquet column chunk disagrees with the flat schema or row count.");
       if (chunk.codec !== 0) reason ??= "Compression is unsupported.";
       if (chunk.dictionary !== undefined || chunk.encodings.some((encoding) => encoding !== 0 && encoding !== 3)) {
         reason ??= "Value encoding/dictionaries are unsupported.";
@@ -876,7 +894,7 @@ export async function openParquet(
   let totalRows = 0;
   for (let i = 0; i < groupList.length; i++) {
     const group = groupList[i]!;
-    if (group.chunks.length !== columns.length) invalid("Parquet row group column count disagrees with schema.");
+    if (group.chunks.length !== columns.length) throw invalid("Parquet row group column count disagrees with schema.");
     rowGroups.push(Object.freeze({ id: i, offset: totalRows, rows: group.rows }));
     totalRows = exact(BigInt(totalRows) + BigInt(group.rows), "total rows");
     for (const chunk of group.chunks) {
@@ -884,20 +902,20 @@ export async function openParquet(
       // It represents no physical extent and must never authorize page reads.
       if (chunk.stored === 0) {
         if (chunk.values !== 0 || chunk.uncompressed !== 0 || chunk.dictionary !== undefined) {
-          invalid("Parquet empty column declares values, decoded bytes or a dictionary.");
+          throw invalid("Parquet empty column declares values, decoded bytes or a dictionary.");
         }
         if (chunk.data === 0) continue;
       }
       if (chunk.start < 4 || chunk.end > footerOffset || chunk.data < chunk.start || chunk.data > chunk.end) {
-        invalid("Parquet column chunk extent is outside data bytes.");
+        throw invalid("Parquet column chunk extent is outside data bytes.");
       }
       if (chunk.stored !== 0) extents.push(chunk);
     }
   }
-  if (totalRows !== rowCount) invalid("Parquet row groups disagree with file row count.");
+  if (totalRows !== rowCount) throw invalid("Parquet row groups disagree with file row count.");
   extents.sort((a, b) => a.start - b.start);
   for (let i = 1; i < extents.length; i++) {
-    if (extents[i]!.start < extents[i - 1]!.end) invalid("Parquet column chunks overlap.");
+    if (extents[i]!.start < extents[i - 1]!.end) throw invalid("Parquet column chunks overlap.");
   }
   options.signal?.throwIfAborted();
   return Object.freeze({
@@ -908,17 +926,17 @@ export async function openParquet(
     work: Object.freeze(budget.inspect()),
     async read(columnId: number, supplied: ParquetReadOptionsType = {}): Promise<ParquetReadType> {
       const opts = { ...supplied };
-      integer(columnId, "Parquet column ID");
+      assertInteger(columnId, "Parquet column ID");
       const column = columns[columnId];
       if (!column) throw new RangeError("Parquet column ID is absent.");
-      if (!column.readable) unsupported(column.reason!);
+      if (!column.readable) throw unsupported(column.reason!);
       const signal = options.signal && opts.signal
         ? AbortSignal.any([options.signal, opts.signal])
         : options.signal ?? opts.signal;
       signal?.throwIfAborted();
       const offset = opts.offset ?? 0, length = opts.length ?? rowCount - offset;
-      integer(offset, "Parquet row offset");
-      integer(length, "Parquet row length");
+      assertInteger(offset, "Parquet row offset");
+      assertInteger(length, "Parquet row length");
       if (offset > rowCount || length > rowCount - offset) {
         throw new RangeError("Parquet row selection exceeds the file.");
       }
@@ -957,25 +975,25 @@ export async function openParquet(
               if (!(error instanceof NeedMore)) throw error;
               if (lookahead === Math.min(policy.header, chunk.end - at)) {
                 if (lookahead === policy.header && lookahead < chunk.end - at) limit("Page header byte");
-                invalid("Parquet page header is truncated.");
+                throw invalid("Parquet page header is truncated.");
               }
               lookahead = Math.min(lookahead * 2 || 1, policy.header, chunk.end - at);
             }
           }
           const p = required(parsed, "page");
-          if (p.rows > group.rows - count) invalid("Parquet page row count exceeds its row group.");
-          if (p.encoding !== 0) unsupported("Parquet selected column requires PLAIN data pages.");
+          if (p.rows > group.rows - count) throw invalid("Parquet page row count exceeds its row group.");
+          if (p.encoding !== 0) throw unsupported("Parquet selected column requires PLAIN data pages.");
           if (p.version === 1 && (![3, 4].includes(p.definition) || ![3, 4].includes(p.repetition))) {
-            invalid("Parquet v1 level encoding is invalid.");
+            throw invalid("Parquet v1 level encoding is invalid.");
           }
           if (p.stored !== p.decoded || p.stored > chunk.end - at - p.header) {
-            invalid("Parquet uncompressed page size exceeds its chunk or differs from stored size.");
+            throw invalid("Parquet uncompressed page size exceeds its chunk or differs from stored size.");
           }
           if (p.version === 1 && column.optional && p.definition !== 3) {
-            unsupported("Parquet optional levels require RLE/bit-packed encoding.");
+            throw unsupported("Parquet optional levels require RLE/bit-packed encoding.");
           }
           if (p.version === 2 && (p.repetition !== 0 || (!column.optional && p.definition !== 0))) {
-            invalid("Parquet flat v2 page level lengths are inconsistent.");
+            throw invalid("Parquet flat v2 page level lengths are inconsistent.");
           }
           readMeter.retain(160);
           plans.push({
@@ -989,7 +1007,7 @@ export async function openParquet(
           at += p.header + p.stored;
         }
         if (count !== group.rows || at !== chunk.end || uncompressed !== chunk.uncompressed) {
-          invalid("Parquet page totals disagree with column metadata.");
+          throw invalid("Parquet page totals disagree with column metadata.");
         }
       }
       let bodyBytes = 0, bodyRequests = 0;
@@ -1038,19 +1056,19 @@ export async function openParquet(
         if (column.optional) {
           if (p.version === 1) {
             if (body.length < 4) {
-              invalid("Parquet v1 definition length is truncated.");
+              throw invalid("Parquet v1 definition length is truncated.");
             }
-            const length = view(body).getUint32(0, true);
-            if (length > body.length - 4) invalid("Parquet v1 definition levels exceed the page.");
+            const length = createView(body).getUint32(0, true);
+            if (length > body.length - 4) throw invalid("Parquet v1 definition levels exceed the page.");
             start = 4 + length;
             levelBytes = body.subarray(4, start);
           } else {
-            if (p.definition > body.length) invalid("Parquet v2 definition levels exceed the page.");
+            if (p.definition > body.length) throw invalid("Parquet v2 definition levels exceed the page.");
             start = p.definition;
             levelBytes = body.subarray(0, start);
           }
         }
-        const payload = body.subarray(start), data = view(payload);
+        const payload = body.subarray(start), data = createView(payload);
         let present = 0;
         const emit = (row: number, valid: boolean): void => {
           readMeter.step();
@@ -1060,12 +1078,12 @@ export async function openParquet(
             if (at >= 0 && at < length) {
               validity[at] = 1;
               if (column.physical === 0) {
-                if ((index >>> 3) >= payload.length) invalid("Parquet PLAIN boolean payload is truncated.");
+                if ((index >>> 3) >= payload.length) throw invalid("Parquet PLAIN boolean payload is truncated.");
                 (output as Uint8Array)[at] = (payload[index >>> 3]! >>> (index & 7)) & 1;
               } else {
                 const position = index * width(column.physical);
                 if (position > payload.length - width(column.physical)) {
-                  invalid("Parquet PLAIN numeric payload is truncated.");
+                  throw invalid("Parquet PLAIN numeric payload is truncated.");
                 }
                 if (column.physical === 2) (output as BigInt64Array)[at] = data.getBigInt64(position, true);
                 else {(output as Int32Array | Float32Array | Float64Array)[at] = column.physical === 1
@@ -1081,12 +1099,12 @@ export async function openParquet(
           if (column.optional) levels(levelBytes, p.rows, emit, readMeter);
           else for (let row = 0; row < p.rows; row++) emit(row, true);
         } catch (error) {
-          if (error instanceof NeedMore) invalid("Parquet definition levels are truncated.");
+          if (error instanceof NeedMore) throw invalid("Parquet definition levels are truncated.");
           throw error;
         }
         const expected = column.physical === 0 ? Math.ceil(present / 8) : present * width(column.physical);
         if (payload.length !== expected || (p.nulls !== undefined && p.nulls !== p.rows - present)) {
-          invalid("Parquet PLAIN byte/null counts disagree with its page header.");
+          throw invalid("Parquet PLAIN byte/null counts disagree with its page header.");
         }
         evidence.push(
           Object.freeze({

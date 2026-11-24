@@ -3,11 +3,11 @@ import type { ByteSourceType } from "../source.ts";
 import {
   ArchiveBudget,
   ArchiveError,
+  assertInteger,
   createArchiveLedger,
-  integer,
+  createView,
   invalid,
   unsupported,
-  view,
 } from "../archive/record.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
 export { ArchiveError, createArchiveLedger } from "../archive/record.ts";
@@ -82,7 +82,7 @@ function combined(left: AbortSignal | undefined, right: AbortSignal | undefined)
 
 /** Convert only after proving exact public arithmetic; wire offsets are always parsed with BigInt. */
 function exact(value: bigint, label: string): number {
-  if (value > BigInt(Number.MAX_SAFE_INTEGER)) unsupported(`QCOW2 ${label} exceeds exact JavaScript integers.`);
+  if (value > BigInt(Number.MAX_SAFE_INTEGER)) throw unsupported(`QCOW2 ${label} exceeds exact JavaScript integers.`);
   return Number(value);
 }
 
@@ -96,14 +96,16 @@ interface ExtentType {
 export async function openQcow2(input: ByteSourceType, supplied: Qcow2OpenOptionsType = {}): Promise<Qcow2ImageType> {
   const options = { ...supplied };
   const { size: physicalSize, stability, identity } = input;
-  integer(physicalSize, "QCOW2 physical size");
+  assertInteger(physicalSize, "QCOW2 physical size");
   if (stability !== undefined && !["immutable", "provider", "caller"].includes(stability)) {
     throw new TypeError("Unknown QCOW2 source stability.");
   }
   if (identity !== undefined && (typeof identity !== "string" || identity.length > 8192)) {
     throw new TypeError("QCOW2 source identity must be a bounded string.");
   }
-  if (stability === undefined && !options.allowUnverifiedSource) unsupported("QCOW2 requires stable replay evidence.");
+  if (stability === undefined && !options.allowUnverifiedSource) {
+    throw unsupported("QCOW2 requires stable replay evidence.");
+  }
   const sourceRead = input.read.bind(input);
   const source: ByteSourceType = Object.freeze({
     size: physicalSize,
@@ -122,7 +124,7 @@ export async function openQcow2(input: ByteSourceType, supplied: Qcow2OpenOption
     refcounts: options.maxRefcountBlocks ?? 65536,
     segments: options.maxSegments ?? 4096,
   };
-  for (const [key, count] of Object.entries(maximum)) integer(count, `QCOW2 maximum ${key}`);
+  for (const [key, count] of Object.entries(maximum)) assertInteger(count, `QCOW2 maximum ${key}`);
   const owners = new WeakMap<ArchiveLedgerType, ArchiveLedgerType>();
   const capture = (owner: ArchiveLedgerType | undefined): ArchiveLedgerType | undefined => {
     if (!owner) return undefined;
@@ -169,37 +171,45 @@ export async function openQcow2(input: ByteSourceType, supplied: Qcow2OpenOption
     }
     tableEntries += count;
   };
-  const prefix = view(await header(0, 72));
-  if (prefix.getUint32(0) !== 0x514649fb) invalid("QCOW2 magic mismatch.");
+  const prefix = createView(await header(0, 72));
+  if (prefix.getUint32(0) !== 0x514649fb) throw invalid("QCOW2 magic mismatch.");
   const version = prefix.getUint32(4);
-  if (version !== 2 && version !== 3) unsupported("QCOW2 supports only versions 2 and 3.");
-  if (prefix.getBigUint64(8) !== 0n || prefix.getUint32(16) !== 0) unsupported("QCOW2 backing files are unsupported.");
+  if (version !== 2 && version !== 3) throw unsupported("QCOW2 supports only versions 2 and 3.");
+  if (prefix.getBigUint64(8) !== 0n || prefix.getUint32(16) !== 0) {
+    throw unsupported("QCOW2 backing files are unsupported.");
+  }
   const clusterBits = prefix.getUint32(20);
-  if (clusterBits < 9 || clusterBits > 21) unsupported("QCOW2 cluster size is outside the 512-byte to 2-MiB profile.");
+  if (clusterBits < 9 || clusterBits > 21) {
+    throw unsupported("QCOW2 cluster size is outside the 512-byte to 2-MiB profile.");
+  }
   const clusterSize = 2 ** clusterBits, cluster = BigInt(clusterSize);
   const size = exact(prefix.getBigUint64(24), "guest size");
   if (size > maximum.guest) throw new ArchiveError("budget-exceeded", "QCOW2 guest size limit exceeded.");
-  if (prefix.getUint32(32) !== 0) unsupported("QCOW2 encryption is unsupported.");
+  if (prefix.getUint32(32) !== 0) throw unsupported("QCOW2 encryption is unsupported.");
   const l1Size = prefix.getUint32(36), l1Offset = exact(prefix.getBigUint64(40), "L1 offset");
   const refcountOffset = exact(prefix.getBigUint64(48), "refcount offset"), refcountClusters = prefix.getUint32(56);
   if (prefix.getUint32(60) !== 0 || prefix.getBigUint64(64) !== 0n) {
-    unsupported("QCOW2 internal snapshots are unsupported.");
+    throw unsupported("QCOW2 internal snapshots are unsupported.");
   }
-  const first = view(await header(0, clusterSize));
+  const first = createView(await header(0, clusterSize));
   for (let at = 0; at < 72; at++) {
-    if (first.getUint8(at) !== prefix.getUint8(at)) invalid("QCOW2 header changed while opening.");
+    if (first.getUint8(at) !== prefix.getUint8(at)) throw invalid("QCOW2 header changed while opening.");
   }
   let headerLength = 72;
   if (version === 3) {
     for (const offset of [72, 80, 88]) {
-      if (first.getBigUint64(offset) !== 0n) unsupported("QCOW2 feature masks are outside the standalone profile.");
+      if (first.getBigUint64(offset) !== 0n) {
+        throw unsupported("QCOW2 feature masks are outside the standalone profile.");
+      }
     }
-    if (first.getUint32(96) !== 4) unsupported("QCOW2 requires 16-bit refcount entries in this profile.");
+    if (first.getUint32(96) !== 4) throw unsupported("QCOW2 requires 16-bit refcount entries in this profile.");
     headerLength = first.getUint32(100);
-    if (headerLength !== 104 && headerLength !== 112) unsupported("QCOW2 header length is outside the known profile.");
+    if (headerLength !== 104 && headerLength !== 112) {
+      throw unsupported("QCOW2 header length is outside the known profile.");
+    }
     if (headerLength === 112) {
       for (let at = 104; at < 112; at++) {
-        if (first.getUint8(at) !== 0) unsupported("QCOW2 additional fields are unsupported.");
+        if (first.getUint8(at) !== 0) throw unsupported("QCOW2 additional fields are unsupported.");
       }
     }
   }
@@ -211,29 +221,29 @@ export async function openQcow2(input: ByteSourceType, supplied: Qcow2OpenOption
     const type = first.getUint32(extension), length = first.getUint32(extension + 4);
     extension += 8;
     if (type === 0) {
-      if (length !== 0) invalid("QCOW2 extension terminator has data.");
+      if (length !== 0) throw invalid("QCOW2 extension terminator has data.");
       terminated = true;
       break;
     }
-    if (extensionTypes.has(type)) invalid("QCOW2 duplicate header extension.");
+    if (extensionTypes.has(type)) throw invalid("QCOW2 duplicate header extension.");
     extensionTypes.add(type);
     const padded = exact((BigInt(length) + 7n) / 8n * 8n, "extension size");
-    if (padded > clusterSize - extension) invalid("QCOW2 extension exceeds the first cluster.");
-    if (type !== 0x6803f857) unsupported("QCOW2 header extension is outside the known profile.");
-    if (length % 48 !== 0) invalid("QCOW2 feature-name table has incomplete records.");
+    if (padded > clusterSize - extension) throw invalid("QCOW2 extension exceeds the first cluster.");
+    if (type !== 0x6803f857) throw unsupported("QCOW2 header extension is outside the known profile.");
+    if (length % 48 !== 0) throw invalid("QCOW2 feature-name table has incomplete records.");
     for (let at = extension; at < extension + length; at += 48) {
-      if (first.getUint8(at) > 2 || first.getUint8(at + 1) > 63) invalid("QCOW2 invalid feature-name record.");
+      if (first.getUint8(at) > 2 || first.getUint8(at + 1) > 63) throw invalid("QCOW2 invalid feature-name record.");
     }
     extension += padded;
   }
-  if (!terminated) invalid("QCOW2 header extensions lack a terminator.");
+  if (!terminated) throw invalid("QCOW2 header extensions lack a terminator.");
   /** Protect an allocation role while requiring only its actual serialized bytes.
    * L1 alone may protect padding beyond physical EOF; other roles require the full extent.
    */
   const extent = (offset: number, length: number, role: string, storedLength = length): ExtentType => {
-    if (offset % clusterSize !== 0) invalid(`QCOW2 ${role} is not cluster aligned.`);
+    if (offset % clusterSize !== 0) throw invalid(`QCOW2 ${role} is not cluster aligned.`);
     if (offset > physicalSize || storedLength > physicalSize - offset) {
-      invalid(`QCOW2 ${role} exceeds the physical source.`);
+      throw invalid(`QCOW2 ${role} exceeds the physical source.`);
     }
     return { start: offset, end: exact(BigInt(offset) + BigInt(length), "protected extent end"), role };
   };
@@ -241,27 +251,27 @@ export async function openQcow2(input: ByteSourceType, supplied: Qcow2OpenOption
   const roles: ExtentType[] = [extent(0, clusterSize, "header")];
   const l1Bytes = exact(BigInt(l1Size) * 8n, "L1 length");
   if ((BigInt(size) + cluster - 1n) / cluster > BigInt(l1Size) * (cluster / 8n)) {
-    invalid("QCOW2 L1 table does not cover the guest size.");
+    throw invalid("QCOW2 L1 table does not cover the guest size.");
   }
-  if (l1Bytes === 0 && l1Offset !== 0) invalid("QCOW2 empty L1 table has an offset.");
+  if (l1Bytes === 0 && l1Offset !== 0) throw invalid("QCOW2 empty L1 table has an offset.");
   // Only serialized L1 entries must exist physically. A valid all-hole image
   // can end after its last entry. Protect the rounded allocation role without
   // inventing stored padding or reading beyond physical EOF.
   if (l1Bytes) roles.push(extent(l1Offset, rounded(BigInt(l1Bytes)), "L1", l1Bytes));
   entries(l1Size);
-  const l1 = view(await header(l1Offset, l1Bytes));
+  const l1 = createView(await header(l1Offset, l1Bytes));
   const refcountBytes = exact(BigInt(refcountClusters) * cluster, "refcount table length");
-  if (!refcountBytes && refcountOffset !== 0) invalid("QCOW2 empty refcount table has an offset.");
+  if (!refcountBytes && refcountOffset !== 0) throw invalid("QCOW2 empty refcount table has an offset.");
   if (refcountBytes) roles.push(extent(refcountOffset, refcountBytes, "refcount table"));
   entries(refcountBytes / 8);
-  const refcounts = view(await header(refcountOffset, refcountBytes));
+  const refcounts = createView(await header(refcountOffset, refcountBytes));
   const refcountBlocks = new Set<number>();
   for (let at = 0; at < refcountBytes; at += 8) {
     const value = refcounts.getBigUint64(at);
-    if ((value & 511n) !== 0n) invalid("QCOW2 refcount table has reserved bits.");
+    if ((value & 511n) !== 0n) throw invalid("QCOW2 refcount table has reserved bits.");
     if (value === 0n) continue;
     const offset = exact(value, "refcount block offset");
-    if (refcountBlocks.has(offset)) invalid("QCOW2 aliased refcount-block roles are unsupported.");
+    if (refcountBlocks.has(offset)) throw invalid("QCOW2 aliased refcount-block roles are unsupported.");
     if (refcountBlocks.size >= maximum.refcounts) {
       throw new ArchiveError("budget-exceeded", "QCOW2 refcount-block limit exceeded.");
     }
@@ -272,25 +282,25 @@ export async function openQcow2(input: ByteSourceType, supplied: Qcow2OpenOption
   const offsetMask = 0x00fffffffffffe00n, copiedMask = 1n << 63n;
   for (let index = 0; index < l1Size; index++) {
     const value = l1.getBigUint64(index * 8);
-    if ((value & ~(offsetMask | copiedMask)) !== 0n) invalid("QCOW2 L1 entry has reserved bits.");
+    if ((value & ~(offsetMask | copiedMask)) !== 0n) throw invalid("QCOW2 L1 entry has reserved bits.");
     const offset = exact(value & offsetMask, "L2 offset");
     if (offset === 0) {
-      if (value !== 0n) invalid("QCOW2 absent L2 table has a copied hint.");
+      if (value !== 0n) throw invalid("QCOW2 absent L2 table has a copied hint.");
       continue;
     }
     if (tables.has(offset)) continue;
     if (tables.size >= maximum.l2) throw new ArchiveError("budget-exceeded", "QCOW2 L2-table limit exceeded.");
     roles.push(extent(offset, clusterSize, "L2"));
     entries(clusterSize / 8);
-    const table = view(await header(offset, clusterSize));
+    const table = createView(await header(offset, clusterSize));
     for (let at = 0; at < clusterSize; at += 8) {
       const descriptor = table.getBigUint64(at);
-      if ((descriptor & (1n << 62n)) !== 0n) unsupported("QCOW2 compressed clusters are unsupported.");
-      if ((descriptor & ~(offsetMask | copiedMask | 1n)) !== 0n) invalid("QCOW2 L2 entry has reserved bits.");
-      if (version === 2 && (descriptor & 1n) !== 0n) invalid("QCOW2 version 2 has an explicit-zero bit.");
+      if ((descriptor & (1n << 62n)) !== 0n) throw unsupported("QCOW2 compressed clusters are unsupported.");
+      if ((descriptor & ~(offsetMask | copiedMask | 1n)) !== 0n) throw invalid("QCOW2 L2 entry has reserved bits.");
+      if (version === 2 && (descriptor & 1n) !== 0n) throw invalid("QCOW2 version 2 has an explicit-zero bit.");
       const dataOffset = exact(descriptor & offsetMask, "data offset");
       if (!dataOffset && (descriptor & copiedMask) !== 0n) {
-        invalid("QCOW2 host offset zero with copied hint requires external data.");
+        throw invalid("QCOW2 host offset zero with copied hint requires external data.");
       }
       if (dataOffset) extent(dataOffset, clusterSize, "data cluster");
     }
@@ -300,7 +310,7 @@ export async function openQcow2(input: ByteSourceType, supplied: Qcow2OpenOption
   // unbounded table-by-table metadata overlap scan. Shared L2 references are deduplicated.
   roles.sort((a, b) => a.start - b.start);
   for (let index = 1; index < roles.length; index++) {
-    if (roles[index]!.start < roles[index - 1]!.end) invalid("QCOW2 conflicting metadata roles overlap.");
+    if (roles[index]!.start < roles[index - 1]!.end) throw invalid("QCOW2 conflicting metadata roles overlap.");
   }
   const dataExtent = (offset: number): void => {
     let low = 0, high = roles.length;
@@ -309,7 +319,9 @@ export async function openQcow2(input: ByteSourceType, supplied: Qcow2OpenOption
       if (roles[middle]!.end <= offset) low = middle + 1;
       else high = middle;
     }
-    if (low < roles.length && roles[low]!.start < offset + clusterSize) invalid("QCOW2 payload overlaps metadata.");
+    if (low < roles.length && roles[low]!.start < offset + clusterSize) {
+      throw invalid("QCOW2 payload overlaps metadata.");
+    }
   };
   for (const table of tables.values()) {
     for (let at = 0; at < clusterSize; at += 8) {
@@ -319,8 +331,8 @@ export async function openQcow2(input: ByteSourceType, supplied: Qcow2OpenOption
   }
   const map = (offset: number, length: number): readonly Qcow2SegmentType[] => {
     options.signal?.throwIfAborted();
-    integer(offset, "QCOW2 guest offset");
-    integer(length, "QCOW2 guest length");
+    assertInteger(offset, "QCOW2 guest offset");
+    assertInteger(length, "QCOW2 guest length");
     if (offset > size || length > size - offset) throw new RangeError("QCOW2 selection exceeds guest bytes.");
     const count = length ? Math.ceil(((offset % clusterSize) + length) / clusterSize) : 0;
     if (count > maximum.segments) throw new ArchiveError("budget-exceeded", "QCOW2 selected segment limit exceeded.");

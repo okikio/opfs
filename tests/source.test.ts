@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 import { runInNewContext } from "node:vm";
-import { budgetSource, createByteSource, createSourceBudget, openObjectSource, sourceRange } from "../src/source.ts";
+import { assertExtent, budgetSource, createByteSource, createSourceBudget, openObjectSource } from "../src/source.ts";
 import type { ObjectBackendType, ObjectGetOptionsType } from "../src/driver/object.ts";
 
 /** Unused mutations deliberately fail so a source test cannot accidentally publish data. */
@@ -26,7 +26,7 @@ describe("revision-bound byte sources", () => {
     expect(await source.read(1, 2)).toEqual(new Uint8Array([2, 3]));
     expect(source.stability).toBe("immutable");
     for (const [at, length] of [[-1, 1], [0, NaN], [3, 2], [5, 0], [0.5, 1]]) {
-      expect(() => sourceRange(source.size, at!, length!)).toThrow(RangeError);
+      expect(() => assertExtent(source.size, at!, length!)).toThrow(RangeError);
     }
     const abort = new AbortController();
     abort.abort("stop");

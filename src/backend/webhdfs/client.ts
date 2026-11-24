@@ -5,7 +5,7 @@ import { readResponse } from "../../response.ts";
 import { close } from "../../close.ts";
 import { openBytes } from "../../stream.ts";
 import { isBytes, toView } from "../../bytes.ts";
-import { range } from "../../range.ts";
+import { resolveRange } from "../../range.ts";
 import type { FileDriverReadOptionsType, FileDriverSignalOptionsType } from "../../driver/file.ts";
 
 /** Per-target credentials are evaluated only after routing admission.
@@ -458,7 +458,7 @@ class WebhdfsClient implements WebhdfsClientType {
   }
 
   async get(input: string, options: FileDriverReadOptionsType = {}): Promise<ReadableStream<Uint8Array>> {
-    const selected = range(options);
+    const selected = resolveRange(options);
     const canonical = path(input);
     if (selected.empty) return new Blob([]).stream();
     const length = selected.end === undefined ? undefined : selected.end - selected.start + 1;

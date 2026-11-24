@@ -2,7 +2,7 @@
 import { z } from "zod";
 import { isBytes, toView } from "../../bytes.ts";
 import { close } from "../../close.ts";
-import { assertRangeResponse, range } from "../../range.ts";
+import { assertRangeResponse, resolveRange } from "../../range.ts";
 import type { RangeType } from "../../range.ts";
 import { RequestMetrics, sendRequest } from "../../request.ts";
 import type { FetchType, RequestPolicyType } from "../../request.ts";
@@ -657,7 +657,7 @@ export class SupabaseClient {
   }
   /** Explicit authenticated/public route. Public requests never acquire or forward API credentials. */
   async download(value: string, options: SupabaseReadOptionsType): Promise<SupabaseDownloadType> {
-    const selected = key(value), access = options.access, requested = range(options);
+    const selected = key(value), access = options.access, requested = resolveRange(options);
     if (access !== "authenticated" && access !== "public") {
       throw new TypeError("Supabase download requires an explicit access route.");
     }
@@ -673,7 +673,7 @@ export class SupabaseClient {
     capability: string | URL,
     options: { readonly at?: number; readonly length?: number; readonly signal?: AbortSignal } = {},
   ): Promise<SupabaseDownloadType> {
-    const selected = key(value), target = this.#signed(selected, capability, true), requested = range(options);
+    const selected = key(value), target = this.#signed(selected, capability, true), requested = resolveRange(options);
     return await this.#download(target, requested, false);
   }
   /** A response extent can clamp at EOF; budget admission here owns cancellation before collecting oversized bytes. */

@@ -2,8 +2,8 @@
 import type { ObjectBackendType, ObjectStatType } from "../../driver/object.ts";
 import { isBytes, toView } from "../../bytes.ts";
 import { close } from "../../close.ts";
-import { etagPutOptions, objectETag } from "../../publication.ts";
-import { range } from "../../range.ts";
+import { resolveETag, resolveETagPut } from "../../publication.ts";
+import { resolveRange } from "../../range.ts";
 
 /** Materialized upload safety ceiling, independent of R2's larger provider upload limits. */
 export const R2_UPLOAD_BYTES = 64 * 1024 * 1024;
@@ -163,8 +163,8 @@ export function createR2Client(binding: R2BindingType, options: R2ClientOptionsT
     },
     async get(name, request = {}) {
       key(name);
-      const selected = range(request);
-      const tag = objectETag(request.revision);
+      const selected = resolveRange(request);
+      const tag = resolveETag(request.revision);
       condition(tag);
       if (selected.empty) return new Blob().stream();
       if (request.length !== undefined && request.length > maxReadBytes) {
@@ -216,7 +216,7 @@ export function createR2Client(binding: R2BindingType, options: R2ClientOptionsT
     },
     async put(name, body, options = {}) {
       key(name);
-      const request = etagPutOptions(options);
+      const request = resolveETagPut(options);
       condition(request.ifMatch);
       condition(request.ifNoneMatch);
       if (request.ifMatch !== undefined && request.ifNoneMatch !== undefined) {

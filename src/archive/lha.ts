@@ -1,6 +1,6 @@
 /** Bounded LHA header levels 0–2 with stored-member ranges and explicit CRC scopes. @module */
 import type { ByteSourceType } from "../source.ts";
-import { ArchiveBudget, ArchiveError, createArchiveLedger, integer, invalid, unsupported } from "./record.ts";
+import { ArchiveBudget, ArchiveError, assertInteger, createArchiveLedger, invalid, unsupported } from "./record.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
 export { ArchiveError, createArchiveLedger } from "./record.ts";
 export type { ArchiveErrorCodeType, ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
@@ -104,14 +104,16 @@ function together(owners: readonly (ArchiveLedgerType | undefined)[]): ArchiveLe
 export async function openLha(input: ByteSourceType, supplied: LhaOpenOptionsType = {}): Promise<LhaArchiveType> {
   const options = { ...supplied };
   const { size, identity, stability } = input;
-  integer(size, "LHA source size");
+  assertInteger(size, "LHA source size");
   if (stability !== undefined && !["immutable", "provider", "caller"].includes(stability)) {
     throw new TypeError("Unknown LHA source stability.");
   }
   if (identity !== undefined && (typeof identity !== "string" || identity.length > 8192)) {
     throw new TypeError("LHA source identity must be a bounded string.");
   }
-  if (stability === undefined && !options.allowUnverifiedSource) unsupported("LHA requires stable source evidence.");
+  if (stability === undefined && !options.allowUnverifiedSource) {
+    throw unsupported("LHA requires stable source evidence.");
+  }
   const source: ByteSourceType = Object.freeze({
     size,
     read: input.read.bind(input),
@@ -125,7 +127,7 @@ export async function openLha(input: ByteSourceType, supplied: LhaOpenOptionsTyp
     extensions: options.maxExtensions ?? 1024,
     name: options.maxNameBytes ?? 4096,
   };
-  for (const [key, value] of Object.entries(maximum)) integer(value, `LHA maximum ${key}`);
+  for (const [key, value] of Object.entries(maximum)) assertInteger(value, `LHA maximum ${key}`);
   const local = createArchiveLedger(options);
   const lifetime = together([local, options.ledger]);
   const budget = new ArchiveBudget(source, { ...options, ledger: lifetime }, options.signal);
@@ -150,18 +152,20 @@ export async function openLha(input: ByteSourceType, supplied: LhaOpenOptionsTyp
     if (size - at === 1) {
       const trailer = await budget.read(at, 1);
       budget.decoded(1);
-      if (trailer[0] !== 0) invalid("LHA requires a single zero-byte terminator.");
+      if (trailer[0] !== 0) throw invalid("LHA requires a single zero-byte terminator.");
       ended = true;
       break;
     }
     if (entries.length >= maximum.entries) throw new ArchiveError("budget-exceeded", "LHA entry limit exceeded.");
-    if (size - at < 22) invalid("LHA member header or trailer is truncated.");
+    if (size - at < 22) throw invalid("LHA member header or trailer is truncated.");
     const prefix = await headerRead(at, 22, 0);
     const level = prefix[20]!;
-    if (level !== 0 && level !== 1 && level !== 2) unsupported("Only LHA header levels 0, 1 and 2 are supported.");
+    if (level !== 0 && level !== 1 && level !== 2) {
+      throw unsupported("Only LHA header levels 0, 1 and 2 are supported.");
+    }
     const length = level === 2 ? view(prefix).getUint16(0, true) : prefix[0]! + 2;
     const minimum = level === 2 ? 26 : level === 1 ? 27 : 24;
-    if (length < minimum) invalid("LHA base header is too short.");
+    if (length < minimum) throw invalid("LHA base header is too short.");
     const remainder = await headerRead(at + 22, length - 22, 22);
     const pieces = [prefix, remainder];
     let fullSize = length;
@@ -175,7 +179,7 @@ export async function openLha(input: ByteSourceType, supplied: LhaOpenOptionsTyp
       if (sum !== base[1]) throw new ArchiveError("checksum-mismatch", "LHA base header byte sum mismatch.");
     }
     const method = String.fromCharCode(...base.subarray(2, 7));
-    if (!/^-(?:lh[0-7d]|lz[45s])-$/.test(method)) unsupported("Unknown LHA method envelope.");
+    if (!/^-(?:lh[0-7d]|lz[45s])-$/.test(method)) throw unsupported("Unknown LHA method envelope.");
     let storedSize = fields.getUint32(7, true);
     const originalSize = fields.getUint32(11, true);
     let name: Uint8Array = new Uint8Array();
@@ -190,7 +194,7 @@ export async function openLha(input: ByteSourceType, supplied: LhaOpenOptionsTyp
       chain = 24;
     } else {
       const nameLength = base[21]!;
-      if (nameLength > length - minimum) invalid("LHA filename exceeds the base header.");
+      if (nameLength > length - minimum) throw invalid("LHA filename exceeds the base header.");
       name = base.slice(22, 22 + nameLength);
       crc = fields.getUint16(22 + nameLength, true);
       if (level === 1) os = base[24 + nameLength]!;
@@ -198,7 +202,9 @@ export async function openLha(input: ByteSourceType, supplied: LhaOpenOptionsTyp
       // suffix. Other tails might change kind/encoding and are not discarded.
       if (level === 0 && length !== 24 + nameLength) {
         const tail = base.subarray(24 + nameLength);
-        if (tail.length !== 12 || tail[0] !== 85 || tail[1] !== 0) unsupported("Unknown LHA level-0 extended area.");
+        if (tail.length !== 12 || tail[0] !== 85 || tail[1] !== 0) {
+          throw unsupported("Unknown LHA level-0 extended area.");
+        }
         os = 85;
         mode = view(tail).getUint16(6, true);
       }
@@ -209,7 +215,7 @@ export async function openLha(input: ByteSourceType, supplied: LhaOpenOptionsTyp
       let count = 0;
       while (next !== 0) {
         if (++count > maximum.extensions) throw new ArchiveError("budget-exceeded", "LHA extension count exceeded.");
-        if (next < 3 || next > storedSize) invalid("LHA level-1 extension skip size underflows.");
+        if (next < 3 || next > storedSize) throw invalid("LHA level-1 extension skip size underflows.");
         const extension = await headerRead(at + fullSize, next, fullSize);
         pieces.push(extension);
         fullSize += next;
@@ -232,50 +238,52 @@ export async function openLha(input: ByteSourceType, supplied: LhaOpenOptionsTyp
       let cursor = chain;
       let count = 0;
       while (true) {
-        if (cursor > fullSize - 2) invalid("LHA extension chain lacks a terminator.");
+        if (cursor > fullSize - 2) throw invalid("LHA extension chain lacks a terminator.");
         const countBytes = raw.getUint16(cursor, true);
         if (countBytes === 0) {
-          if (cursor + 2 !== fullSize) invalid("LHA extension header has uninterpreted trailing bytes.");
+          if (cursor + 2 !== fullSize) throw invalid("LHA extension header has uninterpreted trailing bytes.");
           break;
         }
         if (++count > maximum.extensions) throw new ArchiveError("budget-exceeded", "LHA extension count exceeded.");
-        if (countBytes < 3 || countBytes > fullSize - cursor - 2) invalid("LHA extension extent is invalid.");
+        if (countBytes < 3 || countBytes > fullSize - cursor - 2) throw invalid("LHA extension extent is invalid.");
         const type = header[cursor + 2]!;
-        if (seen.has(type)) unsupported("Duplicate LHA extension types are outside this profile.");
+        if (seen.has(type)) throw unsupported("Duplicate LHA extension types are outside this profile.");
         seen.add(type);
         extensions.push(type);
         const payload = header.subarray(cursor + 3, cursor + countBytes);
         if (type === 0) {
-          if (payload.length < 2) invalid("LHA common CRC field is truncated.");
+          if (payload.length < 2) throw invalid("LHA common CRC field is truncated.");
           common = view(payload).getUint16(0, true);
           commonOffset = cursor + 3;
         } else if (type === 1) name = payload.slice();
         else if (type === 2) directory = payload.slice();
         else if (type === 0x50) {
-          if (payload.length !== 2) invalid("LHA Unix mode must contain two bytes.");
+          if (payload.length !== 2) throw invalid("LHA Unix mode must contain two bytes.");
           mode = view(payload).getUint16(0, true);
         } else if (![0x3f, 0x41, 0x51, 0x52, 0x53, 0x54].includes(type)) {
-          unsupported("LHA structural or unknown extension is outside this profile.");
+          throw unsupported("LHA structural or unknown extension is outside this profile.");
         }
         cursor += countBytes;
       }
     }
-    if (level === 2 && common === undefined) unsupported("This LHA level-2 profile requires a common header CRC.");
+    if (level === 2 && common === undefined) {
+      throw unsupported("This LHA level-2 profile requires a common header CRC.");
+    }
     if (common !== undefined && crc16(header, 0, commonOffset) !== common) {
       throw new ArchiveError("checksum-mismatch", "LHA common header CRC16 mismatch.");
     }
     if (name.length + directory.length > maximum.name) {
       throw new ArchiveError("budget-exceeded", "LHA raw name limit exceeded.");
     }
-    if (name.length === 0 && method !== "-lhd-") invalid("LHA file name is missing.");
+    if (name.length === 0 && method !== "-lhd-") throw invalid("LHA file name is missing.");
     /** Decode from a separate owned copy, so callback mutation cannot change retained wire evidence. */
     const decode = (bytes: Uint8Array, role: "name" | "directory"): string => {
-      if (bytes.some((byte) => byte === 0)) invalid("LHA name contains a NUL byte.");
+      if (bytes.some((byte) => byte === 0)) throw invalid("LHA name contains a NUL byte.");
       let result: string;
       if (options.decodeName) result = options.decodeName(bytes.slice(), role);
       else {
         if (bytes.some((byte) => byte > 127 && !(role === "directory" && byte === 255))) {
-          unsupported("Non-ASCII LHA names require an explicit decoder.");
+          throw unsupported("Non-ASCII LHA names require an explicit decoder.");
         }
         result = String.fromCharCode(...bytes.map((byte) => role === "directory" && byte === 255 ? 47 : byte));
       }
@@ -292,7 +300,7 @@ export async function openLha(input: ByteSourceType, supplied: LhaOpenOptionsTyp
     budget.decoded(new TextEncoder().encode(decodedName).length);
     options.signal?.throwIfAborted();
     const offset = at + fullSize;
-    if (storedSize > size - offset) invalid("LHA member payload exceeds the source snapshot.");
+    if (storedSize > size - offset) throw invalid("LHA member payload exceeds the source snapshot.");
     const fileType = mode === undefined ? 0 : mode & 0xf000;
     const kind = fileType !== 0 && fileType !== 0x8000 && fileType !== 0x4000
       ? "special"
@@ -301,9 +309,9 @@ export async function openLha(input: ByteSourceType, supplied: LhaOpenOptionsTyp
       : fileType === 0x4000
       ? "special"
       : "file";
-    if (method === "-lh0-" && storedSize !== originalSize) invalid("LHA stored member size fields disagree.");
+    if (method === "-lh0-" && storedSize !== originalSize) throw invalid("LHA stored member size fields disagree.");
     if (method === "-lhd-" && (storedSize !== 0 || originalSize !== 0)) {
-      unsupported("LHA directory with payload is unsupported.");
+      throw unsupported("LHA directory with payload is unsupported.");
     }
     const entry: LhaEntryType = Object.freeze({
       id: entries.length,
@@ -336,12 +344,12 @@ export async function openLha(input: ByteSourceType, supplied: LhaOpenOptionsTyp
     entries.push(entry);
     at = offset + storedSize;
   }
-  if (!ended) invalid("LHA archive lacks its single zero-byte terminator.");
+  if (!ended) throw invalid("LHA archive lacks its single zero-byte terminator.");
   const entryOf = (id: number): LhaEntryType => {
-    integer(id, "LHA entry ID");
+    assertInteger(id, "LHA entry ID");
     const entry = entries[id];
     if (!entry) throw new RangeError("Unknown LHA member ID.");
-    if (!entry.readable) unsupported("Only ordinary -lh0- stored LHA members can be read.");
+    if (!entry.readable) throw unsupported("Only ordinary -lh0- stored LHA members can be read.");
     return entry;
   };
   const read = async (id: number, suppliedRead: LhaReadOptionsType = {}): Promise<LhaReadType> => {
@@ -349,8 +357,8 @@ export async function openLha(input: ByteSourceType, supplied: LhaOpenOptionsTyp
     const entry = entryOf(id);
     const offset = opts.offset ?? 0;
     const length = opts.length ?? entry.size - offset;
-    integer(offset, "LHA selected offset");
-    integer(length, "LHA selected length");
+    assertInteger(offset, "LHA selected offset");
+    assertInteger(length, "LHA selected length");
     if (offset > entry.size || length > entry.size - offset) throw new RangeError("LHA selection exceeds member.");
     const signal = signalOf(options.signal, opts.signal);
     signal?.throwIfAborted();

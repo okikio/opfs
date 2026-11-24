@@ -5,7 +5,7 @@ import { lstatSync, mkdtempSync, readFileSync, readlinkSync, rmSync } from "node
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { env } from "node:process";
-import { createTarStream } from "../src/archive/stream.ts";
+import { createTarStream } from "../src/archive/tar/stream.ts";
 
 describe("independent TAR consumers", () => {
   it("system tar extracts PAX writer paths, links, directories and every original payload byte", async () => {

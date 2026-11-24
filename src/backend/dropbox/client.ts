@@ -2,7 +2,7 @@
 import { z } from "zod";
 import { isBytes, toRequestBytes, toView } from "../../bytes.ts";
 import { close } from "../../close.ts";
-import { assertRangeResponse, range } from "../../range.ts";
+import { assertRangeResponse, resolveRange } from "../../range.ts";
 import { RequestMetrics, sendRequest } from "../../request.ts";
 import type { FetchType, RequestPolicyType } from "../../request.ts";
 import { readResponse } from "../../response.ts";
@@ -488,7 +488,7 @@ export class DropboxClient {
   /** Server-trusted exact response bytes. A finite range is not full-file content-hash verification. */
   async download(path: string, options: DropboxReadOptionsType = {}): Promise<DropboxDownloadType> {
     const selected = address(path, true);
-    const extentRequest = range(options);
+    const extentRequest = resolveRange(options);
     if (extentRequest.empty) throw new RangeError("Dropbox download requires a nonempty extent to obtain metadata.");
     const response = await this.#downloadRequest(selected, extentRequest.header, extentRequest.signal);
     if (!response.ok) {
@@ -542,7 +542,7 @@ export class DropboxClient {
   }
   /** Finite read refuses oversized metadata before accumulating bytes. */
   async read(path: string, options: DropboxReadOptionsType = {}): Promise<Uint8Array> {
-    const selected = range(options);
+    const selected = resolveRange(options);
     if (selected.empty) return new Uint8Array();
     const downloaded = await this.download(path, {
       ...(options.at === undefined ? {} : { at: selected.start }),

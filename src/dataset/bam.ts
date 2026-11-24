@@ -2,9 +2,9 @@
 import type { ByteSourceType } from "../source.ts";
 import type { BamLimitsType, BamWorkType } from "./bam/bgzf.ts";
 import type { BamRecordType, BamReferenceType } from "./bam/record.ts";
-import { integer, invalid, unsupported, view } from "../archive/record.ts";
-import { Budget, Cursor, marker } from "./bam/bgzf.ts";
-import { record, referenceName } from "./bam/record.ts";
+import { assertInteger, createView, invalid, unsupported } from "../archive/record.ts";
+import { assertEndMarker, Budget, Cursor } from "./bam/bgzf.ts";
+import { parseRecord, parseReferenceName } from "./bam/record.ts";
 export { ArchiveError } from "../archive/record.ts";
 export type { ArchiveErrorCodeType, ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
 export type { ByteSourceType, SourceReadOptionsType } from "../source.ts";
@@ -89,13 +89,13 @@ export async function openBam(source: ByteSourceType, options: BamOptionsType = 
     throw new TypeError("BAM requires an explicitly stable byte source.");
   }
   const budget = new Budget(source, options);
-  await marker(budget, options.signal);
+  await assertEndMarker(budget, options.signal);
   const cursor = new Cursor(budget, options.signal);
   const magic = await cursor.take(4);
-  if (magic[0] !== 66 || magic[1] !== 65 || magic[2] !== 77 || magic[3] !== 1) invalid("BAM magic is invalid.");
-  const i32 = async (): Promise<number> => view(await cursor.take(4)).getInt32(0, true);
+  if (magic[0] !== 66 || magic[1] !== 65 || magic[2] !== 77 || magic[3] !== 1) throw invalid("BAM magic is invalid.");
+  const i32 = async (): Promise<number> => createView(await cursor.take(4)).getInt32(0, true);
   const textLength = await i32();
-  if (textLength < 0) invalid("BAM header text length is negative.");
+  if (textLength < 0) throw invalid("BAM header text length is negative.");
   if (textLength > budget.limits.maxHeaderBytes) budget.refuse("header text");
   budget.reserve("outputBytes", textLength * 2);
   const textBytes = await cursor.take(textLength);
@@ -103,24 +103,26 @@ export async function openBam(source: ByteSourceType, options: BamOptionsType = 
   try {
     text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(textBytes);
   } catch {
-    invalid("BAM header text is not valid UTF-8.");
+    throw invalid("BAM header text is not valid UTF-8.");
   }
-  if (text.includes("\0") || text.startsWith("\ufeff")) invalid("BAM header text contains NUL or a byte-order mark.");
-  if (text && !text.endsWith("\n")) unsupported("BAM first profile requires newline-terminated header text.");
+  if (text.includes("\0") || text.startsWith("\ufeff")) {
+    throw invalid("BAM header text contains NUL or a byte-order mark.");
+  }
+  if (text && !text.endsWith("\n")) throw unsupported("BAM first profile requires newline-terminated header text.");
   const referenceCount = await i32();
-  if (referenceCount < 0) invalid("BAM reference count is negative.");
+  if (referenceCount < 0) throw invalid("BAM reference count is negative.");
   if (referenceCount > budget.limits.maxReferences) budget.refuse("reference count");
   budget.reserve("outputBytes", referenceCount * 64);
   const references: BamReferenceType[] = [], names = new Set<string>();
   for (let id = 0; id < referenceCount; id++) {
     const nameLength = await i32();
-    if (nameLength < 2) invalid("BAM reference name length is invalid.");
+    if (nameLength < 2) throw invalid("BAM reference name length is invalid.");
     if (nameLength > budget.limits.maxNameBytes) budget.refuse("reference name");
     budget.reserve("outputBytes", nameLength * 2);
     const bytes = await cursor.take(nameLength);
-    if (bytes[nameLength - 1] !== 0) invalid("BAM reference name lacks NUL.");
-    const name = referenceName(bytes.subarray(0, nameLength - 1)), length = await i32();
-    if (length < 1 || names.has(name)) invalid("BAM reference length/name is invalid or duplicated.");
+    if (bytes[nameLength - 1] !== 0) throw invalid("BAM reference name lacks NUL.");
+    const name = parseReferenceName(bytes.subarray(0, nameLength - 1)), length = await i32();
+    if (length < 1 || names.has(name)) throw invalid("BAM reference length/name is invalid or duplicated.");
     names.add(name);
     references.push(Object.freeze({ id, name, length }));
   }
@@ -131,11 +133,11 @@ export async function openBam(source: ByteSourceType, options: BamOptionsType = 
     const end = text.indexOf("\n", textAt);
     const line = text.slice(textAt, end);
     textAt = end + 1;
-    if (!line) invalid("BAM header contains an empty line.");
-    if (!/^@(HD|SQ|RG|PG|CO)(\t|\r?$)/.test(line)) invalid("BAM header line has invalid syntax.");
+    if (!line) throw invalid("BAM header contains an empty line.");
+    if (!/^@(HD|SQ|RG|PG|CO)(\t|\r?$)/.test(line)) throw invalid("BAM header line has invalid syntax.");
     if (!line.startsWith("@SQ\t")) continue;
     const fields = line.replace(/\r$/, "").split("\t", 66).slice(1);
-    if (fields.length > 64) unsupported("BAM textual reference field count exceeds 64.");
+    if (fields.length > 64) throw unsupported("BAM textual reference field count exceeds 64.");
     const sn = fields.filter((field) => field.startsWith("SN:")),
       ln = fields.filter((field) => field.startsWith("LN:"));
     const expected = references[textReferences++];
@@ -143,11 +145,11 @@ export async function openBam(source: ByteSourceType, options: BamOptionsType = 
       sn.length !== 1 || ln.length !== 1 || !expected || sn[0]!.slice(3) !== expected.name ||
       !/^[1-9][0-9]*$/.test(ln[0]!.slice(3)) || Number(ln[0]!.slice(3)) !== expected.length
     ) {
-      invalid("BAM textual and binary reference dictionaries disagree.");
+      throw invalid("BAM textual and binary reference dictionaries disagree.");
     }
   }
   if (textReferences && textReferences !== references.length) {
-    invalid("BAM textual reference dictionary is incomplete.");
+    throw invalid("BAM textual reference dictionary is incomplete.");
   }
   const header = Object.freeze({ text, references: Object.freeze(references) });
   let busy = false;
@@ -157,8 +159,8 @@ export async function openBam(source: ByteSourceType, options: BamOptionsType = 
     inspect: () => budget.inspect(),
     async *records(readOptions: BamReadOptionsType = {}): AsyncGenerator<BamPageType> {
       const maxRecords = readOptions.maxRecords ?? 20, pageRecords = readOptions.pageRecords ?? 20;
-      integer(maxRecords, "BAM preview record count");
-      integer(pageRecords, "BAM page record count");
+      assertInteger(maxRecords, "BAM preview record count");
+      assertInteger(pageRecords, "BAM page record count");
       if (pageRecords < 1 || pageRecords > 256) throw new RangeError("BAM pageRecords must be 1..256.");
       readOptions.signal?.throwIfAborted();
       if (busy) throw new TypeError("BAM permits only one active record iterator.");
@@ -179,13 +181,15 @@ export async function openBam(source: ByteSourceType, options: BamOptionsType = 
             return;
           }
           budget.record();
-          const length = view(await input.take(4)).getInt32(0, true);
-          if (length < 32) invalid(`BAM record at ${location} has an invalid body length.`);
+          const length = createView(await input.take(4)).getInt32(0, true);
+          if (length < 32) throw invalid(`BAM record at ${location} has an invalid body length.`);
           if (length > budget.limits.maxRecordBytes) budget.refuse(`record at ${location}`);
           // Conservative storage charge covers decoded strings, arrays and bounded operation/auxiliary objects.
           budget.reserve("outputBytes", length * 16 + 256);
           const bytes = await input.take(length);
-          page.push(record(bytes, references, ordinal++, location, budget.limits.maxCigar, budget.limits.maxAuxiliary));
+          page.push(
+            parseRecord(bytes, references, ordinal++, location, budget.limits.maxCigar, budget.limits.maxAuxiliary),
+          );
           if (ordinal === maxRecords) {
             yield result("preview");
             return;

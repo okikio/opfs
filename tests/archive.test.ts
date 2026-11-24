@@ -3,7 +3,7 @@ import { expect } from "@std/expect";
 import { decodeBase64 } from "@std/encoding/base64";
 import { runInNewContext } from "node:vm";
 import { createArchiveLedger, openZip } from "../src/archive/zip/mod.ts";
-import { openTar } from "../src/archive/tar.ts";
+import { openTar } from "../src/archive/tar/mod.ts";
 import type { ByteSourceType } from "../src/source.ts";
 
 // Python 3.9 stdlib zipfile, fixed 2020-01-01 timestamp: stored hello, deflated

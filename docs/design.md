@@ -831,6 +831,37 @@ The root package is browser-safe. Runtime/provider code remains on explicit subp
 Importing a module does not connect to storage, read environment variables, start a worker, configure global logging, or
 mutate a process registry.
 
+## Entry points: main, types and advanced
+
+Almost every module is importable, but not from the same entry point. Nobody can know in advance every job a consumer
+will need to do, so the package does not hide a working mechanism just because most callers never touch it. It sorts
+modules by how often a consumer should need them:
+
+| Kind     | Spelling                    | Example                           | Who needs it                                               |
+| -------- | --------------------------- | --------------------------------- | ---------------------------------------------------------- |
+| Main     | the owner's path            | `@okikio/opfs/archive/tar`        | Most consumers of that capability                          |
+| Types    | `/types` under the owner    | `@okikio/opfs/schema/types`       | Code that needs the data shapes without the runtime module |
+| Advanced | `_` before the last segment | `@okikio/opfs/archive/tar/_block` | Code doing something the main entry does not cover         |
+
+An advanced entry point exposes a mechanism the main entry already uses, for example TAR block padding, the whole-file
+write rule shared by object and record stores, or IndexedDB transaction ownership. Its module documentation names the
+main entry point that covers the usual case, so a reader can tell whether they need it at all. Advanced entry points
+follow the same release rules as every other subpath: a breaking change is listed in the changeset with its migration.
+They track the internal design more closely, so expect them to change more often.
+
+Current advanced entry points:
+
+| Entry point                                  | Mechanism                                                                    |
+| -------------------------------------------- | ---------------------------------------------------------------------------- |
+| `@okikio/opfs/archive/tar/_block`            | `padding(size)`: zero bytes after a payload to the next 512-byte TAR block   |
+| `@okikio/opfs/driver/_image`                 | `applyWrite(...)`: one `replace`, `append` or `update` on a whole file image |
+| `@okikio/opfs/driver/indexeddb/_store`       | `upgradeDatabase(...)`: the record driver's object-store layout              |
+| `@okikio/opfs/driver/indexeddb/_transaction` | `Transaction`, `waitForRequest`, `committed`: IndexedDB request and commit   |
+
+Some modules stay unpublished because they keep their guarantees only when used together with code that is itself
+published. The IndexedDB event plumbing in `backend/indexeddb/observe.ts` is one: `Transaction` is its supported
+interface. Publishing such a module is a deliberate decision, not a default.
+
 ## Review rules
 
 A storage change is not complete until these questions have concrete answers:

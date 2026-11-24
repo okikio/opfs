@@ -3,12 +3,12 @@ import type { ByteSourceType } from "../source.ts";
 import {
   ArchiveBudget,
   ArchiveError,
+  assertInteger,
   createArchiveLedger,
-  integer,
+  createView,
   invalid,
-  limitsOf,
+  resolveLimits,
   unsupported,
-  view,
 } from "../archive/record.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
 export { ArchiveError, createArchiveLedger } from "../archive/record.ts";
@@ -110,13 +110,13 @@ export interface NetcdfDatasetType {
 }
 function exact(value: bigint): number {
   if (value < 0n || value > BigInt(Number.MAX_SAFE_INTEGER)) {
-    unsupported("netCDF extent exceeds exact JavaScript indexing.");
+    throw unsupported("netCDF extent exceeds exact JavaScript indexing.");
   }
   return Number(value);
 }
 function policy(value: number | undefined, fallback: number, label: string): number {
   const count = value ?? fallback;
-  integer(count, label);
+  assertInteger(count, label);
   return count;
 }
 function widthOf(type: NetcdfStorageType): number {
@@ -137,7 +137,7 @@ function typeOf(code: number): NetcdfStorageType {
     case 6:
       return "double";
     default:
-      return unsupported("Unknown classic netCDF storage type.");
+      throw unsupported("Unknown classic netCDF storage type.");
   }
 }
 function numberAt(data: DataView, offset: number, type: NetcdfStorageType): number {
@@ -171,12 +171,12 @@ class Header {
     this.maximum = maximum;
   }
   async take(length: number): Promise<Uint8Array> {
-    integer(length, "netCDF header field bytes");
+    assertInteger(length, "netCDF header field bytes");
     if (length > this.maximum - this.at) {
       throw new ArchiveError("budget-exceeded", "netCDF header byte limit exceeded.");
     }
     this.budget.decoded(length);
-    if (length > this.size - this.at) invalid("Truncated netCDF header.");
+    if (length > this.size - this.at) throw invalid("Truncated netCDF header.");
     const result = new Uint8Array(length);
     let copied = 0;
     while (copied < length) {
@@ -192,16 +192,16 @@ class Header {
     return result;
   }
   async uint(): Promise<number> {
-    return view(await this.take(4)).getUint32(0, false);
+    return createView(await this.take(4)).getUint32(0, false);
   }
   async count(): Promise<number> {
     const value = await this.uint();
-    if (value > 0x7fffffff) unsupported("netCDF signed metadata count exceeds supported range.");
+    if (value > 0x7fffffff) throw unsupported("netCDF signed metadata count exceeds supported range.");
     return value;
   }
   async padding(length: number): Promise<void> {
     for (const value of await this.take((4 - length % 4) % 4)) {
-      if (value) invalid("netCDF header padding must be zero.");
+      if (value) throw invalid("netCDF header padding must be zero.");
     }
   }
   async name(): Promise<string> {
@@ -212,7 +212,7 @@ class Header {
     try {
       name = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
     } catch {
-      invalid("Invalid netCDF UTF-8 name.");
+      throw invalid("Invalid netCDF UTF-8 name.");
     }
     let forbidden = false;
     for (const character of name) {
@@ -222,13 +222,13 @@ class Header {
     if (
       !name || name !== name.normalize("NFC") || !/^[A-Za-z0-9_\u0080-\u{10ffff}]/u.test(name) ||
       forbidden || name.endsWith(" ")
-    ) invalid("Unsupported netCDF name spelling.");
+    ) throw invalid("Unsupported netCDF name spelling.");
     return name;
   }
   async list(tag: number, maximum: number): Promise<number> {
     const actual = await this.uint(), count = await this.count();
     if (actual === 0 && count === 0) return 0;
-    if (actual !== tag) invalid("Invalid netCDF list tag.");
+    if (actual !== tag) throw invalid("Invalid netCDF list tag.");
     if (count > maximum) throw new ArchiveError("budget-exceeded", "netCDF list count limit exceeded.");
     return count;
   }
@@ -242,7 +242,7 @@ export async function openNetcdf(
 ): Promise<NetcdfDatasetType> {
   options = { ...options };
   const size = input.size, identity = input.identity, stability = input.stability;
-  integer(size, "netCDF source size");
+  assertInteger(size, "netCDF source size");
   if (identity !== undefined && (typeof identity !== "string" || identity.length > 8192)) {
     throw new TypeError("Invalid netCDF source identity.");
   }
@@ -250,7 +250,7 @@ export async function openNetcdf(
     throw new TypeError("Invalid netCDF source stability.");
   }
   if (!stability && options.allowUnverifiedSource !== true) {
-    unsupported("netCDF requires stable source evidence or allowUnverifiedSource: true.");
+    throw unsupported("netCDF requires stable source evidence or allowUnverifiedSource: true.");
   }
   const source: ByteSourceType = {
     size,
@@ -282,20 +282,20 @@ export async function openNetcdf(
   const work = new ArchiveBudget(source, { ...options, ledger: lifetime }, options.signal),
     header = new Header(work, size, maxHeader);
   const magic = await header.take(4);
-  if (magic[0] !== 67 || magic[1] !== 68 || magic[2] !== 70) unsupported("Not a classic netCDF CDF file.");
+  if (magic[0] !== 67 || magic[1] !== 68 || magic[2] !== 70) throw unsupported("Not a classic netCDF CDF file.");
   const version = magic[3];
-  if (version !== 1 && version !== 2) unsupported("Only netCDF CDF-1/CDF-2 are supported.");
+  if (version !== 1 && version !== 2) throw unsupported("Only netCDF CDF-1/CDF-2 are supported.");
   const records = await header.uint();
-  if (records === 0xffffffff) unsupported("Streaming netCDF record counts are not supported.");
+  if (records === 0xffffffff) throw unsupported("Streaming netCDF record counts are not supported.");
   const dimensions: NetcdfDimensionType[] = [], dimensionNames = new Set<string>();
   let unlimited = -1;
   const dimensionCount = await header.list(10, maxDimensions);
   for (let i = 0; i < dimensionCount; i++) {
     const name = await header.name(), encoded = await header.count();
-    if (dimensionNames.has(name)) invalid("Duplicate netCDF dimension name.");
+    if (dimensionNames.has(name)) throw invalid("Duplicate netCDF dimension name.");
     dimensionNames.add(name);
     if (encoded === 0) {
-      if (unlimited !== -1) invalid("Multiple netCDF unlimited dimensions.");
+      if (unlimited !== -1) throw invalid("Multiple netCDF unlimited dimensions.");
       unlimited = i;
     }
     dimensions.push(Object.freeze({ id: i, name, length: encoded || records, unlimited: encoded === 0 }));
@@ -307,7 +307,7 @@ export async function openNetcdf(
     const result: NetcdfAttributeType[] = [], names = new Set<string>();
     for (let i = 0; i < count; i++) {
       const name = await header.name();
-      if (names.has(name)) invalid("Duplicate netCDF attribute name.");
+      if (names.has(name)) throw invalid("Duplicate netCDF attribute name.");
       names.add(name);
       const type = typeOf(await header.uint()), count = await header.count();
       if (count > maxValues - attributeValues) {
@@ -318,7 +318,7 @@ export async function openNetcdf(
       await header.padding(length);
       // Frozen number arrays keep caller mutation from changing interpretation later.
       work.decoded(count * 8);
-      const values: number[] = [], data = view(bytes);
+      const values: number[] = [], data = createView(bytes);
       for (let index = 0; index < count; index++) values.push(numberAt(data, index * widthOf(type), type));
       result.push(Object.freeze({ name, type, values: Object.freeze(values) }));
     }
@@ -329,7 +329,7 @@ export async function openNetcdf(
   const variableCount = await header.list(11, maxVariables);
   for (let id = 0; id < variableCount; id++) {
     const name = await header.name();
-    if (names.has(name)) invalid("Duplicate netCDF variable name.");
+    if (names.has(name)) throw invalid("Duplicate netCDF variable name.");
     names.add(name);
     const rank = await header.count();
     if (rank > maxRank) throw new ArchiveError("budget-exceeded", "netCDF variable rank limit exceeded.");
@@ -337,9 +337,9 @@ export async function openNetcdf(
     let record = false, elementCount = 1n, slabCount = 1n;
     for (let axis = 0; axis < rank; axis++) {
       const dimid = await header.count(), dimension = dimensions[dimid];
-      if (!dimension) invalid("Unknown netCDF dimension reference.");
+      if (!dimension) throw invalid("Unknown netCDF dimension reference.");
       if (dimension.unlimited) {
-        if (axis !== 0) invalid("netCDF unlimited dimension must be the first variable axis.");
+        if (axis !== 0) throw invalid("netCDF unlimited dimension must be the first variable axis.");
         record = true;
       }
       ids.push(dimid);
@@ -348,15 +348,15 @@ export async function openNetcdf(
       if (!dimension.unlimited) slabCount *= BigInt(dimension.length);
     }
     const attrs = await attributes(), type = typeOf(await header.uint()), vsize = await header.uint();
-    if (vsize === 0xffffffff) unsupported("netCDF overflow vsize declarations are not supported.");
+    if (vsize === 0xffffffff) throw unsupported("netCDF overflow vsize declarations are not supported.");
     const encodedOffset = version === 1
-      ? BigInt(view(await header.take(4)).getInt32(0, false))
-      : view(await header.take(8)).getBigInt64(0, false);
+      ? BigInt(createView(await header.take(4)).getInt32(0, false))
+      : createView(await header.take(8)).getBigInt64(0, false);
     const offset = exact(encodedOffset),
       slabBytes = slabCount * BigInt(widthOf(type)),
       padded = exact((slabBytes + 3n) / 4n * 4n);
     if (padded !== vsize) deviations.push(Object.freeze({ id, declaredVsize: vsize, expectedVsize: padded }));
-    if (offset % 4) invalid("netCDF variable start is not four-byte aligned.");
+    if (offset % 4) throw invalid("netCDF variable start is not four-byte aligned.");
     variables.push(
       Object.freeze({
         id,
@@ -375,9 +375,9 @@ export async function openNetcdf(
   }
   let fixedEnd = header.at;
   for (const variable of variables.filter((variable) => !variable.record)) {
-    if (variable.offset < fixedEnd) invalid("netCDF fixed variables overlap metadata or previous data.");
+    if (variable.offset < fixedEnd) throw invalid("netCDF fixed variables overlap metadata or previous data.");
     fixedEnd = exact(BigInt(variable.offset) + BigInt(variable.vsize));
-    if (fixedEnd > size) invalid("Truncated netCDF fixed variable.");
+    if (fixedEnd > size) throw invalid("Truncated netCDF fixed variable.");
   }
   const recordVariables = variables.filter((variable) => variable.record);
   for (const deviation of deviations) {
@@ -387,14 +387,14 @@ export async function openNetcdf(
       (variable.type !== "byte" && variable.type !== "char" && variable.type !== "short") ||
       (variable.vsize !== variable.recordElements * widthOf(variable.type) && !(records === 0 && variable.vsize === 0))
     ) {
-      invalid("netCDF vsize disagrees with dimensions and storage type.");
+      throw invalid("netCDF vsize disagrees with dimensions and storage type.");
     }
   }
   const recordBase = recordVariables[0]?.offset ?? fixedEnd;
   let paddedStride = 0n;
   for (const variable of recordVariables) {
     if (variable.offset < fixedEnd || BigInt(variable.offset) !== BigInt(recordBase) + paddedStride) {
-      invalid("Invalid netCDF interleaved record slab layout.");
+      throw invalid("Invalid netCDF interleaved record slab layout.");
     }
     paddedStride += BigInt(variable.vsize);
   }
@@ -402,7 +402,7 @@ export async function openNetcdf(
   const single = recordVariables.length === 1 ? recordVariables[0] : undefined;
   const recordStride = exact(single ? BigInt(single.recordElements) * BigInt(widthOf(single.type)) : paddedStride);
   if (records && recordVariables.length && BigInt(recordBase) + BigInt(records) * BigInt(recordStride) > BigInt(size)) {
-    invalid("Truncated netCDF record data.");
+    throw invalid("Truncated netCDF record data.");
   }
   options.signal?.throwIfAborted();
   return {
@@ -418,15 +418,15 @@ export async function openNetcdf(
     work: work.inspect(),
     async read(id, opts = {}) {
       opts = { ...opts };
-      integer(id, "netCDF variable id");
+      assertInteger(id, "netCDF variable id");
       const variable = variables[id];
       if (!variable) throw new RangeError("Unknown netCDF variable id.");
       const offset = opts.offset ?? 0,
         count = opts.count ?? variable.elements - offset,
         scale = opts.scale ?? "raw",
         missing = opts.missing ?? "attributes";
-      integer(offset, "netCDF element offset");
-      integer(count, "netCDF element count");
+      assertInteger(offset, "netCDF element offset");
+      assertInteger(count, "netCDF element count");
       if (offset > variable.elements || count > variable.elements - offset) {
         throw new RangeError("netCDF selection exceeds variable.");
       }
@@ -435,7 +435,9 @@ export async function openNetcdf(
       if (missing !== "none" && missing !== "attributes" && missing !== "fill") {
         throw new TypeError("Invalid netCDF missing-value policy.");
       }
-      if (scale === "physical" && variable.type === "char") unsupported("netCDF CHAR has no numeric physical scaling.");
+      if (scale === "physical" && variable.type === "char") {
+        throw unsupported("netCDF CHAR has no numeric physical scaling.");
+      }
       const signal = options.signal && opts.signal
         ? AbortSignal.any([options.signal, opts.signal])
         : options.signal ?? opts.signal;
@@ -446,7 +448,7 @@ export async function openNetcdf(
         const attribute = get(name);
         if (!attribute) return fallback;
         if (attribute.type === "char" || attribute.values.length !== 1 || !Number.isFinite(attribute.values[0])) {
-          unsupported(`netCDF ${name} requires a finite numeric scalar.`);
+          throw unsupported(`netCDF ${name} requires a finite numeric scalar.`);
         }
         return attribute.values[0]!;
       };
@@ -457,7 +459,7 @@ export async function openNetcdf(
           unsigned &&
           (unsigned.type !== "char" || unsigned.values.length !== 5 ||
             String.fromCharCode(...unsigned.values).toLowerCase() !== "false")
-        ) unsupported("netCDF unsigned interpretation is not implemented for physical scaling.");
+        ) throw unsupported("netCDF unsigned interpretation is not implemented for physical scaling.");
         factor = scalar("scale_factor", 1);
         addition = scalar("add_offset", 0);
       }
@@ -468,7 +470,7 @@ export async function openNetcdf(
           const attribute = get(name);
           if (!attribute) continue;
           if (attribute.type !== variable.type || (name === "_FillValue" && attribute.values.length !== 1)) {
-            unsupported(`netCDF ${name} requires stored-type ${name === "_FillValue" ? "scalar" : "values"}.`);
+            throw unsupported(`netCDF ${name} requires stored-type ${name === "_FillValue" ? "scalar" : "values"}.`);
           }
           if (attribute.values.length > maxMissingValues - sentinelCount) {
             throw new ArchiveError("budget-exceeded", "netCDF interpreted missing-value count limit exceeded.");
@@ -513,7 +515,7 @@ export async function openNetcdf(
         remaining -= elements;
         element += elements;
       }
-      const limits = limitsOf(opts);
+      const limits = resolveLimits(opts);
       if (bytes > limits.maxSourceBytes || segments.length > limits.maxRequests) {
         throw new ArchiveError("budget-exceeded", "netCDF known source cost exceeds operation policy.");
       }
@@ -557,7 +559,7 @@ export async function openNetcdf(
       const undefinedMask = new Uint8Array(count);
       let output = 0;
       for (const segment of segments) {
-        const data = view(await budget.read(segment.offset, segment.elements * width));
+        const data = createView(await budget.read(segment.offset, segment.elements * width));
         for (let index = 0; index < segment.elements; index++) {
           const value = numberAt(data, index * width, variable.type);
           undefinedMask[output] =

@@ -1,7 +1,7 @@
 /** Bounded Internet Archive ARC 1.0 stored-record inspection, distinct from SEA ARC compression. @module */
 import type { ByteSourceType } from "../source.ts";
-import { sourceRange } from "../source.ts";
-import { ArchiveBudget, ArchiveError, createArchiveLedger, integer, invalid, unsupported } from "./record.ts";
+import { assertExtent } from "../source.ts";
+import { ArchiveBudget, ArchiveError, assertInteger, createArchiveLedger, invalid, unsupported } from "./record.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
 export { ArchiveError, createArchiveLedger } from "./record.ts";
 export type { ArchiveErrorCodeType, ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
@@ -68,20 +68,20 @@ function cap(value: number, maximum: number, label: string): void {
 /** Metadata is printable ASCII by policy; binary content is never passed through this decoder. */
 function ascii(bytes: Uint8Array): string {
   for (const byte of bytes) {
-    if (byte < 32 || byte > 126) unsupported("ARC metadata requires printable ASCII and LF framing.");
+    if (byte < 32 || byte > 126) throw unsupported("ARC metadata requires printable ASCII and LF framing.");
   }
   return new TextDecoder().decode(bytes);
 }
 /** Validate a UTC calendar without Date's silent normalization or network resolution. */
 function dateOf(value: string): void {
-  if (!/^\d{14}$/.test(value)) invalid("ARC date must contain 14 UTC decimal digits.");
+  if (!/^\d{14}$/.test(value)) throw invalid("ARC date must contain 14 UTC decimal digits.");
   const year = +value.slice(0, 4);
   const month = +value.slice(4, 6);
   const day = +value.slice(6, 8);
   const hour = +value.slice(8, 10);
   const minute = +value.slice(10, 12);
   const second = +value.slice(12, 14);
-  if (second === 60) unsupported("ARC leap-second dates are outside this profile.");
+  if (second === 60) throw unsupported("ARC leap-second dates are outside this profile.");
   const days = [
     31,
     year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0) ? 29 : 28,
@@ -98,13 +98,13 @@ function dateOf(value: string): void {
   ];
   if (
     !year || month < 1 || month > 12 || day < 1 || day > days[month - 1]! || hour > 23 || minute > 59 || second > 59
-  ) invalid("Invalid ARC UTC calendar date.");
+  ) throw invalid("Invalid ARC UTC calendar date.");
 }
 function ipOf(value: string, descriptor: boolean): void {
   if (descriptor && value === "0") return;
-  if (value.includes(":")) unsupported("IPv6 ARC metadata is outside this dotted-quad profile.");
+  if (value.includes(":")) throw unsupported("IPv6 ARC metadata is outside this dotted-quad profile.");
   if (!/^\d{1,3}(?:\.\d{1,3}){3}$/.test(value) || value.split(".").some((part) => +part > 255)) {
-    invalid("ARC IP metadata must be a dotted-quad IPv4 address.");
+    throw invalid("ARC IP metadata must be a dotted-quad IPv4 address.");
   }
 }
 /** A bounded lookahead cache can include payload bytes; every fetched byte is charged to the opening budget. */
@@ -120,7 +120,7 @@ class ArcCursor {
     this.#chunk = chunk;
   }
   async byte(offset: number): Promise<number> {
-    if (offset >= this.#size) invalid("Truncated ARC framing.");
+    if (offset >= this.#size) throw invalid("Truncated ARC framing.");
     if (offset < this.#start || offset >= this.#start + this.#bytes.length) {
       this.#start = offset;
       this.#bytes = await this.#work.read(offset, Math.min(this.#chunk, this.#size - offset));
@@ -160,7 +160,7 @@ async function bytesOf(
   options: ArcReadOptionsType,
   chunk: number,
 ): Promise<ArcReadType> {
-  sourceRange(source.size, offset, length);
+  assertExtent(source.size, offset, length);
   options.signal?.throwIfAborted();
   const outer = options.ledger;
   const work = new ArchiveBudget(source, {
@@ -195,12 +195,12 @@ async function bytesOf(
 export async function openArc(input: ByteSourceType, options: ArcOpenOptionsType = {}): Promise<ArcArchiveType> {
   options = { ...options };
   const { size, identity, stability } = input;
-  integer(size, "ARC source size");
+  assertInteger(size, "ARC source size");
   if (stability !== undefined && !["immutable", "provider", "caller"].includes(stability)) {
     throw new TypeError("Unknown ARC source stability evidence.");
   }
   if (!stability && !options.allowUnverifiedSource) {
-    unsupported("ARC requires a stable source or explicit unverified-source acceptance.");
+    throw unsupported("ARC requires a stable source or explicit unverified-source acceptance.");
   }
   if (identity !== undefined && (typeof identity !== "string" || identity.length > 8192)) {
     throw new TypeError("ARC identity must be a string of at most 8192 UTF16 code units.");
@@ -218,7 +218,7 @@ export async function openArc(input: ByteSourceType, options: ArcOpenOptionsType
     metadata: options.maxMetadataBytes ?? 4 * 1024 * 1024,
     chunk: options.maxChunkBytes ?? 4096,
   };
-  for (const [key, value] of Object.entries(policy)) integer(value, key);
+  for (const [key, value] of Object.entries(policy)) assertInteger(value, key);
   if (
     policy.line < 1 || policy.line > 65536 || policy.filedesc > 1024 * 1024 || policy.chunk < 1 || policy.chunk > 65536
   ) throw new RangeError("ARC line/filedesc/chunk implementation ceiling exceeded.");
@@ -236,34 +236,34 @@ export async function openArc(input: ByteSourceType, options: ArcOpenOptionsType
   let retained = 0;
   let origin = "";
   if (size >= 2 && (await cursor.byte(0)) === 31 && (await cursor.byte(1)) === 139) {
-    unsupported("Compose gzip decoding separately before ARC indexing.");
+    throw unsupported("Compose gzip decoding separately before ARC indexing.");
   }
   while (offset < size) {
     cap(entries.length + 1, policy.entries, "ARC entries");
     cap(129, policy.metadata - retained, "ARC retained metadata");
     // Line admission excludes LF, but retained metadata includes LF and the record overhead.
     const line = await cursor.line(offset, Math.min(policy.line, policy.metadata - retained - 129));
-    if (!line.text) invalid("Unexpected blank ARC record header.");
+    if (!line.text) throw invalid("Unexpected blank ARC record header.");
     const fields = line.text.split(" ");
     if (fields.length !== 5 || fields.some((field) => !field)) {
-      invalid("ARC 1.0 requires exactly five nonempty ASCII space-separated fields.");
+      throw invalid("ARC 1.0 requires exactly five nonempty ASCII space-separated fields.");
     }
     const [url, ip, date, contentType, length] = fields as [string, string, string, string, string];
     const descriptor = url.startsWith("filedesc://");
     if (!entries.length && (!descriptor || url.length === 11)) {
-      invalid("ARC must begin with a nonempty filedesc:// URL record.");
+      throw invalid("ARC must begin with a nonempty filedesc:// URL record.");
     }
-    if (entries.length && descriptor) unsupported("Concatenated ARC files require a separate explicit profile.");
-    if (!/^\d+$/.test(length)) invalid("ARC block length must be an unsigned decimal integer.");
+    if (entries.length && descriptor) throw unsupported("Concatenated ARC files require a separate explicit profile.");
+    if (!/^\d+$/.test(length)) throw invalid("ARC block length must be an unsigned decimal integer.");
     const blockSize = Number(length);
-    integer(blockSize, "ARC block length");
-    if (blockSize > size - line.next) invalid("ARC declared block exceeds source.");
+    assertInteger(blockSize, "ARC block length");
+    if (blockSize > size - line.next) throw invalid("ARC declared block exceeds source.");
     dateOf(date);
     ipOf(ip, descriptor);
     retained += line.bytes + 128;
     let end = line.next + blockSize;
     if (descriptor) {
-      if (contentType !== "text/plain") invalid("ARC filedesc must declare text/plain.");
+      if (contentType !== "text/plain") throw invalid("ARC filedesc must declare text/plain.");
       cap(blockSize, policy.filedesc, "ARC filedesc bytes");
       cap(blockSize, policy.metadata - retained, "ARC retained metadata");
       // The descriptor is small retained metadata; ordinary blocks are skipped by physical length.
@@ -273,32 +273,32 @@ export async function openArc(input: ByteSourceType, options: ArcOpenOptionsType
       retained += blockSize;
       const first = bytes.indexOf(10);
       const second = bytes.indexOf(10, first + 1);
-      if (first < 0 || second < 0) invalid("ARC filedesc lacks two LF-terminated metadata lines.");
+      if (first < 0 || second < 0) throw invalid("ARC filedesc lacks two LF-terminated metadata lines.");
       const version = ascii(bytes.subarray(0, first));
       const match = /^([0-9]+) ([^ ]+) (.+)$/.exec(version);
-      if (!match) invalid("Malformed ARC filedesc version record.");
+      if (!match) throw invalid("Malformed ARC filedesc version record.");
       if (match[1] !== "1" || match[2] !== "0") {
-        unsupported(
+        throw unsupported(
           "Only ARC 1.0 filedesc version 1 reserved 0 is supported; metadata extensions remain opaque unsupported profiles.",
         );
       }
       origin = match[3]!;
       if (ascii(bytes.subarray(first + 1, second)) !== "URL IP-address Archive-date Content-type Archive-length") {
-        invalid("Unsupported ARC 1.0 URL-record field definition.");
+        throw invalid("Unsupported ARC 1.0 URL-record field definition.");
       }
       if (separator === "inside-length") {
         if (second + 2 !== bytes.length || bytes[second + 1] !== 10) {
-          invalid("ARC inside-length filedesc must contain exactly one final blank LF.");
+          throw invalid("ARC inside-length filedesc must contain exactly one final blank LF.");
         }
       } else {
         if (second + 1 !== bytes.length) {
-          invalid("ARC outside-length filedesc cannot contain extra metadata or a counted separator.");
+          throw invalid("ARC outside-length filedesc cannot contain extra metadata or a counted separator.");
         }
-        if (await cursor.byte(end) !== 10) invalid("ARC record requires an outside-length LF separator.");
+        if (await cursor.byte(end) !== 10) throw invalid("ARC record requires an outside-length LF separator.");
         end++;
       }
     } else {
-      if (await cursor.byte(end) !== 10) invalid("ARC record requires an outside-length LF separator.");
+      if (await cursor.byte(end) !== 10) throw invalid("ARC record requires an outside-length LF separator.");
       end++;
     }
     entries.push(
@@ -316,9 +316,9 @@ export async function openArc(input: ByteSourceType, options: ArcOpenOptionsType
     );
     offset = end;
   }
-  if (!entries.length) invalid("ARC source has no filedesc record.");
+  if (!entries.length) throw invalid("ARC source has no filedesc record.");
   function entryOf(id: number): ArcEntryType {
-    integer(id, "ARC record ID");
+    assertInteger(id, "ARC record ID");
     const entry = entries[id];
     if (!entry) throw new RangeError("Unknown ARC record ID.");
     return entry;
@@ -354,7 +354,7 @@ export async function openArc(input: ByteSourceType, options: ArcOpenOptionsType
       const entry = entryOf(id);
       const offset = call.offset ?? 0;
       const length = call.length ?? entry.size - offset;
-      sourceRange(entry.size, offset, length);
+      assertExtent(entry.size, offset, length);
       return await bytesOf(source, entry.blockOffset + offset, length, operation(call), policy.chunk);
     },
     source(id: number, call: ArcReadOptionsType = {}): ByteSourceType {
@@ -362,7 +362,7 @@ export async function openArc(input: ByteSourceType, options: ArcOpenOptionsType
       const entry = entryOf(id);
       const offset = call.offset ?? 0;
       const length = call.length ?? entry.size - offset;
-      sourceRange(entry.size, offset, length);
+      assertExtent(entry.size, offset, length);
       const captured = operation(call);
       const physical = entry.blockOffset + offset;
       const selectedSize = length;
@@ -373,7 +373,7 @@ export async function openArc(input: ByteSourceType, options: ArcOpenOptionsType
           : { identity: JSON.stringify([identity, "internet-archive-arc", physical, length]) }),
         ...(stability === undefined ? {} : { stability }),
         async read(offset: number, length: number, readOptions: { signal?: AbortSignal } = {}) {
-          sourceRange(selectedSize, offset, length);
+          assertExtent(selectedSize, offset, length);
           const signal = captured.signal && readOptions.signal
             ? AbortSignal.any([captured.signal, readOptions.signal])
             : readOptions.signal ?? captured.signal;

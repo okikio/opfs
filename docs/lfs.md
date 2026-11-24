@@ -59,7 +59,7 @@ representations.
 
 `encodeLfsPointer()` preserves unknown supplemental records in `fields` and validates the resulting canonical layout.
 Its local input limit is 32 supplemental records, 1,024 characters per key/value and the final format's 1,023-byte
-ceiling. Unknown fields are inert data, not installed transformations. `lfsPointerObject()` turns a field-free nonempty
+ceiling. Unknown fields are inert data, not installed transformations. `toLfsObject()` turns a field-free nonempty
 pointer into an object request; it refuses empty pass-through files and every pointer with supplemental fields. The
 application must interpret any extension explicitly. Byte-layout preservation does not claim that every unknown field is
 accepted by every Git LFS version or that the library implements transformed-content retrieval.

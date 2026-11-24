@@ -14,10 +14,10 @@ export function readMszip(
 ): Uint8Array {
   signal?.throwIfAborted();
   if (packed.length < 3 || packed.length > 32780 || packed[0] !== 0x43 || packed[1] !== 0x4b) {
-    invalid("MSZIP block requires CK and at most 32780 packed bytes.");
+    throw invalid("MSZIP block requires CK and at most 32780 packed bytes.");
   }
   if (!Number.isSafeInteger(size) || size < 1 || size > 32768 || history.length > 32768) {
-    invalid("MSZIP decoded block/history exceeds 32 KiB.");
+    throw invalid("MSZIP decoded block/history exceeds 32 KiB.");
   }
   return readDeflate(packed.subarray(2), size, history, signal, admitBlock);
 }

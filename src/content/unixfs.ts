@@ -2,9 +2,9 @@
 import { isBytes, toView } from "../bytes.ts";
 import { parseCid } from "./cid.ts";
 import { murmur } from "./murmur.ts";
-import { sourceRange } from "../source.ts";
+import { assertExtent } from "../source.ts";
 import type { ByteSourceType } from "../source.ts";
-import { ArchiveError, createArchiveLedger, integer } from "../archive/record.ts";
+import { ArchiveError, assertInteger, createArchiveLedger } from "../archive/record.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
 export { createArchiveLedger } from "../archive/record.ts";
 
@@ -160,11 +160,13 @@ interface PolicyType {
   readonly cache: number;
   readonly entries: number;
 }
-function invalid(message: string): never {
-  throw new TypeError(`UnixFS: ${message}`);
+/** Creates the error for malformed UnixFS data; call as `throw invalid("...")`. */
+function invalid(message: string): TypeError {
+  return new TypeError(`UnixFS: ${message}`);
 }
-function unsupported(message: string): never {
-  throw new TypeError(`Unsupported UnixFS profile: ${message}`);
+/** Creates the error for a valid UnixFS profile this reader does not implement; call as `throw unsupported("...")`. */
+function unsupported(message: string): TypeError {
+  return new TypeError(`Unsupported UnixFS profile: ${message}`);
 }
 function cap(value: number, maximum: number, label: string): void {
   if (value > maximum) throw new ArchiveError("budget-exceeded", `UnixFS ${label} limit exceeded.`);
@@ -174,7 +176,7 @@ function signals(...values: readonly (AbortSignal | undefined)[]): AbortSignal |
   return present.length > 1 ? AbortSignal.any(present) : present[0];
 }
 function exact(value: bigint): number {
-  if (value > BigInt(Number.MAX_SAFE_INTEGER)) unsupported("logical size exceeds exact JavaScript integers");
+  if (value > BigInt(Number.MAX_SAFE_INTEGER)) throw unsupported("logical size exceeds exact JavaScript integers");
   return Number(value);
 }
 
@@ -250,20 +252,20 @@ function nameHash(name: string, work: Work): Uint8Array {
  * Other shards remain unexamined. Internal shard edges consume one of exactly eight hash bytes.
  */
 function shard(current: NodeType, path: readonly number[], work: Work): void {
-  if (current.kind !== "hamt-directory") invalid("HAMT shard link targets a different node type");
-  if (path.length >= 8) invalid("HAMT route exceeds its 64-bit hash");
+  if (current.kind !== "hamt-directory") throw invalid("HAMT shard link targets a different node type");
+  if (path.length >= 8) throw invalid("HAMT route exceeds its 64-bit hash");
   work.used.hamtShards++;
   for (const entry of current.links) {
     const bucket = Number.parseInt(entry.name.slice(0, 2), 16);
     work.step(path.length + 1);
     if (entry.name.length === 2) {
-      if (path.length === 7) invalid("HAMT internal link exhausts its 64-bit hash");
+      if (path.length === 7) throw invalid("HAMT internal link exhausts its 64-bit hash");
       continue;
     }
     work.charge("decodedBytes", entry.name.length * 2);
     const hash = nameHash(entry.name.slice(2), work);
     if (hash[path.length] !== bucket || path.some((value, index) => value !== hash[index])) {
-      invalid("HAMT leaf name disagrees with its complete hash route");
+      throw invalid("HAMT leaf name disagrees with its complete hash route");
     }
   }
 }
@@ -282,23 +284,23 @@ class Proto {
     for (let i = 0; i < 10; i++) {
       this.work.step();
       const byte = this.bytes[this.at++];
-      if (byte === undefined || (i === 9 && byte > 1)) invalid("truncated or overflowing uint64");
+      if (byte === undefined || (i === 9 && byte > 1)) throw invalid("truncated or overflowing uint64");
       value |= BigInt(byte & 127) << BigInt(i * 7);
       if (byte < 128) {
-        if (i && byte === 0) invalid("non-minimal protobuf varint");
+        if (i && byte === 0) throw invalid("non-minimal protobuf varint");
         return value;
       }
     }
-    invalid("oversized protobuf varint");
+    throw invalid("oversized protobuf varint");
   }
   field(): { field: number; wire: number } {
     const key = this.uint();
-    if (key > 0xffffffffn || key < 8n) invalid("invalid protobuf field tag");
+    if (key > 0xffffffffn || key < 8n) throw invalid("invalid protobuf field tag");
     return { field: Number(key >> 3n), wire: Number(key & 7n) };
   }
   data(): Uint8Array {
     const size = exact(this.uint());
-    if (size > this.bytes.length - this.at) invalid("protobuf byte extent exceeds its enclosing message");
+    if (size > this.bytes.length - this.at) throw invalid("protobuf byte extent exceeds its enclosing message");
     this.work.step(size);
     const result = this.bytes.subarray(this.at, this.at + size);
     this.at += size;
@@ -306,7 +308,7 @@ class Proto {
   }
   fixed(): number {
     this.work.step(4);
-    if (this.at + 4 > this.bytes.length) invalid("truncated fixed32");
+    if (this.at + 4 > this.bytes.length) throw invalid("truncated fixed32");
     const value = new DataView(this.bytes.buffer, this.bytes.byteOffset + this.at, 4).getUint32(0, true);
     this.at += 4;
     return value;
@@ -324,10 +326,10 @@ function time(bytes: Uint8Array, work: Work): UnixfsMetadataType["mtime"] {
     if (field === 1 && wire === 0 && seconds === undefined) seconds = BigInt.asIntN(64, reader.uint()).toString();
     else if (field === 2 && wire === 5 && nanoseconds === undefined) {
       nanoseconds = reader.fixed();
-      if (!nanoseconds || nanoseconds > 999999999) invalid("mtime fractional value outside 1..999999999");
-    } else invalid("duplicate or unknown mtime field");
+      if (!nanoseconds || nanoseconds > 999999999) throw invalid("mtime fractional value outside 1..999999999");
+    } else throw invalid("duplicate or unknown mtime field");
   }
-  if (seconds === undefined) invalid("mtime requires Seconds");
+  if (seconds === undefined) throw invalid("mtime requires Seconds");
   return Object.freeze({ seconds, ...(nanoseconds === undefined ? {} : { nanoseconds }) });
 }
 /** PBLink fields are ordered and unique; Hash syntax is checked even for an unopened child. */
@@ -337,11 +339,11 @@ function link(bytes: Uint8Array, work: Work): UnixfsLinkType {
   let previous = 0, cid: string | undefined, name = "", tsize: string | undefined;
   while (reader.at < bytes.length) {
     const { field, wire } = reader.field();
-    if (field <= previous || field > 3) invalid("PBLink fields must be ordered, known and unique");
+    if (field <= previous || field > 3) throw invalid("PBLink fields must be ordered, known and unique");
     previous = field;
     if (field === 1 && wire === 2) {
       const hash = reader.data();
-      if (hash.length > 256) invalid("PBLink CID exceeds admission limit");
+      if (hash.length > 256) throw invalid("PBLink CID exceeds admission limit");
       work.index(hash.length * 4); // Canonical base32 text plus owned CID parsing fields.
       cid = parseCid(hash).id;
     } else if (field === 2 && wire === 2) {
@@ -350,9 +352,9 @@ function link(bytes: Uint8Array, work: Work): UnixfsLinkType {
       work.index(bytes.length * 2);
       name = utf8(bytes, work.policy.name);
     } else if (field === 3 && wire === 0) tsize = reader.uint().toString();
-    else invalid("PBLink wire type does not match its field");
+    else throw invalid("PBLink wire type does not match its field");
   }
-  if (cid === undefined) invalid("PBLink requires a valid Hash");
+  if (cid === undefined) throw invalid("PBLink requires a valid Hash");
   return Object.freeze({ cid, name, ...(tsize === undefined ? {} : { tsize }) });
 }
 /** Strict UnixFS data, with both expanded and packed repeated blocksizes accepted in wire order. */
@@ -369,14 +371,14 @@ function node(cid: string, bytes: Uint8Array, codec: number, work: Work, hamt: b
       group = "data";
       data = reader.data();
     } else if (field === 2 && wire === 2) {
-      if (group === "data" && !dataFirst) invalid("PBNode Links cannot straddle Data");
+      if (group === "data" && !dataFirst) throw invalid("PBNode Links cannot straddle Data");
       group = "links";
       cap(1, work.policy.links - links.length, "links per node");
       work.used.links++;
       links.push(link(reader.data(), work));
-    } else invalid("PBNode field is duplicate, unknown or has the wrong wire type");
+    } else throw invalid("PBNode field is duplicate, unknown or has the wrong wire type");
   }
-  if (data === undefined) unsupported("missing UnixFS Data; legacy empty directories are not inferred");
+  if (data === undefined) throw unsupported("missing UnixFS Data; legacy empty directories are not inferred");
   const inner = new Proto(data, work), seen = new Set<number>(), sizes: number[] = [];
   let type: number | undefined, body: Uint8Array = new Uint8Array(0), declared: number | undefined;
   let mode: number | undefined,
@@ -386,7 +388,7 @@ function node(cid: string, bytes: Uint8Array, codec: number, work: Work, hamt: b
   while (inner.at < data.length) {
     const { field, wire } = inner.field();
     if (field !== 4) {
-      if (seen.has(field)) invalid("duplicate singular UnixFS field");
+      if (seen.has(field)) throw invalid("duplicate singular UnixFS field");
       seen.add(field);
     }
     if (field === 1 && wire === 0) type = exact(inner.uint());
@@ -407,27 +409,29 @@ function node(cid: string, bytes: Uint8Array, codec: number, work: Work, hamt: b
     else if (field === 6 && wire === 0) fanout = exact(inner.uint());
     else if (field === 7 && wire === 0) {
       const raw = inner.uint();
-      if (raw > 0xffffffffn) invalid("mode exceeds uint32");
+      if (raw > 0xffffffffn) throw invalid("mode exceeds uint32");
       mode = Number(raw);
     } else if (field === 8 && wire === 2) mtime = time(inner.data(), work);
-    else invalid("unknown UnixFS field or wire type");
+    else throw invalid("unknown UnixFS field or wire type");
   }
   const metadata = Object.freeze({
     ...(mode === undefined ? {} : { modeRaw: mode, mode: mode & 0xfff }),
     ...(mtime === undefined ? {} : { mtime }),
   });
-  if (type !== 5 && (hashType !== undefined || fanout !== undefined)) unsupported("HAMT fields on a non-HAMT node");
+  if (type !== 5 && (hashType !== undefined || fanout !== undefined)) {
+    throw unsupported("HAMT fields on a non-HAMT node");
+  }
   if (type === 2) {
-    if (sizes.length !== links.length) invalid("File Links and blocksizes counts disagree");
+    if (sizes.length !== links.length) throw invalid("File Links and blocksizes counts disagree");
     let size = body.length;
     const files: LinkType[] = [];
     for (let i = 0; i < links.length; i++) {
-      if (links[i]!.name !== "") invalid("File child links cannot have nonempty names");
-      if (sizes[i]! > Number.MAX_SAFE_INTEGER - size) unsupported("file size sum exceeds exact integers");
+      if (links[i]!.name !== "") throw invalid("File child links cannot have nonempty names");
+      if (sizes[i]! > Number.MAX_SAFE_INTEGER - size) throw unsupported("file size sum exceeds exact integers");
       files.push(Object.freeze({ ...links[i]!, size: sizes[i]!, offset: size }));
       size += sizes[i]!;
     }
-    if (size !== (declared ?? 0)) invalid("File filesize does not match inline bytes plus blocksizes");
+    if (size !== (declared ?? 0)) throw invalid("File filesize does not match inline bytes plus blocksizes");
     return {
       cid,
       kind: "file",
@@ -438,35 +442,35 @@ function node(cid: string, bytes: Uint8Array, codec: number, work: Work, hamt: b
       metadata,
     };
   }
-  if (type !== 1 && type !== 4 && type !== 5) unsupported(`node type ${type === undefined ? "missing" : type}`);
-  if (declared !== undefined || sizes.length) unsupported("file-size fields on a non-file node");
+  if (type !== 1 && type !== 4 && type !== 5) throw unsupported(`node type ${type === undefined ? "missing" : type}`);
+  if (declared !== undefined || sizes.length) throw unsupported("file-size fields on a non-file node");
   if (type === 5) {
-    if (!hamt) unsupported("HAMT requires explicit hamtProfile: kubo-fanout-256");
-    if (hashType !== 0x22 || fanout !== 256) unsupported("HAMT requires Murmur3 x64-64 and fanout 256");
-    if (body.length > 32) invalid("HAMT bitmap exceeds 256 buckets");
+    if (!hamt) throw unsupported("HAMT requires explicit hamtProfile: kubo-fanout-256");
+    if (hashType !== 0x22 || fanout !== 256) throw unsupported("HAMT requires Murmur3 x64-64 and fanout 256");
+    if (body.length > 32) throw invalid("HAMT bitmap exceeds 256 buckets");
     let occupied = 0, previous = -1;
     work.step(body.length * 8);
     for (const byte of body) for (let bit = 0; bit < 8; bit++) occupied += (byte >> bit) & 1;
-    if (occupied !== links.length) invalid("HAMT bitmap and link counts disagree");
+    if (occupied !== links.length) throw invalid("HAMT bitmap and link counts disagree");
     for (const entry of links) {
       work.step(entry.name.length + 1);
-      if (!/^[0-9A-F]{2}/.test(entry.name)) invalid("HAMT link requires two uppercase bucket characters");
+      if (!/^[0-9A-F]{2}/.test(entry.name)) throw invalid("HAMT link requires two uppercase bucket characters");
       const bucket = Number.parseInt(entry.name.slice(0, 2), 16), at = body.length - 1 - (bucket >> 3);
       if (bucket <= previous || at < 0 || !(body[at]! & (1 << (bucket & 7)))) {
-        invalid("HAMT bucket order, uniqueness or occupancy disagrees");
+        throw invalid("HAMT bucket order, uniqueness or occupancy disagrees");
       }
       previous = bucket;
     }
     return { cid, kind: "hamt-directory", bytes, data: body, links, size: 0, metadata };
   }
   if (type === 4) {
-    if (links.length) invalid("Symlink cannot have child links");
+    if (links.length) throw invalid("Symlink cannot have child links");
     work.charge("decodedBytes", body.length); // The public metadata target is one additional owned copy.
     return { cid, kind: "symlink", bytes, data: body, links, size: 0, metadata };
   }
   const names = new Set<string>();
   for (const item of links) {
-    if (names.has(item.name)) invalid("duplicate directory name");
+    if (names.has(item.name)) throw invalid("duplicate directory name");
     names.add(item.name);
   }
   return { cid, kind: "directory", bytes, data: body, links, size: 0, metadata };
@@ -514,7 +518,7 @@ export async function openUnixfs(
     entries: 65536,
   };
   for (const [key, value] of Object.entries(policy)) {
-    integer(value, `UnixFS ${key}`);
+    assertInteger(value, `UnixFS ${key}`);
     if (value > ceilings[key as keyof PolicyType]) throw new RangeError("UnixFS implementation ceiling exceeded.");
   }
   const lifetime = createArchiveLedger(options);
@@ -541,7 +545,7 @@ export async function openUnixfs(
     }
     const parsed = parseCid(cid);
     if (parsed.hashCode !== 0x12 || parsed.digest.length !== 32 || (parsed.codec !== 0x55 && parsed.codec !== 0x70)) {
-      unsupported("only SHA2-256 raw and DAG-PB blocks are supported");
+      throw unsupported("only SHA2-256 raw and DAG-PB blocks are supported");
     }
     work.charge("requests", 1);
     const incoming = await readBlock(parsed.id, {
@@ -549,7 +553,7 @@ export async function openUnixfs(
       ...(work.signal ? { signal: work.signal } : {}),
     });
     work.signal?.throwIfAborted();
-    if (!isBytes(incoming)) invalid("block reader returned a non-native byte view");
+    if (!isBytes(incoming)) throw invalid("block reader returned a non-native byte view");
     const view = toView(incoming);
     cap(view.length, policy.block, "serialized block bytes");
     // Callback allocation has already happened. Admit all owned copies and hash work before allocating any of them.
@@ -559,7 +563,7 @@ export async function openUnixfs(
     const hash = new Uint8Array(await digest("SHA-256", new Uint8Array(bytes).buffer));
     work.signal?.throwIfAborted();
     if (hash.length !== 32 || hash.some((byte, index) => byte !== parsed.digest[index])) {
-      invalid("CID block digest mismatch");
+      throw invalid("CID block digest mismatch");
     }
     work.index(128);
     const result = node(parsed.id, bytes, parsed.codec, work, hamt);
@@ -582,7 +586,7 @@ export async function openUnixfs(
   ): Promise<void> {
     work.step();
     cap(depth, policy.depth, "depth");
-    if (current.kind !== "file") invalid("File child is not a raw or DAG-PB File");
+    if (current.kind !== "file") throw invalid("File child is not a raw or DAG-PB File");
     if (!whole && !length) return;
     const end = offset + length, inlineEnd = Math.min(end, current.data.length);
     if (offset < inlineEnd && output) output.set(current.data.subarray(offset, inlineEnd), destination);
@@ -603,7 +607,7 @@ export async function openUnixfs(
       if (whole || (size && next > offset)) {
         const child = await load(item.cid, work, depth + 1);
         if (child.kind !== "file" || child.size !== size) {
-          invalid("fetched File child type or logical size disagrees with parent blocksizes");
+          throw invalid("fetched File child type or logical size disagrees with parent blocksizes");
         }
         const start = Math.max(at, offset), stop = Math.min(next, end), count = Math.max(0, stop - start);
         await walk(
@@ -629,7 +633,7 @@ export async function openUnixfs(
   ): Promise<UnixfsReadType> {
     call = { ...call };
     const offset = call.offset ?? 0, length = call.length ?? current.size - offset;
-    sourceRange(current.size, offset, length);
+    assertExtent(current.size, offset, length);
     cap(length, 16777216, "buffered output bytes");
     const work = context(ancestors, call, parentSignal);
     work.charge("outputBytes", length);
@@ -658,9 +662,11 @@ export async function openUnixfs(
       }
       const entry = current.links[low];
       if (!entry || Number.parseInt(entry.name.slice(0, 2), 16) !== bucket) {
-        invalid("literal HAMT name is absent on its route");
+        throw invalid("literal HAMT name is absent on its route");
       }
-      if (entry.name.length > 2 && entry.name.slice(2) !== name) invalid("literal HAMT name is absent on its route");
+      if (entry.name.length > 2 && entry.name.slice(2) !== name) {
+        throw invalid("literal HAMT name is absent on its route");
+      }
       work.edge();
       const child = await load(entry.cid, work, ++depth);
       if (entry.name.length > 2) {
@@ -686,7 +692,7 @@ export async function openUnixfs(
           cap(1, policy.entries - entries.length, "directory entries");
           work.index(128 + entry.name.length * 2 + entry.cid.length * 2);
           const name = entry.name.slice(2);
-          if (names.has(name)) invalid("duplicate HAMT directory name");
+          if (names.has(name)) throw invalid("duplicate HAMT directory name");
           names.add(name);
           entries.push(
             Object.freeze({ name, cid: entry.cid, ...(entry.tsize === undefined ? {} : { tsize: entry.tsize }) }),
@@ -781,7 +787,7 @@ export async function openUnixfs(
               break;
             }
           }
-          if (!entry) invalid("literal directory name is absent");
+          if (!entry) throw invalid("literal directory name is absent");
           const child = await load(entry.cid, work, depth + 1);
           if (child.kind === "hamt-directory") shard(child, [], work);
           return view(child, depth + 1, childParents, childSignal, work.inspect());

@@ -1,4 +1,4 @@
-import { assertRangeResponse, range } from "../../range.ts";
+import { assertRangeResponse, resolveRange } from "../../range.ts";
 import type { DriverPlanInputType, DriverPlanType } from "../../driver/definition.ts";
 import { map } from "../../pool.ts";
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
@@ -20,12 +20,7 @@ import { open } from "../../chunk.ts";
 import { isBuffer, isBytes, toRequestBuffer, toRequestBytes, toView } from "../../bytes.ts";
 import { assertRequestStream, isStream } from "../../body.ts";
 import { close } from "../../close.ts";
-import {
-  etagCopyOptions as copyOptions,
-  etagPutOptions as putOptions,
-  objectETag,
-  putProperties,
-} from "../../publication.ts";
+import { applyProperties, resolveETag, resolveETagCopy, resolveETagPut } from "../../publication.ts";
 import type { ResponseTextType } from "../../response.ts";
 import { readResponse } from "../../response.ts";
 import {
@@ -1007,8 +1002,8 @@ class AzureClient implements AzureClientType {
 
   /** Opens one full blob or byte range as the provider response stream. */
   async get(key: string, options: ObjectGetOptionsType = {}): Promise<ReadableStream<Uint8Array>> {
-    const ifMatch = objectETag(options.revision);
-    const selected = range(options);
+    const ifMatch = resolveETag(options.revision);
+    const selected = resolveRange(options);
     if (selected.empty) return getByteStream(new Uint8Array());
     const headers = new Headers();
     if (ifMatch !== undefined) headers.set("if-match", ifMatch);
@@ -1159,12 +1154,12 @@ class AzureClient implements AzureClientType {
     body: Uint8Array | ReadableStream<Uint8Array>,
     options: ObjectPutOptionsType = {},
   ): Promise<ObjectReceiptType> {
-    options = putOptions(options);
+    options = resolveETagPut(options);
     const properties = new Headers(this.#headers);
     this.#getWriteHeaders(options).forEach((value, name) => properties.set(name, value));
     const mediaType = properties.get("x-ms-blob-content-type");
     const metadata = getStat(properties).metadata;
-    options = putProperties(options, {
+    options = applyProperties(options, {
       ...(mediaType === null ? {} : { mediaType }),
       ...(metadata === undefined ? {} : { metadata }),
     });
@@ -1188,7 +1183,7 @@ class AzureClient implements AzureClientType {
 
   /** Removes one exact blob. Missing blobs are already in the requested state. */
   async delete(key: string, options?: ObjectDeleteOptionsType): Promise<void> {
-    const ifMatch = objectETag(options?.revision);
+    const ifMatch = resolveETag(options?.revision);
     const response = await this.request({
       method: "DELETE",
       key,
@@ -1357,7 +1352,7 @@ class AzureClient implements AzureClientType {
    * client.
    */
   async copy(source: string, destination: string, options: ObjectCopyOptionsType = {}): Promise<ObjectReceiptType> {
-    options = copyOptions(options);
+    options = resolveETagCopy(options);
     if (!this.optimizations.serverCopy) {
       throw new TypeError("Azure serverCopy optimization is disabled for this client.");
     }

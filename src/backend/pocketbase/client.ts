@@ -2,7 +2,7 @@
 import { z } from "zod";
 import { isBytes, toView } from "../../bytes.ts";
 import { close } from "../../close.ts";
-import { assertRangeResponse, range } from "../../range.ts";
+import { assertRangeResponse, resolveRange } from "../../range.ts";
 import { RequestMetrics, sendRequest } from "../../request.ts";
 import type { FetchType, RequestPolicyType } from "../../request.ts";
 import { readResponse } from "../../response.ts";
@@ -544,7 +544,7 @@ export class PocketbaseClient {
     const capturedId = component(id),
       capturedName = component(name),
       token = suppliedToken === undefined ? undefined : secret(suppliedToken),
-      selected = range(options);
+      selected = resolveRange(options);
     if (selected.empty) {
       return {
         bytes: new ReadableStream({

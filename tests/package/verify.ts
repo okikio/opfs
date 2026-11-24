@@ -96,17 +96,24 @@ try {
   if (manifest.name !== "@okikio/opfs") {
     throw new Error(`Unexpected npm package name: ${manifest.name}`);
   }
-  if (
-    Object.keys(manifest.exports ?? {}).length !== 172 || !("./glacier" in (manifest.exports ?? {})) ||
-    !("./netlify" in (manifest.exports ?? {})) ||
-    !("./kafka" in (manifest.exports ?? {})) || !("./dataset/arrow" in (manifest.exports ?? {})) ||
-    !("./dataset/bam" in (manifest.exports ?? {})) ||
-    "./aws" in (manifest.exports ?? {})
-  ) {
+  // The reviewed export record (`mise run build:exports`) is the one list of public subpaths. The packed
+  // manifest must expose exactly those, so a subpath cannot be added or dropped by packaging alone.
+  const recorded: Record<string, readonly string[]> = JSON.parse(
+    await readFile(fileURLToPath(new URL("./exports.json", import.meta.url)), "utf8"),
+  );
+  const packed = Object.keys(manifest.exports ?? {}).filter((path) => path !== "./package.json").sort();
+  const expected = Object.keys(recorded).sort();
+  const missing = expected.filter((path) => !packed.includes(path));
+  const extra = packed.filter((path) => !expected.includes(path));
+  if (missing.length || extra.length) {
     throw new Error(
-      "Packed public surface must contain 172 explicit entries, including BAM, Netlify, Arrow, Kafka and Glacier and excluding internal AWS signing.",
+      `Packed subpaths differ from tests/package/exports.json. Missing: ${missing.join(", ") || "none"}. Extra: ${
+        extra.join(", ") || "none"
+      }.`,
     );
   }
+  // Internal AWS signing is never public, whatever the record says.
+  if ("./aws" in (manifest.exports ?? {})) throw new Error("Internal AWS signing must not be a public subpath.");
   if (manifest.dependencies?.["drizzle-orm"]) {
     throw new Error("drizzle-orm must not be a normal npm dependency.");
   }
@@ -296,7 +303,7 @@ try {
     import { openUnixfs } from '@okikio/opfs/content/unixfs';
     import { openRar } from '@okikio/opfs/archive/rar';
     import { openXz } from '@okikio/opfs/archive/xz';
-    import { LfsClient, decodeLfsPointer, encodeLfsPointer, lfsPointerObject } from '@okikio/opfs/content/lfs';
+    import { LfsClient, decodeLfsPointer, encodeLfsPointer, toLfsObject } from '@okikio/opfs/content/lfs';
     import { openGitObject, encodeGitTree } from '@okikio/opfs/content/git';
     import { createD1Adapter } from '@okikio/opfs/adapter/d1';
     import { createZipStream } from '@okikio/opfs/archive/write';
@@ -616,7 +623,7 @@ try {
     }), (byte) => byte.charCodeAt(0));
     const lfsPointer = decodeLfsPointer(lfsPointerBytes);
     assertBytes(encodeLfsPointer(lfsPointer), lfsPointerBytes);
-    const lfsObject = lfsPointerObject(lfsPointer);
+    const lfsObject = toLfsObject(lfsPointer);
     const lfs = new LfsClient({ endpoint: 'https://repo.example/lfs/', downloadOrigins: ['https://objects.example'], subtle: globalThis.crypto.subtle, credentials: () => ({ Authorization: 'Bearer repository-only' }), fetch: async (input, init) => {
       const url = new URL(String(input));
       if (url.origin === 'https://repo.example') {
@@ -2383,7 +2390,7 @@ try {
     import { openUnixfs } from '@okikio/opfs/content/unixfs';
     import { openRar } from '@okikio/opfs/archive/rar';
     import { openXz } from '@okikio/opfs/archive/xz';
-    import { LfsClient, decodeLfsPointer, encodeLfsPointer, lfsPointerObject } from '@okikio/opfs/content/lfs';
+    import { LfsClient, decodeLfsPointer, encodeLfsPointer, toLfsObject } from '@okikio/opfs/content/lfs';
     import { openGitObject, encodeGitTree } from '@okikio/opfs/content/git';
     import { createD1Adapter } from '@okikio/opfs/adapter/d1';
     import { createZipStream } from '@okikio/opfs/archive/write';
@@ -3013,7 +3020,9 @@ try {
   const specs = Object.keys(manifest.exports ?? {}).map((key) =>
     key === "." ? "@okikio/opfs" : `@okikio/opfs/${key.slice(2)}`
   );
-  if (specs.length !== 172) throw new Error("Expected all 172 public packed entrypoints.");
+  if (specs.length !== expected.length) {
+    throw new Error(`Expected all ${expected.length} recorded public entrypoints, found ${specs.length}.`);
+  }
   if (Object.keys(manifest.exports ?? {}).some((key) => key === "./aws" || key.includes("*"))) {
     throw new Error("Internal AWS signing must remain outside the explicit public export map.");
   }

@@ -3,7 +3,7 @@ import { encodeBase64 } from "@std/encoding/base64";
 import { z } from "zod";
 import { isBytes, toRequestBytes, toView } from "../../bytes.ts";
 import { close } from "../../close.ts";
-import { assertRangeResponse, range } from "../../range.ts";
+import { assertRangeResponse, resolveRange } from "../../range.ts";
 import { RequestMetrics, sendRequest } from "../../request.ts";
 import type { FetchType, RequestPolicyType } from "../../request.ts";
 import { readResponse } from "../../response.ts";
@@ -493,7 +493,7 @@ export class BoxClient {
   /** Pin native version selection, then transfer server-trusted exact bytes. No range checksum claim. */
   async download(fileId: string, options: BoxReadOptionsType = {}): Promise<BoxDownloadType> {
     const selected = id(fileId),
-      selectedRange = range(options),
+      selectedRange = resolveRange(options),
       selectedVersion = options.versionId === undefined ? undefined : id(options.versionId);
     if (selectedRange.empty) throw new RangeError("Box download requires a nonempty extent.");
     const signal = selectedRange.signal;
@@ -571,7 +571,7 @@ export class BoxClient {
   }
   /** Finite read checks metadata admission before buffering. Zero length is local without existence evidence. */
   async read(fileId: string, options: BoxReadOptionsType = {}): Promise<Uint8Array> {
-    const selected = range(options);
+    const selected = resolveRange(options);
     if (selected.empty) return new Uint8Array();
     const captured = {
       ...(options.versionId === undefined ? {} : { versionId: id(options.versionId) }),

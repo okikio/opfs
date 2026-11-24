@@ -1,6 +1,6 @@
 /** Bounded inspection of a single uncompressed SVR4 newc/CRC CPIO archive. @module */
 import type { ByteSourceType } from "../source.ts";
-import { ArchiveBudget, ArchiveError, integer, invalid, unsupported } from "./record.ts";
+import { ArchiveBudget, ArchiveError, assertInteger, invalid, unsupported } from "./record.ts";
 import type { ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
 export { ArchiveError, createArchiveLedger } from "./record.ts";
 export type { ArchiveErrorCodeType, ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
@@ -75,7 +75,7 @@ async function zeros(budget: ArchiveBudget, offset: number, length: number): Pro
     const count = Math.min(65536, length - at);
     const bytes = await budget.read(offset + at, count);
     budget.decoded(count);
-    if (bytes.some((value) => value !== 0)) invalid("CPIO alignment or trailing padding contains nonzero bytes.");
+    if (bytes.some((value) => value !== 0)) throw invalid("CPIO alignment or trailing padding contains nonzero bytes.");
     at += count;
   }
 }
@@ -93,7 +93,7 @@ function fields(header: Uint8Array): number[] {
         : byte >= 97 && byte <= 102
         ? byte - 87
         : -1;
-      if (digit < 0) invalid("CPIO numeric fields require eight hexadecimal digits.");
+      if (digit < 0) throw invalid("CPIO numeric fields require eight hexadecimal digits.");
       value = value * 16 + digit;
     }
     values.push(value);
@@ -118,7 +118,7 @@ function kindOf(mode: number): CpioEntryType["kind"] {
     case 0xc000:
       return "socket";
     default:
-      return unsupported("CPIO object mode is not supported.");
+      throw unsupported("CPIO object mode is not supported.");
   }
 }
 
@@ -129,12 +129,14 @@ function kindOf(mode: number): CpioEntryType["kind"] {
  */
 export async function openCpio(source: ByteSourceType, options: CpioOpenOptionsType = {}): Promise<CpioArchiveType> {
   if (!source.stability && !options.allowUnverifiedSource) {
-    unsupported("CPIO index reads require declared source stability or explicit unverified-source acceptance.");
+    throw unsupported("CPIO index reads require declared source stability or explicit unverified-source acceptance.");
   }
   const maxEntries = options.maxEntries ?? 100000;
   const maxNameBytes = options.maxNameBytes ?? 65536;
   const maxMetadataBytes = options.maxMetadataBytes ?? 1024 * 1024;
-  for (const [name, value] of Object.entries({ maxEntries, maxNameBytes, maxMetadataBytes })) integer(value, name);
+  for (const [name, value] of Object.entries({ maxEntries, maxNameBytes, maxMetadataBytes })) {
+    assertInteger(value, name);
+  }
   // Capture metadata and bind the borrowed reader so later caller object edits cannot change the indexed extent.
   const snapshot: ByteSourceType = {
     size: source.size,
@@ -152,12 +154,12 @@ export async function openCpio(source: ByteSourceType, options: CpioOpenOptionsT
     const header = await budget.read(position, 110);
     budget.decoded(110);
     const magic = new TextDecoder().decode(header.subarray(0, 6));
-    if (magic !== "070701" && magic !== "070702") unsupported("Only SVR4 newc and CRC CPIO are supported.");
+    if (magic !== "070701" && magic !== "070702") throw unsupported("Only SVR4 newc and CRC CPIO are supported.");
     const data = fields(header);
     const [inode, mode, uid, gid, linkCount, mtime, storedSize, deviceMajor, deviceMinor] = data;
     const nameBytes = data[11]!;
     const checksum = data[12]!;
-    if (nameBytes === 0) invalid("CPIO name must contain a terminating NUL.");
+    if (nameBytes === 0) throw invalid("CPIO name must contain a terminating NUL.");
     if (nameBytes > maxNameBytes || nameBytes > maxMetadataBytes - metadataBytes) {
       throw new ArchiveError("budget-exceeded", "CPIO encoded name metadata limit exceeded.");
     }
@@ -168,29 +170,29 @@ export async function openCpio(source: ByteSourceType, options: CpioOpenOptionsT
     let end = encodedName.length;
     while (end > 0 && encodedName[end - 1] === 0) end--;
     if (end === encodedName.length || end === 0 || encodedName.subarray(0, end).includes(0)) {
-      invalid("CPIO names require nonempty text followed only by terminal NUL bytes.");
+      throw invalid("CPIO names require nonempty text followed only by terminal NUL bytes.");
     }
     let name: string;
     try {
       name = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(encodedName.subarray(0, end));
     } catch {
-      return unsupported("CPIO names must be valid UTF-8 for this profile.");
+      throw unsupported("CPIO names must be valid UTF-8 for this profile.");
     }
     position += nameBytes;
     const namePadding = (4 - position % 4) % 4;
     await zeros(budget, position, namePadding);
     position += namePadding;
-    if (storedSize! > snapshot.size - position) invalid("CPIO data extent exceeds source.");
+    if (storedSize! > snapshot.size - position) throw invalid("CPIO data extent exceeds source.");
     if (name === "TRAILER!!!") {
-      if (storedSize !== 0) invalid("CPIO trailer cannot carry data.");
+      if (storedSize !== 0) throw invalid("CPIO trailer cannot carry data.");
       await zeros(budget, position, snapshot.size - position);
       break;
     }
     if (entries.length >= maxEntries) throw new ArchiveError("budget-exceeded", "CPIO entry limit exceeded.");
-    if (linkCount === 0) invalid("CPIO ordinary entries require a positive link count.");
+    if (linkCount === 0) throw invalid("CPIO ordinary entries require a positive link count.");
     const kind = kindOf(mode!);
     if (kind !== "file" && kind !== "symbolic-link" && storedSize !== 0) {
-      invalid("CPIO non-file object carries unsupported data.");
+      throw invalid("CPIO non-file object carries unsupported data.");
     }
     const id = entries.length;
     entries.push({
@@ -227,16 +229,16 @@ export async function openCpio(source: ByteSourceType, options: CpioOpenOptionsT
   for (const group of groups.values()) {
     const first = entries[group[0]!]!;
     if (!group.some((id) => entries[id]!.linkCount > 1)) continue;
-    if (group.length > first.linkCount) unsupported("CPIO hard-link group exceeds its declared link count.");
+    if (group.length > first.linkCount) throw unsupported("CPIO hard-link group exceeds its declared link count.");
     if (
       group.some((id) => {
         const entry = entries[id]!;
         return entry.linkCount !== first.linkCount || entry.linkCount < 2 || entry.mode !== first.mode ||
           entry.uid !== first.uid || entry.gid !== first.gid || entry.mtime !== first.mtime;
       })
-    ) unsupported("CPIO hard-link group metadata disagrees.");
+    ) throw unsupported("CPIO hard-link group metadata disagrees.");
     const owners = group.filter((id) => entries[id]!.storedSize > 0);
-    if (owners.length > 1) unsupported("CPIO hard-link group has multiple data-bearing records.");
+    if (owners.length > 1) throw unsupported("CPIO hard-link group has multiple data-bearing records.");
     const owner = owners[0] ?? first.id;
     for (const id of group) entries[id] = { ...entries[id]!, size: entries[owner]!.storedSize, dataEntryId: owner };
   }
@@ -249,17 +251,17 @@ export async function openCpio(source: ByteSourceType, options: CpioOpenOptionsT
       stability: snapshot.stability ?? "unverified",
     }),
     async read(id: number, readOptions: CpioReadOptionsType = {}): Promise<CpioReadType> {
-      integer(id, "Entry ID");
+      assertInteger(id, "Entry ID");
       const entry = entries[id];
       if (!entry) throw new RangeError("CPIO entry ID does not exist.");
       if (entry.kind !== "file") {
-        unsupported("Only regular CPIO file payloads can be read; links and devices are never followed.");
+        throw unsupported("Only regular CPIO file payloads can be read; links and devices are never followed.");
       }
       const owner = entries[entry.dataEntryId!]!;
       const offset = readOptions.offset ?? 0;
       const length = readOptions.length ?? entry.size - offset;
-      integer(offset, "Member offset");
-      integer(length, "Member length");
+      assertInteger(offset, "Member offset");
+      assertInteger(length, "Member length");
       if (offset > entry.size || length > entry.size - offset) {
         throw new RangeError("CPIO member range exceeds file size.");
       }

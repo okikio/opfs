@@ -1,7 +1,7 @@
 /** Bounded BagIt 1.0 metadata and selected-file fixity over an explicit inventory. @module */
 import type { ByteSourceType } from "../source.ts";
-import { sourceRange } from "../source.ts";
-import { ArchiveBudget, ArchiveError, createArchiveLedger, integer, invalid, unsupported } from "./record.ts";
+import { assertExtent } from "../source.ts";
+import { ArchiveBudget, ArchiveError, assertInteger, createArchiveLedger, invalid, unsupported } from "./record.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
 export { ArchiveError, createArchiveLedger } from "./record.ts";
 export type { ArchiveErrorCodeType, ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
@@ -136,23 +136,23 @@ function decodePath(value: string): string {
     if (/^0a$/i.test(digits)) return "\n";
     if (/^0d$/i.test(digits)) return "\r";
     if (digits === "25") return "%";
-    invalid("BagIt paths may percent-encode only CR, LF and percent.");
+    throw invalid("BagIt paths may percent-encode only CR, LF and percent.");
   });
 }
 
 /** No host-path interpretation, normalization, symlink expansion or alias fallback is permitted. */
 function admitPath(value: string, maximum: number): void {
-  if (typeof value !== "string") invalid("BagIt paths must be literal Unicode strings.");
+  if (typeof value !== "string") throw invalid("BagIt paths must be literal Unicode strings.");
   // UTF8 takes at least one byte per UTF16 code unit for well-formed strings.
   cap(value.length, maximum, "BagIt path bytes");
   if (
     !value || !value.isWellFormed() || value.includes("\\") || value.includes("\0") || value.startsWith("/") ||
     /^[A-Za-z]:/.test(value) || value.startsWith("~")
-  ) invalid("Unsafe BagIt relative path.");
+  ) throw invalid("Unsafe BagIt relative path.");
   cap(new TextEncoder().encode(value).length, maximum, "BagIt path bytes");
   const parts = value.split("/");
   if (parts.some((part) => !part || part === "." || part === ".." || /^[ \t]|[ \t]$/.test(part))) {
-    unsupported("Empty, dot and ambiguous whitespace path components are outside this profile.");
+    throw unsupported("Empty, dot and ambiguous whitespace path components are outside this profile.");
   }
 }
 
@@ -178,7 +178,7 @@ async function bytesOf(
   chunk: number,
   decoded: boolean,
 ): Promise<{ bytes: Uint8Array; work: ArchiveWorkType }> {
-  sourceRange(source.size, offset, length);
+  assertExtent(source.size, offset, length);
   options.signal?.throwIfAborted();
   const outer = options.ledger;
   const work = new ArchiveBudget(source, {
@@ -229,7 +229,7 @@ export async function openBagit(
     metadata: options.maxMetadataBytes ?? 16 * 1024 * 1024,
     chunk: options.maxChunkBytes ?? 4096,
   };
-  for (const [name, value] of Object.entries(policy)) integer(value, name);
+  for (const [name, value] of Object.entries(policy)) assertInteger(value, name);
   if (policy.chunk < 1 || policy.chunk > 65536) throw new RangeError("maxChunkBytes must be 1..65536.");
   if (!Array.isArray(input)) throw new TypeError("BagIt requires an explicit inventory array.");
   cap(input.length, policy.files, "BagIt inventory records");
@@ -243,7 +243,7 @@ export async function openBagit(
   }
   for (const entry of input) {
     admitPath(entry.path, policy.path);
-    if (paths.has(entry.path)) invalid("Duplicate BagIt inventory path.");
+    if (paths.has(entry.path)) throw invalid("Duplicate BagIt inventory path.");
     if (entry.kind !== "file" && entry.kind !== "directory") {
       throw new TypeError("BagIt inventory entries must be files or directories.");
     }
@@ -251,12 +251,12 @@ export async function openBagit(
     retain(new TextEncoder().encode(entry.path).length + 128);
     if (entry.kind === "file") {
       const { size, identity, stability } = entry.source;
-      integer(size, "BagIt file size");
+      assertInteger(size, "BagIt file size");
       if (stability !== undefined && !["immutable", "provider", "caller"].includes(stability)) {
         throw new TypeError("Unknown source stability evidence.");
       }
       if (!stability && !options.allowUnverifiedSource) {
-        unsupported("BagIt needs stable file sources or explicit unverified-source acceptance.");
+        throw unsupported("BagIt needs stable file sources or explicit unverified-source acceptance.");
       }
       const captured: ByteSourceType = {
         size,
@@ -279,7 +279,7 @@ export async function openBagit(
     const components = name.split("/");
     for (let index = 1; index < components.length; index++) {
       if (paths.get(components.slice(0, index).join("/")) === "file") {
-        invalid("BagIt inventory contains a file/directory ancestor collision.");
+        throw invalid("BagIt inventory contains a file/directory ancestor collision.");
       }
     }
   }
@@ -293,14 +293,16 @@ export async function openBagit(
   }
   async function lines(path: string): Promise<string[]> {
     const source = sources.get(path);
-    if (!source) invalid(`Required BagIt tag file is absent: ${path}`);
+    if (!source) throw invalid(`Required BagIt tag file is absent: ${path}`);
     cap(source.size, policy.tag, "BagIt tag bytes");
     cap(source.size, policy.total - totalTag, "BagIt total tag bytes");
     totalTag += source.size;
     retain(source.size);
     const result = await bytesOf(source, 0, source.size, { ...options, ledger }, policy.chunk, true);
     const bytes = result.bytes;
-    if (bytes[0] === 239 && bytes[1] === 187 && bytes[2] === 191) invalid("UTF8 BagIt tag files must not have a BOM.");
+    if (bytes[0] === 239 && bytes[1] === 187 && bytes[2] === 191) {
+      throw invalid("UTF8 BagIt tag files must not have a BOM.");
+    }
     // Admit physical lines before split() can allocate one string slot per newline.
     let physicalLines = 0;
     let lineStart = 0;
@@ -320,7 +322,7 @@ export async function openBagit(
     try {
       text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
     } catch {
-      invalid("Malformed UTF8 in BagIt tag metadata.");
+      throw invalid("Malformed UTF8 in BagIt tag metadata.");
     }
     const resultLines = text.split(/\r\n|\r|\n/);
     if (resultLines.at(-1) === "") resultLines.pop();
@@ -330,9 +332,11 @@ export async function openBagit(
   if (
     declaration.length !== 2 || !/^BagIt-Version: /i.test(declaration[0]!) ||
     !/^Tag-File-Character-Encoding: /i.test(declaration[1]!)
-  ) invalid("BagIt declaration requires exactly two ordered declaration fields.");
-  if (declaration[0]!.slice(15) !== "1.0") unsupported("Only BagIt version 1.0 is supported.");
-  if (declaration[1]!.slice(29).toLowerCase() !== "utf-8") unsupported("Only UTF-8 BagIt tag encoding is supported.");
+  ) throw invalid("BagIt declaration requires exactly two ordered declaration fields.");
+  if (declaration[0]!.slice(15) !== "1.0") throw unsupported("Only BagIt version 1.0 is supported.");
+  if (declaration[1]!.slice(29).toLowerCase() !== "utf-8") {
+    throw unsupported("Only UTF-8 BagIt tag encoding is supported.");
+  }
   const manifestNames = files.filter((file) =>
     !file.path.includes("/") && /^(?:tag)?manifest-[a-z0-9]+\.txt$/.test(file.path)
   );
@@ -342,10 +346,10 @@ export async function openBagit(
     if (
       !file.path.includes("/") && /^(?:tag)?manifest-/.test(file.path) &&
       !manifestNames.some((manifest) => manifest.path === file.path)
-    ) invalid("Malformed BagIt manifest filename.");
+    ) throw invalid("Malformed BagIt manifest filename.");
   }
   if (!manifestNames.some((file) => file.path.startsWith("manifest-"))) {
-    invalid("BagIt requires at least one payload manifest.");
+    throw invalid("BagIt requires at least one payload manifest.");
   }
   const manifests: BagitManifestType[] = [];
   for (const file of manifestNames) {
@@ -356,21 +360,21 @@ export async function openBagit(
     for (const line of await lines(file.path)) {
       row();
       const match = /^([0-9a-fA-F]+)[ \t]+(.+)$/.exec(line);
-      if (!match) invalid("Malformed BagIt manifest row.");
+      if (!match) throw invalid("Malformed BagIt manifest row.");
       const encodedPath = match[2]!;
       const path = decodePath(encodedPath);
       admitPath(path, policy.path);
-      if (seen.has(path)) invalid("Duplicate decoded path in a BagIt manifest.");
+      if (seen.has(path)) throw invalid("Duplicate decoded path in a BagIt manifest.");
       seen.add(path);
-      if (!tag && !path.startsWith("data/")) invalid("Payload manifest reference must remain inside data/.");
+      if (!tag && !path.startsWith("data/")) throw invalid("Payload manifest reference must remain inside data/.");
       if (tag && (path === "data" || path.startsWith("data/") || /^tagmanifest-[a-z0-9]+\.txt$/.test(path))) {
-        invalid("Tag manifests must not reference payload or tagmanifest files.");
+        throw invalid("Tag manifests must not reference payload or tagmanifest files.");
       }
       const checksum = match[1]!.toLowerCase();
       if ((algorithm === "sha256" && checksum.length !== 64) || (algorithm === "sha512" && checksum.length !== 128)) {
-        invalid("Incorrect BagIt checksum length.");
+        throw invalid("Incorrect BagIt checksum length.");
       }
-      if (paths.get(path) === "directory") invalid("BagIt manifests must not reference directories.");
+      if (paths.get(path) === "directory") throw invalid("BagIt manifests must not reference directories.");
       entries.push(Object.freeze({ path, encodedPath, checksum }));
     }
     manifests.push(
@@ -388,11 +392,11 @@ export async function openBagit(
     for (const line of await lines("bag-info.txt")) {
       row();
       if (/^[ \t]/.test(line)) {
-        if (!pendingInfo.length) invalid("BagIt metadata continuation has no preceding field.");
+        if (!pendingInfo.length) throw invalid("BagIt metadata continuation has no preceding field.");
         pendingInfo[pendingInfo.length - 1]!.values.push(line.replace(/^[ \t]+/, ""));
       } else {
         const match = /^([^:\r\n]+):[ \t](.*)$/.exec(line);
-        if (!match || /^[ \t]|[ \t]$/.test(match[1]!)) invalid("Malformed BagIt metadata field.");
+        if (!match || /^[ \t]|[ \t]$/.test(match[1]!)) throw invalid("Malformed BagIt metadata field.");
         pendingInfo.push({ label: match[1]!, values: [match[2]!] });
       }
     }
@@ -400,7 +404,7 @@ export async function openBagit(
   const info: BagitFieldType[] = pendingInfo.map((field) => ({ label: field.label, value: field.values.join("\n") }));
   const oxum = info.filter((field) => field.label.toLowerCase() === "payload-oxum");
   if (oxum.length > 1 || (oxum.length && !/^\d+\.\d+$/.test(oxum[0]!.value))) {
-    invalid("Payload-Oxum must be a single decimal byte-count.file-count value.");
+    throw invalid("Payload-Oxum must be a single decimal byte-count.file-count value.");
   }
   const fetch: BagitFetchType[] = [];
   const fetched = new Set<string>();
@@ -412,12 +416,12 @@ export async function openBagit(
         !match || !/^[a-zA-Z][a-zA-Z0-9+.-]*:[A-Za-z0-9\-._~:/?\[\]@!$&'()*+,;=%]*$/.test(match[1]!) ||
         /%(?![0-9A-Fa-f]{2})/.test(match[1]!)
       ) {
-        invalid("Malformed BagIt fetch declaration.");
+        throw invalid("Malformed BagIt fetch declaration.");
       }
       const path = decodePath(match[3]!);
       admitPath(path, policy.path);
       if (!path.startsWith("data/") || paths.get(path) === "directory" || fetched.has(path)) {
-        invalid("Fetch entries must have distinct payload paths.");
+        throw invalid("Fetch entries must have distinct payload paths.");
       }
       fetched.add(path);
       fetch.push(Object.freeze({ url: match[1]!, length: match[2] === "-" ? null : match[2]!, path }));
@@ -517,17 +521,17 @@ export async function openBagit(
       });
     },
     async verify(manifestId, path, verifyOptions) {
-      integer(manifestId, "Manifest ordinal");
+      assertInteger(manifestId, "Manifest ordinal");
       const manifest = manifests[manifestId];
       if (!manifest) throw new RangeError("BagIt manifest ordinal does not exist.");
       const row = manifest.rows.find((row) => row.path === path);
       if (!row) throw new RangeError("Selected file is not listed in the selected manifest.");
       if (manifest.algorithm !== "sha256" && manifest.algorithm !== "sha512") {
-        unsupported("Verification supports SHA256/SHA512 only; other algorithms are inert metadata.");
+        throw unsupported("Verification supports SHA256/SHA512 only; other algorithms are inert metadata.");
       }
       const source = at(path);
       const maximum = verifyOptions.maxVerifyBytes ?? 1024 * 1024;
-      integer(maximum, "maxVerifyBytes");
+      assertInteger(maximum, "maxVerifyBytes");
       if (maximum > 16 * 1024 * 1024) throw new RangeError("Whole-file verification ceiling cannot exceed 16 MiB.");
       cap(source.size, maximum, "BagIt whole-file verification");
       const result = await bytesOf(source, 0, source.size, verifyOptions, policy.chunk, true);

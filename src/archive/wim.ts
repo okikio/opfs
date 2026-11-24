@@ -1,11 +1,11 @@
 /** Ordinary stored/XPRESS/LZX WIM resource and selected-image inspection; no Windows restoration. @module */
 import type { XmlElement } from "@std/xml/types";
 import type { ByteSourceType } from "../source.ts";
-import { sourceRange } from "../source.ts";
+import { assertExtent } from "../source.ts";
 import { parseXmlRoot } from "../xml.ts";
 import { decodeXpress } from "./xpress.ts";
 import { decodeLzx } from "./lzx.ts";
-import { ArchiveBudget, ArchiveError, createArchiveLedger, integer, invalid, unsupported } from "./record.ts";
+import { ArchiveBudget, ArchiveError, assertInteger, createArchiveLedger, invalid, unsupported } from "./record.ts";
 import type { ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
 export { ArchiveError, createArchiveLedger } from "./record.ts";
 export type { ArchiveErrorCodeType, ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
@@ -139,7 +139,7 @@ function cap(value: number, maximum: number, label: string): void {
 }
 function wide(view: DataView, offset: number): number {
   const value = view.getBigUint64(offset, true);
-  if (value > BigInt(Number.MAX_SAFE_INTEGER)) unsupported("WIM extent exceeds exact JavaScript integers.");
+  if (value > BigInt(Number.MAX_SAFE_INTEGER)) throw unsupported("WIM extent exceeds exact JavaScript integers.");
   return Number(value);
 }
 function hex(bytes: Uint8Array): string {
@@ -148,15 +148,17 @@ function hex(bytes: Uint8Array): string {
 /** The first seven bytes are a 56-bit stored size, followed by flags, not a single 64-bit size. */
 function extent(view: DataView, offset: number, sourceSize: number, compressed = false): ExtentType {
   const word = view.getBigUint64(offset, true), stored = word & 0xffffffffffffffn;
-  if (stored > BigInt(Number.MAX_SAFE_INTEGER)) unsupported("WIM resource size exceeds exact JavaScript integers.");
+  if (stored > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw unsupported("WIM resource size exceeds exact JavaScript integers.");
+  }
   const size = Number(stored),
     flags = Number(word >> 56n),
     at = wide(view, offset + 8),
     decoded = wide(view, offset + 16);
-  if (flags & ~(compressed ? 6 : 2)) unsupported("This WIM resource encoding is outside the selected profile.");
-  if (!(flags & 4) && size !== decoded) invalid("Uncompressed WIM resource lengths disagree.");
-  sourceRange(sourceSize, at, size);
-  if (size && at < 208) invalid("WIM resource overlaps the fixed header.");
+  if (flags & ~(compressed ? 6 : 2)) throw unsupported("This WIM resource encoding is outside the selected profile.");
+  if (!(flags & 4) && size !== decoded) throw invalid("Uncompressed WIM resource lengths disagree.");
+  assertExtent(sourceSize, at, size);
+  if (size && at < 208) throw invalid("WIM resource overlaps the fixed header.");
   return { offset: at, size, flags, decoded };
 }
 function children(node: XmlElement, name: string): XmlElement[] {
@@ -164,10 +166,10 @@ function children(node: XmlElement, name: string): XmlElement[] {
 }
 function scalar(node: XmlElement, name: string): string | undefined {
   const found = children(node, name);
-  if (found.length > 1) invalid(`Duplicate WIM XML ${name}.`);
+  if (found.length > 1) throw invalid(`Duplicate WIM XML ${name}.`);
   const child = found[0];
   if (!child) return undefined;
-  if (child.children.some((part) => part.type === "element")) invalid("Nested WIM XML scalar.");
+  if (child.children.some((part) => part.type === "element")) throw invalid("Nested WIM XML scalar.");
   return child.children.map((part) => part.type === "text" || part.type === "cdata" ? part.text : "").join("");
 }
 /** Aggregate reservations precede collection buffers; local accounting consumes each credit exactly once. */
@@ -220,12 +222,12 @@ class WimBudget {
 export async function openWim(input: ByteSourceType, options: WimOpenOptionsType = {}): Promise<WimArchiveType> {
   options = { ...options };
   const { size, identity, stability } = input;
-  integer(size, "WIM source size");
+  assertInteger(size, "WIM source size");
   if (stability !== undefined && !["immutable", "provider", "caller"].includes(stability)) {
     throw new TypeError("Unknown WIM stability evidence.");
   }
   if (!stability && !options.allowUnverifiedSource) {
-    unsupported("WIM requires stable source evidence or explicit unverified-source acceptance.");
+    throw unsupported("WIM requires stable source evidence or explicit unverified-source acceptance.");
   }
   if (identity !== undefined && (typeof identity !== "string" || identity.length > 8192)) {
     throw new TypeError("WIM identity exceeds 8192 UTF16 code units.");
@@ -251,7 +253,7 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
     lzxSteps: options.maxLzxSteps ?? 16777216,
     lzxBlocks: options.maxLzxBlocks ?? 8192,
   };
-  for (const [name, value] of Object.entries(policy)) integer(value, name);
+  for (const [name, value] of Object.entries(policy)) assertInteger(value, name);
   if (
     policy.table > 8388608 || policy.xml > 8388608 || policy.verify > 16777216 ||
     policy.chunkTable > 2097152 || policy.chunks > 262144 || policy.steps > 67108864 ||
@@ -275,9 +277,9 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
   const opening = new WimBudget(source, options, options.signal, reserve);
   const header = await opening.work.read(0, 208),
     view = new DataView(header.buffer, header.byteOffset, header.byteLength);
-  if (hex(header.subarray(0, 8)) !== "4d5357494d000000") invalid("Missing ordinary MSWIM signature.");
+  if (hex(header.subarray(0, 8)) !== "4d5357494d000000") throw invalid("Missing ordinary MSWIM signature.");
   if (view.getUint32(8, true) !== 208 || view.getUint32(12, true) !== 0x10d00) {
-    unsupported("Only 208-byte ordinary WIM version 1.13 is supported.");
+    throw unsupported("Only 208-byte ordinary WIM version 1.13 is supported.");
   }
   const flags = view.getUint32(16, true), mode = flags & 0x60002;
   const xpress = mode === 0x20002, lzx = mode === 0x40002, compressedProfile = xpress || lzx;
@@ -286,23 +288,23 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
     flags & ~0x60086 || (mode !== 0 && !compressedProfile) ||
     view.getUint32(20, true) !== (compressedProfile ? 32768 : 0)
   ) {
-    unsupported("Only stored or ordinary 32 KiB XPRESS-Huffman/LZX WIM resources are supported.");
+    throw unsupported("Only stored or ordinary 32 KiB XPRESS-Huffman/LZX WIM resources are supported.");
   }
   if (view.getUint16(40, true) !== 1 || view.getUint16(42, true) !== 1) {
-    unsupported("Split WIM parts require a separate profile.");
+    throw unsupported("Split WIM parts require a separate profile.");
   }
   const count = view.getUint32(44, true);
   cap(count, policy.images, "WIM images");
-  if (!count) unsupported("This WIM profile requires at least one image.");
+  if (!count) throw unsupported("This WIM profile requires at least one image.");
   const table = extent(view, 48, size),
     xml = extent(view, 72, size),
     boot = extent(view, 96, size, compressedProfile),
     integrity = extent(view, 124, size);
   const bootIndex = view.getUint32(120, true);
-  if (bootIndex > count || (!bootIndex && boot.size)) invalid("WIM boot metadata index is inconsistent.");
+  if (bootIndex > count || (!bootIndex && boot.size)) throw invalid("WIM boot metadata index is inconsistent.");
   cap(table.size, policy.table, "WIM table bytes");
   cap(xml.size, policy.xml, "WIM XML bytes");
-  if (table.size % 50) invalid("WIM blob table is not a multiple of 50 bytes.");
+  if (table.size % 50) throw invalid("WIM blob table is not a multiple of 50 bytes.");
   cap(table.size / 50, policy.resources, "WIM resources");
   cap(table.size / 50 * 256, policy.index, "WIM resource index bytes");
   opening.work.decoded(table.size + xml.size);
@@ -311,9 +313,9 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
   for (let offset = 0; offset < table.size; offset += 50) {
     const item = extent(tableView, offset, size, compressedProfile),
       sha1 = hex(tableBytes.subarray(offset + 30, offset + 50));
-    if (tableView.getUint16(offset + 24, true) !== 1) unsupported("WIM resource references another part.");
+    if (tableView.getUint16(offset + 24, true) !== 1) throw unsupported("WIM resource references another part.");
     if (sha1 === "0".repeat(40) || !item.size || !item.decoded) {
-      invalid("WIM blob table contains an empty hash/resource.");
+      throw invalid("WIM blob table contains an empty hash/resource.");
     }
     const resource: WimResourceType = Object.freeze({
       id: resources.length,
@@ -327,46 +329,46 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
     });
     if (resource.kind === "metadata") metadata.push(resource.id);
     else {
-      if (hashes.has(sha1)) invalid("Ambiguous duplicate WIM data hash.");
+      if (hashes.has(sha1)) throw invalid("Ambiguous duplicate WIM data hash.");
       hashes.set(sha1, resource.id);
     }
     resources.push(resource);
   }
-  if (metadata.length !== count) invalid("WIM image count disagrees with metadata resources.");
+  if (metadata.length !== count) throw invalid("WIM image count disagrees with metadata resources.");
   if (bootIndex) {
     const resource = resources[metadata[bootIndex - 1]!]!;
     if (
       resource.offset !== boot.offset || resource.storedSize !== boot.size || resource.size !== boot.decoded ||
       resource.compression !== (boot.flags & 4 ? compression : "stored") || !(boot.flags & 2)
     ) {
-      invalid("WIM boot metadata differs from indexed image.");
+      throw invalid("WIM boot metadata differs from indexed image.");
     }
   }
   const xmlBytes = await opening.collect(xml.offset, xml.size);
-  if (xmlBytes.length % 2) invalid("WIM XML must contain complete UTF16LE units.");
+  if (xmlBytes.length % 2) throw invalid("WIM XML must contain complete UTF16LE units.");
   const text = new TextDecoder("utf-16le", { fatal: true }).decode(xmlBytes);
-  if (/<!DOCTYPE|<!ENTITY/i.test(text)) unsupported("WIM XML DTD/entity declarations are forbidden.");
+  if (/<!DOCTYPE|<!ENTITY/i.test(text)) throw unsupported("WIM XML DTD/entity declarations are forbidden.");
   let tokens = 0;
   for (const char of text) if (char === "<") cap(++tokens, 20000, "WIM XML tokens");
   const root = parseXmlRoot(text);
-  if (root.name.raw !== "WIM") invalid("WIM XML root is missing.");
+  if (root.name.raw !== "WIM") throw invalid("WIM XML root is missing.");
   const nodes = [root];
   while (nodes.length) {
     const node = nodes.pop()!;
     if (
       node.name.raw.includes(":") || Object.keys(node.attributes).some((key) => key.includes(":") || key === "xmlns")
-    ) unsupported("WIM XML namespaces are unsupported.");
+    ) throw unsupported("WIM XML namespaces are unsupported.");
     for (const child of node.children) if (child.type === "element") nodes.push(child);
   }
   const imageNodes = children(root, "IMAGE");
-  if (imageNodes.length !== count) invalid("WIM XML image count disagrees with header.");
+  if (imageNodes.length !== count) throw invalid("WIM XML image count disagrees with header.");
   const names = new Map<number, string>();
   for (const node of imageNodes) {
     const indexText = node.attributes.INDEX;
-    if (!indexText || !/^[1-9][0-9]*$/.test(indexText)) invalid("WIM XML image index is invalid.");
+    if (!indexText || !/^[1-9][0-9]*$/.test(indexText)) throw invalid("WIM XML image index is invalid.");
     const index = Number(indexText);
     if (!Number.isSafeInteger(index) || index > count || names.has(index)) {
-      invalid("WIM XML image indices are ambiguous.");
+      throw invalid("WIM XML image indices are ambiguous.");
     }
     names.set(index, scalar(node, "NAME") ?? "");
   }
@@ -378,7 +380,7 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
     })
   );
   function resourceOf(id: number): WimResourceType {
-    integer(id, "WIM resource ID");
+    assertInteger(id, "WIM resource ID");
     const value = resources[id];
     if (!value) throw new RangeError("Unknown WIM resource ID.");
     return value;
@@ -396,7 +398,7 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
     cap(chunks, item.compression === "lzx" ? policy.lzxChunks : policy.chunks, "WIM resource chunks");
     const tableLength = (chunks - 1) * width;
     cap(tableLength, policy.chunkTable, "WIM chunk table bytes");
-    if (tableLength >= item.storedSize) invalid("WIM chunk table exceeds its resource.");
+    if (tableLength >= item.storedSize) throw invalid("WIM chunk table exceeds its resource.");
     work.work.decoded(tableLength);
     const table = await work.collect(item.offset, tableLength), view = new DataView(table.buffer);
     const packedSize = item.storedSize - tableLength;
@@ -414,7 +416,7 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
       signal?.throwIfAborted();
       const end = boundary(index + 1), logical = index * 32768, decoded = Math.min(32768, item.size - logical);
       if (end <= start || end > packedSize || end - start > decoded) {
-        invalid("WIM chunk offsets or lengths are invalid.");
+        throw invalid("WIM chunk offsets or lengths are invalid.");
       }
       if (logical < offset + length && logical + decoded > offset) {
         plan.push({ offset: item.offset + tableLength + start, packed: end - start, decoded, logical });
@@ -460,12 +462,12 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
   async function read(id: number, call: WimReadOptionsType = {}, internal = false): Promise<WimReadType> {
     call = { ...call };
     const item = resourceOf(id), offset = call.offset ?? 0, length = call.length ?? item.size - offset;
-    sourceRange(item.size, offset, length);
+    assertExtent(item.size, offset, length);
     const signal = signals(options.signal, call.signal);
     signal?.throwIfAborted();
     const verify = call.verify !== false;
     if (verify) {
-      if (!digest) unsupported("WIM SHA1 verification requires caller-supplied SubtleCrypto.");
+      if (!digest) throw unsupported("WIM SHA1 verification requires caller-supplied SubtleCrypto.");
       cap(item.size, policy.verify, "WIM verification bytes");
     }
     // A buffered preview remains finite even when a caller raises generic work limits.
@@ -502,7 +504,7 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
   function rawSource(id: number, call: Omit<WimReadOptionsType, "verify"> = {}): ByteSourceType {
     call = { ...call };
     const item = resourceOf(id), offset = call.offset ?? 0, length = call.length ?? item.size - offset;
-    sourceRange(item.size, offset, length);
+    assertExtent(item.size, offset, length);
     const captured = call, signal = signals(options.signal, call.signal), local = createArchiveLedger(call);
     signal?.throwIfAborted();
     return Object.freeze({
@@ -512,7 +514,7 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
       }),
       ...(stability === undefined ? {} : { stability }),
       async read(at: number, count: number, option: { signal?: AbortSignal } = {}) {
-        sourceRange(length, at, count);
+        assertExtent(length, at, count);
         const combined = signal && option.signal ? AbortSignal.any([signal, option.signal]) : option.signal ?? signal;
         return (await read(id, {
           ...captured,
@@ -546,7 +548,7 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
     source: rawSource,
     async image(index: number, call: WimImageOptionsType = {}): Promise<WimImageViewType> {
       call = { ...call };
-      integer(index, "WIM image index");
+      assertInteger(index, "WIM image index");
       const image = images[index - 1];
       if (!image) throw new RangeError("Unknown WIM image index.");
       const limits = {
@@ -559,7 +561,7 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
         path: call.maxPathLength ?? 4096,
         index: call.maxIndexBytes ?? 4194304,
       };
-      for (const [name, value] of Object.entries(limits)) integer(value, name);
+      for (const [name, value] of Object.entries(limits)) assertInteger(value, name);
       if (limits.metadata > 16777216 || limits.depth > 64) {
         throw new RangeError("WIM image implementation ceiling exceeded.");
       }
@@ -586,29 +588,29 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
       }
       const result = await read(image.metadata, viewCall({ ...call, verify: call.verify !== false }), true);
       const bytes = result.bytes, view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-      if (bytes.length < 8) invalid("WIM security block is truncated.");
+      if (bytes.length < 8) throw invalid("WIM security block is truncated.");
       const declared = view.getUint32(0, true),
         securityCount = view.getUint32(4, true),
         end = declared === 0 ? 8 : Math.ceil(declared / 8) * 8;
       cap(securityCount, limits.security, "WIM security descriptors");
-      sourceRange(bytes.length, 0, end);
-      if (8 + securityCount * 8 > end) invalid("WIM security descriptor table exceeds its block.");
+      assertExtent(bytes.length, 0, end);
+      if (8 + securityCount * 8 > end) throw invalid("WIM security descriptor table exceeds its block.");
       let used = 8 + securityCount * 8;
       for (let at = 0; at < securityCount; at++) {
         const length = wide(view, 8 + at * 8);
-        if (length > end - used) invalid("WIM security descriptor exceeds block.");
+        if (length > end - used) throw invalid("WIM security descriptor exceeds block.");
         used += length;
       }
-      if (end - used > 7) invalid("WIM security block has unexplained bytes.");
+      if (end - used > 7) throw invalid("WIM security block has unexplained bytes.");
       let indexBytes = Math.ceil(bytes.length / 8);
       cap(indexBytes, limits.index, "WIM retained index");
       const occupied = new Uint8Array(indexBytes);
       /** Every dentry, extra stream and list sentinel owns disjoint aligned metadata units. */
       function claim(offset: number, length: number): void {
-        if (offset % 8 || length % 8) invalid("WIM metadata record is not 8-byte aligned.");
-        sourceRange(bytes.length, offset, length);
+        if (offset % 8 || length % 8) throw invalid("WIM metadata record is not 8-byte aligned.");
+        assertExtent(bytes.length, offset, length);
         for (let at = offset / 8; at < (offset + length) / 8; at++) {
-          if (occupied[at]) invalid("WIM metadata entries overlap or form a cycle.");
+          if (occupied[at]) throw invalid("WIM metadata entries overlap or form a cycle.");
           occupied[at] = 1;
         }
       }
@@ -622,9 +624,9 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
       }];
       function nameOf(offset: number, length: number, ceiling: number): string {
         if (length % 2 || offset + length + (length ? 2 : 0) > ceiling) {
-          invalid("WIM UTF16 name extent is invalid.");
+          throw invalid("WIM UTF16 name extent is invalid.");
         }
-        if (length && view.getUint16(offset + length, true) !== 0) invalid("WIM name terminator is missing.");
+        if (length && view.getUint16(offset + length, true) !== 0) throw invalid("WIM name terminator is missing.");
         return new TextDecoder("utf-16le", { fatal: true, ignoreBOM: true }).decode(
           bytes.subarray(offset, offset + length),
         );
@@ -634,14 +636,14 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
         cap(list.depth, limits.depth, "WIM directory depth");
         let at = list.offset;
         while (true) {
-          sourceRange(bytes.length, at, 8);
+          assertExtent(bytes.length, at, 8);
           const length = wide(view, at);
           if (length === 0) {
-            if (list.root) invalid("WIM root dentry is missing.");
+            if (list.root) throw invalid("WIM root dentry is missing.");
             claim(at, 8);
             break;
           }
-          if (length < 102 || length % 8) invalid("WIM dentry length is invalid.");
+          if (length < 102 || length % 8) throw invalid("WIM dentry length is invalid.");
           claim(at, length);
           cap(entries.length + 1, limits.entries, "WIM entries");
           const attributes = view.getUint32(at + 8, true),
@@ -650,7 +652,7 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
             sha1 = hex(bytes.subarray(at + 64, at + 84)),
             hardlink = view.getBigUint64(at + 88, true).toString();
           if (security !== 0xffffffff && security >= securityCount) {
-            invalid("WIM security descriptor index is invalid.");
+            throw invalid("WIM security descriptor index is invalid.");
           }
           const streamCount = view.getUint16(at + 96, true),
             shortLength = view.getUint16(at + 98, true),
@@ -665,11 +667,11 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
               const code = part.codePointAt(0)!;
               return code < 32 || code === 127 || code === 47 || code === 92;
             })
-          ) unsupported("Unsafe or noncanonical WIM path component.");
+          ) throw unsupported("Unsafe or noncanonical WIM path component.");
           cap(list.parent.length + (list.parent ? 1 : 0) + name.length, limits.path, "WIM full path length");
           const path = list.parent ? `${list.parent}/${name}` : name;
           cap(path.length, limits.path, "WIM full path length");
-          if (paths.has(path)) invalid("Duplicate WIM exact logical path.");
+          if (paths.has(path)) throw invalid("Duplicate WIM exact logical path.");
           paths.add(path);
           indexBytes += 256 + path.length * 2 + streamCount * 128;
           cap(indexBytes, limits.index, "WIM retained index");
@@ -680,27 +682,31 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
             : attributes & 0x10
             ? "directory"
             : "file";
-          if (list.root && type !== "directory") invalid("WIM root is not a directory.");
-          if (subdir && type !== "directory") unsupported("WIM non-directory/reparse entry declares child traversal.");
+          if (list.root && type !== "directory") throw invalid("WIM root is not a directory.");
+          if (subdir && type !== "directory") {
+            throw unsupported("WIM non-directory/reparse entry declares child traversal.");
+          }
           const resource = sha1 === "0".repeat(40) ? undefined : hashes.get(sha1);
-          if (sha1 !== "0".repeat(40) && resource === undefined) invalid("WIM dentry references a missing resource.");
+          if (sha1 !== "0".repeat(40) && resource === undefined) {
+            throw invalid("WIM dentry references a missing resource.");
+          }
           at += length;
           const streams: WimStreamType[] = [];
           const streamNames = new Set<string>();
           for (let ordinal = 0; ordinal < streamCount; ordinal++) {
-            sourceRange(bytes.length, at, 38);
+            assertExtent(bytes.length, at, 38);
             const length = wide(view, at), namedLength = view.getUint16(at + 36, true);
-            if (length < 38 || length % 8) invalid("WIM extra stream length is invalid.");
+            if (length < 38 || length % 8) throw invalid("WIM extra stream length is invalid.");
             claim(at, length);
             cap(namedLength, limits.name, "WIM stream-name bytes");
             indexBytes += namedLength;
             cap(indexBytes, limits.index, "WIM retained index");
             const streamName = nameOf(at + 38, namedLength, at + length),
               streamHash = hex(bytes.subarray(at + 16, at + 36));
-            if (streamNames.has(streamName)) invalid("Duplicate WIM extra stream name.");
+            if (streamNames.has(streamName)) throw invalid("Duplicate WIM extra stream name.");
             streamNames.add(streamName);
             if (streamHash !== "0".repeat(40) && !hashes.has(streamHash)) {
-              invalid("WIM extra stream references a missing resource.");
+              throw invalid("WIM extra stream references a missing resource.");
             }
             streams.push(Object.freeze({ name: streamName, sha1: streamHash }));
             at += length;
@@ -724,11 +730,11 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
         }
       }
       function selected(id: number): WimEntryType {
-        integer(id, "WIM dentry ID");
+        assertInteger(id, "WIM dentry ID");
         const entry = entries[id];
         if (!entry) throw new RangeError("Unknown WIM dentry ID.");
         if (entry.type !== "file" || entry.streams.length) {
-          unsupported(
+          throw unsupported(
             "Only ordinary WIM files without extra streams support file reads; reparse points are never followed.",
           );
         }
@@ -737,7 +743,7 @@ export async function openWim(input: ByteSourceType, options: WimOpenOptionsType
       /** Empty hashes denote absent streams, not a verified SHA1(empty) resource. */
       const empty = (call: WimReadOptionsType): WimReadType => {
         createArchiveLedger(call);
-        sourceRange(0, call.offset ?? 0, call.length ?? 0);
+        assertExtent(0, call.offset ?? 0, call.length ?? 0);
         signals(viewSignal, call.signal)?.throwIfAborted();
         return {
           bytes: new Uint8Array(),

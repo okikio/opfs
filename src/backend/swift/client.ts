@@ -5,8 +5,8 @@ import { assertRequestStream, isStream } from "../../body.ts";
 import { open } from "../../chunk.ts";
 import type { ChunkSourceType } from "../../chunk.ts";
 import { close } from "../../close.ts";
-import { objectETag, putOptions } from "../../publication.ts";
-import { assertRangeResponse, range } from "../../range.ts";
+import { resolveETag, snapshotPut } from "../../publication.ts";
+import { assertRangeResponse, resolveRange } from "../../range.ts";
 import { RequestMetrics, sendRequest } from "../../request.ts";
 import type { FetchType, RequestMetricsType, RequestPolicyType } from "../../request.ts";
 import { readResponse } from "../../response.ts";
@@ -260,8 +260,8 @@ class SwiftClient implements SwiftClientType {
   }
 
   async get(key: string, options: ObjectGetOptionsType = {}): Promise<ReadableStream<Uint8Array>> {
-    const selected = range(options);
-    const condition = objectETag(options.revision);
+    const selected = resolveRange(options);
+    const condition = resolveETag(options.revision);
     const url = this.#url(key);
     if (selected.empty) return new Blob().stream();
     const headers = new Headers();
@@ -290,7 +290,7 @@ class SwiftClient implements SwiftClientType {
     body: Uint8Array | ReadableStream<Uint8Array>,
     options: ObjectPutOptionsType = {},
   ): Promise<ObjectReceiptType> {
-    const request = putOptions(options);
+    const request = snapshotPut(options);
     const url = this.#url(key);
     request.signal?.throwIfAborted();
     if (

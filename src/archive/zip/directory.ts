@@ -6,7 +6,7 @@
  *
  * @module
  */
-import { invalid, uint64, unsupported, view } from "../record.ts";
+import { createView, getUint64, invalid, unsupported } from "../record.ts";
 import type { DirectoryRecordType, ZipAesMetadataType } from "./types.ts";
 
 /** Directory offsets are authoritative only after local-header agreement is checked during reads. */
@@ -16,13 +16,13 @@ export function parseDirectory(
   boundary: number,
   decodeName?: (bytes: Uint8Array) => string,
 ): DirectoryRecordType[] {
-  const data = view(bytes);
+  const data = createView(bytes);
   const records: DirectoryRecordType[] = [];
   const offsets = new Set<number>();
   let position = 0;
   for (let id = 0; id < count; id++) {
     if (position > bytes.byteLength - 46 || data.getUint32(position, true) !== 0x02014b50) {
-      invalid("Invalid ZIP directory record.");
+      throw invalid("Invalid ZIP directory record.");
     }
     const flags = data.getUint16(position + 8, true);
     const method = data.getUint16(position + 10, true);
@@ -34,9 +34,9 @@ export function parseDirectory(
     let disk = data.getUint16(position + 34, true);
     let offset = data.getUint32(position + 42, true);
     const next = position + 46 + nameSize + extraSize + commentSize;
-    if (next > bytes.byteLength) invalid("Truncated ZIP directory record.");
+    if (next > bytes.byteLength) throw invalid("Truncated ZIP directory record.");
     const rawName = bytes.slice(position + 46, position + 46 + nameSize);
-    const extra = view(bytes.subarray(position + 46 + nameSize, position + 46 + nameSize + extraSize));
+    const extra = createView(bytes.subarray(position + 46 + nameSize, position + 46 + nameSize + extraSize));
     const values = zip64(
       extra,
       size === 0xffffffff,
@@ -48,20 +48,24 @@ export function parseDirectory(
     compressedSize = values.compressedSize ?? compressedSize;
     offset = values.offset ?? offset;
     disk = values.disk ?? disk;
-    if (disk !== 0) unsupported("Split ZIP members are unsupported.");
-    if (offset >= boundary || compressedSize > boundary - offset) invalid("ZIP member extent overlaps directory.");
-    if (offsets.has(offset)) invalid("Distinct ZIP entries alias the same local header.");
+    if (disk !== 0) throw unsupported("Split ZIP members are unsupported.");
+    if (offset >= boundary || compressedSize > boundary - offset) {
+      throw invalid("ZIP member extent overlaps directory.");
+    }
+    if (offsets.has(offset)) throw invalid("Distinct ZIP entries alias the same local header.");
     offsets.add(offset);
     let name: string;
     if (flags & 0x800) {
       try {
         name = new TextDecoder("utf-8", { fatal: true }).decode(rawName);
       } catch {
-        invalid("ZIP UTF-8 name is invalid.");
+        throw invalid("ZIP UTF-8 name is invalid.");
       }
     } else if (decodeName) name = decodeName(rawName.slice());
     else {
-      if (rawName.some((byte) => byte > 127)) unsupported("Non-ASCII ZIP names require an explicit legacy decoder.");
+      if (rawName.some((byte) => byte > 127)) {
+        throw unsupported("Non-ASCII ZIP names require an explicit legacy decoder.");
+      }
       name = new TextDecoder().decode(rawName);
     }
     if (typeof name !== "string") throw new TypeError("ZIP name decoder must return a string.");
@@ -79,7 +83,7 @@ export function parseDirectory(
       !(flags & 0x2048) &&
       data.getUint16(position + 6, true) >= (aes.method === 0 ? 10 : 20);
     if (aes?.version === 2 && data.getUint32(position + 16, true) !== 0) {
-      invalid("WinZip AE-2 requires a zero CRC field.");
+      throw invalid("WinZip AE-2 requires a zero CRC field.");
     }
     const entry = Object.freeze({
       id,
@@ -111,7 +115,7 @@ export function parseDirectory(
     });
     position = next;
   }
-  if (position !== bytes.byteLength) unsupported("Extra ZIP directory records are unsupported.");
+  if (position !== bytes.byteLength) throw unsupported("Extra ZIP directory records are unsupported.");
   return records;
 }
 
@@ -120,12 +124,12 @@ function findExtra(data: DataView, wanted: number): DataView | undefined {
   let at = 0;
   let found: DataView | undefined;
   while (at < data.byteLength) {
-    if (data.byteLength - at < 4) invalid("Truncated ZIP extra field.");
+    if (data.byteLength - at < 4) throw invalid("Truncated ZIP extra field.");
     const id = data.getUint16(at, true);
     const size = data.getUint16(at + 2, true);
-    if (size > data.byteLength - at - 4) invalid("ZIP extra field exceeds record.");
+    if (size > data.byteLength - at - 4) throw invalid("ZIP extra field exceeds record.");
     if (id === wanted) {
-      if (found) invalid("Duplicate ZIP encryption extra fields are ambiguous.");
+      if (found) throw invalid("Duplicate ZIP encryption extra fields are ambiguous.");
       found = new DataView(data.buffer, data.byteOffset + at + 4, size);
     }
     at += 4 + size;
@@ -161,29 +165,29 @@ export function zip64(
   let position = 0;
   let result: { size?: number; compressedSize?: number; offset?: number; disk?: number } | undefined;
   while (position < data.byteLength) {
-    if (position > data.byteLength - 4) invalid("Truncated ZIP extra field.");
+    if (position > data.byteLength - 4) throw invalid("Truncated ZIP extra field.");
     const id = data.getUint16(position, true);
     const length = data.getUint16(position + 2, true);
     const end = position + 4 + length;
-    if (end > data.byteLength) invalid("ZIP extra field exceeds record.");
+    if (end > data.byteLength) throw invalid("ZIP extra field exceeds record.");
     if (id === 1) {
-      if (result) invalid("Duplicate ZIP64 extra fields are ambiguous.");
+      if (result) throw invalid("Duplicate ZIP64 extra fields are ambiguous.");
       result = {};
       let cursor = position + 4;
       for (const [needed, key] of [[size, "size"], [compressed, "compressedSize"], [offset, "offset"]] as const) {
         if (needed) {
-          if (cursor > end - 8) invalid("ZIP64 field is missing a required value.");
-          result[key] = uint64(data, cursor);
+          if (cursor > end - 8) throw invalid("ZIP64 field is missing a required value.");
+          result[key] = getUint64(data, cursor);
           cursor += 8;
         }
       }
       if (disk) {
-        if (cursor > end - 4) invalid("ZIP64 disk value is missing.");
+        if (cursor > end - 4) throw invalid("ZIP64 disk value is missing.");
         result.disk = data.getUint32(cursor, true);
       }
     }
     position = end;
   }
-  if (!result && (size || compressed || offset || disk)) invalid("ZIP64 extra field is missing.");
+  if (!result && (size || compressed || offset || disk)) throw invalid("ZIP64 extra field is missing.");
   return result ?? {};
 }
