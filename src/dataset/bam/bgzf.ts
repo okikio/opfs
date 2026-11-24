@@ -1,16 +1,11 @@
 /** Private BGZF acquisition. Each member is fully decoded and checked before its bytes become visible. @module */
 import type { ByteSourceType } from "../../source.ts";
-import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../../archive/record.ts";
+import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../../archive/budget.ts";
 import { assertExtent } from "../../source.ts";
 import { isBytes, toView } from "../../bytes.ts";
-import {
-  ArchiveError,
-  assertInteger,
-  createArchiveLedger,
-  createView,
-  invalid,
-  unsupported,
-} from "../../archive/record.ts";
+import { ArchiveError, invalid, unsupported } from "../../archive/error.ts";
+import { assertInteger, createArchiveLedger } from "../../archive/budget.ts";
+import { createView } from "../../archive/field.ts";
 import { readDeflate } from "../../archive/deflate.ts";
 import { crc32 } from "../../hash.ts";
 
@@ -49,7 +44,9 @@ export interface BamWorkType extends ArchiveWorkType {
 
 /** One lifetime owner prevents an iterator restart from resetting the safety policy. */
 export class Budget {
+  /** The borrowed BAM source. */
   readonly source: ByteSourceType;
+  /** Resolved BAM limits: caller values where given, defaults otherwise. */
   readonly limits: Required<
     Pick<
       BamLimitsType,
@@ -70,6 +67,10 @@ export class Budget {
   #blocks = 0;
   #deflateBlocks = 0;
   #records = 0;
+  /**
+   * Borrows `source` for the reader's whole lifetime. Throws for a source beyond the 48-bit virtual-offset profile
+   * or a limit above the implementation ceilings.
+   */
   constructor(source: ByteSourceType, options: BamLimitsType) {
     assertExtent(source.size, 0, 0);
     if (source.size > 0xffffffffffff) {
@@ -100,25 +101,31 @@ export class Budget {
       );
     }
   }
+  /** Charges `count` units of one work dimension to the reader's ledger and the caller's ledger, if any. */
   reserve(kind: keyof ArchiveWorkType, count: number): void {
     this.#ledger.reserve(kind, count);
     this.#external?.reserve(kind, count);
   }
+  /** Counts one BGZF block against `maxBlocks`. */
   block(): void {
     if (this.#blocks === this.limits.maxBlocks) this.refuse("BGZF block");
     this.#blocks++;
   }
+  /** Counts one DEFLATE block inside a BGZF block against `maxDeflateBlocks`. */
   deflate(): void {
     if (this.#deflateBlocks === this.limits.maxDeflateBlocks) this.refuse("DEFLATE block");
     this.#deflateBlocks++;
   }
+  /** Counts one record admission attempt against `maxTotalRecords`. */
   record(): void {
     if (this.#records === this.limits.maxTotalRecords) this.refuse("Record");
     this.#records++;
   }
+  /** Throws the `budget-exceeded` error for an exhausted lifetime limit named by `label`. */
   refuse(label: string): never {
     throw new ArchiveError("budget-exceeded", `BAM ${label} lifetime policy exhausted.`);
   }
+  /** Returns a detached snapshot of the work charged so far. */
   inspect(): BamWorkType {
     return {
       ...this.#ledger.inspect(),
@@ -167,6 +174,7 @@ export class Cursor {
   #block = 0;
   #bytes: Uint8Array = new Uint8Array();
   #at = 0;
+  /** Starts at the first block, or at `previous`'s position so a clone continues where it stopped. */
   constructor(budget: Budget, signal?: AbortSignal, previous?: Cursor) {
     this.#budget = budget;
     this.#signal = signal;

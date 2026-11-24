@@ -1,3 +1,13 @@
+/**
+ * Split one byte stream into fixed-size upload parts.
+ *
+ * Multipart uploaders in this package use it. `split(source, size)` yields owned parts of exactly `size` bytes, except
+ * the last part, which can be smaller. `open(source, size)` returns the underlying iterator, whose pending read the
+ * owner can interrupt without aborting uploads already in flight. Import it from `@okikio/opfs/_chunk` when a custom
+ * uploader needs the same part boundaries and the same cancellation behavior.
+ *
+ * @module
+ */
 import { concat } from "@std/bytes/concat";
 
 import { isBytes, toView } from "./bytes.ts";

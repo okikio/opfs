@@ -1,3 +1,12 @@
+/**
+ * Bounded reads of provider control bodies: XML documents and error messages.
+ *
+ * A provider error body is not file data, so it has its own small limits (`MAX_CONTROL_BYTES` and the read-count
+ * ceilings). `readResponse()` owns the response body for one callback and retires it on every path. Clients use it for
+ * listing XML, error payloads and other small documents.
+ *
+ * @module
+ */
 import { isBytes } from "./bytes.ts";
 import { openBytes } from "./stream.ts";
 import { aggregate } from "./close.ts";

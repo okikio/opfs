@@ -8,7 +8,9 @@
  */
 import { close } from "../../close.ts";
 import { isBytes, toView } from "../../bytes.ts";
-import { ArchiveBudget, ArchiveError, assertInteger, createView, invalid, unsupported } from "../record.ts";
+import { ArchiveBudget, assertInteger } from "../budget.ts";
+import { ArchiveError, invalid, unsupported } from "../error.ts";
+import { createView } from "../field.ts";
 import { crc32 } from "../../hash.ts";
 import { openZipAes } from "./cipher.ts";
 import type { ZipAesStateType } from "./cipher.ts";

@@ -1,5 +1,6 @@
 /** Private BAM record grammar. Byte extents are admitted before variable-field allocation. @module */
-import { ArchiveError, createView, invalid, unsupported } from "../../archive/record.ts";
+import { ArchiveError, invalid, unsupported } from "../../archive/error.ts";
+import { createView } from "../../archive/field.ts";
 
 /** One reference in BAM's ordinal dictionary; coordinates in records are zero-based. */
 export interface BamReferenceType {

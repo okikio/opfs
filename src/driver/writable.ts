@@ -1,3 +1,11 @@
+/**
+ * A queued positional writable file for drivers whose native file handle is not safe for overlapping calls.
+ *
+ * `QueuedWritableFile` admits writes, truncates and seeks into one ordered queue with a fixed capacity, and keeps a
+ * separate slot for close or abort so cleanup is never blocked by a full queue. File drivers wrap native handles in it.
+ *
+ * @module
+ */
 import { toView } from "../bytes.ts";
 import { FileSystemError } from "../error.ts";
 import type { FileDriverWritableFileType } from "./file.ts";
@@ -72,6 +80,10 @@ export class QueuedWritableFile implements FileDriverWritableFileType {
   #state: WritableInspectionType["state"] = "open";
   #terminal: Promise<void> | undefined;
 
+  /**
+   * Wraps one native writable `file`, which this queue then owns until close or abort. `options` set the pending
+   * byte and operation capacity; the defaults are 64 MiB and 64 operations.
+   */
   constructor(file: FileDriverWritableFileType, options: WritableOptionsType = {}) {
     validateWritableOptions(options);
     this.#file = file;

@@ -1,3 +1,11 @@
+/**
+ * Map virtual paths to host paths under one root directory.
+ *
+ * The Node, Deno and Bun drivers use `createLocalPath(root)` so `/cache/a.bin` becomes `<root>/cache/a.bin` and a path
+ * cannot escape the root lexically. A native call can still follow a symbolic link that already exists inside the root.
+ *
+ * @module
+ */
 import { resolve, SEPARATOR } from "@std/path";
 import { normalizePath } from "../path.ts";
 

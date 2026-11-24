@@ -4,13 +4,13 @@ npm/@okikio/opfs: minor
 
 ### Scan one-shot TAR streams and create bounded TAR/PAX or STORED ZIP32 archives
 
-TAR inspection now understands bounded PAX metadata and GNU long names/links. The new `archive/stream` subpath scans
-one-shot streams with single-use entry bodies and writes deterministic ustar/PAX output. The `archive/write` subpath
+TAR inspection now understands bounded PAX metadata and GNU long names/links. The new `archive/tar/stream` subpath scans
+one-shot streams with single-use entry bodies and writes deterministic ustar/PAX output. The `archive/zip/write` subpath
 writes STORED ZIP32 streams, including entries with unknown sizes through data descriptors:
 
 ```ts
-import { createTarStream, readTarStream } from "@okikio/opfs/archive/stream";
-import { createZipStream } from "@okikio/opfs/archive/write";
+import { createTarStream, readTarStream } from "@okikio/opfs/archive/tar/stream";
+import { createZipStream } from "@okikio/opfs/archive/zip/write";
 
 const tar = createTarStream([{ name: "hello.txt", size: 5, body: new Blob(["hello"]).stream() }]);
 await readTarStream(tar, async (entry, body) => {

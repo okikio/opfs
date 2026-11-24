@@ -3,7 +3,7 @@ import { expect } from "@std/expect";
 import { decodeBase64 } from "@std/encoding/base64";
 import { createBlobSource } from "../src/source.ts";
 import type { ByteSourceType } from "../src/source.ts";
-import { createArchiveLedger } from "../src/archive/record.ts";
+import { createArchiveLedger } from "../src/archive/budget.ts";
 import { openMime } from "../src/archive/mime.ts";
 import fixture from "./fixtures/mime/independent.json" with { type: "json" };
 const encode = (text: string): Uint8Array => new TextEncoder().encode(text);

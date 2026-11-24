@@ -1,17 +1,13 @@
 /** Sequential BinHex 4.0 fork previews with explicit replay and CRC evidence. @module */
 import type { ByteSourceType } from "../source.ts";
-import {
-  ArchiveBudget,
-  ArchiveError,
-  assertInteger,
-  createArchiveLedger,
-  createView,
-  invalid,
-  unsupported,
-} from "./record.ts";
-import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
-export { ArchiveError, createArchiveLedger } from "./record.ts";
-export type { ArchiveErrorCodeType, ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
+import { ArchiveBudget, assertInteger, createArchiveLedger } from "./budget.ts";
+import { ArchiveError, invalid, unsupported } from "./error.ts";
+import { createView } from "./field.ts";
+import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./budget.ts";
+export { ArchiveError } from "./error.ts";
+export { createArchiveLedger } from "./budget.ts";
+export type { ArchiveErrorCodeType } from "./error.ts";
+export type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./budget.ts";
 
 /** Fork names describe two separate byte streams, not filesystem paths. */
 export type BinHexForkType = "data" | "resource";

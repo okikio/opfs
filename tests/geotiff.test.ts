@@ -5,7 +5,7 @@ import { decodeBase64 } from "@std/encoding/base64";
 import native from "./fixtures/geotiff/independent.json" with { type: "json" };
 import { createArchiveLedger, openGeotiff } from "../src/dataset/geotiff.ts";
 import type { ByteSourceType } from "../src/source.ts";
-import type { ArchiveLedgerType } from "../src/archive/record.ts";
+import type { ArchiveLedgerType } from "../src/archive/budget.ts";
 
 /** Authored TIFF6 byte grammar, independent of the candidate reader. No native producer claim. */
 function fixture(

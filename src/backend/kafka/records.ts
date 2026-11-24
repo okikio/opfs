@@ -4,6 +4,7 @@ import { long, MAX_FRAME, MAX_LONG, Reader, Writer } from "./wire.ts";
 
 /** Ordered binary header; duplicate names are meaningful and remain in order. */
 export interface KafkaHeaderType {
+  /** Header key, decoded as UTF-8. */
   readonly name: string;
   /** Null and zero-length bytes are distinct Kafka values. */
   readonly value: Uint8Array | null;
@@ -12,12 +13,16 @@ export interface KafkaHeaderType {
 export interface KafkaRecordType {
   /** Nonnegative signed int64 milliseconds; no implicit clock or Number conversion. */
   readonly timestamp: bigint;
+  /** Record key. Null and zero-length bytes are distinct Kafka values. */
   readonly key: Uint8Array | null;
+  /** Record value. Null is a tombstone on a compacted topic. */
   readonly value: Uint8Array | null;
+  /** Headers in wire order. */
   readonly headers: readonly KafkaHeaderType[];
 }
 /** A returned record owns its nested payload bytes independently of the response frame. */
 export interface KafkaFetchedRecordType extends KafkaRecordType {
+  /** Absolute partition offset: the batch base offset plus the record's offset delta. */
   readonly offset: bigint;
 }
 /** Caller policy can lower these implementation ceilings, never raise them. */
@@ -33,28 +38,45 @@ export interface KafkaRecordLimitsType {
 }
 /** Native batch boundaries survive compaction, even when there are no records. */
 export interface KafkaBatchType {
+  /** Offset of the batch's first record slot. */
   readonly baseOffset: bigint;
+  /** Offset of the batch's last record slot, from the header's last offset delta. */
   readonly lastOffset: bigint;
+  /** `lastOffset + 1`: where the next fetch continues, even when compaction removed every record. */
   readonly nextOffset: bigint;
+  /** First timestamp in the batch, in milliseconds. */
   readonly baseTimestamp: bigint;
+  /** Largest timestamp in the batch, in milliseconds. */
   readonly maxTimestamp: bigint;
+  /** Partition leader epoch recorded in the batch header. */
   readonly leaderEpoch: number;
+  /** Records present on the wire in this batch. */
   readonly recordCount: number;
 }
 /** A completely admitted page; no result is published when a later batch fails. */
 export interface KafkaRecordsType {
+  /** Records at or after the requested offset, in offset order. */
   readonly records: readonly KafkaFetchedRecordType[];
+  /** Offset to request next: past every admitted batch, or the requested offset when the page had none. */
   readonly nextOffset: bigint;
+  /** Every admitted batch header, including empty compacted batches. */
   readonly batches: readonly KafkaBatchType[];
+  /** Records read from the wire before offset filtering, counted against `maxRecords`. */
   readonly wireRecords: number;
+  /** Serialized record bytes over the page, counted against `maxBytes`. */
   readonly recordBytes: number;
+  /** Headers read before offset filtering, counted against `maxHeaders`. */
   readonly headers: number;
 }
 /** Fully admitted local record policy; validation performs no allocation or I/O. */
 export interface LimitsType {
+  /** Resolved `KafkaRecordLimitsType.maxBytes`. */
   readonly maxBytes: number;
+  /** Resolved `KafkaRecordLimitsType.maxRecords`. */
   readonly maxRecords: number;
+  /** Resolved `KafkaRecordLimitsType.maxHeaders`. */
   readonly maxHeaders: number;
+  /** Resolved `KafkaRecordLimitsType.maxRecordHeaders`. */
   readonly maxRecordHeaders: number;
 }
 /** Invalid binary structure and unsupported profiles use fixed messages, never record content. */

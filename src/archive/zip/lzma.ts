@@ -1,8 +1,9 @@
 /** ZIP method-14 framing over the bounded authored raw-LZMA1 decoder. @module */
 import { createLzmaDecoder } from "../lzma.ts";
 import type { LzmaLimitsType, LzmaResultType } from "../lzma.ts";
-import { createView, invalid, unsupported } from "../record.ts";
-import type { ArchiveBudget, ArchiveLimitsType } from "../record.ts";
+import { createView } from "../field.ts";
+import { invalid, unsupported } from "../error.ts";
+import type { ArchiveBudget, ArchiveLimitsType } from "../budget.ts";
 import type { ByteSourceType } from "../../source.ts";
 import { close } from "../../close.ts";
 

@@ -1,3 +1,12 @@
+/**
+ * Small XML builders and readers for provider control documents.
+ *
+ * The S3, Azure, WebDAV and other XML clients build request bodies and read responses with these functions, which wrap
+ * `@std/xml` with the package's rules: DOCTYPE is refused, and elements are matched by local name so a namespace prefix
+ * can differ between compatible services.
+ *
+ * @module
+ */
 import { parse } from "@std/xml/parse";
 import { stringify } from "@std/xml/stringify";
 import type { XmlElement, XmlNode, XmlTextNode } from "@std/xml/types";

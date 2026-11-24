@@ -1,5 +1,5 @@
 /** Pure six-type IPC column decoding; source acquisition belongs to its caller. @module */
-import { ArchiveError } from "../../archive/record.ts";
+import { ArchiveError } from "../../archive/error.ts";
 import { requireEligibleSchema, validateBatch } from "./schema.ts";
 import type { ArrowBatchType, ArrowSchemaType } from "./schema.ts";
 

@@ -5,9 +5,9 @@ import { isBytes, toView } from "../bytes.ts";
 import { assertExtent } from "../source.ts";
 import type { ByteSourceType } from "../source.ts";
 import type { ArfsMetadataInputType } from "./arfs.ts";
-import { assertInteger, createArchiveLedger } from "../archive/record.ts";
-import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
-export { createArchiveLedger } from "../archive/record.ts";
+import { assertInteger, createArchiveLedger } from "../archive/budget.ts";
+import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/budget.ts";
+export { createArchiveLedger } from "../archive/budget.ts";
 
 /** Cryptographic checks do not establish network inclusion or trusted human identity. */
 export class ArweaveError extends Error {

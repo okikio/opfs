@@ -1,6 +1,6 @@
-/** Internal bounded ordinary WIM LZX kernel; not CAB LZX or LZX Delta. @module */
+/** Bounded ordinary WIM LZX kernel; not CAB LZX or LZX Delta. @module */
 import { isBytes, toView } from "../bytes.ts";
-import { ArchiveError, invalid } from "./record.ts";
+import { ArchiveError, invalid } from "./error.ts";
 
 /** Coding words are little-endian, with their most significant bits consumed first. */
 class Bits {

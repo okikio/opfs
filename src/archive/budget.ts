@@ -1,21 +1,14 @@
+/**
+ * Work budgets for archive reads: per-operation limits, a shared ledger, and the budget that charges each read.
+ *
+ * A reader charges work before it acquires bytes, so an impossible request never reaches the source. A ledger
+ * shares one aggregate limit across several readers that a caller composes.
+ *
+ * @module
+ */
 import type { ByteSourceType } from "../source.ts";
 import { isBytes, toView } from "../bytes.ts";
-
-/** Stable failure categories for bounded archive inspection. */
-export type ArchiveErrorCodeType = "invalid-archive" | "unsupported-profile" | "budget-exceeded" | "checksum-mismatch";
-
-/** A format or policy failure; original source/codec failures retain their own errors. */
-export class ArchiveError extends Error {
-  /** Machine-readable refusal category, independent of explanatory message text. */
-  readonly code: ArchiveErrorCodeType;
-
-  /** Retain a format, profile, policy or integrity refusal without wrapping source failures. */
-  constructor(code: ArchiveErrorCodeType, message: string) {
-    super(message);
-    this.name = "ArchiveError";
-    this.code = code;
-  }
-}
+import { ArchiveError, invalid } from "./error.ts";
 
 /** Finite per-operation policy limits. Counts include parser reads and discarded decoded bytes. */
 export interface ArchiveLimitsType {
@@ -93,17 +86,34 @@ export function resolveLimits(options: Omit<ArchiveLimitsType, "ledger">): Requi
   return limits;
 }
 
-/** Separate returned-byte and work limits prevent a small preview from hiding a full decode. */
+/**
+ * Charges one archive operation's work against its limits, and its optional ledger, before the work happens.
+ *
+ * Separate returned-byte and work limits prevent a small preview from hiding a full decode. A reader creates one
+ * budget per open or read, then reads every extent through it:
+ *
+ * ```ts
+ * const budget = new ArchiveBudget(source, { maxSourceBytes: 1024 * 1024, ledger }, signal);
+ * const header = await budget.read(0, 512);
+ * budget.decoded(512);
+ * console.log(budget.inspect().sourceBytes); // 512
+ * ```
+ */
 export class ArchiveBudget {
   readonly #source: ByteSourceType;
   readonly #signal: AbortSignal | undefined;
   readonly #ledger: ArchiveLedgerType | undefined;
+  /** The resolved limits for this operation: caller values where given, defaults otherwise. */
   readonly limits: Required<Omit<ArchiveLimitsType, "ledger">>;
   #sourceBytes = 0;
   #requests = 0;
   #decodedBytes = 0;
   #outputBytes = 0;
 
+  /**
+   * Borrows `source` for this operation. `limits.ledger`, when given, is charged for the same work, so several
+   * budgets can share one aggregate limit. `signal` is checked before and after each source read.
+   */
   constructor(source: ByteSourceType, limits: ArchiveLimitsType = {}, signal?: AbortSignal) {
     assertInteger(source.size, "Source size");
     this.#source = source;
@@ -135,18 +145,21 @@ export class ArchiveBudget {
     return bytes;
   }
 
+  /** Charges `length` interpreted or decoded bytes, including bytes the reader later discards. */
   decoded(length: number): void {
     this.#charge(this.#decodedBytes, length, this.limits.maxDecodedBytes, "Decoded byte");
     this.#ledger?.reserve("decodedBytes", length);
     this.#decodedBytes += length;
   }
 
+  /** Charges `length` bytes of returned output before the reader allocates them. */
   output(length: number): void {
     this.#charge(this.#outputBytes, length, this.limits.maxOutputBytes, "Output byte");
     this.#ledger?.reserve("outputBytes", length);
     this.#outputBytes += length;
   }
 
+  /** Returns a detached snapshot of the work charged so far. Performs no I/O. */
   inspect(): ArchiveWorkType {
     return {
       sourceBytes: this.#sourceBytes,
@@ -172,57 +185,4 @@ export class ArchiveBudget {
  */
 export function assertInteger(value: number, label: string): void {
   if (!Number.isSafeInteger(value) || value < 0) throw new RangeError(`${label} must be a nonnegative safe integer.`);
-}
-
-/**
- * Creates the `invalid-archive` error for bytes that break the format: a truncated header, a bad checksum
- * field, an offset outside the file.
- *
- * Call it with `throw` where parsing must stop, so the exit is visible at the call site:
- *
- * ```ts
- * if (header.length < 30) throw invalid("ZIP local header is truncated.");
- * ```
- *
- * Name the format and the broken rule in `message`; it reaches the caller unchanged.
- */
-export function invalid(message: string): ArchiveError {
-  return new ArchiveError("invalid-archive", message);
-}
-
-/**
- * Creates the `unsupported-profile` error for valid input that this reader does not implement, such as an
- * unknown compression method or a feature outside the selected profile.
- *
- * Call it with `throw`, like {@link invalid}: `throw unsupported("ZIP method 99 is not supported.");`. The
- * distinction tells a caller that another tool may read the file, while `invalid-archive` means no correct
- * reader can.
- */
-export function unsupported(message: string): ArchiveError {
-  return new ArchiveError("unsupported-profile", message);
-}
-
-/**
- * Creates a `DataView` over exactly the bytes of `bytes`, honouring its offset and length in a larger buffer.
- *
- * Call it where a parser reads fixed-width fields: `createView(header).getUint32(4, true)`. A view built from
- * `bytes.buffer` alone would start at the buffer's first byte, not the slice's.
- */
-export function createView(bytes: Uint8Array): DataView {
-  return new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-}
-
-/**
- * Gets the little-endian unsigned 64-bit field at `offset` as an exact `number`.
- *
- * Use it beside `DataView`'s own getters, which have no exact 64-bit form for `number`:
- * `const offset = getUint64(record, 48);`. Values above `Number.MAX_SAFE_INTEGER` throw `unsupported-profile`
- * instead of losing their high bits.
- */
-export function getUint64(data: DataView, offset: number): number {
-  const value = data.getBigUint64(offset, true);
-  if (value > BigInt(Number.MAX_SAFE_INTEGER)) {
-    throw unsupported("Archive offset or size exceeds exact JavaScript integers.");
-  }
-  return Number(value);
 }

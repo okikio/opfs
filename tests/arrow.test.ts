@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { openArrow, readArrow } from "../src/dataset/arrow.ts";
 import type { ArrowColumnType } from "../src/dataset/arrow.ts";
-import { ArchiveError } from "../src/archive/record.ts";
+import { ArchiveError } from "../src/archive/error.ts";
 import type { ByteSourceType } from "../src/source.ts";
 
 interface BlobType {

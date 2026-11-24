@@ -1,6 +1,6 @@
 import { bench, do_not_optimize } from "mitata";
 import { toRequestBytes } from "../src/bytes.ts";
-import { createArchiveLedger } from "../src/archive/record.ts";
+import { createArchiveLedger } from "../src/archive/budget.ts";
 import { compressStream, createCompressedTar, decompressStream, readCompressedTar } from "../src/archive/compress.ts";
 import { expectBytes, payload, report } from "./result.ts";
 

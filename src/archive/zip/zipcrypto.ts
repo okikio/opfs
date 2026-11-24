@@ -1,10 +1,13 @@
-/** Internal legacy ZIP password state. This cipher is obsolete and provides no authentication. @module */
+/** Legacy ZIP password state used by the ZIP reader. This cipher is obsolete and provides no authentication. @module */
 import { isBytes, toView } from "../../bytes.ts";
-import { ArchiveError, assertInteger } from "../record.ts";
+import { ArchiveError } from "../error.ts";
+import { assertInteger } from "../budget.ts";
 
 /** One sequential legacy cipher state; independent reads must never reuse it. */
 export interface ZipCryptoType {
+  /** Decrypts the next bytes of the member in order and advances the cipher state. */
   decrypt(bytes: Uint8Array): Uint8Array;
+  /** Clears the key state. Later calls throw. */
   clear(): void;
 }
 

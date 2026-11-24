@@ -1,18 +1,12 @@
 /** Bounded CDF-1/CDF-2 metadata and selected raw numeric ranges. @module */
 import type { ByteSourceType } from "../source.ts";
-import {
-  ArchiveBudget,
-  ArchiveError,
-  assertInteger,
-  createArchiveLedger,
-  createView,
-  invalid,
-  resolveLimits,
-  unsupported,
-} from "../archive/record.ts";
-import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
-export { ArchiveError, createArchiveLedger } from "../archive/record.ts";
-export type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
+import { ArchiveBudget, assertInteger, createArchiveLedger, resolveLimits } from "../archive/budget.ts";
+import { ArchiveError, invalid, unsupported } from "../archive/error.ts";
+import { createView } from "../archive/field.ts";
+import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/budget.ts";
+export { ArchiveError } from "../archive/error.ts";
+export { createArchiveLedger } from "../archive/budget.ts";
+export type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/budget.ts";
 
 /** Classic external types; CDF-2 extends offsets, not these value types. */
 export type NetcdfStorageType = "byte" | "char" | "short" | "int" | "float" | "double";

@@ -7,7 +7,7 @@ it must read preceding payloads even when you only want a late member. Neither A
 This complete example writes an archive, then consumes one member without collecting the archive or its payload:
 
 ```ts
-import { createTarStream, readTarStream } from "@okikio/opfs/archive/stream";
+import { createTarStream, readTarStream } from "@okikio/opfs/archive/tar/stream";
 
 const archive = createTarStream([
   { name: "notes/hello.txt", size: 5, body: new Blob(["hello"]).stream() },

@@ -1,5 +1,5 @@
-/** Internal bounded RFC 1951 decoder shared by explicit container profiles. @module */
-import { invalid } from "./record.ts";
+/** Bounded RFC 1951 decoder shared by explicit container profiles. @module */
+import { invalid } from "./error.ts";
 
 /** Bit positions refer to the original packed block, so final-byte consumption is exact. */
 class Bits {

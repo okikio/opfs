@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
-import { createZipStream } from "../src/archive/write.ts";
-import type { ZipWriteEntryType } from "../src/archive/write.ts";
+import { createZipStream } from "../src/archive/zip/write.ts";
+import type { ZipWriteEntryType } from "../src/archive/zip/write.ts";
 import { openZip } from "../src/archive/zip/mod.ts";
 import { createByteSource } from "../src/source.ts";
 

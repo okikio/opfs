@@ -1,3 +1,12 @@
+/**
+ * Shared request rules for object providers that use ETags.
+ *
+ * The S3, R2, Azure, Swift, HTTP and WebDAV clients call these helpers so a revision always becomes a real
+ * `If-Match` precondition and a request in flight is never changed by later caller mutation. A new ETag-based client can
+ * use them to get the same guarantees.
+ *
+ * @module
+ */
 import type {
   ObjectCopyOptionsType,
   ObjectPutOptionsType,

@@ -1,9 +1,9 @@
-import { isBytes, toView } from "../bytes.ts";
-import { aggregate, close } from "../close.ts";
-import { openBytes } from "../stream.ts";
-import type { ByteReaderType } from "../stream.ts";
-import { assertInteger } from "./record.ts";
-import { crc32 } from "../hash.ts";
+import { isBytes, toView } from "../../bytes.ts";
+import { aggregate, close } from "../../close.ts";
+import { openBytes } from "../../stream.ts";
+import type { ByteReaderType } from "../../stream.ts";
+import { assertInteger } from "../budget.ts";
+import { crc32 } from "../../hash.ts";
 
 /** A source is consumed only after its name and limits are admitted. No link entries are accepted. */
 export interface ZipWriteEntryType {
@@ -19,6 +19,7 @@ export interface ZipWriteEntryType {
 
 /** Finite limits apply before copying chunks or retaining another directory entry. */
 export interface ZipWriteOptionsType {
+  /** Cancels the output stream and retires the current entry source and the entry iterator. */
   readonly signal?: AbortSignal;
   /** Default 10,000; classic ZIP excludes the ZIP64 sentinel 65,535. */
   readonly maxEntries?: number;

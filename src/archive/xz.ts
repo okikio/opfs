@@ -2,19 +2,14 @@
 import type { ByteSourceType } from "../source.ts";
 import { createLzmaDecoder } from "./lzma.ts";
 import type { LzmaLimitsType } from "./lzma.ts";
-import {
-  ArchiveBudget,
-  ArchiveError,
-  assertInteger,
-  createArchiveLedger,
-  createView,
-  invalid,
-  unsupported,
-} from "./record.ts";
-import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
+import { ArchiveBudget, assertInteger, createArchiveLedger } from "./budget.ts";
+import { ArchiveError, invalid, unsupported } from "./error.ts";
+import { createView } from "./field.ts";
+import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./budget.ts";
 import { crc32, Crc64, Sha256 } from "../hash.ts";
-export { ArchiveError, createArchiveLedger } from "./record.ts";
-export type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
+export { ArchiveError } from "./error.ts";
+export { createArchiveLedger } from "./budget.ts";
+export type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./budget.ts";
 
 /** Codec CPU counters are cumulative across all blocks selected by one read. Memory is bounded per active decoder. */
 export type XzLzmaOptionsType = Pick<

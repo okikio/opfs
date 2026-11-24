@@ -1,10 +1,12 @@
 /** Bounded single-frame LZ4 decoding; checksum evidence becomes complete only at successful EOF. @module */
 import { isBytes, toView } from "../bytes.ts";
 import { close } from "../close.ts";
-import { ArchiveError, assertInteger, createArchiveLedger, invalid, unsupported } from "./record.ts";
-import type { ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
-export { ArchiveError, createArchiveLedger } from "./record.ts";
-export type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./record.ts";
+import { ArchiveError, invalid, unsupported } from "./error.ts";
+import { assertInteger, createArchiveLedger } from "./budget.ts";
+import type { ArchiveLimitsType, ArchiveWorkType } from "./budget.ts";
+export { ArchiveError } from "./error.ts";
+export { createArchiveLedger } from "./budget.ts";
+export type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "./budget.ts";
 
 /** Finite input, block, output and work admission. A whole archive is never buffered. */
 export interface Lz4OptionsType extends ArchiveLimitsType {

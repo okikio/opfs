@@ -255,7 +255,7 @@ try {
     import { createByteSource } from '@okikio/opfs/source';
     import { testByteSource } from '@okikio/opfs/testing/source';
     import { createNativeTink } from '@okikio/opfs/crypto/tink';
-    import { createTarStream, readTarStream } from '@okikio/opfs/archive/stream';
+    import { createTarStream, readTarStream } from '@okikio/opfs/archive/tar/stream';
     import { openTar } from '@okikio/opfs/archive/tar';
     import { createTarAdapter } from '@okikio/opfs/view/tar';
     import { openCpio } from '@okikio/opfs/archive/cpio';
@@ -306,7 +306,7 @@ try {
     import { LfsClient, decodeLfsPointer, encodeLfsPointer, toLfsObject } from '@okikio/opfs/content/lfs';
     import { openGitObject, encodeGitTree } from '@okikio/opfs/content/git';
     import { createD1Adapter } from '@okikio/opfs/adapter/d1';
-    import { createZipStream } from '@okikio/opfs/archive/write';
+    import { createZipStream } from '@okikio/opfs/archive/zip/write';
     import { openZip } from '@okikio/opfs/archive/zip';
     import { createZipAdapter } from '@okikio/opfs/view/zip';
     import { verifyArweaveTransaction } from '@okikio/opfs/content/arweave';
@@ -2341,8 +2341,8 @@ try {
     undent`
     import { createFileSystem, type FileSystemType } from '@okikio/opfs';
     import { createMemoryAdapter } from '@okikio/opfs/adapter/memory';
-    import { createTarStream, readTarStream } from '@okikio/opfs/archive/stream';
-    import type { TarWriteEntryType } from '@okikio/opfs/archive/stream';
+    import { createTarStream, readTarStream } from '@okikio/opfs/archive/tar/stream';
+    import type { TarWriteEntryType } from '@okikio/opfs/archive/tar/stream';
     import { openTar } from '@okikio/opfs/archive/tar';
     import { createTarAdapter } from '@okikio/opfs/view/tar';
     import { openCpio } from '@okikio/opfs/archive/cpio';
@@ -2393,8 +2393,8 @@ try {
     import { LfsClient, decodeLfsPointer, encodeLfsPointer, toLfsObject } from '@okikio/opfs/content/lfs';
     import { openGitObject, encodeGitTree } from '@okikio/opfs/content/git';
     import { createD1Adapter } from '@okikio/opfs/adapter/d1';
-    import { createZipStream } from '@okikio/opfs/archive/write';
-    import type { ZipWriteEntryType } from '@okikio/opfs/archive/write';
+    import { createZipStream } from '@okikio/opfs/archive/zip/write';
+    import type { ZipWriteEntryType } from '@okikio/opfs/archive/zip/write';
     import { openZip } from '@okikio/opfs/archive/zip';
     import { createZipAdapter } from '@okikio/opfs/view/zip';
     import { verifyArweaveTransaction } from '@okikio/opfs/content/arweave';

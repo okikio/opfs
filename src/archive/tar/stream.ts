@@ -1,10 +1,12 @@
 import { isBytes, toView } from "../../bytes.ts";
-import { ArchiveError, assertInteger, createArchiveLedger, invalid } from "../record.ts";
-import type { ArchiveLimitsType, ArchiveWorkType } from "../record.ts";
+import { ArchiveError, invalid } from "../error.ts";
+import { assertInteger, createArchiveLedger } from "../budget.ts";
+import type { ArchiveLimitsType, ArchiveWorkType } from "../budget.ts";
 import { padding } from "./block.ts";
 import { TarHeaders } from "./mod.ts";
 import type { TarEntryType, TarOpenOptionsType } from "./mod.ts";
 
+/** Limits for `readTarStream()`: the archive limits plus per-chunk ceilings for a one-shot source. */
 export interface TarStreamOptionsType extends Omit<TarOpenOptionsType, "allowUnverifiedSource"> {
   /** Reject a larger producer chunk after receiving it. The producer controls its allocation. Default 64 KiB. */
   readonly maxChunkBytes?: number;
@@ -12,11 +14,15 @@ export interface TarStreamOptionsType extends Omit<TarOpenOptionsType, "allowUnv
   readonly bodyChunkBytes?: number;
 }
 
+/** The result of one `readTarStream()` scan. */
 export interface TarScanType {
+  /** Entries delivered to the visitor. */
   readonly entries: number;
   /** False when the visitor stops before the required two zero blocks. */
   readonly complete: boolean;
+  /** TAR checks header checksums only. Payload bytes are not verified or authenticated. */
   readonly integrity: "header-checksum-only";
+  /** Work charged by the scan, including drained payload bytes the visitor did not read. */
   readonly work: ArchiveWorkType;
 }
 
@@ -190,9 +196,13 @@ class TarCursor {
   }
 }
 
+/** One entry for `createTarStream()`. */
 export interface TarWriteEntryType {
+  /** Relative archive name. A directory name ends in `/`. Long or non-ASCII names get a PAX `path` record. */
   readonly name: string;
+  /** Defaults to `"file"`. */
   readonly kind?: TarEntryType["kind"];
+  /** Target name for a symbolic or hard link. Stored as metadata; no host path is opened. */
   readonly link?: string;
   /** Known uncompressed byte length. Non-file entries require zero. */
   readonly size: number;
@@ -200,10 +210,15 @@ export interface TarWriteEntryType {
   readonly body?: ReadableStream<Uint8Array>;
 }
 
+/** Limits for `createTarStream()`. */
 export interface TarWriteOptionsType extends ArchiveLimitsType {
+  /** Cancels the output stream, the current body reader and the entry iterator. */
   readonly signal?: AbortSignal;
+  /** Maximum entries written. Default 100,000. */
   readonly maxEntries?: number;
+  /** Total bytes of PAX metadata across the archive. Default 1 MiB. */
   readonly maxMetadataBytes?: number;
+  /** Reject a larger body chunk after receiving it. The producer controls its allocation. Default 64 KiB. */
   readonly maxChunkBytes?: number;
 }
 

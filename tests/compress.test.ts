@@ -3,7 +3,7 @@ import { runInNewContext } from "node:vm";
 import { expect } from "@std/expect";
 import { decodeBase64 } from "@std/encoding/base64";
 import { toRequestBytes } from "../src/bytes.ts";
-import { createArchiveLedger } from "../src/archive/record.ts";
+import { createArchiveLedger } from "../src/archive/budget.ts";
 import { compressStream, createCompressedTar, decompressStream, readCompressedTar } from "../src/archive/compress.ts";
 import fixtures from "./fixtures/compression/independent.json" with { type: "json" };
 import tarFixtures from "./fixtures/tar/independent.json" with { type: "json" };

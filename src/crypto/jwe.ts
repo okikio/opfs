@@ -4,10 +4,10 @@ import { decodeBase64Url } from "@std/encoding/base64url";
 import { isBuffer, isBytes, toView } from "../bytes.ts";
 import { assertExtent } from "../source.ts";
 import type { ByteSourceType } from "../source.ts";
-import { assertInteger, createArchiveLedger } from "../archive/record.ts";
-import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
-export { createArchiveLedger } from "../archive/record.ts";
-export type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/record.ts";
+import { assertInteger, createArchiveLedger } from "../archive/budget.ts";
+import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/budget.ts";
+export { createArchiveLedger } from "../archive/budget.ts";
+export type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/budget.ts";
 
 /** The caller pins the algorithm independently of the untrusted protected header. */
 export const JweProfileSchema: z.ZodEnum<

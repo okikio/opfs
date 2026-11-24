@@ -1,3 +1,11 @@
+/**
+ * The synchronous file object returned by `openSyncFile()` and `createSyncAccessHandle()`.
+ *
+ * `ManagedSyncFile` holds the adapter's native synchronous file and the facade's mutation lock for one lifetime.
+ * Closing it releases both. The main entry exports `SyncFileType`; this entry adds the class.
+ *
+ * @module
+ */
 import { FileSystemError, toFileSystemError } from "./error.ts";
 import type { FileDriverSyncFileType } from "./driver/file.ts";
 import type { HeldLockType } from "./lock.ts";

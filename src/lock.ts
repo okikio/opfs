@@ -1,3 +1,13 @@
+/**
+ * The facade's mutation locks.
+ *
+ * A file operation holds the tree gate shared and its own path exclusively. A recursive remove, copy or move holds the
+ * tree gate exclusively. This lets independent file writes run together while a tree mutation waits for them.
+ * `MutationLocks` is the coordinator that `createFileSystem()` creates for every coordination mode; a custom facade can
+ * use the same rules.
+ *
+ * @module
+ */
 import { FileSystemError, throwIfAborted, toFileSystemError } from "./error.ts";
 import type { CoordinationModeType } from "./schema/mod.ts";
 

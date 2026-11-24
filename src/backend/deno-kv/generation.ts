@@ -1,3 +1,16 @@
+/**
+ * The Deno KV generation protocol that publishes large files atomically.
+ *
+ * Deno KV limits one value to 64 KiB and one atomic commit to a fixed size, so a large file is written as parts under a
+ * new generation and published by one compare-and-swap on the file's state. Readers pin a generation so it is not
+ * collected while they read. `KvGeneration` owns that protocol, and the Deno KV driver uses it.
+ *
+ * For maintenance, call the driver's own `collect()`, which applies defaults. Import this entry,
+ * `@okikio/opfs/driver/deno-kv/_generation`, to build another driver over the same physical layout, or to test the
+ * protocol directly. See `docs/design.md`, "Deno KV reference layout".
+ *
+ * @module
+ */
 import { z } from "zod";
 import { aggregate } from "../../close.ts";
 import { FileSystemError, throwIfAborted } from "../../error.ts";
@@ -46,11 +59,17 @@ export interface KvUsageType {
 
 /** Configured bounds for the private protocol; all constructors and inspection remain I/O-free. */
 export interface GenerationOptionsType {
+  /** How long a writer's claim on a new generation lasts before another writer may take over. Default 60,000. */
   readonly writerLeaseMs?: number;
+  /** How long one reader pin keeps a generation from collection without renewal. Default 60,000. */
   readonly readerLeaseMs?: number;
+  /** Maximum concurrent reader pins on one generation. Default 64. */
   readonly maxReaders?: number;
+  /** Maximum compare-and-swap retries for one state change. Default 64. */
   readonly maxRetries?: number;
+  /** Namespace limit on retained part bytes across all generations. Unset means no limit. */
   readonly maxRetainedBytes?: number;
+  /** Namespace limit on retained generation records. Unset means no limit. */
   readonly maxGenerations?: number;
   /** Test/application clock. Clock skew can revoke active work, but cannot bypass CAS fencing. */
   readonly clock?: () => number;
@@ -58,33 +77,53 @@ export interface GenerationOptionsType {
 
 /** One operation-owned pin, retaining its attempt token through unknown acquisition/cleanup. */
 export interface KvPinType {
+  /** Throws a `locked` error when the pin expired or the generation changed, so the read must not trust its bytes. */
   check(): Promise<void>;
+  /** Releases the pin. Safe to call after an unknown acquisition outcome. */
   release(): Promise<void>;
 }
 
 /** Metadata and physical-work budgets for a maintenance pass. */
 export interface GenerationCollectOptionsType {
+  /** Resume point returned by an earlier truncated pass. */
   readonly cursor?: string;
+  /** A retired generation younger than this is kept, so a reader that just resolved it can still pin it. */
   readonly minAgeMs: number;
+  /** Maximum part deletions in this pass. */
   readonly maxDeletes: number;
+  /** Maximum state, part and pin records read in this pass. */
   readonly maxScans: number;
+  /** Maximum pin records examined in this pass. */
   readonly maxPinScans: number;
+  /** How long a reclaimed generation's fence record stays before it is removed. */
   readonly tombstoneAgeMs: number;
+  /** Cancels scanning and deletion between provider operations. */
   readonly signal?: AbortSignal;
 }
 
 /** Detailed progress; per-pass bounds alone do not bound aggregate garbage. */
 export interface GenerationCollectResultType {
+  /** Distinct physical generations inspected. */
   generations: number;
+  /** Physical part keys inspected. */
   parts: number;
+  /** Unreachable physical part keys removed. */
   deleted: number;
+  /** Reachable or grace-period physical part keys retained. */
   retained: number;
+  /** True when `maxDeletes`, `maxScans` or `maxPinScans` stopped the pass early; continue with `cursor`. */
   truncated: boolean;
+  /** Generations kept because they are published, still being written, or retired less than `minAgeMs` ago. */
   active: number;
+  /** Generations kept because a reader still holds an unexpired pin. */
   pinned: number;
+  /** Generations skipped because a pin or state change raced the pass; a later pass retries them. */
   conflicts: number;
+  /** State, part and pin records read, counted against `maxScans`. */
   scanned: number;
+  /** Expired reader pins released by this pass. */
   prunedPins: number;
+  /** Resume point for the next pass; absent when the scan completed. */
   cursor?: string;
 }
 
@@ -125,9 +164,13 @@ export class KvGeneration {
   readonly #db: DenoKvType;
   readonly #prefix: string;
   readonly #now: () => number;
+  /** Resolved writer lease, in milliseconds. */
   readonly writerLeaseMs: number;
+  /** Resolved reader pin lease, in milliseconds. */
   readonly readerLeaseMs: number;
+  /** Resolved maximum concurrent reader pins per generation. */
   readonly maxReaders: number;
+  /** Resolved maximum compare-and-swap retries per state change. */
   readonly maxRetries: number;
   readonly #maxBytes: number | null;
   readonly #maxGenerations: number | null;
@@ -138,6 +181,10 @@ export class KvGeneration {
   >();
   readonly #writers = new Map<string, { owner: string; ready: Promise<void> }>();
 
+  /**
+   * Borrows `db` and owns the keys under `[prefix, ...]`. Validates `options` and performs no I/O; the first
+   * operation opens the namespace's accounting record.
+   */
   constructor(db: DenoKvType, prefix: string, options: GenerationOptionsType) {
     this.#db = db;
     this.#prefix = prefix;
@@ -381,6 +428,10 @@ export class KvGeneration {
     return state.value!.state === "published" || state.value!.state === "retired";
   }
 
+  /**
+   * Pins `generation` of `path` for one read, fenced on the logical entry version `logical`, so collection keeps
+   * its parts until the pin is released or expires. Call `check()` after reading parts and `release()` when done.
+   */
   async pin(path: string, generation: string, logical: DenoKvCheckType): Promise<KvPinType> {
     await this.open();
     if (this.#pending.size >= this.maxReaders) {
@@ -614,6 +665,7 @@ export class KvGeneration {
     }
   }
 
+  /** Runs one bounded collection pass. Every limit is required here; the driver's `collect()` supplies defaults. */
   async collect(options: GenerationCollectOptionsType): Promise<GenerationCollectResultType> {
     throwIfAborted(options.signal, "collect");
     const cursor = options.cursor === undefined

@@ -12,9 +12,9 @@
     "interface CopyOptionsType",
     "reference CopyPlanInputType",
     "function createFileSystem",
-    "interface CreateWritableOptionsType",
+    "reference CreateWritableOptionsType",
     "interface DirectoryEntryType",
-    "interface DirectoryHandleType",
+    "reference DirectoryHandleType",
     "interface DirectoryOptionsType",
     "interface DirectoryStatType",
     "reference DriverInspectionType",
@@ -43,18 +43,18 @@
     "reference FileDriverWriteOptionsType",
     "reference FileEntryKindType",
     "reference FileEntryType",
-    "interface FileHandleType",
+    "reference FileHandleType",
     "interface FileOptionsType",
     "interface FileStatType",
-    "class FileSystemError",
+    "reference FileSystemError",
     "reference FileSystemOptionsType",
     "interface FileSystemType",
-    "function getErrorMessage",
-    "function getErrorName",
+    "reference getErrorMessage",
+    "reference getErrorName",
     "function getOpfsContext",
-    "interface HandleCreateOptionsType",
-    "interface HandleRemoveOptionsType",
-    "interface HandleType",
+    "reference HandleCreateOptionsType",
+    "reference HandleRemoveOptionsType",
+    "reference HandleType",
     "reference HostProfileType",
     "reference InspectionType",
     "reference LimitKindType",
@@ -102,23 +102,147 @@
     "typeAlias StatType",
     "reference SupportModeType",
     "reference SupportType",
-    "interface SyncFileType",
-    "function toFileSystemError",
+    "reference SyncFileType",
+    "reference toFileSystemError",
     "interface WalkEntryType",
     "interface WalkOptionsType",
-    "typeAlias WritableChunkType",
-    "class WritableFileStream",
-    "typeAlias WritableFileStreamType",
-    "interface WritableFileType",
-    "interface WritableInspectionType",
-    "interface WritableOptionsType",
-    "typeAlias WriteCommandType",
-    "typeAlias WriteDataType",
+    "reference WritableChunkType",
+    "reference WritableFileStream",
+    "reference WritableFileStreamType",
+    "reference WritableFileType",
+    "reference WritableInspectionType",
+    "reference WritableOptionsType",
+    "reference WriteCommandType",
+    "reference WriteDataType",
     "reference WriteModeType",
     "interface WriteOptionsType",
     "reference WritePlanInputType",
     "reference WriteSourceType",
     "reference WriteSupportType"
+  ],
+  "./_abort": [
+    "typeAlias CancellationPrimaryType",
+    "interface CancellationType",
+    "function createCancellation",
+    "function getCancellation",
+    "function retainCancellation"
+  ],
+  "./_body": [
+    "function assertRequestStream",
+    "function isStream",
+    "function supportsRequestStream"
+  ],
+  "./_bytes": [
+    "function isBuffer",
+    "function isBytes",
+    "function toRequestBuffer",
+    "function toRequestBytes",
+    "function toView"
+  ],
+  "./_chunk": [
+    "interface ChunkSourceType",
+    "function open",
+    "function split"
+  ],
+  "./_close": [
+    "function aggregate",
+    "function close",
+    "function getPrimary"
+  ],
+  "./_error": [
+    "class FileSystemError",
+    "function getErrorMessage",
+    "function getErrorName",
+    "function throwIfAborted",
+    "function toFileSystemError"
+  ],
+  "./_handle": [
+    "class BaseHandle",
+    "interface CreateWritableOptionsType",
+    "class DirectoryHandle",
+    "interface DirectoryHandleType",
+    "class FileHandle",
+    "interface FileHandleType",
+    "interface HandleCreateOptionsType",
+    "interface HandleRemoveOptionsType",
+    "interface HandleType",
+    "typeAlias WritableChunkType",
+    "class WritableFileStream",
+    "typeAlias WritableFileStreamType",
+    "typeAlias WriteCommandType",
+    "class WriteSession"
+  ],
+  "./_hash": [
+    "function crc32",
+    "class Crc64",
+    "class Sha256"
+  ],
+  "./_iteration": [
+    "function project"
+  ],
+  "./_lock": [
+    "interface HeldLockType",
+    "class MutationLocks"
+  ],
+  "./_pool": [
+    "function map"
+  ],
+  "./_publication": [
+    "function applyProperties",
+    "function resolveETag",
+    "function resolveETagCopy",
+    "function resolveETagPut",
+    "function snapshotPut"
+  ],
+  "./_range": [
+    "function assertRangeResponse",
+    "interface RangeType",
+    "function resolveRange"
+  ],
+  "./_response": [
+    "variable MAX_CONTROL_BYTES",
+    "variable MAX_CONTROL_EMPTY_READS",
+    "variable MAX_CONTROL_READS",
+    "function readResponse",
+    "function readText",
+    "typeAlias ResponseTextType"
+  ],
+  "./_sigv4": [
+    "function hex",
+    "function hmac",
+    "function sha256",
+    "function signingKey"
+  ],
+  "./_stream": [
+    "interface ByteReaderType",
+    "function collectBytes",
+    "function isAsyncIterable",
+    "function isReadableStream",
+    "function observeBytes",
+    "function openBytes",
+    "function retire",
+    "function toBytes",
+    "function toByteStream",
+    "function withAbortSignal",
+    "typeAlias WriteDataType"
+  ],
+  "./_sync": [
+    "class ManagedSyncFile",
+    "interface SyncFileType"
+  ],
+  "./_writable": [
+    "class ManagedWritableFile",
+    "interface WritableFileType"
+  ],
+  "./_xml": [
+    "function createXmlElement",
+    "function createXmlText",
+    "function getXmlElements",
+    "function getXmlScalar",
+    "function getXmlText",
+    "function getXmlValue",
+    "function parseXmlRoot",
+    "function stringifyXml"
   ],
   "./adapter": [
     "interface AdapterType",
@@ -287,19 +411,50 @@
     "class AmqpOutcomeError",
     "interface AmqpReceiptType"
   ],
-  "./archive/ar": [
-    "interface ArArchiveType",
-    "class ArchiveError",
-    "typeAlias ArchiveErrorCodeType",
+  "./archive/_budget": [
+    "class ArchiveBudget",
     "interface ArchiveLedgerType",
     "interface ArchiveLimitsType",
     "interface ArchiveWorkType",
+    "function assertInteger",
+    "function createArchiveLedger",
+    "function resolveLimits"
+  ],
+  "./archive/_deflate": [
+    "function readDeflate"
+  ],
+  "./archive/_error": [
+    "class ArchiveError",
+    "typeAlias ArchiveErrorCodeType",
+    "function invalid",
+    "function unsupported"
+  ],
+  "./archive/_field": [
+    "function createView",
+    "function getUint64"
+  ],
+  "./archive/_lzx": [
+    "function decodeLzx"
+  ],
+  "./archive/_mszip": [
+    "function readMszip"
+  ],
+  "./archive/_xpress": [
+    "function decodeXpress"
+  ],
+  "./archive/ar": [
+    "interface ArArchiveType",
+    "reference ArchiveError",
+    "reference ArchiveErrorCodeType",
+    "reference ArchiveLedgerType",
+    "reference ArchiveLimitsType",
+    "reference ArchiveWorkType",
     "interface ArEntryType",
     "interface ArMemberOptionsType",
     "interface ArOpenOptionsType",
     "interface ArReadOptionsType",
     "interface ArReadType",
-    "function createArchiveLedger",
+    "reference createArchiveLedger",
     "function openAr"
   ],
   "./archive/arc": [
@@ -565,15 +720,6 @@
     "interface SevenReadOptionsType",
     "interface SevenReadType"
   ],
-  "./archive/stream": [
-    "function createTarStream",
-    "function readTarStream",
-    "interface TarScanType",
-    "interface TarStreamOptionsType",
-    "typeAlias TarVisitorType",
-    "interface TarWriteEntryType",
-    "interface TarWriteOptionsType"
-  ],
   "./archive/tar": [
     "reference ArchiveError",
     "reference ArchiveErrorCodeType",
@@ -592,6 +738,15 @@
   ],
   "./archive/tar/_block": [
     "function padding"
+  ],
+  "./archive/tar/stream": [
+    "function createTarStream",
+    "function readTarStream",
+    "interface TarScanType",
+    "interface TarStreamOptionsType",
+    "typeAlias TarVisitorType",
+    "interface TarWriteEntryType",
+    "interface TarWriteOptionsType"
   ],
   "./archive/udf": [
     "reference ArchiveError",
@@ -644,11 +799,6 @@
     "interface WimResourceType",
     "interface WimStreamType"
   ],
-  "./archive/write": [
-    "function createZipStream",
-    "interface ZipWriteEntryType",
-    "interface ZipWriteOptionsType"
-  ],
   "./archive/xar": [
     "reference ArchiveError",
     "reference ArchiveErrorCodeType",
@@ -689,17 +839,65 @@
     "reference ArchiveWorkType",
     "reference createArchiveLedger",
     "function openZip",
-    "interface ZipAesMetadataType",
+    "reference ZipAesMetadataType",
+    "reference ZipAesOptionsType",
+    "reference ZipArchiveType",
+    "reference ZipBzipOptionsType",
+    "reference ZipEntryType",
+    "reference ZipInflateType",
+    "reference ZipLzmaOptionsType",
+    "reference ZipOpenOptionsType",
+    "reference ZipPlanType",
+    "reference ZipReadOptionsType",
+    "reference ZipReadType"
+  ],
+  "./archive/zip/_aes": [
+    "function readAesMember"
+  ],
+  "./archive/zip/_bzip": [
+    "function readZipBzip",
+    "typeAlias ZipBzipOptionsType"
+  ],
+  "./archive/zip/_cipher": [
+    "function openZipAes",
     "interface ZipAesOptionsType",
+    "interface ZipAesStateType"
+  ],
+  "./archive/zip/_directory": [
+    "function hasExtra",
+    "function parseDirectory",
+    "function readAesExtra",
+    "function zip64"
+  ],
+  "./archive/zip/_lzma": [
+    "function readZipLzma",
+    "typeAlias ZipLzmaOptionsType"
+  ],
+  "./archive/zip/_member": [
+    "function readMember"
+  ],
+  "./archive/zip/_plan": [
+    "function planRead"
+  ],
+  "./archive/zip/_zipcrypto": [
+    "function createZipCrypto",
+    "interface ZipCryptoType"
+  ],
+  "./archive/zip/types": [
+    "interface DirectoryRecordType",
+    "interface ZipAesMetadataType",
     "interface ZipArchiveType",
-    "typeAlias ZipBzipOptionsType",
     "interface ZipEntryType",
     "typeAlias ZipInflateType",
-    "typeAlias ZipLzmaOptionsType",
     "interface ZipOpenOptionsType",
     "interface ZipPlanType",
     "interface ZipReadOptionsType",
     "interface ZipReadType"
+  ],
+  "./archive/zip/write": [
+    "function createZipStream",
+    "interface ZipWriteEntryType",
+    "interface ZipWriteOptionsType"
   ],
   "./arweave": [
     "interface ArweaveClientOptionsType",
@@ -806,6 +1004,9 @@
     "interface CmisRepositoryType",
     "typeAlias CmisScalarType",
     "function createCmisClient"
+  ],
+  "./content/_murmur": [
+    "function murmur"
   ],
   "./content/arfs": [
     "reference ArchiveError",
@@ -997,26 +1198,70 @@
     "reference ArchiveLimitsType",
     "reference ArchiveWorkType",
     "interface ArrowBatchIndexType",
-    "interface ArrowColumnBaseType",
-    "interface ArrowColumnLimitsType",
-    "typeAlias ArrowColumnType",
+    "reference ArrowColumnBaseType",
+    "reference ArrowColumnLimitsType",
+    "reference ArrowColumnType",
     "interface ArrowDatasetType",
-    "interface ArrowFieldType",
-    "interface ArrowKeyValueType",
-    "interface ArrowMetadataLimitsType",
+    "reference ArrowFieldType",
+    "reference ArrowKeyValueType",
+    "reference ArrowMetadataLimitsType",
     "interface ArrowOpenOptionsType",
-    "typeAlias ArrowPhysicalType",
+    "reference ArrowPhysicalType",
     "interface ArrowReadOptionsType",
     "interface ArrowReadType",
-    "interface ArrowSchemaType",
+    "reference ArrowSchemaType",
     "interface ArrowStreamBatchType",
     "interface ArrowStreamOptionsType",
     "reference ByteSourceType",
     "reference createArchiveLedger",
-    "interface FlatBufferLimitsType",
+    "reference FlatBufferLimitsType",
     "function openArrow",
     "function readArrow",
     "reference SourceReadOptionsType"
+  ],
+  "./dataset/arrow/_columns": [
+    "function admitColumns",
+    "interface ArrowColumnBaseType",
+    "interface ArrowColumnLimitsType",
+    "interface ArrowColumnsAdmissionType",
+    "interface ArrowColumnsType",
+    "typeAlias ArrowColumnType",
+    "function decodeColumn",
+    "function decodeColumns"
+  ],
+  "./dataset/arrow/_flatbuffers": [
+    "interface FlatBufferLimitsType",
+    "class FlatBuffers",
+    "interface FlatBufferVectorType"
+  ],
+  "./dataset/arrow/_framing": [
+    "interface ArrowFileBoundsType",
+    "interface ArrowFrameType",
+    "interface ArrowFramingLimitsType",
+    "typeAlias ArrowPrefixType",
+    "interface ArrowTailType",
+    "function inspectBlocks",
+    "function inspectFileMagic",
+    "function inspectFileTail",
+    "function inspectPrefix"
+  ],
+  "./dataset/arrow/_schema": [
+    "interface ArrowBatchType",
+    "interface ArrowBlockType",
+    "interface ArrowBufferType",
+    "interface ArrowFieldType",
+    "interface ArrowFooterType",
+    "interface ArrowKeyValueType",
+    "typeAlias ArrowMessageType",
+    "interface ArrowMetadataLimitsType",
+    "interface ArrowNodeType",
+    "typeAlias ArrowPhysicalType",
+    "interface ArrowPlanType",
+    "interface ArrowSchemaType",
+    "function parseFooter",
+    "function parseMessage",
+    "function requireEligibleSchema",
+    "function validateBatch"
   ],
   "./dataset/bam": [
     "reference ArchiveError",
@@ -1024,19 +1269,33 @@
     "reference ArchiveLedgerType",
     "reference ArchiveLimitsType",
     "reference ArchiveWorkType",
-    "typeAlias BamAuxiliaryType",
+    "reference BamAuxiliaryType",
     "interface BamDatasetType",
     "interface BamHeaderType",
-    "interface BamLimitsType",
+    "reference BamLimitsType",
     "interface BamOptionsType",
     "interface BamPageType",
     "interface BamReadOptionsType",
-    "interface BamRecordType",
-    "interface BamReferenceType",
-    "interface BamWorkType",
+    "reference BamRecordType",
+    "reference BamReferenceType",
+    "reference BamWorkType",
     "reference ByteSourceType",
     "function openBam",
     "reference SourceReadOptionsType"
+  ],
+  "./dataset/bam/_bgzf": [
+    "function assertEndMarker",
+    "interface BamLimitsType",
+    "interface BamWorkType",
+    "class Budget",
+    "class Cursor"
+  ],
+  "./dataset/bam/_record": [
+    "typeAlias BamAuxiliaryType",
+    "interface BamRecordType",
+    "interface BamReferenceType",
+    "function parseRecord",
+    "function parseReferenceName"
   ],
   "./dataset/fits": [
     "reference ArchiveError",
@@ -1256,6 +1515,16 @@
     "function applyWrite",
     "reference WriteModeType"
   ],
+  "./driver/_local": [
+    "function createLocalPath",
+    "class LocalPath"
+  ],
+  "./driver/_writable": [
+    "class QueuedWritableFile",
+    "function validateWritableOptions",
+    "interface WritableInspectionType",
+    "interface WritableOptionsType"
+  ],
   "./driver/azure": [
     "interface AzureDriverOptionsType",
     "function createAzureDriver",
@@ -1349,6 +1618,14 @@
     "interface DenoKvType",
     "typeAlias DenoKvUsageType"
   ],
+  "./driver/deno-kv/_generation": [
+    "interface GenerationCollectOptionsType",
+    "interface GenerationCollectResultType",
+    "interface GenerationOptionsType",
+    "class KvGeneration",
+    "interface KvPinType",
+    "interface KvUsageType"
+  ],
   "./driver/drizzle": [
     "function createDrizzleDriver",
     "interface DrizzleColumnType",
@@ -1402,6 +1679,13 @@
     "interface IndexedDbDriverOptionsType",
     "interface IndexedDbOpenOptionsType",
     "function openIndexedDbDriver"
+  ],
+  "./driver/indexeddb/_observe": [
+    "interface FailureType",
+    "class Listeners",
+    "interface ObservationType",
+    "class Refusal",
+    "function requested"
   ],
   "./driver/indexeddb/_store": [
     "function upgrade",
@@ -1695,12 +1979,12 @@
   "./kafka": [
     "function createKafkaClient",
     "interface KafkaBrokerType",
-    "interface KafkaChannelType",
+    "reference KafkaChannelType",
     "class KafkaClient",
     "class KafkaCompletionError",
     "class KafkaError",
-    "interface KafkaFetchedRecordType",
-    "interface KafkaHeaderType",
+    "reference KafkaFetchedRecordType",
+    "reference KafkaHeaderType",
     "interface KafkaMetadataType",
     "interface KafkaOffsetType",
     "interface KafkaOptionsType",
@@ -1708,9 +1992,39 @@
     "interface KafkaPageType",
     "interface KafkaPartitionType",
     "interface KafkaReceiptType",
-    "interface KafkaRecordType",
+    "reference KafkaRecordType",
     "interface KafkaRequestType",
     "typeAlias ResultType"
+  ],
+  "./kafka/_records": [
+    "function crc32c",
+    "function decodeRecords",
+    "function encodeBatch",
+    "interface KafkaBatchType",
+    "interface KafkaFetchedRecordType",
+    "interface KafkaHeaderType",
+    "interface KafkaRecordLimitsType",
+    "interface KafkaRecordsType",
+    "interface KafkaRecordType",
+    "interface LimitsType",
+    "function recordLimits",
+    "function snapshotRecords"
+  ],
+  "./kafka/_session": [
+    "interface KafkaChannelType",
+    "class KafkaSession",
+    "interface KafkaSessionOptionsType",
+    "function withKafkaSession"
+  ],
+  "./kafka/_wire": [
+    "function frame",
+    "function long",
+    "variable MAX_FRAME",
+    "variable MAX_LONG",
+    "variable MIN_LONG",
+    "class Reader",
+    "function unframe",
+    "class Writer"
   ],
   "./lakefs": [
     "variable LAKEFS_BUFFER_BYTES",
@@ -2160,6 +2474,11 @@
     "interface UploadRequestOptionsType",
     "interface UploadStatusType"
   ],
+  "./transfer/_fields": [
+    "typeAlias FieldType",
+    "function readDictionary",
+    "function readField"
+  ],
   "./transfer/azure": [
     "variable AZURE_TRANSFER_BLOCKS",
     "variable AZURE_TRANSFER_BYTES",
@@ -2201,6 +2520,11 @@
     "variable UploadSessionSchema",
     "typeAlias UploadSessionType",
     "interface UploadStatusType"
+  ],
+  "./view/_tree": [
+    "function createArchiveAdapter",
+    "interface EntryType",
+    "interface ReadType"
   ],
   "./view/cpio": [
     "interface CpioViewOptionsType",

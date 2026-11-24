@@ -1,4 +1,12 @@
-/** Exclusive portable Kafka channel ownership and classic request framing. No socket or credentials are discovered. */
+/**
+ * Exclusive Kafka channel ownership and classic request framing. No socket or credentials are discovered.
+ *
+ * `withKafkaSession()` acquires one channel from a caller-supplied opener, runs an action that exchanges at most five
+ * requests on it, and retires the channel before it returns the action's result. The Kafka client builds on it; a caller
+ * that needs a Kafka request the client does not send can use the same session.
+ *
+ * @module
+ */
 import { isBytes, toView } from "../../bytes.ts";
 import { close } from "../../close.ts";
 import { frame, Reader, Writer } from "./wire.ts";
@@ -11,14 +19,20 @@ import { frame, Reader, Writer } from "./wire.ts";
  * close must be idempotent and retire pending reads/writes. No advertised endpoint grants authority to connect.
  */
 export interface KafkaChannelType {
+  /** Bytes from the broker. The session takes its reader. */
   readonly readable: ReadableStream<Uint8Array>;
+  /** Bytes to the broker. The session takes its writer. */
   readonly writable: WritableStream<Uint8Array>;
+  /** What the opener established. The session refuses `"plaintext"` unless `allowPlaintext` is true. */
   readonly security: "tls" | "plaintext";
+  /** Closes the connection and retires pending reads and writes. Must be safe to call more than once. */
   close(): Promise<void>;
 }
 /** One action owns one channel. Separate invocations share no session, discovery state or correlation counter. */
 export interface KafkaSessionOptionsType {
+  /** Opens one fresh, authenticated channel. It must honor `signal` and retire a late connection after abort. */
   readonly openChannel: (options: { readonly signal: AbortSignal }) => Promise<KafkaChannelType>;
+  /** Cancels acquisition, every exchange and the action. */
   readonly signal?: AbortSignal;
   /** Acquisition and complete action deadline, default 30 seconds; maximum one day. */
   readonly timeoutMs?: number;
@@ -69,6 +83,7 @@ export class KafkaSession {
   #busy = false;
   #live = true;
   #poisoned = false;
+  /** Created by `withKafkaSession()`, which passes it to the action. It borrows the channel's reader and writer. */
   constructor(
     reader: ReadableStreamDefaultReader<Uint8Array>,
     writer: WritableStreamDefaultWriter<Uint8Array>,
