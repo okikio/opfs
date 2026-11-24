@@ -439,6 +439,33 @@ key "cache"        ->  /.opfs-kv/key-cache/value
 key "cache:user"   ->  /.opfs-kv/key-cache/key-user/value
 ```
 
+Here is one write and one key listing, followed from the library down to the backend. The bridge is the only new step:
+everything under `FileSystemType` is the same path a direct `fs.writeFile()` takes.
+
+```mermaid
+sequenceDiagram
+  participant App as Your code
+  participant U as unstorage
+  participant B as Bridge
+  participant FS as FileSystemType
+  participant S as Adapter, driver, backend
+  App->>U: setItem("cache:user:1", { name: "Ada" })
+  U->>B: driver.setItem("cache:user:1", '{"name":"Ada"}')
+  Note over B: split on ":" and encode each part as key-cache, key-user, key-1
+  B->>FS: writeFile("/.opfs-kv/key-cache/key-user/key-1/value", bytes)
+  FS->>S: plan, then write the bytes
+  Note over S: S3 stores object .opfs-kv/key-cache/key-user/key-1/value
+  App->>U: getKeys("cache")
+  U->>B: driver.getKeys("cache")
+  B->>FS: walk("/.opfs-kv/key-cache")
+  FS->>S: list each directory
+  S-->>FS: key-user/key-1/value
+  FS-->>B: entries
+  Note over B: decode each value path back to its key
+  B-->>U: ["cache:user:1"]
+  U-->>App: ["cache:user:1"]
+```
+
 Each colon-separated segment is encoded into one safe file name, with a `key-` prefix that keeps bridge entries apart
 from other names. Everything lives under one reserved directory, `/.opfs-kv` by default, which holds a `.format` marker
 naming the layout. `clear()` removes only value files the bridge owns, so ordinary files elsewhere in the filesystem are
