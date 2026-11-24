@@ -1,219 +1,41 @@
 /** Explicit original Glacier vault/archive jobs. This is not an S3 storage-class or filesystem API. @module */
+import { checksumScope, decimal, outputBytes, outputSize } from "./output.ts";
+import { glacierMultipartHash, partSize, treeImage } from "./hash.ts";
+import { GlacierError, GlacierPublicationError } from "./error.ts";
+import type {
+  GlacierCredentialSourceType,
+  GlacierOperationOptionsType,
+  GlacierOptionsType,
+  GlacierOutputSourceType,
+  GlacierPartsType,
+  GlacierReceiptType,
+  GlacierUploadsType,
+} from "./types.ts";
+import {
+  GLACIER_LIMITS,
+  GLACIER_MIB,
+  GlacierCredentialsSchema,
+  GlacierJobSchema,
+  type GlacierJobType,
+  type GlacierPartType,
+  GlacierUploadSchema,
+  type GlacierUploadType,
+  GlacierVaultSchema,
+  type GlacierVaultType,
+  HashSchema,
+  IdSchema,
+  MarkerSchema,
+  SizeSchema,
+} from "./schema.ts";
 import { z } from "zod";
 import { deriveSigningKey, hex, hmac, sha256 } from "../../sigv4.ts";
 import { isBytes, toView } from "../../bytes.ts";
-import { aggregate, close } from "../../close.ts";
+import { close } from "../../close.ts";
 import { readResponse } from "../../response.ts";
 import { getRequestPolicy, sendRequest } from "../../request.ts";
 import type { FetchType, RequestPolicyType } from "../../request.ts";
 import { assertExtent } from "../../source.ts";
-import type { ByteSourceType } from "../../source.ts";
-import { openBytes } from "../../stream.ts";
 
-/** Native tree leaf and minimum multipart part size. */
-export const GLACIER_MIB = 1024 * 1024;
-/** Provider bounds; these do not authorize materializing a 4 GiB part. */
-export const GLACIER_LIMITS = Object.freeze({
-  maxParts: 10000,
-  minPartBytes: GLACIER_MIB,
-  maxPartBytes: 4 * 1024 ** 3,
-  maxPage: 1000,
-  maxJobPage: 50,
-});
-
-/** Static credentials are caller-owned; the client performs no environment discovery. */
-export const GlacierCredentialsSchema: z.ZodObject<{
-  accessKeyId: z.ZodString;
-  secretAccessKey: z.ZodString;
-  sessionToken: z.ZodOptional<z.ZodString>;
-}, z.core.$strict> = z.object({
-  accessKeyId: z.string().min(1),
-  secretAccessKey: z.string().min(1),
-  sessionToken: z.string().min(1).optional(),
-}).strict();
-export type GlacierCredentialsType = z.infer<typeof GlacierCredentialsSchema>;
-/** A supplier is called again for each admitted attempt. */
-export type GlacierCredentialSourceType =
-  | GlacierCredentialsType
-  | (() => GlacierCredentialsType | PromiseLike<GlacierCredentialsType>);
-/** Operations borrow cancellation; stopping a request cannot cancel a remote retrieval job. */
-export interface GlacierOperationOptionsType {
-  readonly signal?: AbortSignal;
-}
-/** No Fetch, crypto, credential, or clock capability is acquired implicitly. */
-export interface GlacierOptionsType {
-  readonly endpoint: string | URL;
-  readonly account: string;
-  readonly vault: string;
-  readonly region: string;
-  readonly credentials: GlacierCredentialSourceType;
-  readonly fetch: FetchType;
-  readonly subtle: SubtleCrypto;
-  readonly now: () => Date;
-  readonly requestPolicy?: RequestPolicyType;
-  /** Allocation ceiling, default 16 MiB; separate from the provider's part limit. */
-  readonly maxBodyBytes?: number;
-}
-
-const HashSchema: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>> = z.string().length(64).refine(
-  (value) => !/[^0-9a-fA-F]/.test(value),
-  "Expected a 32-byte hexadecimal digest.",
-).transform((value) => value.toLowerCase());
-const SizeSchema: z.ZodNumber = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
-/** Scan without allocating a token-sized character array; malformed Unicode cannot round-trip through URI encoding. */
-function tokenText(value: string, minimum: number): boolean {
-  for (let index = 0; index < value.length; index++) {
-    const code = value.charCodeAt(index);
-    if (code < minimum || code === 127) return false;
-  }
-  return !/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?:^|[^\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(value);
-}
-const IdSchema: z.ZodString = z.string().min(1).refine(
-  (value) => value !== "." && value !== ".." && tokenText(value, 33),
-  "An identity must be well-formed Unicode, without dot segments, whitespace, or control characters.",
-);
-/** Pagination tokens are opaque query data; spaces are encoded, not interpreted as path separators. */
-const MarkerSchema: z.ZodString = z.string().min(1).refine(
-  (value) => tokenText(value, 32),
-  "A marker must be well-formed Unicode without control characters.",
-);
-/** Native jobs preserve action-dependent nulls rather than inventing archive metadata for inventories. */
-export const GlacierJobSchema: z.ZodObject<{
-  JobId: typeof IdSchema;
-  Action: z.ZodEnum<
-    { ArchiveRetrieval: "ArchiveRetrieval"; InventoryRetrieval: "InventoryRetrieval"; Select: "Select" }
-  >;
-  Completed: z.ZodBoolean;
-  StatusCode: z.ZodEnum<{ InProgress: "InProgress"; Succeeded: "Succeeded"; Failed: "Failed" }>;
-  ArchiveId: z.ZodOptional<z.ZodNullable<typeof IdSchema>>;
-  ArchiveSizeInBytes: z.ZodOptional<z.ZodNullable<typeof SizeSchema>>;
-  ArchiveSHA256TreeHash: z.ZodOptional<z.ZodNullable<typeof HashSchema>>;
-  InventorySizeInBytes: z.ZodOptional<z.ZodNullable<typeof SizeSchema>>;
-  RetrievalByteRange: z.ZodOptional<z.ZodNullable<z.ZodString>>;
-  SHA256TreeHash: z.ZodOptional<z.ZodNullable<typeof HashSchema>>;
-  CreationDate: z.ZodOptional<z.ZodString>;
-  CompletionDate: z.ZodOptional<z.ZodNullable<z.ZodString>>;
-  StatusMessage: z.ZodOptional<z.ZodNullable<z.ZodString>>;
-  NextInventoryRetrievalMarker: z.ZodOptional<z.ZodNullable<typeof MarkerSchema>>;
-}, z.core.$loose> = z.object({
-  JobId: IdSchema,
-  Action: z.enum(["ArchiveRetrieval", "InventoryRetrieval", "Select"]),
-  Completed: z.boolean(),
-  StatusCode: z.enum(["InProgress", "Succeeded", "Failed"]),
-  ArchiveId: IdSchema.nullable().optional(),
-  ArchiveSizeInBytes: SizeSchema.nullable().optional(),
-  ArchiveSHA256TreeHash: HashSchema.nullable().optional(),
-  InventorySizeInBytes: SizeSchema.nullable().optional(),
-  RetrievalByteRange: z.string().nullable().optional(),
-  SHA256TreeHash: HashSchema.nullable().optional(),
-  CreationDate: z.string().optional(),
-  CompletionDate: z.string().nullable().optional(),
-  StatusMessage: z.string().nullable().optional(),
-  NextInventoryRetrievalMarker: MarkerSchema.nullable().optional(),
-}).passthrough();
-/** Validated native description, including nullable provider observations. */
-export type GlacierJobType = z.infer<typeof GlacierJobSchema>;
-/** Native vault observations describe a historical inventory, not a live object listing. */
-export const GlacierVaultSchema: z.ZodObject<{
-  VaultARN: z.ZodString;
-  VaultName: z.ZodString;
-  CreationDate: z.ZodString;
-  LastInventoryDate: z.ZodOptional<z.ZodNullable<z.ZodString>>;
-  NumberOfArchives: typeof SizeSchema;
-  SizeInBytes: typeof SizeSchema;
-}, z.core.$loose> = z.object({
-  VaultARN: z.string().min(1),
-  VaultName: z.string().min(1),
-  CreationDate: z.string().min(1),
-  LastInventoryDate: z.string().nullable().optional(),
-  NumberOfArchives: SizeSchema,
-  SizeInBytes: SizeSchema,
-}).passthrough();
-/** Historical vault inventory facts reported by the provider. */
-export type GlacierVaultType = z.infer<typeof GlacierVaultSchema>;
-/** Retains the completed job and its original archive coordinate. Availability may expire even though identity is stable. */
-export interface GlacierOutputSourceType extends ByteSourceType {
-  readonly job: GlacierJobType;
-  readonly archiveOffset: number | null;
-}
-/** Opaque receipt must be persisted by the application; descriptions cannot recover a lost ID. */
-export interface GlacierReceiptType {
-  readonly id: string;
-  readonly location: string;
-  readonly requestId?: string;
-}
-/** Multipart upload scope is admitted again on every operation; no hidden live upload state is retained. */
-export const GlacierUploadSchema: z.ZodObject<{
-  id: typeof IdSchema;
-  partSize: typeof SizeSchema;
-  location: z.ZodOptional<z.ZodString>;
-  requestId: z.ZodOptional<z.ZodString>;
-}, z.core.$strict> = z.object({
-  id: IdSchema,
-  partSize: SizeSchema.positive(),
-  /** Initiation receipt metadata remains admissible when passing the returned upload to later operations. */
-  location: z.string().min(1).optional(),
-  requestId: z.string().min(1).optional(),
-}).strict();
-/** Caller-persisted native upload identity and immutable layout. */
-export type GlacierUploadType = z.infer<typeof GlacierUploadSchema>;
-/** Each part identifies its inclusive original extent and tree hash, not a contiguous commit offset. */
-export const GlacierPartSchema: z.ZodObject<{
-  start: typeof SizeSchema;
-  end: typeof SizeSchema;
-  treeHash: typeof HashSchema;
-}, z.core.$strict> = z.object({ start: SizeSchema, end: SizeSchema, treeHash: HashSchema }).strict();
-/** A native part acknowledgement; its hash is not an independent download verification. */
-export type GlacierPartType = z.infer<typeof GlacierPartSchema>;
-/** Native multipart listings retain their nullable terminal marker. */
-export interface GlacierPartsType {
-  readonly parts: readonly GlacierPartType[];
-  readonly marker: string | null;
-}
-/** Native upload listing is metadata only; it does not prove a completed publication. */
-export interface GlacierUploadsType {
-  readonly uploads: readonly GlacierUploadType[];
-  readonly marker: string | null;
-}
-/** A failed provider response retains its request identity; no credential or payload is copied into the error. */
-export class GlacierError extends Error {
-  readonly status: number;
-  readonly requestId: string | undefined;
-  readonly code: string | undefined;
-  constructor(response: Response, code?: string) {
-    super(`Glacier request failed with HTTP ${response.status}${code === undefined ? "" : ` (${code})`}.`);
-    this.name = "GlacierError";
-    this.status = response.status;
-    this.requestId = response.headers.get("x-amzn-requestid") ?? undefined;
-    this.code = code;
-  }
-}
-/** A dispatched mutation may have succeeded even when its receipt was lost. A known receipt survives cleanup failure. */
-export class GlacierPublicationError extends Error {
-  readonly operation: string;
-  readonly outcome: "unknown" | "confirmed";
-  readonly receipt: GlacierReceiptType | undefined;
-  constructor(operation: string, cause: unknown, receipt?: GlacierReceiptType) {
-    super(
-      `Glacier ${operation} ${
-        receipt === undefined
-          ? "has an unknown publication outcome"
-          : "returned a publication identity but validation or retirement failed"
-      }.`,
-      { cause },
-    );
-    this.name = "GlacierPublicationError";
-    this.operation = operation;
-    this.outcome = receipt === undefined ? "unknown" : "confirmed";
-    this.receipt = receipt;
-  }
-}
-
-/** Pure admission uses ASCII decimal text without the final-newline loophole of a dollar anchor. */
-function decimal(value: string): number {
-  if (value.length === 0 || /[^0-9]/.test(value)) throw new TypeError("Expected unsigned decimal text.");
-  return SizeSchema.parse(Number(value));
-}
 /** Capture the signal object before awaiting; replacement of an options property cannot redirect active ownership. */
 function operation(options: GlacierOperationOptionsType): GlacierOperationOptionsType {
   const signal = options.signal;
@@ -245,93 +67,6 @@ function description(value: string | undefined): string | undefined {
     throw new TypeError("Archive description must contain at most 1024 printable ASCII characters.");
   }
   return value;
-}
-/** Fixed full parts are power-of-two MiB subtrees; only the final part may be shorter. */
-function partSize(value: number): number {
-  SizeSchema.parse(value);
-  const units = value / GLACIER_MIB;
-  if (value < GLACIER_MIB || value > GLACIER_LIMITS.maxPartBytes || !Number.isInteger(Math.log2(units))) {
-    throw new RangeError("Glacier part size must be a power-of-two MiB from 1 MiB through 4 GiB.");
-  }
-  return value;
-}
-/** Decode only an admitted digest; never hash the textual hex as a tree node. */
-function digestBytes(value: string): Uint8Array<ArrayBuffer> {
-  const hash = HashSchema.parse(value);
-  return Uint8Array.from({ length: 32 }, (_, index) => parseInt(hash.slice(index * 2, index * 2 + 2), 16));
-}
-/** Pair raw digests. This allocation is constant-sized, independent of the archive. */
-async function pair(subtle: SubtleCrypto, left: Uint8Array, right: Uint8Array): Promise<Uint8Array<ArrayBuffer>> {
-  const bytes = new Uint8Array(64);
-  bytes.set(left);
-  bytes.set(right, 32);
-  return await sha256(subtle, bytes);
-}
-/** Carry equal-height subtrees; occupied levels require O(log leaf count) retained digests. */
-async function carry(
-  subtle: SubtleCrypto,
-  spine: (Uint8Array<ArrayBuffer> | undefined)[],
-  node: Uint8Array<ArrayBuffer>,
-): Promise<void> {
-  let level = 0;
-  while (spine[level] !== undefined) {
-    node = await pair(subtle, spine[level]!, node);
-    spine[level++] = undefined;
-  }
-  spine[level] = node;
-}
-/** Lower levels are the right remainder; promote odd nodes without hashing them twice. */
-async function root(subtle: SubtleCrypto, spine: readonly (Uint8Array<ArrayBuffer> | undefined)[]): Promise<string> {
-  let result: Uint8Array<ArrayBuffer> | undefined;
-  for (const node of spine) {
-    if (node !== undefined) {
-      result = result === undefined ? node : await pair(subtle, node, result);
-    }
-  }
-  return hex(result ?? await sha256(subtle, new Uint8Array()));
-}
-/** Computes the Glacier tree checksum over a copied byte image. Callers own allocation policy; empty input follows official SDK semantics. */
-export async function glacierTreeHash(bytes: Uint8Array, subtle: SubtleCrypto): Promise<string> {
-  if (!isBytes(bytes)) throw new TypeError("Tree hash requires Uint8Array bytes.");
-  const image = new Uint8Array(toView(bytes));
-  return await treeImage(image, subtle);
-}
-/** Already-owned request/output images need no second full snapshot. Digest temporaries remain owned by WebCrypto. */
-async function treeImage(image: Uint8Array<ArrayBuffer>, subtle: SubtleCrypto): Promise<string> {
-  const spine: (Uint8Array<ArrayBuffer> | undefined)[] = [];
-  for (let at = 0; at < image.length; at += GLACIER_MIB) {
-    await carry(subtle, spine, await sha256(subtle, image.subarray(at, at + GLACIER_MIB)));
-  }
-  return await root(subtle, spine);
-}
-/** Checks complete ordered coverage before computing the tree of native part roots. Does not perform provider I/O. */
-export async function glacierMultipartHash(
-  upload: GlacierUploadType,
-  parts: readonly GlacierPartType[],
-  size: number,
-  subtle: SubtleCrypto,
-): Promise<string> {
-  GlacierUploadSchema.parse(upload);
-  partSize(upload.partSize);
-  SizeSchema.positive().parse(size);
-  if (parts.length === 0 || parts.length > GLACIER_LIMITS.maxParts) {
-    throw new RangeError("Multipart completion requires 1–10000 parts.");
-  }
-  const admitted = parts.map((value) => GlacierPartSchema.parse(value));
-  let at = 0;
-  for (let index = 0; index < admitted.length; index++) {
-    const part = admitted[index]!;
-    const length = part.end - part.start + 1;
-    if (
-      part.start !== at || length <= 0 || length > upload.partSize ||
-      (index < admitted.length - 1 && length !== upload.partSize) || part.end >= size
-    ) throw new RangeError("Multipart extents must cover the archive exactly in order with fixed nonfinal parts.");
-    at = part.end + 1;
-  }
-  if (at !== size) throw new RangeError("Multipart extents do not cover the declared archive size.");
-  const spine: (Uint8Array<ArrayBuffer> | undefined)[] = [];
-  for (const part of admitted) await carry(subtle, spine, digestBytes(part.treeHash));
-  return await root(subtle, spine);
 }
 
 /** Native scoped client. Imports and construction perform no provider I/O or credential discovery. */
@@ -987,114 +722,38 @@ export class GlacierClient {
   }
 }
 
-/** Admit original archive coordinates before any callback. Tail bytes are allowed only at actual archive EOF. */
-function archiveRange(
-  job: GlacierJobType,
-): { readonly archiveSize: number; readonly start: number; readonly length: number } {
-  const archiveSize = SizeSchema.parse(job.ArchiveSizeInBytes);
-  if (job.RetrievalByteRange === null || job.RetrievalByteRange === undefined) {
-    return { archiveSize, start: 0, length: archiveSize };
-  }
-  const fields = job.RetrievalByteRange.split("-");
-  if (fields.length !== 2) throw new TypeError("Malformed Glacier retrieval range.");
-  const start = decimal(fields[0]!);
-  const end = decimal(fields[1]!);
-  if (
-    end < start || end >= archiveSize || start % GLACIER_MIB !== 0 ||
-    ((end + 1) % GLACIER_MIB !== 0 && end !== archiveSize - 1)
-  ) throw new RangeError("Glacier retrieval range requires MiB boundaries or the actual archive tail.");
-  return { archiveSize, start, length: end - start + 1 };
-}
-
-/** Completed output size uses the selected retrieval extent, not the whole original archive size. */
-function outputSize(job: GlacierJobType): number {
-  if (job.Action === "InventoryRetrieval") return SizeSchema.parse(job.InventorySizeInBytes);
-  if (job.Action !== "ArchiveRetrieval") throw new TypeError("Select output is outside this client profile.");
-  return archiveRange(job).length;
-}
-
-/** A tree node covers aligned power-of-two leaves, clipped only at the actual final leaf.
- * Walking heights admits promoted odd tail nodes without rounding a requested
- * byte extent into another one. Arithmetic remains exact without 32-bit shifts.
- */
-function treeAligned(size: number, start: number, length: number): boolean {
-  if (length === 0 || start % GLACIER_MIB !== 0) return false;
-  const end = start + length;
-  if (end !== size && end % GLACIER_MIB !== 0) return false;
-  const leaves = Math.ceil(size / GLACIER_MIB);
-  const first = start / GLACIER_MIB;
-  const after = Math.ceil(end / GLACIER_MIB);
-  for (let width = 1;; width *= 2) {
-    if (first % width === 0 && Math.min(first + width, leaves) === after) return true;
-    if (width >= leaves) return false;
-  }
-}
-
-/** Both the original retrieval and selected output must be archive-tree nodes. Inventory has no service tree checksum. */
-function checksumScope(job: GlacierJobType, offset: number, length: number): boolean {
-  if (job.Action !== "ArchiveRetrieval") return false;
-  const selected = archiveRange(job);
-  return treeAligned(selected.archiveSize, selected.start, selected.length) &&
-    treeAligned(selected.archiveSize, selected.start + offset, length);
-}
-
-/** Own exactly one reader until EOF/error/cancel; cancellation and release failures retain the original fault. */
-async function outputBytes(response: Response, length: number, signal?: AbortSignal): Promise<Uint8Array<ArrayBuffer>> {
-  if (response.body === null) throw new TypeError("Glacier output has no body.");
-  const reader = openBytes(response.body);
-  let bytes = new Uint8Array(0);
-  let at = 0;
-  let settled = false;
-  let cancellation: Promise<void> | undefined;
-  const failures: unknown[] = [];
-  const abort = () => {
-    cancellation = reader.cancel(signal?.reason);
-    void cancellation.catch(() => {});
-  };
-  signal?.addEventListener("abort", abort, { once: true });
-  try {
-    // Allocation can refuse a caller-raised ceiling; the acquired reader must still retire.
-    bytes = new Uint8Array(length);
-    signal?.throwIfAborted();
-    while (true) {
-      let item: ReadableStreamReadResult<Uint8Array>;
-      try {
-        item = await reader.read();
-      } catch (reason) {
-        // A delivered native read fault is already terminal, as in readResponse.
-        // A borrowed rejection grants no stronger proof; refuse success and
-        // release the acquired reader rather than recancelling a stored fault.
-        settled = true;
-        if (signal?.aborted) {
-          throw aggregate([reason, signal.reason], "Glacier output read and caller cancellation were both observed.");
-        }
-        throw reason;
-      }
-      signal?.throwIfAborted();
-      if (item.done) {
-        settled = true;
-        break;
-      }
-      if (!isBytes(item.value) || item.value.length > length - at) {
-        throw new RangeError("Glacier output exceeded its admitted extent or returned a non-byte chunk.");
-      }
-      bytes.set(item.value, at);
-      at += item.value.length;
-    }
-    if (at !== length) throw new RangeError("Glacier output was truncated.");
-  } catch (reason) {
-    failures.push(reason);
-  } finally {
-    signal?.removeEventListener("abort", abort);
-    await close([
-      ...(cancellation === undefined ? settled ? [] : [() => reader.cancel()] : [() => cancellation!]),
-      () => reader.releaseLock(),
-    ], failures);
-  }
-  return bytes;
-}
-
 /** Construct a native scoped client without connecting or reading credentials. */
 export function createGlacierClient(options: GlacierOptionsType): GlacierClient {
   return new GlacierClient(options);
 }
+
+export {
+  GLACIER_LIMITS,
+  GLACIER_MIB,
+  GlacierCredentialsSchema,
+  GlacierJobSchema,
+  GlacierPartSchema,
+  GlacierUploadSchema,
+  GlacierVaultSchema,
+} from "./schema.ts";
+export type {
+  GlacierCredentialsType,
+  GlacierJobType,
+  GlacierPartType,
+  GlacierUploadType,
+  GlacierVaultType,
+} from "./schema.ts";
+
+export type {
+  GlacierCredentialSourceType,
+  GlacierOperationOptionsType,
+  GlacierOptionsType,
+  GlacierOutputSourceType,
+  GlacierPartsType,
+  GlacierReceiptType,
+  GlacierUploadsType,
+} from "./types.ts";
+
+export { GlacierError, GlacierPublicationError } from "./error.ts";
+
+export { glacierMultipartHash, glacierTreeHash } from "./hash.ts";

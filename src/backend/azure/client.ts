@@ -1,11 +1,44 @@
+/**
+ * Azure Blob Storage over Web Fetch, without the Azure SDK.
+ *
+ * {@link createAzureClient} returns an {@link AzureClientType}: range reads,
+ * block uploads, conditional replace, list pages and server-side copy, with SAS,
+ * bearer or Shared Key authorization. Authorization is in `./sign.ts`, version
+ * limits are in `./limits.ts`, block helpers are in `./block.ts`, response
+ * parsing is in `./response.ts`, and the option types are in `./types.ts`.
+ *
+ * @module
+ */
+import { DEFAULT_BLOCK_SIZE, getBlockListBody, getBlocks, getByteStream, getCopyBlocks } from "./block.ts";
+import { assertResponse, getName, getReceipt, getStat } from "./response.ts";
+import { encodePath, getBearerToken, getBodyLength, getSharedKeyAuthorization } from "./sign.ts";
+import {
+  atLeast,
+  AZURE_LIMITS,
+  AZURE_STORAGE_VERSION,
+  AzureStorageVersionSchema,
+  getBlockLimit,
+  getCopyBlockLimit,
+  getPutBlobLimit,
+  SHARED_KEY_VERSION,
+  SOURCE_BEARER_VERSION,
+  URL_COPY_VERSION,
+} from "./limits.ts";
+import { AzureCommitError, AzureError } from "./error.ts";
+import type {
+  AzureBlockType,
+  AzureClientOptionsType,
+  AzureClientType,
+  AzureCopyBlockType,
+  AzureCredentialType,
+  AzureRequestOptionsType,
+  AzureStorageVersionType,
+} from "./types.ts";
 import { assertRangeResponse, resolveRange } from "../../range.ts";
 import type { DriverPlanInputType, DriverPlanType } from "../../driver/definition.ts";
 import { map } from "../../pool.ts";
-import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
-import { z } from "zod";
 
 import type {
-  ObjectBackendType,
   ObjectCopyOptionsType,
   ObjectDeleteOptionsType,
   ObjectEntryType,
@@ -16,8 +49,7 @@ import type {
   ObjectReceiptType,
   ObjectStatType,
 } from "../../driver/object.ts";
-import { open } from "../../chunk.ts";
-import { isBuffer, isBytes, toRequestBuffer, toRequestBytes, toView } from "../../bytes.ts";
+import { isBuffer, isBytes, toRequestBuffer, toRequestBytes } from "../../bytes.ts";
 import { assertRequestStream, isStream } from "../../body.ts";
 import { close } from "../../close.ts";
 import { applyProperties, resolveETag, resolveETagCopy, resolveETagPut } from "../../publication.ts";
@@ -31,284 +63,7 @@ import {
   sendRequest,
 } from "../../request.ts";
 import { type AdapterLimitsType, MetricsModeSchema, type MetricsModeType } from "../../schema/mod.ts";
-import { toByteStream } from "../../stream.ts";
-import {
-  createXmlElement,
-  createXmlText,
-  getXmlElements,
-  getXmlText,
-  getXmlValue,
-  parseXmlRoot,
-  stringifyXml,
-} from "../../xml.ts";
-
-/** Current fully deployed Azure Storage REST service version used by default. */
-export const AZURE_STORAGE_VERSION = "2026-04-06";
-
-/** Date-shaped Azure Storage REST service version sent through `x-ms-version` and SAS `api-version`. */
-export const AzureStorageVersionSchema: z.ZodType<AzureStorageVersionType, AzureStorageVersionType> = z.string().regex(
-  /^\d{4}-\d{2}-\d{2}$/,
-);
-
-/** Validated Azure Storage REST service version. */
-export type AzureStorageVersionType = import("../../schema/types.ts").AzureStorageVersionType;
-
-/**
- * Azure Blob authorization strategy.
- *
- * Shared Key is supported for server runtimes and local Azurite validation. It
- * exposes the account secret to the process and should not be embedded in a
- * browser application. SAS and Microsoft Entra bearer credentials are better
- * fits when code executes in an untrusted client runtime.
- */
-export type AzureCredentialType =
-  | Readonly<{
-    /** Selects SAS query authorization. */
-    readonly kind: "sas";
-    /** SAS token with or without a leading `?`; the client merges it into every request URL. */
-    readonly token: string;
-  }>
-  | Readonly<{
-    /** Selects Microsoft Entra bearer authorization. */
-    readonly kind: "bearer";
-    /** Static token or refresh function evaluated immediately before each request. */
-    readonly token: string | (() => string | Promise<string>);
-  }>
-  | Readonly<{
-    /** Selects Azure Storage Shared Key authorization. */
-    readonly kind: "shared-key";
-    /** Storage account name used in the Authorization header and canonical resource. */
-    readonly account: string;
-    /** Base64-encoded storage account key used only for HMAC-SHA256 signing. */
-    readonly key: string;
-  }>
-  | Readonly<{
-    /** Selects caller-owned authorization headers. */
-    readonly kind: "headers";
-    /**
-     * Returns headers after the request URL and ordinary headers are known.
-     *
-     * This escape hatch supports provider-specific authorization without
-     * letting the client guess whether those credentials also authorize a
-     * server-side copy source.
-     */
-    readonly get: (
-      request: Readonly<{
-        /** HTTP method that will be sent. */
-        readonly method: string;
-        /** Final request URL including service and SAS query parameters. */
-        readonly url: URL;
-        /** Headers assembled before custom authorization is applied. */
-        readonly headers: Headers;
-      }>,
-    ) => HeadersInit | Promise<HeadersInit>;
-  }>;
-
-/** Options used to create one Azure Blob Storage client. */
-export interface AzureClientOptionsType {
-  /** Blob service endpoint, for example `https://account.blob.core.windows.net`. */
-  readonly endpoint: string | URL;
-  /** Container exposed by this client. */
-  readonly container: string;
-  /** SAS, Microsoft Entra, Shared Key, or custom authorization strategy. */
-  readonly credential: AzureCredentialType;
-  /** Blob REST version. Defaults to {@link AZURE_STORAGE_VERSION}. */
-  readonly version?: AzureStorageVersionType;
-  /**
-   * Fetch implementation. Defaults to native Fetch, whose raw stream support
-   * is admitted lazily. An injected transport owns its stream-byte capability.
-   */
-  readonly fetch?: FetchType;
-  /** Clock used by `x-ms-date` and deterministic Shared Key tests. */
-  readonly now?: () => Date;
-  /** Streaming block size. Defaults to 8 MiB. */
-  readonly blockSize?: number;
-  /** Maximum simultaneous Put Block / Put Block From URL requests. Defaults to 4. */
-  readonly concurrency?: number;
-  /** Additional headers sent with every request. */
-  readonly headers?: HeadersInit;
-  /** Retry/backoff and optional per-attempt timeout policy. */
-  readonly request?: RequestPolicyType;
-  /** Enables staged Put Block uploads for streams and blobs larger than Put Blob. Defaults to true. */
-  readonly blockUpload?: boolean;
-  /** Enables Azure server-side copy routes. Defaults to true. */
-  readonly serverCopy?: boolean;
-  /** Direct-client HTTP instrumentation. Defaults to `basic`; `none` removes counter updates. */
-  readonly metrics?: MetricsModeType;
-}
-
-/** One low-level Azure Blob REST request. */
-export interface AzureRequestOptionsType {
-  /** HTTP method. */
-  readonly method: string;
-  /** Blob key. Omit for container-level requests. */
-  readonly key?: string;
-  /** Query parameters merged with configured SAS parameters. */
-  readonly query?: Readonly<Record<string, string | undefined>>;
-  /** Request headers added before authorization. */
-  readonly headers?: HeadersInit;
-  /**
-   * Web Fetch body. Raw ArrayBuffers use their native range across realms, and
-   * detached buffers reject before authorization or dispatch. Fixed ordinary
-   * buffers with this realm's native prototype and no own metadata stay borrowed:
-   * keep their bytes valid and unchanged, with no new backing properties or
-   * prototype changes until settlement. Resizable, foreign,
-   * custom-prototype or own-metadata backing receives one clean fixed copy before
-   * asynchronous authorization and retries, costing its native byte length. Raw
-   * SharedArrayBuffer is outside BodyInit; shared-backed views have a separate
-   * fixed wire conversion. Raw streams remain one-shot. Default Fetch checks
-   * native Request stream admission before authorization; an injected Fetch owns
-   * its stream-byte capability and reader retirement. Shared Key raw streams
-   * still need an explicit Content-Length.
-   */
-  readonly body?: BodyInit | null;
-  /** Cancels the request. */
-  readonly signal?: AbortSignal;
-  /** Whether transport/status retry is allowed for this protocol operation. Defaults to true. */
-  readonly retry?: boolean;
-}
-
-/** Azure Blob client used directly or as an object-store backend. */
-export interface AzureClientType extends ObjectBackendType {
-  /** Resolved client optimization switches used by driver inspection. */
-  readonly optimizations: Readonly<{ blockUpload: boolean; serverCopy: boolean }>;
-  /** Returns detached direct HTTP request metrics. */
-  getMetrics(): RequestMetricsType;
-  /** Sends one Blob REST request with the configured authorization strategy. */
-  request(options: AzureRequestOptionsType): Promise<Response>;
-  /** Copies through the provider; unavailable service or authorization policy rejects explicitly. */
-  copy(source: string, destination: string, options?: ObjectCopyOptionsType): Promise<ObjectReceiptType>;
-}
-
-/** Structured Azure Blob REST failure with provider request identity retained. */
-export class AzureError extends Error {
-  /** HTTP status returned by Azure. */
-  readonly status: number;
-  /** Azure service error code when present. */
-  readonly code?: string;
-  /** Azure request identity when present. */
-  readonly requestId?: string;
-  /** Original response. */
-  readonly response: Response;
-
-  /** Creates a provider-aware error without discarding the original response. */
-  constructor(
-    message: string,
-    response: Response,
-    details: {
-      code?: string;
-      requestId?: string;
-      /** Secondary response-body read or XML parse failure, including undefined and null. */
-      cause?: unknown;
-    } = {},
-  ) {
-    super(message, Object.hasOwn(details, "cause") ? { cause: details.cause } : undefined);
-    this.name = "AzureError";
-    this.status = response.status;
-    this.response = response;
-    if (details.code !== undefined) this.code = details.code;
-    if (details.requestId !== undefined) this.requestId = details.requestId;
-  }
-}
-
-/** A dispatched publication lost its acknowledgement; inspect before retrying. */
-export class AzureCommitError extends Error {
-  /** The provider may have published the requested object. */
-  readonly effect = "unknown";
-  /** Exact object whose publication needs reconciliation. */
-  readonly key: string;
-  constructor(key: string, cause: unknown) {
-    super(`Publication of '${key}' has an unknown outcome.`, { cause });
-    this.name = "AzureCommitError";
-    this.key = key;
-  }
-}
-
-/** Public Azure Blob size/count limit contract. */
-export interface AzureLimitsType {
-  readonly maxCommittedBlocks: number;
-  readonly maxUncommittedBlocks: number;
-  readonly copyBlobBytes: number;
-  readonly legacyBlockBytes: number;
-  readonly midBlockBytes: number;
-  readonly currentBlockBytes: number;
-  readonly legacyPutBlobBytes: number;
-  readonly midPutBlobBytes: number;
-  readonly currentPutBlobBytes: number;
-}
-
-/** Public Azure Blob size/count limits used by request planning and tests. */
-export const AZURE_LIMITS: AzureLimitsType = Object.freeze({
-  /** Maximum block count a `Put Block List` can publish in one block blob. */
-  maxCommittedBlocks: 50_000,
-  /** Maximum uncommitted blocks Azure retains for one blob before commit. */
-  maxUncommittedBlocks: 100_000,
-  /** Maximum source size for synchronous `Copy Blob From URL`. */
-  copyBlobBytes: 256 * 1024 * 1024,
-  /** `Put Block` maximum used by service versions before 2016-05-31. */
-  legacyBlockBytes: 4 * 1024 * 1024,
-  /** `Put Block` maximum used from 2016-05-31 through the pre-2019 limit. */
-  midBlockBytes: 100 * 1024 * 1024,
-  /** Current `Put Block` and modern URL-copy range maximum. */
-  currentBlockBytes: 4_000 * 1024 * 1024,
-  /** Single `Put Blob` maximum used by older service versions. */
-  legacyPutBlobBytes: 64 * 1024 * 1024,
-  /** Single `Put Blob` maximum used by 2016-era service versions. */
-  midPutBlobBytes: 256 * 1024 * 1024,
-  /** Current single `Put Blob` maximum. */
-  currentPutBlobBytes: 5_000 * 1024 * 1024,
-});
-
-/** Shared UTF-8 encoder used by block IDs and Shared Key signing. */
-const textEncoder = new TextEncoder();
-/** Default streamed block size, small enough for broad emulator/provider support. */
-const DEFAULT_BLOCK_SIZE = 8 * 1024 * 1024;
-/** Earliest Blob service version covered by this client's Shared Key string format. */
-const SHARED_KEY_VERSION = "2009-09-19" as AzureStorageVersionType;
-/** Last service version that signs a zero Content-Length as the literal `0`. */
-const ZERO_CONTENT_LENGTH_VERSION = "2014-02-14" as AzureStorageVersionType;
-/** First service version that retains empty `x-ms-*` headers during canonicalization. */
-const EMPTY_HEADER_VERSION = "2016-05-31" as AzureStorageVersionType;
-/** Earliest service version with Put Block From URL / Copy Blob From URL. */
-const URL_COPY_VERSION = "2018-03-28" as AzureStorageVersionType;
-/** Earliest service version with 4,000 MiB Put Block From URL ranges. */
-const LARGE_URL_BLOCK_VERSION = "2020-04-08" as AzureStorageVersionType;
-/** Earliest service version with source Microsoft Entra authorization headers. */
-const SOURCE_BEARER_VERSION = "2020-10-02" as AzureStorageVersionType;
-
-/** Compares Azure's ISO-date service versions without local-time conversion. */
-function atLeast(version: AzureStorageVersionType, required: AzureStorageVersionType): boolean {
-  return version >= required;
-}
-
-/** Returns the Put Block limit for the selected REST service version. */
-function getBlockLimit(version: AzureStorageVersionType): number {
-  if (atLeast(version, "2019-12-12")) return AZURE_LIMITS.currentBlockBytes;
-  if (atLeast(version, "2016-05-31")) return AZURE_LIMITS.midBlockBytes;
-  return AZURE_LIMITS.legacyBlockBytes;
-}
-
-/** Returns the single Put Blob limit for the selected REST service version. */
-function getPutBlobLimit(version: AzureStorageVersionType): number {
-  if (atLeast(version, "2019-12-12")) return AZURE_LIMITS.currentPutBlobBytes;
-  if (atLeast(version, "2016-05-31")) return AZURE_LIMITS.midPutBlobBytes;
-  return AZURE_LIMITS.legacyPutBlobBytes;
-}
-
-/** Returns the Put Block From URL range limit for the selected version. */
-function getCopyBlockLimit(version: AzureStorageVersionType): number {
-  return atLeast(version, LARGE_URL_BLOCK_VERSION) ? AZURE_LIMITS.currentBlockBytes : AZURE_LIMITS.midBlockBytes;
-}
-
-/** Percent-encodes one blob name while preserving virtual-directory separators. */
-function encodePath(value: string): string {
-  return value.split("/").map((part) => encodeURIComponent(part)).join("/");
-}
-
-/** Compares protocol strings by code-unit order rather than locale collation. */
-function compareText(left: string, right: string): number {
-  return left < right ? -1 : left > right ? 1 : 0;
-}
+import { getXmlElements, getXmlText, getXmlValue, parseXmlRoot } from "../../xml.ts";
 
 /**
  * Adds Azure metadata only after validating the provider's header contract.
@@ -340,332 +95,6 @@ function setMetadata(headers: Headers, metadata: Readonly<Record<string, string>
       }
     }
     headers.set(`x-ms-meta-${name}`, value);
-  }
-}
-
-/**
- * Normalizes HTTP linear whitespace for Azure Shared Key canonicalization.
- *
- * Azure collapses linear whitespace outside quoted strings but preserves the
- * contents of quoted strings. A global whitespace regular expression would
- * therefore change a signed metadata value such as `"two  spaces"` and produce
- * an authorization value that Azure does not recognize.
- */
-function normalizeHeaderValue(value: string): string {
-  let result = "";
-  let quoted = false;
-  let escaped = false;
-  let pendingSpace = false;
-
-  for (const character of value) {
-    if (quoted) {
-      result += character;
-      if (escaped) {
-        escaped = false;
-      } else if (character === "\\") {
-        escaped = true;
-      } else if (character === '"') {
-        quoted = false;
-      }
-      continue;
-    }
-
-    if (character === '"') {
-      if (pendingSpace && result.length > 0) result += " ";
-      pendingSpace = false;
-      quoted = true;
-      result += character;
-      continue;
-    }
-
-    if (character === " " || character === "\t" || character === "\r" || character === "\n") {
-      pendingSpace = result.length > 0;
-      continue;
-    }
-
-    if (pendingSpace && result.length > 0) result += " ";
-    pendingSpace = false;
-    result += character;
-  }
-
-  return result;
-}
-
-/** Returns canonical `x-ms-*` headers sorted exactly as Shared Key requires. */
-function getCanonicalHeaders(headers: Headers, version: AzureStorageVersionType): string {
-  return [...headers.entries()]
-    .filter(([name]) => name.toLowerCase().startsWith("x-ms-"))
-    .map(([name, value]) => [name.toLowerCase(), normalizeHeaderValue(value)] as const)
-    .filter(([, value]) => atLeast(version, EMPTY_HEADER_VERSION) || value.length > 0)
-    .sort(([left], [right]) => compareText(left, right))
-    .map(([name, value]) => `${name}:${value}\n`)
-    .join("");
-}
-
-/**
- * Returns the Shared Key canonical resource, including repeated query values.
- *
- * Azurite endpoints contain `/devstoreaccount1` in the URL path. Prefixing the
- * account name therefore produces the documented duplicated emulator account
- * segment without special-case string construction.
- */
-function getCanonicalResource(url: URL, account: string): string {
-  const valuesByName = new Map<string, string[]>();
-  for (const [rawName, value] of url.searchParams) {
-    const name = rawName.toLowerCase();
-    const values = valuesByName.get(name) ?? [];
-    values.push(value);
-    valuesByName.set(name, values);
-  }
-
-  let result = `/${account}${url.pathname}`;
-  for (const name of [...valuesByName.keys()].sort(compareText)) {
-    const values = valuesByName.get(name)!.sort(compareText);
-    result += `\n${name}:${values.join(",")}`;
-  }
-  return result;
-}
-
-/** Returns a deterministic request-body length when Web Fetch exposes one. */
-function getBodyLength(body: BodyInit | null | undefined): number | undefined {
-  if (body === undefined || body === null) return 0;
-  if (typeof body === "string") return textEncoder.encode(body).byteLength;
-  if (body instanceof Blob) return body.size;
-  if (isBuffer(body)) return new Uint8Array(body).byteLength;
-  if (ArrayBuffer.isView(body)) return toView(body).byteLength;
-  if (body instanceof URLSearchParams) return textEncoder.encode(body.toString()).byteLength;
-  return undefined;
-}
-
-/** Returns the service-version-specific Content-Length field used by Shared Key signing. */
-function getSignedContentLength(headers: Headers, version: AzureStorageVersionType): string {
-  const value = headers.get("content-length") ?? "";
-  if (value !== "0") return value;
-  return version <= ZERO_CONTENT_LENGTH_VERSION ? "0" : "";
-}
-
-/** Builds the Blob service Shared Key `StringToSign`. */
-function getStringToSign(
-  method: string,
-  url: URL,
-  headers: Headers,
-  account: string,
-  version: AzureStorageVersionType,
-): string {
-  const lines = [
-    method.toUpperCase(),
-    headers.get("content-encoding") ?? "",
-    headers.get("content-language") ?? "",
-    getSignedContentLength(headers, version),
-    headers.get("content-md5") ?? "",
-    headers.get("content-type") ?? "",
-    "", // x-ms-date is used, so the Date line is empty.
-    headers.get("if-modified-since") ?? "",
-    headers.get("if-match") ?? "",
-    headers.get("if-none-match") ?? "",
-    headers.get("if-unmodified-since") ?? "",
-    headers.get("range") ?? "",
-  ];
-  return `${lines.join("\n")}\n${getCanonicalHeaders(headers, version)}${getCanonicalResource(url, account)}`;
-}
-
-/** Signs one Shared Key request with HMAC-SHA256 and Base64 output. */
-async function getSharedKeyAuthorization(
-  method: string,
-  url: URL,
-  headers: Headers,
-  account: string,
-  key: string,
-  version: AzureStorageVersionType,
-): Promise<string> {
-  const cryptoKey = await crypto.subtle.importKey(
-    "raw",
-    decodeBase64(key),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const signature = await crypto.subtle.sign(
-    "HMAC",
-    cryptoKey,
-    textEncoder.encode(getStringToSign(method, url, headers, account, version)),
-  );
-  return `SharedKey ${account}:${encodeBase64(new Uint8Array(signature))}`;
-}
-
-/** Converts Azure response headers to provider-neutral object metadata. */
-function getStat(headers: Headers): ObjectStatType {
-  const metadata: Record<string, string> = {};
-  for (const [name, value] of headers) {
-    if (name.toLowerCase().startsWith("x-ms-meta-")) metadata[name.slice("x-ms-meta-".length)] = value;
-  }
-  const size = Number.parseInt(headers.get("content-length") ?? "0", 10);
-  const modified = headers.get("last-modified");
-  return {
-    size: Number.isSafeInteger(size) && size >= 0 ? size : 0,
-    ...(modified === null ? {} : { lastModified: new Date(modified).getTime() }),
-    ...(headers.get("content-type") === null ? {} : { mediaType: headers.get("content-type")! }),
-    ...(headers.get("etag") === null ? {} : { etag: headers.get("etag")! }),
-    ...(headers.get("x-ms-version-id") === null ? {} : { version: headers.get("x-ms-version-id")! }),
-    ...(Object.keys(metadata).length === 0 ? {} : { metadata }),
-  };
-}
-
-/** Parses Azure XML failures while preserving HTTP-only failures from proxies. */
-async function assertResponse(
-  response: Response,
-  operation: string,
-  text?: ResponseTextType,
-): Promise<Response> {
-  if (response.ok) return response;
-  if (text === undefined) return await readResponse(response, (owned) => assertResponse(response, operation, owned));
-  let body = "";
-  let secondary: { readonly reason: unknown } | undefined;
-  try {
-    body = await text();
-  } catch (reason) {
-    secondary = { reason };
-  }
-  let code = response.headers.get("x-ms-error-code") ?? undefined;
-  let message = `${operation} failed with HTTP ${response.status}.`;
-  if (body.trim().startsWith("<")) {
-    try {
-      const root = parseXmlRoot(body);
-      code ??= getXmlValue(root, "Code");
-      message = getXmlValue(root, "Message") ?? message;
-    } catch (reason) {
-      // A proxy can return HTML or malformed XML. Preserve the HTTP failure.
-      secondary = { reason };
-    }
-  }
-  throw new AzureError(message, response, {
-    ...(code === undefined ? {} : { code }),
-    ...(response.headers.get("x-ms-request-id") === null
-      ? {}
-      : { requestId: response.headers.get("x-ms-request-id")! }),
-    ...(secondary === undefined ? {} : { cause: secondary.reason }),
-  });
-}
-
-/** Creates a cryptographic attempt identity; part retries retain their original ID. */
-function getBlockId(session: Uint8Array, index: number): string {
-  const id = new Uint8Array(18);
-  id.set(session);
-  new DataView(id.buffer).setUint16(16, index);
-  return encodeBase64(id);
-}
-
-/** Azure marks percent-encoded names explicitly; opaque markers are never decoded. */
-function getName(node: Parameters<typeof getXmlText>[0]): string | undefined {
-  const element = getXmlElements(node, "Name")[0];
-  if (element === undefined) return undefined;
-  const text = getXmlText(element, "Name")!;
-  return element.attributes.Encoded === "true" ? decodeURIComponent(text) : text;
-}
-
-/** Returns this publication's acknowledgement, never a later writer's properties. */
-function getReceipt(
-  response: Response,
-  size: number,
-  properties: Pick<ObjectStatType, "mediaType" | "metadata">,
-): ObjectReceiptType {
-  const stat = getStat(response.headers);
-  return {
-    size,
-    ...(properties.mediaType === undefined ? {} : { mediaType: properties.mediaType }),
-    ...(properties.metadata === undefined ? {} : { metadata: { ...properties.metadata } }),
-    ...(stat.etag === undefined ? {} : { etag: stat.etag }),
-    ...(stat.version === undefined ? {} : { version: stat.version }),
-    ...(stat.lastModified === undefined ? {} : { lastModified: stat.lastModified }),
-    ...(response.headers.get("x-ms-request-id") === null
-      ? {}
-      : { requestId: response.headers.get("x-ms-request-id")! }),
-  };
-}
-
-/** Builds the XML document that commits one ordered Azure block list. */
-function getBlockListBody(ids: readonly string[]): string {
-  return stringifyXml(createXmlElement(
-    "BlockList",
-    ids.map((id) => createXmlElement("Latest", [createXmlText(id)])),
-  ));
-}
-
-/** Resolves a static or refreshable Microsoft Entra bearer token. */
-async function getBearerToken(value: string | (() => string | Promise<string>)): Promise<string> {
-  return typeof value === "function" ? await value() : value;
-}
-
-/** Converts one materialized byte array into a single-use Web stream. */
-function getByteStream(bytes: Uint8Array): ReadableStream<Uint8Array> {
-  return toByteStream(bytes);
-}
-
-/** One indexed block emitted before an Azure Put Block request. */
-interface AzureBlockType {
-  /** One-based logical block number. */
-  readonly number: number;
-  /** Fixed-width Base64 block ID. */
-  readonly id: string;
-  /** Block bytes. */
-  readonly bytes: Uint8Array;
-}
-
-/** One source range used by Put Block From URL. */
-interface AzureCopyBlockType {
-  /** One-based destination block number. */
-  readonly number: number;
-  /** Fixed-width Base64 destination block ID. */
-  readonly id: string;
-  /** Inclusive source byte start. */
-  readonly start: number;
-  /** Inclusive source byte end. */
-  readonly end: number;
-}
-
-/** Native block input exposes direct interruption rather than queued return. */
-interface AzureBlockSourceType extends AsyncIterableIterator<AzureBlockType> {
-  interrupt(): Promise<void>;
-}
-
-/** Assigns stable ordered IDs while owning the byte reader and its cleanup. */
-function getBlocks(source: ReadableStream<Uint8Array>, size: number, signal?: AbortSignal): AzureBlockSourceType {
-  const session = crypto.getRandomValues(new Uint8Array(16));
-  const chunks = open(source, size, signal);
-  let number = 0;
-  return {
-    async next() {
-      const result = await chunks.next();
-      if (result.done) return { done: true, value: undefined };
-      number += 1;
-      if (number > AZURE_LIMITS.maxCommittedBlocks) {
-        throw new RangeError(`Azure block upload exceeds the ${AZURE_LIMITS.maxCommittedBlocks}-block service limit.`);
-      }
-      return { done: false, value: { number, id: getBlockId(session, number), bytes: result.value } };
-    },
-    async return() {
-      await chunks.return?.();
-      return { done: true, value: undefined };
-    },
-    interrupt: () => chunks.interrupt(),
-    [Symbol.asyncIterator]() {
-      return this;
-    },
-  };
-}
-
-/** Generates server-side source ranges without allocating the source object. */
-function* getCopyBlocks(size: number, blockSize: number): IterableIterator<AzureCopyBlockType> {
-  const session = crypto.getRandomValues(new Uint8Array(16));
-  let number = 0;
-  for (let start = 0; start < size; start += blockSize) {
-    number += 1;
-    yield {
-      number,
-      id: getBlockId(session, number),
-      start,
-      end: Math.min(size, start + blockSize) - 1,
-    };
   }
 }
 
@@ -1445,3 +874,16 @@ class AzureClient implements AzureClientType {
 export function createAzureClient(options: AzureClientOptionsType): AzureClientType {
   return new AzureClient(options);
 }
+
+export type {
+  AzureClientOptionsType,
+  AzureClientType,
+  AzureCredentialType,
+  AzureLimitsType,
+  AzureRequestOptionsType,
+  AzureStorageVersionType,
+} from "./types.ts";
+
+export { AzureCommitError, AzureError } from "./error.ts";
+
+export { AZURE_LIMITS, AZURE_STORAGE_VERSION, AzureStorageVersionSchema } from "./limits.ts";

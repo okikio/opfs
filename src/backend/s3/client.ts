@@ -1,12 +1,63 @@
+/**
+ * S3 and S3-compatible object storage over Web Fetch with Signature Version 4.
+ *
+ * {@link createS3Client} returns an {@link S3ClientType}: get, put, head, list,
+ * copy, delete and multipart upload. The client signs each attempt again, retries
+ * only bodies it can replay, and reports a commit receipt for each write. Signing is in
+ * `./sign.ts`, response parsing is in `./response.ts`, multipart helpers are in
+ * `./upload.ts`, and the option types are in `./types.ts`.
+ *
+ * @module
+ */
+import { S3_LIMITS, S3AddressingSchema, S3CredentialsSchema, S3ListEncodingSchema } from "./schema.ts";
+import {
+  DEFAULT_COPY_PART_SIZE,
+  DEFAULT_PART_SIZE,
+  getChunks,
+  getCompleteBody,
+  getCopyRanges,
+  normalizeParts,
+} from "./upload.ts";
+import { assertResponse, decodeListIdentity, getListObject, getReceipt, getStat, getSuccessXml } from "./response.ts";
+import {
+  compareText,
+  encode,
+  encodePath,
+  getAmzDate,
+  getHeaderValue,
+  getHmac,
+  getPayloadHash,
+  getQueryString,
+  getSha256,
+  getSigningKey,
+} from "./sign.ts";
+import { S3CommitError, S3Error } from "./error.ts";
+import type {
+  S3AddressingType,
+  S3ChunkSourceType,
+  S3ChunkType,
+  S3ClientOptionsType,
+  S3ClientType,
+  S3CommitType,
+  S3CompleteOptionsType,
+  S3CopyRangeType,
+  S3CredentialSourceType,
+  S3CredentialsType,
+  S3ListEncodingType,
+  S3PartPageType,
+  S3PartType,
+  S3PublicationType,
+  S3RequestOptionsType,
+  S3StoredPartType,
+  S3UploadedChunkType,
+  S3UploadType,
+} from "./types.ts";
 import { assertRangeResponse, resolveRange } from "../../range.ts";
 import type { DriverPlanInputType, DriverPlanType } from "../../driver/definition.ts";
 import { map } from "../../pool.ts";
 import { encodeHex } from "@std/encoding/hex";
-import { z } from "zod";
-import { deriveSigningKey, hmac } from "../../sigv4.ts";
 
-import { open } from "../../chunk.ts";
-import { isBuffer, isBytes, toRequestBuffer, toRequestBytes, toView } from "../../bytes.ts";
+import { isBuffer, isBytes, toRequestBuffer, toRequestBytes } from "../../bytes.ts";
 import { assertRequestStream, isStream } from "../../body.ts";
 import { close } from "../../close.ts";
 import { applyProperties, resolveETag, resolveETagCopy, resolveETagPut } from "../../publication.ts";
@@ -20,19 +71,9 @@ import {
   sendRequest,
 } from "../../request.ts";
 import { type AdapterLimitsType, MetricsModeSchema, type MetricsModeType } from "../../schema/mod.ts";
-import {
-  createXmlElement,
-  createXmlText,
-  getXmlElements,
-  getXmlScalar,
-  getXmlText,
-  getXmlValue,
-  parseXmlRoot,
-  stringifyXml,
-} from "../../xml.ts";
+import { getXmlElements, getXmlScalar, getXmlText, getXmlValue, parseXmlRoot } from "../../xml.ts";
 
 import type {
-  ObjectBackendType,
   ObjectCopyOptionsType,
   ObjectDeleteOptionsType,
   ObjectEntryType,
@@ -44,617 +85,12 @@ import type {
   ObjectStatType,
 } from "../../driver/object.ts";
 
-/** S3 URL addressing shape used when constructing signed request URLs. */
-export const S3AddressingSchema: z.ZodType<S3AddressingType, S3AddressingType> = z.enum(["path", "virtual"]);
-
-/** Validated S3 URL addressing shape. */
-export type S3AddressingType = import("../../schema/types.ts").S3AddressingType;
-
-/** Decoding policy for URL-encoded listing identities; percent is the Amazon S3 default. */
-export type S3ListEncodingType = "percent" | "form";
-/** Validates an explicit compatible-provider identity policy rather than guessing from key contents. */
-const S3ListEncodingSchema: z.ZodType<S3ListEncodingType, S3ListEncodingType> = z.enum(["percent", "form"]);
-
-/** AWS Signature Version 4 credentials. */
-export const S3CredentialsSchema: z.ZodType<S3CredentialsType, S3CredentialsType> = z.object({
-  /** Public access-key identifier placed in the SigV4 credential scope. */
-  accessKeyId: z.string().min(1),
-  /** Secret key used only as input to the SigV4 HMAC key-derivation chain. */
-  secretAccessKey: z.string().min(1),
-  /** Temporary-credential token signed through `x-amz-security-token` when present. */
-  sessionToken: z.string().min(1).optional(),
-});
-
-/** Validated AWS Signature Version 4 credentials. */
-export type S3CredentialsType = import("../../schema/types.ts").S3CredentialsType;
-
-/** Credential value or refresh function used by long-lived S3 clients. */
-export type S3CredentialSourceType = S3CredentialsType | (() => S3CredentialsType | Promise<S3CredentialsType>);
-
-/** Public S3 size/count limits used by request planning and tests. */
-export interface S3LimitsType {
-  /** Exact multipart-derived S3 object ceiling. */
-  readonly maxObjectBytes: number;
-  /** Largest body sent through one `PutObject` request. */
-  readonly maxPutBytes: number;
-  /** Largest source copied through one `CopyObject` request. */
-  readonly maxCopyBytes: number;
-  /** Smallest legal non-final multipart part. */
-  readonly minPartBytes: number;
-  /** Largest legal multipart part. */
-  readonly maxPartBytes: number;
-  /** Maximum part count accepted by one multipart upload. */
-  readonly maxParts: number;
-}
-
-/**
- * S3 limits that affect the client's upload and copy planning.
- *
- * The multipart values come from the Amazon S3 multipart specification. The
- * single-request copy and PUT limits are the documented 5 GB REST limits,
- * which are decimal gigabytes rather than 5 GiB. The object-size value is the
- * exact multipart ceiling of 10,000 x 5 GiB (48.8 TiB,
- * approximately 53.7 TB), even though AWS often rounds that limit to 50 TB in
- * product documentation.
- */
-export const S3_LIMITS: S3LimitsType = Object.freeze({
-  /** Exact multipart-derived S3 object ceiling: 10,000 parts x 5 GiB. */
-  maxObjectBytes: 53_687_091_200_000,
-  /** Largest body sent through one `PutObject` request. */
-  maxPutBytes: 5_000_000_000,
-  /** Largest source copied through one `CopyObject` request. */
-  maxCopyBytes: 5_000_000_000,
-  /** Smallest legal non-final multipart upload/copy part. */
-  minPartBytes: 5 * 1024 * 1024,
-  /** Largest legal multipart upload/copy part. */
-  maxPartBytes: 5 * 1024 * 1024 * 1024,
-  /** Maximum part count accepted by one multipart upload. */
-  maxParts: 10_000,
-});
-
-/** Options used to create one S3-compatible client. */
-export interface S3ClientOptionsType {
-  /** S3-compatible endpoint, for example `https://s3.us-east-1.amazonaws.com`. */
-  readonly endpoint: string | URL;
-  /** Bucket exposed by this client. */
-  readonly bucket: string;
-  /** Signature region. S3-compatible providers document the value they expect. */
-  readonly region: string;
-  /** Static or refreshable Signature Version 4 credentials. */
-  readonly credentials: S3CredentialSourceType;
-  /** URL addressing style. Path style is the compatibility-oriented default. */
-  readonly addressing?: S3AddressingType;
-  /**
-   * Decodes EncodingType=url listing keys/prefixes. Defaults to percent; literal + remains +.
-   * Select form only for providers such as SeaweedFS4.41 that encode spaces as + and literal + as %2B.
-   * Unencoded fields and opaque continuation tokens are never reinterpreted by this policy.
-   */
-  readonly listEncoding?: S3ListEncodingType;
-  /**
-   * Fetch implementation. Defaults to native Fetch, whose raw stream support
-   * is admitted lazily. An injected transport owns its stream-byte capability.
-   */
-  readonly fetch?: FetchType;
-  /** Clock used for Signature Version 4 timestamps. */
-  readonly now?: () => Date;
-  /** Multipart part size. Defaults to 8 MiB and must be between 5 MiB and 5 GiB. */
-  readonly partSize?: number;
-  /** Maximum simultaneous multipart requests. Defaults to 4. */
-  readonly concurrency?: number;
-  /** Server-side multipart-copy part size. Defaults to 1 GiB. */
-  readonly copyPartSize?: number;
-  /** Additional headers sent with every request, such as provider-specific controls. */
-  readonly headers?: HeadersInit;
-  /** Disables provider-side copy when a compatible service does not implement it correctly. */
-  readonly copy?: boolean;
-  /** Disables conditional writes when a compatible service ignores S3 preconditions. */
-  readonly conditionalWrite?: boolean;
-  /** Maximum time allowed for owned multipart abort cleanup after a failed streamed write. Defaults to 30 seconds. */
-  readonly abortTimeoutMs?: number;
-  /** Retry/backoff and optional per-attempt timeout policy. */
-  readonly request?: RequestPolicyType;
-  /** Delays multipart creation until the stream proves it needs more than one bounded part. Defaults to true. */
-  readonly delayedMultipart?: boolean;
-  /** Reuses the derived SigV4 signing key while credentials/date/region are unchanged. Defaults to true. */
-  readonly signingKeyCache?: boolean;
-  /** Direct-client HTTP instrumentation. Defaults to `basic`; `none` removes counter updates. */
-  readonly metrics?: MetricsModeType;
-}
-
-/** One low-level signed S3 request. */
-export interface S3RequestOptionsType {
-  /** HTTP method. */
-  readonly method: string;
-  /** Object key. Omit it for bucket-level operations. */
-  readonly key?: string;
-  /** Query parameters. Repeated values can be supplied with an array. */
-  readonly query?: Readonly<Record<string, string | readonly string[] | undefined>>;
-  /** Request headers added before signing. */
-  readonly headers?: HeadersInit;
-  /**
-   * Web Fetch body. Raw ArrayBuffers use their native range across realms, and
-   * detached buffers reject before credentials or dispatch. Fixed ordinary
-   * buffers with this realm's native prototype and no own metadata stay borrowed:
-   * keep their bytes valid and unchanged, with no new backing properties or
-   * prototype changes until settlement. Resizable, foreign,
-   * custom-prototype or own-metadata backing receives one clean fixed copy before
-   * asynchronous signing and retries, costing its current native byte length. Raw
-   * SharedArrayBuffer is outside BodyInit; shared-backed views have a separate
-   * fixed wire conversion. Raw streams remain one-shot. Default Fetch checks
-   * native Request stream admission before signing; an injected Fetch owns its
-   * own stream-byte capability and reader retirement.
-   */
-  readonly body?: BodyInit | null;
-  /** Explicit payload SHA-256. Use `UNSIGNED-PAYLOAD` only when the provider accepts it. */
-  readonly payloadHash?: string;
-  /** Cancels the request. */
-  readonly signal?: AbortSignal;
-  /** Whether transport/status retry is allowed for this protocol operation. Defaults to true. */
-  readonly retry?: boolean;
-}
-
-/** Preconditions and integrity metadata applied when multipart upload commits. */
-export interface S3CompleteOptionsType {
-  /** Completes only when the current destination ETag still matches. */
-  readonly ifMatch?: string;
-  /** Completes only when the current destination ETag does not match. `*` means create only. */
-  readonly ifNoneMatch?: string;
-  /** Expected complete object size sent through `x-amz-mp-object-size`. */
-  readonly expectedSize?: number;
-  /** Cancels the complete request. */
-  readonly signal?: AbortSignal;
-}
-
-/** Multipart upload state returned by S3. */
-export interface S3UploadType {
-  /** Object key being written. */
-  readonly key: string;
-  /** Provider upload identity. */
-  readonly id: string;
-}
-
-/** One successfully uploaded multipart part. */
-export interface S3PartType {
-  /** One-based part number. */
-  readonly number: number;
-  /** Entity tag returned by S3 for this part. */
-  readonly etag: string;
-}
-
-/** One retained multipart part, including the provider's acknowledged byte count. */
-export interface S3StoredPartType extends S3PartType {
-  readonly size: number;
-}
-
-/** A bounded provider page; a cursor is present only when another page is required. */
-export interface S3PartPageType {
-  readonly parts: readonly S3StoredPartType[];
-  readonly cursor?: number;
-}
-
-/** Parsed S3 service failure with provider request identities retained. */
-export class S3Error extends Error {
-  /** HTTP status returned by the provider. */
-  readonly status: number;
-  /** S3 service error code when the response included one. */
-  readonly code?: string;
-  /** S3 request identity when available. */
-  readonly requestId?: string;
-  /** S3 host identity when available. */
-  readonly hostId?: string;
-  /** Original response. */
-  readonly response: Response;
-
-  /** Creates a provider-aware S3 failure without discarding the original response. */
-  constructor(
-    message: string,
-    response: Response,
-    details: {
-      code?: string;
-      requestId?: string;
-      hostId?: string;
-      /** Secondary response-body read or XML parse failure, including undefined and null. */
-      cause?: unknown;
-    } = {},
-  ) {
-    super(message, Object.hasOwn(details, "cause") ? { cause: details.cause } : undefined);
-    this.name = "S3Error";
-    this.status = response.status;
-    this.response = response;
-    if (details.code !== undefined) this.code = details.code;
-    if (details.requestId !== undefined) this.requestId = details.requestId;
-    if (details.hostId !== undefined) this.hostId = details.hostId;
-  }
-}
-
-/** A dispatched publication lost its acknowledgement; inspect before retrying. */
-export class S3CommitError extends Error {
-  /** The provider may have published the requested object. */
-  readonly effect = "unknown";
-  /** Exact object whose publication needs reconciliation. */
-  readonly key: string;
-  constructor(key: string, cause: unknown) {
-    super(`Publication of '${key}' has an unknown outcome.`, { cause });
-    this.name = "S3CommitError";
-    this.key = key;
-  }
-}
-
-/**
- * S3 client used directly or through the object-store filesystem adapter.
- *
- * The lower-level multipart methods remain public because S3-compatible
- * providers expose capabilities that do not always fit the filesystem facade.
- * A caller can therefore compose custom storage-class, encryption, checksum,
- * object-lock, or provider-specific requests without importing the AWS SDK.
- */
-export interface S3ClientType extends ObjectBackendType {
-  /** Resolved listing identity policy, inspectable without provider I/O. */
-  readonly listEncoding: S3ListEncodingType;
-  /** Resolved client optimization switches used by driver inspection. */
-  readonly optimizations: Readonly<{ delayedMultipart: boolean; signingKeyCache: boolean }>;
-  /** Returns detached direct HTTP request metrics. */
-  getMetrics(): RequestMetricsType;
-  /** Sends an arbitrary bucket/object request after Signature Version 4 signing. */
-  request(options: S3RequestOptionsType): Promise<Response>;
-  /** Copies through the provider; a disabled copy policy rejects before provider I/O. */
-  copy(source: string, destination: string, options?: ObjectCopyOptionsType): Promise<ObjectReceiptType>;
-  /** Starts one multipart upload. */
-  createUpload(key: string, options?: ObjectPutOptionsType): Promise<S3UploadType>;
-  /** Uploads one multipart part. */
-  uploadPart(upload: S3UploadType, number: number, bytes: Uint8Array, signal?: AbortSignal): Promise<S3PartType>;
-  /** Reads one page of retained parts for explicit restart reconciliation. */
-  listParts(upload: S3UploadType, cursor?: number, signal?: AbortSignal): Promise<S3PartPageType>;
-  /** Atomically assembles already uploaded parts into the object. */
-  completeUpload(
-    upload: S3UploadType,
-    parts: readonly S3PartType[],
-    options?: S3CompleteOptionsType,
-  ): Promise<S3CommitType>;
-  /** Cancels one unfinished multipart upload. */
-  abortUpload(upload: S3UploadType, signal?: AbortSignal): Promise<void>;
-}
-
-/** One indexed multipart chunk before it is uploaded. */
-interface S3ChunkType {
-  /** One-based part number. */
-  readonly number: number;
-  /** Owned bytes for this part. */
-  readonly bytes: Uint8Array;
-}
-
-/** One byte range copied into a multipart destination. */
-interface S3CopyRangeType {
-  /** One-based destination part number. */
-  readonly number: number;
-  /** Inclusive source byte offset. */
-  readonly start: number;
-  /** Inclusive source end offset. */
-  readonly end: number;
-}
-
-/** Result returned after one streamed multipart chunk reaches S3. */
-interface S3UploadedChunkType {
-  /** Provider part reference used by multipart completion. */
-  readonly part: S3PartType;
-  /** Source byte count used to verify an optional declared object size. */
-  readonly size: number;
-}
-
-/** Shared UTF-8 encoder used by SigV4 hashing and HMAC derivation. */
-const textEncoder = new TextEncoder();
-/** SHA-256 of an empty payload, required by SigV4 for requests without a body. */
-const EMPTY_SHA256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
-/** Default streamed upload part size. */
-const DEFAULT_PART_SIZE = 8 * 1024 * 1024;
-/** Default server-side multipart-copy range size. */
-const DEFAULT_COPY_PART_SIZE = 1024 * 1024 * 1024;
 /** Default time allowed for cleanup after streamed multipart work becomes terminal. */
 const DEFAULT_ABORT_TIMEOUT_MS = 30_000;
-
-/** Compares canonical protocol strings without locale-sensitive collation. */
-function compareText(left: string, right: string): number {
-  return left < right ? -1 : left > right ? 1 : 0;
-}
-
-/** Percent-encodes one Signature Version 4 component using RFC 3986's unreserved set. */
-function encode(value: string): string {
-  return encodeURIComponent(value).replace(
-    /[!'()*]/g,
-    (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
-  );
-}
-
-/** Encodes a slash-delimited path while retaining path separators required by S3. */
-function encodePath(value: string): string {
-  return value.split("/").map(encode).join("/");
-}
-
-/** Builds the canonical query string required by Signature Version 4. */
-function getQueryString(query: S3RequestOptionsType["query"]): string {
-  const pairs: Array<readonly [string, string]> = [];
-  for (const [name, value] of Object.entries(query ?? {})) {
-    if (value === undefined) continue;
-    const values = Array.isArray(value) ? value : [value];
-    for (const item of values) pairs.push([encode(name), encode(item)]);
-  }
-  pairs.sort(([leftName, leftValue], [rightName, rightValue]) => {
-    const nameOrder = compareText(leftName, rightName);
-    return nameOrder === 0 ? compareText(leftValue, rightValue) : nameOrder;
-  });
-  return pairs.map(([name, value]) => `${name}=${value}`).join("&");
-}
-
-/** Returns lowercase hexadecimal SHA-256 for one request payload. */
-async function getSha256(value: BufferSource | string): Promise<string> {
-  const bytes = typeof value === "string" ? textEncoder.encode(value) : value;
-  return encodeHex(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))).toLowerCase();
-}
-
-/**
- * Returns the SigV4 payload hash for one Web Fetch body.
- *
- * Replayable materialized values are hashed before the request is sent. A
- * `ReadableStream` or `FormData` body is not consumed because doing so would
- * either destroy the caller's stream or require us to reproduce Fetch's
- * multipart encoding. S3 explicitly permits `UNSIGNED-PAYLOAD` for those
- * request shapes, and callers can still provide an exact `payloadHash` through
- * {@link S3RequestOptionsType} when a provider or policy requires one.
- */
-async function getPayloadHash(body: BodyInit | null | undefined): Promise<string> {
-  if (body === undefined || body === null) return EMPTY_SHA256;
-  if (typeof body === "string") return await getSha256(body);
-  if (isBuffer(body)) return await getSha256(body);
-  if (ArrayBuffer.isView(body)) {
-    const bytes = new Uint8Array(toView(body));
-    return await getSha256(bytes);
-  }
-  if (body instanceof Blob) return await getSha256(await body.arrayBuffer());
-  if (body instanceof URLSearchParams) return await getSha256(body.toString());
-  return "UNSIGNED-PAYLOAD";
-}
-
-/** Computes one HMAC-SHA256 step in the Signature Version 4 key derivation. */
-async function getHmac(key: BufferSource, value: string): Promise<Uint8Array> {
-  return await hmac(crypto.subtle, key, value);
-}
-
-/** Derives the date, region, and service-specific Signature Version 4 signing key. */
-async function getSigningKey(secret: string, date: string, region: string): Promise<Uint8Array> {
-  return await deriveSigningKey(crypto.subtle, secret, date, region, "s3");
-}
-
-/** Formats one UTC instant as the compact timestamp required by Signature Version 4. */
-function getAmzDate(date: Date): string {
-  return date.toISOString().replace(/[:-]|\.\d{3}/g, "");
-}
-
-/** Normalizes header whitespace before canonical signing. */
-function getHeaderValue(value: string): string {
-  return value.trim().replace(/\s+/g, " ");
-}
-
-/** Converts S3 response headers into provider-neutral object metadata. */
-function getStat(headers: Headers): ObjectStatType {
-  const metadata: Record<string, string> = {};
-  for (const [name, value] of headers) {
-    if (name.toLowerCase().startsWith("x-amz-meta-")) metadata[name.slice("x-amz-meta-".length)] = value;
-  }
-  const size = Number.parseInt(headers.get("content-length") ?? "0", 10);
-  const modified = headers.get("last-modified");
-  return {
-    size: Number.isSafeInteger(size) && size >= 0 ? size : 0,
-    ...(modified === null ? {} : { lastModified: new Date(modified).getTime() }),
-    ...(headers.get("content-type") === null ? {} : { mediaType: headers.get("content-type")! }),
-    ...(headers.get("etag") === null ? {} : { etag: headers.get("etag")! }),
-    ...(headers.get("x-amz-version-id") === null ? {} : { version: headers.get("x-amz-version-id")! }),
-    ...(Object.keys(metadata).length === 0 ? {} : { metadata }),
-  };
-}
-
-/** Identity retained from a validated multipart commit, whose byte count may be unknown. */
-export interface S3CommitType {
-  readonly etag: string;
-  readonly version?: string;
-  readonly requestId?: string;
-}
-
-/** Returns properties of this operation; response-body length is not object length. */
-function getReceipt(
-  response: Response,
-  size: number,
-  properties: Pick<ObjectStatType, "mediaType" | "metadata">,
-  etag?: string,
-): ObjectReceiptType {
-  return {
-    size,
-    ...(properties.mediaType === undefined ? {} : { mediaType: properties.mediaType }),
-    ...(properties.metadata === undefined ? {} : { metadata: { ...properties.metadata } }),
-    ...((etag ?? response.headers.get("etag")) == null ? {} : { etag: etag ?? response.headers.get("etag")! }),
-    ...(response.headers.get("x-amz-version-id") === null
-      ? {}
-      : { version: response.headers.get("x-amz-version-id")! }),
-    ...(response.headers.get("x-amz-request-id") === null
-      ? {}
-      : { requestId: response.headers.get("x-amz-request-id")! }),
-  };
-}
-
-/** Reads and throws a structured S3 error without losing provider request IDs. */
-async function assertResponse(
-  response: Response,
-  operation: string,
-  text?: ResponseTextType,
-): Promise<Response> {
-  if (response.ok) return response;
-  if (text === undefined) return await readResponse(response, (owned) => assertResponse(response, operation, owned));
-
-  let code: string | undefined;
-  let requestId = response.headers.get("x-amz-request-id") ?? undefined;
-  let hostId = response.headers.get("x-amz-id-2") ?? undefined;
-  let message = `${operation} failed with HTTP ${response.status}.`;
-  let body = "";
-  let secondary: { readonly reason: unknown } | undefined;
-  try {
-    body = await text();
-  } catch (reason) {
-    secondary = { reason };
-  }
-
-  if (body.trim().startsWith("<")) {
-    try {
-      const root = parseXmlRoot(body);
-      code = getXmlValue(root, "Code");
-      requestId ??= getXmlValue(root, "RequestId");
-      hostId ??= getXmlValue(root, "HostId");
-      message = getXmlValue(root, "Message") ?? message;
-    } catch (reason) {
-      // A gateway can return HTML or malformed XML. The HTTP status and provider
-      // request headers still preserve the most useful failure evidence.
-      secondary = { reason };
-    }
-  }
-
-  throw new S3Error(message, response, {
-    ...(code === undefined ? {} : { code }),
-    ...(requestId === undefined ? {} : { requestId }),
-    ...(hostId === undefined ? {} : { hostId }),
-    ...(secondary === undefined ? {} : { cause: secondary.reason }),
-  });
-}
-
-/** Parses an HTTP-success S3 XML response and detects the protocol's embedded `<Error>` form. */
-async function getSuccessXml(
-  response: Response,
-  operation: string,
-  text: ResponseTextType,
-  rejected?: () => void,
-) {
-  await assertResponse(response, operation, text);
-  const body = await text();
-  if (!body.trim().startsWith("<")) throw new SyntaxError("S3 success acknowledgement requires XML.");
-  const root = parseXmlRoot(body);
-  const errors = getXmlElements(root, "Error");
-  if (errors.length === 0) return root;
-  if (root.name.local !== "Error" || errors.length !== 1) {
-    throw new SyntaxError("S3 acknowledgement mixes success and error authority.");
-  }
-  const error = root;
-  rejected?.();
-
-  throw new S3Error(getXmlValue(error, "Message") ?? `${operation} failed after HTTP 200.`, response, {
-    ...(getXmlValue(error, "Code") === undefined ? {} : { code: getXmlValue(error, "Code")! }),
-    ...(getXmlValue(error, "RequestId") === undefined ? {} : { requestId: getXmlValue(error, "RequestId")! }),
-    ...(getXmlValue(error, "HostId") === undefined ? {} : { hostId: getXmlValue(error, "HostId")! }),
-  });
-}
 
 /** Resolves static or refreshable credentials immediately before signing. */
 async function getCredentials(source: S3CredentialSourceType): Promise<S3CredentialsType> {
   return S3CredentialsSchema.parse(typeof source === "function" ? await source() : source);
-}
-
-/** Numbered native input retains direct interruption and one reader retirement. */
-interface S3ChunkSourceType extends AsyncIterableIterator<S3ChunkType> {
-  interrupt(): Promise<void>;
-}
-
-/** Owns a numbered byte source before multipart initiation can fail. */
-function getChunks(source: ReadableStream<Uint8Array>, size: number, signal?: AbortSignal): S3ChunkSourceType {
-  const chunks = open(source, size, signal);
-  let number = 0;
-  return {
-    async next() {
-      const result = await chunks.next();
-      if (result.done) return { done: true, value: undefined };
-      number += 1;
-      if (number > S3_LIMITS.maxParts) {
-        throw new RangeError(
-          `S3 multipart upload exceeds ${S3_LIMITS.maxParts} parts. Supply the expected size or increase partSize.`,
-        );
-      }
-      return { done: false, value: { number, bytes: result.value } };
-    },
-    async return() {
-      await chunks.return?.();
-      return { done: true, value: undefined };
-    },
-    interrupt: () => chunks.interrupt(),
-    [Symbol.asyncIterator]() {
-      return this;
-    },
-  };
-}
-
-/** Only this publication invocation can establish dispatch and acknowledgement. */
-interface S3PublicationType {
-  phase: "not-dispatched" | "unknown" | "rejected" | "acknowledged";
-}
-
-/** Yields the inclusive source ranges required for multipart server-side copy. */
-function* getCopyRanges(size: number, partSize: number): Generator<S3CopyRangeType> {
-  const count = Math.ceil(size / partSize);
-  for (let index = 0; index < count; index += 1) {
-    const start = index * partSize;
-    yield { number: index + 1, start, end: Math.min(size, start + partSize) - 1 };
-  }
-}
-
-/** Builds one XML `<Part>` element for multipart completion. */
-function getCompletePart(part: S3PartType): ReturnType<typeof createXmlElement> {
-  return createXmlElement("Part", [
-    createXmlElement("PartNumber", [createXmlText(String(part.number))]),
-    createXmlElement("ETag", [createXmlText(part.etag)]),
-  ]);
-}
-
-/** Builds the XML body accepted by `CompleteMultipartUpload`. */
-function getCompleteBody(parts: readonly S3PartType[]): string {
-  return stringifyXml(createXmlElement("CompleteMultipartUpload", parts.map(getCompletePart)));
-}
-
-/** Converts one `ListObjectsV2` `<Contents>` element into portable metadata. */
-function getListObject(
-  content: Parameters<typeof getXmlValue>[0],
-  encoded: boolean,
-  policy: S3ListEncodingType,
-): ObjectEntryType {
-  const text = getXmlText(content, "Key") ?? "";
-  const key = encoded ? decodeListIdentity(text, policy) : text;
-  const size = Number.parseInt(getXmlValue(content, "Size") ?? "0", 10);
-  const modified = getXmlValue(content, "LastModified");
-  const etag = getXmlValue(content, "ETag");
-  return {
-    key,
-    size: Number.isSafeInteger(size) && size >= 0 ? size : 0,
-    ...(modified === undefined ? {} : { lastModified: new Date(modified).getTime() }),
-    ...(etag === undefined ? {} : { etag }),
-  };
-}
-
-/** Only the configured wire dialect can give + space semantics; guessing would alias real keys. */
-function decodeListIdentity(text: string, policy: S3ListEncodingType): string {
-  return decodeURIComponent(policy === "form" ? text.replace(/\+/g, "%20") : text);
-}
-
-/** Validates and orders part references before S3 commits a multipart upload. */
-function normalizeParts(parts: readonly S3PartType[]): S3PartType[] {
-  if (parts.length === 0) throw new RangeError("CompleteMultipartUpload requires at least one part.");
-  if (parts.length > S3_LIMITS.maxParts) {
-    throw new RangeError(`S3 permits at most ${S3_LIMITS.maxParts} multipart parts.`);
-  }
-
-  const sorted = [...parts].sort((left, right) => left.number - right.number);
-  let previous = 0;
-  for (const part of sorted) {
-    if (!Number.isSafeInteger(part.number) || part.number < 1 || part.number > S3_LIMITS.maxParts) {
-      throw new RangeError(`S3 part number must be between 1 and ${S3_LIMITS.maxParts}.`);
-    }
-    if (part.number === previous) throw new RangeError(`S3 multipart part ${part.number} appears more than once.`);
-    if (part.etag.length === 0) throw new TypeError(`S3 multipart part ${part.number} has an empty ETag.`);
-    previous = part.number;
-  }
-  return sorted;
 }
 
 /**
@@ -1658,3 +1094,24 @@ class S3Client implements S3ClientType {
 export function createS3Client(options: S3ClientOptionsType): S3ClientType {
   return new S3Client(options);
 }
+
+export type {
+  S3AddressingType,
+  S3ClientOptionsType,
+  S3ClientType,
+  S3CommitType,
+  S3CompleteOptionsType,
+  S3CredentialSourceType,
+  S3CredentialsType,
+  S3LimitsType,
+  S3ListEncodingType,
+  S3PartPageType,
+  S3PartType,
+  S3RequestOptionsType,
+  S3StoredPartType,
+  S3UploadType,
+} from "./types.ts";
+
+export { S3CommitError, S3Error } from "./error.ts";
+
+export { S3_LIMITS, S3AddressingSchema, S3CredentialsSchema } from "./schema.ts";
