@@ -1,9 +1,7 @@
 /** Bounded BagIt 1.0 metadata and selected-file fixity over an explicit inventory. @module */
-import { createChildLedger } from "./budget.ts";
-import { assertAtMost } from "./budget.ts";
+import { ArchiveBudget, assertAtMost, assertInteger, createChildLedger } from "./budget.ts";
 import type { ByteSourceType } from "../source.ts";
 import { assertExtent } from "../source.ts";
-import { ArchiveBudget, assertInteger, } from "./budget.ts";
 import { ArchiveError, invalid, unsupported } from "./error.ts";
 import type { ArchiveLimitsType, ArchiveWorkType } from "./budget.ts";
 export { ArchiveError } from "./error.ts";

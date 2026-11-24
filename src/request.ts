@@ -1,10 +1,9 @@
 import { resolveLimit } from "./check.ts";
 import { retry, RetryError } from "@std/async/retry";
-import { aggregate } from "./close.ts";
+import { aggregate, close } from "./close.ts";
 import { createCancellation, retainCancellation } from "./abort.ts";
 import type { CancellationPrimaryType, CancellationType } from "./abort.ts";
 import { readResponse } from "./response.ts";
-import { close } from "./close.ts";
 import { z } from "zod";
 
 /**

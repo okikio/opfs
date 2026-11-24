@@ -12,6 +12,7 @@ import type {
   FileDriverSignalOptionsType,
   FileDriverStatType,
   FileDriverWriteOptionsType,
+  RevisionType,
 } from "../driver/file.ts";
 
 import type {
@@ -21,7 +22,6 @@ import type {
   ObjectPutOptionsType,
   ObjectStatType,
 } from "../driver/object.ts";
-import type { RevisionType } from "../driver/file.ts";
 import { applyWrite } from "../driver/image.ts";
 
 /** Filesystem mapping options for an object store. */

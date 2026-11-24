@@ -1,7 +1,6 @@
 /** Bounded LAS 1.2 uncompressed point-column preview over a borrowed snapshot. @module */
-import { toSafeInteger } from "../archive/budget.ts";
+import { ArchiveBudget, assertInteger, createArchiveLedger, toSafeInteger } from "../archive/budget.ts";
 import type { ByteSourceType } from "../source.ts";
-import { ArchiveBudget, assertInteger, createArchiveLedger } from "../archive/budget.ts";
 import { ArchiveError, invalid, unsupported } from "../archive/error.ts";
 import { createView } from "../archive/field.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/budget.ts";

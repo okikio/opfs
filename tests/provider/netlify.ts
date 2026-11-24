@@ -2,7 +2,7 @@
 import { Buffer } from "node:buffer";
 import { createHash, randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { lstatSync, readFileSync } from "node:fs";
+import { appendFileSync, lstatSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import type { StartedTestContainer } from "testcontainers";
 import { close } from "../close.ts";
@@ -173,7 +173,6 @@ function copies(admission: NetlifyAdmissionType): ContentType[] {
 /** Public SDK imports run only after owner admission and inside the private container. */
 const SERVER = String.raw`
 import process from "node:process";
-import { appendFileSync, writeFileSync } from "node:fs";
 import { BlobsServer } from "@netlify/blobs/server";
 let listObservations = 0;
 writeFileSync("/data/list-observations", "", { flag: "wx", mode: 0o600 });
@@ -201,10 +200,7 @@ console.log("OPFS NETLIFY SDK SERVER READY");
  * printed. The lost-reply control deliberately leaves SDK retry policy intact.
  */
 const ORACLE = String.raw`
-import { Buffer } from "node:buffer";
-import { createHash } from "node:crypto";
 import process from "node:process";
-import { readFileSync, statSync } from "node:fs";
 import { getStore } from "@netlify/blobs";
 // Native SDK error text may contain capability URLs. A failed oracle emits only a fixed diagnostic.
 process.once("uncaughtException", () => { console.error("Netlify official oracle failed; secret-bearing SDK error text withheld."); process.exit(1); });
@@ -306,11 +302,7 @@ console.log("RECEIPT:" + JSON.stringify({ profile: "netlify-blobs-11.1.7-local-s
 
 /** Reciprocal full-byte checks against public SDK APIs; neither side supplies the other's expectations. */
 const CANDIDATE = String.raw`
-import { Buffer } from "node:buffer";
-import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
 import process from "node:process";
-import { getStore } from "@netlify/blobs";
 import { createNetlifyClient, NETLIFY_PROFILE, NetlifyError, NetlifyPublicationError } from "./candidate.ts";
 process.once("uncaughtException", () => { console.error("Netlify reciprocal oracle failed; secret-bearing error text withheld."); process.exit(1); });
 const endpoint = new URL(readFileSync("/data/server-address", "utf8"));

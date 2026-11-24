@@ -1,9 +1,8 @@
 /** Indexed Arrow IPC previews over a caller-owned stable byte source. @module */
-import { toSafeInteger } from "../archive/budget.ts";
+import { ArchiveBudget, assertInteger, createArchiveLedger, toSafeInteger } from "../archive/budget.ts";
 import type { ByteSourceType } from "../source.ts";
 import { isBytes, toView } from "../bytes.ts";
 import { close } from "../close.ts";
-import { ArchiveBudget, assertInteger, createArchiveLedger } from "../archive/budget.ts";
 import { ArchiveError } from "../archive/error.ts";
 import type { ArchiveLedgerType, ArchiveLimitsType, ArchiveWorkType } from "../archive/budget.ts";
 import { inspectBlocks, inspectFileMagic, inspectFileTail, inspectPrefix } from "./arrow/framing.ts";
