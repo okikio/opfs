@@ -140,12 +140,18 @@ await build({
   package: {
     name: source.name,
     version,
-    ...(source.description === undefined ? {} : { description: source.description }),
+    ...(source.description === undefined
+      ? {}
+      : { description: source.description }),
     ...(source.license === undefined ? {} : { license: source.license }),
-    ...(source.repository === undefined ? {} : { repository: source.repository }),
+    ...(source.repository === undefined
+      ? {}
+      : { repository: source.repository }),
     ...(source.homepage === undefined ? {} : { homepage: source.homepage }),
     ...(source.bugs === undefined ? {} : { bugs: source.bugs }),
-    ...(source.keywords === undefined ? {} : { keywords: [...source.keywords] }),
+    ...(source.keywords === undefined
+      ? {}
+      : { keywords: [...source.keywords] }),
     sideEffects: false,
     // Official declaration bytes stay outside node_modules/@types, so portable
     // consumers do not automatically load the Deno global namespace.
@@ -180,6 +186,16 @@ await build({
         await Deno.copyFile(
           join(root, "docs", entry.name),
           join(output, "docs", entry.name),
+        );
+      }
+    }
+    // Images the documents embed, such as the layer diagram, travel with them.
+    await Deno.mkdir(join(output, "docs", "assets"), { recursive: true });
+    for await (const entry of Deno.readDir(join(root, "docs", "assets"))) {
+      if (entry.isFile) {
+        await Deno.copyFile(
+          join(root, "docs", "assets", entry.name),
+          join(output, "docs", "assets", entry.name),
         );
       }
     }
