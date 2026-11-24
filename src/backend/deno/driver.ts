@@ -319,6 +319,12 @@ class DenoFile implements FileDriverWritableFileType {
 
 /** Ordered native resource; direct construction preserves complete seek/write admission order. */
 export class DenoWritableFile extends QueuedWritableFile {
+  /**
+   * Wraps an open Deno file for one writable session.
+   * @param path Path of the file in the driver's root.
+   * @param file The open file handle. The session closes it.
+   * @param options Write mode and size limits.
+   */
   constructor(path: PathType, file: Deno.FsFile, options: WritableOptionsType = {}) {
     super(new DenoFile(path, file), options);
   }
@@ -485,6 +491,11 @@ export class DenoBackend implements FileBackendType {
     }
   }
 
+  /**
+   * Reads the entry at `path`, or returns `null` when nothing is there.
+   * @param path Path in the driver's root.
+   * @param options Cancellation for the call.
+   */
   async stat(path: PathType, options: FileDriverSignalOptionsType = {}): Promise<FileDriverStatType | null> {
     throwIfAborted(options.signal, "stat", path);
     try {

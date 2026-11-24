@@ -99,7 +99,15 @@ interface UnixfsBaseType {
 export interface UnixfsFileType extends UnixfsBaseType {
   readonly kind: "file";
   readonly size: number;
+  /**
+   * Reads the file's bytes, or a range of them.
+   * @param options Range, limits and cancellation.
+   */
   read(options?: UnixfsReadOptionsType): Promise<UnixfsReadType>;
+  /**
+   * Reads every block of the file and checks each one against its CID.
+   * @param options Limits and cancellation.
+   */
   verify(options?: UnixfsCallOptionsType): Promise<UnixfsVerificationType>;
   /** Immutable logical provenance; each read verifies selected blocks but does not prove complete-file availability. */
   source(options?: UnixfsCallOptionsType): ByteSourceType;
@@ -126,7 +134,16 @@ export interface UnixfsListingType {
 export interface UnixfsHamtType extends UnixfsBaseType {
   readonly kind: "hamt-directory";
   readonly profile: "kubo-fanout-256";
+  /**
+   * Finds `name` in the sharded directory and opens that node.
+   * @param name Entry name.
+   * @param options Limits and cancellation.
+   */
   open(name: string, options?: UnixfsCallOptionsType): Promise<UnixfsNodeType>;
+  /**
+   * Lists the entries of the sharded directory.
+   * @param options Limits and cancellation.
+   */
   list(options?: UnixfsCallOptionsType): Promise<UnixfsListingType>;
 }
 /** Target bytes are an owned metadata copy. They are never followed or treated as a file's contents. */
@@ -134,6 +151,7 @@ export interface UnixfsSymlinkType extends UnixfsBaseType {
   readonly kind: "symlink";
   readonly target: Uint8Array;
 }
+/** Any UnixFS node: a file, a directory, a sharded directory or a symlink. */
 export type UnixfsNodeType = UnixfsFileType | UnixfsDirectoryType | UnixfsHamtType | UnixfsSymlinkType;
 interface LinkType extends UnixfsLinkType {
   readonly size?: number;

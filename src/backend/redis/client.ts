@@ -15,6 +15,7 @@ import { close } from "../../close.ts";
 export interface RedisChannelType {
   readonly readable: ReadableStream<Uint8Array>;
   readonly writable: WritableStream<Uint8Array>;
+  /** Closes the connection. */
   close(): Promise<void>;
 }
 const PersistSchema: z.ZodObject<{ kind: z.ZodLiteral<"persist"> }, z.core.$strict> = z.object({
@@ -97,6 +98,7 @@ export interface RedisOptionsType {
 /** A framed native error reply; untrusted server reason text and credentials are not copied into the error. */
 export class RedisError extends Error {
   readonly code: "ERR" | "NOAUTH" | "WRONGPASS" | "NOPERM" | "WRONGTYPE" | "OOM" | "READONLY" | "OTHER";
+  /** Creates the error. */
   constructor(code: RedisError["code"]) {
     super(`Redis/Valkey returned a native ${code} error.`);
     this.name = "RedisError";
@@ -105,6 +107,10 @@ export class RedisError extends Error {
 }
 /** Invalid framing, unrelated replies or local connection-state refusal. */
 export class RedisProtocolError extends Error {
+  /**
+   * Creates the error.
+   * @param message Message that explains the failure.
+   */
   constructor(message: string) {
     super(message);
     this.name = "RedisProtocolError";
@@ -114,6 +120,11 @@ export class RedisProtocolError extends Error {
 export class RedisPublicationError extends Error {
   readonly outcome = "unknown";
   readonly operation: "put" | "remove";
+  /**
+   * Creates the error.
+   * @param operation Operation that failed.
+   * @param cause Failure that caused this error.
+   */
   constructor(operation: RedisPublicationError["operation"], cause: unknown) {
     super("Redis/Valkey mutation outcome is unknown; reconcile before considering a new mutation.", { cause });
     this.name = "RedisPublicationError";
@@ -220,6 +231,7 @@ export class RedisClient implements AsyncDisposable {
     this.#chunk = resolveLimit(options.maxChunkBytes, 65_536, 1_048_576, "Redis/Valkey policy limit", 1);
     this.#lineMaximum = resolveLimit(options.maxLineBytes, 1024, 8192, "Redis/Valkey policy limit", 1);
   }
+  /** Whether the client is closed. */
   get closed(): boolean {
     return this.#closed;
   }
@@ -476,6 +488,7 @@ export class RedisClient implements AsyncDisposable {
     );
     return this.#closing;
   }
+  /** Closes the client. Same as `close()`. */
   [Symbol.asyncDispose](): Promise<void> {
     return this.close();
   }

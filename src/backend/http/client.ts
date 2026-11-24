@@ -11,6 +11,11 @@ import type { ByteSourceType, ObjectSourceBackendType, ObjectSourceOptionsType }
 export class HttpError extends Error {
   readonly status: number;
   readonly operation: string;
+  /**
+   * Creates the error.
+   * @param status HTTP status the service returned.
+   * @param operation Operation that failed.
+   */
   constructor(status: number, operation: string) {
     super(`HTTP ${operation} failed with status ${status}.`);
     this.name = "HttpError";

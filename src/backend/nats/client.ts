@@ -18,6 +18,7 @@ export interface NatsChannelType {
   readonly readable: ReadableStream<Uint8Array>;
   readonly writable: WritableStream<Uint8Array>;
   readonly security: "plaintext" | "tls";
+  /** Closes the connection. */
   close(): Promise<void>;
 }
 /** Native CONNECT credentials, privately captured before asynchronous acquisition. No JWT/NKey signing is inferred. */
@@ -68,6 +69,7 @@ export interface NatsMessageType {
 /** A complete native refusal; server descriptions and credential text are not echoed. */
 export class NatsError extends Error {
   readonly code: string;
+  /** Creates the error. */
   constructor(code: string) {
     super("NATS/JetStream refused the operation.");
     this.name = "NatsError";
@@ -77,6 +79,10 @@ export class NatsError extends Error {
 /** A dispatched publication has no admitted attributable terminal acknowledgement. Never blindly retry it. */
 export class NatsPublicationError extends Error {
   readonly outcome = "unknown";
+  /**
+   * Creates the error.
+   * @param cause Failure that caused this error.
+   */
   constructor(cause: unknown) {
     super("JetStream publication outcome is unknown; reconcile before a new publication.", { cause });
     this.name = "NatsPublicationError";
@@ -85,6 +91,10 @@ export class NatsPublicationError extends Error {
 /** A complete result was admitted before cancellation or independent cleanup failed. Preserve it for recovery. */
 export class NatsCompletionError extends Error {
   readonly receipt: NatsReceiptType | NatsMessageType;
+  /**
+   * Creates the error.
+   * @param cause Failure that caused this error.
+   */
   constructor(receipt: NatsReceiptType | NatsMessageType, cause: unknown) {
     super("NATS/JetStream completed, but cancellation or channel cleanup failed.", { cause });
     this.name = "NatsCompletionError";
@@ -322,6 +332,10 @@ export class NatsClient {
   readonly #timeout: number;
   readonly #cleanup: number;
   readonly #maximum: number;
+  /**
+   * Creates the client from `options`.
+   * @param options Options that configure the client.
+   */
   constructor(options: NatsOptionsType) {
     const acquire = options.openChannel;
     if (typeof acquire !== "function") throw new TypeError("NATS requires an explicit channel capability.");

@@ -44,6 +44,7 @@ export interface TarOpenOptionsType extends ArchiveLimitsType {
   readonly allowUnverifiedSource?: boolean;
 }
 
+/** Limits and cancellation for reading one tar member. */
 export interface TarReadOptionsType extends ArchiveLimitsType {
   readonly signal?: AbortSignal;
   readonly offset?: number;
@@ -65,6 +66,11 @@ export interface TarArchiveType {
     readonly identity?: string;
     readonly stability: "immutable" | "provider" | "caller" | "unverified";
   };
+  /**
+   * Reads entry `id` into memory, within the archive limits and `options`.
+   * @param id Entry ID from the archive index.
+   * @param options Limits and cancellation for this read.
+   */
   read(id: number, options?: TarReadOptionsType): Promise<TarReadType>;
 }
 

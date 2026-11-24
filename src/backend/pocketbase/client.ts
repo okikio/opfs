@@ -65,6 +65,10 @@ export interface PocketbaseDownloadType {
 /** Sanitized native HTTP status; server diagnostics and token URLs are not echoed. */
 export class PocketbaseError extends Error {
   readonly status: number;
+  /**
+   * Creates the error.
+   * @param status HTTP status the service returned.
+   */
   constructor(status: number) {
     super(`PocketBase request failed: status ${status}.`);
     this.name = "PocketbaseError";
@@ -74,6 +78,10 @@ export class PocketbaseError extends Error {
 /** A dispatched record mutation did not deliver a valid acknowledgement. Reconcile before retrying. */
 export class PocketbasePublicationError extends Error {
   readonly outcome = "unknown";
+  /**
+   * Creates the error.
+   * @param cause Failure that caused this error.
+   */
   constructor(cause: unknown) {
     super("PocketBase mutation outcome is unknown; reconcile the record before retrying.", { cause });
     this.name = "PocketbasePublicationError";
@@ -141,6 +149,10 @@ export class PocketbaseClient {
   readonly #request: RequestPolicyType | undefined;
   readonly #max: number;
   readonly #metrics = new RequestMetrics();
+  /**
+   * Creates the client from `options`.
+   * @param options Options that configure the client.
+   */
   constructor(options: PocketbaseOptionsType) {
     const endpoint = options.endpoint;
     if (typeof endpoint === "string" && endpoint.length > 8192) {

@@ -77,6 +77,10 @@ export interface OciTagsType {
 /** Provider HTTP failure messages omit registry credentials and redirect URLs. */
 export class OciError extends Error {
   readonly status: number;
+  /**
+   * Creates the error.
+   * @param status HTTP status the service returned.
+   */
   constructor(status: number) {
     super(`OCI registry request failed with HTTP ${status}.`);
     this.name = "OciError";
@@ -128,6 +132,10 @@ export class OciClient {
   readonly #pages: number;
   readonly #tags: number;
   readonly #metrics = new RequestMetrics();
+  /**
+   * Creates the client from `options`.
+   * @param options Options that configure the client.
+   */
   constructor(options: OciOptionsType) {
     this.#http = options.allowHttp ?? false;
     this.#registry = this.#url(options.registry);

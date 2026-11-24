@@ -55,6 +55,10 @@ export type B2AuthorizationType = z.infer<typeof B2AuthorizationSchema>;
 export class B2Error extends Error {
   readonly status: number;
   readonly code: string;
+  /**
+   * Creates the error.
+   * @param status HTTP status the service returned.
+   */
   constructor(status: number, code: string) {
     super(`B2 request failed: HTTP ${status} (${code}).`);
     this.name = "B2Error";
@@ -65,6 +69,10 @@ export class B2Error extends Error {
 /** A write was sent but no attributable valid success receipt was received. Inspect versions before retrying. */
 export class B2PublicationError extends Error {
   readonly outcome = "unknown";
+  /**
+   * Creates the error.
+   * @param cause Failure that caused this error.
+   */
   constructor(cause: unknown) {
     super("B2 publication outcome is unknown; do not blindly repeat the write.", { cause });
     this.name = "B2PublicationError";
@@ -81,8 +89,23 @@ export interface B2ClientOptionsType {
 /** Native operations remain available independently of the object/filesystem projection. */
 export interface B2ClientType extends ObjectBackendType {
   readonly maxUploadBytes: number;
+  /**
+   * Reads the metadata of one file version.
+   * @param fileId B2 file ID of that version.
+   * @param options Cancellation for the request.
+   */
   getFileInfo(fileId: string, options?: { readonly signal?: AbortSignal }): Promise<B2FileType>;
+  /**
+   * Downloads one file version as a stream.
+   * @param file The file version to download.
+   * @param options Range and cancellation for the download.
+   */
   download(file: B2FileType, options?: ObjectGetOptionsType): Promise<ReadableStream<Uint8Array>>;
+  /**
+   * Deletes one file version. Other versions of the same name stay.
+   * @param file The file version to delete.
+   * @param options Cancellation for the request.
+   */
   deleteVersion(file: B2FileType, options?: { readonly signal?: AbortSignal }): Promise<void>;
 }
 /** Only HTTPS service URLs without embedded credentials, queries or fragments are admitted. */

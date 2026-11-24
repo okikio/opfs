@@ -6,8 +6,11 @@ import type { AgeAeadType } from "./mod.ts";
 
 /** Borrowed native cipher instance. Authentication must succeed in final(). */
 export interface AgeNodeDecipherType {
+  /** Sets the Poly1305 tag to check, as Node's decipher does. */
   setAuthTag(tag: Uint8Array<ArrayBuffer>): unknown;
+  /** Decrypts a block of bytes, as Node's decipher does. */
   update(bytes: Uint8Array<ArrayBuffer>): Uint8Array;
+  /** Finishes decryption and checks the tag, as Node's decipher does. */
   final(): Uint8Array;
 }
 /**
@@ -15,6 +18,7 @@ export interface AgeNodeDecipherType {
  * Node crypto. Availability of chacha20-poly1305 depends on the supplied build.
  */
 export interface AgeNodeCryptoType {
+  /** Creates a ChaCha20-Poly1305 decipher, as `node:crypto` does. */
   createDecipheriv(
     algorithm: "chacha20-poly1305",
     key: Uint8Array<ArrayBuffer>,

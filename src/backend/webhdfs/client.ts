@@ -50,6 +50,11 @@ export interface WebhdfsEntryType {
 export class WebhdfsError extends Error {
   readonly status: number;
   readonly operation: string;
+  /**
+   * Creates the error.
+   * @param status HTTP status the service returned.
+   * @param operation Operation that failed.
+   */
   constructor(status: number, operation: string) {
     super(`WebHDFS ${operation} failed with HTTP ${status}.`);
     this.name = "WebhdfsError";
@@ -63,6 +68,10 @@ export class WebhdfsError extends Error {
  */
 export class WebhdfsRejectionError extends Error {
   readonly operation: string;
+  /**
+   * Creates the error.
+   * @param operation Operation that failed.
+   */
   constructor(operation: string) {
     super(`WebHDFS ${operation} returned boolean false.`);
     this.name = "WebhdfsRejectionError";
@@ -73,6 +82,11 @@ export class WebhdfsRejectionError extends Error {
 /** Mutation outcome is unknown. APPEND must never be blindly retried after this failure. */
 export class WebhdfsPublicationError extends Error {
   readonly operation: string;
+  /**
+   * Creates the error.
+   * @param operation Operation that failed.
+   * @param cause Failure that caused this error.
+   */
   constructor(operation: string, cause: unknown) {
     super(`WebHDFS ${operation} has no complete acknowledgement; reconcile before retry.`, { cause });
     this.name = "WebhdfsPublicationError";
@@ -83,14 +97,36 @@ export class WebhdfsPublicationError extends Error {
 /** The client owns wire semantics; rename/mkdir/recursive delete are not canonical file primitives. */
 export interface WebhdfsClientType {
   readonly name: string;
+  /**
+   * Reads the status of one path, or returns `null` when it does not exist.
+   * @param path Absolute HDFS path.
+   * @param options Cancellation for the request.
+   */
   stat(path: string, options?: FileDriverSignalOptionsType): Promise<WebhdfsEntryType | null>;
+  /**
+   * Lists the entries of one directory.
+   * @param path Absolute HDFS path.
+   * @param options Cancellation for the request.
+   */
   list(path: string, options?: FileDriverSignalOptionsType): Promise<readonly WebhdfsEntryType[]>;
+  /**
+   * Opens one file as a stream.
+   * @param path Absolute HDFS path.
+   * @param options Range, limits and cancellation.
+   */
   get(path: string, options?: FileDriverReadOptionsType): Promise<ReadableStream<Uint8Array>>;
+  /** Creates or replaces one file. */
   put(
     path: string,
     bytes: Uint8Array,
     options?: FileDriverSignalOptionsType & { readonly overwrite?: boolean },
   ): Promise<void>;
+  /**
+   * Appends `bytes` to the end of an existing file.
+   * @param path Absolute HDFS path.
+   * @param bytes The bytes to append.
+   * @param options Cancellation for the request.
+   */
   append(path: string, bytes: Uint8Array, options?: FileDriverSignalOptionsType): Promise<void>;
   /** Native MKDIRS recursively creates missing parents. */
   mkdir(path: string, options?: FileDriverSignalOptionsType): Promise<void>;
@@ -98,6 +134,7 @@ export interface WebhdfsClientType {
   remove(path: string, options?: FileDriverSignalOptionsType & { readonly recursive?: boolean }): Promise<void>;
   /** HDFS RENAME may move into an existing destination directory; no canonical move claim. */
   rename(source: string, destination: string, options?: FileDriverSignalOptionsType): Promise<void>;
+  /** Returns counts of requests, retries, failures and responses so far. */
   getMetrics(): RequestMetricsType;
 }
 

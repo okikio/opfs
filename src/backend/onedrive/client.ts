@@ -84,6 +84,10 @@ export interface OnedrivePageType {
 /** Native failure excludes provider URLs, tokens and response bodies from the message. */
 export class OnedriveError extends Error {
   readonly status: number;
+  /**
+   * Creates the error.
+   * @param status HTTP status the service returned.
+   */
   constructor(status: number) {
     super(`Microsoft Graph drive request failed with HTTP ${status}.`);
     this.name = "OnedriveError";
@@ -92,6 +96,10 @@ export class OnedriveError extends Error {
 }
 /** A dispatched mutation lacks a validated acknowledgement. Later metadata cannot attribute that write. */
 export class OnedrivePublicationError extends Error {
+  /**
+   * Creates the error.
+   * @param cause Failure that caused this error.
+   */
   constructor(cause: unknown) {
     super("OneDrive mutation has no validated acknowledgement; reconcile without blind replay.", { cause });
     this.name = "OnedrivePublicationError";
@@ -185,6 +193,10 @@ export class OnedriveClient {
   readonly #pages: number;
   readonly #entries: number;
   readonly #metrics = new RequestMetrics();
+  /**
+   * Creates the client from `options`.
+   * @param options Options that configure the client.
+   */
   constructor(options: OnedriveOptionsType) {
     this.#http = options.allowHttp ?? false;
     this.#api = this.#url(options.endpoint ?? "https://graph.microsoft.com/v1.0/");

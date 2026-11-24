@@ -181,16 +181,23 @@ export interface ObjectBackendType {
     readonly versions?: boolean;
   };
   readonly limits?: AdapterLimitsType;
+  /** Reads an object's metadata, or returns `null` when the object does not exist. */
   head(key: string, options?: { readonly signal?: AbortSignal }): Promise<ObjectStatType | null>;
+  /** Downloads an object, or a range of it, as a stream. */
   get(key: string, options?: ObjectGetOptionsType): Promise<ReadableStream<Uint8Array>>;
+  /** Writes an object and returns the store's receipt. */
   put(
     key: string,
     body: Uint8Array | ReadableStream<Uint8Array>,
     options?: ObjectPutOptionsType,
   ): Promise<ObjectReceiptType>;
+  /** Deletes an object. */
   delete(key: string, options?: ObjectDeleteOptionsType): Promise<void>;
+  /** Lists one page of objects. */
   list(options: ObjectListOptionsType): Promise<ObjectListType>;
+  /** Copies an object inside the store. Leave it out when the store has no native copy. */
   copy?(source: string, destination: string, options?: ObjectCopyOptionsType): Promise<ObjectReceiptType>;
+  /** Releases what the backend holds. Called when the owning driver closes. */
   dispose?(): void | Promise<void>;
 }
 

@@ -106,7 +106,16 @@ export interface WimImageViewType {
   /** LZX steps for this selected metadata resource, including E8 reversal. */ readonly lzxSteps: number;
   /** Internal LZX blocks for this selected metadata resource. */ readonly lzxBlocks: number;
   readonly work: ArchiveWorkType;
+  /**
+   * Reads entry `id` into memory, within the archive limits and `options`.
+   * @param id Entry ID from the archive index.
+   * @param options Limits and cancellation for this read.
+   */
   read(id: number, options?: WimReadOptionsType): Promise<WimReadType>;
+  /**
+   * Returns a byte source over entry `id`. Nothing is read until you read the source.
+   * @param id Entry ID from the archive index.
+   */
   source(id: number, options?: Omit<WimReadOptionsType, "verify">): ByteSourceType;
 }
 /** The original source remains borrowed. Integrity-table presence is not verification. */
@@ -121,7 +130,17 @@ export interface WimArchiveType {
     readonly stability: "immutable" | "provider" | "caller" | "unverified";
   };
   readonly work: ArchiveWorkType;
+  /**
+   * Opens image `index` and reads its directory tree.
+   * @param index Image number, starting at 1 as WIM numbers them.
+   * @param options Limits and cancellation for reading the image metadata.
+   */
   image(index: number, options?: WimImageOptionsType): Promise<WimImageViewType>;
+  /**
+   * Reads entry `id` into memory, within the archive limits and `options`.
+   * @param id Entry ID from the archive index.
+   * @param options Limits and cancellation for this read.
+   */
   read(id: number, options?: WimReadOptionsType): Promise<WimReadType>;
   /** Exact logical resource bytes; compressed reads decode intersecting chunks without SHA1 verification. */
   source(id: number, options?: Omit<WimReadOptionsType, "verify">): ByteSourceType;

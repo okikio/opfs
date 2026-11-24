@@ -19,6 +19,10 @@ export class ArweaveError extends Error {
     | "owner-mismatch"
     | "signature-mismatch"
     | "data-root-mismatch";
+  /**
+   * Creates the error.
+   * @param message Message that explains the failure.
+   */
   constructor(code: ArweaveError["code"], message: string) {
     super(message);
     this.name = "ArweaveError";
@@ -90,6 +94,11 @@ export interface ArweaveTransactionType {
   readonly data: "not-checked";
   readonly chain: "not-checked";
   readonly work: ArweaveWorkType;
+  /**
+   * Checks the transaction's data against its `data_root`.
+   * @param source Byte source over the data.
+   * @param options Limits, cancellation and the hash function to use.
+   */
   verifyData(source: ByteSourceType, options: ArweaveDataOptionsType): Promise<ArweaveDataType>;
 }
 

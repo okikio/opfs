@@ -140,7 +140,17 @@ export interface UploadOpenOptionsType extends UploadRequestOptionsType {
 export interface UploadResourceType {
   readonly session: UploadSessionType;
   readonly limits: UploadLimitsType;
+  /**
+   * Asks the server how many bytes the upload has stored.
+   * @param options Cancellation for the request.
+   */
   status(options?: UploadRequestOptionsType): Promise<UploadStatusType>;
+  /**
+   * Appends `bytes` at `offset` and returns the server's receipt.
+   * @param offset Byte offset where the bytes start. It must equal the stored size.
+   * @param bytes The bytes to append.
+   * @param options Cancellation for the request.
+   */
   append(offset: number, bytes: Uint8Array, options?: UploadRequestOptionsType): Promise<UploadAppendType>;
   /** Requires an acknowledged EOF in this wrapper. A reopened wrapper first needs status(). */ finish(
     options?: UploadRequestOptionsType,
@@ -154,6 +164,7 @@ export class UploadError extends Error {
   readonly code: "protocol" | "limit" | "state" | "http";
   readonly status: number | undefined;
   readonly terminal: boolean | undefined;
+  /** Creates the error. */
   constructor(
     code: UploadError["code"],
     message: string,
@@ -368,6 +379,10 @@ export class UploadClient {
   readonly #maximumRequests: number;
   #requests = 0;
   #limits: UploadLimitsType = Object.freeze({});
+  /**
+   * Creates the upload client from `input`.
+   * @param input The upload endpoint, transport and limits.
+   */
   constructor(input: UploadClientOptionsType) {
     const options = { ...input };
     if (options.profile !== "draft-15") throw new TypeError("Select the draft-15 upload profile explicitly.");

@@ -55,6 +55,7 @@ export type GeotiffValuesType =
   | Int32Array
   | Float32Array
   | Float64Array;
+/** Sample formats the reader can decode: unsigned or signed integers of 8 to 32 bits, or 32-bit and 64-bit floats. */
 export type GeotiffSampleType = "u8" | "u16" | "i16" | "u32" | "i32" | "f32" | "f64";
 /** Frozen public descriptor; nested arrays cannot alter the private chunk index. */
 export interface GeotiffImageType {
@@ -86,6 +87,7 @@ export interface GeotiffPlanType extends ArchiveWorkType {
   readonly spans: number;
   readonly chunks: number;
 }
+/** Work a GeoTIFF read used, including tiles and strips. */
 export interface GeotiffWorkType extends ArchiveWorkType {
   readonly images: number;
   readonly entries: number;
@@ -107,7 +109,18 @@ export interface GeotiffType {
   readonly images: readonly GeotiffImageType[];
   readonly cog: "not-evaluated";
   readonly work: GeotiffWorkType;
+  /**
+   * Returns which tiles or strips a pixel window needs, without reading them.
+   * @param image Image index in the file.
+   * @param window The pixel window.
+   */
   plan(image: number, window: GeotiffWindowType): GeotiffPlanType;
+  /**
+   * Reads and decodes the samples in a pixel window.
+   * @param image Image index in the file.
+   * @param window The pixel window.
+   * @param options Limits and cancellation.
+   */
   read(image: number, window: GeotiffWindowType, options?: GeotiffCallOptionsType): Promise<GeotiffReadType>;
   /** Exact physical strip or padded tile bytes, with inherited source provenance and cancellation authority. */
   source(image: number, block: number, options?: GeotiffCallOptionsType): ByteSourceType;

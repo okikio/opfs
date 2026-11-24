@@ -26,10 +26,21 @@ export interface UploadStatusType {
 export interface UploadDestinationType {
   readonly protocol: string;
   readonly url: string;
+  /**
+   * Asks the destination how many bytes it has stored.
+   * @param options Cancellation for the request.
+   */
   status(options?: UploadRequestOptionsType): Promise<UploadStatusType>;
+  /**
+   * Writes `bytes` at `offset` and returns the new stored size.
+   * @param offset Byte offset where the bytes start. It must equal the stored size.
+   * @param bytes The bytes to write.
+   * @param options Cancellation for the request.
+   */
   write(offset: number, bytes: Uint8Array, options?: UploadRequestOptionsType): Promise<number>;
   /** Publishes staged bytes when the protocol has a separate commit step; must reconcile ambiguous prior commits. */
   finish?(options?: UploadRequestOptionsType): Promise<UploadStatusType>;
+  /** Ends the upload on the destination and drops what it stored. Leave it out when the destination cannot. */
   terminate?(options?: UploadRequestOptionsType): Promise<void>;
 }
 
@@ -85,6 +96,10 @@ export interface TransferOptionsType {
  */
 export class TransferError extends Error {
   readonly code: "identity" | "offset" | "state" | "source";
+  /**
+   * Creates the error.
+   * @param message Message that explains the failure.
+   */
   constructor(code: TransferError["code"], message: string) {
     super(message);
     this.name = "TransferError";

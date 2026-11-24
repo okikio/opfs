@@ -13,6 +13,7 @@ import { close } from "../../close.ts";
 export interface SftpChannelType {
   readonly readable: ReadableStream<Uint8Array>;
   readonly writable: WritableStream<Uint8Array>;
+  /** Closes the connection. */
   close(): Promise<void>;
 }
 
@@ -49,9 +50,29 @@ export interface SftpOperationType {
 /** Owned opaque server handle; callers cannot edit, forge or export its wire bytes. */
 export interface SftpFileType extends AsyncDisposable {
   readonly closed: boolean;
+  /**
+   * Reads the attributes of the open file.
+   * @param options Cancellation for the request.
+   */
   stat(options?: SftpOperationType): Promise<SftpAttributesType>;
+  /**
+   * Reads up to `length` bytes starting at byte `at`.
+   * @param at Byte offset in the file.
+   * @param length Largest number of bytes to read.
+   * @param options Cancellation for the request.
+   */
   read(at: number, length: number, options?: SftpOperationType): Promise<SftpReadType>;
+  /**
+   * Writes `bytes` starting at byte `at`.
+   * @param at Byte offset in the file.
+   * @param bytes The bytes to write.
+   * @param options Cancellation for the request.
+   */
   write(at: number, bytes: Uint8Array, options?: SftpOperationType): Promise<SftpReceiptType>;
+  /**
+   * Closes the file handle on the server.
+   * @param options Cancellation for the request.
+   */
   close(options?: SftpOperationType): Promise<void>;
 }
 /** Policy limits are implementation bounds, not negotiated server capabilities. */
@@ -77,6 +98,10 @@ export interface SftpOptionsType {
 /** A known server status. Nonzero status can follow partial effects of earlier writes. */
 export class SftpError extends Error {
   readonly status: number;
+  /**
+   * Creates the error.
+   * @param status HTTP status the service returned.
+   */
   constructor(status: number) {
     super(`SFTP server returned status ${status}.`);
     this.name = "SftpError";
@@ -85,6 +110,10 @@ export class SftpError extends Error {
 }
 /** The channel failed to carry a valid, attributable v3 response. */
 export class SftpProtocolError extends Error {
+  /**
+   * Creates the error.
+   * @param message Message that explains the failure.
+   */
   constructor(message: string) {
     super(message);
     this.name = "SftpProtocolError";
@@ -92,6 +121,7 @@ export class SftpProtocolError extends Error {
 }
 /** A mutating OPEN/WRITE was dispatched without an attributable completion. */
 export class SftpPublicationError extends Error {
+  /** Creates the error. */
   constructor(options?: ErrorOptions) {
     super("SFTP mutation outcome is unknown; inspect remote state before deciding whether to retry.", options);
     this.name = "SftpPublicationError";
@@ -310,6 +340,7 @@ export class SftpClient implements AsyncDisposable {
   get extensions(): Readonly<Record<string, readonly string[]>> {
     return this.#extensions;
   }
+  /** Whether the client is closed. */
   get closed(): boolean {
     return this.#closed;
   }
@@ -682,6 +713,7 @@ export class SftpClient implements AsyncDisposable {
     });
     return this.#closing;
   }
+  /** Closes the client. Same as `close()`. */
   [Symbol.asyncDispose](): Promise<void> {
     return this.close();
   }

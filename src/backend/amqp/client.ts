@@ -13,6 +13,7 @@ export interface AmqpChannelType {
   readonly readable: ReadableStream<Uint8Array>;
   readonly writable: WritableStream<Uint8Array>;
   readonly security: "tls" | "plaintext";
+  /** Closes the connection. */
   close(): Promise<void>;
 }
 /** Credentials are privately captured; PLAIN authenticates only inside the selected transport. */
@@ -62,6 +63,7 @@ export class AmqpError extends Error {
   readonly code: number;
   readonly classId: number;
   readonly methodId: number;
+  /** Creates the error. */
   constructor(code: number, classId: number, methodId: number) {
     super("AMQP peer refused the connection or channel.");
     this.name = "AmqpError";
@@ -76,6 +78,11 @@ export class AmqpOutcomeError extends Error {
   readonly operation: "publish" | "take";
   /** A complete mandatory return observed before the terminal confirmation was lost. It is not a confirmation. */
   readonly returned: AmqpReceiptType["returned"];
+  /**
+   * Creates the error.
+   * @param operation Operation that failed.
+   * @param cause Failure that caused this error.
+   */
   constructor(operation: "publish" | "take", cause: unknown, returned?: AmqpReceiptType["returned"]) {
     super("AMQP operation outcome is unknown; publication or dequeue may already have occurred.", { cause });
     this.name = "AmqpOutcomeError";
@@ -86,6 +93,10 @@ export class AmqpOutcomeError extends Error {
 /** Complete result retained when later cancellation, graceful close, or physical retirement fails. */
 export class AmqpCompletionError extends Error {
   readonly receipt: AmqpReceiptType | AmqpMessageType | null;
+  /**
+   * Creates the error.
+   * @param cause Failure that caused this error.
+   */
   constructor(receipt: AmqpReceiptType | AmqpMessageType | null, cause: unknown) {
     super("AMQP produced a complete result, but terminal cleanup failed.", { cause });
     this.name = "AmqpCompletionError";
@@ -448,6 +459,10 @@ export class AmqpClient {
   #heartbeat: number;
   #signal: AbortSignal | undefined;
   #busy = false;
+  /**
+   * Creates the client from `options`.
+   * @param options Options that configure the client.
+   */
   constructor(options: AmqpOptionsType) {
     const open = options.openChannel, auth = options.auth, user = auth.user, password = auth.password;
     if (typeof open !== "function") throw new TypeError("AMQP requires an explicit transport factory.");

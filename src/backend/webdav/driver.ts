@@ -10,6 +10,7 @@ import { resolveRange } from "../../range.ts";
 import { FileSystemError } from "../../error.ts";
 import { getPrimary } from "../../close.ts";
 
+/** How the WebDAV driver maps filesystem paths and entries onto the server. */
 export interface WebdavProjectionOptionsType {
   readonly maxReadBytes?: number;
 }

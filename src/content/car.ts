@@ -35,6 +35,11 @@ export interface CarReaderType {
   readonly roots: readonly string[];
   readonly entries: readonly CarEntryType[];
   readonly budget: SourceBudgetType;
+  /**
+   * Reads one block by CID and checks its bytes against the CID.
+   * @param cid The block's CID, as text or bytes.
+   * @param options Limits and cancellation for this read.
+   */
   read(cid: string | Uint8Array, options?: SourceReadOptionsType): Promise<CarBlockType>;
   /** Single-pass pull iterator. Early return starts no further reads and closes no borrowed source. */
   blocks(options?: SourceReadOptionsType): AsyncIterable<CarBlockType>;

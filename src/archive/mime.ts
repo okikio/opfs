@@ -83,9 +83,30 @@ export interface MimeArchiveType {
     readonly identity?: string;
     readonly stability: "immutable" | "provider" | "caller" | "unverified";
   };
+  /**
+   * Reads entry `id` into memory, within the archive limits and `options`.
+   * @param id Entry ID from the archive index.
+   * @param options Limits and cancellation for this read.
+   */
   read(id: number, options?: MimeReadOptionsType): Promise<MimeReadType>;
+  /**
+   * Reads at most `maximum` decoded bytes from the start of part `id`.
+   * @param id Part ID from the index.
+   * @param maximum Largest number of bytes to return.
+   * @param options Limits and cancellation for this read.
+   */
   prefix(id: number, maximum: number, options?: MimePrefixOptionsType): Promise<MimeReadType>;
+  /**
+   * Reads part `id` as stored, without decoding its transfer encoding.
+   * @param id Part ID from the index.
+   * @param options Limits and cancellation for this read.
+   */
   readRaw(id: number, options?: MimeReadOptionsType): Promise<MimeReadType>;
+  /**
+   * Reads the header block of part `id`.
+   * @param id Part ID from the index.
+   * @param options Limits and cancellation for this read.
+   */
   readHeaders(id: number, options?: ArchiveLimitsType & { readonly signal?: AbortSignal }): Promise<MimeReadType>;
 }
 

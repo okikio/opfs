@@ -96,7 +96,16 @@ export interface LasDatasetType {
   readonly georeferencing: "none" | "opaque-vlr";
   readonly vlrs: readonly LasVlrType[];
   readonly work: ArchiveWorkType;
+  /**
+   * Reads point records.
+   * @param options Point range, scaling and cancellation.
+   */
   read(options?: LasReadOptionsType): Promise<LasReadType>;
+  /**
+   * Reads the payload of variable-length record `id`. The bytes are not checked.
+   * @param id Record index in the header's VLR list.
+   * @param options Limits and cancellation.
+   */
   readVlr(
     id: number,
     options?: LasVlrReadOptionsType,

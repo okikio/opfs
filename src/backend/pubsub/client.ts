@@ -195,6 +195,10 @@ export interface PubsubPullType extends PubsubOperationType {
 /** Sanitized native HTTP error. Foreign response text is never embedded in library-owned errors. */
 export class PubsubError extends Error {
   readonly status: number;
+  /**
+   * Creates the error.
+   * @param status HTTP status the service returned.
+   */
   constructor(status: number) {
     super(`Pub/Sub request failed with HTTP ${status}.`);
     this.name = "PubsubError";
@@ -206,6 +210,11 @@ export class PubsubOutcomeError extends Error {
   readonly outcome = "unknown";
   readonly operation: "publish" | "pull" | "acknowledge" | "modifyAckDeadline";
   readonly resource: string;
+  /**
+   * Creates the error.
+   * @param operation Operation that failed.
+   * @param cause Failure that caused this error.
+   */
   constructor(operation: PubsubOutcomeError["operation"], resource: string, cause: unknown) {
     super(
       "Pub/Sub operation outcome is unknown; reconcile delivery/application state before deciding whether to repeat.",
@@ -281,6 +290,10 @@ export class PubsubClient {
   readonly #credentials: PubsubClientOptionsType["credentials"];
   readonly #timeout: number;
   readonly #maximum: number;
+  /**
+   * Creates the client from `options`.
+   * @param options Options that configure the client.
+   */
   constructor(options: PubsubClientOptionsType) {
     const raw = String(options.endpoint),
       project = options.project,

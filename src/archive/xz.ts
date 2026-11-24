@@ -86,6 +86,10 @@ export interface XzArchiveType {
     readonly identity?: string;
     readonly stability: "immutable" | "provider" | "caller" | "unverified";
   };
+  /**
+   * Decodes the stream into memory, within the archive limits.
+   * @param options Limits and cancellation for this read.
+   */
   read(options?: XzReadOptionsType): Promise<XzReadType>;
 }
 

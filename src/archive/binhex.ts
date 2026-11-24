@@ -76,7 +76,17 @@ export interface BinHexArchiveType {
   readonly headerIntegrity: "crc16-verified";
   readonly paddingPolicy: "canonical" | "convert-binhex";
   readonly work: ArchiveWorkType;
+  /**
+   * Decodes one fork into memory, within the archive limits.
+   * @param fork The data fork or the resource fork.
+   * @param options Limits and cancellation for this read.
+   */
   read(fork: BinHexForkType, options?: BinHexReadOptionsType): Promise<BinHexReadType>;
+  /**
+   * Decodes one fork as a stream, so a large fork does not have to fit in memory.
+   * @param fork The data fork or the resource fork.
+   * @param options Limits and cancellation for this stream.
+   */
   stream(fork: BinHexForkType, options?: BinHexReadOptionsType): BinHexStreamType;
   /** Verify both complete forks and terminal framing without materializing their contents. */
   verify(options?: BinHexMemberOptionsType): Promise<BinHexEvidenceType>;

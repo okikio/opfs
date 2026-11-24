@@ -131,6 +131,10 @@ export type BoxCommitType =
 /** Fixed messages exclude signed URLs, tokens and raw provider bodies. */
 export class BoxError extends Error {
   readonly status: number;
+  /**
+   * Creates the error.
+   * @param status HTTP status the service returned.
+   */
   constructor(status: number) {
     super(`Box request failed with HTTP ${status}.`);
     this.name = "BoxError";
@@ -139,6 +143,10 @@ export class BoxError extends Error {
 }
 /** A dispatched mutation without a validated receipt must not be blindly repeated. */
 export class BoxPublicationError extends Error {
+  /**
+   * Creates the error.
+   * @param cause Failure that caused this error.
+   */
   constructor(cause: unknown) {
     super("Box mutation has no validated acknowledgement; reconcile before retrying.", { cause });
     this.name = "BoxPublicationError";
@@ -147,6 +155,7 @@ export class BoxPublicationError extends Error {
 /** A version may exist while its download capability is not ready yet. */
 export class BoxPendingError extends Error {
   readonly retryAfterSeconds: number;
+  /** Creates the error. */
   constructor(seconds: number) {
     super("Box file content is not ready.");
     this.name = "BoxPendingError";
@@ -261,6 +270,10 @@ export class BoxClient {
   readonly #entries: number;
   readonly #parts: number;
   readonly #metrics = new RequestMetrics();
+  /**
+   * Creates the client from `options`.
+   * @param options Options that configure the client.
+   */
   constructor(options: BoxOptionsType) {
     this.#http = options.allowHttp === true;
     this.#api = endpoint(options.endpoint ?? "https://api.box.com/2.0/", this.#http);

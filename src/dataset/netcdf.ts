@@ -100,6 +100,11 @@ export interface NetcdfDatasetType {
   readonly attributes: readonly NetcdfAttributeType[];
   readonly variables: readonly NetcdfVariableType[];
   readonly work: ArchiveWorkType;
+  /**
+   * Reads the values of variable `id`.
+   * @param id Variable index from the header.
+   * @param options Value range, scaling, missing-value policy and cancellation.
+   */
   read(id: number, options?: NetcdfReadOptionsType): Promise<NetcdfReadType>;
 }
 function policy(value: number | undefined, fallback: number, label: string): number {

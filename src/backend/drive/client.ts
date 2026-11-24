@@ -67,6 +67,10 @@ export type DriveUploadStatusType =
   | Readonly<{ complete: true; offset: number; file: DriveFileType }>;
 /** Unknown publication must be reconciled through the existing session, never blind creation. */
 export class DrivePublicationError extends Error {
+  /**
+   * Creates the error.
+   * @param cause Failure that caused this error.
+   */
   constructor(cause: unknown) {
     super("Drive mutation has no validated acknowledgement; reconcile before retrying.", { cause });
     this.name = "DrivePublicationError";
@@ -75,6 +79,10 @@ export class DrivePublicationError extends Error {
 /** HTTP failure messages intentionally exclude credential-bearing URLs and bodies. */
 export class DriveError extends Error {
   readonly status: number;
+  /**
+   * Creates the error.
+   * @param status HTTP status the service returned.
+   */
   constructor(status: number) {
     super(`Google Drive request failed with HTTP ${status}.`);
     this.name = "DriveError";
@@ -133,6 +141,10 @@ export class DriveClient {
   readonly #pages: number;
   readonly #entries: number;
   readonly #metrics = new RequestMetrics();
+  /**
+   * Creates the client from `options`.
+   * @param options Options that configure the client.
+   */
   constructor(options: DriveOptionsType) {
     this.#api = endpoint(options.endpoint ?? "https://www.googleapis.com/drive/v3/");
     this.#upload = endpoint(options.uploadEndpoint ?? "https://www.googleapis.com/upload/drive/v3/");

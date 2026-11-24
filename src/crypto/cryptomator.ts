@@ -44,6 +44,12 @@ export interface CryptomatorSourceType extends ByteSourceType, AsyncDisposable {
   readonly profile: "cryptomator-format8-siv-gcm";
   readonly header: "authenticated";
   readonly originalLength: "not-authenticated";
+  /**
+   * Decrypts and authenticates a plaintext range.
+   * @param offset Byte offset in the plaintext.
+   * @param length Number of plaintext bytes.
+   * @param options Limits and cancellation.
+   */
   readVerified(offset: number, length: number, options?: CryptomatorReadOptionsType): Promise<CryptomatorReadType>;
   /** Checks all present chunks, not original EOF or freshness. No complete plaintext file is retained. */
   verify(options: CryptomatorReadOptionsType & { readonly maxCiphertextBytes: number }): Promise<{
@@ -64,6 +70,11 @@ export interface CryptomatorVaultType extends AsyncDisposable {
     readonly scope: "name-and-parent-authenticated";
     readonly work: ArchiveWorkType;
   }>;
+  /**
+   * Opens one encrypted file of the vault and reads its header.
+   * @param source Byte source over the encrypted file.
+   * @param options Limits and cancellation.
+   */
   open(source: ByteSourceType, options?: CryptomatorOpenOptionsType): Promise<CryptomatorSourceType>;
 }
 
@@ -73,6 +84,10 @@ type DispatchType = <T>(task: () => Promise<T>) => Promise<T>;
 /** Stable failures do not include key bytes, decrypted names, or native exception text. */
 export class CryptomatorError extends Error {
   readonly code: "format" | "profile" | "authentication" | "limit" | "closed" | "stability";
+  /**
+   * Creates the error.
+   * @param message Message that explains the failure.
+   */
   constructor(code: CryptomatorError["code"], message: string, options?: ErrorOptions) {
     super(message, options);
     this.name = "CryptomatorError";

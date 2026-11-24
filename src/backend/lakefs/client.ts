@@ -80,6 +80,10 @@ export interface LakefsClientOptionsType {
 /** Library-owned errors omit response text, physical addresses and credential-bearing URLs. */
 export class LakefsError extends Error {
   readonly status: number;
+  /**
+   * Creates the error.
+   * @param status HTTP status the service returned.
+   */
   constructor(status: number) {
     super(`lakeFS request failed with HTTP ${status}.`);
     this.name = "LakefsError";
@@ -93,6 +97,12 @@ export class LakefsPublicationError extends Error {
   readonly repository: string;
   readonly ref: string;
   readonly path: string | undefined;
+  /**
+   * Creates the error.
+   * @param operation Operation that failed.
+   * @param path Path the operation used.
+   * @param cause Failure that caused this error.
+   */
   constructor(operation: string, repository: string, ref: string, path: string | undefined, cause: unknown) {
     super("lakeFS mutation has no complete success acknowledgement.", { cause });
     this.name = "LakefsPublicationError";
@@ -193,6 +203,10 @@ export class LakefsClient {
   readonly #policy: RequestPolicyType | undefined;
   readonly #max: number;
   readonly #metrics = new RequestMetrics();
+  /**
+   * Creates the client from `options`.
+   * @param options Options that configure the client.
+   */
   constructor(options: LakefsClientOptionsType) {
     const base = new URL(options.endpoint);
     if (
@@ -209,6 +223,7 @@ export class LakefsClient {
     this.#policy = policy === undefined ? undefined : { ...policy };
     this.#max = toInteger(options.maxBytes ?? 8 * 1024 * 1024, "lakeFS size", LAKEFS_BUFFER_BYTES);
   }
+  /** Returns counts of requests, retries, failures and responses so far. */
   getMetrics(): import("../../request.ts").RequestMetricsType {
     return this.#metrics.snapshot();
   }
@@ -306,6 +321,11 @@ export class LakefsClient {
       throw reason;
     }
   }
+  /**
+   * Reads a branch and the commit it points to.
+   * @param branch Branch name.
+   * @param options Cancellation for the request.
+   */
   async getBranch(branch: string, options: LakefsOperationType = {}): Promise<LakefsRefType> {
     const { signal } = options;
     const data = parse(
@@ -315,17 +335,29 @@ export class LakefsClient {
     if (data.id !== branch) throw new TypeError("lakeFS returned a different branch.");
     return Object.freeze({ id: data.id, commit: data.commit_id });
   }
+  /**
+   * Reads one commit.
+   * @param id Commit ID.
+   * @param options Cancellation for the request.
+   */
   async getCommit(id: string, options: LakefsOperationType = {}): Promise<LakefsCommitType> {
     const { signal } = options;
     const result = commit(await this.#json(await this.#send(this.#url(`commits/${segment(id)}`), "GET", signal)));
     if (result.id !== id) throw new TypeError("lakeFS returned a different commit.");
     return result;
   }
+  /**
+   * Reads the metadata of one object at a ref.
+   * @param ref Branch, tag or commit.
+   * @param path Object path in the repository.
+   * @param options Cancellation for the request.
+   */
   async stat(ref: string, path: string, options: LakefsOperationType = {}): Promise<LakefsStatType> {
     const { signal } = options;
     const url = this.#url(`refs/${segment(ref)}/objects/stat`, { path: text(path), presign: "false" });
     return stat(await this.#json(await this.#send(url, "GET", signal)), path);
   }
+  /** Lists one page of objects at a ref. */
   async listPage(
     ref: string,
     options: LakefsOperationType & { readonly prefix?: string; readonly cursor?: string; readonly limit?: number } = {},
@@ -362,6 +394,12 @@ export class LakefsClient {
       ...(data.pagination.has_more ? { cursor: data.pagination.next_offset } : {}),
     });
   }
+  /**
+   * Downloads one object at a ref as a stream with its metadata.
+   * @param ref Branch, tag or commit.
+   * @param path Object path in the repository.
+   * @param options Range, limits and cancellation.
+   */
   async download(ref: string, path: string, options: LakefsReadType = {}): Promise<LakefsDownloadType> {
     const { signal, at, length } = options;
     const selected = resolveRange({ ...(at === undefined ? {} : { at }), ...(length === undefined ? {} : { length }) });
@@ -413,6 +451,12 @@ export class LakefsClient {
       evidence: "server-trusted",
     });
   }
+  /**
+   * Reads one object at a ref into memory.
+   * @param ref Branch, tag or commit.
+   * @param path Object path in the repository.
+   * @param options Range, limits and cancellation.
+   */
   async read(ref: string, path: string, options: LakefsReadType = {}): Promise<Uint8Array> {
     const { signal, at, length } = options;
     const result = await this.download(ref, path, {
@@ -427,6 +471,13 @@ export class LakefsClient {
     }
     return await collectBytes(result.bytes, this.#max, signal, "read", "lakeFS");
   }
+  /**
+   * Writes one object on a branch. The write is uncommitted until the branch is committed.
+   * @param branch Branch to write on.
+   * @param path Object path in the repository.
+   * @param bytes The object's bytes.
+   * @param options Preconditions and cancellation.
+   */
   async put(branch: string, path: string, bytes: Uint8Array, options: LakefsPutType = {}): Promise<LakefsStatType> {
     const { signal, ifMatch, ifNoneMatch, mediaType = "application/octet-stream" } = options;
     const url = this.#url(`branches/${segment(branch)}/objects`, { path: text(path) });
@@ -449,6 +500,12 @@ export class LakefsClient {
       return receipt;
     });
   }
+  /**
+   * Creates a branch from another ref and returns the new branch's commit ID.
+   * @param name Name of the new branch.
+   * @param source Branch, tag or commit to start from.
+   * @param options Cancellation for the request.
+   */
   async createBranch(name: string, source: string, options: LakefsOperationType = {}): Promise<string> {
     const { signal } = options;
     segment(name);

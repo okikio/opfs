@@ -67,6 +67,11 @@ export interface NextcloudClientOptionsType {
 export class NextcloudError extends Error {
   readonly status: number;
   readonly operation: string;
+  /**
+   * Creates the error.
+   * @param status HTTP status the service returned.
+   * @param operation Operation that failed.
+   */
   constructor(status: number, operation: string) {
     super(`Nextcloud ${operation} failed with HTTP ${status}.`);
     this.name = "NextcloudError";
@@ -79,6 +84,11 @@ export class NextcloudPublicationError extends Error {
   readonly outcome = "unknown";
   readonly operation: string;
   readonly upload: NextcloudUploadType;
+  /**
+   * Creates the error.
+   * @param operation Operation that failed.
+   * @param cause Failure that caused this error.
+   */
   constructor(operation: string, upload: NextcloudUploadType, cause: unknown) {
     super(`Nextcloud ${operation} has no complete success acknowledgement.`, { cause });
     this.name = "NextcloudPublicationError";
@@ -112,6 +122,10 @@ export class NextcloudClient {
   readonly #policy: RequestPolicyType | undefined;
   readonly #metrics = new RequestMetrics();
 
+  /**
+   * Creates the client from `options`.
+   * @param options Options that configure the client.
+   */
   constructor(options: NextcloudClientOptionsType) {
     const raw = String(options.endpoint);
     // deno-lint-ignore no-control-regex -- Validate before URL parsing can silently strip control characters.

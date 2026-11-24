@@ -321,20 +321,33 @@ export interface FileBackendType {
   entry?(path: PathType, options?: FileDriverSignalOptionsType): Promise<FileEntryKindType | null>;
   /** Lists physical entries for no-follow destructive traversal. */
   entries?(path: PathType, options?: FileDriverSignalOptionsType): AsyncIterableIterator<FileEntryType>;
+  /** Reads the entry at `path`, or returns `null` when nothing is there. */
   stat(path: PathType, options?: FileDriverSignalOptionsType): Promise<FileDriverStatType | null>;
+  /** Reads a whole file into memory. */
   readFile(path: PathType, options?: FileDriverReadOptionsType): Promise<Uint8Array>;
+  /** Writes a whole file in the mode that `options` names. */
   writeFile(path: PathType, data: Uint8Array, options: FileDriverWriteOptionsType): Promise<void>;
+  /** Lists the direct children of a directory. */
   readDir(path: PathType, options?: FileDriverSignalOptionsType): AsyncIterableIterator<FileDriverDirectoryEntryType>;
+  /** Creates one directory. The parent must exist. */
   createDir(path: PathType, options?: FileDriverSignalOptionsType): Promise<void>;
+  /** Removes one file or one empty directory. */
   remove(path: PathType, options?: FileDriverSignalOptionsType): Promise<void>;
+  /** Opens a file as a stream. Leave it out when the backend cannot stream reads. */
   openReadStream?(path: PathType, options?: FileDriverReadOptionsType): Promise<ReadableStream<Uint8Array>>;
+  /** Writes a file from a stream. Leave it out when the backend cannot stream writes. */
   writeStream?(path: PathType, source: ReadableStream<Uint8Array>, options: FileDriverWriteOptionsType): Promise<void>;
+  /** Copies a file inside the backend. Leave it out when the backend has no native copy. */
   copy?(source: PathType, destination: PathType, options: FileDriverCopyOptionsType): Promise<void>;
+  /** Moves an entry inside the backend. Leave it out when the backend has no native move. */
   move?(source: PathType, destination: PathType, options: FileDriverMoveOptionsType): Promise<void>;
   /** Exclusively reserves one empty staging file. The successful caller owns its removal. */
   reserve?(path: PathType, options?: FileDriverSignalOptionsType): Promise<void>;
+  /** Opens a writable file session. Leave it out when the backend has none. */
   openWritableFile?(path: PathType, options?: WritableOptionsType): Promise<FileDriverWritableFileType>;
+  /** Opens a synchronous file handle. Leave it out when the backend has none. */
   openSyncFile?(path: PathType): Promise<FileDriverSyncFileType>;
+  /** Releases what the backend holds. Called when the owning driver closes. */
   dispose?(): void | Promise<void>;
 }
 

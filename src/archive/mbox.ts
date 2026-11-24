@@ -60,10 +60,20 @@ export interface MboxArchiveType {
     readonly identity?: string;
     readonly stability: "immutable" | "provider" | "caller" | "unverified";
   };
+  /**
+   * Reads the raw bytes of message `id`, or a range of them, as stored in the mailbox.
+   * @param id Message ID from the index.
+   * @param options Limits, cancellation, and an optional `offset` and `length` inside the message.
+   */
   readRaw(
     id: number,
     options?: ArchiveLimitsType & { readonly signal?: AbortSignal; readonly offset?: number; readonly length?: number },
   ): Promise<{ readonly bytes: Uint8Array; readonly integrity: "none"; readonly work: ArchiveWorkType }>;
+  /**
+   * Parses message `id` as a MIME message so you can read its parts.
+   * @param id Message ID from the index.
+   * @param options Limits and cancellation for the MIME parse.
+   */
   openMessage(id: number, options: MboxMessageOptionsType): Promise<MboxMessageType>;
 }
 

@@ -67,6 +67,10 @@ export interface Qcow2ImageType {
   readonly work: ArchiveWorkType;
   /** Pure, bounded selected-cluster inspection; no source reads or reference-count truth claim. */
   map(offset: number, length: number): readonly Qcow2SegmentType[];
+  /**
+   * Reads guest bytes from the virtual disk.
+   * @param options Range, limits and cancellation.
+   */
   read(options?: Qcow2ReadOptionsType): Promise<Qcow2ReadType>;
   /** No resource ownership transfers. Partial guest reads retain all opening authority. */
   source(options?: Qcow2SourceOptionsType): ByteSourceType;

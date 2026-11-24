@@ -76,6 +76,10 @@ export interface CmisClientOptionsType {
 export class CmisError extends Error {
   readonly status: number;
   readonly exception: string | undefined;
+  /**
+   * Creates the error.
+   * @param status HTTP status the service returned.
+   */
   constructor(status: number, exception?: string) {
     super(`CMIS request failed with HTTP ${status}.`);
     this.name = "CmisError";
@@ -88,6 +92,12 @@ export class CmisPublicationError extends Error {
   readonly outcome = "unknown";
   readonly operation: "createDocument" | "setContent";
   readonly target: string;
+  /**
+   * Creates the error.
+   * @param operation Operation that failed.
+   * @param target Path or ID the operation used.
+   * @param cause Failure that caused this error.
+   */
   constructor(operation: "createDocument" | "setContent", target: string, cause: unknown) {
     super("CMIS mutation has no complete success acknowledgement.", { cause });
     this.name = "CmisPublicationError";
@@ -239,6 +249,10 @@ export class CmisClient {
   readonly #credentials: CmisClientOptionsType["credentials"];
   readonly #policy: RequestPolicyType | undefined;
   readonly #max: number;
+  /**
+   * Creates the client from `options`.
+   * @param options Options that configure the client.
+   */
   constructor(options: CmisClientOptionsType) {
     this.#repository = text(options.repository);
     const allowHttp = options.allowHttp ?? false;

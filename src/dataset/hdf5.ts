@@ -86,6 +86,10 @@ export interface Hdf5DatasetType {
   readonly byteLength: number;
   readonly integrity: "not-provided";
   readonly work: Hdf5WorkType;
+  /**
+   * Reads the dataset's values into a typed array.
+   * @param options Limits and cancellation.
+   */
   read(options?: Hdf5ReadOptionsType): Promise<Hdf5ReadType>;
   /** Raw stored bytes retain file byte order; no value conversion, checksum or ownership transfer occurs. */
   source(options?: Hdf5CallOptionsType): ByteSourceType;
@@ -96,7 +100,16 @@ export interface Hdf5FileType {
   readonly scope: "root-links";
   readonly integrity: "not-provided";
   readonly work: Hdf5WorkType;
+  /**
+   * Lists the links in the root group.
+   * @param options Limits and cancellation.
+   */
   list(options?: Hdf5CallOptionsType): readonly Hdf5LinkType[];
+  /**
+   * Opens the dataset that the root group links as `name`.
+   * @param name Link name in the root group.
+   * @param options Limits and cancellation.
+   */
   dataset(name: string, options?: Hdf5CallOptionsType): Promise<Hdf5DatasetType>;
 }
 function combined(...items: readonly (AbortSignal | undefined)[]): AbortSignal | undefined {

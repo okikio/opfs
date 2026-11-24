@@ -61,6 +61,10 @@ export interface ResticClientOptionsType {
 /** Native response status, without credential-bearing request or response text in its message. */
 export class ResticError extends Error {
   readonly status: number;
+  /**
+   * Creates the error.
+   * @param status HTTP status the service returned.
+   */
   constructor(status: number) {
     super(`Restic REST request failed with HTTP ${status}.`);
     this.name = "ResticError";
@@ -72,6 +76,11 @@ export class ResticPublicationError extends Error {
   readonly outcome = "unknown";
   readonly operation: string;
   readonly object: ResticObjectType | undefined;
+  /**
+   * Creates the error.
+   * @param operation Operation that failed.
+   * @param cause Failure that caused this error.
+   */
   constructor(operation: string, object: ResticObjectType | undefined, cause: unknown) {
     super(`Restic REST ${operation} has no complete success acknowledgement.`, { cause });
     this.name = "ResticPublicationError";
@@ -161,6 +170,10 @@ export class ResticClient {
   readonly #max: number;
   readonly #entries: number;
   readonly #metrics = new RequestMetrics();
+  /**
+   * Creates the client from `options`.
+   * @param options Options that configure the client.
+   */
   constructor(options: ResticClientOptionsType) {
     const raw = String(options.endpoint);
     if (raw.length > 8192 || /[^\u0021-\u007e]/u.test(raw) || raw.includes("\\") || /%(?:2e|2f|5c)/iu.test(raw)) {

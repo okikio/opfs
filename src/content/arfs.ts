@@ -100,6 +100,11 @@ export interface ArfsFileType extends ArfsEntityType {
   readonly dataContentType: string;
   /** Milliseconds since Unix epoch. */ readonly lastModifiedDate: number;
   readonly pinnedDataOwner?: string;
+  /**
+   * Reads the file's data and checks it against the file's metadata.
+   * @param data Where to read the data transaction from.
+   * @param options Limits and cancellation for this read.
+   */
   read(data: ArfsDataInputType, options?: ArfsReadOptionsType): Promise<ArfsReadType>;
   /** Borrow the explicitly supplied data source. No acquisition occurs until its read method is called. */
   source(data: ArfsDataInputType, options?: ArfsCallOptionsType): ByteSourceType;

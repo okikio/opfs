@@ -64,6 +64,11 @@ export interface RarArchiveType {
     readonly identity?: string;
     readonly stability: "immutable" | "provider" | "caller" | "unverified";
   };
+  /**
+   * Reads entry `id` into memory, within the archive limits and `options`.
+   * @param id Entry ID from the archive index.
+   * @param options Limits and cancellation for this read.
+   */
   read(id: number, options?: RarReadOptionsType): Promise<RarReadType>;
 }
 

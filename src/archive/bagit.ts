@@ -91,6 +91,7 @@ export interface BagitReadType {
   readonly integrity: "none";
   readonly work: ArchiveWorkType;
 }
+/** Limits and cancellation for reading one payload file from a bag. */
 export interface BagitReadOptionsType extends ArchiveLimitsType {
   readonly signal?: AbortSignal;
   readonly offset?: number;
@@ -123,9 +124,20 @@ export interface BagitArchiveType {
   readonly fetch: readonly BagitFetchType[];
   readonly coverage: BagitCoverageType;
   readonly work: ArchiveWorkType;
+  /**
+   * Reads the payload file at `path` into memory, within the archive limits.
+   * @param path Payload path as the bag lists it, such as `data/report.csv`.
+   * @param options Limits and cancellation for this read.
+   */
   read(path: string, options?: BagitReadOptionsType): Promise<BagitReadType>;
   /** Cumulative limits cover all reads through this wrapper; no disposal ownership transfers. */
   source(path: string, options?: ArchiveLimitsType & { readonly signal?: AbortSignal }): ByteSourceType;
+  /**
+   * Checks the payload file at `path` against one manifest's checksum.
+   * @param manifestId Index of the manifest in the bag's manifest list.
+   * @param path Payload path as the manifest lists it.
+   * @param options Limits, cancellation and the hash functions to use.
+   */
   verify(manifestId: number, path: string, options: BagitVerifyOptionsType): Promise<BagitVerificationType>;
 }
 

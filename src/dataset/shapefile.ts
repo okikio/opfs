@@ -103,7 +103,16 @@ export interface ShapefileType {
   readonly work: ShapefileWorkType;
   readonly integrity: "not-provided";
   readonly diagnostics: readonly string[];
+  /**
+   * Returns one page of feature records from the index.
+   * @param options Page size and cursor.
+   */
   features(options?: ShapefilePageOptionsType): ShapefilePageType;
+  /**
+   * Reads the geometry and attributes of feature `id`.
+   * @param id Feature ID from the index.
+   * @param options Limits and cancellation.
+   */
   read(id: number, options?: ShapefileCallOptionsType): Promise<ShapefileReadType>;
   /** Absence of a supplied DBF returns undefined, not an invented attribute row. */ attributes(
     id: number,

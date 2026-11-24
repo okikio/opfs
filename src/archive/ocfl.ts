@@ -127,14 +127,40 @@ export interface OcflArchiveType {
   readonly files: readonly OcflFileType[];
   readonly coverage: OcflCoverageType;
   readonly work: ArchiveWorkType;
+  /**
+   * Lists the files in one version of the object.
+   * @param version Version name, such as `v1`.
+   */
   entries(version: string): readonly OcflEntryType[];
+  /**
+   * Returns a byte source over one file in one version. Nothing is read until you read the source.
+   * @param version Version name, such as `v1`.
+   * @param path Logical path of the file in that version.
+   * @param options Limits and cancellation for reads through the source.
+   */
   source(version: string, path: string, options?: OcflSelectOptionsType): ByteSourceType;
+  /**
+   * Reads one file in one version into memory. The bytes are not checked against the inventory; use `verifyContent` for that.
+   * @param version Version name, such as `v1`.
+   * @param path Logical path of the file in that version.
+   * @param options Limits and cancellation for this read.
+   */
   read(
     version: string,
     path: string,
     options?: OcflSelectOptionsType,
   ): Promise<{ readonly bytes: Uint8Array; readonly integrity: "none"; readonly work: ArchiveWorkType }>;
+  /**
+   * Checks the inventory file against its sidecar digest.
+   * @param options Limits, cancellation and the hash functions to use.
+   */
   verifyInventory(options: OcflVerifyOptionsType): Promise<OcflVerificationType>;
+  /**
+   * Checks one file in one version against the digest in the inventory.
+   * @param version Version name, such as `v1`.
+   * @param path Logical path of the file in that version.
+   * @param options Limits, cancellation and the hash functions to use.
+   */
   verifyContent(version: string, path: string, options: OcflVerifyOptionsType): Promise<OcflVerificationType>;
 }
 

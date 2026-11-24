@@ -41,7 +41,12 @@ export interface SourceBudgetOptionsType {
 
 /** Counts reserved work, including failed requests, so retries cannot evade limits. */
 export interface SourceBudgetType {
+  /**
+   * Charges one request of `bytes` bytes. Throws when a limit is reached.
+   * @param bytes Bytes the request may return.
+   */
   reserve(bytes: number): void;
+  /** Returns the bytes and requests charged so far. */
   inspect(): { readonly bytes: number; readonly requests: number };
 }
 

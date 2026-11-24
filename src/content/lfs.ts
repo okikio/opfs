@@ -84,6 +84,10 @@ export type LfsUploadType = LfsObjectType & {
 /** Sanitized HTTP or per-object status. Provider diagnostic bodies are not logged or echoed. */
 export class LfsError extends Error {
   readonly status: number;
+  /**
+   * Creates the error.
+   * @param status HTTP status the service returned.
+   */
   constructor(status: number) {
     super(`Git LFS request failed: status ${status}.`);
     this.name = "LfsError";
@@ -93,6 +97,10 @@ export class LfsError extends Error {
 /** A mutation was dispatched without a delivered acknowledgment; do not blindly retry. */
 export class LfsPublicationError extends Error {
   readonly outcome = "unknown";
+  /**
+   * Creates the error.
+   * @param cause Failure that caused this error.
+   */
   constructor(cause: unknown) {
     super("Git LFS mutation outcome is unknown; reconcile before retrying.", { cause });
     this.name = "LfsPublicationError";
@@ -101,6 +109,10 @@ export class LfsPublicationError extends Error {
 /** Upload was acknowledged, but optional verification did not deliver a success acknowledgment. */
 export class LfsVerificationError extends Error {
   readonly upload: LfsUploadType;
+  /**
+   * Creates the error.
+   * @param cause Failure that caused this error.
+   */
   constructor(upload: LfsUploadType, cause: unknown) {
     super("Git LFS upload was acknowledged, but verification failed.", { cause });
     this.name = "LfsVerificationError";
@@ -294,6 +306,10 @@ export class LfsClient {
   readonly #bytes: number;
   readonly #batch: number;
   readonly #metrics = new RequestMetrics();
+  /**
+   * Creates the client from `options`.
+   * @param options Options that configure the client.
+   */
   constructor(options: LfsOptionsType) {
     this.#http = options.allowHttp === true;
     this.#base = admitted(options.endpoint, this.#http);
