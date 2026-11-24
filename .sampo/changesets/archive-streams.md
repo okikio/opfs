@@ -9,11 +9,11 @@ one-shot streams with single-use entry bodies and writes deterministic ustar/PAX
 writes STORED ZIP32 streams, including entries with unknown sizes through data descriptors:
 
 ```ts
-import { createTarStream, readTarStream } from "@okikio/opfs/archive/tar/stream";
+import { createTarStream, scanTar } from "@okikio/opfs/archive/tar/stream";
 import { createZipStream } from "@okikio/opfs/archive/zip/write";
 
 const tar = createTarStream([{ name: "hello.txt", size: 5, body: new Blob(["hello"]).stream() }]);
-await readTarStream(tar, async (entry, body) => {
+await scanTar(tar, async (entry, body) => {
   if (entry.kind === "file") {
     for await (const bytes of body) console.log(new TextDecoder().decode(bytes));
   }

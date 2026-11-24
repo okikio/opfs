@@ -3,7 +3,7 @@ import { expect } from "@std/expect";
 import { decodeBase64 } from "@std/encoding/base64";
 import { createBlobSource } from "../src/source.ts";
 import { createArchiveLedger, openTar } from "../src/archive/tar/mod.ts";
-import { createTarStream, readTarStream } from "../src/archive/tar/stream.ts";
+import { createTarStream, scanTar } from "../src/archive/tar/stream.ts";
 import type { TarEntryType } from "../src/archive/tar/mod.ts";
 import fixtures from "./fixtures/tar/independent.json" with { type: "json" };
 
@@ -92,7 +92,7 @@ describe("TAR PAX and GNU metadata", () => {
       }
       await expect(archive.read(2)).rejects.toMatchObject({ code: "unsupported-profile" });
       const seen: TarEntryType[] = [];
-      const result = await readTarStream(stream(bytes), async (entry, body) => {
+      const result = await scanTar(stream(bytes), async (entry, body) => {
         seen.push(entry);
         expect(await collect(body)).toEqual(decodeBase64(fixture.entries[entry.id]!.body));
       });
@@ -109,7 +109,7 @@ describe("TAR PAX and GNU metadata", () => {
     // including length prefixes, UTF-8 continuation bytes, headers, payloads and end blocks.
     for (let cut = 1; cut < bytes.length; cut++) {
       let count = 0;
-      await readTarStream(stream(bytes, [cut]), async (entry, body) => {
+      await scanTar(stream(bytes, [cut]), async (entry, body) => {
         const expected = fixture.entries[count++]!;
         const actual = await collect(body);
         if (
@@ -166,18 +166,18 @@ describe("TAR PAX and GNU metadata", () => {
 describe("one-shot TAR stream ownership", () => {
   it("charges discarded payloads and shares aggregate output across members", async () => {
     const bytes = decodeBase64(fixtures.gnu.archive);
-    await expect(readTarStream(stream(bytes), () => {}, { maxDecodedBytes: 276 })).rejects.toMatchObject({
+    await expect(scanTar(stream(bytes), () => {}, { maxDecodedBytes: 276 })).rejects.toMatchObject({
       code: "budget-exceeded",
     });
-    const listed = await readTarStream(stream(bytes), () => {});
+    const listed = await scanTar(stream(bytes), () => {});
     expect(listed.work.outputBytes).toBe(0);
     expect(listed.work.decodedBytes).toBeGreaterThanOrEqual(283);
     const ledger = createArchiveLedger({ maxOutputBytes: 280 });
-    await expect(readTarStream(stream(bytes), async (_entry, body) => {
+    await expect(scanTar(stream(bytes), async (_entry, body) => {
       await collect(body);
     }, { ledger })).rejects.toMatchObject({ code: "budget-exceeded" });
     const metadataLedger = createArchiveLedger({ maxDecodedBytes: 10 });
-    await expect(readTarStream(stream(bytes), () => {}, { ledger: metadataLedger })).rejects.toMatchObject({
+    await expect(scanTar(stream(bytes), () => {}, { ledger: metadataLedger })).rejects.toMatchObject({
       code: "budget-exceeded",
     });
   });
@@ -186,7 +186,7 @@ describe("one-shot TAR stream ownership", () => {
     const bytes = decodeBase64(fixtures.gnu.archive);
     let escaped: AsyncIterable<Uint8Array> | undefined;
     const names: string[] = [];
-    await readTarStream(stream(bytes, [1700]), async (entry, body) => {
+    await scanTar(stream(bytes, [1700]), async (entry, body) => {
       names.push(entry.name);
       if (entry.id === 0) {
         escaped = body;
@@ -203,7 +203,7 @@ describe("one-shot TAR stream ownership", () => {
 
   it("delivers a small selected prefix with a separate body chunk bound", async () => {
     let returned = 0;
-    const result = await readTarStream(stream(decodeBase64(fixtures.gnu.archive)), async (_entry, body) => {
+    const result = await scanTar(stream(decodeBase64(fixtures.gnu.archive)), async (_entry, body) => {
       for await (const chunk of body) {
         returned += chunk.length;
         break;
@@ -230,7 +230,7 @@ describe("one-shot TAR stream ownership", () => {
         cancelled++;
       },
     }, { highWaterMark: 0 });
-    const result = await readTarStream(input, async () => {
+    const result = await scanTar(input, async () => {
       const before = pulls;
       await new Promise((resolve) => setTimeout(resolve, 5));
       expect(pulls).toBe(before);
@@ -250,7 +250,7 @@ describe("one-shot TAR stream ownership", () => {
         cancelled = true;
       },
     }, { highWaterMark: 0 });
-    const pending = readTarStream(stalled, () => {}, { signal: abort.signal });
+    const pending = scanTar(stalled, () => {}, { signal: abort.signal });
     abort.abort(new Error("stop TAR"));
     await expect(pending).rejects.toThrow("stop TAR");
     expect(cancelled).toBe(true);
@@ -264,7 +264,7 @@ describe("one-shot TAR stream ownership", () => {
           },
         })
         : stream(scenario === "truncated" ? bytes.subarray(0, 1600) : bytes);
-      await expect(readTarStream(input, () => {
+      await expect(scanTar(input, () => {
         if (scenario === "visitor") throw new Error("visitor failure");
       }, {
         ...(scenario === "chunk" ? { maxChunkBytes: 2 } : {}),
@@ -274,7 +274,7 @@ describe("one-shot TAR stream ownership", () => {
       expect(input.locked).toBe(false);
     }
     const badPolicy = stream(bytes);
-    await expect(readTarStream(badPolicy, () => {}, { maxEntries: -1 })).rejects.toBeInstanceOf(RangeError);
+    await expect(scanTar(badPolicy, () => {}, { maxEntries: -1 })).rejects.toBeInstanceOf(RangeError);
     expect(badPolicy.locked).toBe(false);
     const primary = new Error("visitor primary");
     const cleanup = new ReadableStream<Uint8Array>({
@@ -285,7 +285,7 @@ describe("one-shot TAR stream ownership", () => {
         throw new Error("cleanup secondary");
       },
     });
-    await expect(readTarStream(cleanup, () => {
+    await expect(scanTar(cleanup, () => {
       throw primary;
     })).rejects.toBe(primary);
     expect(cleanup.locked).toBe(false);

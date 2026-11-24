@@ -255,7 +255,7 @@ try {
     import { createByteSource } from '@okikio/opfs/source';
     import { testByteSource } from '@okikio/opfs/testing/source';
     import { createNativeTink } from '@okikio/opfs/crypto/tink';
-    import { createTarStream, readTarStream } from '@okikio/opfs/archive/tar/stream';
+    import { createTarStream, scanTar } from '@okikio/opfs/archive/tar/stream';
     import { openTar } from '@okikio/opfs/archive/tar';
     import { createTarAdapter } from '@okikio/opfs/view/tar';
     import { openCpio } from '@okikio/opfs/archive/cpio';
@@ -2191,7 +2191,7 @@ try {
     void createD1Adapter;
     const tarName = 'caf\u00e9/' + 'long-name-'.repeat(20);
     let tarMembers = 0;
-    const tarScan = await readTarStream(createTarStream([
+    const tarScan = await scanTar(createTarStream([
       { name: tarName, size: archivePayload.length, body: new Blob([archivePayload]).stream() },
       { name: 'empty/', kind: 'directory', size: 0 },
     ]), async (entry, body) => {
@@ -2341,7 +2341,7 @@ try {
     undent`
     import { createFileSystem, type FileSystemType } from '@okikio/opfs';
     import { createMemoryAdapter } from '@okikio/opfs/adapter/memory';
-    import { createTarStream, readTarStream } from '@okikio/opfs/archive/tar/stream';
+    import { createTarStream, scanTar } from '@okikio/opfs/archive/tar/stream';
     import type { TarWriteEntryType } from '@okikio/opfs/archive/tar/stream';
     import { openTar } from '@okikio/opfs/archive/tar';
     import { createTarAdapter } from '@okikio/opfs/view/tar';
@@ -2427,7 +2427,7 @@ try {
     import { createEtcdClient } from '@okikio/opfs/etcd';
     import { createUploadClient, UploadSessionSchema } from '@okikio/opfs/upload';
     import { createByteSource } from '@okikio/opfs/source';
-    import { createCompressedTar, readCompressedTar } from '@okikio/opfs/archive/compress';
+    import { createCompressedTar, scanCompressedTar } from '@okikio/opfs/archive/compress';
     import { parseCid, verifyBlock } from '@okikio/opfs/content/cid';
     import { S3SessionSchema } from '@okikio/opfs/transfer/s3';
     import type { S3SessionType } from '@okikio/opfs/transfer/s3';
@@ -2765,7 +2765,7 @@ try {
     const fileSystem: FileSystemType = createFileSystem(createMemoryAdapter());
     await fileSystem.writeFile('/types.txt', 'ok', { parents: true });
     const tarEntry: TarWriteEntryType = { name: 'typed', size: 0 };
-    await readTarStream(createTarStream([tarEntry]), async (entry, body) => {
+    await scanTar(createTarStream([tarEntry]), async (entry, body) => {
       const id: number = entry.id;
       for await (const bytes of body) { const size: number = bytes.byteLength; void size; }
       void id;
@@ -2776,7 +2776,7 @@ try {
     const member: Uint8Array = (await zip.read(0)).bytes;
     void member;
     const compressedTar = createCompressedTar([{ name: 'typed', size: 0 }], 'gzip');
-    const result = await readCompressedTar(compressedTar, 'gzip', () => {});
+    const result = await scanCompressedTar(compressedTar, 'gzip', () => {});
     const integrity: string = result.compression.integrity;
     const cid = parseCid('f015512202cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824');
     await verifyBlock(cid.id, new TextEncoder().encode('hello'));

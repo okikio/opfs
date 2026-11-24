@@ -2,7 +2,7 @@ import { bench, do_not_optimize } from "mitata";
 import { decodeBase64 } from "@std/encoding/base64";
 import { createBlobSource } from "../src/source.ts";
 import { createArchiveLedger, openTar } from "../src/archive/tar/mod.ts";
-import { createTarStream, readTarStream } from "../src/archive/tar/stream.ts";
+import { createTarStream, scanTar } from "../src/archive/tar/stream.ts";
 import type { ArchiveWorkType } from "../src/archive/budget.ts";
 import { expectBytes, payload, report } from "./result.ts";
 import fixtures from "../tests/fixtures/tar/independent.json" with { type: "json" };
@@ -107,14 +107,14 @@ for (const size of [1024, 65536, 4194304]) {
   if (archive.entries.length !== 1 || archive.entries[0]!.size !== size || archive.work.sourceBytes !== 1536) {
     throw new Error("TAR indexed benchmark must skip all member payload bytes.");
   }
-  const listing = await readTarStream(archiveStream(blob), () => {});
+  const listing = await scanTar(archiveStream(blob), () => {});
   if (
     !listing.complete || listing.work.decodedBytes !== size || listing.work.outputBytes !== 0 ||
     listing.work.sourceBytes !== archiveBytes.length
   ) {
     throw new Error("TAR listing must account for its full consumed source and discarded payload.");
   }
-  const preview = await readTarStream(archiveStream(blob), async (_entry, body) => {
+  const preview = await scanTar(archiveStream(blob), async (_entry, body) => {
     for await (const bytes of body) {
       expectBytes(bytes, prefix, "tar/stream-prefix");
       break;
@@ -157,11 +157,11 @@ for (const size of [1024, 65536, 4194304]) {
     do_not_optimize(await archive.read(0, { length }));
   });
   bench(`tar/${size}B sequential list: ${counts(listing.work)}`, async () => {
-    do_not_optimize(await readTarStream(archiveStream(blob), () => {}));
+    do_not_optimize(await scanTar(archiveStream(blob), () => {}));
   });
   bench(`tar/${size}B sequential prefix + cancel: ${counts(preview.work)}`, async () => {
     do_not_optimize(
-      await readTarStream(archiveStream(blob), async (_entry, body) => {
+      await scanTar(archiveStream(blob), async (_entry, body) => {
         for await (const bytes of body) {
           do_not_optimize(bytes);
           break;

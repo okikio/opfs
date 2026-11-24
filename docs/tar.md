@@ -1,20 +1,20 @@
 # Inspect and write TAR archives
 
 Use `openTar()` when you have a stable byte-range source and want reusable member IDs or selected ranges. Use
-`readTarStream()` for a one-shot source such as a response body. The streaming reader visits entries in archive order;
-it must read preceding payloads even when you only want a late member. Neither API extracts host files or follows links.
+`scanTar()` for a one-shot source such as a response body. The streaming reader visits entries in archive order; it must
+read preceding payloads even when you only want a late member. Neither API extracts host files or follows links.
 
 This complete example writes an archive, then consumes one member without collecting the archive or its payload:
 
 ```ts
-import { createTarStream, readTarStream } from "@okikio/opfs/archive/tar/stream";
+import { createTarStream, scanTar } from "@okikio/opfs/archive/tar/stream";
 
 const archive = createTarStream([
   { name: "notes/hello.txt", size: 5, body: new Blob(["hello"]).stream() },
   { name: "empty/", kind: "directory", size: 0 },
 ]);
 const decoder = new TextDecoder();
-const result = await readTarStream(archive, async (entry, body) => {
+const result = await scanTar(archive, async (entry, body) => {
   console.log(entry.id, entry.name, entry.kind, entry.size);
   if (entry.name === "notes/hello.txt") {
     for await (const bytes of body) console.log(decoder.decode(bytes, { stream: true }));

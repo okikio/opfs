@@ -4,7 +4,7 @@ import { decodeBase64 } from "@std/encoding/base64";
 import { createBlobSource } from "../src/source.ts";
 import type { ByteSourceType } from "../src/source.ts";
 import { createArchiveLedger, openAr } from "../src/archive/ar.ts";
-import { readCompressedTar } from "../src/archive/compress.ts";
+import { scanCompressedTar } from "../src/archive/compress.ts";
 import fixtures from "./fixtures/ar/independent.json" with { type: "json" };
 
 const source = (bytes: Uint8Array) => createBlobSource(new Blob([new Uint8Array(bytes).buffer]));
@@ -109,7 +109,7 @@ describe("bounded normal ar inspection", () => {
       maxOutputBytes: 65536,
     });
     const pieces: Uint8Array[] = [];
-    const result = await readCompressedTar(stream(member), "gzip", async (entry, body) => {
+    const result = await scanCompressedTar(stream(member), "gzip", async (entry, body) => {
       expect(entry.name).toBe("control");
       for await (const chunk of body) pieces.push(chunk);
     }, {

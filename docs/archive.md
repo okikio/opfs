@@ -196,9 +196,9 @@ and GNU long-name/long-link records. Header checksums and two terminating zero b
 using offsets and selected regular-file bytes use ranges. It never follows links. Results say `header-checksum-only`:
 TAR supplies no payload checksum or authentication.
 
-For a one-shot `ReadableStream`, use `readTarStream()`; entry bodies are single-use within the visitor callback and
-unconsumed payloads are drained under the same budget. `createTarStream()` writes deterministic ustar/PAX streams. See
-the [TAR guide](tar.md) for complete examples, metadata precedence, resource ownership and exact limits. Indexed reads
+For a one-shot `ReadableStream`, use `scanTar()`; entry bodies are single-use within the visitor callback and unconsumed
+payloads are drained under the same budget. `createTarStream()` writes deterministic ustar/PAX streams. See the
+[TAR guide](tar.md) for complete examples, metadata precedence, resource ownership and exact limits. Indexed reads
 additionally reconstruct the exact GNU PAX sparse 1.0 profile: recorded extents supply data and omitted holes supply
 zeros. The one-shot stream reader and writer still refuse sparse records. Other sparse layouts, base-256 sizes without a
 PAX size override and unsupported special records remain refused. Compressed TAR needs an explicitly bounded
@@ -207,8 +207,8 @@ decompression strategy. The [ZIP writer](zip.md) creates a narrower STORED ZIP32
 ## Where streaming APIs live
 
 A streaming reader or writer lives under its format: `@okikio/opfs/archive/tar/stream` and
-`@okikio/opfs/archive/zip/write`. Their types are format types: `readTarStream()` hands the visitor a `TarEntryType`,
-and `createZipStream()` takes `ZipWriteEntryType` values. There is no format-neutral streaming contract, so no generic
+`@okikio/opfs/archive/zip/write`. Their types are format types: `scanTar()` hands the visitor a `TarEntryType`, and
+`createZipStream()` takes `ZipWriteEntryType` values. There is no format-neutral streaming contract, so no generic
 `archive/stream` path exists.
 
 Today TAR is the only format with a one-shot streaming reader. That is a choice of work done so far for some formats and
