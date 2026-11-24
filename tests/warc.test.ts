@@ -4,7 +4,7 @@ import { decodeBase64 } from "@std/encoding/base64";
 import { createBlobSource } from "../src/source.ts";
 import type { ByteSourceType } from "../src/source.ts";
 import { createArchiveLedger } from "../src/archive/budget.ts";
-import { openWarc } from "../src/archive/warc.ts";
+import { openWarc } from "../src/archive/warc/mod.ts";
 import fixtures from "./fixtures/warc/independent.json" with { type: "json" };
 
 const encode = (text: string): Uint8Array => new TextEncoder().encode(text);
@@ -145,9 +145,9 @@ describe("bounded WARC stored-block preview", () => {
     expect(truncated.entries[0]?.truncated).toBe("disconnect");
   });
 
-  it("rejects compressed and separate ARC formats explicitly", async () => {
+  it("rejects a truncated gzip member and the separate ARC format explicitly", async () => {
     await expect(openWarc(source(new Uint8Array([31, 139, 8, 0])))).rejects.toMatchObject({
-      code: "unsupported-profile",
+      code: "invalid-archive",
     });
     await expect(openWarc(source(encode("filedesc://example.arc 0.0.0.0 20261105000000 text/plain 0\n")))).rejects
       .toMatchObject({ code: "unsupported-profile" });
