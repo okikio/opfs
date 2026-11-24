@@ -140,18 +140,12 @@ await build({
   package: {
     name: source.name,
     version,
-    ...(source.description === undefined
-      ? {}
-      : { description: source.description }),
+    ...(source.description === undefined ? {} : { description: source.description }),
     ...(source.license === undefined ? {} : { license: source.license }),
-    ...(source.repository === undefined
-      ? {}
-      : { repository: source.repository }),
+    ...(source.repository === undefined ? {} : { repository: source.repository }),
     ...(source.homepage === undefined ? {} : { homepage: source.homepage }),
     ...(source.bugs === undefined ? {} : { bugs: source.bugs }),
-    ...(source.keywords === undefined
-      ? {}
-      : { keywords: [...source.keywords] }),
+    ...(source.keywords === undefined ? {} : { keywords: [...source.keywords] }),
     sideEffects: false,
     // Official declaration bytes stay outside node_modules/@types, so portable
     // consumers do not automatically load the Deno global namespace.
