@@ -13,7 +13,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join, resolve } from "node:path";
-import { execPath, exit, kill, pid, platform } from "node:process";
+import { kill, platform } from "node:process";
 import { close } from "../../../src/close.ts";
 import { supervise } from "./runner.ts";
 
@@ -70,6 +70,8 @@ describe("native producer supervisor", () => {
       writeFileSync(
         parent,
         `import { spawn } from "node:child_process";
+import { writeFileSync } from "node:fs";
+import { execPath, pid, exit } from "node:process";
 const child = spawn(execPath, [${JSON.stringify(worker)}], { stdio: "ignore" });
 if (child.pid === undefined) throw new Error("Owned worker was not created.");
 child.unref();
