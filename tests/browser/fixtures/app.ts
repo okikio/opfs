@@ -3,7 +3,7 @@ import { createCacheAdapter } from "../../../src/backend/cache/adapter.ts";
 import { openIndexedDbAdapter } from "../../../src/backend/indexeddb/adapter.ts";
 import { createLocalStorageAdapter } from "../../../src/backend/localstorage/adapter.ts";
 import { createMemoryAdapter } from "../../../src/backend/memory/adapter.ts";
-import { createFileSystem } from "../../../src/filesystem.ts";
+import { createFileSystem } from "../../../src/filesystem/mod.ts";
 import { reliability } from "./reliability.ts";
 import { within } from "../../gate.ts";
 import { close, withReleases } from "../../close.ts";

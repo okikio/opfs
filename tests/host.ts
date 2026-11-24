@@ -4,7 +4,7 @@ import { platform } from "node:os";
 import { createFileSystem } from "../mod.ts";
 import type { AdapterType } from "../src/adapter/definition.ts";
 import { defineAdapter } from "../src/adapter/definition.ts";
-import type { FileSystemType } from "../src/filesystem.ts";
+import type { FileSystemType } from "../src/filesystem/types.ts";
 import { withReleases } from "./close.ts";
 import { verifyBytes, verifyPendingAbort, within } from "./reliability.ts";
 

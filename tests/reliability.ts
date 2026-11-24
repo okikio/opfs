@@ -1,5 +1,5 @@
 import { expect } from "@std/expect";
-import type { FileSystemType } from "../src/filesystem.ts";
+import type { FileSystemType } from "../src/filesystem/types.ts";
 import { streamBytes } from "./stream.ts";
 import { within } from "./gate.ts";
 export { within } from "./gate.ts";

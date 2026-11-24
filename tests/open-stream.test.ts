@@ -2,7 +2,7 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 import { createFileSystem, FileSystemError } from "../mod.ts";
-import type { ReadOptionsType } from "../src/filesystem.ts";
+import type { ReadOptionsType } from "../src/filesystem/types.ts";
 import type { AdapterType } from "../src/adapter/definition.ts";
 import { createMemoryAdapter } from "../src/backend/memory/adapter.ts";
 import { withFileSystem, within } from "./reliability.ts";

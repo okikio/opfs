@@ -6,7 +6,7 @@ import type { ByteSourceType } from "../src/source.ts";
 import { createArchiveLedger, openTar } from "../src/archive/tar/mod.ts";
 import { scanTar } from "../src/archive/tar/stream.ts";
 import { createTarAdapter } from "../src/view/tar.ts";
-import { createFileSystem } from "../src/filesystem.ts";
+import { createFileSystem } from "../src/filesystem/mod.ts";
 import ordinary from "./fixtures/tar/independent.json" with { type: "json" };
 import nativeFixture from "./fixtures/tar-sparse/independent.json" with { type: "json" };
 

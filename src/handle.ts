@@ -9,7 +9,7 @@
  * @module
  */
 import { FileSystemError } from "./error.ts";
-import type { FileSystemType } from "./filesystem.ts";
+import type { FileSystemType } from "./filesystem/types.ts";
 import { basename, isAncestorPath, joinPath, normalizePath, validateName } from "./path.ts";
 import type { EntryKindType } from "./schema/types.ts";
 import type { SyncFileType } from "./sync.ts";
