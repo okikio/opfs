@@ -32,8 +32,8 @@ drivers remain independently usable when a filesystem projection is unnecessary.
 
 ## R2 reads, conditions and publication
 
-`createR2Client()` exposes object mechanics; `createR2Driver()` or `createR2DriverFromClient()` adds inspectable storage
-limits; `createR2Adapter()` translates the client through that driver to filesystem operations. These use the
+`createR2Client()` exposes object mechanics; `createR2Driver(client)` adds inspectable storage limits;
+`createR2Adapter()` translates the client through that driver to filesystem operations. These use the
 [Workers binding API](https://developers.cloudflare.com/r2/api/workers/workers-api-reference/), independently of the S3
 endpoint and its signing client.
 

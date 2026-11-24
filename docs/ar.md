@@ -124,7 +124,7 @@ separately.
 
 Keep nested logical budgets distinct as in the example. An inner TAR/compression reader counts the work it admits, while
 the member source counts its own reads; sharing one ledger across those layers conservatively charges both boundaries.
-To count physical transport requests once across nested readers, wrap the original source with `budgetSource` and a
+To count physical transport requests once across nested readers, wrap the original source with `limitSource` and a
 `createSourceBudget` ledger before opening it. Archive counters describe requested extents; an injected provider can
 have additional hidden work that it must account separately.
 

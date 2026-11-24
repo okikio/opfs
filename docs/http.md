@@ -29,7 +29,7 @@ semantics follow [RFC 9110](https://www.rfc-editor.org/rfc/rfc9110.html).
 For a server without a strong ETag, `assumeStable: true` explicitly accepts caller-owned consistency. Its source reports
 `stability: "caller"`; this option does not make a mutable URL immutable. Unknown-length and HEAD-unsupported servers
 are outside this source profile. Empty exact reads perform no GET. Reads are bounded by `maxReadBytes` (8 MiB by
-default); compose `budgetSource()` to bound aggregate bytes and requests across archive and encrypted range readers.
+default); compose `limitSource()` to bound aggregate bytes and requests across archive and encrypted range readers.
 
 Replay identity is omitted by default. Query strings can contain both object identity and bearer secrets, so stripping
 them would create collisions and saving them could expose credentials. The optional caller identity must bind the full

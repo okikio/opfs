@@ -1,6 +1,6 @@
 /** Explicit original Glacier vault/archive jobs. This is not an S3 storage-class or filesystem API. @module */
 import { z } from "zod";
-import { hex, hmac, sha256, signingKey } from "../../sigv4.ts";
+import { deriveSigningKey, hex, hmac, sha256 } from "../../sigv4.ts";
 import { isBytes, toView } from "../../bytes.ts";
 import { aggregate, close } from "../../close.ts";
 import { readResponse } from "../../response.ts";
@@ -436,7 +436,7 @@ export class GlacierClient {
       const scope = `${timestamp.slice(0, 8)}/${this.#region}/glacier/aws4_request`;
       const request = [method, canonicalPath(url.pathname), url.search.slice(1), canonical, names.join(";"), payload]
         .join("\n");
-      const key = await signingKey(
+      const key = await deriveSigningKey(
         this.#subtle,
         credentials.secretAccessKey,
         timestamp.slice(0, 8),

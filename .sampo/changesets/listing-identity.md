@@ -11,7 +11,7 @@ the still-populated directory. Select the provider's dialect once; the client, d
 
 ```ts
 import { createS3Client } from "@okikio/opfs/s3";
-import { createS3DriverFromClient } from "@okikio/opfs/driver/s3";
+import { createS3Driver } from "@okikio/opfs/driver/s3";
 import { createObjectAdapter } from "@okikio/opfs/adapter/object";
 import { createFileSystem } from "@okikio/opfs";
 
@@ -22,7 +22,7 @@ const client = createS3Client({
   credentials: { accessKeyId: "your-key", secretAccessKey: "your-secret" },
   listEncoding: "form",
 });
-await using fs = createFileSystem(createObjectAdapter(createS3DriverFromClient(client), { prefix: "app" }));
+await using fs = createFileSystem(createObjectAdapter(createS3Driver(client), { prefix: "app" }));
 await fs.writeFile("/a b", "space");
 await fs.writeFile("/a+b", "plus");
 console.log((await Array.fromAsync(fs.readDir("/"))).map((entry) => entry.name));

@@ -60,7 +60,7 @@ export function getErrorName(error: unknown): string {
  * serializable, so the normalizer recognizes that stable shape and creates a
  * local {@link FileSystemError} without degrading its code to `unknown`.
  */
-function fromForeignFileSystemError(error: unknown): FileSystemError | undefined {
+function fromForeignError(error: unknown): FileSystemError | undefined {
   if (typeof error !== "object" || error === null || getErrorName(error) !== "FileSystemError") return undefined;
   const code = ErrorCodeSchema.safeParse(Reflect.get(error, "code"));
   const operation = Reflect.get(error, "operation");
@@ -78,7 +78,7 @@ function fromForeignFileSystemError(error: unknown): FileSystemError | undefined
 }
 
 /** Returns a runtime error code such as `ENOENT` when one is exposed. */
-function getRuntimeErrorCode(error: unknown): string | undefined {
+function getRuntimeCode(error: unknown): string | undefined {
   if (typeof error !== "object" || error === null || !("code" in error)) return undefined;
   const code = Reflect.get(error, "code");
   return typeof code === "string" ? code : undefined;
@@ -120,11 +120,11 @@ export function toFileSystemError(error: unknown, operation: string, path?: stri
     const mapped = toFileSystemError(primary.reason, operation, path);
     return new FileSystemError(mapped.code, mapped.operation, mapped.path, mapped.message, error);
   }
-  const foreign = fromForeignFileSystemError(error);
+  const foreign = fromForeignError(error);
   if (foreign !== undefined) return foreign;
 
   const name = getErrorName(error);
-  const runtimeCode = getRuntimeErrorCode(error);
+  const runtimeCode = getRuntimeCode(error);
   let code: FileSystemError["code"] = "unknown";
   switch (runtimeCode ?? name) {
     case "AbortError":

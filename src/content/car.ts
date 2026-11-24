@@ -1,5 +1,5 @@
 /** CAR v1 block locations and independently verified block reads; no DAG traversal. @module */
-import { budgetSource, createSourceBudget } from "../source.ts";
+import { createSourceBudget, limitSource } from "../source.ts";
 import type { ByteSourceType, SourceBudgetType, SourceReadOptionsType } from "../source.ts";
 import { MAX_CID_BYTES, parseCid, readCid, readUnsigned, verifyBlock } from "./cid.ts";
 
@@ -111,7 +111,7 @@ export async function openCar(source: ByteSourceType, options: CarOptionsType = 
     throw new RangeError("CAR source size exceeds its archive limit or is empty.");
   }
   const budget = options.budget ?? createSourceBudget({ maxBytes: 64 * 1024 * 1024, maxRequests: 300000 });
-  const input = budgetSource(source, budget);
+  const input = limitSource(source, budget);
   const readOptions = signal === undefined ? {} : { signal };
   const prefix = async (offset: number): Promise<{ readonly value: number; readonly length: number }> =>
     readUnsigned(await input.read(offset, Math.min(8, input.size - offset), readOptions));

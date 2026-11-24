@@ -42,7 +42,7 @@ extent can expand into much more data.
 ```ts
 import { createGcsClient } from "@okikio/opfs/gcs";
 import type { FetchType } from "@okikio/opfs/request";
-import { budgetSource, createSourceBudget, openObjectSource } from "@okikio/opfs/source";
+import { createSourceBudget, limitSource, openObjectSource } from "@okikio/opfs/source";
 import { openZip } from "@okikio/opfs/archive/zip";
 
 // The application supplies and refreshes this token. No environment is consulted.
@@ -56,7 +56,7 @@ export async function preview(
   const request = signal === undefined ? {} : { signal };
   const client = createGcsClient({ bucket, token, fetch });
   const ledger = createSourceBudget({ maxBytes: 32 * 1024 * 1024, maxRequests: 100 });
-  const source = budgetSource(await openObjectSource(client, key, request), ledger);
+  const source = limitSource(await openObjectSource(client, key, request), ledger);
   const archive = await openZip(source, request);
   const member = archive.entries.find((entry) => entry.kind === "file" && !entry.encrypted);
   if (!member) return null;
@@ -134,7 +134,7 @@ it. Without either, the source omits `identity`: range inspection can still work
 identify it. Matching ETags in two different buckets must never make them the same replay source.
 
 The default maximum per-read allocation is 8 MiB. Increase `maxReadBytes` explicitly for a larger individual directory
-or member request. `budgetSource()` shares physical extent/request admission across readers, including nested readers
+or member request. `limitSource()` shares physical extent/request admission across readers, including nested readers
 that reuse it. Failed requests consume their reserved budget. This ledger does not measure hidden transport work in a
 third-party implementation. Archive readers additionally accept a shared archive ledger for aggregate decoded/output
 work across nested reads; codec-internal allocation remains the codec's responsibility. A 4 KiB output request may

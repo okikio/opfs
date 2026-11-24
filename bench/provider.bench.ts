@@ -12,8 +12,8 @@ import { phase } from "./provider-phase.ts";
 import { createFileSystem } from "../mod.ts";
 import { createObjectAdapter } from "../src/adapter/object.ts";
 import { createAzureClient } from "../src/backend/azure/client.ts";
-import { createAzureDriverFromClient } from "../src/backend/azure/driver.ts";
-import { createS3DriverFromClient } from "../src/backend/s3/driver.ts";
+import { createAzureDriver } from "../src/backend/azure/driver.ts";
+import { createS3Driver } from "../src/backend/s3/driver.ts";
 import { createS3Client } from "../src/backend/s3/client.ts";
 import type { ObjectDriverType } from "../src/driver/object.ts";
 
@@ -67,7 +67,7 @@ const s3 = createS3Client({
   concurrency: 4,
 });
 /** Driver layer exposes the same publication route with backend metadata and planning available. */
-const s3Driver = createS3DriverFromClient(s3);
+const s3Driver = createS3Driver(s3);
 /** Object-adapter layer adds file/directory conflict admission before publication. */
 const s3Adapter = createObjectAdapter(s3Driver, { prefix: `${prefix}/s3-adapter` });
 /** Filesystem facade includes file admission with instrumentation disabled. */
@@ -104,7 +104,7 @@ const azure = createAzureClient({
   concurrency: 4,
 });
 /** Driver layer exposes the Azure publication route with backend metadata and planning available. */
-const azureDriver = createAzureDriverFromClient(azure);
+const azureDriver = createAzureDriver(azure);
 /** Azure object-adapter layer adds file/directory conflict admission before publication. */
 const azureAdapter = createObjectAdapter(azureDriver, { prefix: `${prefix}/azure-adapter` });
 /** Azure facade includes file admission with instrumentation disabled. */
@@ -227,9 +227,7 @@ async function verifyPublicationContracts(): Promise<void> {
         ["Azure", blobs, observedAzure],
       ] as const
     ) {
-      const driver: ObjectDriverType = name === "S3"
-        ? createS3DriverFromClient(project)
-        : createAzureDriverFromClient(blobs);
+      const driver: ObjectDriverType = name === "S3" ? createS3Driver(project) : createAzureDriver(blobs);
       expectReceipt(
         await observer.check(`${name} client acknowledged replace`, () => client.put(key, payload), one),
         payload,

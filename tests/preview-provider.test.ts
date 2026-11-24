@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { URL } from "node:url";
 import { expect } from "@std/expect";
 import { createGcsClient } from "../src/backend/gcs/client.ts";
-import { budgetSource, createSourceBudget, openObjectSource } from "../src/source.ts";
+import { createSourceBudget, limitSource, openObjectSource } from "../src/source.ts";
 import { openZip } from "../src/archive/zip/mod.ts";
 import { createZipAdapter } from "../src/view/zip.ts";
 import { createFileSystem } from "../mod.ts";
@@ -16,7 +16,7 @@ it("uploads to a disposable GCS service and previews selected ZIP bytes through 
   await client.put("preview.zip", input);
   const source = await openObjectSource(client, "preview.zip");
   const ledger = createSourceBudget({ maxBytes: 200_000, maxRequests: 20 });
-  const archive = await openZip(budgetSource(source, ledger));
+  const archive = await openZip(limitSource(source, ledger));
   expect(archive.entries.map((entry) => entry.name)).toEqual(["unrelated.bin", "preview.txt"]);
   const member = archive.entries.find((entry) => entry.name === "preview.txt")!;
   const preview = await archive.read(member.id, { length: 7 });

@@ -5,8 +5,8 @@ import { once } from "node:events";
 import { expect } from "@std/expect";
 import { createS3Client } from "../src/backend/s3/client.ts";
 import { createAzureClient } from "../src/backend/azure/client.ts";
-import { createS3DriverFromClient } from "../src/backend/s3/driver.ts";
-import { createAzureDriverFromClient } from "../src/backend/azure/driver.ts";
+import { createS3Driver } from "../src/backend/s3/driver.ts";
+import { createAzureDriver } from "../src/backend/azure/driver.ts";
 import type { ObjectBackendType, ObjectGetOptionsType } from "../src/driver/object.ts";
 import { withReleases } from "./close.ts";
 import { within } from "./gate.ts";
@@ -87,7 +87,7 @@ for (const provider of ["s3", "azure"] as const) {
               },
               request: { retries: 0 },
             });
-            owners.push(client, createS3DriverFromClient(client));
+            owners.push(client, createS3Driver(client));
           } else {
             const client = createAzureClient({
               endpoint,
@@ -101,7 +101,7 @@ for (const provider of ["s3", "azure"] as const) {
               },
               request: { retries: 0 },
             });
-            owners.push(client, createAzureDriverFromClient(client));
+            owners.push(client, createAzureDriver(client));
           }
           for (const owner of owners) {
             const before = observed.length, authorized = credentials;

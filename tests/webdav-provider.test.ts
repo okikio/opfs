@@ -52,7 +52,7 @@ describe("WsgiDAV Testcontainers native and filesystem profile", () => {
     await expect(source.read(0, 1)).rejects.toMatchObject({ status: 412 });
   });
   it("refuses canonical removal without issuing any request", async () => {
-    const { createWebdavDriverFromClient } = await import("../src/backend/webdav/driver.ts");
+    const { createWebdavDriver } = await import("../src/backend/webdav/driver.ts");
     let calls = 0;
     const observed = createWebdavClient({
       endpoint: fixture.endpoint,
@@ -61,7 +61,7 @@ describe("WsgiDAV Testcontainers native and filesystem profile", () => {
         return fetch(input, init);
       },
     });
-    const driver = createWebdavDriverFromClient(observed);
+    const driver = createWebdavDriver(observed);
     await expect(driver.remove("/native")).rejects.toMatchObject({ code: "not-supported" });
     await expect(driver.remove("/native/one")).rejects.toMatchObject({ code: "not-supported" });
     expect(calls).toBe(0);

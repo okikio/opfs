@@ -209,10 +209,10 @@
     "typeAlias ResponseTextType"
   ],
   "./_sigv4": [
+    "function deriveSigningKey",
     "function hex",
     "function hmac",
-    "function sha256",
-    "function signingKey"
+    "function sha256"
   ],
   "./_stream": [
     "interface ByteReaderType",
@@ -1526,7 +1526,7 @@
     "reference ArchiveLimitsType",
     "reference ArchiveWorkType",
     "reference createArchiveLedger",
-    "function createZarrObjectLedger",
+    "function createZarrLedger",
     "function openZarr",
     "interface ZarrArrayType",
     "interface ZarrLimitsType",
@@ -1588,13 +1588,10 @@
     "interface WritableOptionsType"
   ],
   "./driver/azure": [
-    "interface AzureDriverOptionsType",
-    "function createAzureDriver",
-    "function createAzureDriverFromClient"
+    "function createAzureDriver"
   ],
   "./driver/b2": [
-    "function createB2Driver",
-    "function createB2DriverFromClient"
+    "function createB2Driver"
   ],
   "./driver/bun": [
     "class BunBackend",
@@ -1639,7 +1636,7 @@
     "typeAlias Db0PrimitiveType",
     "interface Db0RowType",
     "interface Db0StatementType",
-    "function getCreateTableSql",
+    "function getTableSql",
     "function getUpsertSql"
   ],
   "./driver/deno": [
@@ -1728,8 +1725,6 @@
   ],
   "./driver/gcs": [
     "function createGcsDriver",
-    "function createGcsDriverFromClient",
-    "interface GcsDriverOptionsType",
     "interface GcsDriverType"
   ],
   "./driver/host": [
@@ -1816,8 +1811,7 @@
     "interface OpfsWritableFileStreamType"
   ],
   "./driver/r2": [
-    "function createR2Driver",
-    "function createR2DriverFromClient"
+    "function createR2Driver"
   ],
   "./driver/record": [
     "function createRecordPlan",
@@ -1842,9 +1836,7 @@
     "interface RxDbRecordJsonSchemaType"
   ],
   "./driver/s3": [
-    "function createS3Driver",
-    "function createS3DriverFromClient",
-    "interface S3DriverOptionsType"
+    "function createS3Driver"
   ],
   "./driver/sqlite": [
     "function createSqliteDriver",
@@ -1853,9 +1845,7 @@
     "interface SqliteStatementType"
   ],
   "./driver/swift": [
-    "function createSwiftDriver",
-    "function createSwiftDriverFromClient",
-    "interface SwiftDriverOptionsType"
+    "function createSwiftDriver"
   ],
   "./driver/unstorage": [
     "function createUnstorageDriver",
@@ -1864,14 +1854,10 @@
   ],
   "./driver/webdav": [
     "function createWebdavDriver",
-    "function createWebdavDriverFromClient",
-    "interface WebdavDriverOptionsType",
     "interface WebdavProjectionOptionsType"
   ],
   "./driver/webhdfs": [
     "function createWebhdfsDriver",
-    "function createWebhdfsDriverFromClient",
-    "interface WebhdfsDriverOptionsType",
     "interface WebhdfsProjectionOptionsType"
   ],
   "./dropbox": [
@@ -2494,11 +2480,11 @@
   ],
   "./source": [
     "function assertExtent",
-    "function budgetSource",
     "interface ByteSourceType",
     "function createBlobSource",
     "function createByteSource",
     "function createSourceBudget",
+    "function limitSource",
     "typeAlias ObjectSourceBackendType",
     "interface ObjectSourceOptionsType",
     "function openObjectSource",

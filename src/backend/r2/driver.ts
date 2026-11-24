@@ -1,11 +1,23 @@
-import { createR2Client, R2_UPLOAD_BYTES } from "./client.ts";
-import type { R2BindingType, R2ClientOptionsType, R2ClientType } from "./client.ts";
+import { R2_UPLOAD_BYTES } from "./client.ts";
+import type { R2ClientType } from "./client.ts";
 import { defineObjectDriver } from "../../driver/object.ts";
 import type { ObjectDriverType } from "../../driver/object.ts";
 import { DriverPlanInputSchema, DriverPlanSchema } from "../../driver/definition.ts";
 
-/** Borrow an R2 client and preserve upload/read budgets separately from existing object size. */
-export function createR2DriverFromClient(client: R2ClientType): ObjectDriverType<R2ClientType> {
+/**
+ * Creates the R2 driver over a Cloudflare R2 binding client that you made.
+ *
+ * The driver borrows the client: closing the driver or a filesystem built on it
+ * leaves the client, its credentials and its transport open, so you can keep
+ * using the client for calls the filesystem does not model. Keeps upload and read budgets apart from the size of objects already stored.
+ *
+ * @example
+ * ```ts
+ * const client = createR2Client(env.BUCKET);
+ * const driver = createR2Driver(client);
+ * ```
+ */
+export function createR2Driver(client: R2ClientType): ObjectDriverType<R2ClientType> {
   return defineObjectDriver(client, {
     name: "r2",
     ownership: "borrowed",
@@ -33,11 +45,4 @@ export function createR2DriverFromClient(client: R2ClientType): ObjectDriverType
       });
     },
   });
-}
-/** No binding acquisition occurs: the caller injects its actual bucket. */
-export function createR2Driver(
-  binding: R2BindingType,
-  options: R2ClientOptionsType = {},
-): ObjectDriverType<R2ClientType> {
-  return createR2DriverFromClient(createR2Client(binding, options));
 }

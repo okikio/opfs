@@ -177,7 +177,7 @@ describe("injected R2 binding contract", () => {
     expect(await client.list({ prefix: "" })).toEqual({ objects: [], prefixes: [], cursor: "opaque+/=" });
   });
   it("keeps upload policies separate from existing readable size and performs no plan IO", () => {
-    const driver = createR2Driver(binding(), { maxUploadBytes: 2 });
+    const driver = createR2Driver(createR2Client(binding(), { maxUploadBytes: 2 }));
     expect(driver.plan({ operation: "write", size: 3 }).supported).toBe(false);
     expect(driver.plan({ operation: "read", size: 3 }).supported).toBe(true);
     expect(driver.capabilities.streamWrite).toBe(false);

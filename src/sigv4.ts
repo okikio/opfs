@@ -18,7 +18,7 @@ export async function hmac(subtle: SubtleCrypto, key: BufferSource, value: strin
 }
 
 /** Service is explicit so an S3 signing key cannot accidentally authorize Glacier. */
-export async function signingKey(
+export async function deriveSigningKey(
   subtle: SubtleCrypto,
   secret: string,
   date: string,

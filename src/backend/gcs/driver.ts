@@ -1,11 +1,8 @@
-import { createGcsClient, GCS_CHUNK_BYTES, GCS_MAX_BYTES } from "./client.ts";
-import type { GcsClientOptionsType, GcsClientType } from "./client.ts";
+import { GCS_CHUNK_BYTES, GCS_MAX_BYTES } from "./client.ts";
+import type { GcsClientType } from "./client.ts";
 import type { DriverOwnershipType } from "../../schema/mod.ts";
 import { defineObjectDriver } from "../../driver/object.ts";
 import type { ObjectDriverType } from "../../driver/object.ts";
-
-/** Explicit native GCS client configuration reused by its driver. */
-export interface GcsDriverOptionsType extends GcsClientOptionsType {}
 
 /** Native GCS metadata and conditions remain visible alongside portable driver inspection. */
 export interface GcsDriverType
@@ -41,12 +38,19 @@ function createDriver(client: GcsClientType, ownership: DriverOwnershipType): Gc
   };
 }
 
-/** Creates a GCS client and attaches native driver metadata without connecting on import. */
-export function createGcsDriver(options: GcsDriverOptionsType): GcsDriverType {
-  return createDriver(createGcsClient(options), "owned");
-}
-
-/** Borrows a caller-configured GCS client; closing a filesystem does not own its credentials. */
-export function createGcsDriverFromClient(client: GcsClientType): GcsDriverType {
+/**
+ * Creates the Gcs driver over a Google Cloud Storage client that you made.
+ *
+ * The driver borrows the client: closing the driver or a filesystem built on it
+ * leaves the client, its credentials and its transport open, so you can keep
+ * using the client for calls the filesystem does not model. Keeps GCS generations and preconditions visible next to the portable driver methods.
+ *
+ * @example
+ * ```ts
+ * const client = createGcsClient({ bucket, token });
+ * const driver = createGcsDriver(client);
+ * ```
+ */
+export function createGcsDriver(client: GcsClientType): GcsDriverType {
   return createDriver(client, "borrowed");
 }

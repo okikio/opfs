@@ -9,8 +9,8 @@ import { parse } from "@std/xml/parse";
 import { createFileSystem } from "../mod.ts";
 import { createObjectAdapter } from "../src/adapter/object.ts";
 import { type AzureClientOptionsType, createAzureClient } from "../src/backend/azure/client.ts";
-import { createAzureDriverFromClient } from "../src/backend/azure/driver.ts";
-import { createS3DriverFromClient } from "../src/backend/s3/driver.ts";
+import { createAzureDriver } from "../src/backend/azure/driver.ts";
+import { createS3Driver } from "../src/backend/s3/driver.ts";
 import { createS3Client, type S3ClientOptionsType } from "../src/backend/s3/client.ts";
 import {
   AZURE_ACCOUNT,
@@ -183,7 +183,7 @@ describe("Testcontainers-backed object providers", () => {
   it("keeps spaces, literal plus and percent keys distinct through real S3 listing and recursive removal", async () => {
     const prefix = getPrefix("listing");
     const client = getS3Client();
-    const fs = createFileSystem(createObjectAdapter(createS3DriverFromClient(client), { prefix }), {
+    const fs = createFileSystem(createObjectAdapter(createS3Driver(client), { prefix }), {
       coordination: "local",
     });
     await withReleases(async (releases) => {
@@ -220,8 +220,8 @@ describe("Testcontainers-backed object providers", () => {
     it(`preserves filesystem byte/range semantics over the real ${provider} service`, async () => {
       if (provider === "azure") await ensureAzureContainer();
       const driver: ObjectDriverType = provider === "s3"
-        ? createS3DriverFromClient(getS3Client())
-        : createAzureDriverFromClient(getAzureClient());
+        ? createS3Driver(getS3Client())
+        : createAzureDriver(getAzureClient());
       const prefix = getPrefix(provider);
       const fileSystem = createFileSystem(createObjectAdapter(driver, { prefix }), {
         coordination: "local",
@@ -395,7 +395,7 @@ describe("Testcontainers-backed object providers", () => {
         const page = await client.list({ prefix: `${prefix}/`, delimiter: "/" });
         expect(page.objects.some((entry) => entry.key === basic)).toBe(true);
 
-        const fileSystem = createFileSystem(createObjectAdapter(createS3DriverFromClient(client), { prefix }), {
+        const fileSystem = createFileSystem(createObjectAdapter(createS3Driver(client), { prefix }), {
           coordination: "none",
         });
         try {
@@ -448,7 +448,7 @@ describe("Testcontainers-backed object providers", () => {
         const page = await client.list({ prefix: `${prefix}/`, delimiter: "/" });
         expect(page.objects.some((entry) => entry.key === basic)).toBe(true);
 
-        const fileSystem = createFileSystem(createObjectAdapter(createAzureDriverFromClient(client), { prefix }), {
+        const fileSystem = createFileSystem(createObjectAdapter(createAzureDriver(client), { prefix }), {
           coordination: "none",
         });
         try {

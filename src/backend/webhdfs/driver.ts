@@ -1,6 +1,6 @@
 /** Conservative file projection of native WebHDFS; mkdir and rename retain client-only semantics. @module */
-import { createWebhdfsClient, WebhdfsError, WebhdfsRejectionError } from "./client.ts";
-import type { WebhdfsClientOptionsType, WebhdfsClientType } from "./client.ts";
+import { WebhdfsError, WebhdfsRejectionError } from "./client.ts";
+import type { WebhdfsClientType } from "./client.ts";
 import { defineFileDriver } from "../../driver/file.ts";
 import type { FileBackendType, FileDriverType } from "../../driver/file.ts";
 import type { DriverPlanInputType, DriverPlanType } from "../../driver/definition.ts";
@@ -14,9 +14,6 @@ import type { PathType } from "../../path.ts";
 export interface WebhdfsProjectionOptionsType {
   readonly maxBufferedReadBytes?: number;
 }
-/** Creates a native client and file projection without probing or discovering credentials. */
-export interface WebhdfsDriverOptionsType extends WebhdfsClientOptionsType, WebhdfsProjectionOptionsType {}
-
 /** Status mapping preserves native/cleanup causes; unknown publication remains distinguishable. */
 async function translated<Value>(operation: string, path: PathType, action: () => Promise<Value>): Promise<Value> {
   try {
@@ -74,8 +71,20 @@ function admission(input: DriverPlanInputType): DriverPlanType {
   };
 }
 
-/** Borrows a configured client. Closing the filesystem does not close its credentials or transport. */
-export function createWebhdfsDriverFromClient(
+/**
+ * Creates the Webhdfs driver over a WebHDFS client that you made.
+ *
+ * The driver borrows the client: closing the driver or a filesystem built on it
+ * leaves the client, its credentials and its transport open, so you can keep
+ * using the client for calls the filesystem does not model. Buffered reads stop at `maxBufferedReadBytes` (default 8 MiB).
+ *
+ * @example
+ * ```ts
+ * const client = createWebhdfsClient({ endpoint, dataOrigins });
+ * const driver = createWebhdfsDriver(client, { maxBufferedReadBytes: 16 * 1024 * 1024 });
+ * ```
+ */
+export function createWebhdfsDriver(
   client: WebhdfsClientType,
   options: WebhdfsProjectionOptionsType = {},
 ): FileDriverType {
@@ -183,9 +192,4 @@ export function createWebhdfsDriverFromClient(
     requirements: [{ code: "webhdfs-liststatus-batch", state: "unknown" }],
     limits: [{ code: "buffered-read-bytes", kind: "policy", source: "user", unit: "bytes", value: maximum }],
   });
-}
-
-/** Creates an import-safe native client and the conservative projection. */
-export function createWebhdfsDriver(options: WebhdfsDriverOptionsType): FileDriverType {
-  return createWebhdfsDriverFromClient(createWebhdfsClient(options), options);
 }

@@ -440,7 +440,7 @@ or consistency rules.
 
 The S3 client owns REST, SigV4, request policy, multipart operations, copy, listing, and protocol errors.
 
-`createS3Driver(options)` constructs a client from provider settings; `createS3DriverFromClient(client)` adds backend
+`createS3Driver(options)` constructs a client from provider settings; `createS3Driver(client)` adds backend
 capability/limit/optimization inspection to an existing client. `createS3Adapter(client)` translates object keys and
 directory prefixes into filesystem primitives. Use `createObjectAdapter(driver)` when composing an existing object
 driver explicitly.
@@ -452,10 +452,10 @@ See `s3.md`.
 
 The Azure client owns Blob REST, authentication, block upload, server-side copy, listing, and provider errors.
 
-`createAzureDriver(options)` constructs a client from provider settings; `createAzureDriverFromClient(client)` adds
-backend inspection to an existing client. `createAzureAdapter(client)` supplies filesystem translation. Block upload and
-server copy are independently disableable. Azure metadata is validated before provider I/O, and the shared object
-adapter uses the Azure-compatible `okikio_opfs_kind` key for private directory markers. See `azure.md`.
+`createAzureDriver(options)` constructs a client from provider settings; `createAzureDriver(client)` adds backend
+inspection to an existing client. `createAzureAdapter(client)` supplies filesystem translation. Block upload and server
+copy are independently disableable. Azure metadata is validated before provider I/O, and the shared object adapter uses
+the Azure-compatible `okikio_opfs_kind` key for private directory markers. See `azure.md`.
 
 ## Adapter contract
 

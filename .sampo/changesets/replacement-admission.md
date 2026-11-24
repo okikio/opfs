@@ -29,7 +29,7 @@ named environment variables before running it with environment and network permi
 ```ts
 import { createFileSystem } from "@okikio/opfs";
 import { createS3Client } from "@okikio/opfs/s3";
-import { createS3DriverFromClient } from "@okikio/opfs/driver/s3";
+import { createS3Driver } from "@okikio/opfs/driver/s3";
 import { createObjectAdapter } from "@okikio/opfs/adapter/object";
 
 function required(name: string): string {
@@ -47,7 +47,7 @@ const client = createS3Client({
     secretAccessKey: required("AWS_SECRET_ACCESS_KEY"),
   },
 });
-await using fs = createFileSystem(createObjectAdapter(createS3DriverFromClient(client)));
+await using fs = createFileSystem(createObjectAdapter(createS3Driver(client)));
 const bytes = new TextEncoder().encode("new report");
 await fs.writeFile("/report.bin", bytes);
 console.log(new TextDecoder().decode(await fs.readFile("/report.bin")));

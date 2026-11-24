@@ -545,11 +545,11 @@ class ObjectAdapter<Backend extends ObjectBackendType = ObjectBackendType> imple
  * ```ts
  * import { createFileSystem } from "@okikio/opfs";
  * import { createObjectAdapter } from "@okikio/opfs/adapter/object";
- * import { createS3DriverFromClient } from "@okikio/opfs/driver/s3";
+ * import { createS3Driver } from "@okikio/opfs/driver/s3";
  * import type { S3ClientType } from "@okikio/opfs/s3";
  *
  * export async function saveState(client: S3ClientType): Promise<void> {
- *   const driver = createS3DriverFromClient(client);
+ *   const driver = createS3Driver(client);
  *   const adapter = createObjectAdapter(driver, { prefix: "app", disposeDriver: true });
  *   await using files = createFileSystem(adapter, { disposeAdapter: true });
  *   await files.writeFile("/state.json", "{}", { parents: true });

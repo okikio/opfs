@@ -48,7 +48,7 @@ function accessor(value: object, name: PropertyKey): (() => unknown) | undefined
  * without correlation. A branded receiver is established by native acquisition
  * for private delivery, and by the independent closed receipt for closed/read.
  */
-function dataMethod(reader: object, name: PropertyKey, method: object, expected: object = nativeReader): boolean {
+function isNativeMethod(reader: object, name: PropertyKey, method: object, expected: object = nativeReader): boolean {
   const own = Object.getOwnPropertyDescriptor(reader, name);
   if (own !== undefined) return Object.hasOwn(own, "value") && own.value === method;
   const prototype = Object.getPrototypeOf(reader);
@@ -72,7 +72,7 @@ type OutcomeType<Value> = { readonly ok: true; readonly value: Value } | {
 };
 
 /** Observes both outcomes immediately without using reason identity as authority. */
-function outcome<Value>(pending: PromiseLike<Value>): Promise<OutcomeType<Value>> {
+function settle<Value>(pending: PromiseLike<Value>): Promise<OutcomeType<Value>> {
   return Promise.resolve(pending).then(
     (value) => ({ ok: true, value }),
     (reason: unknown) => ({ ok: false, reason }),
@@ -132,7 +132,7 @@ class AsyncIterableByteSource implements UnderlyingDefaultSource<Uint8Array> {
     let next: IteratorResult<Uint8Array>;
     try {
       const reading = Promise.withResolvers<IteratorResult<Uint8Array>>();
-      this.#pending = outcome(reading.promise);
+      this.#pending = settle(reading.promise);
       void this.#read().then(reading.resolve, reading.reject);
       const pending = await this.#pending;
       if (!pending.ok) throw pending.reason;
@@ -181,7 +181,7 @@ class AsyncIterableByteSource implements UnderlyingDefaultSource<Uint8Array> {
 
   /** An arbitrary pending iterator next/return has no invented interruption capability. */
   #retire(primary: readonly unknown[] = [], readObserved = false): Promise<OutcomeType<void>> {
-    return this.#retirement ??= outcome(
+    return this.#retirement ??= settle(
       Promise.resolve().then(() =>
         close([
           () => this.#iterator.return?.(),
@@ -405,7 +405,7 @@ class AbortByteSource implements UnderlyingDefaultSource<Uint8Array> {
       // inside this owner's rollback transaction, before a source pull.
       const closed = this.#reader.closed;
       const acquired = reads.get(this.#reader);
-      const declared = dataMethod(closed, "then", nativeThen, nativePromise);
+      const declared = isNativeMethod(closed, "then", nativeThen, nativePromise);
       if (!declared && acquired !== undefined) acquired.eligible = false;
       const then = closed.then;
       const receipt = acquired?.closed;
@@ -445,7 +445,7 @@ class AbortByteSource implements UnderlyingDefaultSource<Uint8Array> {
     const then: unknown = Reflect.get(operation, "then");
     if (typeof then !== "function") return;
     const pending = Promise.withResolvers<unknown>();
-    const receipt = { outcome: outcome(pending.promise), observed: false };
+    const receipt = { outcome: settle(pending.promise), observed: false };
     this.#registration = receipt;
     void receipt.outcome.then((result) => {
       if (!result.ok && this.#retirement === undefined) {
@@ -487,7 +487,7 @@ class AbortByteSource implements UnderlyingDefaultSource<Uint8Array> {
     }
     let next: OutcomeType<ReadableStreamReadResult<Uint8Array>>;
     try {
-      this.#pending = outcome(this.#reader.read()).then((result) => {
+      this.#pending = settle(this.#reader.read()).then((result) => {
         this.#readNative = reads.get(this.#reader)?.native ?? false;
         return result;
       });
@@ -577,7 +577,7 @@ class AbortByteSource implements UnderlyingDefaultSource<Uint8Array> {
     const upstream = bound && this.#upstream !== undefined && this.#upstream.#stopping() ? this.#upstream : undefined;
     // Defer effects until the cached outcome exists, including reentrant setup
     // and synchronous observers. Never await this owner's active pull here.
-    this.#retirement = outcome(
+    this.#retirement = settle(
       Promise.resolve().then(async () => {
         let joined: OutcomeType<void> | undefined;
         if (upstream !== undefined) {
@@ -738,7 +738,7 @@ export function openBytes(source: ReadableStream<Uint8Array>): ByteReaderType {
       let next: Awaited<ReturnType<typeof reader.read>>;
       try {
         receipt.native = false;
-        const declared = dataMethod(reader, "read", nativeRead);
+        const declared = isNativeMethod(reader, "read", nativeRead);
         if (!declared) receipt.eligible = false;
         const read = reader.read;
         native = receipt.eligible && declared && read === nativeRead;
@@ -758,7 +758,7 @@ export function openBytes(source: ReadableStream<Uint8Array>): ByteReaderType {
     async cancel(reason) {
       let native = false;
       try {
-        const declared = dataMethod(reader, "cancel", nativeCancel);
+        const declared = isNativeMethod(reader, "cancel", nativeCancel);
         if (!declared) receipt.eligible = false;
         const cancel = reader.cancel;
         native = receipt.eligible && declared && cancel === nativeCancel;

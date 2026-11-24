@@ -5,7 +5,7 @@ import { runInNewContext } from "node:vm";
 import { parse } from "@std/xml/parse";
 
 import { createS3Client, S3_LIMITS, S3CommitError, S3Error } from "../src/backend/s3/client.ts";
-import { createS3Driver, createS3DriverFromClient } from "../src/backend/s3/driver.ts";
+import { createS3Driver } from "../src/backend/s3/driver.ts";
 import { RequestCapture } from "./http.ts";
 import { changeStreamPrototype, streamBytes } from "./stream.ts";
 import { within } from "./gate.ts";
@@ -627,8 +627,8 @@ describe("S3 client", () => {
     };
     const client = createS3Client(options);
 
-    expect(createS3Driver(options).inspect().ownership).toBe("owned");
-    expect(createS3DriverFromClient(client).inspect().ownership).toBe("borrowed");
+    // The driver always borrows: the caller made the client and keeps it.
+    expect(createS3Driver(client).inspect().ownership).toBe("borrowed");
   });
 
   it("creates a deterministic Signature Version 4 request", async () => {

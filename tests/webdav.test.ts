@@ -139,7 +139,7 @@ describe("WebDAV namespace and path admission", () => {
   });
 });
 
-import { createWebdavDriverFromClient } from "../src/backend/webdav/driver.ts";
+import { createWebdavDriver } from "../src/backend/webdav/driver.ts";
 import { createWebdavAdapter } from "../src/backend/webdav/adapter.ts";
 import { createFileSystem } from "../mod.ts";
 
@@ -153,7 +153,7 @@ describe("WebDAV file projection admission", () => {
         throw new Error("No I/O");
       },
     });
-    const driver = createWebdavDriverFromClient(native);
+    const driver = createWebdavDriver(native);
     await expect(driver.writeFile("/one", new Uint8Array(), { mode: "append" })).rejects.toMatchObject({
       code: "not-supported",
     });
@@ -185,7 +185,7 @@ describe("WebDAV file projection admission", () => {
         });
       },
     });
-    const driver = createWebdavDriverFromClient(native, { maxReadBytes: 2 });
+    const driver = createWebdavDriver(native, { maxReadBytes: 2 });
     await expect(driver.readFile("/one")).rejects.toThrow(RangeError);
     expect(gets).toBe(0);
     expect(await driver.readFile("/one", { at: 1, length: 2 })).toEqual(new Uint8Array([2, 3]));
@@ -276,7 +276,7 @@ describe("WebDAV canonical removal refusal", () => {
         throw new Error("No I/O");
       },
     });
-    await expect(createWebdavDriverFromClient(native).remove("/one")).rejects.toMatchObject({ code: "not-supported" });
+    await expect(createWebdavDriver(native).remove("/one")).rejects.toMatchObject({ code: "not-supported" });
     const filesystem = createFileSystem(createWebdavAdapter(native));
     try {
       await expect(filesystem.remove("/one")).rejects.toMatchObject({ code: "not-supported" });

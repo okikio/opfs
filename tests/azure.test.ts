@@ -5,7 +5,7 @@ import { runInNewContext } from "node:vm";
 import { parse } from "@std/xml/parse";
 
 import { AZURE_LIMITS, AzureError, createAzureClient } from "../src/backend/azure/client.ts";
-import { createAzureDriver, createAzureDriverFromClient } from "../src/backend/azure/driver.ts";
+import { createAzureDriver } from "../src/backend/azure/driver.ts";
 import { RequestCapture } from "./http.ts";
 import { changeStreamPrototype, streamBytes } from "./stream.ts";
 import { within } from "./gate.ts";
@@ -503,8 +503,8 @@ describe("Azure Blob client", () => {
     };
     const client = createAzureClient(options);
 
-    expect(createAzureDriver(options).inspect().ownership).toBe("owned");
-    expect(createAzureDriverFromClient(client).inspect().ownership).toBe("borrowed");
+    // The driver always borrows: the caller made the client and keeps it.
+    expect(createAzureDriver(client).inspect().ownership).toBe("borrowed");
   });
 
   it("rejects invalid Azure metadata before provider I/O", async () => {

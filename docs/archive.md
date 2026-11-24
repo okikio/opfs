@@ -139,7 +139,7 @@ opening `ledger` remains authoritative for later reads. A different per-read led
 the same opening ledger again does not charge each event twice. `plan()` checks the remaining local opening allowance
 without reserving it; external ledgers may still refuse execution. Pass the same `createArchiveLedger()` value to every
 nested reader and read to bound aggregate source requests, source extents, decoded bytes and returned bytes.
-Archive-level source extents can include memory rereads; they are not necessarily wire bytes. Share a `budgetSource()`
+Archive-level source extents can include memory rereads; they are not necessarily wire bytes. Share a `limitSource()`
 ledger at the actual transport boundary when physical requests must be bounded separately. Failed attempted work
 consumes admitted reservations; retrying does not restore the aggregate budget. Staging, keys, nesting depth and
 decoder/KDF memory need their own application policy; this API does not implement arbitrary nested format traversal.

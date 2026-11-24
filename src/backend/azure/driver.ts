@@ -1,16 +1,12 @@
-import { type AzureClientOptionsType, type AzureClientType, createAzureClient } from "./client.ts";
-import type { DriverOwnershipType } from "../../schema/mod.ts";
+import { type AzureClientType } from "./client.ts";
 import { defineObjectDriver, type ObjectDriverType } from "../../driver/object.ts";
 
-/** Options for the configured Azure Blob object driver. */
-export interface AzureDriverOptionsType extends AzureClientOptionsType {}
-
 /** Adds backend-driver metadata to one configured Azure Blob protocol client. */
-function createDriver(client: AzureClientType, ownership: DriverOwnershipType): ObjectDriverType<AzureClientType> {
+function createDriver(client: AzureClientType): ObjectDriverType<AzureClientType> {
   const limits = client.limits ?? {};
   return defineObjectDriver(client, {
     name: client.name,
-    ownership,
+    ownership: "borrowed",
     requirements: [{ code: "azure-blob-endpoint", state: "available" }],
     limits: [
       ...(limits.maxFileBytes === undefined ? [] : [{
@@ -64,12 +60,19 @@ function createDriver(client: AzureClientType, ownership: DriverOwnershipType): 
   });
 }
 
-/** Creates an Azure Blob driver from direct protocol-client options. */
-export function createAzureDriver(options: AzureDriverOptionsType): ObjectDriverType<AzureClientType> {
-  return createDriver(createAzureClient(options), "owned");
-}
-
-/** Attaches driver metadata to an already configured Azure Blob client. */
-export function createAzureDriverFromClient(client: AzureClientType): ObjectDriverType<AzureClientType> {
-  return createDriver(client, "borrowed");
+/**
+ * Creates the Azure driver over an Azure Blob client that you made.
+ *
+ * The driver borrows the client: closing the driver or a filesystem built on it
+ * leaves the client, its credentials and its transport open, so you can keep
+ * using the client for calls the filesystem does not model. Adds Azure's block and blob limits to `inspect()`.
+ *
+ * @example
+ * ```ts
+ * const client = createAzureClient({ endpoint, container, credential });
+ * const driver = createAzureDriver(client);
+ * ```
+ */
+export function createAzureDriver(client: AzureClientType): ObjectDriverType<AzureClientType> {
+  return createDriver(client);
 }

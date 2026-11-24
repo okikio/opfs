@@ -96,12 +96,12 @@ prefetch/copies are outside archive-level byte metrics; the adapter must bound i
 | `maxOutputBytes`                    | 16 MiB      | Returned typed bytes plus fill mask                                  |
 
 Opening limits remain cumulative lifetime authorities. A read also has fresh per-operation byte/lookup limits; raising
-them does not raise the opening authority. `createArchiveLedger` and `createZarrObjectLedger` allow explicit aggregate
-owners across readers. Opening owners remain active on all reads; additional read owners compose with them. Passing the
-same owner again does not charge it twice. Reservations are not refunded after later errors. `work` reports one
-operation's actual admitted work, not elapsed time, exact heap usage, network authentication or checksum verification.
-Retained planning strings/objects, JSON objects and typed-array headers add memory beyond payload byte accounting.
-Planning is synchronous and bounded by count/rank/segments; these limits are not hard wall-clock deadlines.
+them does not raise the opening authority. `createArchiveLedger` and `createZarrLedger` allow explicit aggregate owners
+across readers. Opening owners remain active on all reads; additional read owners compose with them. Passing the same
+owner again does not charge it twice. Reservations are not refunded after later errors. `work` reports one operation's
+actual admitted work, not elapsed time, exact heap usage, network authentication or checksum verification. Retained
+planning strings/objects, JSON objects and typed-array headers add memory beyond payload byte accounting. Planning is
+synchronous and bounded by count/rank/segments; these limits are not hard wall-clock deadlines.
 
 Opening options, store method/stability and each acquired source descriptor are captured. Read options are captured at
 invocation. Opening and read abort signals compose: either can refuse the operation, including empty selections.

@@ -714,11 +714,10 @@ delayedMultipart
 signingKeyCache
 ```
 
-The driver paths are:
+The driver takes the client you made and borrows it:
 
 ```ts
-createS3Driver(options);
-createS3DriverFromClient(client);
+createS3Driver(createS3Client(options));
 ```
 
 The convenience adapter is:
@@ -727,7 +726,7 @@ The convenience adapter is:
 createS3Adapter(client, options?);
 ```
 
-For explicit layering, use `createObjectAdapter(createS3DriverFromClient(client))`.
+For explicit layering, use `createObjectAdapter(createS3Driver(client))`.
 
 ### Azure Blob client
 
@@ -750,11 +749,10 @@ blockUpload
 serverCopy
 ```
 
-The driver paths are:
+The driver takes the client you made and borrows it:
 
 ```ts
-createAzureDriver(options);
-createAzureDriverFromClient(client);
+createAzureDriver(createAzureClient(options));
 ```
 
 The convenience adapter is `createAzureAdapter(client, options?)`.

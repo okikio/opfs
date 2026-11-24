@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 import { decodeBase64 } from "@std/encoding/base64";
 import { createBlobSource } from "../src/source.ts";
-import { createArchiveLedger, createZarrObjectLedger, openZarr } from "../src/dataset/zarr.ts";
+import { createArchiveLedger, createZarrLedger, openZarr } from "../src/dataset/zarr.ts";
 import type { ZarrStoreType } from "../src/dataset/zarr.ts";
 import type { ByteSourceType } from "../src/source.ts";
 import fixture from "./fixtures/zarr/independent.json" with { type: "json" };
@@ -129,7 +129,7 @@ describe("bounded Zarr v2 uncompressed arrays", () => {
     expect([...(await present.read({ count: 2 })).values]).toEqual([1, 2]);
   });
   it("charges absent lookups and retains opening/additional authorities without duplicate owner charges", async () => {
-    const ledger = createArchiveLedger(), objects = createZarrObjectLedger(3), calls: string[] = [];
+    const ledger = createArchiveLedger(), objects = createZarrLedger(3), calls: string[] = [];
     const array = await openZarr(store({ ".zarray": meta() }, calls), { ledger, objectLedger: objects });
     const selected = await array.read({ count: 1, ledger, objectLedger: objects });
     expect(objects.inspect()).toBe(2);
