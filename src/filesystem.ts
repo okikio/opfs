@@ -2,7 +2,7 @@ import type { DriverPlanInputType } from "./driver/definition.ts";
 import { validateWritableOptions } from "./driver/writable.ts";
 import type { WritableOptionsType } from "./driver/file.ts";
 import type { AdapterType, FileSystemOptionsType } from "./adapter/definition.ts";
-import type { FileDriverDirectoryEntryType, FileDriverSignalOptionsType } from "./driver/file.ts";
+import type { FileDriverDirectoryEntryType, FileDriverSignalOptionsType, RevisionType } from "./driver/file.ts";
 import { FileSystemError, throwIfAborted, toFileSystemError } from "./error.ts";
 import { close } from "./close.ts";
 import { MutationLocks } from "./lock.ts";
@@ -117,6 +117,12 @@ export interface WriteOptionsType extends SignalOptionsType {
   readonly parents?: boolean;
   /** Media type retained by adapters that persist metadata. */
   readonly mediaType?: string;
+  /**
+   * Replace only the version with this revision, read from {@link FileStatType.revision}. A missing file or a
+   * different revision throws `locked`, and nothing is written. The adapter holds the condition atomically, so this
+   * is a compare-and-swap. An adapter without `capabilities.revisions` throws `not-supported`.
+   */
+  readonly ifRevision?: RevisionType;
 }
 
 /** Options for advisory entry existence checks. */
@@ -218,6 +224,13 @@ export interface FileStatType {
   readonly lastModified: number;
   /** Media type, or an empty string when unknown. */
   readonly mediaType: string;
+  /**
+   * This exact content version, when the backend names versions: an ETag, a generation or a version ID. Pass it
+   * back as `writeFile(path, data, { ifRevision })` to replace only this version; that works where
+   * `inspect().adapter.native.revisions` is true. A backend that reports versions but cannot condition a write, such
+   * as native Backblaze B2, still reports it here, so its client can act on that exact version.
+   */
+  readonly revision?: RevisionType;
 }
 
 /** Portable directory metadata returned by {@link FileSystemType.stat}. */
@@ -246,9 +259,18 @@ export type StatType = FileStatType | DirectoryStatType;
  * The facade owns mutation locks. It does not own the adapter unless
  * `disposeAdapter` was enabled at creation time.
  */
-export interface FileSystemType extends AsyncDisposable {
+export interface FileSystemType<Backend = unknown> extends AsyncDisposable {
   /** Persistence adapter that implements this facade's backend operations. */
-  readonly adapter: AdapterType;
+  readonly adapter: AdapterType<Backend>;
+  /**
+   * The client, database or store behind this filesystem, typed by the adapter that made it, or undefined when its
+   * driver exposes none.
+   *
+   * File work goes through the filesystem methods. Use this for provider operations with no file meaning, where the
+   * adapter has nothing to translate: `fs.backend.deleteVersion(file)` on Backblaze B2, for example. It is the same
+   * object the caller passed in, still owned by the caller.
+   */
+  readonly backend: Backend;
   /** Stable OPFS-shaped handle for the virtual root directory. */
   readonly root: DirectoryHandleType;
   /** Hard limit used before a value-oriented adapter may materialize streamed input. */
@@ -497,9 +519,9 @@ async function* walkChildren(
  * {@link FileSystemType} and create instances through {@link createFileSystem},
  * which keeps adapter selection and lifecycle policy explicit.
  */
-class FileSystemFacade implements FileSystemType {
+class FileSystemFacade<Backend = unknown> implements FileSystemType<Backend> {
   /** Persistence adapter that implements this facade's backend operations. */
-  readonly adapter: AdapterType;
+  readonly adapter: AdapterType<Backend>;
   /** Stable OPFS-shaped handle for the virtual root directory. */
   readonly root: DirectoryHandleType;
   /** Hard limit used before a value-oriented adapter may materialize streamed input. */
@@ -508,6 +530,11 @@ class FileSystemFacade implements FileSystemType {
   readonly optimizations: OptimizationType;
   /** Configured instrumentation detail. */
   readonly metricsMode: MetricsModeType;
+
+  /** The driver's borrowed client, database or store; see {@link FileSystemType.backend}. */
+  get backend(): Backend {
+    return this.adapter.driver.backend as Backend;
+  }
 
   /** Mutable metrics book hidden behind detached public snapshots. */
   readonly #metrics: Metrics;
@@ -521,7 +548,7 @@ class FileSystemFacade implements FileSystemType {
   #closing: Promise<void> | undefined;
 
   /** Acquires facade coordination state while borrowing or owning the selected adapter as configured. */
-  constructor(adapter: AdapterType, options: FileSystemOptionsType) {
+  constructor(adapter: AdapterType<Backend>, options: FileSystemOptionsType) {
     this.adapter = adapter;
     this.maxBufferedWriteBytes = getBufferLimit(options.maxBufferedWriteBytes);
     this.optimizations = getOptimizations(options.optimizations);
@@ -773,6 +800,7 @@ class FileSystemFacade implements FileSystemType {
           size: stat.size,
           lastModified: stat.lastModified,
           mediaType: stat.mediaType,
+          ...(stat.revision === undefined ? {} : { revision: { ...stat.revision } }),
         };
         this.#metrics.record("stat", { support: "native", started });
         return output;
@@ -1041,6 +1069,15 @@ class FileSystemFacade implements FileSystemType {
     }
     const mode = WriteModeSchema.parse(options.mode ?? "replace");
     if (options.at !== undefined) assertNonNegativeInteger(options.at, "at");
+    // Refuse before any lock or source work: an adapter that cannot hold the condition must not write unconditionally.
+    if (options.ifRevision !== undefined && this.adapter.capabilities.revisions !== true) {
+      throw new FileSystemError(
+        "not-supported",
+        "write",
+        normalized,
+        `${this.adapter.name} cannot condition a write on a revision.`,
+      );
+    }
     this.#admit({
       operation: "write",
       path: normalized,
@@ -1083,6 +1120,7 @@ class FileSystemFacade implements FileSystemType {
         ...(options.at === undefined ? {} : { at: options.at }),
         ...(options.truncate === undefined ? {} : { truncate: options.truncate }),
         ...(options.mediaType === undefined ? {} : { mediaType: options.mediaType }),
+        ...(options.ifRevision === undefined ? {} : { ifRevision: { ...options.ifRevision } }),
         ...getAdapterSignalOptions(options.signal),
       };
 
@@ -1851,6 +1889,9 @@ class FileSystemFacade implements FileSystemType {
  * await writable.close();
  * ```
  */
-export function createFileSystem(adapter: AdapterType, options: FileSystemOptionsType = {}): FileSystemType {
+export function createFileSystem<Backend = unknown>(
+  adapter: AdapterType<Backend>,
+  options: FileSystemOptionsType = {},
+): FileSystemType<Backend> {
   return new FileSystemFacade(adapter, options);
 }

@@ -14,7 +14,14 @@ import type {
   FileDriverWriteOptionsType,
 } from "../driver/file.ts";
 
-import type { ObjectDriverType, ObjectListType, ObjectPutOptionsType, ObjectStatType } from "../driver/object.ts";
+import type {
+  ObjectBackendType,
+  ObjectDriverType,
+  ObjectListType,
+  ObjectPutOptionsType,
+  ObjectStatType,
+} from "../driver/object.ts";
+import type { RevisionType } from "../driver/file.ts";
 import { applyWrite } from "../driver/image.ts";
 
 /** Filesystem mapping options for an object store. */
@@ -67,6 +74,17 @@ function childName(parentKey: string, key: string): string | null {
 }
 
 /**
+ * The revision a stat names: the provider's own revision when it reports one, otherwise its ETag.
+ *
+ * Generations and version IDs come through `revision`; an ETag alone is still a usable revision because every
+ * provider here that declares conditional writes accepts `If-Match` with it.
+ */
+function getRevision(stat: ObjectStatType): RevisionType | undefined {
+  if (stat.revision !== undefined) return { ...stat.revision };
+  return stat.etag === undefined ? undefined : { kind: "etag", value: stat.etag };
+}
+
+/**
  * OPFS adapter over one object-store client.
  *
  * Files map to ordinary object keys. Directories use trailing-slash marker
@@ -76,9 +94,9 @@ function childName(parentKey: string, key: string): string | null {
  *
  * The adapter borrows the object client unless `disposeDriver` is true.
  */
-class ObjectAdapter implements AdapterType {
+class ObjectAdapter<Backend extends ObjectBackendType = ObjectBackendType> implements AdapterType<Backend> {
   /** Object service that owns provider I/O and provider-specific semantics. */
-  readonly driver: ObjectDriverType;
+  readonly driver: ObjectDriverType<Backend>;
   readonly publication = {
     copy: "preserve",
     move: "best-effort",
@@ -102,7 +120,7 @@ class ObjectAdapter implements AdapterType {
   readonly limits?: AdapterLimitsType;
 
   /** Creates one adapter without performing network I/O. */
-  constructor(driver: ObjectDriverType, options: ObjectAdapterOptionsType) {
+  constructor(driver: ObjectDriverType<Backend>, options: ObjectAdapterOptionsType) {
     this.driver = driver;
     this.#prefix = normalizePrefix(options.prefix);
     this.#disposeDriver = options.disposeDriver ?? false;
@@ -131,6 +149,8 @@ class ObjectAdapter implements AdapterType {
       positionalWrite: false,
       syncAccess: false,
       validatesReplacement: true,
+      // A revision is only worth reporting when a write can be conditioned on it.
+      revisions: driver.capabilities.conditionalWrite,
     };
   }
 
@@ -237,6 +257,33 @@ class ObjectAdapter implements AdapterType {
     );
   }
 
+  /**
+   * Refuses the write before any upload when the caller's `ifRevision` no longer names the current object.
+   *
+   * The put that follows still carries a fresh precondition from `previous`, so a writer that slips in between
+   * this check and the upload makes the upload fail too; together they hold `ifRevision` atomically.
+   */
+  #expect(path: PathType, previous: ObjectStatType | null, expected: RevisionType | undefined): void {
+    if (expected === undefined) return;
+    if (!this.driver.capabilities.conditionalWrite) {
+      throw new FileSystemError(
+        "not-supported",
+        "write",
+        path,
+        `${this.driver.name} cannot condition a write, so it cannot hold ifRevision.`,
+      );
+    }
+    const current = previous === null ? undefined : getRevision(previous);
+    if (current?.kind !== expected.kind || current.value !== expected.value) {
+      throw new FileSystemError(
+        "locked",
+        "write",
+        path,
+        previous === null ? `'${path}' no longer exists.` : `'${path}' changed since the expected revision.`,
+      );
+    }
+  }
+
   /** One fresh exact-object precondition shared by materialized and streamed replacement. */
   #conditions(path: PathType, previous: ObjectStatType | null): ObjectPutOptionsType {
     if (!this.driver.capabilities.conditionalWrite) return {};
@@ -260,11 +307,13 @@ class ObjectAdapter implements AdapterType {
 
     const file = await this.#getFile(path, options?.signal);
     if (file !== null) {
+      const revision = getRevision(file);
       return {
         kind: "file",
         size: file.size,
         lastModified: file.lastModified ?? 0,
         mediaType: file.mediaType ?? "",
+        ...(revision === undefined ? {} : { revision }),
       };
     }
 
@@ -319,6 +368,7 @@ class ObjectAdapter implements AdapterType {
       throw new FileSystemError("type-mismatch", "write", path, `'${path}' is a directory.`);
     }
 
+    this.#expect(path, previous, options.ifRevision);
     const conditions = this.#conditions(path, previous);
     let next = data;
     if (options.mode !== "replace") {
@@ -359,6 +409,7 @@ class ObjectAdapter implements AdapterType {
     if (previous === null && await this.#getDirectory(path, options.signal)) {
       throw new FileSystemError("type-mismatch", "write", path, `'${path}' is a directory.`);
     }
+    this.#expect(path, previous, options.ifRevision);
     const conditions = this.#conditions(path, previous);
     throwIfAborted(options.signal, "write", path);
     await this.driver.put(fileKey(this.#prefix, path), source, {
@@ -507,6 +558,9 @@ class ObjectAdapter implements AdapterType {
  * The driver borrows `client`; the caller retains its transport and credential
  * lifecycle when this function closes the filesystem and adapter.
  */
-export function createObjectAdapter(driver: ObjectDriverType, options: ObjectAdapterOptionsType = {}): AdapterType {
+export function createObjectAdapter<Backend extends ObjectBackendType = ObjectBackendType>(
+  driver: ObjectDriverType<Backend>,
+  options: ObjectAdapterOptionsType = {},
+): AdapterType<Backend> {
   return defineAdapter(new ObjectAdapter(driver, options));
 }

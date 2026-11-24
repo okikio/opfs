@@ -5,7 +5,7 @@ import type { ObjectDriverType } from "../../driver/object.ts";
 import { DriverPlanInputSchema, DriverPlanSchema } from "../../driver/definition.ts";
 
 /** Borrow an R2 client and preserve upload/read budgets separately from existing object size. */
-export function createR2DriverFromClient(client: R2ClientType): ObjectDriverType {
+export function createR2DriverFromClient(client: R2ClientType): ObjectDriverType<R2ClientType> {
   return defineObjectDriver(client, {
     name: "r2",
     ownership: "borrowed",
@@ -35,6 +35,9 @@ export function createR2DriverFromClient(client: R2ClientType): ObjectDriverType
   });
 }
 /** No binding acquisition occurs: the caller injects its actual bucket. */
-export function createR2Driver(binding: R2BindingType, options: R2ClientOptionsType = {}): ObjectDriverType {
+export function createR2Driver(
+  binding: R2BindingType,
+  options: R2ClientOptionsType = {},
+): ObjectDriverType<R2ClientType> {
   return createR2DriverFromClient(createR2Client(binding, options));
 }

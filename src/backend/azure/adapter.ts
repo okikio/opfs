@@ -7,6 +7,9 @@ import { createAzureDriverFromClient } from "./driver.ts";
 export type AzureAdapterOptionsType = ObjectAdapterOptionsType;
 
 /** Creates the OPFS translation over an injected Azure Blob protocol client. */
-export function createAzureAdapter(client: AzureClientType, options: AzureAdapterOptionsType = {}): AdapterType {
+export function createAzureAdapter(
+  client: AzureClientType,
+  options: AzureAdapterOptionsType = {},
+): AdapterType<AzureClientType> {
   return createObjectAdapter(createAzureDriverFromClient(client), options);
 }

@@ -708,3 +708,77 @@ it("bounds provider entry work independently from page work and exposes both lim
   expect(adapter.limits).toMatchObject({ maxListPages: 5, maxListEntries: 1 });
   await expect(Array.fromAsync(adapter.readDir("/"))).rejects.toMatchObject({ code: "too-large" });
 });
+
+describe("object revisions", () => {
+  it("reports the ETag as the revision and replaces only that version", async () => {
+    const { fileSystem } = createObjectFileSystem();
+    await withFileSystem(fileSystem, async () => {
+      expect(fileSystem.inspect().adapter.native.revisions).toBe(true);
+      await fileSystem.writeFile("/settings.json", "one");
+      const first = await fileSystem.stat("/settings.json");
+      expect(first).toMatchObject({ kind: "file", revision: { kind: "etag", value: '"v1"' } });
+      if (first.kind !== "file" || first.revision === undefined) throw new Error("expected a file revision");
+
+      await fileSystem.writeFile("/settings.json", "two", { ifRevision: first.revision });
+      expect(await fileSystem.readText("/settings.json")).toBe("two");
+
+      // The first revision is stale now: the write is refused and the content stays.
+      await expect(fileSystem.writeFile("/settings.json", "three", { ifRevision: first.revision }))
+        .rejects.toMatchObject({ code: "locked" });
+      expect(await fileSystem.readText("/settings.json")).toBe("two");
+      await expect(fileSystem.writeFile("/missing.json", "x", { ifRevision: first.revision }))
+        .rejects.toMatchObject({ code: "locked" });
+      expect(await fileSystem.exists("/missing.json")).toBe(false);
+    });
+  });
+
+  it("fails the upload when another writer lands between the revision check and the put", async () => {
+    const store = new MemoryObjectBackend();
+    const { fileSystem } = createObjectFileSystem(store);
+    await withFileSystem(fileSystem, async () => {
+      await fileSystem.writeFile("/counter", "1");
+      const stat = await fileSystem.stat("/counter");
+      if (stat.kind !== "file" || stat.revision === undefined) throw new Error("expected a file revision");
+      // The adapter reads the current object, then uploads. Another writer slips in after that read.
+      const head = store.head.bind(store);
+      let interleaved = false;
+      store.head = async (key) => {
+        const result = await head(key);
+        if (key === "counter" && !interleaved && result !== null) {
+          interleaved = true;
+          await store.put("counter", new TextEncoder().encode("other"));
+        }
+        return result;
+      };
+      await expect(fileSystem.writeFile("/counter", "2", { ifRevision: stat.revision })).rejects.toThrow();
+      expect(await fileSystem.readText("/counter")).toBe("other");
+    });
+  });
+
+  it("refuses ifRevision where the backend cannot condition a write", async () => {
+    const store = new MemoryObjectBackend();
+    Object.assign(store, { capabilities: { ...store.capabilities, conditionalWrite: false } });
+    const { fileSystem } = createObjectFileSystem(store);
+    await withFileSystem(fileSystem, async () => {
+      expect(fileSystem.inspect().adapter.native.revisions).toBe(false);
+      await fileSystem.writeFile("/a", "one");
+      await expect(fileSystem.writeFile("/a", "two", { ifRevision: { kind: "etag", value: '"v1"' } }))
+        .rejects.toMatchObject({ code: "not-supported" });
+      expect(await fileSystem.readText("/a")).toBe("one");
+    });
+  });
+});
+
+describe("driver backend", () => {
+  it("exposes the borrowed client as fs.backend with the client's own type", async () => {
+    const store = new MemoryObjectBackend();
+    const { fileSystem } = createObjectFileSystem(store);
+    await withFileSystem(fileSystem, async () => {
+      // The annotation is the point: a provider-only method is reachable without a cast.
+      const backend: MemoryObjectBackend = fileSystem.backend;
+      expect(backend).toBe(store);
+      await fileSystem.writeFile("/a", "one");
+      expect(backend.values.has("a")).toBe(true);
+    });
+  });
+});

@@ -111,6 +111,7 @@ export type {
   FileEntryKindType,
   FileEntryType,
   PublicationType,
+  RevisionType,
   WritableInspectionType,
   WritableOptionsType,
 } from "./src/driver/file.ts";

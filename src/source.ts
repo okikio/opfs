@@ -1,5 +1,5 @@
 /** Explicit byte sources for archive access and checkpoint replay. @module */
-import type { ObjectBackendType, ObjectRevisionType } from "./driver/object.ts";
+import type { ObjectBackendType, RevisionType } from "./driver/object.ts";
 import { close } from "./close.ts";
 import { isBytes, toView } from "./bytes.ts";
 
@@ -235,7 +235,7 @@ export async function openObjectSource(
   // Only one strong opaque tag binds a representation. '*' tests existence and
   // a comma-separated list permits several versions; neither is a snapshot.
   const strongETag = (value: string) => /^"[\x21\x23-\x7e\x80-\xff]*"$/.test(value);
-  const revision: ObjectRevisionType | undefined = stat.revision === undefined
+  const revision: RevisionType | undefined = stat.revision === undefined
     ? stat.etag === undefined || !strongETag(stat.etag) ? undefined : { kind: "etag", value: stat.etag }
     : { ...stat.revision };
   if (

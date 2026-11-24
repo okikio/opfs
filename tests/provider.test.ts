@@ -1,4 +1,5 @@
 import { after, before, describe, it } from "node:test";
+import type { ObjectDriverType } from "../src/driver/object.ts";
 import { close, withReleases } from "./close.ts";
 import { isCancellation, isPart, settle } from "./provider-operation.ts";
 import { expect } from "@std/expect";
@@ -218,7 +219,7 @@ describe("Testcontainers-backed object providers", () => {
   for (const provider of ["s3", "azure"] as const) {
     it(`preserves filesystem byte/range semantics over the real ${provider} service`, async () => {
       if (provider === "azure") await ensureAzureContainer();
-      const driver = provider === "s3"
+      const driver: ObjectDriverType = provider === "s3"
         ? createS3DriverFromClient(getS3Client())
         : createAzureDriverFromClient(getAzureClient());
       const prefix = getPrefix(provider);

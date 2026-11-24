@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import type { AdapterLimitsType } from "../schema/mod.ts";
+import type { RevisionType } from "./file.ts";
 import {
   defineDriver,
   type DefineDriverOptionsType,
@@ -33,11 +34,7 @@ export const ObjectDriverCapabilitiesSchema: z.ZodType<ObjectDriverCapabilitiesT
 /** A validated native object-driver capability description. */
 export type ObjectDriverCapabilitiesType = import("../schema/types.ts").ObjectDriverCapabilitiesType;
 
-/** Provider-specific precondition. Generations and immutable version IDs remain strings, separate from ETags. */
-export type ObjectRevisionType =
-  | { readonly kind: "etag"; readonly value: string }
-  | { readonly kind: "generation"; readonly value: string }
-  | { readonly kind: "version"; readonly value: string };
+export type { RevisionType } from "./file.ts";
 
 /** Portable object metadata returned by {@link ObjectBackendType.head}. */
 export interface ObjectStatType {
@@ -50,7 +47,7 @@ export interface ObjectStatType {
   /** Entity tag; provider generations must not be stored here. */
   readonly etag?: string;
   /** Native conditional revision when ETag write conditions do not express it. */
-  readonly revision?: ObjectRevisionType;
+  readonly revision?: RevisionType;
   /** Provider version identifier when versioning is enabled. */
   readonly version?: string;
   /** Provider metadata retained with the object when available. */
@@ -89,7 +86,7 @@ export interface ObjectListType {
 /** Options for one object GET. */
 export interface ObjectGetOptionsType {
   /** Binds reads to the specified provider revision. Unsupported kinds must reject before I/O. */
-  readonly revision?: ObjectRevisionType;
+  readonly revision?: RevisionType;
   /** Zero-based byte offset. */
   readonly at?: number;
   /** Maximum bytes to return. */
@@ -101,7 +98,7 @@ export interface ObjectGetOptionsType {
 /** Options for one object PUT. */
 export interface ObjectPutOptionsType {
   /** Native destination revision condition, distinct from the ETag-only ifMatch field. */
-  readonly revision?: ObjectRevisionType;
+  readonly revision?: RevisionType;
   /** Media type retained with the object when the provider supports it. */
   readonly mediaType?: string;
   /** Provider metadata stored with the object when supported. */
@@ -119,9 +116,9 @@ export interface ObjectPutOptionsType {
 /** Options for one provider-side object copy. */
 export interface ObjectCopyOptionsType {
   /** Native destination revision condition. */
-  readonly revision?: ObjectRevisionType;
+  readonly revision?: RevisionType;
   /** Native source revision condition. */
-  readonly sourceRevision?: ObjectRevisionType;
+  readonly sourceRevision?: RevisionType;
   /** Conditional precondition on the destination object. */
   readonly ifMatch?: string;
   /** Destination precondition that rejects matching objects. */
@@ -141,7 +138,7 @@ export interface ObjectCopyOptionsType {
 /** Delete admission that can prevent removal of a concurrent replacement. */
 export interface ObjectDeleteOptionsType {
   /** Removes only a matching native revision. */
-  readonly revision?: ObjectRevisionType;
+  readonly revision?: RevisionType;
   /** Stops provider work. */
   readonly signal?: AbortSignal;
 }
@@ -203,7 +200,8 @@ export interface ObjectBackendType {
  * The driver keeps object semantics visible even when an adapter later projects
  * those objects into a hierarchical filesystem view.
  */
-export interface ObjectDriverType extends DriverType, Omit<ObjectBackendType, "limits"> {
+export interface ObjectDriverType<Backend extends ObjectBackendType = ObjectBackendType>
+  extends DriverType<Backend>, Omit<ObjectBackendType, "limits"> {
   readonly kind: "object";
   /** Native object-store behaviors the backend can expose directly. */
   readonly capabilities: ObjectDriverCapabilitiesType;
@@ -261,10 +259,10 @@ function createObjectPlan(base: DriverType, input: DriverPlanInputType): DriverP
  * });
  * ```
  */
-export function defineObjectDriver(
-  backend: ObjectBackendType,
+export function defineObjectDriver<Backend extends ObjectBackendType>(
+  backend: Backend,
   options: DefineObjectDriverOptionsType,
-): ObjectDriverType {
+): ObjectDriverType<Backend> {
   options = { ...options }; // Callbacks and policy flags belong to this configured instance.
   const capabilities = ObjectDriverCapabilitiesSchema.parse({
     rangeRead: backend.capabilities.rangeRead,
@@ -277,8 +275,10 @@ export function defineObjectDriver(
     versions: backend.capabilities.versions ?? false,
   });
 
-  const base = defineDriver({
+  const base: DriverType<Backend> = defineDriver<Backend>({
     ...options,
+    // The client stays reachable for provider operations that have no file meaning.
+    backend,
     name: options.name || backend.name,
     kind: "object",
     provides: options.provides ?? [

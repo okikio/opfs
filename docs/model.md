@@ -152,8 +152,9 @@ The package takes a third route with three channels:
 | Open values in the contract    | Provider values that the adapter passes through without reading | The revision `{ kind: "version", value: fileId }` on every object stat |
 | The client, kept by the caller | Everything with no file meaning                                 | `client.getFileInfo(fileId)`, `client.deleteVersion(file)`             |
 
-The client is borrowed, never owned, by the driver and the adapter. You create it, so you keep it, and the filesystem
-never takes it away:
+The client is borrowed, never owned, by the driver and the adapter. The filesystem hands it back as `fs.backend`, with
+the client's own type, so a provider-only operation needs no second variable and no cast. A revision is part of every
+file stat, so the client can act on the exact version the filesystem saw:
 
 ```ts
 import { authorizeB2, createB2Client } from "@okikio/opfs/b2";
@@ -176,23 +177,29 @@ await using fs = createFileSystem(createB2Adapter(client), { coordination: "loca
 // File work goes through the filesystem.
 await fs.writeFile("/reports/q3.csv", "quarter,total\nq3,42\n", { parents: true });
 
-// Version work goes through the same client. remove() would only hide the name; this deletes one version for good.
-const head = await client.head("reports/q3.csv");
-if (head?.revision?.kind === "version") {
-  await client.deleteVersion(await client.getFileInfo(head.revision.value));
+// Version work goes through the client. remove() would only hide the name; this deletes one version for good.
+const stat = await fs.stat("/reports/q3.csv");
+if (stat.kind === "file" && stat.revision?.kind === "version") {
+  await fs.backend.deleteVersion(await fs.backend.getFileInfo(stat.revision.value));
 }
 ```
 
-Two gaps remain, and both are worth deciding on:
-
-- **Revisions stop at the adapter.** `FileStatType` has no revision field, so a caller of `fs.stat()` cannot see an S3
-  ETag, a GCS generation or a B2 file ID, even though most object stores report one. Revisions have a clear file
-  meaning, "this exact content", so they are a good candidate to promote into the shared contract as an optional field.
-- **No typed path from a filesystem to its driver.** You must keep the client yourself. `fs.inspect()` reports the
-  driver's name, capabilities and limits, not its methods.
-
 The rule that follows: promote a provider feature into the shared contract when several backends have it and it has a
-file meaning. Keep everything else on the client.
+file meaning. Revisions met that rule: S3, Azure, R2 and GCS report ETags or generations, and B2 reports version IDs. So
+`fs.stat()` returns them, and where the backend can condition a write, `writeFile(path, data, { ifRevision })` replaces
+only that exact version:
+
+```ts
+const settings = await fs.stat("/settings.json");
+if (settings.kind === "file" && settings.revision) {
+  // Throws `locked`, and writes nothing, when another writer changed the file since the stat.
+  await fs.writeFile("/settings.json", next, { ifRevision: settings.revision });
+}
+```
+
+That compare-and-swap works where `fs.inspect().adapter.native.revisions` is true: today S3, Azure, GCS and R2. Native
+B2, Swift and Cloudflare KV cannot condition a write, so they report revisions but refuse `ifRevision` with
+`not-supported` rather than write unconditionally. Everything with no file meaning stays on `fs.backend`.
 
 ## Follow one S3 write through every layer
 

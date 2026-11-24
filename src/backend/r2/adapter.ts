@@ -34,7 +34,7 @@ async function translated<Value>(operation: string, path: PathType, action: () =
 }
 
 /** Projects a borrowed R2 client through its driver and the generic object adapter. */
-export function createR2Adapter(client: R2ClientType, options: R2AdapterOptionsType = {}): AdapterType {
+export function createR2Adapter(client: R2ClientType, options: R2AdapterOptionsType = {}): AdapterType<R2ClientType> {
   const adapter = createObjectAdapter(createR2DriverFromClient(client), options);
   return {
     name: adapter.name,

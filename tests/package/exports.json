@@ -98,6 +98,7 @@
     "interface RemoveOptionsType",
     "reference RequirementStateType",
     "reference RequirementType",
+    "reference RevisionType",
     "interface SignalOptionsType",
     "typeAlias StatType",
     "reference SupportModeType",
@@ -1652,6 +1653,7 @@
     "typeAlias FileEntryKindType",
     "interface FileEntryType",
     "interface PublicationType",
+    "typeAlias RevisionType",
     "reference WritableInspectionType",
     "reference WritableOptionsType"
   ],
@@ -1733,8 +1735,8 @@
     "interface ObjectListType",
     "interface ObjectPutOptionsType",
     "interface ObjectReceiptType",
-    "typeAlias ObjectRevisionType",
-    "interface ObjectStatType"
+    "interface ObjectStatType",
+    "reference RevisionType"
   ],
   "./driver/opfs": [
     "function createOpfsDriver",

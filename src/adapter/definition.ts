@@ -49,11 +49,11 @@ import type {
  * Adapter capabilities describe actual routes; `FileSystemType` separately
  * decides which missing routes can be emulated within the caller's policy.
  */
-export interface AdapterType {
+export interface AdapterType<Backend = unknown> {
   /** Stable translation name such as `opfs`, `record`, or `object`. */
   readonly name: string;
-  /** Backend driver that owns persistence mechanics and provider lifecycle. */
-  readonly driver: DriverType;
+  /** Backend driver that owns persistence mechanics and provider lifecycle. Its `backend` keeps its type here. */
+  readonly driver: DriverType<Backend>;
   /** Scoped publication/precondition facts, independent of route availability. */
   readonly publication?: PublicationType;
   /** Detached deployment facts; no live probe is implied. */
@@ -171,7 +171,7 @@ function parseAdapterSchema<T>(schema: { parse(value: unknown): T }, value: unkn
  * });
  * ```
  */
-export function defineAdapter<T extends AdapterType>(adapter: T): T {
+export function defineAdapter<T extends AdapterType<unknown>>(adapter: T): T {
   parseAdapterSchema(AdapterNameSchema, adapter.name, "name");
   parseAdapterSchema(AdapterCapabilitiesSchema, adapter.capabilities, "capabilities");
   if (

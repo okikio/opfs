@@ -110,9 +110,9 @@ random access.
 Adapters are generic per storage shape (files, records, objects), not per backend. A driver changes its adapter's route
 only through declared capabilities and through open values that the adapter passes along without reading, such as an
 object revision. A provider feature with no file meaning, such as deleting one B2 version or setting a lifecycle rule,
-stays on the client that the caller already holds. Promote a feature into the shared contract only when several backends
-have it and it has a file meaning. [Choose the storage layer](model.md#when-a-backend-does-more-than-its-shape) walks
-through the B2 case.
+stays on the client that the caller already holds, which a filesystem also exposes as `fs.backend`. Promote a feature
+into the shared contract only when several backends have it and it has a file meaning.
+[Choose the storage layer](model.md#when-a-backend-does-more-than-its-shape) walks through the B2 case.
 
 Required adapter primitives:
 
