@@ -6,17 +6,17 @@ describe("test discovery", () => {
   it("classifies by file name so a new test needs no manifest edit", () => {
     const cases: [string, string][] = [
       ["tests/xz.test.ts", "portable"],
-      ["tests/gcs-provider.test.ts", "provider"],
-      ["tests/provider.test.ts", "provider"],
+      ["tests/gcs/provider.test.ts", "provider"],
+      ["tests/provider/mod.test.ts", "provider"],
       ["tests/netlify-sdk.test.ts", "netlify"],
-      ["tests/zip-process.test.ts", "interop"],
+      ["tests/zip/process.test.ts", "interop"],
       ["tests/process.test.ts", "process"],
       ["tests/fixtures/kafka/metadata.test.ts", "deno"],
     ];
     for (const [path, family] of cases) expect(classify(path).family).toBe(family);
   });
   it("gives every classified test a reason a reader can check", () => {
-    expect(classify("tests/gcs-provider.test.ts").reason).toMatch(/Testcontainers/);
+    expect(classify("tests/gcs/provider.test.ts").reason).toMatch(/Testcontainers/);
   });
   it("leaves a platform-bound test out only on other operating systems", () => {
     const files = [classify("tests/fixtures/arrow/runner.test.ts"), classify("tests/node.test.ts")];

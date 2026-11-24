@@ -30,7 +30,7 @@ a random suffix, so simultaneous starts keep independent raw output and progress
 parent's explicitly supplied directory. A fresh report namespace prevents evidence overwrite; it does not make
 concurrent performance measurements comparable under shared host load.
 
-`bench/providers.ts` starts the providers before the benchmark programs and releases them after both runtimes finish.
+`bench/provider/run.ts` starts the providers before the benchmark programs and releases them after both runtimes finish.
 Each program first validates independent deterministic bytes, publication acknowledgements, and physical HTTP calls. It
 then times requests directly against the provider endpoints. Repeated fixture closes share the same pending or failed
 retirement promise. Startup records each acquired container before reading endpoints or constructing the fixture; those
@@ -114,12 +114,12 @@ retained on failure. An unexpected route, acknowledgement, byte result, timeout,
 Preflight records go to stderr, leaving the existing native Mitata JSON report on stdout. No throughput, latency, RSS,
 or regression budget is claimed until actual measured receipts exist.
 
-`tests/provider-observer.test.ts` exercises large request and response bytes, literal paths and Host headers, consumer
+`tests/provider/observer.test.ts` exercises large request and response bytes, literal paths and Host headers, consumer
 cancellation, provider disconnection, forced expiry, poisoned reuse, terminal close during idle/request/response work
 and admission overflow in the canonical Node and Bun suites. Additional controls admit a gateway-shaped upstream without
 dialing it, reject ignored endpoint components, and verify that a signed Host naming another owned server cannot
 redirect forwarding. Gateway admission alone is not actual emulator reachability proof. The separate
-`mise run test:deno -- tests/provider-observer.test.ts tests/provider-range.test.ts` permits only the owned loopback
+`mise run test:deno -- tests/provider/observer.test.ts tests/provider/range.test.ts` permits only the owned loopback
 network; the portable suite gains no network permission.
 
 ## Locate an untimed setup failure

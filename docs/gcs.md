@@ -234,8 +234,8 @@ instead of being reclassified as a safe contention retry.
 
 ## Verification and limits
 
-`tests/gcs.test.ts` exercises deterministic wire behavior, malformed acknowledgements, revisions, range refusal, token
-refresh, session offsets, streaming and response cleanup. `tests/gcs-provider.test.ts` runs actual HTTP against a
+`tests/gcs/mod.test.ts` exercises deterministic wire behavior, malformed acknowledgements, revisions, range refusal,
+token refresh, session offsets, streaming and response cleanup. `tests/gcs/provider.test.ts` runs actual HTTP against a
 digest-pinned fake-gcs-server owned by Testcontainers with ephemeral ports and disposal. It covers basic CRUD, ranges,
 generation conflicts, adapter append, empty markers and continuation from an acknowledged extent.
 
@@ -252,7 +252,7 @@ References: [GCS JSON objects](https://docs.cloud.google.com/storage/docs/json_a
 
 ### Archive protocol evidence
 
-`tests/gcs-archive-provider.test.ts` uses the existing digest-pinned fake-gcs-server 1.56.1 fixture and the official
+`tests/gcs/archive-provider.test.ts` uses the existing digest-pinned fake-gcs-server 1.56.1 fixture and the official
 `@google-cloud/storage@7.19.0` SDK as a test-only independent producer and reader. It compares complete bytes in both
 directions, checks a generation-selected range, and verifies Archive metadata after a two-extent native upload. SDK
 checksum validation is disabled in this emulator lane; full-byte comparisons are the oracle. The test refuses the SDK's

@@ -214,9 +214,9 @@ resumable TAR write checkpoint or concurrent member writer.
 
 The historical producer, now inert `tests/fixtures/tar/create.py.snapshot`, produced the PAX/GNU archives in
 `independent.json` using Python 3.9.6 stdlib `tarfile`. That file records producer names, SHA-256 hashes, entry metadata
-and complete expected payload bytes. `tests/tar.test.ts` checks every possible two-chunk split of the 10,240-byte PAX
-fixture, independently produced payloads, corrupt/truncated metadata, budgets, backpressure, body lifetime and
-cancellation. The current `tests/tar-process.test.ts` sends new writer output to system TAR for exact listing, owned
+and complete expected payload bytes. `tests/tar/mod.test.ts` checks every possible two-chunk split of the 10,240-byte
+PAX fixture, independently produced payloads, corrupt/truncated metadata, budgets, backpressure, body lifetime and
+cancellation. The current `tests/tar/process.test.ts` sends new writer output to system TAR for exact listing, owned
 temporary extraction of authored paths, full file bytes, directory kind and symbolic-link target checks. A second
 selected-member check uses stdout extraction. The former Python consumer test remains inert `consumer.test.ts.snapshot`.
 Historical successful consumers were Python 3.9.6 and bsdtar 3.5.3/libarchive 3.7.4; the changed native-only test route

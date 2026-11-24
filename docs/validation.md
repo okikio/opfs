@@ -187,14 +187,14 @@ tests/object.test.ts
     generic object driver -> object adapter -> facade contract
     provider-safe private directory-marker metadata
 
-tests/s3.test.ts
+tests/s3/mod.test.ts
     deterministic S3 REST/SigV4/multipart/copy/retry behavior
 
-tests/azure.test.ts
+tests/azure/mod.test.ts
     deterministic Azure REST/auth/block/copy/retry behavior
     metadata contract validation before provider I/O
 
-tests/deno-kv-partition.test.ts
+tests/deno-kv/partition.test.ts
     partition layout using an in-memory Deno KV contract double
     in-flight generation reads / optimistic stale-writer rejection / bounded collection
 
@@ -601,7 +601,7 @@ See [provider publication workloads](./provider-benchmarks.md) for the acknowled
 oracles, and the extra namespace admission provided by adapters and the facade. Primitive and projected publication
 lanes have different guarantees; their latency difference is not pure wrapper overhead.
 
-`bench/provider.bench.ts` uses the Testcontainers provider fixture and compares:
+`bench/provider/mod.bench.ts` uses the Testcontainers provider fixture and compares:
 
 S3:
 

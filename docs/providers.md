@@ -86,7 +86,7 @@ version or feature.
 
 ## Provider benchmark staircase
 
-`bench/provider.bench.ts` keeps every layer visible.
+`bench/provider/mod.bench.ts` keeps every layer visible.
 
 S3:
 

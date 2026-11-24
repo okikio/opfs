@@ -1,7 +1,7 @@
 /// <reference types="bun-types" />
 import { equal } from "node:assert/strict";
-import { expectReceipt, observeProvider } from "./provider-contract.ts";
-import { phase } from "./provider-phase.ts";
+import { expectReceipt, observeProvider } from "./provider/contract.ts";
+import { phase } from "./provider/phase.ts";
 import { toBytes } from "@std/streams/to-bytes";
 import { bench, do_not_optimize } from "mitata";
 import { expectBytes, finish, payload as makePayload, report } from "./result.ts";
@@ -82,7 +82,7 @@ function getEnv(name: string): string | undefined {
 /** SeaweedFS endpoint started by the Node Testcontainers benchmark owner. */
 const S3_ENDPOINT = getEnv("OPFS_S3_ENDPOINT");
 if (S3_ENDPOINT === undefined || S3_ENDPOINT.length === 0) {
-  throw new Error("OPFS_S3_ENDPOINT must be supplied by bench/providers.ts.");
+  throw new Error("OPFS_S3_ENDPOINT must be supplied by bench/provider/run.ts.");
 }
 /** Logical bucket shared with the other provider baselines. */
 const BUCKET = STORAGE_NAME;
