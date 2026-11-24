@@ -15,6 +15,7 @@
     "./adapter/object": "./src/adapter/object.ts",
     "./adapter/s3": "./src/backend/s3/adapter.ts",
     "./adapter/azure": "./src/backend/azure/adapter.ts",
+    "./adapter/extension": "./src/backend/extension/adapter.ts",
     "./adapter/localstorage": "./src/backend/localstorage/adapter.ts",
     "./adapter/indexeddb": "./src/backend/indexeddb/adapter.ts",
     "./adapter/cache": "./src/backend/cache/adapter.ts",
@@ -36,6 +37,7 @@
     "./driver/deno-kv/_generation": "./src/backend/deno-kv/generation.ts",
     "./driver/node": "./src/backend/node/driver.ts",
     "./driver/bun": "./src/backend/bun/driver.ts",
+    "./driver/extension": "./src/backend/extension/driver.ts",
     "./driver/localstorage": "./src/backend/localstorage/driver.ts",
     "./driver/indexeddb": "./src/backend/indexeddb/driver.ts",
     "./driver/indexeddb/_store": "./src/backend/indexeddb/store.ts",
@@ -231,6 +233,7 @@
     "./_xml": "./src/xml.ts"
   },
   "imports": {
+    "@okikio/observables": "jsr:@okikio/observables@^1.4.0",
     "@okikio/undent": "jsr:@okikio/undent@^0.3.3",
     "@std/expect": "jsr:@std/expect@^1.0.20",
     "drizzle-orm": "npm:drizzle-orm@^0.45.2",

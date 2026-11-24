@@ -89,6 +89,7 @@ The first-party integration set is broad, but each layer has one job.
 | memory          | n/a                   | `driver/memory`        | `adapter/memory`        | generic KV bridge possible              |
 | Deno KV         | n/a                   | `driver/deno-kv`       | `adapter/deno-kv`       | generic KV bridge possible              |
 | localStorage    | n/a                   | `driver/localstorage`  | `adapter/localstorage`  | generic KV bridge possible              |
+| extension       | n/a                   | `driver/extension`     | `adapter/extension`     | `watchStorageArea()` change feed        |
 | IndexedDB       | n/a                   | `driver/indexeddb`     | `adapter/indexeddb`     | generic KV bridge possible              |
 | Cache Storage   | n/a                   | `driver/cache`         | `adapter/cache`         | cache-specific bridge not yet provided  |
 | SQLite rows     | engine-owned          | `driver/sqlite`        | `adapter/sqlite`        | see database direction below            |

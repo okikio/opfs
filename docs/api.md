@@ -623,6 +623,12 @@ migration. `readOnly` blocks logical changes/maintenance while partition read le
 `driver/localstorage` exports `LocalStorageType`, `LocalStorageDriverOptionsType`, and `createLocalStorageDriver()`.
 `adapter/localstorage` exports `createLocalStorageAdapter()`.
 
+### WebExtensions storage
+
+`driver/extension` exports `StorageAreaType`, `StorageAreaNameType`, `StorageChangeType`, `StorageChangeListenerType`,
+`ExtensionDriverOptionsType`, and `createExtensionDriver()`. `adapter/extension` exports `createExtensionAdapter()`,
+`getStorageArea()`, `watchStorageArea()`, `StorageAreaEventType`, and `WatchStorageAreaOptionsType`.
+
 ### IndexedDB
 
 `driver/indexeddb` exports `IndexedDbDriverOptionsType`, `IndexedDbOpenOptionsType`, and `createIndexedDbDriver()`.

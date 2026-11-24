@@ -1,6 +1,7 @@
 {
   "version": "5",
   "specifiers": {
+    "jsr:@okikio/observables@^1.4.0": "1.4.0",
     "jsr:@okikio/undent@~0.3.3": "0.3.3",
     "jsr:@std/assert@^1.0.19": "1.0.19",
     "jsr:@std/async@^1.5.0": "1.5.0",
@@ -26,6 +27,7 @@
     "npm:@jsr/std__path@^1.1.6": "1.1.6",
     "npm:@jsr/std__streams@^1.1.2": "1.1.2",
     "npm:@jsr/std__xml@0.2": "0.2.0",
+    "npm:@okikio/observables@^1.4.0": "1.4.0",
     "npm:@okikio/undent@~0.3.3": "0.3.3",
     "npm:@playwright/test@^1.65.1": "1.65.1",
     "npm:@testcontainers/azurite@12.1.0": "12.1.0",
@@ -44,6 +46,9 @@
     "npm:zod@^4.6.7": "4.6.7"
   },
   "jsr": {
+    "@okikio/observables@1.4.0": {
+      "integrity": "430c5c2db456cb10202a59ac4e0de8dda2bd89f2c6e3311af3153008c495e6cd"
+    },
     "@okikio/undent@0.3.3": {
       "integrity": "890c688327fe4defc917ace44f8e9de85322881aed43d3c24176e530f86b18fa"
     },
@@ -635,6 +640,9 @@
     },
     "@nodable/entities@3.1.0": {
       "integrity": "sha512-LsS/DjHr+uDM647Gru/cA8+J3a3HfhttwCKLyuoyN7yXTFCxKBtSgMQBvrW9yNPa2/zDRUNuGPaH5QUFoa4arQ=="
+    },
+    "@okikio/observables@1.4.0": {
+      "integrity": "sha512-qyS+QLK0dHCzns6mSKcPCm1mBYWYCuLFT3HZmYzgH6OLNo4rVZOLeRuAa55tOMP9VBM2CpDg7VYAVXe7iKOeEQ=="
     },
     "@okikio/undent@0.3.3": {
       "integrity": "sha512-kj5dZUpIT/KbpTjAi2a+SwZ9DaRSBWJYrgzN65zs2sjXVjk7TLyFCPDYERUKj1Rzaup/fF9QhKe/QkajDskdkw=="
@@ -2274,6 +2282,7 @@
   },
   "workspace": {
     "dependencies": [
+      "jsr:@okikio/observables@^1.4.0",
       "jsr:@okikio/undent@~0.3.3",
       "jsr:@std/async@^1.5.0",
       "jsr:@std/bytes@^1.0.6",
@@ -2310,6 +2319,7 @@
         "npm:@jsr/std__path@^1.1.6",
         "npm:@jsr/std__streams@^1.1.2",
         "npm:@jsr/std__xml@0.2",
+        "npm:@okikio/observables@^1.4.0",
         "npm:@okikio/undent@~0.3.3",
         "npm:@playwright/test@^1.65.1",
         "npm:@testcontainers/azurite@12.1.0",

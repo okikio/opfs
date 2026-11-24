@@ -30,6 +30,7 @@ metrics, provider-specific operations, or a custom translation.
 | memory                   | `driver/memory`        | `adapter/memory`        | record        |
 | Deno KV                  | `driver/deno-kv`       | `adapter/deno-kv`       | record        |
 | localStorage             | `driver/localstorage`  | `adapter/localstorage`  | record        |
+| WebExtensions storage    | `driver/extension`     | `adapter/extension`     | record        |
 | IndexedDB                | `driver/indexeddb`     | `adapter/indexeddb`     | record        |
 | Cache Storage            | `driver/cache`         | `adapter/cache`         | record        |
 | SQLite rows              | `driver/sqlite`        | `adapter/sqlite`        | record        |
@@ -310,6 +311,33 @@ Directory listing snapshots matching key strings before yielding because deletio
 Bodies remain lazy. Recursive traversal still scans the storage area and inherits external writer/eviction races.
 
 Applications should treat browser quota as dynamic. The driver does not invent a stable quota number.
+
+### WebExtensions storage
+
+The extension driver stores records in one WebExtensions `StorageArea`: `storage.local`, `storage.session`,
+`storage.sync` or `storage.managed`. Chrome, Firefox and Safari expose the same area API, so one driver serves all
+three. You pass the area in; `getStorageArea(name)` from `adapter/extension` finds it in `browser.storage` or
+`chrome.storage` when you call it, and never at import.
+
+| Area      | Chrome | Firefox | Safari             | Notes                                     |
+| --------- | ------ | ------- | ------------------ | ----------------------------------------- |
+| `local`   | yes    | yes     | 14+                | `unlimitedStorage` removes the byte quota |
+| `session` | 102+   | 115+    | 16.4+              | in memory, cleared on browser restart     |
+| `sync`    | yes    | yes     | stored, not synced | 8192 bytes per item, 120 writes a minute  |
+| `managed` | yes    | yes     | no                 | read only, set by administrator policy    |
+
+Each file is one item: key `<prefix>:<encodeURIComponent(path)>`, value a JSON record with base64 `data`. Areas keep
+JSON values only, so base64 is required. In `sync` this makes about 6 KB of file bytes the largest file. The driver
+checks the item size before it calls `set()`, so an oversized write fails with `quota-exceeded` and does not spend one
+of the rate-limited writes. The driver does not split files across items in this version.
+
+Limits come from the area's own constants (`QUOTA_BYTES`, `QUOTA_BYTES_PER_ITEM`, `MAX_ITEMS`,
+`MAX_WRITE_OPERATIONS_PER_MINUTE`, `MAX_WRITE_OPERATIONS_PER_HOUR`), so each browser reports its own numbers. Listing
+uses `getKeys()` (Chrome 130, Firefox 143, Safari 18.4) and falls back to `get(null)`, which also reads values.
+
+`watchStorageArea(area)` returns an Observable of `{ path, change, kind }` built on `area.onChanged`. The browser fires
+that event in every extension context, so a popup can see a file that the service worker wrote. Subscribing adds the
+listener and unsubscribing removes it.
 
 ### IndexedDB
 
