@@ -3,7 +3,7 @@ import { HttpError, openHttpSource } from "../http/client.ts";
 import type { HttpSourceOptionsType } from "../http/client.ts";
 import { sendRequest } from "../../request.ts";
 import { readResponse } from "../../response.ts";
-import { collectBytes } from "../../stream.ts";
+import { collectBytes } from "../../stream/mod.ts";
 import { createByteSource } from "../../source.ts";
 import type { ByteSourceType } from "../../source.ts";
 import { parseCid, verifyBlock } from "../../content/cid.ts";

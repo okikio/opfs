@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 import { createWebhdfsClient, WebhdfsPublicationError } from "../src/backend/webhdfs/client.ts";
-import { collectBytes } from "../src/stream.ts";
+import { collectBytes } from "../src/stream/mod.ts";
 import { createWebhdfsDriver } from "../src/backend/webhdfs/driver.ts";
 import { createWebhdfsAdapter } from "../src/backend/webhdfs/adapter.ts";
 import { createFileSystem } from "../mod.ts";

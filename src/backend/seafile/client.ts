@@ -9,7 +9,7 @@ import { assertRangeResponse, resolveRange } from "../../range.ts";
 import { RequestMetrics, sendRequest } from "../../request.ts";
 import type { FetchType, RequestMetricsType, RequestPolicyType } from "../../request.ts";
 import { readResponse } from "../../response.ts";
-import { collectBytes } from "../../stream.ts";
+import { collectBytes } from "../../stream/mod.ts";
 
 /** Finite copied-upload/materialization policy ceiling, separate from server quotas. */
 export const SEAFILE_BUFFER_BYTES = 64 * 1024 * 1024;

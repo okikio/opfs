@@ -30,7 +30,7 @@ import { defineFileDriver } from "../../driver/file.ts";
 import { createLocalPath } from "../../driver/local.ts";
 import { FileSystemError, throwIfAborted, toFileSystemError } from "../../error.ts";
 import { dirname, joinPath, type PathType } from "../../path.ts";
-import { openBytes, withAbortSignal } from "../../stream.ts";
+import { openBytes, withAbortSignal } from "../../stream/mod.ts";
 import { close } from "../../close.ts";
 import { isBytes, toView } from "../../bytes.ts";
 

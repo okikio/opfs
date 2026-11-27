@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import type { StartedTestContainer } from "testcontainers";
 import { close } from "../close.ts";
-import { collectBytes } from "../../src/stream.ts";
+import { collectBytes } from "../../src/stream/mod.ts";
 import { readResponse } from "../../src/response.ts";
 
 /** Official Tomcat9/Java8 multiarchitecture index, inspected before archival CMIS fixture acquisition. */

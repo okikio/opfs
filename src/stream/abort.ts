@@ -1,294 +1,27 @@
 /**
- * Conversions between the write inputs the facade accepts and the byte forms drivers need.
+ * Cancellation and retirement for byte streams.
  *
- * `writeFile()` accepts bytes, Blobs, strings, streams and async iterables. These helpers turn one of them into bytes
- * (`toBytes`, `collectBytes`) or a stream (`toByteStream`), and own reader locks and cancellation while they do it
- * (`openBytes`, `retire`, `withAbortSignal`). A custom driver can use them to accept the same inputs.
+ * `withAbortSignal` wraps a stream so an abort signal cancels it with a
+ * `FileSystemError`. `retire` cancels a stream once and reports each fault once.
+ * `observeBytes` hands each chunk to a callback as it passes, which the facade
+ * uses for its byte counters.
  *
  * @module
  */
-import { FileSystemError } from "./error.ts";
-import { close } from "./close.ts";
-import { isBytes, toView } from "./bytes.ts";
-
-/** Exact native acquisition binds the returned reader to this precise source. */
-const nativeGetReader = ReadableStream.prototype.getReader;
-
-/** Captured local native prototype limits proof to lookup paths without borrowed intermediaries. */
-const nativeReader = ReadableStreamDefaultReader.prototype;
-/** Exact local native read identity grants stored source-event correlation only. */
-const nativeRead = nativeReader.read;
-/** Exact local native cancellation identity proves delivery of a stored source rejection. */
-const nativeCancel = nativeReader.cancel;
-
-/** Captured local native settlement method; borrowed then methods remain invoked. */
-const nativePromise = Promise.prototype;
-const nativeThen = nativePromise.then;
-/** Captured native closed accessor proves state only on a successfully branded receiver. */
-const nativeClosed = Object.getOwnPropertyDescriptor(nativeReader, "closed")?.get;
-
-/**
- * Snapshots native accessor provenance without traversing a borrowed prototype chain.
- * A Proxy intermediary can advertise a native descriptor but execute another get
- * effect. Its declared access remains usable, but cannot certify native state.
- */
-function accessor(value: object, name: PropertyKey): (() => unknown) | undefined {
-  const own = Object.getOwnPropertyDescriptor(value, name);
-  if (own !== undefined) return own.get;
-  const prototype = Object.getPrototypeOf(value);
-  return prototype === nativeReader ? Object.getOwnPropertyDescriptor(prototype, name)?.get : undefined;
-}
-
-/**
- * Captures a local native data method before declared access can run a borrowed getter.
- *
- * Native invocation remains separate from this proof. An accessor can release its
- * receiver, delete itself and return a native method, so later descriptor lookup
- * cannot certify a stored source event. Unknown prototype chains stay usable
- * without correlation. A branded receiver is established by native acquisition
- * for private delivery, and by the independent closed receipt for closed/read.
- */
-function isNativeMethod(reader: object, name: PropertyKey, method: object, expected: object = nativeReader): boolean {
-  const own = Object.getOwnPropertyDescriptor(reader, name);
-  if (own !== undefined) return Object.hasOwn(own, "value") && own.value === method;
-  const prototype = Object.getPrototypeOf(reader);
-  if (prototype !== expected) return false;
-  const inherited = Object.getOwnPropertyDescriptor(prototype, name);
-  return inherited !== undefined && Object.hasOwn(inherited, "value") && inherited.value === method;
-}
-
-/** Private read rejection, acquisition binding and native closed-access provenance. */
-const reads = new WeakMap<ByteReaderType, {
-  native: boolean;
-  readonly bound: boolean;
-  eligible: boolean;
-  closed: { readonly promise: Promise<void>; readonly native: boolean } | undefined;
-}>();
-
-/** A settled event, including an actual rejection with null or undefined. */
-type OutcomeType<Value> = { readonly ok: true; readonly value: Value } | {
-  readonly ok: false;
-  readonly reason: unknown;
-};
-
-/** Observes both outcomes immediately without using reason identity as authority. */
-function settle<Value>(pending: PromiseLike<Value>): Promise<OutcomeType<Value>> {
-  return Promise.resolve(pending).then(
-    (value) => ({ ok: true, value }),
-    (reason: unknown) => ({ ok: false, reason }),
-  );
-}
-
-/** Write input accepted by the high-level filesystem facade. */
-export type WriteDataType =
-  | string
-  | Blob
-  | ArrayBuffer
-  | ArrayBufferView
-  | ReadableStream<Uint8Array>
-  | AsyncIterable<Uint8Array>;
-
-/** Shared UTF-8 encoder; TextEncoder has no mutable per-call state. */
-const textEncoder = new TextEncoder();
-
-/** Returns true when a write value is a Web ReadableStream. */
-export function isReadableStream(data: WriteDataType): data is ReadableStream<Uint8Array> {
-  return typeof data === "object" && data !== null && typeof Reflect.get(data, "getReader") === "function";
-}
-
-/** Returns true when a write value exposes an async iterator. */
-export function isAsyncIterable(data: WriteDataType): data is AsyncIterable<Uint8Array> {
-  return typeof data === "object" && data !== null && typeof Reflect.get(data, Symbol.asyncIterator) === "function";
-}
-
-/** Converts materialized write input into bytes without changing its content. */
-export async function toBytes(
-  data: Exclude<WriteDataType, ReadableStream<Uint8Array> | AsyncIterable<Uint8Array>>,
-): Promise<Uint8Array> {
-  if (typeof data === "string") return textEncoder.encode(data);
-  if (data instanceof Blob) return new Uint8Array(await data.arrayBuffer());
-  if (data instanceof ArrayBuffer) return new Uint8Array(data);
-  return toView(data);
-}
-
-/** Underlying source that exposes one async iterable as a Web byte stream. */
-class AsyncIterableByteSource implements UnderlyingDefaultSource<Uint8Array> {
-  /** Iterator whose lifetime follows the returned Web stream. */
-  readonly #iterator: AsyncIterator<Uint8Array>;
-  /** One return event shared by cancellation and a failed conversion. */
-  #retirement: Promise<OutcomeType<void>> | undefined;
-  /** Consumer cancellation prevents a late next result from publishing bytes. */
-  #cancelled = false;
-  /** Reserved before next lookup; includes borrowed result effects but never the active pull's cleanup wait. */
-  #pending: Promise<OutcomeType<IteratorResult<Uint8Array>>> | undefined;
-
-  /** Acquires exactly one iterator from the caller-supplied iterable. */
-  constructor(source: AsyncIterable<Uint8Array>) {
-    this.#iterator = source[Symbol.asyncIterator]();
-  }
-
-  /** Pulls one item and closes the Web stream when the iterable reaches EOF. */
-  async pull(controller: ReadableStreamDefaultController<Uint8Array>): Promise<void> {
-    let next: IteratorResult<Uint8Array>;
-    try {
-      const reading = Promise.withResolvers<IteratorResult<Uint8Array>>();
-      this.#pending = settle(reading.promise);
-      void this.#read().then(reading.resolve, reading.reject);
-      const pending = await this.#pending;
-      if (!pending.ok) throw pending.reason;
-      next = pending.value;
-      if (this.#cancelled) return;
-      if (next.done) {
-        controller.close();
-        return;
-      }
-      if (!isBytes(next.value)) throw new TypeError("A byte iterable must yield Uint8Array chunks.");
-      controller.enqueue(toView(next.value));
-    } catch (reason) {
-      if (this.#cancelled) return;
-      const retired = await this.#retire([reason], true);
-      if (!this.#cancelled && !retired.ok) controller.error(retired.reason);
-    }
-  }
-
-  /**
-   * Snapshots one fallible iterator result while cancellation owns every admitted effect.
-   *
-   * Reservation happens in pull before lookup, so a next/done/value getter can
-   * reenter cancellation without escaping its retirement ledger. Checkpoints
-   * prevent a terminal winner from starting another borrowed effect. EOF does
-   * not require reading value. Retirement joins this transaction, not the pull
-   * which is itself awaiting that same retirement.
-   */
-  async #read(): Promise<IteratorResult<Uint8Array>> {
-    const next = this.#iterator.next;
-    if (this.#cancelled) return { done: true, value: undefined };
-    const result: IteratorResult<Uint8Array> = await Reflect.apply(next, this.#iterator, []);
-    if (this.#cancelled) return { done: true, value: undefined };
-    const done = result.done;
-    if (this.#cancelled || done) return { done: true, value: undefined };
-    const value = result.value;
-    if (this.#cancelled) return { done: true, value: undefined };
-    return { done: false, value };
-  }
-
-  /** Propagates consumer cancellation to an iterable that supports `return()`. */
-  async cancel(): Promise<void> {
-    this.#cancelled = true;
-    const retired = await this.#retire();
-    if (!retired.ok) throw retired.reason;
-  }
-
-  /** An arbitrary pending iterator next/return has no invented interruption capability. */
-  #retire(primary: readonly unknown[] = [], readObserved = false): Promise<OutcomeType<void>> {
-    return this.#retirement ??= settle(
-      Promise.resolve().then(() =>
-        close([
-          () => this.#iterator.return?.(),
-          async () => {
-            if (!readObserved && this.#pending !== undefined) {
-              const pending = await this.#pending;
-              if (!pending.ok) throw pending.reason;
-            }
-          },
-        ], primary)
-      ),
-    );
-  }
-}
-
-/** Underlying source that materializes one non-stream write value exactly once. */
-class MaterializedByteSource implements UnderlyingDefaultSource<Uint8Array> {
-  /** Caller value converted only when the stream starts. */
-  readonly #data: Exclude<WriteDataType, ReadableStream<Uint8Array> | AsyncIterable<Uint8Array>>;
-
-  /** Retains the caller value without copying it before stream consumption. */
-  constructor(data: Exclude<WriteDataType, ReadableStream<Uint8Array> | AsyncIterable<Uint8Array>>) {
-    this.#data = data;
-  }
-
-  /** Converts the value, emits one chunk, and closes the stream. */
-  async start(controller: ReadableStreamDefaultController<Uint8Array>): Promise<void> {
-    controller.enqueue(await toBytes(this.#data));
-    controller.close();
-  }
-}
-
-/** Converts any supported write value into a Web byte stream without eager copying. */
-export function toByteStream(data: WriteDataType): ReadableStream<Uint8Array> {
-  if (isReadableStream(data)) return data;
-  if (isAsyncIterable(data)) return new ReadableStream(new AsyncIterableByteSource(data), { highWaterMark: 0 });
-  return new ReadableStream(new MaterializedByteSource(data));
-}
-
-/**
- * Materializes a stream with an explicit memory limit.
- *
- * Record/database adapters need complete values because their public contracts
- * are value-oriented. The limit prevents a large browser stream from silently
- * becoming an unbounded heap allocation when the selected adapter cannot stream.
- */
-export async function collectBytes(
-  source: ReadableStream<Uint8Array>,
-  limit: number,
-  signal: AbortSignal | undefined,
-  operation: string,
-  path: string,
-): Promise<Uint8Array> {
-  if (!Number.isSafeInteger(limit) || limit < 0) {
-    throw new RangeError("Buffered byte limit must be a non-negative safe integer.");
-  }
-
-  const abortable = withAbortSignal(source, signal, path, operation);
-  const reader = openBytes(abortable);
-  const chunks: Uint8Array[] = [];
-  let size = 0;
-  let terminal = false;
-  let primary: readonly unknown[] = [];
-  try {
-    while (true) {
-      let next: ReadableStreamReadResult<Uint8Array>;
-      try {
-        next = await reader.read();
-      } catch (reason) {
-        terminal = true;
-        throw reason;
-      }
-      if (next.done) {
-        terminal = true;
-        break;
-      }
-      if (!isBytes(next.value)) throw new TypeError("A byte stream must yield Uint8Array chunks.");
-      const chunk = toView(next.value);
-      if (chunk.byteLength > limit - size) {
-        throw new FileSystemError(
-          "too-large",
-          operation,
-          path,
-          `${operation} for '${path}' requires more than ${limit} buffered bytes. ` +
-            "Select a streaming adapter or raise maxBufferedWriteBytes.",
-        );
-      }
-      size += chunk.byteLength;
-      if (chunk.byteLength !== 0) chunks.push(chunk);
-    }
-  } catch (reason) {
-    primary = [reason];
-  }
-  // Native EOF/read rejection is terminal proof. A limit or conversion failure
-  // instead owns cancellation, including all cleanup faults before rejection.
-  await close([
-    ...(!terminal ? [() => reader.cancel(primary[0])] : []),
-    () => reader.releaseLock(),
-  ], primary);
-  const bytes = new Uint8Array(size);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return bytes;
-}
+import {
+  type ByteReaderType,
+  isNativeMethod,
+  nativePromise,
+  nativeThen,
+  openBytes,
+  type OutcomeType,
+  owners,
+  reads,
+  settle,
+} from "./reader.ts";
+import { FileSystemError } from "../error.ts";
+import { close } from "../close.ts";
+import { isBytes, toView } from "../bytes.ts";
 
 /**
  * Owns one byte reader through terminal consumption or awaited cancellation.
@@ -298,7 +31,7 @@ export async function collectBytes(
  * A pending pull cannot publish cancel-induced EOF or late bytes while retiring.
  * Read/cancel/release observations remain unless exact receipts prove correlation.
  */
-class AbortByteSource implements UnderlyingDefaultSource<Uint8Array> {
+export class AbortByteSource implements UnderlyingDefaultSource<Uint8Array> {
   /** Reader acquired once; an already borrowed source lock is never stolen. */
   readonly #reader: ByteReaderType;
   /** Exact upstream capability; only first-party owned stream identities can join this chain. */
@@ -666,120 +399,8 @@ class AbortByteSource implements UnderlyingDefaultSource<Uint8Array> {
   };
 }
 
-/** Exact wrapper identity owns retirement; a structural or borrowed stream does not. */
-const owners = new WeakMap<ReadableStream<Uint8Array>, AbortByteSource>();
-
-/** Internal reader capability bound to one exact acquired stream. */
-export interface ByteReaderType {
-  /** Declared reader terminal observation; native authority requires a separate private receipt. */
-  readonly closed: Promise<void>;
-  /** Reads one native chunk, observing an actual terminal rejection. */
-  read(): Promise<ReadableStreamReadResult<Uint8Array>>;
-  /** Requests cancellation and awaits its native retirement result. */
-  cancel(reason?: unknown): Promise<void>;
-  /** Releases this acquired reader's lock; it never takes a borrowed lock. */
-  releaseLock(): void;
-}
-
-/**
- * Acquires one reader and observes real rejection delivery from that exact stream.
- *
- * Already-errored Web streams reject read without invoking another source pull.
- * First-party owners use this capability so retire does not report that event
- * again. A released-reader misuse cannot mark an undelivered stream fault. This
- * does not patch native stream methods or infer delivery from error identity.
- * The borrowed read/cancel methods remain authoritative for invocation. Only an
- * actual exact-native operation rejection grants stored-event delivery authority;
- * successful read-result field effects do not. Private source delivery also
- * requires the exact native getReader method invoked on this source. Borrowed
- * acquisition can select another reader and grants no original-source authority.
- * Foreign and replaced methods keep uncertain correlations as separate observations. Fields are snapshotted once
- * inside the pending read, so an acquired owner's retirement also owns their faults.
- */
-export function openBytes(source: ReadableStream<Uint8Array>): ByteReaderType {
-  const acquire = source.getReader;
-  const reader = Reflect.apply(acquire, source, []) as ReadableStreamDefaultReader<Uint8Array>;
-  const owner = owners.get(source);
-  const receipt: {
-    native: boolean;
-    readonly bound: boolean;
-    eligible: boolean;
-    closed: { readonly promise: Promise<void>; readonly native: boolean } | undefined;
-  } = { native: false, bound: acquire === nativeGetReader, eligible: true, closed: undefined };
-  let released = false;
-  const bytes: ByteReaderType = {
-    get closed() {
-      receipt.closed = undefined;
-      // Snapshot provenance before a borrowed accessor can delete or replace
-      // itself. Reflection and declared access both belong to start's rollback.
-      const getter = accessor(reader, "closed");
-      if (getter !== nativeClosed || nativeClosed === undefined) receipt.eligible = false;
-      const declared = reader.closed;
-      let native = false;
-      if (nativeClosed !== undefined && getter === nativeClosed) {
-        try {
-          // This branded identity probe does not substitute another promise or
-          // bypass the caller's access. A valid borrowed capability needs no proof.
-          const state: unknown = Reflect.apply(nativeClosed, reader, []);
-          // Some native getters return a rejected Promise for an incompatible
-          // receiver rather than throwing. Observe this pure probe immediately
-          // through the captured intrinsic, without another declared then lookup.
-          // A nonidentical result is not the caller's closed/source event.
-          Reflect.apply(nativeThen, state, [() => {}, () => {}]);
-          native = state === declared;
-        } catch { /* Native state authority is unavailable on this receiver. */ }
-      }
-      if (!native) receipt.eligible = false;
-      receipt.closed = { promise: declared, native: native && receipt.eligible };
-      return declared;
-    },
-    async read(): Promise<ReadableStreamReadResult<Uint8Array>> {
-      let native = false;
-      let next: Awaited<ReturnType<typeof reader.read>>;
-      try {
-        receipt.native = false;
-        const declared = isNativeMethod(reader, "read", nativeRead);
-        if (!declared) receipt.eligible = false;
-        const read = reader.read;
-        native = receipt.eligible && declared && read === nativeRead;
-        if (read !== nativeRead) receipt.eligible = false;
-        next = await Reflect.apply(read, reader, []);
-      } catch (reason) {
-        receipt.native = native;
-        if (!released && receipt.bound && native) owner?.delivered();
-        throw reason;
-      }
-      // Borrowed result getters are part of the pending read transaction.
-      // Their fault is not an actual native operation rejection, and their
-      // effects cannot escape again through a later field access in pull.
-      const done = next.done;
-      return done ? { done: true, value: next.value } : { done: false, value: next.value };
-    },
-    async cancel(reason) {
-      let native = false;
-      try {
-        const declared = isNativeMethod(reader, "cancel", nativeCancel);
-        if (!declared) receipt.eligible = false;
-        const cancel = reader.cancel;
-        native = receipt.eligible && declared && cancel === nativeCancel;
-        if (cancel !== nativeCancel) receipt.eligible = false;
-        await Reflect.apply(cancel, reader, [reason]);
-      } catch (failure) {
-        if (!released && receipt.bound && native) owner?.delivered();
-        throw failure;
-      }
-    },
-    releaseLock() {
-      released = true;
-      reader.releaseLock();
-    },
-  };
-  reads.set(bytes, receipt);
-  return bytes;
-}
-
 /** Constructs an import-safe byte owner and retains only its exact stream capability. */
-function owned(
+export function owned(
   source: ReadableStream<Uint8Array>,
   signal: AbortSignal | undefined,
   path: string,

@@ -1,7 +1,7 @@
 import { isBytes, toView } from "../../bytes.ts";
 import { aggregate, close } from "../../close.ts";
-import { openBytes } from "../../stream.ts";
-import type { ByteReaderType } from "../../stream.ts";
+import { openBytes } from "../../stream/mod.ts";
+import type { ByteReaderType } from "../../stream/mod.ts";
 import { assertInteger } from "../budget.ts";
 import { crc32 } from "../../hash.ts";
 

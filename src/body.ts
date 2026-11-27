@@ -5,7 +5,7 @@
  */
 import { isBytes, toView } from "./bytes.ts";
 import { close } from "./close.ts";
-import { openBytes, withAbortSignal } from "./stream.ts";
+import { openBytes, withAbortSignal } from "./stream/mod.ts";
 
 /** Native slot inspection across realms, without acquiring a reader or reading bytes. */
 const locked = Object.getOwnPropertyDescriptor(ReadableStream.prototype, "locked")?.get;

@@ -12,7 +12,7 @@ import type {
 import { FileSystemError, throwIfAborted, toFileSystemError } from "../error.ts";
 import { close } from "../close.ts";
 import { project } from "../iteration.ts";
-import { retire } from "../stream.ts";
+import { retire } from "../stream/mod.ts";
 import { basename, dirname, type PathType, ROOT_PATH } from "../path.ts";
 import {
   type AdapterLimitsType,

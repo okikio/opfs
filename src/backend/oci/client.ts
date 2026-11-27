@@ -9,7 +9,7 @@ import type { FetchType, RequestPolicyType } from "../../request.ts";
 import { readResponse } from "../../response.ts";
 import { assertExtent } from "../../source.ts";
 import type { ByteSourceType } from "../../source.ts";
-import { collectBytes } from "../../stream.ts";
+import { collectBytes } from "../../stream/mod.ts";
 
 const image = "application/vnd.oci.image.manifest.v1+json";
 const index = "application/vnd.oci.image.index.v1+json";

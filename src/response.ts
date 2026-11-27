@@ -8,7 +8,7 @@
  * @module
  */
 import { isBytes } from "./bytes.ts";
-import { openBytes } from "./stream.ts";
+import { openBytes } from "./stream/mod.ts";
 import { aggregate } from "./close.ts";
 
 /** Implementation safety bound for provider XML and error bodies, independent of file payloads. */

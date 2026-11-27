@@ -114,7 +114,7 @@
     "reference WritableInspectionType",
     "reference WritableOptionsType",
     "reference WriteCommandType",
-    "reference WriteDataType",
+    "typeAlias WriteDataType",
     "reference WriteModeType",
     "interface WriteOptionsType",
     "reference WritePlanInputType",
@@ -240,7 +240,7 @@
     "function toBytes",
     "function toByteStream",
     "function withAbortSignal",
-    "typeAlias WriteDataType"
+    "reference WriteDataType"
   ],
   "./_sync": [
     "class ManagedSyncFile",

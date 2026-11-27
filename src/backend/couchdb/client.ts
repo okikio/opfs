@@ -7,7 +7,7 @@ import { assertRangeResponse, resolveRange } from "../../range.ts";
 import { sendRequest } from "../../request.ts";
 import type { FetchType, RequestPolicyType } from "../../request.ts";
 import { readResponse } from "../../response.ts";
-import { collectBytes } from "../../stream.ts";
+import { collectBytes } from "../../stream/mod.ts";
 
 /** Implementation ceiling for materialized payloads; server/document quotas remain separate. */
 export const COUCHDB_BUFFER_BYTES = 64 * 1024 * 1024;

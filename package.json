@@ -265,7 +265,7 @@
     "./_range": "./src/range.ts",
     "./_response": "./src/response.ts",
     "./_sigv4": "./src/sigv4.ts",
-    "./_stream": "./src/stream.ts",
+    "./_stream": "./src/stream/mod.ts",
     "./_sync": "./src/sync.ts",
     "./_writable": "./src/writable.ts",
     "./_xml": "./src/xml.ts"

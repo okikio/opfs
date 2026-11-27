@@ -4,7 +4,7 @@ Reader: an OPFS maintainer deciding which existing personal code to adapt, which
 
 ## Evidence and limits
 
-Reviewed public repository `okikio/bundlejs-api` at exact main HEAD **34be097f00db4bf179b1dc08fc405dcad146905f**, fetched through GitHub API. All links below pin that commit. Source was read only; no packages, builds, tests, benchmarks, or WASM were executed. OPFS source comparison is the current local `src/stream.ts`, on `codex/release-2026-10-06`, clean when inspected. This review is not a binary security audit or a claim that either project passes its tests.
+Reviewed public repository `okikio/bundlejs-api` at exact main HEAD **34be097f00db4bf179b1dc08fc405dcad146905f**, fetched through GitHub API. All links below pin that commit. Source was read only; no packages, builds, tests, benchmarks, or WASM were executed. OPFS source comparison is the current local `src/stream/mod.ts`, on `codex/release-2026-10-06`, clean when inspected. This review is not a binary security audit or a claim that either project passes its tests.
 
 ## What exists
 
@@ -42,7 +42,7 @@ Current std/tar manifest reports 0.1.10 with root, tar-stream, and untar-stream 
 
 ## Implications for the OPFS plan
 
-Keep transport/storage drivers, codec transforms, container readers, authenticated encryption framing, and optional preview renderers separate. User-created bridges should receive byte/range and credential capabilities explicitly, declare exact operations, own cancellation/disposal, and pass the same conformance fixtures. The existing OPFS `src/stream.ts` already carefully treats reader provenance, byte validation, iterator retirement, and terminal ownership; an archive extension must preserve those contracts rather than bypassing them with Blob/Response materialization or abandoned tees.
+Keep transport/storage drivers, codec transforms, container readers, authenticated encryption framing, and optional preview renderers separate. User-created bridges should receive byte/range and credential capabilities explicitly, declare exact operations, own cancellation/disposal, and pass the same conformance fixtures. The existing OPFS `src/stream/mod.ts` already carefully treats reader provenance, byte validation, iterator retirement, and terminal ownership; an archive extension must preserve those contracts rather than bypassing them with Blob/Response materialization or abandoned tees.
 
 Promise a progressive preview ladder: identify format; inspect metadata; enumerate entries; read a selected entry; decode its content; render a bounded preview. Each stage reports required reads, unsupported capabilities, limits, and integrity/authentication state. An archive listing does not imply encrypted member readability. A range-friendly unencrypted index does not imply a whole-file authenticated ciphertext can safely expose an arbitrary plaintext range. Sequential TAR and gzip can stop early but cannot pretend to seek cheaply.
 

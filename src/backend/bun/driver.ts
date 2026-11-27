@@ -19,7 +19,7 @@ import { createLocalPath } from "../../driver/local.ts";
 import { createNodeDriver, type NodeDriverOptionsType } from "../node/driver.ts";
 import { FileSystemError, throwIfAborted } from "../../error.ts";
 import type { PathType } from "../../path.ts";
-import { withAbortSignal } from "../../stream.ts";
+import { withAbortSignal } from "../../stream/mod.ts";
 
 /** Minimal Bun file object used without requiring global Bun types in core declarations. */
 export interface BunFileType extends Blob {}

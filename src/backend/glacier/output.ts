@@ -9,7 +9,7 @@
 import { GLACIER_MIB, type GlacierJobType, SizeSchema } from "./schema.ts";
 import { isBytes } from "../../bytes.ts";
 import { aggregate, close } from "../../close.ts";
-import { openBytes } from "../../stream.ts";
+import { openBytes } from "../../stream/mod.ts";
 
 /** Admit original archive coordinates before any callback. Tail bytes are allowed only at actual archive EOF. */
 export function archiveRange(

@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import { expect } from "@std/expect";
 import { FileSystemError } from "../src/error.ts";
-import { observeBytes, openBytes, retire, toByteStream, withAbortSignal } from "../src/stream.ts";
+import { observeBytes, openBytes, retire, toByteStream, withAbortSignal } from "../src/stream/mod.ts";
 import { within } from "./gate.ts";
 
 /** Preserves rejected undefined as a failure rather than a successful void result. */

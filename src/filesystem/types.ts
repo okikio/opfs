@@ -10,7 +10,7 @@ import type { EntryKindType, MetricsModeType, OptimizationType, WriteModeType } 
 import { type InspectionType } from "../capability.ts";
 import { type MetricsType } from "../metrics.ts";
 import { type PlanInputType, type PlanType } from "../plan.ts";
-import { type WriteDataType } from "../stream.ts";
+import { type WriteDataType } from "../stream/mod.ts";
 import { type SyncFileType } from "../sync.ts";
 import { type WritableFileType } from "../writable.ts";
 import { type DirectoryHandleType, type FileHandleType } from "../handle.ts";

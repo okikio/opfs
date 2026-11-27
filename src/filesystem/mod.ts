@@ -75,7 +75,7 @@ import {
   toByteStream,
   withAbortSignal,
   type WriteDataType,
-} from "../stream.ts";
+} from "../stream/mod.ts";
 import { ManagedSyncFile, type SyncFileType } from "../sync.ts";
 import { ManagedWritableFile, type WritableFileType } from "../writable.ts";
 import { DirectoryHandle, type DirectoryHandleType, FileHandle, type FileHandleType } from "../handle.ts";

@@ -4,7 +4,7 @@ import { gunzipSync } from "node:zlib";
 import { execFileSync } from "node:child_process";
 import { arch } from "node:process";
 import { close } from "../../src/close.ts";
-import { collectBytes } from "../../src/stream.ts";
+import { collectBytes } from "../../src/stream/mod.ts";
 import { readResponse } from "../../src/response.ts";
 import { assertExtent } from "../../src/source.ts";
 import { openTar } from "../../src/archive/tar/mod.ts";
