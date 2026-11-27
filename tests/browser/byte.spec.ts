@@ -7,7 +7,7 @@ for (const realm of ["local", "foreign"] as const) {
   for (const action of ["eof", "error", "abort", "refusal"] as const) {
     test(`byte ownership / ${realm} native stream / ${action}`, async ({ ready: page }) => {
       const rows = await page.evaluate(async ({ realm, action }) => {
-        const moduleUrl = new URL("/src/stream.ts", location.href).href;
+        const moduleUrl = new URL("/src/stream/mod.ts", location.href).href;
         const { openBytes, withAbortSignal } = await import(moduleUrl) as typeof import("../../src/stream/mod.ts");
         const frame = document.createElement("iframe");
         let Constructor = ReadableStream;
