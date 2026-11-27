@@ -39,6 +39,7 @@
     "npm:drizzle-orm@~0.45.2": "0.45.2",
     "npm:mitata@^1.0.34": "1.0.34",
     "npm:playwright@1.62.1": "1.62.1",
+    "npm:rolldown@1.2.19": "1.2.19",
     "npm:sampo@0.24.1": "0.24.1",
     "npm:testcontainers@12.1.0": "12.1.0",
     "npm:typescript@^7.0.2": "7.0.2",
@@ -2301,6 +2302,7 @@
       "npm:@types/deno@latest",
       "npm:drizzle-orm@~0.45.2",
       "npm:mitata@^1.0.34",
+      "npm:rolldown@1.2.19",
       "npm:testcontainers@12.1.0",
       "npm:vite@^8.3.8",
       "npm:zod@^4.6.7"
@@ -2328,6 +2330,7 @@
         "npm:@types/node@^26.2.0",
         "npm:drizzle-orm@~0.45.2",
         "npm:mitata@^1.0.34",
+        "npm:rolldown@1.2.19",
         "npm:sampo@0.24.1",
         "npm:testcontainers@12.1.0",
         "npm:typescript@^7.0.2",

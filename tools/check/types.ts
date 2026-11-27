@@ -20,7 +20,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import { type ESTree, parseSync, Visitor } from "vite";
+import { type ESTree, parseSync, Visitor } from "rolldown/utils";
 import { spawn } from "../spawn.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
@@ -39,8 +39,9 @@ function bunModule(name: string | undefined): boolean {
 
 /**
  * Select Bun's compiler environment from dependency syntax, without executing source or interpreting fixture text.
- * Vite exposes the repository's existing Oxc parser. Invalid syntax fails with its source path; it cannot silently
- * assign a file to another environment. Computed import expressions do not establish a literal type dependency.
+ * Rolldown exposes the existing Oxc parser without Vite's unrelated import-time host probes.
+ * Invalid syntax fails with its source path; it cannot silently assign a file to another environment.
+ * Computed import expressions do not establish a literal type dependency.
  */
 export function usesBunTypes(file: string, source: string): boolean {
   const parsed = parseSync(file, source);

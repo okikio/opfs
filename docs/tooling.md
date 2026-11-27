@@ -66,8 +66,13 @@ The type check leaves copied guidance examples and configurations under `.agents
 including `.agents/validation/`. Original upstream test snapshots and generated declaration files also remain inert.
 
 Files that load Bun declarations need a separate compiler group because those declarations change shared browser
-globals. Vite's Oxc parser identifies their imports, re-exports, import types, literal dynamic imports and leading
+globals. Rolldown's Oxc parser identifies their imports, re-exports, import types, literal dynamic imports and leading
 triple-slash type references. Quoted examples and ordinary comments do not change a file's group.
+
+The type checker imports the pinned `rolldown/utils` entrypoint directly to avoid Vite's unrelated host probes. When the
+discovered test selection includes `tools/check/types.test.ts`, the Deno runner grants `--allow-ffi=node_modules` to
+load the installed native parser. Other selections retain their existing permissions; Netlify continues to use its
+existing `--allow-all` contract.
 
 ## Tests are discovered
 
