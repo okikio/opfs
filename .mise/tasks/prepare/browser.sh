@@ -18,11 +18,17 @@ if [[ -z "$debs" ]] || ! command -v apt-get >/dev/null; then exec "${cli[@]}" in
 # runner image ships without package lists, so apt cannot resolve the local files and asks for a download. A local
 # .deb has no signature to check, so CI writes this folder's cache only from trusted refs. The dry run then proves
 # nothing is missing; anything left half-configured is repaired by the miss path below.
-if compgen -G "$debs/*.deb" >/dev/null &&
-	sudo DEBIAN_FRONTEND=noninteractive dpkg --install --skip-same-version "$debs"/*.deb >/dev/null &&
-	"${cli[@]}" install-deps --dry-run "$@" >/dev/null; then
-	echo "Installed Playwright's Ubuntu packages from $(find "$debs" -maxdepth 1 -name '*.deb' | wc -l) cached files."
-	exec "${cli[@]}" install "$@"
+repair=false
+if compgen -G "$debs/*.deb" >/dev/null; then
+	if sudo DEBIAN_FRONTEND=noninteractive dpkg --install --skip-same-version "$debs"/*.deb >/dev/null; then
+		if "${cli[@]}" install-deps --dry-run "$@" >/dev/null; then
+			echo "Installed Playwright's Ubuntu packages from $(find "$debs" -maxdepth 1 -name '*.deb' | wc -l) cached files."
+			exec "${cli[@]}" install "$@"
+		fi
+	else
+		# dpkg can unpack some libraries before refusing another. Repair that state before apt can plan.
+		repair=true
+	fi
 fi
 
 # Miss, or the cached files no longer fit this runner image: install normally, but have apt download into the
@@ -32,8 +38,21 @@ rm -rf "$debs"
 mkdir -p "$debs/partial"
 # Translations are not needed to install anything, and they are a sixth of the index download.
 sudo apt-get update -o Acquire::Languages=none
-# Playwright's dry run simulates the install and lists every missing package, dependencies included.
-mapfile -t packages < <("${cli[@]}" install-deps --dry-run "$@" | sed -n 's/^  \([^ ]\+\)$/\1/p')
+if [[ $repair == true ]]; then
+	sudo apt-get install --yes --fix-broken --no-install-recommends -o "Dir::Cache::Archives=$debs" \
+		-o APT::Keep-Downloaded-Packages=true
+fi
+# Playwright exits 1 for a valid list of missing packages, but also when apt cannot simulate the install.
+# Capture the status before parsing: process substitution would hide a failed simulation from set -e.
+plan_status=0
+plan=$("${cli[@]}" install-deps --dry-run "$@") || plan_status=$?
+mapfile -t packages < <(printf '%s\n' "$plan" | sed -n 's/^  \([^ ]\+\)$/\1/p')
+if ((plan_status != 0)); then
+	if ((plan_status != 1 || ${#packages[@]} == 0)) || [[ $plan != "Missing system dependencies ("* ]]; then
+		printf '%s\n' "$plan" >&2
+		exit "$plan_status"
+	fi
+fi
 if [[ ${#packages[@]} -gt 0 ]]; then
 	# A slow mirror limits each connection, not the runner: one job measured 65 kB/s from the EC2 mirror and timed
 	# out. So fetch the files apt would fetch over 8 connections first. apt then installs from the folder and still
