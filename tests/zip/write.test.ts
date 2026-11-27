@@ -308,3 +308,81 @@ describe("streaming ZIP32 writer", () => {
       .toThrow("chunk");
   });
 });
+
+describe("ZIP writer compression and ZIP64", () => {
+  /** Walks the end records by hand, without the library's reader. */
+  function ends(bytes: Uint8Array) {
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    const eocd = bytes.byteLength - 22;
+    expect(view.getUint32(eocd, true)).toBe(0x06054b50);
+    const zip64 = eocd >= 20 && view.getUint32(eocd - 20, true) === 0x07064b50;
+    return { view, eocd, zip64 };
+  }
+
+  it("deflates text entries so an independent inflater restores them, and keeps STORED entries byte-exact", async () => {
+    const text = encode('{"url":"https://example.com/","ts":"2026-11-24T10:00:00Z"}\n'.repeat(200));
+    const stored = encode("already compressed");
+    const bytes = await collect(createZipStream([
+      { name: "pages.jsonl", source: stream([text.subarray(0, 1000), text.subarray(1000)]), compression: "deflate" },
+      { name: "data.warc.gz", source: stored, compression: "store" },
+    ]));
+    const zip = await openZip(createByteSource(bytes));
+    const [pages, warc] = zip.entries;
+    expect([pages!.method, warc!.method]).toEqual([8, 0]);
+    expect(pages!.compressedSize).toBeLessThan(text.byteLength / 10);
+    expect((await zip.read(0, { verify: true })).bytes).toEqual(text);
+    // An independent inflater reads the raw DEFLATE body straight out of the archive.
+    const view = new DataView(bytes.buffer);
+    const start = 30 + view.getUint16(26, true) + view.getUint16(28, true);
+    const { inflateRawSync } = await import("node:zlib");
+    expect(new Uint8Array(inflateRawSync(bytes.subarray(start, start + pages!.compressedSize)))).toEqual(text);
+    expect((await zip.read(1, { verify: true })).bytes).toEqual(stored);
+  });
+
+  it("keeps ZIP32 output unchanged unless zip64 is set", async () => {
+    const entries = () => [{ name: "a.txt", source: encode("abc") }];
+    const plain = await collect(createZipStream(entries()));
+    expect(ends(plain).zip64).toBe(false);
+    expect(await collect(createZipStream(entries(), { zip64: true }))).toEqual(plain);
+  });
+
+  it("writes ZIP64 sizes for an unknown-size stream whose limit passes 4 GiB", async () => {
+    const options = { zip64: true, maxEntryBytes: 8 * 1024 ** 3, maxArchiveBytes: 16 * 1024 ** 3 };
+    const bytes = await collect(createZipStream([{ name: "big.bin", source: stream([encode("abc")]) }], options));
+    const { view, eocd, zip64 } = ends(bytes);
+    // Local header: version 45, sentinel sizes, and a 16-byte ZIP64 extra field.
+    expect(view.getUint16(4, true)).toBe(45);
+    expect(view.getUint32(18, true)).toBe(0xffffffff);
+    expect(view.getUint16(30 + 7, true)).toBe(0x0001);
+    // The ZIP64 data descriptor holds 8-byte sizes.
+    const descriptor = 30 + 7 + 20 + 3;
+    expect(view.getUint32(descriptor, true)).toBe(0x08074b50);
+    expect(view.getBigUint64(descriptor + 8, true)).toBe(3n);
+    expect(view.getBigUint64(descriptor + 16, true)).toBe(3n);
+    expect(zip64).toBe(true);
+    expect(view.getUint32(Number(view.getBigUint64(eocd - 20 + 8, true)), true)).toBe(0x06064b50);
+    const zip = await openZip(createByteSource(bytes));
+    expect(zip.entries[0]!.size).toBe(3);
+    expect((await zip.read(0, { verify: true })).bytes).toEqual(encode("abc"));
+  });
+
+  it("deflates inside ZIP64 entries", async () => {
+    const text = encode("abc".repeat(5000));
+    const bytes = await collect(
+      createZipStream([{ name: "t.txt", source: stream([text]), compression: "deflate" }], {
+        zip64: true,
+        maxEntryBytes: 8 * 1024 ** 3,
+        maxArchiveBytes: 16 * 1024 ** 3,
+      }),
+    );
+    const zip = await openZip(createByteSource(bytes));
+    expect(zip.entries[0]!.method).toBe(8);
+    expect((await zip.read(0, { verify: true })).bytes).toEqual(text);
+  });
+
+  it("rejects an unknown compression method", async () => {
+    await expect(
+      collect(createZipStream([{ name: "a", source: encode("a"), compression: "zstd" as "store" }])),
+    ).rejects.toThrow("store or deflate");
+  });
+});

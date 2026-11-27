@@ -29,6 +29,7 @@ import type { ZipArchiveType, ZipEntryType, ZipOpenOptionsType } from "../zip/ty
 import { openWarc as openWarcFile, type WarcArchiveType, type WarcOpenOptionsType } from "../warc/mod.ts";
 import { scanMember } from "../warc/gzip.ts";
 import { type CdxjRecordType, parseCdxj } from "./cdxj.ts";
+import { checkReplay } from "./verify.ts";
 export { createCdxj, getSurt, getTimestamp, parseCdxj } from "./cdxj.ts";
 export type { CdxjInputType, CdxjRecordType } from "./cdxj.ts";
 
@@ -84,6 +85,8 @@ export interface WaczVerificationType {
   readonly missing: readonly string[];
   /** Resources whose size and sha256 matched. */
   readonly checked: number;
+  /** CDXJ lines whose WARC record matched them; see `checkReplay` in `./verify.ts`. */
+  readonly records: number;
 }
 
 /** Options for {@link openWacz}. ZIP limits apply to every later read through this WACZ. */
@@ -241,7 +244,7 @@ export async function openWacz(source: ByteSourceType, options: WaczOpenOptionsT
       .map((entry) => entry.name.slice(8)),
   );
 
-  return Object.freeze({
+  const archive: WaczArchiveType = Object.freeze({
     zip,
     package: pkg,
     warcs,
@@ -330,10 +333,16 @@ export async function openWacz(source: ByteSourceType, options: WaczOpenOptionsT
           continue;
         }
         const hash = new Sha256();
-        const chunk = 1024 * 1024;
-        for (let offset = 0; offset < entry.size; offset += chunk) {
-          const length = Math.min(chunk, entry.size - offset);
-          hash.update((await zip.read(entry.id, { offset, length, verify: offset + length === entry.size })).bytes);
+        if (entry.method === 0) {
+          const chunk = 1024 * 1024;
+          for (let offset = 0; offset < entry.size; offset += chunk) {
+            const length = Math.min(chunk, entry.size - offset);
+            hash.update((await zip.read(entry.id, { offset, length, verify: offset + length === entry.size })).bytes);
+          }
+        } else {
+          // A DEFLATED entry decodes from its start for any range, so read it once
+          // instead of once per chunk. The ZIP reader's limits still bound the bytes.
+          hash.update((await zip.read(entry.id, { verify: true })).bytes);
         }
         if (`sha256:${toHex(hash.digest())}` !== resource.hash.toLowerCase()) {
           errors.push(`${resource.path} sha256 does not match datapackage.json.`);
@@ -347,12 +356,20 @@ export async function openWacz(source: ByteSourceType, options: WaczOpenOptionsT
       if (warcs.length === 0) missing.push("archive/");
       if (!files.some((entry) => entry.name.startsWith("indexes/"))) missing.push("indexes/");
       if (find("pages/pages.jsonl") === undefined) missing.push("pages/pages.jsonl");
+      const records = await checkReplay({
+        readIndex: () => archive.readIndex(),
+        readPages: () => archive.readPages(),
+        openWarc: (filename) => archive.openWarc(filename),
+        getWarc: (filename) => find(`archive/${filename}`),
+      }, errors);
       return Object.freeze({
         valid: errors.length === 0 && missing.length === 0,
         errors: Object.freeze(errors),
         missing: Object.freeze(missing),
         checked: count,
+        records,
       });
     },
   });
+  return archive;
 }

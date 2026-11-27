@@ -102,17 +102,47 @@ const stream = createWarcStream([{
 await fs.writeFile("/capture.warc.gz", stream);
 ```
 
-| Field               | Default or rule                                                      |
-| ------------------- | -------------------------------------------------------------------- |
-| `WARC-Record-ID`    | `<urn:uuid:...>` from `crypto.randomUUID()`                          |
-| `WARC-Date`         | time of writing, UTC, to the second                                  |
-| `WARC-Block-Digest` | `sha256:` Base32 for `Uint8Array` blocks; none for streamed blocks   |
-| `Content-Length`    | the block size; a streamed block needs `size`, and a mismatch errors |
-| other fields        | `fields`, in order; fields the writer sets are refused               |
+| Field                 | Default or rule                                                       |
+| --------------------- | --------------------------------------------------------------------- |
+| `WARC-Record-ID`      | `<urn:uuid:...>` from `crypto.randomUUID()`                           |
+| `WARC-Date`           | time of writing, UTC, to the second                                   |
+| `WARC-Block-Digest`   | `sha256:` Base32 for `Uint8Array` blocks; none for streamed blocks    |
+| `WARC-Payload-Digest` | `sha256:` Base32 of the HTTP body, for `application/http` byte blocks |
+| `Content-Length`      | the block size; a streamed block needs `size`, and a mismatch errors  |
+| other fields          | `fields`, in order; fields the writer sets are refused                |
 
-Values that contain CR, LF or another control character are refused, so a URL cannot add header lines. The writer does
-not build HTTP messages: the block is the bytes you give it. With `compression: "gzip"` each record is one gzip member.
-The output is valid only after the stream ends without error, so write to a temporary name and rename after success.
+Values that contain CR, LF or another control character are refused, so a URL cannot add header lines. The block is the
+bytes you give it. With `compression: "gzip"` each record is one gzip member.
+
+Base32 digests are written without `=` padding. Python's `warcio` pads SHA-256 values with `====`; the WACZ verifier
+treats the two spellings as equal.
+
+### HTTP records
+
+`createResponseRecord()` and `createRequestRecord()` build the `application/http` block from parts, in the order the
+headers were on the wire:
+
+```ts
+import { createRequestRecord, createResponseRecord, createWarcStream } from "@okikio/opfs/archive/warc/write";
+
+const stream = createWarcStream([
+  createRequestRecord({ url: "https://example.com/", headers: [["User-Agent", "crawler"]] }),
+  createResponseRecord({ url: "https://example.com/", status: 200, headers: [["Content-Type", "text/html"]], body }),
+], { compression: "gzip", onRecord: (r) => console.log(r.status, r.mime, r.payloadDigest) });
+```
+
+For an `application/http` byte block, the writer reads the start line and `Content-Type`, writes `WARC-Payload-Digest`
+over the body, and reports `status`, `mime` and `payloadDigest` to `onRecord`. Those are the `status`, `mime` and
+`digest` fields of a CDXJ line, so an index needs no second pass over the WARC. The payload is the body as recorded; a
+chunked body is hashed with its chunk framing.
+
+### Split a crawl across files
+
+`createWarcSegments(records, { maxSegmentBytes })` starts a new WARC file between records once the current one reaches
+`maxSegmentBytes`, so no record is split. Files are named `segment-000001.warc.gz` and up, each opens with a `warcinfo`
+record, and `onRecord` adds the `filename` each record landed in. See [WACZ](wacz.md#stream-a-crawl-into-a-wacz) for the
+full crawl-to-WACZ flow. The output is valid only after the stream ends without error, so write to a temporary name and
+rename after success.
 
 A malformed length, missing field, invalid header or separator fails with `invalid-archive`. Recognized ARC signatures,
 an unsupported version line or unsupported selected content fail with `unsupported-profile`. Policy failures use

@@ -853,7 +853,18 @@
     "interface WarcFieldType"
   ],
   "./archive/warc/write": [
+    "function createRequestRecord",
+    "function createResponseRecord",
+    "function createWarcSegments",
     "function createWarcStream",
+    "function getSegmentName",
+    "interface HttpHeadType",
+    "interface HttpRequestInputType",
+    "interface HttpResponseInputType",
+    "function readHttpHead",
+    "interface WarcSegmentOptionsType",
+    "interface WarcSegmentRecordType",
+    "interface WarcSegmentType",
     "interface WarcStreamBlockType",
     "interface WarcWriteOptionsType",
     "interface WarcWriteRecordType",

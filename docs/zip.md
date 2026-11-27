@@ -25,11 +25,16 @@ with an encryption stream, but ZIP password encryption and resumable encrypted u
 
 ## Format and size policy
 
-This profile writes single-disk ZIP32 using uncompressed STORED members, UTF-8 names, CRC32, and signed data
-descriptors. The local header sets general-purpose bits 3 and 11. It leaves the CRC and sizes zero until the member's
-descriptor, then records measured values in the final central directory. Entries can have unknown lengths because finite
-policies stop them before ZIP32 fields overflow. The profile follows the local-header, descriptor and central-directory
-rules in [PKWARE APPNOTE 6.3.10](https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT).
+This profile writes single-disk ZIP with UTF-8 names, CRC32, and signed data descriptors. Each entry is STORED or raw
+DEFLATE (method 8), as its `compression` says; STORED is the default. The local header sets general-purpose bits 3
+and 11. It leaves the CRC and sizes zero until the member's descriptor, then records measured values in the final
+central directory. Entries can have unknown lengths because finite policies stop them before ZIP32 fields overflow, or,
+with `zip64: true`, because ZIP64 fields take the larger values.
+
+Pick the method by the data: `"deflate"` for text (JSON, CSV, CDXJ), `"store"` for data that is already compressed or
+that a reader must reach by byte range, such as the WARC files in a WACZ. DEFLATE uses the platform `CompressionStream`,
+and input is pulled only as compressed output is read. The profile follows the local-header, descriptor and
+central-directory rules in [PKWARE APPNOTE 6.3.10](https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT).
 
 | Input or policy     | Default   | Effect                                                             |
 | ------------------- | --------- | ------------------------------------------------------------------ |
@@ -43,14 +48,25 @@ rules in [PKWARE APPNOTE 6.3.10](https://pkware.cachefly.net/webdocs/casestudies
 | `maxPathDepth`      | 64        | Maximum path components and ancestor-index work.                   |
 | `maxSourceChunks`   | 1,000,000 | Maximum payload chunks across all entries, including empty chunks. |
 
-Entry/archive/directory byte policies cannot exceed `0xfffffffe`. The `0xffffffff` and `0xffff` sentinels are reserved
-for ZIP64 and are never emitted. Metadata records may exceed `maxChunkBytes`; their separate filename/directory limits
-bound them. Stream producers can allocate an oversized chunk before the writer sees it; the writer rejects it before
-copying or forwarding. Materialized bytes are split into chunks within policy. CRC32 detects accidental corruption; it
-does not authenticate a sender or prevent malicious modification.
+Without `zip64`, entry/archive/directory byte policies cannot exceed `0xfffffffe` and `maxEntries` cannot exceed 65,534;
+the `0xffffffff` and `0xffff` sentinels are never emitted. With `zip64: true` those policies may be larger, and the
+writer adds ZIP64 fields only where they are needed:
 
-ZIP64, raw DEFLATE or other compression, multi-disk output, passwords, encryption headers, comments, arbitrary extra
-fields, custom permissions and timestamp preservation are unsupported. This profile uses 1980-01-01 00:00:00 timestamps,
+| Value that needs it                                              | What the writer adds                                                                            |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| An entry whose size limit, or declared size, passes 4 GiB        | version 45, sentinel sizes and a ZIP64 extra in the local header, and an 8-byte-size descriptor |
+| A central size or offset past `0xfffffffe`                       | a ZIP64 extra field on that central record                                                      |
+| More than 65,534 entries, a large directory, or any ZIP64 record | a ZIP64 end record and locator before the classic end record                                    |
+
+A streaming writer cannot widen a local header after the fact, so the choice for an entry with an unknown size follows
+`maxEntryBytes`. Output for an archive that needs none of these is byte-identical with and without `zip64`. Metadata
+records may exceed `maxChunkBytes`; their separate filename/directory limits bound them. Stream producers can allocate
+an oversized chunk before the writer sees it; the writer rejects it before copying or forwarding. Materialized bytes are
+split into chunks within policy. CRC32 detects accidental corruption; it does not authenticate a sender or prevent
+malicious modification.
+
+Compression other than DEFLATE, multi-disk output, passwords, encryption headers, comments, arbitrary extra fields,
+custom permissions and timestamp preservation are unsupported. This profile uses 1980-01-01 00:00:00 timestamps,
 regular-file mode 0644 and directory mode 0755. It does not read a clock or inspect the host filesystem. Equal ordered
 inputs produce equal output across chunk splits.
 
@@ -109,5 +125,4 @@ mise run test:interop
 The recorded local run used CPython 3.9.6: four entries, 485 bytes, SHA-256
 `1e57289da471b461adffde9d698cd648f03f9277b46f5fe6973310faf206b1d2`, with result `passed`. The consumer script is
 independent of OPFS's reader and writer. This establishes that exact small STORED/descriptors workload; it does not
-establish ZIP64, compressed output, every external extractor, throughput, peak process memory, or installed-package
-compatibility.
+establish every external extractor, throughput, peak process memory, or installed-package compatibility.

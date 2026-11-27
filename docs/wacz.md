@@ -67,7 +67,23 @@ const report = await wacz.verify();
 - each listed resource exists, has the listed size and the listed `sha256:` hash;
 - each file in the ZIP is listed, apart from the two manifests;
 - every `archive/` file is STORED;
-- `archive/`, `indexes/` and `pages/pages.jsonl` exist; absent ones are in `missing`.
+- `archive/`, `indexes/` and `pages/pages.jsonl` exist; absent ones are in `missing`;
+- every CDXJ line points at a real capture (see below); `records` counts the lines that passed.
+
+Hashes prove the files did not change. They do not prove a replay tool will find anything, so `verify()` also follows
+every CDXJ line into its WARC:
+
+| Check                    | Fails when                                                                            |
+| ------------------------ | ------------------------------------------------------------------------------------- |
+| The WARC exists, STORED  | the line names a file not under `archive/`, or one the ZIP compressed                 |
+| The range fits           | `offset + length` passes the end of the file, or two lines share the same coordinates |
+| A record starts there    | no WARC record starts at `offset`, or the record there uses a different `length`      |
+| It can be replayed       | the record is not a `response`, `resource` or `revisit`                               |
+| It is the right capture  | `WARC-Target-URI` is not the line's `url`                                             |
+| The line agrees          | `status` or `mime` differs from the HTTP head, or `digest` from `WARC-Payload-Digest` |
+| Every page has a capture | a page in `pages/pages.jsonl` has no replayable line for its `url`                    |
+
+Each WARC is indexed once, and only the first 64 KiB of a response block is read to find its status and media type.
 
 Hashing uses a streaming SHA-256, so a large WARC is read in 1 MiB parts and never held whole. A match detects
 corruption. It does not prove who made the file: signed `datapackage-digest.json` files are read, but their signatures
@@ -105,12 +121,64 @@ await fs.writeFile(
 );
 ```
 
-The writer stores every file (ZIP method 0), computes each file's SHA-256 while the ZIP writer reads it, and writes
-`datapackage.json` and `datapackage-digest.json` last. A WARC source can be a stream; it is read once and not held in
-memory. Extra `files` are allowed and listed, but not under `archive/`, `indexes/` or `pages/`, which the spec reserves.
+The writer computes each file's SHA-256 while the ZIP writer reads it, and writes `datapackage.json` and
+`datapackage-digest.json` last. A WARC source can be a stream; it is read once and not held in memory. Extra `files` are
+allowed and listed, but not under `archive/`, `indexes/` or `pages/`, which the spec reserves.
 
-The ZIP writer is ZIP32: the file must stay under 4 GiB. Its defaults are 64 MiB per file and 1 GiB in total; raise
-`maxEntryBytes` and `maxArchiveBytes` for larger WARCs. Write to a temporary name and rename after the stream ends.
+Each kind of file gets the ZIP method that suits it:
+
+| Files                                     | ZIP method | Why                                                                       |
+| ----------------------------------------- | ---------- | ------------------------------------------------------------------------- |
+| `archive/*.warc.gz`, `archive/*.warc`     | STORED     | a CDXJ offset must be a byte range of the WACZ; `.warc.gz` is gzip anyway |
+| `indexes/`, `pages/`, `datapackage*.json` | DEFLATED   | JSON and CDXJ text usually shrinks to a small fraction                    |
+| extra `files`                             | DEFLATED   | unless the file sets `compression: "store"` (an image, a `.gz`)           |
+
+Asking for a compressed WARC throws, because it would break every CDXJ offset into it.
+
+ZIP64 is on. The defaults still cap the file at 64 MiB per file and 1 GiB in total, and a WACZ under 4 GiB is plain
+ZIP32. Raise `maxEntryBytes` and `maxArchiveBytes` for larger WARCs, past 4 GiB if you need, and the writer adds ZIP64
+fields only where a size or offset needs them. Pass `zip64: false` to refuse. Write to a temporary name and rename after
+the stream ends.
+
+## Stream a crawl into a WACZ
+
+A long crawl should not build one huge WARC in memory. `createWarcSegments()` writes records across numbered WARC files,
+starting a new one between records once a file reaches `maxSegmentBytes`. Each segment starts with a `warcinfo` record
+and is a complete WARC. Segments have `name` and `source`, so they go straight into `createWaczStream()`, and `onRecord`
+reports each record's file and range, so the index fills while the WARCs stream:
+
+```ts
+import { createResponseRecord, createWarcSegments } from "@okikio/opfs/archive/warc/write";
+import { createWaczStream } from "@okikio/opfs/archive/wacz/write";
+import type { CdxjInputType } from "@okikio/opfs/archive/wacz";
+
+const index: CdxjInputType[] = [];
+const warcs = createWarcSegments(
+  captures.map((capture) => createResponseRecord(capture)), // { url, status, headers, body }
+  {
+    maxSegmentBytes: 1024 ** 3,
+    onRecord: (r) =>
+      r.targetUri && index.push({
+        url: r.targetUri,
+        date: r.date,
+        filename: r.filename, // segment-000001.warc.gz, segment-000002.warc.gz, ...
+        offset: r.offset,
+        length: r.length,
+        ...(r.status === undefined ? {} : { status: r.status }),
+        ...(r.mime === undefined ? {} : { mime: r.mime }),
+        ...(r.payloadDigest === undefined ? {} : { digest: r.payloadDigest }),
+      }),
+  },
+);
+await fs.writeFile(
+  "/crawl.wacz",
+  createWaczStream({ warcs, index, pages }, { maxEntryBytes: 2 * 1024 ** 3, maxArchiveBytes: 64 * 1024 ** 3 }),
+);
+```
+
+The ZIP writer reads one segment to its end before it asks for the next, which is what `createWarcSegments()` needs:
+asking for a segment before the last one was read throws. `index` is complete by the time the writer reaches
+`indexes/index.cdxj`, because the index is written after every WARC.
 
 ## CDXJ lines
 
@@ -128,6 +196,6 @@ numbers such as `"offset": "512"`.
 ## Limits
 
 - No WACZ signing, and signatures are not verified.
-- Interoperability is tested against this package's own writer and the WACZ 1.1.1 text, not against ReplayWeb.page or
-  py-wacz output files.
+- Interoperability is tested against this package's own reader, Python's `zipfile`, `zlib` and `hashlib`, and Info-ZIP
+  `unzip`, not against ReplayWeb.page or py-wacz output files.
 - `readIndex()` returns every line; it does not binary-search ZipNum blocks.
