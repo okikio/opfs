@@ -65,6 +65,10 @@ The type check leaves copied guidance examples and configurations under `.agents
 `.agents/skills/` and `.agents/handbook/` to their upstream guidance repository. It still checks local agent programs,
 including `.agents/validation/`. Original upstream test snapshots and generated declaration files also remain inert.
 
+Files that load Bun declarations need a separate compiler group because those declarations change shared browser
+globals. Vite's Oxc parser identifies their imports, re-exports, import types, literal dynamic imports and leading
+triple-slash type references. Quoted examples and ordinary comments do not change a file's group.
+
 ## Tests are discovered
 
 A file named `*.test.ts` under `tests/` or `tools/` is a test. It runs on Deno, Node.js and Bun unless its name puts it
