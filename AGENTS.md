@@ -1,5 +1,9 @@
 # Repository implementation rules
 
+Read the [local guidance profile](.agents/README.md), then use [START.md](.agents/START.md) to select the applicable
+skills, guides and handbook procedures. The repository rules below own project-specific contracts and commands; shared
+examples do not replace them.
+
 Read `README.md` and `docs/design.md` before changing architecture or public APIs.
 
 - Treat `@okikio/opfs` as a library programming model, not as an application runtime.

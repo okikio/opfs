@@ -1,0 +1,4 @@
+interface:
+  display_name: "Build CLIs"
+  short_description: "Build production command-line applications."
+  default_prompt: "Use $build-clis to design, implement, or review this command-line application."

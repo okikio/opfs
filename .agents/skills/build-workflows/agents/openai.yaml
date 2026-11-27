@@ -1,0 +1,4 @@
+interface:
+  display_name: "Build Workflows"
+  short_description: "Build durable workflows and pipelines."
+  default_prompt: "Use $build-workflows to design, implement, or review this durable workflow or pipeline."

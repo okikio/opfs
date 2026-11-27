@@ -35,7 +35,7 @@ tools/
 | `prepare:deps`                             | `deno ci`: the dependency graph exactly as `deno.lock` records it                             |
 | `prepare:fixtures`                         | Downloads the [stored fixtures](fixtures.md) and checks each SHA-256                          |
 | `prepare:browser`                          | The pinned Playwright browsers and their system packages                                      |
-| `check:types`                              | `deno check` on every tracked TypeScript file, then `tsc` on the DOM and worker projects      |
+| `check:types`                              | `deno check` on tracked repository TypeScript programs, then `tsc` on the DOM and worker projects |
 | `check:format`, `check:lint`, `check:docs` | `deno fmt --check`, `deno lint`, `deno doc --lint mod.ts`                                     |
 | `check:examples`                           | Type-checks the complete examples in Markdown                                                 |
 | `check:schema`                             | JSON Schemas match their Zod sources (`build:schema` rewrites them)                           |
@@ -60,6 +60,10 @@ tools/
 | `release:plan`, `release:version`          | Preview, then write, the next version from Sampo changesets; see [releasing](releasing.md)    |
 | `release:publish`, `release:verify`        | Publish to one registry (`--target npm\|jsr`); install it back in a fresh consumer            |
 | `ci:plan`, `ci:lane`                       | Select the lanes a change needs; run one lane's tasks in order                                |
+
+The type check leaves copied guidance examples and configurations under `.agents/guides/`, `.agents/references/`,
+`.agents/skills/` and `.agents/handbook/` to their upstream guidance repository. It still checks local agent programs,
+including `.agents/validation/`. Original upstream test snapshots and generated declaration files also remain inert.
 
 ## Tests are discovered
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Build authentication"
+  short_description: "Configure auth and reconcile generated schema safely"
+  default_prompt: "Use $build-auth for the requested authentication contract."

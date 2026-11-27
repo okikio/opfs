@@ -1,0 +1,4 @@
+interface:
+  display_name: "Test code"
+  short_description: "Design tests with independent regression expectations"
+  default_prompt: "Use $test-code for this task, applying shared quality and the affected domain contracts."

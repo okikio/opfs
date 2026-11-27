@@ -1,0 +1,4 @@
+interface:
+  display_name: "Build Sites"
+  short_description: "Build content-first sites and documentation."
+  default_prompt: "Use $build-sites to design, implement, or review this content-first website."

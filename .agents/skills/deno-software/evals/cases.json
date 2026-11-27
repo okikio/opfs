@@ -1,0 +1,122 @@
+[
+  {
+    "name": "new-deno-cli",
+    "prompt": "Create a production-ready Deno CLI that reads a JSON config file, calls an HTTP API, and can be compiled for Linux and Windows.",
+    "expected": [
+      "classifies artifact",
+      "defines permissions",
+      "separates CLI from core",
+      "tests exit codes",
+      "smoke-tests compiled binaries"
+    ]
+  },
+  {
+    "name": "node-migration",
+    "prompt": "Migrate this pnpm workspace from Node to Deno without breaking Vite or package publication.",
+    "expected": [
+      "preserves package.json and pnpm lock initially",
+      "runs compatibility experiment",
+      "inspects lifecycle/native dependencies",
+      "documents manifest ownership",
+      "validates root and member workflows"
+    ]
+  },
+  {
+    "name": "refactor",
+    "prompt": "Refactor this Deno server's 1,200-line service into maintainable modules.",
+    "expected": [
+      "maps callers and invariants",
+      "defines final ownership",
+      "migrates all consumers",
+      "removes old service",
+      "runs parity and shutdown tests"
+    ]
+  },
+  {
+    "name": "dependency",
+    "prompt": "Add a date library to this Deno 2.9 app.",
+    "expected": [
+      "evaluates Temporal first",
+      "checks serialization and timezone needs",
+      "does not add dependency without evidence",
+      "states minimum runtime"
+    ]
+  },
+  {
+    "name": "review",
+    "prompt": "Review this deno.json and server for production readiness.",
+    "expected": [
+      "prioritizes correctness/security",
+      "checks broad permissions",
+      "checks shutdown/timeouts",
+      "checks version pinning and CI",
+      "provides verification per finding"
+    ]
+  },
+  {
+    "name": "desktop",
+    "prompt": "Turn this Fresh app into a desktop app using Deno.",
+    "expected": [
+      "marks deno desktop experimental",
+      "isolates desktop adapter",
+      "chooses backend deliberately",
+      "pins Deno",
+      "requires target package smoke tests"
+    ]
+  },
+  {
+    "name": "workspace-protocol-placement",
+    "prompt": "Configure a Deno monorepo where a Deno package and an npm package depend on sibling packages. Use workspace versions and central dependency versions.",
+    "expected": [
+      "uses deno workspace membership for Deno package resolution",
+      "uses workspace protocol only in package.json dependency fields",
+      "states catalogs are npm-only",
+      "distinguishes root imports from member exports",
+      "validates root and member execution"
+    ]
+  },
+  {
+    "name": "private-packages",
+    "prompt": "Make our internal workspace packages private and consume one package from our private registry in CI.",
+    "expected": [
+      "distinguishes Deno publish false from package.json private",
+      "identifies package.json-only members as non-JSR candidates",
+      "uses npmrc for private npm registry authentication",
+      "does not commit credentials",
+      "tests clean CI authentication"
+    ]
+  },
+  {
+    "name": "typescript-config",
+    "prompt": "Move this Node tsconfig into deno.jsonc and delete tsconfig.json.",
+    "expected": [
+      "inspects which tools consume tsconfig",
+      "explains supported tsconfig root fields",
+      "removes emit-only compiler options",
+      "preserves tsconfig when project references or external tooling require it",
+      "verifies compiler-option support with current Deno"
+    ]
+  },
+  {
+    "name": "permission-sets",
+    "prompt": "Replace -A in our dev, test, migration, and production tasks with Deno permission sets.",
+    "expected": [
+      "creates separate semantic permission sets",
+      "uses allow deny and ignore deliberately",
+      "binds sets explicitly in tasks",
+      "tests forbidden access",
+      "reviews subprocess and compiled artifact behavior"
+    ]
+  },
+  {
+    "name": "dual-publish",
+    "prompt": "Publish this TypeScript library to both JSR and npm from a Deno workspace.",
+    "expected": [
+      "separates Deno and npm export contracts",
+      "defines one version synchronization policy",
+      "dry-runs JSR and inspects npm pack output",
+      "tests clean consumers for both registries",
+      "marks internal Deno members publish false"
+    ]
+  }
+]

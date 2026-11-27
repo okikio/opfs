@@ -1,0 +1,4 @@
+interface:
+  display_name: "Plan changes"
+  short_description: "Plan software changes, migrations and implementations"
+  default_prompt: "Use $plan-changes for this task, applying shared quality and the affected domain contracts."

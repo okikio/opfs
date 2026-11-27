@@ -1,5 +1,5 @@
 /**
- * Type-check every tracked TypeScript file, in the two environments the source targets.
+ * Type-check tracked repository TypeScript programs in their target environments.
  *
  * Deno checks the repository with `deno.json`'s compiler options, which include the DOM and Deno namespaces.
  * Files that load Bun's type definitions are checked in a second `deno check` call: Bun's globals redeclare
@@ -8,7 +8,8 @@
  * Bun benchmark needs no edit here.
  *
  * A folder with its own `deno.json` (the npm build tool, for example) is checked with that configuration, since
- * its import map is not the package's.
+ * its import map is not the package's. Copied guidance owns its examples and configurations upstream, so the
+ * four maintained guidance folders under `.agents/` are inert here. Local agent validation remains checked.
  *
  * TypeScript itself then checks the browser and worker projects (`tsconfig.opfs-dom.json` and
  * `tsconfig.opfs-worker.json`), which pin the exact DOM and worker library sets the OPFS driver supports.
@@ -23,8 +24,12 @@ import { spawn } from "../spawn.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 
-/** Inert copies of upstream sources and generated declarations are data, not programs to check. */
-const inert = [/^tests\/upstream\/original\//u, /\.d\.ts$/u];
+/** Upstream snapshots, copied guidance and generated declarations are data, not repository programs. */
+const inert = [
+  /^tests\/upstream\/original\//u,
+  /^\.agents\/(?:guides|references|skills|handbook)\//u,
+  /\.d\.ts$/u,
+];
 
 /** Matches a file that loads Bun's type definitions. */
 const bun = /["'](?:bun-types|bun:[a-z]+)["']/u;
@@ -36,14 +41,16 @@ export interface GroupType {
   readonly files: string[];
 }
 
-/** Tracked paths matching `patterns`, from `git ls-files`, so ignored and generated files are never checked. */
+/** Paths tracked by Git, including staged additions, that match `patterns`. */
 const list = (base: string, ...patterns: string[]) =>
   execFileSync("git", ["-C", base, "ls-files", "-z", "--", ...patterns], { encoding: "utf8" }).split("\0")
     .filter(Boolean);
 
-/** Tracked TypeScript files, grouped by Deno configuration and by whether they load Bun's types. */
+/** Tracked repository programs, grouped by their owned Deno configuration and whether they load Bun's types. */
 export function groupFiles(base = root): GroupType[] {
-  const configs = list(base, "*/deno.json", "*/deno.jsonc").map((file) => file.slice(0, file.lastIndexOf("/") + 1));
+  const configs = list(base, "*/deno.json", "*/deno.jsonc")
+    .filter((file) => !inert.some((pattern) => pattern.test(file)))
+    .map((file) => file.slice(0, file.lastIndexOf("/") + 1));
   const result = new Map<string, GroupType>();
   for (const file of list(base, "*.ts", "*.mts")) {
     if (inert.some((pattern) => pattern.test(file))) continue;
