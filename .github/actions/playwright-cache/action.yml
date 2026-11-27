@@ -2,9 +2,10 @@ name: Playwright Ubuntu packages
 description: >-
   Restore or save the Ubuntu .deb files that Playwright's browsers need. A job calls this twice: once with
   mode restore before `mise run ci:lane`, and once with mode save as its last step, so only a job whose
-  checks passed can write the cache. `prepare:browser` installs the restored files with apt --no-download,
-  which skips apt's index refresh and every mirror download. When they no longer fit the runner image, it
-  installs normally and refills the folder. apt checks each file's dependencies but not its signature: a local
+  checks passed can write the cache. Only the exact runner image, architecture, engine set and lockfile can
+  restore it. `prepare:browser` installs the restored files with dpkg and checks the result with Playwright.
+  A partial installation is repaired before missing packages are planned and the folder is refilled.
+  dpkg checks each file's dependencies but not its signature: a local
   .deb file has none. So only trusted refs write this cache, with the same rule as dependency-cache, and a PR
   can never write an entry that main or another PR restores.
 
@@ -35,8 +36,8 @@ runs:
             *) echo "::error::Unknown Playwright engine. Use chromium, firefox or webkit." >&2; exit 1 ;;
           esac
         done
-        # The runner image decides which packages are already installed, so it is part of the key. A new image
-        # misses the exact key but still restores the previous image's files, which usually still install.
+        # The runner image decides which packages are already installed. Reusing another image's files can
+        # leave paired libraries at incompatible versions, so a new image must start with an empty cache.
         {
           ( IFS=-; echo "prefix=playwright-apt-v1-${ImageOS}-${RUNNER_ARCH}-${names[*]}-" )
           echo "image=${ImageVersion}"
@@ -59,7 +60,6 @@ runs:
         path: ${{ runner.temp }}/playwright-apt
         # The lockfile pins @playwright/test, and each Playwright release can change its package list.
         key: ${{ steps.locate.outputs.prefix }}${{ steps.locate.outputs.image }}-${{ hashFiles('deno.lock') }}
-        restore-keys: ${{ steps.locate.outputs.prefix }}
 
     - name: Record the restored key
       if: inputs.mode == 'restore'
