@@ -94,6 +94,10 @@ in a family with other needs; `tools/test/discover.ts` holds those rules, each w
 A new test needs no other edit: name it for its family. `mise run test:deno -- --list` prints the inventory a run would
 use, with each file's family.
 
+An explicitly named family must support the requested runtime. Unknown names, unsupported families and unmatched files
+fail before execution, including mixed selections that would otherwise omit one requested family. A fixed CI matrix may
+contain an empty shard of a nonempty selection; `--shard i/n` preserves that intentional empty result.
+
 The [installed-package fixtures](package.md) have a separate owner. `check:package` copies real `.test.mjs` files into a
 clean npm install, then Node, Deno and Bun discover its `runtime/` tree with their native test commands. TypeScript
 discovers `types/portable/**/*.ts` within the same installed consumer. These fixtures must not run through the

@@ -1,6 +1,58 @@
 import { describe, it } from "node:test";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { expect } from "@std/expect";
 import * as suite from "./suite.ts";
+
+/** Exercise the real suite entrypoint without starting the selected test programs. */
+function listing(runtime: string, ...selectors: string[]) {
+  return spawnSync("node", [fileURLToPath(new URL("./suite.ts", import.meta.url)), runtime, ...selectors, "--list"], {
+    cwd: fileURLToPath(new URL("../../", import.meta.url)),
+    encoding: "utf8",
+    timeout: 10_000,
+  });
+}
+
+describe("explicit test selection", () => {
+  for (const family of ["constructor", "toString", "__proto__", "missing"]) {
+    it(`rejects unknown family ${family} at the actual entrypoint`, () => {
+      const result = listing("node", "--family", family);
+      expect(result.error).toBeUndefined();
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain(`Unknown test family ${family}.`);
+      expect(result.stdout).toBe("");
+    });
+  }
+  for (const [runtime, family] of [["node", "kv"], ["deno", "node"], ["bun", "process"]] as const) {
+    it(`rejects ${family} on ${runtime} instead of reporting an empty success`, () => {
+      const result = listing(runtime, "--family", family);
+      expect(result.error).toBeUndefined();
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain(`Test family ${family} does not run on ${runtime}.`);
+    });
+  }
+  it("rejects an unsupported family even when another named family has tests", () => {
+    const result = listing("node", "--family", "portable", "--family", "kv", "tools/test/suite.test.ts");
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Test family kv does not run on node.");
+    expect(result.stdout).toBe("");
+  });
+  it("lists an exact authored file through its supported family", () => {
+    const result = listing("node", "--family", "portable", "tools/test/suite.test.ts");
+    expect(result.status).toBe(0);
+    expect(result.stdout.trim()).toBe("portable  tools/test/suite.test.ts");
+  });
+  it("rejects an unmatched file before sharding", () => {
+    const result = listing("node", "tools/test/no-such-test.test.ts", "--shard", "2/2");
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("No node test matches tools/test/no-such-test.test.ts.");
+  });
+  it("allows an empty explicit shard of a nonempty selection", () => {
+    const result = listing("node", "tools/test/suite.test.ts", "--shard", "2/2");
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe("");
+  });
+});
 
 describe("runtime test commands", () => {
   it("runs Deno without type checking and with loopback-only network", () => {
