@@ -31,6 +31,10 @@ Read `README.md` and `docs/design.md` before changing architecture or public API
   external protocol requires the word.
 - Keep Deno, Bun, Node, browsers, and Workers on the same core TypeScript source. Runtime-specific drivers stay behind
   explicit subpaths.
+- Keep Deno resource lifetimes under `src/backend/deno/`: `range.ts` owns finite reads, `write.ts` borrows the backend's
+  file for stream writes, `writable.ts` owns queued positional access, and `sync.ts` owns synchronous access.
+  `driver.ts` composes those owners and retains the public exports. See
+  [host resource ownership](docs/host.md#deno-file-ownership).
 - Prefer Web APIs and `@std/*` before custom infrastructure when they provide the required semantics.
 - Importing a module must not connect to a provider, read credentials, configure logging, start workers, or perform
   unrelated global work.
@@ -76,6 +80,9 @@ Read `README.md` and `docs/design.md` before changing architecture or public API
   `mise run check:package` for their runtime and declaration checks. Native runners discover the `.test.mjs` scenarios;
   the installed TypeScript compilers discover the portable type modules. The repository source checker must not supply
   its ambient Deno namespace to these fixtures. See [package verification](docs/package.md).
+- `tools/npm/declarations.ts` checks the native Deno leaf's emitted local declaration graph before attaching its
+  `deno-types` reference. Keep that graph complete when moving resource owners. Installed consumer compilers must still
+  verify the actual public signatures and the portable graph's lack of Deno globals.
 
 ## Release notes
 

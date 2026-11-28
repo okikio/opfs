@@ -64,14 +64,16 @@ describe("runtime test commands", () => {
     expect(command).not.toContain("--allow-all");
     expect(command.at(-1)).toBe("tests/xz.test.ts");
   });
-  it("allows installed native libraries when the type-selection test is selected", () => {
-    const files = ["tests/xz.test.ts", "tools/check/types.test.ts"];
-    const command = suite.createCommand("deno", files, new Set(["portable"]));
-    expect(command.filter((flag) => flag.startsWith("--allow-ffi"))).toEqual(["--allow-ffi=node_modules"]);
-    expect(command).not.toContain("--allow-all");
-    expect(command).toContain("--allow-net=127.0.0.1,localhost,[::1]");
-    expect(command.slice(-files.length)).toEqual(files);
-  });
+  for (const parserTest of ["tools/check/types.test.ts", "tools/npm/declarations.test.ts"]) {
+    it(`allows installed native libraries when ${parserTest} is selected`, () => {
+      const files = ["tests/xz.test.ts", parserTest];
+      const command = suite.createCommand("deno", files, new Set(["portable"]));
+      expect(command.filter((flag) => flag.startsWith("--allow-ffi"))).toEqual(["--allow-ffi=node_modules"]);
+      expect(command).not.toContain("--allow-all");
+      expect(command).toContain("--allow-net=127.0.0.1,localhost,[::1]");
+      expect(command.slice(-files.length)).toEqual(files);
+    });
+  }
   it("keeps native library access disabled for other tooling tests", () => {
     const files = ["tools/test/suite.test.ts", "tools/test/discover.test.ts"];
     const command = suite.createCommand("deno", files, new Set(["portable"]));

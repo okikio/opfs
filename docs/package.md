@@ -68,6 +68,15 @@ invocation with the portable entry's negative Deno-namespace assertion. Each com
 ambient discovery and `types: []`. The native Deno leaf must load only the published `deno-types` alias, and the native
 Node leaf must load its selected Node declarations. `skipLibCheck` remains false.
 
+Before attaching the `deno-types` reference to the native leaf, the npm builder parses its emitted declaration graph.
+Every local import, re-export and import type must resolve within the package, and the reachable graph must retain a
+`Deno.FsFile` type reference. This lets the entrypoint re-export the Deno resource owners without repeating their
+signatures. The reference stays on that explicit native entrypoint.
+
+The graph check in `tools/npm/declarations.ts` verifies structure. The installed native fixture then checks the actual
+range, writable and synchronous constructors and the stream writer with both published TypeScript compilers. Positive
+native-file arguments and rejected incomplete files establish that those signatures still require `Deno.FsFile`.
+
 `typecheck.mjs` uses `--listFiles`, which retains semantic checking, and checks that portable discovery selected actual
 contract files. It also verifies that the build-only `@types/deno` package did not enter any installed consumer graph.
 

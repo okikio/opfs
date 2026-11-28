@@ -14,10 +14,12 @@ caller's resource lifetime explicit across the supported hosts.
 | Project contract | Current owner |
 | --- | --- |
 | Architecture, ownership and import safety | [AGENTS.md](../AGENTS.md) and [docs/design.md](../docs/design.md) |
+| Native Deno file lifetimes | [docs/host.md](../docs/host.md#deno-file-ownership) and `src/backend/deno/{driver,range,write,writable,sync}.ts` |
 | Public entrypoints and package identity | `mod.ts`, `src/`, `deno.json`, `package.json` and `tests/package/exports.json` |
 | Runtime and dependency versions | [mise.toml](../mise.toml) and `deno.lock` |
 | Checks, test families and external prerequisites | [docs/tooling.md](../docs/tooling.md), `.mise/tasks/`, `tools/` and `tests/` |
 | Installed npm consumer fixtures and declaration environments | [docs/package.md](../docs/package.md) through `mise run check:package` |
+| Native declaration graph and ambient reference placement | `tools/npm/declarations.ts` and the installed native declaration fixtures |
 | Release procedure | [docs/releasing.md](../docs/releasing.md) |
 | Active work and publication authority | The current request, actual Git branch and revision, working changes and relevant PR |
 

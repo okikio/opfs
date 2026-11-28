@@ -108,3 +108,20 @@ Windows host drivers reject colon-bearing names, trailing dots or spaces, contro
 names before native I/O. NTFS alternate data streams and Win32 aliases otherwise let different virtual names address the
 same physical entry and acquire different facade locks. Other backends retain the portable name grammar. Host case
 folding, symlinks, and permissions remain properties of the selected host filesystem; the lexical root is not a sandbox.
+
+## Deno file ownership
+
+`@okikio/opfs/driver/deno` exposes the native driver and its resource constructors. Each resource has one descriptor
+owner. Passing an open `Deno.FsFile` to a resource constructor transfers that descriptor to the resource; passing it to
+`writeStreamToFile` borrows it for one operation.
+
+| Public operation    | File lifetime                                                                                                                                                 |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DenoRangeSource`   | Owns an already-positioned file for a finite byte range. EOF, read failure or cancellation closes it. Cancellation also waits for an admitted read to settle. |
+| `writeStreamToFile` | Borrows the file and owns the input reader. Returns the final byte position; the caller performs any final truncation and closes the file.                    |
+| `DenoWritableFile`  | Owns the file for a queued positional session. Close or abort retires it after admitted operations. Abort does not undo bytes already written.                |
+| `DenoSyncFile`      | Owns the file until close. Its byte cursor starts at zero, advances after reads and writes, and is clamped after truncation.                                  |
+
+When maintaining the driver, follow those lifetimes through `src/backend/deno/range.ts`, `write.ts`, `writable.ts` and
+`sync.ts`. The backend in `driver.ts` owns admission, host paths and file acquisition, then transfers or lends the
+opened file to the appropriate resource. The public import path remains `@okikio/opfs/driver/deno`.

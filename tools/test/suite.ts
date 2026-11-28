@@ -12,7 +12,7 @@
  *
  * - Deno runs with `--no-check` (type checking is its own gate) and explicit permissions. Tests may read and
  *   write files, start processes and listen on loopback; they get no other network. `kv` adds `--unstable-kv`.
- *   Selections containing the type-selection test can load native dependencies from `node_modules`.
+ *   Selections containing a native parser test can load its dependencies from `node_modules`.
  * - Node runs `node --test` with four files at once; each file is its own process.
  * - Bun runs `bun test` with a 30-second timeout per test, the slowest supported case.
  *
@@ -72,8 +72,10 @@ export function createCommand(
         ...(families.has("kv") ? ["--unstable-kv"] : []),
         ...(families.has("netlify") ? ["--allow-all"] : [
           ...permissions,
-          // The type-selection test loads Rolldown's native parser from the installed dependency tree.
-          ...(files.includes("tools/check/types.test.ts") ? ["--allow-ffi=node_modules"] : []),
+          // These tooling tests load Rolldown's native parser from the installed dependency tree.
+          ...(files.some((file) => file === "tools/check/types.test.ts" || file === "tools/npm/declarations.test.ts")
+            ? ["--allow-ffi=node_modules"]
+            : []),
         ]),
         ...files,
       ];
