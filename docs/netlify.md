@@ -173,7 +173,7 @@ library-owned messages omit tokens, signed queries and response text. Applicatio
 This profile offers no stable remote byte-range source, authenticated content, upload session, resumable stream,
 filesystem directory or ObjectDriver contract. A bounded successful GET can be copied into an immutable local byte
 source separately, with the full-download cost visible. The
-[Netlify expansion plan](https://github.com/okikio/opfs/blob/codex/release-2026-10-06/planning/storage/NETLIFY.md)
+[Netlify expansion plan](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/planning/storage/NETLIFY.md)
 records the independent SDK/server fixture, its admission boundary and the further evidence needed for broader support.
 
 The authored tests in `tests/netlify/mod.test.ts` exercise request construction, bounded parsing and failure ownership.
@@ -181,8 +181,8 @@ They passed in Deno, Node and Bun; those injected peers are not independent serv
 11.1.7/local-server fixture passed empty and 128 KiB full-byte comparisons in both directions, Unicode metadata reads,
 conditions, credential separation and lost-reply reconciliation. Its exact candidate bundle and retained run are
 recorded in the
-[fixture guide](https://github.com/okikio/opfs/blob/codex/release-2026-10-06/tests/fixtures/netlify/README.md). That
-Node-local result does not establish live service, browser SDK fallback or production consistency behavior. The
+[fixture guide](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/netlify/README.md).
+That Node-local result does not establish live service, browser SDK fallback or production consistency behavior. The
 extracted npm artifact passed all 171 export checks, Node/Deno/Bun consumers, strict declaration consumers, browser
 bundling, import safety and selective adoption. CI is a separate delivery gate; the
 [pull request checks](https://github.com/okikio/opfs/pull/1/checks) identify the exact commit they tested.

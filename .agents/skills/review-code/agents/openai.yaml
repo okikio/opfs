@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review Code"
+  short_description: "Review behavior, documentation and maintainability"
+  default_prompt: "Use $review-code to review this diff, including comments, docs, naming, imports and correctness."

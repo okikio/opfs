@@ -1,0 +1,12 @@
+{
+  "imports": {
+    "zod": "npm:zod@^4.0.0"
+  },
+  "tasks": {
+    "check": "deno fmt --check && deno lint scripts examples && deno check scripts/validate.ts scripts/audit.ts examples/config.ts examples/cli.ts examples/server.ts && deno run --allow-read scripts/validate.ts",
+    "audit": "deno run --allow-read scripts/audit.ts"
+  },
+  "compilerOptions": {
+    "strict": true
+  }
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Build Developer Tools"
+  short_description: "Build toolchains, generators, and releases."
+  default_prompt: "Use $build-devtools to design, implement, or review this developer toolchain."

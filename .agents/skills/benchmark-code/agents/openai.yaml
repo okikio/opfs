@@ -1,0 +1,4 @@
+interface:
+  display_name: "Benchmark Code"
+  short_description: "Measure correct behavior with reproducible benchmarks"
+  default_prompt: "Use $benchmark-code to assess this performance claim and its correctness oracle before timing."

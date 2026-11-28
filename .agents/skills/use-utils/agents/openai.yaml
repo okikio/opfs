@@ -1,0 +1,4 @@
+interface:
+  display_name: "Use Okikio Utils"
+  short_description: "Verify focused utility APIs and resource ownership."
+  default_prompt: "Use $use-utils to select and verify the utility package and ownership contract for this task."

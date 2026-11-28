@@ -1,0 +1,4 @@
+interface:
+  display_name: "Build APIs"
+  short_description: "Build service modules and HTTP APIs."
+  default_prompt: "Use $build-apis to design, implement, or review this API and its service contracts."

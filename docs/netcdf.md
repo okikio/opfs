@@ -161,9 +161,9 @@ Fixtures cover CDF-1/CDF-2, all six types, scalars, asymmetric arrays, multiple 
 empty records and packed missing/scaling attributes. The fixture directory records exact source/archive/payload hashes,
 tool versions and compatibility evidence. No producer SDK is a runtime dependency. Tests also cover unsafe extents,
 malformed fields, budget admission, source capture and cancellation. The current
-[TypeScript producer](../tests/fixtures/netcdf/README.md) retains the netCDF-C profiles with authored full-byte and
-subset expectations. It does not repeat the historical SciPy writer or reciprocal checks; their source remains an inert
-snapshot.
+[TypeScript producer](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/netcdf/README.md)
+retains the netCDF-C profiles with authored full-byte and subset expectations. It does not repeat the historical SciPy
+writer or reciprocal checks; their source remains an inert snapshot.
 
 `bench/netcdf.bench.ts` uses a native 30,000-record fixture to compare cold indexing, small single/cross-record
 selections, a full variable read and packed physical conversion. Its preindexed Blob baseline copies one slab without

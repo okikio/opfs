@@ -40,6 +40,29 @@ Mitata + Playwright benchmarks
 
 ## Repository command authority
 
+The deterministic provider suites keep each protocol and lifecycle contract in its own native test file. The same owners
+run on Deno, Node and Bun. Each test retains its own clients, request captures, cancellation signals and awaited
+cleanup. Shared `fixture.ts` modules supply independent XML readers and reusable inputs; they do not register tests or
+retain request state.
+
+| Contract                                      | S3 owner                       | Azure owner                       |
+| --------------------------------------------- | ------------------------------ | --------------------------------- |
+| Authorization and canonical request bytes     | `tests/s3/signing.test.ts`     | `tests/azure/signing.test.ts`     |
+| Object metadata, errors and borrowed clients  | `tests/s3/objects.test.ts`     | `tests/azure/objects.test.ts`     |
+| Retry, replay and credential refresh          | `tests/s3/policy.test.ts`      | `tests/azure/policy.test.ts`      |
+| Response acknowledgement and retirement       | `tests/s3/response.test.ts`    | `tests/azure/response.test.ts`    |
+| Publication identity and failure disposition  | `tests/s3/publication.test.ts` | `tests/azure/publication.test.ts` |
+| Upload order, limits and cancellation         | `tests/s3/multipart.test.ts`   | `tests/azure/blocks.test.ts`      |
+| Server-side copy conditions and failures      | `tests/s3/copy.test.ts`        | `tests/azure/copy.test.ts`        |
+| Stream admission and source ownership         | `tests/s3/body.test.ts`        | `tests/azure/body.test.ts`        |
+| Materialized byte extents and backing changes | `tests/s3/bytes.test.ts`       | `tests/azure/bytes.test.ts`       |
+| Raw Fetch bodies and native backing metadata  | `tests/s3/buffers.test.ts`     | `tests/azure/buffers.test.ts`     |
+| Multipart allocation and joined cleanup       | `tests/s3/allocation.test.ts`  | No separate allocation request    |
+| Independent completion XML readers            | `tests/s3/fixture.test.ts`     | `tests/azure/fixture.test.ts`     |
+
+For example, `mise run test:node --family portable tests/s3 tests/azure` selects these owners and the existing
+deterministic transfer tests. The provider family separately owns the suites that acquire actual services.
+
 Maintained task runners and fixture recipes use `.ts` source. Files ending in `.py.snapshot`, `.mjs.snapshot` or
 `.cjs.snapshot` retain the exact old executable bytes as inert evidence. They are not commands to run. A source map
 beside a ported recipe explains which historical receipt those bytes produced.
@@ -48,9 +71,10 @@ A port must state what supplies its comparison: a native implementation run now,
 newly authored controls. These are different claims. Keeping an old native receipt does not certify a new producer.
 Acquisition, compilation, complete-byte comparisons and candidate tests each need their own result.
 
-The package-consumer checks deliberately create disposable `.mjs` and `.cjs` programs to test the published JavaScript
-contracts. Their maintained authors remain TypeScript tasks. Converting those temporary consumers to TypeScript would
-stop checking JavaScript-only consumers.
+The package gate copies authored JavaScript consumers from `tests/package/consumer/` into a disposable npm install.
+Native Node, Deno and Bun runners discover its `.test.mjs` scenarios. Separate compile-only TypeScript fixtures check
+the published declarations in explicit ambient environments. [Package verification](package.md) explains the fixture,
+oracle, cleanup and compiler owners.
 
 Mise tasks own repository commands, and `mise.toml` pins the runtimes they use.
 
@@ -100,8 +124,9 @@ or failure. They do not import Core or its private test packages.
 Silo exercises S3 semantics; it is not a GCS substitute. GCS emulator status-query behavior has an explicitly documented
 exclusion in [the GCS guide](gcs.md). No test discovers cloud credentials or claims live IAM/CORS verification. The
 provider CI lane runs these commands after the existing SeaweedFS/Azurite suite. Tink fixtures come from an
-independently pinned official producer; see their [provenance](../tests/fixtures/tink/README.md). A fixture match is not
-a cryptographic security audit.
+independently pinned official producer; see their
+[provenance](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/tink/README.md).
+A fixture match is not a cryptographic security audit.
 
 ## Local memory budget
 
@@ -187,10 +212,10 @@ tests/object.test.ts
     generic object driver -> object adapter -> facade contract
     provider-safe private directory-marker metadata
 
-tests/s3/mod.test.ts
+tests/s3/*.test.ts
     deterministic S3 REST/SigV4/multipart/copy/retry behavior
 
-tests/azure/mod.test.ts
+tests/azure/*.test.ts
     deterministic Azure REST/auth/block/copy/retry behavior
     metadata contract validation before provider I/O
 
@@ -242,15 +267,16 @@ bytes are the independent oracle across runtimes.
 | `tests/ecosystem/live.ts`                 | Pinned upstream database/unstorage consumers through `mise run test:ecosystems`.                                             |
 | `tests/provider/fixture.ts`               | Testcontainers resources borrowed by provider tests and benchmarks.                                                          |
 | `tests/provider/fuse*`, `Dockerfile.fuse` | Mountpoint/BlobFuse correctness and measurement through `mise run test:clients`, in isolated Linux containers.               |
-| `tests/package/verify.ts`                 | Clean installed archive consumers through `mise run check:package`.                                                          |
+| `tests/package/`                          | Archive admission, independent fixture projections and real installed consumers through `mise run check:package`.            |
 | `tools/test/linux.ts`                     | Named, bounded containers for `mise run test:linux`; failed lanes retain diagnostics and clean up independently.             |
 | `bench/`                                  | Durable workload definitions; each result needs its semantic oracle and measurement conditions.                              |
 
 Slower provider, browser, ecosystem, FUSE, package, and Linux lanes remain reusable tests even though they are not run
 by every portable-suite invocation. Keep their definitions visible. Generated configurations, reports, timings, and
-dated investigations belong under ignored `.tmp/`, package output under `.release/`, and assistant-only support under
-`.agents/`. The npm task uses `--no-lock` for its separate build-tool configuration; `scripts/deno.lock` is local
-resolver output rather than a second dependency authority. The repository's `deno.lock` remains visible.
+dated investigations belong under ignored `.tmp/`. Maintained instructions and local validation retain their `.agents/`
+owners. The npm task writes normal build output under `.tmp/npm/` and uses `--no-lock` for its separate build-tool
+configuration; `scripts/deno.lock` is local resolver output rather than a second dependency authority. The repository's
+`deno.lock` remains visible.
 
 ## Driver tests
 
@@ -734,14 +760,16 @@ in real Chromium, Firefox, and WebKit environments.
 
 ## Agent validation
 
-A ChatGPT/agent host can lack Deno, Bun, Docker, mise, package registry access, or Playwright browsers. Temporary
-validation support belongs under `.agents/` and never becomes production code.
+A ChatGPT/agent host can lack Deno, Bun, Docker, mise, package registry access, or Playwright browsers. Disposable
+validation support belongs in ignored `.tmp/`, outside normal discovery and publication inputs. Maintained `.agents/`
+instructions and local validation are separate owners and must remain versioned.
 
 Allowed fallback rules:
 
 1. Keep production source Deno/browser/server-native.
 2. Use the installed Node.js/TypeScript toolchain for supplemental strict checks.
-3. Add narrow `.agents/` declarations/stubs only for dependencies unavailable in the host.
+3. Put narrow temporary declarations or stubs for unavailable dependencies in ignored `.tmp/`; retain reusable tests
+   with their maintained owner.
 4. Do not change production imports merely to satisfy the agent host.
 5. Report missing canonical runtime gates explicitly.
 
@@ -785,11 +813,14 @@ Release validation keeps JSR and npm independent:
 ```sh
 deno publish --dry-run
 RELEASE_VERSION=0.0.0-test mise run build:npm
-node tests/package/verify.ts .release/npm/*.tgz
+node tests/package/verify.ts .tmp/npm/okikio-opfs-0.0.0-test.tgz
 ```
 
 The npm consumer test installs the produced tarball with ordinary npm and rejects `@jsr/*` dependencies, raw `.ts`
-implementation files, missing declarations, or a non-optional Drizzle peer.
+implementation files, missing declarations, or a non-optional Drizzle peer. The actual runtime, declaration,
+browser-bundle and fresh-import gates are separate steps. Native fixture discovery and both compiler versions remain
+part of the gate after the consumer source split; see [package verification](package.md) for the file owners and
+complete command flow.
 
 ## Storage ownership regressions
 

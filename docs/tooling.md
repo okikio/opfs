@@ -11,9 +11,9 @@ mise run check          # every check
 mise run test           # the discovered suite on Deno, Node.js and Bun
 ```
 
-Task files live in `.mise/tasks/<family>/<kind>.sh`. Each one only selects a program; the programs live in `tools/`, in
-a folder named after the task family that runs them, so `check:types` runs `tools/check/types.ts` and `ci:plan` runs
-`tools/ci/plan.ts`. `mise tasks` lists every task with its description.
+Task files live in `.mise/tasks/<family>/<kind>.sh`. Each one selects a program under its capability in `tools/`, so
+`check:types` runs `tools/check/types.ts` and `ci:plan` runs `tools/ci/plan.ts`. `mise tasks` lists every task with its
+description.
 
 ```text
 tools/
@@ -25,41 +25,66 @@ tools/
   fixtures/  store                                    (prepare:fixtures, check:fixtures, build:fixtures)
   npm/       build, pack                              (build:npm, check:package)
   schema/    types, compiler                          (build:schema, check:schema)
+  security/  secrets and native Git scan verification (check:secrets, test:secrets)
   spawn.ts   runs one child program from the repository root; the other tools share it
 ```
 
 ## Tasks
 
-| Task                                       | What it runs                                                                                  |
-| ------------------------------------------ | --------------------------------------------------------------------------------------------- |
-| `prepare:deps`                             | `deno ci`: the dependency graph exactly as `deno.lock` records it                             |
-| `prepare:fixtures`                         | Downloads the [stored fixtures](fixtures.md) and checks each SHA-256                          |
-| `prepare:browser`                          | The pinned Playwright browsers and their system packages                                      |
-| `check:types`                              | `deno check` on every tracked TypeScript file, then `tsc` on the DOM and worker projects      |
-| `check:format`, `check:lint`, `check:docs` | `deno fmt --check`, `deno lint`, `deno doc --lint mod.ts`                                     |
-| `check:examples`                           | Type-checks the complete examples in Markdown                                                 |
-| `check:schema`                             | JSON Schemas match their Zod sources (`build:schema` rewrites them)                           |
-| `check:fixtures`                           | No tracked fixture is over 256 KiB, and the fixture manifest is consistent                    |
-| `check:jsr`, `check:package`               | JSR dry run; npm tarball built and tested from a clean consumer                               |
-| `check:exports`                            | Public symbols per subpath match `tests/package/exports.json` (`build:exports` rewrites it)   |
-| `check:versions`                           | `package.json` and `deno.json` carry the same version                                         |
-| `check:actions`                            | Workflows and local actions: jactionlint, zizmor and pinact                                   |
-| `check:shell`, `check:tasks`               | shellcheck on shell scripts; `mise tasks validate`                                            |
-| `check:secrets`                            | gitleaks on the Git history, with exact reviewed exceptions in `.gitleaksignore`              |
-| `check:security`                           | `deno audit` and osv-scanner, with reviewed, expiring exceptions in `osv-scanner.toml`        |
-| `check:commits`                            | Conventional Commit subjects between `BASE_SHA` and `HEAD_SHA`                                |
-| `test:deno`, `test:node`, `test:bun`       | The discovered tests for that runtime; accepts files, `--family` and `--shard i/n`            |
-| `test:providers`                           | Provider tests against containers started by Testcontainers (Docker required)                 |
-| `test:interop`                             | Archive output compared with installed 7-Zip, bsdtar and unzip                                |
-| `test:netlify`                             | The Netlify Blobs client against the frozen SDK closure                                       |
-| `test:browser`                             | Playwright browser tests (Chromium, Firefox, WebKit)                                          |
-| `test:stress`, `test:coverage`             | Shuffled repeats of the portable suite; Deno coverage                                         |
-| `test:ecosystems`                          | unstorage, db0, Drizzle and RxDB installed fresh at pinned versions                           |
-| `bench:local`                              | Every container-free benchmark once, as a correctness check; reports in `.tmp/reports/bench/` |
-| `bench:providers`, `bench:browser`         | Provider baselines and browser OPFS benchmarks                                                |
-| `release:plan`, `release:version`          | Preview, then write, the next version from Sampo changesets; see [releasing](releasing.md)    |
-| `release:publish`, `release:verify`        | Publish to one registry (`--target npm\|jsr`); install it back in a fresh consumer            |
-| `ci:plan`, `ci:lane`                       | Select the lanes a change needs; run one lane's tasks in order                                |
+| Task                                       | What it runs                                                                                      |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| `prepare:deps`                             | `deno ci`: the dependency graph exactly as `deno.lock` records it                                 |
+| `prepare:fixtures`                         | Downloads the [stored fixtures](fixtures.md) and checks each SHA-256                              |
+| `prepare:browser`                          | The pinned Playwright browsers and their system packages                                          |
+| `check:types`                              | `deno check` on tracked repository TypeScript programs, then `tsc` on the DOM and worker projects |
+| `check:format`, `check:lint`, `check:docs` | `deno fmt --check`, `deno lint`, `deno doc --lint mod.ts`                                         |
+| `check:examples`                           | Type-checks the complete examples in Markdown                                                     |
+| `check:schema`                             | JSON Schemas match their Zod sources (`build:schema` rewrites them)                               |
+| `check:fixtures`                           | No tracked fixture is over 256 KiB, and the fixture manifest is consistent                        |
+| `check:jsr`, `check:package`               | JSR dry run; npm tarball built and tested from a clean consumer                                   |
+| `check:exports`                            | Public symbols per subpath match `tests/package/exports.json` (`build:exports` rewrites it)       |
+| `check:versions`                           | `package.json` and `deno.json` carry the same version                                             |
+| `check:actions`                            | Workflows and local actions: jactionlint, zizmor and pinact                                       |
+| `check:shell`, `check:tasks`               | shellcheck on shell scripts; `mise tasks validate`                                                |
+| `check:secrets`                            | gitleaks on Git history, with reviewed exceptions and native Git traversal status checks          |
+| `check:security`                           | `deno audit` and osv-scanner, with reviewed, expiring exceptions in `osv-scanner.toml`            |
+| `check:commits`                            | Conventional Commit subjects between `BASE_SHA` and `HEAD_SHA`                                    |
+| `test:deno`, `test:node`, `test:bun`       | The discovered tests for that runtime; accepts files, `--family` and `--shard i/n`                |
+| `test:providers`                           | Provider tests against containers started by Testcontainers (Docker required)                     |
+| `test:secrets`                             | The pinned Gitleaks scanner against disposable native Git repositories                            |
+| `test:interop`                             | Archive output compared with installed 7-Zip, bsdtar and unzip                                    |
+| `test:netlify`                             | The Netlify Blobs client against the frozen SDK closure                                           |
+| `test:browser`                             | Playwright browser tests (Chromium, Firefox, WebKit)                                              |
+| `test:stress`, `test:coverage`             | Shuffled repeats of the portable suite; Deno coverage                                             |
+| `test:ecosystems`                          | unstorage, db0, Drizzle and RxDB installed fresh at pinned versions                               |
+| `bench:local`                              | Every container-free benchmark once, as a correctness check; reports in `.tmp/reports/bench/`     |
+| `bench:providers`, `bench:browser`         | Provider baselines and browser OPFS benchmarks                                                    |
+| `release:plan`, `release:version`          | Preview, then write, the next version from Sampo changesets; see [releasing](releasing.md)        |
+| `release:publish`, `release:verify`        | Publish to one registry (`--target npm\|jsr`); install it back in a fresh consumer                |
+| `ci:plan`, `ci:lane`                       | Select the lanes a change needs; run one lane's tasks in order                                    |
+
+Secret scanning preserves Gitleaks' native arguments, including `--log-opts=base..HEAD` and `--staged`, and its standard
+output and error streams. A successful scan also requires Git's own successful traversal exit. Missing history objects
+fail the check even when Gitleaks returns zero; optional remote-link metadata failures do not invalidate a scan. Git's
+temporary Trace2 records are removed when the invocation finishes. Use standalone `--help` or `-h` for scanner help;
+every other invocation must produce traversal evidence. `test:secrets` discovers `tools/security/*.integration.ts` and
+explicitly supplies the pinned scanner. The portable trace-validation tests remain in the ordinary three-runtime suite.
+
+The type check leaves copied guidance examples and configurations under `.agents/guides/`, `.agents/references/`,
+`.agents/skills/` and `.agents/handbook/` to their upstream guidance repository. It still checks local agent programs,
+including `.agents/validation/`. Original upstream test snapshots and generated declaration files also remain inert.
+Installed-consumer files under `tests/package/consumer/` use the separate package gate. Its actual compiler CLIs check
+the packed declarations under portable, Node and Deno ambient environments; the source configuration must not replace
+those environments. Host orchestration under `tests/package/` stays in the ordinary source check.
+
+Files that load Bun declarations need a separate compiler group because those declarations change shared browser
+globals. Rolldown's Oxc parser identifies their imports, re-exports, import types, literal dynamic imports and leading
+triple-slash type references. Quoted examples and ordinary comments do not change a file's group.
+
+The type checker imports the pinned `rolldown/utils` entrypoint directly to avoid Vite's unrelated host probes. When the
+discovered test selection includes `tools/check/types.test.ts`, the Deno runner grants `--allow-ffi=node_modules` to
+load the installed native parser. Other selections retain their existing permissions; Netlify continues to use its
+existing `--allow-all` contract.
 
 ## Tests are discovered
 
@@ -77,6 +102,15 @@ in a family with other needs; `tools/test/discover.ts` holds those rules, each w
 
 A new test needs no other edit: name it for its family. `mise run test:deno -- --list` prints the inventory a run would
 use, with each file's family.
+
+An explicitly named family must support the requested runtime. Unknown names, unsupported families and unmatched files
+fail before execution, including mixed selections that would otherwise omit one requested family. A fixed CI matrix may
+contain an empty shard of a nonempty selection; `--shard i/n` preserves that intentional empty result.
+
+The [installed-package fixtures](package.md) have a separate owner. `check:package` copies real `.test.mjs` files into a
+clean npm install, then Node, Deno and Bun discover its `runtime/` tree with their native test commands. TypeScript
+discovers `types/portable/**/*.ts` within the same installed consumer. These fixtures must not run through the
+repository source aliases or its ordinary portable-suite discovery.
 
 ## CI runs the same tasks
 

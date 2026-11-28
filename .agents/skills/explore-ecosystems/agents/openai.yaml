@@ -1,0 +1,4 @@
+interface:
+  display_name: "Explore Ecosystems"
+  short_description: "Map dependency ecosystems with evidence."
+  default_prompt: "Use $explore-ecosystems to map this dependency ecosystem and make a source-backed selection."

@@ -119,6 +119,7 @@ Cold acquisition remains separate: the 512-byte-cluster fixture requested 2,656 
 different 64-KiB-cluster fixture requested 196,688 metadata bytes in five calls. Their guest sizes and layouts differ,
 so these observations do not isolate cluster size as a cause of speed. The native already-raw Blob lane omits QCOW2
 indexing and budget admission. Exact workload labels, averages, medians, runtime, resource limits and lossless
-full-report hashes are recorded in the [fixture provenance](../tests/fixtures/qcow2/provenance.json). This single run
-supports no universal speed or cross-runtime performance claim. Warm sampling uses finite benchmark-only lifetime
-allowances; per-operation caps keep their normal defaults.
+full-report hashes are recorded in the
+[fixture provenance](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/qcow2/provenance.json).
+This single run supports no universal speed or cross-runtime performance claim. Warm sampling uses finite benchmark-only
+lifetime allowances; per-operation caps keep their normal defaults.

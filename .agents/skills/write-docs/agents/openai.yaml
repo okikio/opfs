@@ -1,0 +1,4 @@
+interface:
+  display_name: "Write docs"
+  short_description: "Write useful technical docs, API comments and diagrams"
+  default_prompt: "Use $write-docs for this task, applying shared quality and the affected domain contracts."

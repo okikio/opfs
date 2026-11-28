@@ -119,10 +119,11 @@ this slice. A verified CID proves content integrity, not availability, retention
 ## Evidence and format references
 
 The tests use the primary CID spec's SHA2-256 `hello` vector and the unchanged official IPLD `carv1-basic` fixture with
-[immutable provenance and copied-byte hashes](../tests/fixtures/car/README.md). They verify all eight producer blocks
-and cover corrupt hashes, malformed/truncated framing, bounds, aborts and early iterator return. An actual loopback HTTP
-server exercises raw, CAR and trusted conditional ranges. This is protocol-level HTTP evidence with independent producer
-bytes; it is not live Kubo, public-gateway, UnixFS or full trustless-gateway conformance evidence.
+[immutable provenance and copied-byte hashes](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/car/README.md).
+They verify all eight producer blocks and cover corrupt hashes, malformed/truncated framing, bounds, aborts and early
+iterator return. An actual loopback HTTP server exercises raw, CAR and trusted conditional ranges. This is
+protocol-level HTTP evidence with independent producer bytes; it is not live Kubo, public-gateway, UnixFS or full
+trustless-gateway conformance evidence.
 
 Primary contracts: [CID](https://specs.ipfs.tech/cid/), [CAR v1](https://ipld.io/specs/transport/car/carv1/), and
 [trustless gateway](https://specs.ipfs.tech/http-gateways/trustless-gateway/).

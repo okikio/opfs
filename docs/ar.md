@@ -142,10 +142,12 @@ implementation and compares all bytes to original binary inputs. Tests include e
 member, exact 16-byte names, spaces, UTF-8 and Python-stdlib-produced nested gzip/TAR. Fixed original wire controls
 cover table references, padding, numeric parsing, duplicate IDs, malformed extents, limits and cancellation.
 
-[`create.ts`](../tests/fixtures/ar/create.ts) is the current project-owned producer source. It preserves independent
-native ar production and cross-reader payload checks, but uses native bsdtar and built-in gzip for the nested control
-archive. The [producer instructions](../tests/fixtures/ar/README.md) explain how to record a separate native run. This
-TypeScript port has not yet been executed and is not the source of the committed historical fixtures.
+[`create.ts`](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/ar/create.ts)
+is the current project-owned producer source. It preserves independent native ar production and cross-reader payload
+checks, but uses native bsdtar and built-in gzip for the nested control archive. The
+[producer instructions](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/ar/README.md)
+explain how to record a separate native run. This TypeScript port has not yet been executed and is not the source of the
+committed historical fixtures.
 
 Unfiltered bsdtar 3.6.2 extraction of the GNU fixture fails when it exposes `//` as a pathname; that diagnostic is
 retained in the fixture rather than reported as a successful consumer. Cross GNU/LLVM extraction is the successful

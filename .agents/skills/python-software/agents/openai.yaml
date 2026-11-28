@@ -1,0 +1,4 @@
+interface:
+  display_name: "Python software"
+  short_description: "Apply Python runtime, testing and ownership contracts"
+  default_prompt: "Use $python-software for this task, applying shared quality and the affected domain contracts."

@@ -1,5 +1,9 @@
 # Repository implementation rules
 
+Read the [local guidance profile](.agents/README.md), then use [START.md](.agents/START.md) to select the applicable
+skills, guides and handbook procedures. The repository rules below own project-specific contracts and commands; shared
+examples do not replace them.
+
 Read `README.md` and `docs/design.md` before changing architecture or public APIs.
 
 - Treat `@okikio/opfs` as a library programming model, not as an application runtime.
@@ -27,6 +31,10 @@ Read `README.md` and `docs/design.md` before changing architecture or public API
   external protocol requires the word.
 - Keep Deno, Bun, Node, browsers, and Workers on the same core TypeScript source. Runtime-specific drivers stay behind
   explicit subpaths.
+- Keep Deno resource lifetimes under `src/backend/deno/`: `range.ts` owns finite reads, `write.ts` borrows the backend's
+  file for stream writes, `writable.ts` owns queued positional access, and `sync.ts` owns synchronous access.
+  `driver.ts` composes those owners and retains the public exports. See
+  [host resource ownership](docs/host.md#deno-file-ownership).
 - Prefer Web APIs and `@std/*` before custom infrastructure when they provide the required semantics.
 - Importing a module must not connect to a provider, read credentials, configure logging, start workers, or perform
   unrelated global work.
@@ -65,7 +73,16 @@ Read `README.md` and `docs/design.md` before changing architecture or public API
 - Document important non-exported symbols when they own an invariant, lifecycle rule, serialization layout, or failure
   rule.
 - Comments explain why a rule exists or what must remain true. Do not restate obvious syntax.
-- Keep agent-only validation under `.agents/`. It must never become a production import or published artifact.
+- Keep maintained instructions and local validation under their existing `.agents/` owners. Put disposable probes and
+  host adaptations in ignored `.tmp/`, outside normal test discovery and publication inputs. A reusable regression
+  belongs with its maintained test owner.
+- `tests/package/consumer/` contains actual installed-artifact fixtures. Keep package imports intact and use
+  `mise run check:package` for their runtime and declaration checks. Native runners discover the `.test.mjs` scenarios;
+  the installed TypeScript compilers discover the portable type modules. The repository source checker must not supply
+  its ambient Deno namespace to these fixtures. See [package verification](docs/package.md).
+- `tools/npm/declarations.ts` checks the native Deno leaf's emitted local declaration graph before attaching its
+  `deno-types` reference. Keep that graph complete when moving resource owners. Installed consumer compilers must still
+  verify the actual public signatures and the portable graph's lack of Deno globals.
 
 ## Release notes
 

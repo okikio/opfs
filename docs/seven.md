@@ -100,10 +100,11 @@ The historical executed producer, retained as inert `tests/fixtures/seven/create
 bsdtar and every payload compared to the original binary input. Encrypted fixtures record consumer failure and are used
 only for metadata/refusal tests; they do not establish independent decryption support.
 
-[`create.ts`](../tests/fixtures/seven/create.ts) is the current project-owned producer port. It retains native writing
-and full original-payload comparisons, but has not yet run. The
-[producer instructions](../tests/fixtures/seven/README.md) explain how to qualify a separate output without changing
-attribution of the committed native evidence.
+[`create.ts`](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/seven/create.ts)
+is the current project-owned producer port. It retains native writing and full original-payload comparisons, but has not
+yet run. The
+[producer instructions](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/seven/README.md)
+explain how to qualify a separate output without changing attribution of the committed native evidence.
 
 The receipt pins producer script, JSON and individual archive hashes. The local producer base was
 `opfs-cab-tools:20261105`, image ID `sha256:205a6b2ff80a9c72b8d3df0e9abc98970fde7edbbfcca91967bcf9a153e3bc79`. Package

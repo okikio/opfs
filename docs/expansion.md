@@ -88,9 +88,11 @@ bounded allocations, cancellation and recovery. Test against an independent prod
 and interrupted operations. A fake HTTP response proves message handling; a container proves only the exercised server
 behavior. Live-service claims require separately authorized live-service evidence.
 
-The [complete group index](../planning/storage/GROUPS.md) accounts for all 45 proposed owners, current routes and
-remaining boundaries. The original research handoff counted 895 catalog records and 136 focused archive/encryption
-profiles. Those are discovery inventories, not additive integration counts. The complete
+The
+[complete group index](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/planning/storage/GROUPS.md)
+accounts for all 45 proposed owners, current routes and remaining boundaries. The original research handoff counted 895
+catalog records and 136 focused archive/encryption profiles. Those are discovery inventories, not additive integration
+counts. The complete
 [versioned research handoff](https://github.com/okikio/opfs/blob/b3ed2f7092264e1a5d86358a10bd1f00386466bf/planning/storage/README.md)
 preserves every catalog ID, route and format record in a fresh clone. Its historical proposals remain distinct from the
 implemented capabilities on this page.

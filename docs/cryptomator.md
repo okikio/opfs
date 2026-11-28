@@ -150,10 +150,11 @@ Primary references are the pinned official
 [security target](https://github.com/cryptomator/docs/blob/e10cef2459fa320042ac426a9a1f4bf844648071/docs/security/security-target.mdx),
 [RFC 5297](https://www.rfc-editor.org/rfc/rfc5297) and [RFC 4493](https://www.rfc-editor.org/rfc/rfc4493).
 
-The [independent fixture recipe](../tests/fixtures/cryptomator/README.md) retains 19 released cryptolib 2.4.0 /
-PyCryptodome reciprocal original-byte/name cases, exact artifact/package hashes and licensing. The native producer runs
-offline and imports no candidate TypeScript code. Its proof is selected AES-256 interoperability; no direct published
-AES-128 RFC known-answer run or independent security audit is claimed.
+The
+[independent fixture recipe](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/cryptomator/README.md)
+retains 19 released cryptolib 2.4.0 / PyCryptodome reciprocal original-byte/name cases, exact artifact/package hashes
+and licensing. The native producer runs offline and imports no candidate TypeScript code. Its proof is selected AES-256
+interoperability; no direct published AES-128 RFC known-answer run or independent security audit is claimed.
 
 The same recipe now documents a separately qualified TypeScript producer. Its acquisition and offline production passed,
 retaining all 19 native cryptolib reciprocal byte/name cases with OpenJDK 17.0.21 and Node 26.13.0. It uses Node's

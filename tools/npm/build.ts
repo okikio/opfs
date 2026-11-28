@@ -10,6 +10,7 @@
  */
 import { build, emptyDir } from "@deno/dnt";
 import { fromFileUrl, join, resolve } from "jsr:@std/path@1.1.6";
+import { preserveDenoDeclarations } from "./declarations.ts";
 
 interface DenoConfigType {
   readonly exports: Readonly<Record<string, string>>;
@@ -33,36 +34,6 @@ interface PackageSourceType {
 
 /** Native Deno declarations are part of the published leaf API, not a runtime polyfill. */
 const DENO_TYPES_VERSION = "2.7.0";
-
-interface NpmManifestType {
-  readonly exports: Readonly<Record<string, { readonly import?: string }>>;
-}
-
-/** Makes the native leaf's external type authority explicit even with consumer `types: []`. */
-async function preserveDenoDeclarations(directory: string): Promise<void> {
-  const manifest = await readJson<NpmManifestType>(
-    join(directory, "package.json"),
-  );
-  const runtime = manifest.exports["./driver/deno"]?.import;
-  if (typeof runtime !== "string" || !runtime.endsWith(".js")) {
-    throw new Error(
-      "The native Deno driver must have one emitted ESM entrypoint.",
-    );
-  }
-  const path = join(directory, runtime.replace(/\.js$/u, ".d.ts"));
-  const declaration = await Deno.readTextFile(path);
-  if (!/\bDeno\.FsFile\b/u.test(declaration)) {
-    throw new Error(
-      "The native Deno driver declaration lost its Deno.FsFile contract.",
-    );
-  }
-  // Source triple-slash comments are not preserved by dnt's transform and TS emit.
-  // Only this leaf imports the ambient namespace; root declarations remain portable.
-  await Deno.writeTextFile(
-    path,
-    `/// <reference types="deno-types" />\n${declaration}`,
-  );
-}
 
 /** Reads one JSON object without leaking an inferred filesystem shape into the public package. */
 async function readJson<Type>(path: string): Promise<Type> {

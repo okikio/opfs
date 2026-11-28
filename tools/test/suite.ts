@@ -5,12 +5,14 @@
  *
  * Without selectors it runs every file the runtime supports, except the families that need an external
  * resource (`provider`, `netlify`, `interop`); CI runs those in their own lanes with `--family`. Selectors
- * narrow to exact files or folders, and an unknown selector is an error rather than an empty run.
+ * narrow to exact files or folders. Unknown selectors and families unsupported by the requested runtime are
+ * errors. A nonempty selection may yield an empty explicit shard, which is valid for a fixed CI matrix.
  *
  * Each runtime gets the flags that make results comparable:
  *
  * - Deno runs with `--no-check` (type checking is its own gate) and explicit permissions. Tests may read and
  *   write files, start processes and listen on loopback; they get no other network. `kv` adds `--unstable-kv`.
+ *   Selections containing a native parser test can load its dependencies from `node_modules`.
  * - Node runs `node --test` with four files at once; each file is its own process.
  * - Bun runs `bun test` with a 30-second timeout per test, the slowest supported case.
  *
@@ -68,7 +70,13 @@ export function createCommand(
         ...(mode.stress ? ["--shuffle=424242", "--repeats=2"] : []),
         ...(mode.coverage ? ["--clean", "--coverage=.tmp/reports/coverage"] : []),
         ...(families.has("kv") ? ["--unstable-kv"] : []),
-        ...(families.has("netlify") ? ["--allow-all"] : permissions),
+        ...(families.has("netlify") ? ["--allow-all"] : [
+          ...permissions,
+          // These tooling tests load Rolldown's native parser from the installed dependency tree.
+          ...(files.some((file) => file === "tools/check/types.test.ts" || file === "tools/npm/declarations.test.ts")
+            ? ["--allow-ffi=node_modules"]
+            : []),
+        ]),
         ...files,
       ];
     case "node":
@@ -91,11 +99,14 @@ if (import.meta.main) {
   });
   const [runtime, ...selectors] = positionals;
   if (runtime !== "deno" && runtime !== "node" && runtime !== "bun") {
-    throw new TypeError("Usage: run.ts <deno|node|bun> [--family name ...] [--shard i/n] [file-or-directory ...]");
+    throw new TypeError("Usage: suite.ts <deno|node|bun> [--family name ...] [--shard i/n] [file-or-directory ...]");
   }
   const named = values.family as FamilyType[] | undefined;
   for (const family of named ?? []) {
-    if (!(family in runtimes)) throw new TypeError(`Unknown test family ${family}.`);
+    if (!Object.hasOwn(runtimes, family)) throw new TypeError(`Unknown test family ${family}.`);
+    if (!runtimes[family].includes(runtime)) {
+      throw new TypeError(`Test family ${family} does not run on ${runtime}. Use ${runtimes[family].join(" or ")}.`);
+    }
   }
   const families = named ??
     Object.keys(runtimes).filter((family) => !external.includes(family as FamilyType)) as FamilyType[];
@@ -113,6 +124,11 @@ if (import.meta.main) {
     }
     files = files.filter((file) =>
       wanted.some((selector) => file.path === selector || file.path.startsWith(`${selector}/`))
+    );
+  }
+  if (files.length === 0) {
+    throw new TypeError(
+      `No ${runtime} tests match this selection on ${process.platform}. Run with --list to inspect it.`,
     );
   }
   if (values.shard) {

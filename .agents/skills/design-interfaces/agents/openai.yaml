@@ -1,0 +1,4 @@
+interface:
+  display_name: "Design Interfaces"
+  short_description: "Design hierarchy, layout, states, and purposeful motion"
+  default_prompt: "Use $design-interfaces to design or review this interface in its product context."

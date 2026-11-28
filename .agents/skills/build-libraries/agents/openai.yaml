@@ -1,0 +1,4 @@
+interface:
+  display_name: "Build Libraries"
+  short_description: "Build composable, efficient reusable libraries."
+  default_prompt: "Use $build-libraries to design, implement, refactor, or verify this reusable library."

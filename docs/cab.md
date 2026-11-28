@@ -200,20 +200,21 @@ and [RFC 1951](https://www.rfc-editor.org/rfc/rfc1951). The
 [Compression Standard](https://compression.spec.whatwg.org/#dom-decompressionstream-decompressionstream) documents the
 native API's format-only constructor; this decoder does not depend on host dictionary or consumption behavior.
 
-[`mszip.py.snapshot`](../tests/fixtures/cab/mszip.py.snapshot) retains the historical producer that constructed CAB
-framing around Python zlib 1.2.12 streams. The [fixture receipt](../tests/fixtures/cab/mszip.md) identifies retained
-`mszip.json`, which includes complete original payloads, packed blocks, archive hashes, native 7zz 26.02 receipts and
-dictionary-dependence checks. Dynamic, fixed-Huffman, stored and overlapping-copy profiles pass native full-byte
-consumption. The genuine gcab MSZIP fixture also passes complete-byte reads, but its blocks happen to decode
-independently and do not prove dictionary support. The new zdict profiles fail independent raw decoding without prior
-history and supply that proof. A three-short-block history vector passes Python zlib but native 7zz rejects its CAB;
-that negative receipt is retained and is not a native-interoperability claim. MS-MCI permits each block to contain at
-most 32 KiB, so the reader retains cumulative history across those short units without silently imposing 7zz's observed
-restriction.
+[`mszip.py.snapshot`](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/cab/mszip.py.snapshot)
+retains the historical producer that constructed CAB framing around Python zlib 1.2.12 streams. The
+[fixture receipt](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/cab/mszip.md)
+identifies retained `mszip.json`, which includes complete original payloads, packed blocks, archive hashes, native 7zz
+26.02 receipts and dictionary-dependence checks. Dynamic, fixed-Huffman, stored and overlapping-copy profiles pass
+native full-byte consumption. The genuine gcab MSZIP fixture also passes complete-byte reads, but its blocks happen to
+decode independently and do not prove dictionary support. The new zdict profiles fail independent raw decoding without
+prior history and supply that proof. A three-short-block history vector passes Python zlib but native 7zz rejects its
+CAB; that negative receipt is retained and is not a native-interoperability claim. MS-MCI permits each block to contain
+at most 32 KiB, so the reader retains cumulative history across those short units without silently imposing 7zz's
+observed restriction.
 
 Current producer tooling is TypeScript: `create.ts` calls gcab and cabextract, `vectors.ts` constructs mathematical
 checksum controls, and `mszip.ts` uses Node's built-in zlib with native 7zz as a separate CAB consumer. They import no
 candidate reader and require a new output path. The old JSON, receipt hashes and Python source snapshots remain
 historical evidence; the TypeScript ports have not retroactively produced those results. The
-[fixture guide](../tests/fixtures/cab/README.md) gives the commands and explains which new controls intentionally use
-different original bytes.
+[fixture guide](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/cab/README.md)
+gives the commands and explains which new controls intentionally use different original bytes.

@@ -219,12 +219,13 @@ claim of byte-stream backpressure or constant memory.
 
 ## Independent evidence and remaining scope
 
-The [fixture receipt](../tests/fixtures/unixfs/README.md) pins the primary September 2026 UnixFS document, current
-DAG-PB grammar and Kubo source/release identity. It records genuine offline Kubo imports with raw and DAG-PB leaves,
-multilevel files, repeated content, empty files, nested names and optional mode/mtime. Every complete original file and
-selected range was compared by native Kubo before this implementation existed. Separately authored CAR variants test
-field ordering and packed/mixed sizes through native import/cat; they are not described as genuine importer topology or
-a second independent native algorithm.
+The
+[fixture receipt](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/unixfs/README.md)
+pins the primary September 2026 UnixFS document, current DAG-PB grammar and Kubo source/release identity. It records
+genuine offline Kubo imports with raw and DAG-PB leaves, multilevel files, repeated content, empty files, nested names
+and optional mode/mtime. Every complete original file and selected range was compared by native Kubo before this
+implementation existed. Separately authored CAR variants test field ordering and packed/mixed sizes through native
+import/cat; they are not described as genuine importer topology or a second independent native algorithm.
 
 One native compatibility difference is retained explicitly: Kubo 0.43.1 omits inline content in a File that also has
 child links. The pinned primary grammar places it before the linked bytes, which this implementation follows. The
@@ -244,12 +245,13 @@ finite 64 GiB / ten-million-request lifetime allowance at every retained handle;
 The decoded Blob copy baseline supplies existing plaintext without block verification and is only a lower bound. These
 in-memory protocol workloads do not measure Kubo network transport or establish a universal cache speedup.
 
-HAMT evidence is retained [separately](../tests/fixtures/unixfs/hamt/README.md): 108 authored originals were imported by
-genuine Kubo into 126 blocks and 18 shards, including shortened native bitmaps. Native complete file reads, ranges and
-root/nested directory listings match those originals. The original public-domain C++ MurmurHash3 implementation supplies
-135 separately executed hash vectors; Kubo's four insecure-hash command refusals are retained and are not counted as
-successful hash probes. Two initial recipe failures concerned DAG-JSON bytes and CLI listing encoding; their exact
-tracebacks remain retained.
+HAMT evidence is retained
+[separately](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/unixfs/hamt/README.md):
+108 authored originals were imported by genuine Kubo into 126 blocks and 18 shards, including shortened native bitmaps.
+Native complete file reads, ranges and root/nested directory listings match those originals. The original public-domain
+C++ MurmurHash3 implementation supplies 135 separately executed hash vectors; Kubo's four insecure-hash command refusals
+are retained and are not counted as successful hash probes. Two initial recipe failures concerned DAG-JSON bytes and CLI
+listing encoding; their exact tracebacks remain retained.
 
 Separately authored eight-shard chains match native complete/range originals for trimmed and explicit left-zero-padded
 bitmaps. A ninth-shard chain produces Kubo's retained `sharded directory too deep` refusal; the reader also rejects that

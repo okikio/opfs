@@ -199,11 +199,12 @@ async function previewArfs(
 
 ## Evidence and reproducibility
 
-The [fixture directory](../tests/fixtures/arweave/README.md) records pinned primary sources, independent ArweaveJS
-1.15.7 native transactions, complete original-byte oracles, native chunk boundaries/proofs, signature payloads, and
-signed ArFS composition records. The producer is test-only, runs offline with explicit resource limits, publishes
-nothing and retains no private wallet. Protocol Fetch fixtures test client behavior; no deployed gateway or chain
-verification is claimed.
+The
+[fixture directory](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/arweave/README.md)
+records pinned primary sources, independent ArweaveJS 1.15.7 native transactions, complete original-byte oracles, native
+chunk boundaries/proofs, signature payloads, and signed ArFS composition records. The producer is test-only, runs
+offline with explicit resource limits, publishes nothing and retains no private wallet. Protocol Fetch fixtures test
+client behavior; no deployed gateway or chain verification is claimed.
 
 The first genuine Node SDK producer used its default salt length and produced RSA-PSS signatures with a maximum-length
 478-byte salt. Those retained vectors verify natively but are refused by this explicit PSS32 profile. The SDK's

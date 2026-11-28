@@ -95,7 +95,7 @@ The little-endian IEEE interpretation and body-only content length are checked a
 [`e955e2bb5a0c3c9a0bb24a9039405ecea1878444`](https://github.com/apache/orc/tree/e955e2bb5a0c3c9a0bb24a9039405ecea1878444),
 `c++/src/ColumnReader.cc` and `c++/src/Writer.cc`. These are specification/reference inputs, not copied production
 implementations. The
-[fixture provenance](https://github.com/okikio/opfs/blob/codex%2Frelease-2026-10-06/tests/fixtures/orc/provenance.json)
+[fixture provenance](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/orc/provenance.json)
 retains source digests, the admitted PyArrow wheel, original notices and native execution receipts. Eighteen genuine
 files cover both versions, 0/37/8192 rows and nonnullable/mixed-null/all-null data. Every supported column is compared
 against the complete original typed values and masks, including exact bigint, NaN and signed zero. Selected ranges cross
@@ -115,11 +115,11 @@ fixtures and their provenance remain separate.
 
 ## Measure preview work
 
-[bench/orc.bench.ts](https://github.com/okikio/opfs/blob/codex%2Frelease-2026-10-06/bench/orc.bench.ts) separates cold
-footer indexing, warm seven-row previews that cross two stripes, a warm full integer column, and cold open plus preview.
-The selected profile decodes complete column streams in intersecting stripes, so a seven-row result can cost
-substantially more than seven values. Labels retain source bytes, requests, decoded work and returned bytes. A raw
-already-decoded Blob slice is a copy lower bound: it has no footer, null mask or stream decoding and is not an
+[bench/orc.bench.ts](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/bench/orc.bench.ts)
+separates cold footer indexing, warm seven-row previews that cross two stripes, a warm full integer column, and cold
+open plus preview. The selected profile decodes complete column streams in intersecting stripes, so a seven-row result
+can cost substantially more than seven values. Labels retain source bytes, requests, decoded work and returned bytes. A
+raw already-decoded Blob slice is a copy lower bound: it has no footer, null mask or stream decoding and is not an
 equivalent ORC implementation.
 
 The harness checks all eighteen native originals and refusal controls before sampling. Fixture loading and

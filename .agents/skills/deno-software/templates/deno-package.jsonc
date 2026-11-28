@@ -1,0 +1,19 @@
+{
+  "name": "@scope/package",
+  "version": "0.1.0",
+  "exports": {
+    ".": "./src/mod.ts",
+    "./schema": "./src/schema.ts"
+  },
+  "publish": {
+    "include": [
+      "src/",
+      "README.md",
+      "LICENSE",
+      "deno.jsonc"
+    ]
+  },
+  "test": {
+    "include": ["src/**/*.test.ts", "test/**/*.test.ts"]
+  }
+}

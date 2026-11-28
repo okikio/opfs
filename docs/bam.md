@@ -143,6 +143,7 @@ source bytes, requests, decoded bytes and checked blocks. They explain where the
 not a same-task speed comparison. Receipt `e5be0ba2-c7d8-404a-bcd7-a778847bb0ad` records the first passing benchmark
 run.
 
-The [BAM plan](../planning/storage/BAM.md) keeps BAI/CSI regional queries, index/source binding, CRAM, writing,
-resumable checkpoints, long CIGAR and remaining auxiliary types as separate work. This reader supplies a sequential
-prefix preview, not indexed selection or alignment analysis.
+The [BAM plan](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/planning/storage/BAM.md)
+keeps BAI/CSI regional queries, index/source binding, CRAM, writing, resumable checkpoints, long CIGAR and remaining
+auxiliary types as separate work. This reader supplies a sequential prefix preview, not indexed selection or alignment
+analysis.

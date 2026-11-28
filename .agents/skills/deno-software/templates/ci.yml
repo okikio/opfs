@@ -1,0 +1,20 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.0
+      - run: deno ci
+      - run: deno fmt --check
+      - run: deno lint
+      - run: deno check src/mod.ts
+      - run: deno test
+      - run: deno audit

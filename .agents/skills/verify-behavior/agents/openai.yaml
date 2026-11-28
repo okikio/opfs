@@ -1,0 +1,4 @@
+interface:
+  display_name: "Verify behavior"
+  short_description: "Verify actual commands, artifacts and user workflows"
+  default_prompt: "Use $verify-behavior for this task, applying shared quality and the affected domain contracts."

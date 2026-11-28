@@ -1,0 +1,4 @@
+interface:
+  display_name: "Release software"
+  short_description: "Prepare releases and execute authorized publication"
+  default_prompt: "Use $release-software for this task, applying shared quality and the affected domain contracts."

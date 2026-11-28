@@ -145,7 +145,7 @@ establish page version or checksum evidence. A required zero page offset is acce
 zero stored and decoded bytes, and no dictionary; this sentinel never authorizes a payload read. Independent native
 success establishes those fixture bytes; candidate runtime tests, static compilation, benchmarks and installed-package
 checks are separate verification stages. The reproducible recipe and original notice files are in
-[the source fixture directory](https://github.com/okikio/opfs/tree/main/tests/fixtures/parquet).
+[the source fixture directory](https://github.com/okikio/opfs/tree/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/parquet).
 
 The fixture recipe also documents a separate TypeScript/native C++ workflow. It admits the same Arrow wheel as an inert
 archive and substitutes the official DuckDB CLI for the Python binding. All 22 intended profiles retain two-engine

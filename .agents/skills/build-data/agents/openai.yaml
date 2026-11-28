@@ -1,0 +1,4 @@
+interface:
+  display_name: "Build Data Systems"
+  short_description: "Build databases, analytics, and projections."
+  default_prompt: "Use $build-data to design, implement, or review this data system."

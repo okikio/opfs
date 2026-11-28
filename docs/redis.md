@@ -216,10 +216,10 @@ a performance guarantee.
 The current TypeScript fixture replaces Python execution with a native hiredis C ABI recipe. Hiredis owns RESP framing
 and parsing; the authored recipe selects the fixed disposable authority, authenticates, selects database 3, and compares
 binary-safe SET/GET/PTTL results. The former fixture, including exact wheel pins, remains inert in
-[`provider.ts.snapshot`](../tests/fixtures/redis/provider.ts.snapshot). Its historical pass does not qualify the new
-client. Run `mise run test:providers -- tests/redis-provider.test.ts` with Docker to check the current fixture.
-Testcontainers builds signed Debian `libhiredis-dev` artifacts before starting the private runtime network; no SDK
-packages are installed in the running client container.
+[`provider.ts.snapshot`](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/redis/provider.ts.snapshot).
+Its historical pass does not qualify the new client. Run `mise run test:providers -- tests/redis-provider.test.ts` with
+Docker to check the current fixture. Testcontainers builds signed Debian `libhiredis-dev` artifacts before starting the
+private runtime network; no SDK packages are installed in the running client container.
 
 The current native hiredis fixture passed both Redis and Valkey provider cases on Linux ARM64. Each used the existing
 256 MiB, half-CPU, 128-PID server/client quotas and private network. This qualifies the stated local versions and

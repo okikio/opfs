@@ -131,9 +131,10 @@ The frozen independent fixtures come from Astropy and CFITSIO reciprocally: both
 numeric arrays and checksum scopes. Fixtures cover all six BITPIX types, exact 64-bit integers beyond 53 bits,
 asymmetric axes, scaling/BLANK, NaN/Inf/signed zero, empty axes, long headers and an unrelated large image. The fixture
 directory records actual package versions, producer source hashes and full-byte receipts. Neither tool is a runtime
-dependency. The current [TypeScript producer](../tests/fixtures/fits/README.md) retains only the native CFITSIO profile
-with authored byte expectations. It does not repeat the historical Astropy checks; the original Python source remains an
-inert snapshot.
+dependency. The current
+[TypeScript producer](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/fits/README.md)
+retains only the native CFITSIO profile with authored byte expectations. It does not repeat the historical Astropy
+checks; the original Python source remains an inert snapshot.
 
 `bench/fits.bench.ts` compares cold indexing, raw selected/full numeric reads, physical scaling and complete padded-HDU
 verification against a preindexed native Blob byte-copy baseline. Every lane first checks the original native fixture

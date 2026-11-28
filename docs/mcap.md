@@ -156,12 +156,13 @@ retained separately. Both reader paths are from one implementation, so they will
 interoperability. Upstream conformance binaries represented by Git LFS pointers have not been resolved and are not
 claimed as coverage.
 
-The [current reproduction recipe](../tests/fixtures/mcap/native-recipe.md#current-native-c-recipe) uses typed TypeScript
-tooling and the official C++ writer/readers at the same primary commit. It keeps the four profiles and complete original
-message, schema, attachment and metadata comparisons. The pinned C++ reader does not validate CRCs; an authored scope
-walker plus Node's native zlib CRC primitive separately checks every enabled checksum and byte corruption control. That
-is a different proof owner, not a native-reader CRC refusal. The old Python corpus and receipt identities remain frozen.
-Only a new successful acquisition, compile and execution receipt can qualify the new recipe.
+The
+[current reproduction recipe](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/mcap/native-recipe.md#current-native-c-recipe)
+uses typed TypeScript tooling and the official C++ writer/readers at the same primary commit. It keeps the four profiles
+and complete original message, schema, attachment and metadata comparisons. The pinned C++ reader does not validate
+CRCs; an authored scope walker plus Node's native zlib CRC primitive separately checks every enabled checksum and byte
+corruption control. That is a different proof owner, not a native-reader CRC refusal. The old Python corpus and receipt
+identities remain frozen. Only a new successful acquisition, compile and execution receipt can qualify the new recipe.
 
 ## Measured workload
 

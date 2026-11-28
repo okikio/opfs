@@ -102,12 +102,15 @@ each bounded chunk and does not promise a hard cancellation deadline. No archive
 
 The primary grammar is RARLAB's [RAR5 technical note](https://www.rarlab.com/technote.htm). The pinned source hash,
 fixture/archive hashes, exact producer/consumer versions and commands are in
-[`tests/fixtures/rar/provenance.json`](../tests/fixtures/rar/provenance.json) and the adjacent inert receipt.
+[`tests/fixtures/rar/provenance.json`](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/rar/provenance.json)
+and the adjacent inert receipt.
 
 The historical executed producer remains byte-for-byte inert `tests/fixtures/rar/create.py.snapshot`.
-[`create.ts`](../tests/fixtures/rar/create.ts) is the current project-owned port, not the producer of those existing
-fixtures. It has not yet run. Its [instructions](../tests/fixtures/rar/README.md) require separately reviewed native
-tools and a new qualification receipt; the port does not download a vendor executable or renew trial authorization.
+[`create.ts`](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/rar/create.ts)
+is the current project-owned port, not the producer of those existing fixtures. It has not yet run. Its
+[instructions](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/rar/README.md)
+require separately reviewed native tools and a new qualification receipt; the port does not download a vendor executable
+or renew trial authorization.
 
 An explicitly authorized, one-time vendor RAR 7.23 trial invocation produced STORED and quick-open/comment archives.
 Native 7zz's forced RAR5 reader and macOS libarchive independently consumed every original file and matched complete

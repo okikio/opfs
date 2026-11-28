@@ -1,0 +1,6 @@
+interface:
+  display_name: "Deno Software"
+  short_description: "Deliver and verify complete Deno 2 software"
+  default_prompt: "Use $deno-software to complete and verify this Deno task."
+  icon_small: "./assets/icon.svg"
+  icon_large: "./assets/icon.svg"

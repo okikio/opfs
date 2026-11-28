@@ -1,0 +1,4 @@
+interface:
+  display_name: "Commit changes"
+  short_description: "Group authorized changes into coherent commits"
+  default_prompt: "Use $commit-changes for this task, applying shared quality and the affected domain contracts."

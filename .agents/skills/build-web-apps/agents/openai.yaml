@@ -1,0 +1,4 @@
+interface:
+  display_name: "Build Web Apps"
+  short_description: "Build stateful web applications."
+  default_prompt: "Use $build-web-apps to design, implement, or review this stateful web application."

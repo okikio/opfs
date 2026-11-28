@@ -1,0 +1,4 @@
+interface:
+  display_name: "Refactor code"
+  short_description: "Migrate consumers and remove obsolete code paths"
+  default_prompt: "Use $refactor-code for this task, applying shared quality and the affected domain contracts."

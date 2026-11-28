@@ -1,0 +1,4 @@
+interface:
+  display_name: "Build Web Systems"
+  short_description: "Classify and coordinate hybrid web work."
+  default_prompt: "Use $build-web to classify and coordinate this cross-surface web system."

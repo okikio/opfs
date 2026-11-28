@@ -124,4 +124,5 @@ The pinned native server advertises drafts 13/14 with interop 10 and parses only
 response to valid unknown parameters is retained; it is not called full draft 15 conformance. Native completion replay
 returned 200, which is observed behavior rather than a standard requirement. No hosted endpoint, power-loss durability,
 complete draft conformance, or generic application publication contract is claimed. See the
-[fixture provenance](../tests/fixtures/upload/README.md) for exact pins and proof boundaries.
+[fixture provenance](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/upload/README.md)
+for exact pins and proof boundaries.

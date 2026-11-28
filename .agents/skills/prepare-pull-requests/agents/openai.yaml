@@ -1,0 +1,4 @@
+interface:
+  display_name: "Prepare pull requests"
+  short_description: "Draft source-grounded pull request titles and descriptions"
+  default_prompt: "Use $prepare-pull-requests for this task, applying shared quality and the affected domain contracts."

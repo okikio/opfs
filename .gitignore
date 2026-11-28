@@ -10,7 +10,7 @@ node_modules/
 /.release/
 /.tmp/
 /tmp/
-# Version the bounded agent validation owner; other agent scratch stays local.
+# Version maintained guidance and local validation; other agent scratch stays local.
 !/.agents/
 /.agents/*
 !/.agents/validation/
@@ -53,3 +53,14 @@ Thumbs.db
 Desktop.ini
 .fuse_hidden*
 .nfs*
+
+# Complete connected guidance and project-owned adoption records.
+!/.agents/START.md
+!/.agents/GUIDANCE.md
+!/.agents/LICENSE
+!/.agents/guides/
+!/.agents/references/
+!/.agents/skills/
+!/.agents/handbook/
+!/.agents/README.md
+!/.agents/source.json

@@ -1,7 +1,9 @@
 {
   "imports": {
     "@deno/dnt": "jsr:@deno/dnt@0.43.2",
+    "@std/expect": "jsr:@std/expect@^1.0.20",
     "@std/path": "jsr:@std/path@^1.1.6",
+    "rolldown": "npm:rolldown@1.2.19",
     "zod": "npm:zod@^4.4.3"
   }
 }

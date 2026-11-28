@@ -1,0 +1,14 @@
+interface:
+  display_name: Portable Rust Product Engineering
+  short_description: Build correct Rust for declared target hosts
+  default_prompt: Use $rust-software to investigate, implement, and verify this Rust
+    capability across its required native, Wasm, and FFI hosts.
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+    - chatgpt
+    - codex
+    - api
+    - atlas
+  allow_implicit_invocation: true
