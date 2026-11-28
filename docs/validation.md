@@ -40,6 +40,29 @@ Mitata + Playwright benchmarks
 
 ## Repository command authority
 
+The deterministic provider suites keep each protocol and lifecycle contract in its own native test file. The same owners
+run on Deno, Node and Bun. Each test retains its own clients, request captures, cancellation signals and awaited
+cleanup. Shared `fixture.ts` modules supply independent XML readers and reusable inputs; they do not register tests or
+retain request state.
+
+| Contract                                      | S3 owner                       | Azure owner                       |
+| --------------------------------------------- | ------------------------------ | --------------------------------- |
+| Authorization and canonical request bytes     | `tests/s3/signing.test.ts`     | `tests/azure/signing.test.ts`     |
+| Object metadata, errors and borrowed clients  | `tests/s3/objects.test.ts`     | `tests/azure/objects.test.ts`     |
+| Retry, replay and credential refresh          | `tests/s3/policy.test.ts`      | `tests/azure/policy.test.ts`      |
+| Response acknowledgement and retirement       | `tests/s3/response.test.ts`    | `tests/azure/response.test.ts`    |
+| Publication identity and failure disposition  | `tests/s3/publication.test.ts` | `tests/azure/publication.test.ts` |
+| Upload order, limits and cancellation         | `tests/s3/multipart.test.ts`   | `tests/azure/blocks.test.ts`      |
+| Server-side copy conditions and failures      | `tests/s3/copy.test.ts`        | `tests/azure/copy.test.ts`        |
+| Stream admission and source ownership         | `tests/s3/body.test.ts`        | `tests/azure/body.test.ts`        |
+| Materialized byte extents and backing changes | `tests/s3/bytes.test.ts`       | `tests/azure/bytes.test.ts`       |
+| Raw Fetch bodies and native backing metadata  | `tests/s3/buffers.test.ts`     | `tests/azure/buffers.test.ts`     |
+| Multipart allocation and joined cleanup       | `tests/s3/allocation.test.ts`  | No separate allocation request    |
+| Independent completion XML readers            | `tests/s3/fixture.test.ts`     | `tests/azure/fixture.test.ts`     |
+
+For example, `mise run test:node --family portable tests/s3 tests/azure` selects these owners and the existing
+deterministic transfer tests. The provider family separately owns the suites that acquire actual services.
+
 Maintained task runners and fixture recipes use `.ts` source. Files ending in `.py.snapshot`, `.mjs.snapshot` or
 `.cjs.snapshot` retain the exact old executable bytes as inert evidence. They are not commands to run. A source map
 beside a ported recipe explains which historical receipt those bytes produced.
@@ -189,10 +212,10 @@ tests/object.test.ts
     generic object driver -> object adapter -> facade contract
     provider-safe private directory-marker metadata
 
-tests/s3/mod.test.ts
+tests/s3/*.test.ts
     deterministic S3 REST/SigV4/multipart/copy/retry behavior
 
-tests/azure/mod.test.ts
+tests/azure/*.test.ts
     deterministic Azure REST/auth/block/copy/retry behavior
     metadata contract validation before provider I/O
 

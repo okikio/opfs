@@ -472,8 +472,10 @@ Azurite is intentionally treated as an emulator. Its documentation states that i
 compatibility and can differ from the cloud service. A green Azurite suite therefore proves real HTTP/authentication
 interoperability, not complete conformance with every Azure version or feature.
 
-The deterministic unit suite remains responsible for exact Shared Key string construction, version-dependent limits,
-condition placement, and source bearer version gates.
+The deterministic suites in `tests/azure/` remain responsible for exact Shared Key string construction,
+version-dependent limits, condition placement and source bearer version gates. Signing, block upload, copy, retry,
+response retirement and publication each have a native test owner. The
+[validation inventory](validation.md#repository-command-authority) maps those contracts to files.
 
 Before release, an opt-in real Azure Blob test should run against a disposable container with short-lived CI credentials
 when organizational secret policy permits it.
