@@ -43,12 +43,13 @@ describe("explicit test selection", () => {
     expect(result.stdout.trim()).toBe("portable  tools/test/suite.test.ts");
   });
   it("rejects an unmatched file before sharding", () => {
-    const result = listing("node", "tools/test/no-such-test.test.ts", "--shard", "2/2");
+    const result = listing("node", "--family", "portable", "tools/test/no-such-test.test.ts", "--shard", "2/2");
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("No node test matches tools/test/no-such-test.test.ts.");
   });
   it("allows an empty explicit shard of a nonempty selection", () => {
-    const result = listing("node", "tools/test/suite.test.ts", "--shard", "2/2");
+    // Unrelated native families can report platform exclusions before listing selected files.
+    const result = listing("node", "--family", "portable", "tools/test/suite.test.ts", "--shard", "2/2");
     expect(result.status).toBe(0);
     expect(result.stdout).toBe("");
   });
