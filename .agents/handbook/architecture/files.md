@@ -2,6 +2,12 @@
 
 Place maintained code where its behavior belongs. Preserve the repository's current layout and native manifests. Create a new file when it has a real consumer and a cohesive responsibility, not to reproduce a sample directory tree.
 
+Use the [structure guide](../../guides/naming-and-folder-structure-guide.md)
+to review dash-separated names, split large modules by responsibility and
+integrate maintained tool packages into native workspace discovery. Trace the
+consumer graph before a move; keep framework discovery and public contracts
+explicit. Directory shape and manifests alone do not prove the integration.
+
 | Responsibility | Appropriate owner |
 | --- | --- |
 | Product purpose and first useful action | Project entry documentation. |

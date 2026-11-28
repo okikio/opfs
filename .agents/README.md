@@ -17,6 +17,7 @@ caller's resource lifetime explicit across the supported hosts.
 | Public entrypoints and package identity | `mod.ts`, `src/`, `deno.json`, `package.json` and `tests/package/exports.json` |
 | Runtime and dependency versions | [mise.toml](../mise.toml) and `deno.lock` |
 | Checks, test families and external prerequisites | [docs/tooling.md](../docs/tooling.md), `.mise/tasks/`, `tools/` and `tests/` |
+| Installed npm consumer fixtures and declaration environments | [docs/package.md](../docs/package.md) through `mise run check:package` |
 | Release procedure | [docs/releasing.md](../docs/releasing.md) |
 | Active work and publication authority | The current request, actual Git branch and revision, working changes and relevant PR |
 

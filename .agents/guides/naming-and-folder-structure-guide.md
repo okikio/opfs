@@ -697,6 +697,13 @@ mod.ts
 
 Do not rename conventional files merely to enforce kebab-case.
 
+A dash is a reason to inspect ownership. Check whether a meaningful parent can
+carry part of the name: a declaration tool with related operations may be
+clearer as `declarations/closure.ts` than `declaration-closure.ts`. Make that
+move only when the new parent expresses a real responsibility. Preserve an
+established compound, framework filename, package identity or public path when
+its consumers require it. Do not replace every dash with a directory separator.
+
 ### Name files after their primary concept
 
 A file should have one clear responsibility reflected in its name.
@@ -754,6 +761,18 @@ src/types.ts
 ```
 
 Split broad files by domain concept or capability.
+
+For a large file, map its responsibilities, state and callers before extracting
+code. Separate independent operations, fixture owners or runtime adapters when
+the split makes each contract easier to trace. Keep a cohesive algorithm or
+state transition together when extraction would scatter its invariants or
+duplicate setup. File length is a review signal, not a universal split threshold.
+Do not create a one-file folder merely to shorten a filename.
+
+Move useful internal comments and public documentation with the symbols they
+explain. Update imports, exports, generated registrations, tests, task inputs,
+cache identities and maintained examples as one cutover. A tree view should
+show the resulting owners; it cannot prove that their consumers were migrated.
 
 ### Entry-point files
 
@@ -1059,6 +1078,25 @@ packages/browser/pool/
 Keep public contracts and entry points easy to find. Keep implementation files close to the domain concept they implement.
 
 Do not introduce nested `src/` folders mechanically when the package is too small to benefit from them or when the repository uses a different established layout.
+
+### Maintained tools are workspace owners
+
+In a monorepo that uses `tools/`, treat it as a package container like
+`packages/`. Each maintained tool belongs in a cohesive member with its own
+manifest, declared dependencies and real callers. Include that member in the
+native workspace and its relevant check, test and build discovery. A loose
+implementation directly in the container, or a manifest with no integration,
+does not establish ownership.
+
+For example, a content tool can own `tools/content/build/pages.ts` and its
+package tasks. Runtime modules and generated output still belong with their
+actual consumers; moving the build command does not move the runtime contract.
+Use the repository's existing package conventions, without adding a workspace
+to a single-package project solely to reproduce this example.
+
+Keep one-off inspection scripts in the repository-approved ignored investigation
+workspace. A recurring generator or lint rule belongs in maintained tooling
+only when it has an ongoing consumer and verification contract.
 
 ## `registry/`
 

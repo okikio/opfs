@@ -69,7 +69,13 @@ Read `README.md` and `docs/design.md` before changing architecture or public API
 - Document important non-exported symbols when they own an invariant, lifecycle rule, serialization layout, or failure
   rule.
 - Comments explain why a rule exists or what must remain true. Do not restate obvious syntax.
-- Keep agent-only validation under `.agents/`. It must never become a production import or published artifact.
+- Keep maintained instructions and local validation under their existing `.agents/` owners. Put disposable probes and
+  host adaptations in ignored `.tmp/`, outside normal test discovery and publication inputs. A reusable regression
+  belongs with its maintained test owner.
+- `tests/package/consumer/` contains actual installed-artifact fixtures. Keep package imports intact and use
+  `mise run check:package` for their runtime and declaration checks. Native runners discover the `.test.mjs` scenarios;
+  the installed TypeScript compilers discover the portable type modules. The repository source checker must not supply
+  its ambient Deno namespace to these fixtures. See [package verification](docs/package.md).
 
 ## Release notes
 

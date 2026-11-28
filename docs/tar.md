@@ -136,10 +136,11 @@ behavior explicitly rather than counting it as interoperability evidence. Genuin
 grammar; [fixture provenance](https://github.com/okikio/opfs/blob/827bdbe/tests/fixtures/tar-sparse/provenance.json)
 pins its hash and tool receipts.
 
-The current [sparse fixture producer](../tests/fixtures/tar-sparse/README.md) is TypeScript. It retains native GNU tar
-production and original-byte oracles, and replaces the Python consumer with GNU tar while preserving independent
-libarchive consumption. That port has not yet run; the committed fixture and receipt still belong to the historical
-executed source retained as inert `create.py.snapshot`.
+The current
+[sparse fixture producer](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/tar-sparse/README.md)
+is TypeScript. It retains native GNU tar production and original-byte oracles, and replaces the Python consumer with GNU
+tar while preserving independent libarchive consumption. That port has not yet run; the committed fixture and receipt
+still belong to the historical executed source retained as inert `create.py.snapshot`.
 
 ## Supported records and limits
 
@@ -222,10 +223,11 @@ selected-member check uses stdout extraction. The former Python consumer test re
 Historical successful consumers were Python 3.9.6 and bsdtar 3.5.3/libarchive 3.7.4; the changed native-only test route
 still needs its own run. These are compatibility cases, not an exhaustive TAR corpus or a performance claim.
 
-The current [TypeScript fixture producer](../tests/fixtures/tar/README.md) supplies new native GNU PAX/GNU profiles,
-with independent libarchive full-byte comparisons. It has not yet executed. Its ordinary `short.txt` path differs from
-the old Python fixture's global-PAX override. Keep those profiles and receipts separate rather than claiming that a new
-native producer created the existing historical bytes.
+The current
+[TypeScript fixture producer](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/tar/README.md)
+supplies new native GNU PAX/GNU profiles, with independent libarchive full-byte comparisons. It has not yet executed.
+Its ordinary `short.txt` path differs from the old Python fixture's global-PAX override. Keep those profiles and
+receipts separate rather than claiming that a new native producer created the existing historical bytes.
 
 The framing follows the [POSIX pax specification](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/pax.html)
 and [GNU TAR format documentation](https://www.gnu.org/software/tar/manual/html_node/Standard.html). The independently

@@ -172,10 +172,12 @@ repair.
 Stream administration, durable consumers, pull/ack delivery, clustering, failover, WebSocket, NKey/JWT, streaming
 payloads and complete NATS support remain outside this first profile.
 
-The [current provider fixture](../tests/fixtures/nats/README.md) builds the official native C SDK in a disposable
-Testcontainers image, using the signed Debian development package on the pinned Node base. Typed TypeScript tooling
-calls the small authored C++ harness; no Python wheel is downloaded or executed. It retains the same exact-byte
-publish/get profile, stream isolation, duplicate acknowledgement and authentication controls. Actual SDK/package/build
-versions belong to the new run receipts. The current native C SDK provider case passed the selected full-byte
-publish/get, duplicate acknowledgement, stream-isolation and authentication checks. The Python SDK capture and benchmark
-results above remain historical evidence; they are not relabeled as native C SDK execution.
+The
+[current provider fixture](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/nats/README.md)
+builds the official native C SDK in a disposable Testcontainers image, using the signed Debian development package on
+the pinned Node base. Typed TypeScript tooling calls the small authored C++ harness; no Python wheel is downloaded or
+executed. It retains the same exact-byte publish/get profile, stream isolation, duplicate acknowledgement and
+authentication controls. Actual SDK/package/build versions belong to the new run receipts. The current native C SDK
+provider case passed the selected full-byte publish/get, duplicate acknowledgement, stream-isolation and authentication
+checks. The Python SDK capture and benchmark results above remain historical evidence; they are not relabeled as native
+C SDK execution.

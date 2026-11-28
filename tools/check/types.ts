@@ -10,6 +10,8 @@
  * A folder with its own `deno.json` (the npm build tool, for example) is checked with that configuration, since
  * its import map is not the package's. Copied guidance owns its examples and configurations upstream, so the
  * four maintained guidance folders under `.agents/` are inert here. Local agent validation remains checked.
+ * Installed-consumer fixtures under `tests/package/consumer/` belong to `check:package`, whose real compilers
+ * resolve the packed artifact in explicit portable, Node and Deno declaration environments.
  *
  * TypeScript itself then checks the browser and worker projects (`tsconfig.opfs-dom.json` and
  * `tsconfig.opfs-worker.json`), which pin the exact DOM and worker library sets the OPFS driver supports.
@@ -25,9 +27,10 @@ import { spawn } from "../spawn.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 
-/** Upstream snapshots, copied guidance and generated declarations are data, not repository programs. */
+/** Paths with another validation owner must not inherit the source repository's ambient declarations. */
 const inert = [
   /^tests\/upstream\/original\//u,
+  /^tests\/package\/consumer\//u,
   /^\.agents\/(?:guides|references|skills|handbook)\//u,
   /\.d\.ts$/u,
 ];

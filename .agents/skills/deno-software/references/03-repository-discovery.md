@@ -128,7 +128,9 @@ Before editing, distinguish:
 - generated files;
 - build output;
 - caches;
-- validation-only `.agents/` infrastructure.
+- maintained agent guidance, including an installed `.agents/` tree;
+- disposable host adaptations and probes in the repository-approved ignored
+  investigation workspace.
 
 Do not overwrite unrelated user changes or run repository-wide formatting as a
 side effect of a focused fix.
@@ -161,7 +163,7 @@ Only state values supported by the inspected repository.
 | package publishes unexpectedly | member publish contract not inspected |
 | agent runs wrong task runner | Mise/root task owner ignored |
 | Node compatibility broken | package.json-first/hybrid mode misclassified |
-| `.agents/` enters package | validation infrastructure confused with source |
+| guidance or scratch files enter a runtime package | package contents and development-only ownership were not checked |
 | root-only setting copied to member | workspace ownership not checked |
 | generated output edited by hand | source/generator owner not identified |
 

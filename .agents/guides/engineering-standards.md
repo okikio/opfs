@@ -1221,11 +1221,15 @@ consumer flow
 
 Use the repository's canonical Deno tasks when available. Record every native gate as **passed**, **failed**, **blocked**, or **not applicable**. A blocked runtime check is not success. State the exact runtime/tool that was unavailable.
 
-When Deno or JSR is unavailable in an agent host, keep production imports unchanged. Use disposable `.agents/` validation with Node tooling only to prove what can be proved. Do not migrate production code to Node to satisfy the validation host.
+When Deno or JSR is unavailable in an agent host, keep production imports unchanged. A disposable host adaptation can prove only the behavior it actually exercises. Keep it in the repository-approved ignored investigation workspace, and record the native checks that remain unavailable. Do not migrate production code to Node to satisfy the validation host.
 
-## `.agents/` is disposable validation infrastructure
+## Keep maintained guidance separate from disposable investigation
 
-`.agents/` can hold:
+An installed `.agents/` tree contains maintained skills, guides and references.
+Preserve its source ownership and complete document dependencies. Do not place
+temporary shims, generated test builds or one-off scripts beside that guidance.
+
+Use the repository's established ignored investigation directory for:
 
 - temporary host shims;
 - generated test builds;
@@ -1233,9 +1237,14 @@ When Deno or JSR is unavailable in an agent host, keep production imports unchan
 - compatibility declarations used only by the validation host;
 - investigation scripts and reports.
 
-It must not become a production dependency or package export.
+Verify that Git ignores the directory and that normal test discovery, package
+contents, build inputs and container contexts exclude it. Do not impose a new
+directory name when the project already has an appropriate location. Temporary
+validation code must not become a production dependency or package export.
 
-Canonical repository tests should remain in the repository's normal test architecture.
+Keep durable regression tests and recurring tooling with their maintained
+owners. Preserve useful investigation evidence through the project's recovery
+process before discarding scratch files.
 
 ## `.mise/tasks/` owns repository tasks
 

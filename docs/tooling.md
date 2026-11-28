@@ -64,6 +64,9 @@ tools/
 The type check leaves copied guidance examples and configurations under `.agents/guides/`, `.agents/references/`,
 `.agents/skills/` and `.agents/handbook/` to their upstream guidance repository. It still checks local agent programs,
 including `.agents/validation/`. Original upstream test snapshots and generated declaration files also remain inert.
+Installed-consumer files under `tests/package/consumer/` use the separate package gate. Its actual compiler CLIs check
+the packed declarations under portable, Node and Deno ambient environments; the source configuration must not replace
+those environments. Host orchestration under `tests/package/` stays in the ordinary source check.
 
 Files that load Bun declarations need a separate compiler group because those declarations change shared browser
 globals. Rolldown's Oxc parser identifies their imports, re-exports, import types, literal dynamic imports and leading
@@ -90,6 +93,11 @@ in a family with other needs; `tools/test/discover.ts` holds those rules, each w
 
 A new test needs no other edit: name it for its family. `mise run test:deno -- --list` prints the inventory a run would
 use, with each file's family.
+
+The [installed-package fixtures](package.md) have a separate owner. `check:package` copies real `.test.mjs` files into a
+clean npm install, then Node, Deno and Bun discover its `runtime/` tree with their native test commands. TypeScript
+discovers `types/portable/**/*.ts` within the same installed consumer. These fixtures must not run through the
+repository source aliases or its ordinary portable-suite discovery.
 
 ## CI runs the same tasks
 

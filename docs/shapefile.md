@@ -179,5 +179,6 @@ The retained Node 26.13.0 Linux ARM64 run used 1 GiB RAM, no swap, 1 CPU, 128 PI
 operation times were about 4.45 µs, 55.18 µs, 89.99 µs, 9.57 µs, 7.41 µs and 0.61 µs respectively. These are different
 work contracts, not interchangeable implementations or an SDK speed comparison. Warm views use explicit finite sampling
 allowances. Another workspace's existing utility container was left running; its start/end resource snapshots qualify
-cross-run comparisons. The fixture [benchmark receipt](../tests/fixtures/shapefile/benchmark.json) retains exact input
-hashes, work labels, distributions and the losslessly compressed raw report hash.
+cross-run comparisons. The fixture
+[benchmark receipt](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/shapefile/benchmark.json)
+retains exact input hashes, work labels, distributions and the losslessly compressed raw report hash.

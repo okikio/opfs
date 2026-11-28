@@ -119,10 +119,11 @@ accepted and compared through libarchive too; lowered STORED 1.0 and DEFLATE 2.0
 Inputs cover empty, odd, binary and 8197-byte members, including a preview across the little-endian counter carry at
 block 256.
 
-The current [TypeScript producer](../tests/fixtures/aes/README.md) preserves the independent libarchive consumer and
-metadata adaptations. It adds OpenSSL CLI primitive checks with authored WinZip envelope/counter glue; those checks are
-distinct from independent native ZIP parsing. This port and its OpenSSL route have not yet run. Existing fixtures and
-receipts retain their original executed-producer attribution.
+The current
+[TypeScript producer](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/aes/README.md)
+preserves the independent libarchive consumer and metadata adaptations. It adds OpenSSL CLI primitive checks with
+authored WinZip envelope/counter glue; those checks are distinct from independent native ZIP parsing. This port and its
+OpenSSL route have not yet run. Existing fixtures and receipts retain their original executed-producer attribution.
 
 The producer used 7-Zip 26.02 (signed Debian `7zip` package `22.01+really26.02+dfsg-0+deb12u1`) and libarchive 3.6.2
 (`libarchive-tools` package `3.6.2-1+deb12u5`) on arm64. `provenance.json` pins script, fixture JSON and each archive

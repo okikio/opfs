@@ -88,7 +88,7 @@ mboxrd corpus uses an authored encoder and an independent Git `mailsplit --mboxr
 mailbox blank line; Python `get_bytes` removes one. Tests cover both policies explicitly, quote depth, small source
 chunks, transformed range cuts and mailbox-to-MIME attachment bytes. This is producer/consumer contract evidence, not
 compatibility proof for every mail client. Fixture versions, hashes and reproduction instructions are in
-[the fixture record](../tests/fixtures/mbox/README.md).
+[the fixture record](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/mbox/README.md).
 
 [RFC 4155](https://www.rfc-editor.org/rfc/rfc4155.html) explains why mailbox variants must be distinguished; this reader
 does not claim its canonical-default compliance. The

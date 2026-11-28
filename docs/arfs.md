@@ -173,9 +173,9 @@ The test-only independent producer retained genuine ArDrive core 5.1.1 drive/roo
 signature checks passed, and selected full/range file bytes matched independently authored originals. The producer ran
 offline with zero monitored network calls; no transaction was submitted or funded. Authored adversarial regressions and
 a separate Python ZIP producer/consumer prove additional rejection and composition behavior.
-[Fixture provenance and reproduction](../tests/fixtures/arfs/README.md) records artifact/source/lock hashes and resource
-bounds. These tool results do not establish publication, confirmation or signature/data-root verification by this
-production reader.
+[Fixture provenance and reproduction](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/arfs/README.md)
+records artifact/source/lock hashes and resource bounds. These tool results do not establish publication, confirmation
+or signature/data-root verification by this production reader.
 
 ## Benchmark workload
 

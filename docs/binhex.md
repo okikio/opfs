@@ -150,9 +150,11 @@ inputs.
 framing completes, then reports the observed zero count. The resource CRC covers its payload, not these padding bytes.
 Header and data-only reads cannot establish the terminal padding count.
 
-The [fixture provenance](../tests/fixtures/binhex/README.md) records immutable primary/source hashes and native proof.
-Thirty-two unchanged genuine C/Perl outputs preserve every original fork through both native decoders. Strict C framing
-and four unpadded Perl cases verify by default once the relevant banner policy is selected; twelve padded Perl cases
-require the explicit padding policy. Six separately authored corruptions are refused by native C with CRC diagnostics;
-Perl is only a full-byte oracle. A genuine nested ZIP exercises `openZip(archive.member("data"))`. No whole-format or
-archive-writer completeness claim follows from this reader profile.
+The
+[fixture provenance](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/binhex/README.md)
+records immutable primary/source hashes and native proof. Thirty-two unchanged genuine C/Perl outputs preserve every
+original fork through both native decoders. Strict C framing and four unpadded Perl cases verify by default once the
+relevant banner policy is selected; twelve padded Perl cases require the explicit padding policy. Six separately
+authored corruptions are refused by native C with CRC diagnostics; Perl is only a full-byte oracle. A genuine nested ZIP
+exercises `openZip(archive.member("data"))`. No whole-format or archive-writer completeness claim follows from this
+reader profile.

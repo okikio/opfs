@@ -253,11 +253,30 @@ root task.
 }
 ```
 
-Run member tasks deliberately:
+Select member tasks through Deno's native workspace support. A name-based
+selector uses the member's declared package name; it does not require a custom
+package-to-folder lookup:
+
+```bash
+deno task --filter '@acme/api' dev
+```
+
+`deno task --filter` implies recursive workspace execution. A package name is
+one supported way to choose work, not a requirement for every command. When the
+directory is already the useful selection, keep the native working-directory
+option:
 
 ```bash
 deno task --cwd=packages/api dev
 ```
+
+These commands select tasks. `deno test --filter` instead matches test names.
+Check the [current task documentation](https://docs.deno.com/runtime/reference/cli/task/)
+and installed help before applying a selector. Follow the
+[native-tool procedure](../../../handbook/engineering/native-tools.md) for
+empty selections, missing tasks, required-work coverage and complete wrapper
+removal. A zero exit status alone does not establish that every required member
+ran its task.
 
 Audit every task for assumptions about:
 

@@ -3,8 +3,8 @@
   "form": "whole-collection",
   "source": {
     "repository": "https://github.com/okikio/skills",
-    "commit": "eba05af5c125f623447e56597306f933ce00fb29",
-    "tree": "306080b618f002194b89cf47f7d9c85d104963ed"
+    "commit": "38e7ec7f543a872782b60d5c75618d79153590a6",
+    "tree": "5447460906a250976c1c58ad039a152af8cef0f7"
   },
   "roots": [
     "START.md",
@@ -18,7 +18,7 @@
   "integrity": {
     "algorithm": "sha256",
     "encoding": "UTF-8 records sorted by path: file SHA-256, two ASCII spaces, relative path, then LF (U+000A), including the final record.",
-    "sha256": "d27aea74d9a1ec154414dd7192af7431760ac615b698de559b66b6e8fee31716"
+    "sha256": "ed9b4641b746f4281abd702916739ceb0a21eb59b747bea6f0ec3b916231194a"
   },
   "files": [
     {
@@ -53,8 +53,8 @@
     },
     {
       "path": "guides/engineering-standards.md",
-      "bytes": 42481,
-      "sha256": "560f42884a735c0cf662d47b2b51b1dab9e4ff126fea06a04695e249539e7ddf"
+      "bytes": 43250,
+      "sha256": "0980f6ddc4536e53bc655317ac567e751a211d69eeb708b7d2f6eb5a5c77537d"
     },
     {
       "path": "guides/how-to-justify-decisions-properly.md",
@@ -68,8 +68,8 @@
     },
     {
       "path": "guides/naming-and-folder-structure-guide.md",
-      "bytes": 42756,
-      "sha256": "c75c8efd85115fa7a86f303621ca8f1a8e5d7e418a95535cca95537928a9dc10"
+      "bytes": 45031,
+      "sha256": "b62d1dfc95d204c0a1afaa69ed899d8ff7585d0d1f606539aff54778f4ad251e"
     },
     {
       "path": "guides/prd-guide.md",
@@ -253,8 +253,8 @@
     },
     {
       "path": "handbook/architecture/files.md",
-      "bytes": 2174,
-      "sha256": "4efa1a8f91df2fc1a87635ae768f026384a2a5e925a9e148ab2285c6934ec1a8"
+      "bytes": 2556,
+      "sha256": "7cbf28561b4edc0cba9ef0ac0a279e4bc886c3d890907574005f749a33bb07cc"
     },
     {
       "path": "handbook/architecture/ownership.md",
@@ -288,8 +288,8 @@
     },
     {
       "path": "handbook/engineering/native-tools.md",
-      "bytes": 1267,
-      "sha256": "06f52d1912e7da0e14fe6d4a9990e90771eaaf526497a94b630be876eb1b6910"
+      "bytes": 4107,
+      "sha256": "acdd5485649cad029d1da7ea1e196abc8417b779f9a8d5efa5a63ba486d1e858"
     },
     {
       "path": "handbook/engineering/selection-cache.md",
@@ -763,8 +763,8 @@
     },
     {
       "path": "references/testing.md",
-      "bytes": 8401,
-      "sha256": "21d8af12c3c2a520a2c85c99e1548123eee0669a766e800fd15fce3fb92a48e1"
+      "bytes": 8595,
+      "sha256": "fe49ca127e4be24d7689ef545b2a8d8b51c6e60e21b9fe222c459e30f09db693"
     },
     {
       "path": "references/typescript.md",
@@ -1133,8 +1133,8 @@
     },
     {
       "path": "skills/build-devtools/references/toolchains.md",
-      "bytes": 7576,
-      "sha256": "a5939456490395cd68141bcd0599a992d33f9fe9c792b34bba655496ce5f5642"
+      "bytes": 7909,
+      "sha256": "efa018a2df6a0d7397ca5edaafd6f2fa4aeb658b96c88281e40a546578319088"
     },
     {
       "path": "skills/build-libraries/SKILL.md",
@@ -1938,8 +1938,8 @@
     },
     {
       "path": "skills/deno-software/references/03-repository-discovery.md",
-      "bytes": 5154,
-      "sha256": "720cab7260e7d6f0046580ed02fbf070ff7904e270f366ab3b731aa26dda34bc"
+      "bytes": 5323,
+      "sha256": "f1e71e4358f470c9d70ac8afb5f73abc7695f56a1f0972021d99102078270347"
     },
     {
       "path": "skills/deno-software/references/04-packages.md",
@@ -1948,8 +1948,8 @@
     },
     {
       "path": "skills/deno-software/references/05-workspaces.md",
-      "bytes": 10670,
-      "sha256": "293070b58d0833d38c5ee993ac17a9e6b5ef7b902ab324b55466e93cd0de9e05"
+      "bytes": 11583,
+      "sha256": "5ed009f2c080f941cbc9ea7680a8ed3d57f0fa95debe3ecf8d9cabe2874d7587"
     },
     {
       "path": "skills/deno-software/references/06-security.md",
@@ -2213,8 +2213,8 @@
     },
     {
       "path": "skills/refactor-code/references/implementer.md",
-      "bytes": 3857,
-      "sha256": "91d0f3b7ad910d08752e67223e5f91638c93a2c107c2f742206f3029ab49a112"
+      "bytes": 3982,
+      "sha256": "89cc96ce0e5fd52d24ad773ca973cbe9f076461c1fab0c69e9c805064857578b"
     },
     {
       "path": "skills/refactor-code/references/refactors.md",

@@ -135,7 +135,7 @@ same deterministic TypeScript source
         `-- browser tests where Web APIs require a browser
 ```
 
-If the current host lacks a runtime, record that check as blocked. Do not replace production imports with host-specific shims merely to make an agent environment green. Validation-only shims belong in disposable validation infrastructure such as `.agents/`.
+If the current host lacks a runtime, record that check as blocked. Do not replace production imports with host-specific shims merely to make an agent environment green. Keep disposable host adaptations in the repository-approved ignored investigation workspace, outside normal test discovery and shipped artifacts. Installed `.agents/` guidance is maintained source, not scratch storage. Keep durable tests in their normal owning package or test tree.
 
 ## Artifact tests
 

@@ -2,8 +2,8 @@
 
 The optional `@okikio/opfs/dataset/arrow` module implements the six-type profile described here. Source and extracted
 package checks are separate from publishing a release. Maintainers can use the
-[implementation plan](https://github.com/okikio/opfs/blob/codex/release-2026-10-06/planning/storage/ARROW.md) to track
-qualification.
+[implementation plan](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/planning/storage/ARROW.md)
+to track qualification.
 
 An Arrow IPC file stores a schema, record batches and a footer index. A record batch contains equally sized columns. You
 can use that index to preview selected columns in the final batch without reading earlier batch payloads. This is a

@@ -18,7 +18,7 @@ When researching or searching, prefer this order unless the task clearly require
 - DO NOT stop at an initial slice when the locked deliverable is larger.
 - DO NOT leave TypeScript issues, deprecated APIs, stale Zod usage, or instruction violations behind.
 - Run the narrowest automated checks & any end-to-end workflows that cover the files or modules you modified, such as unit tests, type-check, or lint for the touched paths, and leave full integration or end-to-end test runs to the verification stage.
-- DO NOT create ad hoc shell, Python, or one-off scripts under `.agents/scripts/` when a reviewable Deno + TypeScript script would do the job.
+- Keep one-off scripts and probes in the repository-approved ignored investigation workspace, using an existing suitable runtime. Installed `.agents/` guidance is maintained source. Put a recurring tool in its real owner only when maintainers need it after this task.
 - DO NOT keep obviously parallelizable exploration or implementation prep work serialized when a focused subagent can own it safely.
 
 ## Approach

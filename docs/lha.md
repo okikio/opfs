@@ -128,13 +128,16 @@ recurrence are authored locally. Exact source digests and native fixture receipt
 The signed Debian producer created three genuine JLHA archives, with six original ASCII-named files at each header
 level. JLHA, Lhasa, 7zip and libarchive extracted into separate owned temporary directories. All four tools produced the
 exact expected file sets and every original payload byte, including empty files and a 230,017-byte member. The candidate
-reader was not imported by the producer. The fixtures and [provenance receipt](../tests/fixtures/lha/provenance.json)
+reader was not imported by the producer. The fixtures and
+[provenance receipt](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/lha/provenance.json)
 retain package versions, signed artifact hashes, source pins, original byte digests and negative diagnostics.
 
 The executed producer is retained byte-for-byte as inert `tests/fixtures/lha/create.py.snapshot`.
-[`create.ts`](../tests/fixtures/lha/create.ts) is the current project-owned port; it preserves the native writer and
-four-reader comparisons. The [producer instructions](../tests/fixtures/lha/README.md) describe a separate qualification
-run. This TypeScript source has not yet been executed and did not produce the committed historical fixtures.
+[`create.ts`](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/lha/create.ts)
+is the current project-owned port; it preserves the native writer and four-reader comparisons. The
+[producer instructions](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/lha/README.md)
+describe a separate qualification run. This TypeScript source has not yet been executed and did not produce the
+committed historical fixtures.
 
 The installed JLHA level-0 writer has its own 100-byte header ceiling. Its initial 98-byte pathname required a 122-byte
 header and was refused. The successful level-0 fixture uses a 58-byte pathname and 82-byte header; levels 1/2 retain the

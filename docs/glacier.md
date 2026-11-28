@@ -165,7 +165,7 @@ archive decryption keys. Encrypted archive readers retain their own key, authent
 
 The authored test suite covers malformed ranges, publication outcomes, multipart coverage, page cycles, mutable inputs,
 cancellation, and exact output. The
-[independent fixtures](https://github.com/okikio/opfs/blob/codex/release-2026-10-06/tests/fixtures/glacier/README.md)
+[independent fixtures](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/glacier/README.md)
 retain a separate offline run of the unchanged official botocore tree functions and the public Smithy signer. Thirteen
 complete originals, their leaves, and fifteen multipart extents have frozen checksum expectations. Eleven complete
 signing preimages are retained; six map to public operations and five are explicitly limited synthetic controls.

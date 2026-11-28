@@ -122,10 +122,12 @@ profile, not complete ARJ conformance.
 
 The grammar is grounded in the historical upstream open-source ARJ 3.10.22 serialization/reader and an immutable
 independent XADMaster reader. No normative published ARJ specification was established during this work.
-[Fixture provenance](../tests/fixtures/arj/provenance.json) records actual sources, package identities, original byte
-oracles and proof limits; native tools are test-only and are never a library dependency.
+[Fixture provenance](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/arj/provenance.json)
+records actual sources, package identities, original byte oracles and proof limits; native tools are test-only and are
+never a library dependency.
 
-The [focused benchmark](../bench/arj.bench.ts) records cold indexing, a native Blob range baseline, full/prefix CRC32
-scans, a pending exact range, and cold open plus read. Full-original-byte preflight precedes timing. For its genuine
-65,537-byte member, a verified 37-byte selection reads 65,537 bytes in two requests, while a pending 37-byte selection
-reads 37 bytes in one request. These are distinct integrity contracts, not a universal speed comparison.
+The [focused benchmark](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/bench/arj.bench.ts)
+records cold indexing, a native Blob range baseline, full/prefix CRC32 scans, a pending exact range, and cold open plus
+read. Full-original-byte preflight precedes timing. For its genuine 65,537-byte member, a verified 37-byte selection
+reads 65,537 bytes in two requests, while a pending 37-byte selection reads 37 bytes in one request. These are distinct
+integrity contracts, not a universal speed comparison.

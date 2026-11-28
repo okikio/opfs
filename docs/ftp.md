@@ -160,12 +160,14 @@ implemented by this module.
 
 `tests/ftp.test.ts` uses scripted protocol bytes for framing, budgets, injection, suffix semantics, final reply
 ordering, cancellation, deadline, snapshot and unknown-publication checks. Its TLS substitute proves command order only.
-The separate [Testcontainers fixture](../tests/fixtures/ftp/README.md) now configures unprivileged native ProFTPD from
-an immutable official Node base with signed Debian packages. Native libcurl produces and checks files. Its new real-PWD
-namespace uses native directory operation restrictions, with outside-home denial checks; it makes no chroot claim. The
-current native fixture passed all five provider cases: plain protocol reads, independent full-byte upload readback,
-trusted TLS1.2 with both data sessions reused, untrusted-certificate refusal, and outside-home operation refusals. The
-historical pyftpdlib/ftplib recipe remains an inert snapshot with a different namespace contract. The fixture maps its
-two private passive ports to their ephemeral host ports only inside the injected test transport; production peer pinning
-is unchanged. The real TLS lane validates its test CA, requires data-session resumption and deliberately restricts the
-fixture to TLS1.2; it does not prove other TLS versions, all servers, or a consumer's injected transport.
+The separate
+[Testcontainers fixture](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/ftp/README.md)
+now configures unprivileged native ProFTPD from an immutable official Node base with signed Debian packages. Native
+libcurl produces and checks files. Its new real-PWD namespace uses native directory operation restrictions, with
+outside-home denial checks; it makes no chroot claim. The current native fixture passed all five provider cases: plain
+protocol reads, independent full-byte upload readback, trusted TLS1.2 with both data sessions reused,
+untrusted-certificate refusal, and outside-home operation refusals. The historical pyftpdlib/ftplib recipe remains an
+inert snapshot with a different namespace contract. The fixture maps its two private passive ports to their ephemeral
+host ports only inside the injected test transport; production peer pinning is unchanged. The real TLS lane validates
+its test CA, requires data-session resumption and deliberately restricts the fixture to TLS1.2; it does not prove other
+TLS versions, all servers, or a consumer's injected transport.

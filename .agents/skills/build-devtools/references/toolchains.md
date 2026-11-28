@@ -64,6 +64,12 @@ mise run verify
 
 The names are examples, not requirements. Read the repository before invoking or creating tasks.
 
+Before adding package discovery or dispatch code, apply the
+[native-tool procedure](../../../handbook/engineering/native-tools.md).
+Use native member selection and package-owned tasks where they meet the
+contract. Keep any additional orchestration tied to a demonstrated missing
+behavior and migrate its callers before removing it.
+
 ## Oxc is a coherent selected toolchain, not a universal dependency
 
 When a repository has selected Oxc, reuse its parser/linter/formatter/transform capabilities where they satisfy the requirement. Before introducing Babel, ESLint, Prettier, or another compiler path, identify the concrete missing capability and the cost of a second configuration and AST pipeline.

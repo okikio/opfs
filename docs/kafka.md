@@ -249,10 +249,12 @@ caller-authenticated unencrypted channel; it does not establish peer trust or pe
 
 ## What has independent evidence
 
-The [retained native fixtures](../tests/fixtures/kafka/README.md) record Java and authored literal-wire append/read
-comparisons, null/empty bytes, duplicate headers, exact timestamps and JDK builtin CRC32C agreement. Separate fresh
-Metadata4 qualification compares decoded broker, cluster, leader, replica and ISR observations against the public Java
-Admin API. Those fixtures supply independent originals and protocol observations for candidate tests.
+The
+[retained native fixtures](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/kafka/README.md)
+record Java and authored literal-wire append/read comparisons, null/empty bytes, duplicate headers, exact timestamps and
+JDK builtin CRC32C agreement. Separate fresh Metadata4 qualification compares decoded broker, cluster, leader, replica
+and ISR observations against the public Java Admin API. Those fixtures supply independent originals and protocol
+observations for candidate tests.
 
 The separate 6 November 2026 candidate runs `kafka-candidate-native-v1` and `kafka-candidate-native-v2` exercised the
 production client against one fresh Apache Kafka 4.4.0 broker. Java appended three originals and the candidate fetched
@@ -262,15 +264,15 @@ reported success without operation or cleanup faults. The second run also checke
 independent fixture observation and earliest/latest boundaries `0`, `3` and final `6`, with special-query timestamps
 `-1`. Those receipts remain local under `.tmp/implementation/`; they do not rewrite historical evidence. A third final
 repeat also passed and is retained with full byte hashes, source identities and resource/removal evidence in
-[`native-client/`](https://github.com/okikio/opfs/tree/codex/release-2026-10-06/tests/fixtures/kafka/native-client).
+[`native-client/`](https://github.com/okikio/opfs/tree/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/kafka/native-client).
 
 Separate isolated Deno `--no-check` runs passed record controls in receipt `df287981-946b-4e64-9580-4c61aae01ca3` and
 session/outcome/ownership controls in `2c2faee8-3e80-4129-9c8c-b5f753f9c9ea`. They exercise the portable TypeScript
 source; they are not type checks or proof of execution in every supported runtime. TLS/SASL, multiple brokers,
 replicated durability, measured allocation peaks and current commit CI remain separate. The
-[Kafka plan](https://github.com/okikio/opfs/blob/codex/release-2026-10-06/planning/storage/KAFKA.md) tracks those
-boundaries; [the Apache format description](https://kafka.apache.org/44/implementation/message-format/) and retained
-primary schemas define the wire layout.
+[Kafka plan](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/planning/storage/KAFKA.md)
+tracks those boundaries; [the Apache format description](https://kafka.apache.org/44/implementation/message-format/) and
+retained primary schemas define the wire layout.
 
 The later combined record/session run passed 52 steps in isolated receipt `d3db3cd4-b0f2-4eda-9bbe-72aba03a717f`.
 `mise run bench:local -- bench/kafka.bench.ts` measures full CRC/record admission against an owned-byte copy of the same

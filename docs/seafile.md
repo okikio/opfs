@@ -142,17 +142,20 @@ one second for graceful shutdown. On its exact slow-shutdown failure, a bounded 
 for the owned Gunicorn process to exit before repeating native restart. Testcontainers then verifies HTTP readiness. The
 inspected `seahub.sh` SHA-256 is `9bb44214b9787aa47b7a08b27bc29e876928fbbdef54f15af5a1046617691368`.
 
-The current [TypeScript curl recipe](../tests/provider/seafile-curl.ts) runs on the caller's host and requires curl on
-PATH. It disables curl startup configuration and proxies, bounds each command to 35 seconds and 1 MiB of output, and
-sends credentials only to the disposable server's exact mapped authority. It validates returned capability URLs before
-using them and omits the user token on downloads. No URL is rewritten to a different authority.
+The current
+[TypeScript curl recipe](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/provider/seafile-curl.ts)
+runs on the caller's host and requires curl on PATH. It disables curl startup configuration and proxies, bounds each
+command to 35 seconds and 1 MiB of output, and sends credentials only to the disposable server's exact mapped authority.
+It validates returned capability URLs before using them and omits the user token on downloads. No URL is rewritten to a
+different authority.
 
 The recipe follows Seafile's [upload API](https://plus.seafile.com/published/web-api/v2.1/file-upload.md) and
 [file API](https://cloud.seafile.com/published/web-api/v2.1/file.md). Native curl owns multipart framing; the recipe
 authors the create, upload and read operation sequence. Its complete provider suite must pass before this replacement
 can be called runtime-qualified. The previous SDK fixture is retained byte-for-byte as
-[`provider.ts.snapshot`](../tests/fixtures/seafile/provider.ts.snapshot), including all original wheel pins. That
-snapshot is inert historical evidence; no Python, pip, wheel imports or upstream setup run in the current fixture.
+[`provider.ts.snapshot`](https://github.com/okikio/opfs/blob/5e6df7db78e14d6eef2dcd0e2e7c6be2ae822ae2/tests/fixtures/seafile/provider.ts.snapshot),
+including all original wheel pins. That snapshot is inert historical evidence; no Python, pip, wheel imports or upstream
+setup run in the current fixture.
 
 Primary evidence inspected 2026-11-05:
 
