@@ -11,9 +11,9 @@ mise run check          # every check
 mise run test           # the discovered suite on Deno, Node.js and Bun
 ```
 
-Task files live in `.mise/tasks/<family>/<kind>.sh`. Each one only selects a program; the programs live in `tools/`, in
-a folder named after the task family that runs them, so `check:types` runs `tools/check/types.ts` and `ci:plan` runs
-`tools/ci/plan.ts`. `mise tasks` lists every task with its description.
+Task files live in `.mise/tasks/<family>/<kind>.sh`. Each one selects a program under its capability in `tools/`, so
+`check:types` runs `tools/check/types.ts` and `ci:plan` runs `tools/ci/plan.ts`. `mise tasks` lists every task with its
+description.
 
 ```text
 tools/
@@ -25,6 +25,7 @@ tools/
   fixtures/  store                                    (prepare:fixtures, check:fixtures, build:fixtures)
   npm/       build, pack                              (build:npm, check:package)
   schema/    types, compiler                          (build:schema, check:schema)
+  security/  secrets and native Git scan verification (check:secrets, test:secrets)
   spawn.ts   runs one child program from the repository root; the other tools share it
 ```
 
@@ -45,11 +46,12 @@ tools/
 | `check:versions`                           | `package.json` and `deno.json` carry the same version                                             |
 | `check:actions`                            | Workflows and local actions: jactionlint, zizmor and pinact                                       |
 | `check:shell`, `check:tasks`               | shellcheck on shell scripts; `mise tasks validate`                                                |
-| `check:secrets`                            | gitleaks on the Git history, with exact reviewed exceptions in `.gitleaksignore`                  |
+| `check:secrets`                            | gitleaks on Git history, with reviewed exceptions and native Git traversal status checks          |
 | `check:security`                           | `deno audit` and osv-scanner, with reviewed, expiring exceptions in `osv-scanner.toml`            |
 | `check:commits`                            | Conventional Commit subjects between `BASE_SHA` and `HEAD_SHA`                                    |
 | `test:deno`, `test:node`, `test:bun`       | The discovered tests for that runtime; accepts files, `--family` and `--shard i/n`                |
 | `test:providers`                           | Provider tests against containers started by Testcontainers (Docker required)                     |
+| `test:secrets`                             | The pinned Gitleaks scanner against disposable native Git repositories                            |
 | `test:interop`                             | Archive output compared with installed 7-Zip, bsdtar and unzip                                    |
 | `test:netlify`                             | The Netlify Blobs client against the frozen SDK closure                                           |
 | `test:browser`                             | Playwright browser tests (Chromium, Firefox, WebKit)                                              |
@@ -60,6 +62,13 @@ tools/
 | `release:plan`, `release:version`          | Preview, then write, the next version from Sampo changesets; see [releasing](releasing.md)        |
 | `release:publish`, `release:verify`        | Publish to one registry (`--target npm\|jsr`); install it back in a fresh consumer                |
 | `ci:plan`, `ci:lane`                       | Select the lanes a change needs; run one lane's tasks in order                                    |
+
+Secret scanning preserves Gitleaks' native arguments, including `--log-opts=base..HEAD` and `--staged`, and its standard
+output and error streams. A successful scan also requires Git's own successful traversal exit. Missing history objects
+fail the check even when Gitleaks returns zero; optional remote-link metadata failures do not invalidate a scan. Git's
+temporary Trace2 records are removed when the invocation finishes. Use standalone `--help` or `-h` for scanner help;
+every other invocation must produce traversal evidence. `test:secrets` discovers `tools/security/*.integration.ts` and
+explicitly supplies the pinned scanner. The portable trace-validation tests remain in the ordinary three-runtime suite.
 
 The type check leaves copied guidance examples and configurations under `.agents/guides/`, `.agents/references/`,
 `.agents/skills/` and `.agents/handbook/` to their upstream guidance repository. It still checks local agent programs,

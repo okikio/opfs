@@ -215,6 +215,16 @@ tests/azure.test.ts:generic-api-key:216
 tests/azure.test.ts:generic-api-key:220
 tests/azure.test.ts:generic-api-key:313
 tests/azure.test.ts:generic-api-key:340
+# The same reviewed signing vectors after their provider tests moved into their own file.
+tests/azure/signing.test.ts:generic-api-key:28
+tests/azure/signing.test.ts:generic-api-key:40
+tests/azure/signing.test.ts:generic-api-key:54
+tests/azure/signing.test.ts:generic-api-key:67
+tests/azure/signing.test.ts:generic-api-key:89
+tests/azure/signing.test.ts:generic-api-key:92
+tests/azure/signing.test.ts:generic-api-key:100
+tests/azure/signing.test.ts:generic-api-key:145
+tests/azure/signing.test.ts:generic-api-key:171
 tests/object.test.ts:generic-api-key:265
 tests/provider.test.ts:generic-api-key:14
 tests/provider/fixture.ts:generic-api-key:17

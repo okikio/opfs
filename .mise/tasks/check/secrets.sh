@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 #MISE description="Scan Git history for committed secrets"
 set -euo pipefail
-exec gitleaks git --redact --no-banner --log-level warn --exit-code 1 "$@" .
+exec mise exec gitleaks -- node tools/security/secrets.ts "$@"
